@@ -1,0 +1,9 @@
+BMS Studio
+Copyright 2026 BMS Studio contributors.
+
+JCI class/attribute reference dictionaries in backend/bms_tool/data are adapted
+from thecontrolscompany/oct (Apache-2.0), commit c1d76ba7d6a8f17ca089c4671fa3333e4eba43e2.
+Upstream: https://github.com/thecontrolscompany/oct
+The original Apache license is retained in third_party/OCT-LICENSE.txt.
+Mappings are interoperability references, not a vendor SDK or compiler.
+No JCI binaries, controller applications, credentials, or manuals are redistributed.

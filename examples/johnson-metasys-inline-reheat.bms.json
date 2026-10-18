@@ -1,0 +1,173 @@
+{
+  "description": "Illustrative control and simulation template. Does not implement a complete Guideline 36 sequence and is not a Title 24 compliance claim. Verify design airflow, heating interlocks, fan proof, discharge limits, ventilation, occupancy and target firmware before deployment.",
+  "edges": [
+    {
+      "id": "zone_cool_loop_measured",
+      "source": "zone",
+      "source_port": "out",
+      "target": "cool_loop",
+      "target_port": "measured"
+    },
+    {
+      "id": "cool_sp_cool_loop_setpoint",
+      "source": "cool_sp",
+      "source_port": "out",
+      "target": "cool_loop",
+      "target_port": "setpoint"
+    },
+    {
+      "id": "cool_loop_min_flow_in",
+      "source": "cool_loop",
+      "source_port": "out",
+      "target": "min_flow",
+      "target_port": "in"
+    },
+    {
+      "id": "min_flow_damper_in",
+      "source": "min_flow",
+      "source_port": "out",
+      "target": "damper",
+      "target_port": "in"
+    },
+    {
+      "id": "zone_heat_loop_measured",
+      "source": "zone",
+      "source_port": "out",
+      "target": "heat_loop",
+      "target_port": "measured"
+    },
+    {
+      "id": "heat_sp_heat_loop_setpoint",
+      "source": "heat_sp",
+      "source_port": "out",
+      "target": "heat_loop",
+      "target_port": "setpoint"
+    },
+    {
+      "id": "heat_loop_reheat_in",
+      "source": "heat_loop",
+      "source_port": "out",
+      "target": "reheat",
+      "target_port": "in"
+    }
+  ],
+  "id": "johnson-metasys-inline-reheat",
+  "metadata": {
+    "application": "inline-reheat",
+    "compliance": "Uncertified illustrative sequence",
+    "native_deployment_verified": false
+  },
+  "name": "Inline Reheat · METASYS",
+  "nodes": [
+    {
+      "id": "zone",
+      "kind": "Input",
+      "label": "Zone temperature",
+      "params": {
+        "default": 74
+      },
+      "unit": "degF",
+      "value_type": "number",
+      "x": 40.0,
+      "y": 90.0
+    },
+    {
+      "id": "cool_sp",
+      "kind": "Constant",
+      "label": "Cooling setpoint",
+      "params": {
+        "value": 72
+      },
+      "unit": "degF",
+      "value_type": "number",
+      "x": 40.0,
+      "y": 250.0
+    },
+    {
+      "id": "cool_loop",
+      "kind": "PI",
+      "label": "Cooling demand",
+      "params": {
+        "ki": 0.1,
+        "kp": 20,
+        "reverse": true
+      },
+      "unit": "%",
+      "value_type": "number",
+      "x": 360.0,
+      "y": 140.0
+    },
+    {
+      "id": "min_flow",
+      "kind": "Scale",
+      "label": "Minimum airflow",
+      "params": {
+        "in_max": 100,
+        "in_min": 0,
+        "out_max": 100,
+        "out_min": 20
+      },
+      "unit": "%",
+      "value_type": "number",
+      "x": 650.0,
+      "y": 140.0
+    },
+    {
+      "id": "damper",
+      "kind": "Output",
+      "label": "Damper command",
+      "params": {},
+      "unit": "%",
+      "value_type": "number",
+      "x": 960.0,
+      "y": 140.0
+    },
+    {
+      "id": "heat_sp",
+      "kind": "Constant",
+      "label": "Heating setpoint",
+      "params": {
+        "value": 68
+      },
+      "unit": "degF",
+      "value_type": "number",
+      "x": 40.0,
+      "y": 440.0
+    },
+    {
+      "id": "heat_loop",
+      "kind": "PI",
+      "label": "Heating demand",
+      "params": {
+        "ki": 0.1,
+        "kp": 20
+      },
+      "unit": "%",
+      "value_type": "number",
+      "x": 360.0,
+      "y": 440.0
+    },
+    {
+      "id": "reheat",
+      "kind": "Output",
+      "label": "Reheat valve",
+      "params": {},
+      "unit": "%",
+      "value_type": "number",
+      "x": 960.0,
+      "y": 440.0
+    }
+  ],
+  "revision": 0,
+  "scan_seconds": 1.0,
+  "schema_version": 1,
+  "target": {
+    "family": "johnson-metasys",
+    "firmware": "",
+    "max_nodes": 2000,
+    "model": "MS-VMA1630-0",
+    "physical_inputs": null,
+    "physical_outputs": null,
+    "release_mode": ""
+  }
+}

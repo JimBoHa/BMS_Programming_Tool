@@ -1,0 +1,23 @@
+{
+  "events": [
+    {
+      "time": 0,
+      "inputs": {
+        "zone": 74
+      }
+    },
+    {
+      "time": 30,
+      "inputs": {
+        "zone": 66
+      }
+    },
+    {
+      "time": 60,
+      "inputs": {
+        "zone": 76
+      }
+    }
+  ],
+  "duration": 90
+}

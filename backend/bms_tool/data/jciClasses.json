@@ -1,0 +1,690 @@
+{
+  "575": {
+    "name": "Control Sequence",
+    "category": "CCT \u2014 Program Structure"
+  },
+  "536": {
+    "name": "Control Activity",
+    "category": "CCT \u2014 Program Structure"
+  },
+  "555": {
+    "name": "Control Point",
+    "category": "CCT \u2014 Program Structure"
+  },
+  "540": {
+    "name": "State Selection Primitive",
+    "category": "CCT \u2014 Program Structure"
+  },
+  "543": {
+    "name": "Command Hierarchy",
+    "category": "CCT \u2014 Program Structure"
+  },
+  "541": {
+    "name": "FSM",
+    "category": "CCT \u2014 Program Structure"
+  },
+  "526": {
+    "name": "Input Float Block",
+    "category": "CCT \u2014 Signal Block"
+  },
+  "527": {
+    "name": "Output Float Block",
+    "category": "CCT \u2014 Signal Block"
+  },
+  "528": {
+    "name": "Input Enum Block",
+    "category": "CCT \u2014 Signal Block"
+  },
+  "529": {
+    "name": "Output Enum Block",
+    "category": "CCT \u2014 Signal Block"
+  },
+  "530": {
+    "name": "Input Boolean Block",
+    "category": "CCT \u2014 Signal Block"
+  },
+  "531": {
+    "name": "Output Boolean Block",
+    "category": "CCT \u2014 Signal Block"
+  },
+  "252": {
+    "name": "PID",
+    "category": "CCT \u2014 Control"
+  },
+  "582": {
+    "name": "PID Pre Process",
+    "category": "CCT \u2014 Control"
+  },
+  "580": {
+    "name": "Multi-Stage Controller",
+    "category": "CCT \u2014 Control"
+  },
+  "561": {
+    "name": "Math Primitive",
+    "category": "CCT \u2014 Calculation"
+  },
+  "560": {
+    "name": "Comparison Primitive",
+    "category": "CCT \u2014 Calculation"
+  },
+  "559": {
+    "name": "Boolean Primitive",
+    "category": "CCT \u2014 Calculation"
+  },
+  "562": {
+    "name": "Mux Primitive",
+    "category": "CCT \u2014 Calculation"
+  },
+  "546": {
+    "name": "Line Segment Primitive",
+    "category": "CCT \u2014 Calculation"
+  },
+  "558": {
+    "name": "Timer Primitive",
+    "category": "CCT \u2014 Calculation"
+  },
+  "574": {
+    "name": "Latch Primitive",
+    "category": "CCT \u2014 Calculation"
+  },
+  "569": {
+    "name": "Rate Limiter Primitive",
+    "category": "CCT \u2014 Calculation"
+  },
+  "538": {
+    "name": "Last Value",
+    "category": "CCT \u2014 Calculation"
+  },
+  "573": {
+    "name": "Span Primitive",
+    "category": "CCT \u2014 Calculation"
+  },
+  "266": {
+    "name": "EWMA",
+    "category": "CCT \u2014 Calculation"
+  },
+  "570": {
+    "name": "Flow Primitive",
+    "category": "CCT \u2014 Calculation"
+  },
+  "591": {
+    "name": "Totalization Primitive",
+    "category": "CCT \u2014 Calculation"
+  },
+  "571": {
+    "name": "Sequencer Primitive",
+    "category": "CCT \u2014 Calculation"
+  },
+  "587": {
+    "name": "Statistic Primitive",
+    "category": "CCT \u2014 Calculation"
+  },
+  "539": {
+    "name": "Reliability Check Primitive",
+    "category": "CCT \u2014 Calculation"
+  },
+  "614": {
+    "name": "Reliability Merge Primitive",
+    "category": "CCT \u2014 Calculation"
+  },
+  "592": {
+    "name": "Pass Through Primitive",
+    "category": "CCT \u2014 Calculation"
+  },
+  "593": {
+    "name": "Text Primitive",
+    "category": "CCT \u2014 Calculation"
+  },
+  "551": {
+    "name": "Float Constant",
+    "category": "CCT \u2014 Constant"
+  },
+  "552": {
+    "name": "Boolean Constant",
+    "category": "CCT \u2014 Constant"
+  },
+  "568": {
+    "name": "Enum Constant",
+    "category": "CCT \u2014 Constant"
+  },
+  "556": {
+    "name": "Sensor Primitive",
+    "category": "CCT \u2014 Sensor"
+  },
+  "595": {
+    "name": "Execution Status Primitive",
+    "category": "CCT \u2014 Sensor"
+  },
+  "564": {
+    "name": "DP (Differential Pressure)",
+    "category": "CCT \u2014 HVAC"
+  },
+  "565": {
+    "name": "ENTH (Enthalpy)",
+    "category": "CCT \u2014 HVAC"
+  },
+  "566": {
+    "name": "RH (Relative Humidity)",
+    "category": "CCT \u2014 HVAC"
+  },
+  "567": {
+    "name": "WB (Wet Bulb)",
+    "category": "CCT \u2014 HVAC"
+  },
+  "563": {
+    "name": "ABH (Absolute Humidity)",
+    "category": "CCT \u2014 HVAC"
+  },
+  "581": {
+    "name": "Free Cooling",
+    "category": "CCT \u2014 HVAC"
+  },
+  "532": {
+    "name": "Summer/Winter Compensation",
+    "category": "CCT \u2014 HVAC"
+  },
+  "612": {
+    "name": "Box Flow Test",
+    "category": "CCT \u2014 HVAC"
+  },
+  "631": {
+    "name": "VAV Balancer",
+    "category": "CCT \u2014 HVAC"
+  },
+  "632": {
+    "name": "Variable Speed Drive",
+    "category": "CCT \u2014 HVAC"
+  },
+  "724": {
+    "name": "Cooling Tower Control",
+    "category": "CCT \u2014 HVAC"
+  },
+  "524": {
+    "name": "Occupancy Mode",
+    "category": "CCT \u2014 HVAC"
+  },
+  "523": {
+    "name": "ZN-T Setpoint",
+    "category": "CCT \u2014 HVAC"
+  },
+  "917": {
+    "name": "Boiler Stager",
+    "category": "CCT \u2014 Equipment Staging"
+  },
+  "918": {
+    "name": "Chiller Stager",
+    "category": "CCT \u2014 Equipment Staging"
+  },
+  "916": {
+    "name": "Device Stager",
+    "category": "CCT \u2014 Equipment Staging"
+  },
+  "708": {
+    "name": "Pump Selector",
+    "category": "CCT \u2014 Equipment Staging"
+  },
+  "709": {
+    "name": "Chiller Selector",
+    "category": "CCT \u2014 Equipment Staging"
+  },
+  "745": {
+    "name": "Tower Selector",
+    "category": "CCT \u2014 Equipment Staging"
+  },
+  "768": {
+    "name": "Heat Exchanger Selector",
+    "category": "CCT \u2014 Equipment Staging"
+  },
+  "705": {
+    "name": "Capacity Calculation",
+    "category": "CCT \u2014 Equipment Staging"
+  },
+  "706": {
+    "name": "Load Calculator",
+    "category": "CCT \u2014 Equipment Staging"
+  },
+  "715": {
+    "name": "Analog Override Check",
+    "category": "CCT \u2014 Safety"
+  },
+  "716": {
+    "name": "Binary Override Check",
+    "category": "CCT \u2014 Safety"
+  },
+  "702": {
+    "name": "Equipment Interlock",
+    "category": "CCT \u2014 Safety"
+  },
+  "701": {
+    "name": "Device Enable",
+    "category": "CCT \u2014 Safety"
+  },
+  "704": {
+    "name": "Device Alarm",
+    "category": "CCT \u2014 Safety"
+  },
+  "707": {
+    "name": "Blocking Protection",
+    "category": "CCT \u2014 Safety"
+  },
+  "779": {
+    "name": "Fault Manager",
+    "category": "CCT \u2014 Safety"
+  },
+  "776": {
+    "name": "Expression",
+    "category": "CCT \u2014 Safety"
+  },
+  "240": {
+    "name": "AI HW Input",
+    "category": "CCT \u2014 Hardware I/O"
+  },
+  "241": {
+    "name": "AO HW Output",
+    "category": "CCT \u2014 Hardware I/O"
+  },
+  "242": {
+    "name": "BI HW Input",
+    "category": "CCT \u2014 Hardware I/O"
+  },
+  "239": {
+    "name": "BO HW Output",
+    "category": "CCT \u2014 Hardware I/O"
+  },
+  "243": {
+    "name": "CI HW Input",
+    "category": "CCT \u2014 Hardware I/O"
+  },
+  "163": {
+    "name": "JCI AI",
+    "category": "CCT \u2014 BACnet Object"
+  },
+  "164": {
+    "name": "JCI AO",
+    "category": "CCT \u2014 BACnet Object"
+  },
+  "165": {
+    "name": "JCI AV",
+    "category": "CCT \u2014 BACnet Object"
+  },
+  "166": {
+    "name": "JCI BI",
+    "category": "CCT \u2014 BACnet Object"
+  },
+  "167": {
+    "name": "JCI BO",
+    "category": "CCT \u2014 BACnet Object"
+  },
+  "168": {
+    "name": "JCI BV",
+    "category": "CCT \u2014 BACnet Object"
+  },
+  "141": {
+    "name": "JCI MV",
+    "category": "CCT \u2014 BACnet Object"
+  },
+  "155": {
+    "name": "Trend Log",
+    "category": "CCT \u2014 BACnet Object"
+  },
+  "263": {
+    "name": "JCI Schedule",
+    "category": "CCT \u2014 BACnet Object"
+  },
+  "313": {
+    "name": "JCI Notification Class",
+    "category": "CCT \u2014 BACnet Object"
+  },
+  "161": {
+    "name": "JCI Calendar",
+    "category": "CCT \u2014 BACnet Object"
+  },
+  "128": {
+    "name": "Standard",
+    "category": "CCT \u2014 System"
+  },
+  "194": {
+    "name": "FEC",
+    "category": "CCT \u2014 System"
+  },
+  "862": {
+    "name": "IP_FEC",
+    "category": "CCT \u2014 System"
+  },
+  "218": {
+    "name": "Event Log",
+    "category": "CCT \u2014 System"
+  },
+  "307": {
+    "name": "MSTP Master",
+    "category": "CCT \u2014 System"
+  },
+  "292": {
+    "name": "IP Network Port",
+    "category": "CCT \u2014 System"
+  },
+  "585": {
+    "name": "Standards Table",
+    "category": "CCT \u2014 System"
+  },
+  "598": {
+    "name": "RIOM Dev",
+    "category": "CCT \u2014 System"
+  },
+  "640": {
+    "name": "RDDEV (Local Display)",
+    "category": "CCT \u2014 System"
+  },
+  "627": {
+    "name": "Net Sensor Device",
+    "category": "CCT \u2014 System"
+  },
+  "628": {
+    "name": "Net Sensor AI",
+    "category": "CCT \u2014 System"
+  },
+  "910": {
+    "name": "SA Bus Device",
+    "category": "CCT \u2014 System"
+  },
+  "671": {
+    "name": "RAI",
+    "category": "CCT \u2014 SA Bus I/O"
+  },
+  "672": {
+    "name": "RAO",
+    "category": "CCT \u2014 SA Bus I/O"
+  },
+  "673": {
+    "name": "RBI",
+    "category": "CCT \u2014 SA Bus I/O"
+  },
+  "674": {
+    "name": "RBO",
+    "category": "CCT \u2014 SA Bus I/O"
+  },
+  "185": {
+    "name": "NAE",
+    "category": "Metasys \u2014 Network Engine"
+  },
+  "192": {
+    "name": "NAE",
+    "category": "Metasys \u2014 Network Engine"
+  },
+  "651": {
+    "name": "NCE / NAE",
+    "category": "Metasys \u2014 Network Engine"
+  },
+  "877": {
+    "name": "SNE",
+    "category": "Metasys \u2014 Network Engine"
+  },
+  "871": {
+    "name": "SNE",
+    "category": "Metasys \u2014 Network Engine"
+  },
+  "872": {
+    "name": "SNE",
+    "category": "Metasys \u2014 Network Engine"
+  },
+  "448": {
+    "name": "SNC",
+    "category": "Metasys \u2014 Network Engine"
+  },
+  "425": {
+    "name": "ADS",
+    "category": "Metasys \u2014 Network Engine"
+  },
+  "286": {
+    "name": "DBCC",
+    "category": "Metasys \u2014 Network Engine"
+  },
+  "195": {
+    "name": "Field Controller",
+    "category": "Metasys \u2014 Network Engine"
+  },
+  "197": {
+    "name": "Equipment Definition",
+    "category": "Metasys \u2014 Network Engine"
+  },
+  "599": {
+    "name": "Metasys AI",
+    "category": "Metasys \u2014 BACnet Point"
+  },
+  "600": {
+    "name": "Metasys AO",
+    "category": "Metasys \u2014 BACnet Point"
+  },
+  "601": {
+    "name": "Metasys AV",
+    "category": "Metasys \u2014 BACnet Point"
+  },
+  "602": {
+    "name": "Metasys BI",
+    "category": "Metasys \u2014 BACnet Point"
+  },
+  "603": {
+    "name": "Metasys BO",
+    "category": "Metasys \u2014 BACnet Point"
+  },
+  "604": {
+    "name": "Metasys BV",
+    "category": "Metasys \u2014 BACnet Point"
+  },
+  "606": {
+    "name": "Metasys MSV",
+    "category": "Metasys \u2014 BACnet Point"
+  },
+  "608": {
+    "name": "Metasys Accumulator",
+    "category": "Metasys \u2014 BACnet Point"
+  },
+  "500": {
+    "name": "FC AI",
+    "category": "Metasys \u2014 FC Bus Point"
+  },
+  "501": {
+    "name": "FC AO",
+    "category": "Metasys \u2014 FC Bus Point"
+  },
+  "502": {
+    "name": "FC AV",
+    "category": "Metasys \u2014 FC Bus Point"
+  },
+  "503": {
+    "name": "FC BI",
+    "category": "Metasys \u2014 FC Bus Point"
+  },
+  "504": {
+    "name": "FC BO",
+    "category": "Metasys \u2014 FC Bus Point"
+  },
+  "505": {
+    "name": "FC BV",
+    "category": "Metasys \u2014 FC Bus Point"
+  },
+  "519": {
+    "name": "FC MSV",
+    "category": "Metasys \u2014 FC Bus Point"
+  },
+  "278": {
+    "name": "N2 Device",
+    "category": "Metasys \u2014 N2 Bus"
+  },
+  "290": {
+    "name": "N2 Trunk",
+    "category": "Metasys \u2014 N2 Bus"
+  },
+  "147": {
+    "name": "N2 AI",
+    "category": "Metasys \u2014 N2 Bus"
+  },
+  "148": {
+    "name": "N2 BI",
+    "category": "Metasys \u2014 N2 Bus"
+  },
+  "149": {
+    "name": "N2 AO",
+    "category": "Metasys \u2014 N2 Bus"
+  },
+  "150": {
+    "name": "N2 BO",
+    "category": "Metasys \u2014 N2 Bus"
+  },
+  "151": {
+    "name": "N2 MSI",
+    "category": "Metasys \u2014 N2 Bus"
+  },
+  "143": {
+    "name": "JCI Schedule",
+    "category": "Metasys \u2014 Schedule"
+  },
+  "146": {
+    "name": "JCI Calendar",
+    "category": "Metasys \u2014 Schedule"
+  },
+  "249": {
+    "name": "Solar Clock",
+    "category": "Metasys \u2014 Schedule"
+  },
+  "336": {
+    "name": "JCI Calendar",
+    "category": "Metasys \u2014 Schedule"
+  },
+  "337": {
+    "name": "Schedule Exception Entry",
+    "category": "Metasys \u2014 Schedule"
+  },
+  "338": {
+    "name": "Schedule Exception Entry",
+    "category": "Metasys \u2014 Schedule"
+  },
+  "342": {
+    "name": "Schedule Exception",
+    "category": "Metasys \u2014 Schedule"
+  },
+  "326": {
+    "name": "Schedule Entry",
+    "category": "Metasys \u2014 Schedule"
+  },
+  "327": {
+    "name": "Schedule Entry",
+    "category": "Metasys \u2014 Schedule"
+  },
+  "328": {
+    "name": "Schedule Entry",
+    "category": "Metasys \u2014 Schedule"
+  },
+  "174": {
+    "name": "Algorithm",
+    "category": "Metasys \u2014 Algorithm"
+  },
+  "177": {
+    "name": "Algorithm",
+    "category": "Metasys \u2014 Algorithm"
+  },
+  "178": {
+    "name": "Algorithm",
+    "category": "Metasys \u2014 Algorithm"
+  },
+  "186": {
+    "name": "Algorithm",
+    "category": "Metasys \u2014 Algorithm"
+  },
+  "275": {
+    "name": "Totalization",
+    "category": "Metasys \u2014 Algorithm"
+  },
+  "344": {
+    "name": "Graphic Panel",
+    "category": "Metasys \u2014 Graphics"
+  },
+  "357": {
+    "name": "Graphic Binding",
+    "category": "Metasys \u2014 Graphics"
+  },
+  "717": {
+    "name": "Graphic",
+    "category": "Metasys \u2014 Graphics"
+  },
+  "844": {
+    "name": "Facility Graphic",
+    "category": "Metasys \u2014 Graphics"
+  },
+  "807": {
+    "name": "Summary Definition",
+    "category": "Metasys \u2014 Graphics"
+  },
+  "173": {
+    "name": "BBMD",
+    "category": "Metasys \u2014 Communication"
+  },
+  "135": {
+    "name": "Subscription Server",
+    "category": "Metasys \u2014 Communication"
+  },
+  "661": {
+    "name": "Subscription Client",
+    "category": "Metasys \u2014 Communication"
+  },
+  "129": {
+    "name": "BACnet Protocol Engine",
+    "category": "Metasys \u2014 Communication"
+  },
+  "172": {
+    "name": "Alarm",
+    "category": "Metasys \u2014 Communication"
+  },
+  "156": {
+    "name": "Event Log",
+    "category": "Metasys \u2014 Communication"
+  },
+  "176": {
+    "name": "User Tree / Folder",
+    "category": "Metasys \u2014 Navigation"
+  },
+  "348": {
+    "name": "User Tree Container",
+    "category": "Metasys \u2014 Navigation"
+  },
+  "908": {
+    "name": "Network Port",
+    "category": "Metasys \u2014 Communication"
+  },
+  "907": {
+    "name": "Firmware Update",
+    "category": "Metasys \u2014 System"
+  },
+  "196": {
+    "name": "SA Bus",
+    "category": "Metasys \u2014 System"
+  },
+  "2000": {
+    "name": "Site",
+    "category": "SCT \u2014 System"
+  },
+  "2004": {
+    "name": "SCT Configuration",
+    "category": "SCT \u2014 System"
+  },
+  "2006": {
+    "name": "SCT Controller Templates",
+    "category": "SCT \u2014 System"
+  },
+  "2008": {
+    "name": "SCT Controller Template",
+    "category": "SCT \u2014 System"
+  },
+  "2009": {
+    "name": "SCT Device",
+    "category": "SCT \u2014 System"
+  },
+  "2011": {
+    "name": "SCT Summary Definitions",
+    "category": "SCT \u2014 System"
+  },
+  "2013": {
+    "name": "SCT Parameter Sheets",
+    "category": "SCT \u2014 System"
+  }
+}

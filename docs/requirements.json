@@ -1,0 +1,398 @@
+[
+  {
+    "id": "UI-001",
+    "feature": "Graph authoring",
+    "acceptance_criterion": "Create blocks, connect named pins, edit parameters and navigate large diagrams.",
+    "evidence": "JCI Controller Tool Help 18.0 LIT-12011147",
+    "pdf_pages_or_section": "148-175",
+    "status": "implemented",
+    "implementation_or_gap": "React Flow canvas and inspector"
+  },
+  {
+    "id": "IR-001",
+    "feature": "Typed wiring",
+    "acceptance_criterion": "Reject missing/multiple writers and show unit/type mismatches before execution.",
+    "evidence": "JCI Controller Tool Help 18.0 LIT-12011147",
+    "pdf_pages_or_section": "159-161",
+    "status": "implemented",
+    "implementation_or_gap": "engine.validate; tests/test_engine.py"
+  },
+  {
+    "id": "SIM-001",
+    "feature": "Offline execution",
+    "acceptance_criterion": "Simulate complete scans and inject numeric/boolean I/O without field writes.",
+    "evidence": "JCI Controller Tool Help 18.0 LIT-12011147",
+    "pdf_pages_or_section": "265-274",
+    "status": "implemented",
+    "implementation_or_gap": "Engine; Simulation workspace"
+  },
+  {
+    "id": "OPS-001",
+    "feature": "Separate operations",
+    "acceptance_criterion": "Label application download, parameter writes, backup and restore as distinct actions.",
+    "evidence": "JCI Controller Tool Help 18.0 LIT-12011147",
+    "pdf_pages_or_section": "286-290",
+    "status": "partial",
+    "implementation_or_gap": "Point services and local runtime implemented; native download absent"
+  },
+  {
+    "id": "OPS-002",
+    "feature": "Commissioning",
+    "acceptance_criterion": "Support calibration, actuator tests and balancing with preserved parameters.",
+    "evidence": "JCI Controller Tool Help 18.0 LIT-12011147",
+    "pdf_pages_or_section": "329-344",
+    "status": "pending",
+    "implementation_or_gap": "Target-specific commissioning adapter"
+  },
+  {
+    "id": "VAV-001",
+    "feature": "VAV families",
+    "acceptance_criterion": "Support cooling-only, inline reheat and parallel fan-powered applications.",
+    "evidence": "JCI Controller Tool Help 18.0 LIT-12011147",
+    "pdf_pages_or_section": "585-591",
+    "status": "partial",
+    "implementation_or_gap": "Illustrative graphs; native/certified sequences pending"
+  },
+  {
+    "id": "FMT-001",
+    "feature": "Preserve originals",
+    "acceptance_criterion": "Retain unknown objects and metadata; export edited copies with explicit validation scope.",
+    "evidence": "Authorized local CAF samples",
+    "pdf_pages_or_section": "ZIP/XML inspection",
+    "status": "partial",
+    "implementation_or_gap": "Byte-exact no-op; scalar patch; jobInfo/simulationProperty retained"
+  },
+  {
+    "id": "FMT-002",
+    "feature": "Full JCI logic",
+    "acceptance_criterion": "Create, rewire, compile and validate native applications for each supported model/release.",
+    "evidence": "OCT README and local CAF evidence",
+    "pdf_pages_or_section": "Requirements; native container",
+    "status": "pending",
+    "implementation_or_gap": "Native semantics, packages, compiler and download adapter"
+  },
+  {
+    "id": "FMT-003",
+    "feature": "FX/Metasys interoperability",
+    "acceptance_criterion": "Read both product families without confusing model or release compatibility.",
+    "evidence": "JCI FX Workbench guide LIT-12012256",
+    "pdf_pages_or_section": "49-50; 243-244",
+    "status": "partial",
+    "implementation_or_gap": "Both sample families inspected; cross-target compilation pending"
+  },
+  {
+    "id": "COMM-001",
+    "feature": "Bluetooth transport",
+    "acceptance_criterion": "Provide an adapter with explicit firmware and transfer compatibility.",
+    "evidence": "JCI System Configuration Guide LIT-12011832 v16",
+    "pdf_pages_or_section": "84",
+    "status": "pending",
+    "implementation_or_gap": "BTCVT protocol/hardware; do not fake compatibility by opening serial"
+  },
+  {
+    "id": "LIC-001",
+    "feature": "Portable workspace",
+    "acceptance_criterion": "Keep project data independent of host-specific vendor licenses.",
+    "evidence": "JCI Software Manager Help LIT-12012389 v5",
+    "pdf_pages_or_section": "7;17-18",
+    "status": "implemented",
+    "implementation_or_gap": "Open graph data and local revision store; vendor tools retain their own license rules"
+  },
+  {
+    "id": "UI-002",
+    "feature": "Block properties",
+    "acceptance_criterion": "Edit labels, parameters and units with immediate diagnostics.",
+    "evidence": "ALC Eikon 3.02 User Guide",
+    "pdf_pages_or_section": "29-51",
+    "status": "implemented",
+    "implementation_or_gap": "Inspector; validation"
+  },
+  {
+    "id": "SIM-002",
+    "feature": "Time controls",
+    "acceptance_criterion": "Run, stop, reset and single-step with configurable scan duration.",
+    "evidence": "ALC Eikon 3.02 User Guide",
+    "pdf_pages_or_section": "52-55",
+    "status": "implemented",
+    "implementation_or_gap": "Simulation controls; program scan_seconds"
+  },
+  {
+    "id": "SIM-003",
+    "feature": "Clock and communications",
+    "acceptance_criterion": "Inject calendar, time and communications validity explicitly.",
+    "evidence": "ALC Eikon 3.02 User Guide",
+    "pdf_pages_or_section": "52-54",
+    "status": "partial",
+    "implementation_or_gap": "Engine clock and input quality; GUI calendar controls pending"
+  },
+  {
+    "id": "SIM-004",
+    "feature": "Multiple applications",
+    "acceptance_criterion": "Simulate interacting programs through typed shared signals.",
+    "evidence": "ALC Eikon 3.02 User Guide",
+    "pdf_pages_or_section": "54-55",
+    "status": "pending",
+    "implementation_or_gap": "Multi-program simulation coordinator"
+  },
+  {
+    "id": "UI-003",
+    "feature": "Resource/error view",
+    "acceptance_criterion": "Show target resource accounting and errors beyond drawing correctness.",
+    "evidence": "ALC Eikon 3.02 User Guide",
+    "pdf_pages_or_section": "50-51",
+    "status": "partial",
+    "implementation_or_gap": "Node/terminal constraints; native memory/cycle estimates pending"
+  },
+  {
+    "id": "FMT-004",
+    "feature": "ALC native bridge",
+    "acceptance_criterion": "Generate or import executable ALC control programs through a verified interface.",
+    "evidence": "ALC Integration Builder README",
+    "pdf_pages_or_section": "Installation; Usage",
+    "status": "pending",
+    "implementation_or_gap": "Licensed EIKON scripting bridge or independent documented encoder"
+  },
+  {
+    "id": "UI-004",
+    "feature": "Reusable macros",
+    "acceptance_criterion": "Create nested, reusable control components with typed interfaces.",
+    "evidence": "Honeywell Spyder Tool for WEBs-N4 31-00089-02",
+    "pdf_pages_or_section": "56-60",
+    "status": "pending",
+    "implementation_or_gap": "Subgraph library and versioned macro interface"
+  },
+  {
+    "id": "SIM-005",
+    "feature": "Timed scenarios",
+    "acceptance_criterion": "Support repeatable input timelines and trace exports.",
+    "evidence": "Honeywell Spyder Tool for WEBs-N4 31-00089-02",
+    "pdf_pages_or_section": "390-392",
+    "status": "implemented",
+    "implementation_or_gap": "run_scenario; CSV traces"
+  },
+  {
+    "id": "SIM-006",
+    "feature": "Force/release simulation values",
+    "acceptance_criterion": "Override selected signals independently; restore their source cleanly.",
+    "evidence": "Honeywell Spyder Tool for WEBs-N4 31-00089-02",
+    "pdf_pages_or_section": "374-376;392",
+    "status": "partial",
+    "implementation_or_gap": "Input forcing and quality faults; internal block forcing pending"
+  },
+  {
+    "id": "DBG-001",
+    "feature": "Live debug",
+    "acceptance_criterion": "Watch selected signals and show force state without silently clearing others.",
+    "evidence": "Honeywell Spyder Tool for WEBs-N4 31-00089-02",
+    "pdf_pages_or_section": "367-376",
+    "status": "partial",
+    "implementation_or_gap": "Explicit point reads/commands; application internal signal watch pending"
+  },
+  {
+    "id": "FMT-005",
+    "feature": "Honeywell native format",
+    "acceptance_criterion": "Compile and download supported Spyder/CIPer applications using correct modules.",
+    "evidence": "Honeywell Spyder Tool for WEBs-N4 31-00089-02",
+    "pdf_pages_or_section": "41-65",
+    "status": "pending",
+    "implementation_or_gap": "Verified Honeywell compiler/module and application adapter"
+  },
+  {
+    "id": "RES-001",
+    "feature": "Per-target limits",
+    "acceptance_criterion": "Describe memory, block, terminal and channel limits per model.",
+    "evidence": "Honeywell Spyder Model 5 guide 31-00282-03",
+    "pdf_pages_or_section": "8-9",
+    "status": "partial",
+    "implementation_or_gap": "Generic node/I/O capacities; native model profiles pending"
+  },
+  {
+    "id": "COMM-002",
+    "feature": "Point services",
+    "acceptance_criterion": "Discover addressed devices, browse properties and read values without application download.",
+    "evidence": "Honeywell Spyder Utility Tool 62-0381",
+    "pdf_pages_or_section": "1-8",
+    "status": "implemented",
+    "implementation_or_gap": "BACpypes3 BACnet/IP and routed destinations"
+  },
+  {
+    "id": "RUN-001",
+    "feature": "Atomic replacement",
+    "acceptance_criterion": "Keep the last valid application when replacement validation fails.",
+    "evidence": "Temco T3000 Software Manual Rev4",
+    "pdf_pages_or_section": "138-139",
+    "status": "implemented",
+    "implementation_or_gap": "Runtime.plan/apply; generation and execution checks"
+  },
+  {
+    "id": "UI-005",
+    "feature": "Revision history",
+    "acceptance_criterion": "Save applications and restore prior versions with conflict detection.",
+    "evidence": "Temco T3000 Software Manual Rev4",
+    "pdf_pages_or_section": "139",
+    "status": "implemented",
+    "implementation_or_gap": "SQLite revision store; optimistic save"
+  },
+  {
+    "id": "RUN-002",
+    "feature": "Explicit scan semantics",
+    "acceptance_criterion": "Define evaluation order and commit outputs after the scan succeeds.",
+    "evidence": "Temco T3000 Software Manual Rev4",
+    "pdf_pages_or_section": "141",
+    "status": "implemented",
+    "implementation_or_gap": "Topological order; delayed feedback; staged state/output commit"
+  },
+  {
+    "id": "FMT-006",
+    "feature": "Control Basic",
+    "acceptance_criterion": "Support valid Temco BASIC source conversion and device compiler transfer.",
+    "evidence": "Temco T3000 Software Manual Rev4",
+    "pdf_pages_or_section": "137-169",
+    "status": "pending",
+    "implementation_or_gap": "Control Basic semantic adapter and acceptance fixtures"
+  },
+  {
+    "id": "COMM-003",
+    "feature": "Serial framing",
+    "acceptance_criterion": "Offer real Modbus TCP/RTU reads with response and CRC checks.",
+    "evidence": "Temco T3000 repository README",
+    "pdf_pages_or_section": "Communication; source modules",
+    "status": "partial",
+    "implementation_or_gap": "TCP loopback verified; physical serial testing pending"
+  },
+  {
+    "id": "UI-006",
+    "feature": "Graph navigation",
+    "acceptance_criterion": "Provide zoom, minimap, drag/drop, multi-selection and intuitive linking.",
+    "evidence": "Tridium Niagara 4.12 Features Overview",
+    "pdf_pages_or_section": "5",
+    "status": "partial",
+    "implementation_or_gap": "Zoom/drag/link/minimap; multi-node editing pending"
+  },
+  {
+    "id": "FMT-007",
+    "feature": "Migration reports",
+    "acceptance_criterion": "Describe incompatible types/services instead of dropping them silently.",
+    "evidence": "Niagara AX to N4 Migration Guide",
+    "pdf_pages_or_section": "Migration and compatibility sections",
+    "status": "partial",
+    "implementation_or_gap": "Unknown interchange rejected; vendor semantic reports pending"
+  },
+  {
+    "id": "PKG-001",
+    "feature": "Signed target packages",
+    "acceptance_criterion": "Track compiler/module versions and target package provenance.",
+    "evidence": "Niagara Module Signing guide",
+    "pdf_pages_or_section": "Signing a third party module",
+    "status": "pending",
+    "implementation_or_gap": "Native compiler/package plugin contract"
+  },
+  {
+    "id": "DATA-001",
+    "feature": "Trend services",
+    "acceptance_criterion": "Record timestamps, quality and units with bounded retention and export.",
+    "evidence": "Niagara Histories Guide",
+    "pdf_pages_or_section": "History service concepts",
+    "status": "partial",
+    "implementation_or_gap": "Simulation history/CSV; durable field trend service pending"
+  },
+  {
+    "id": "SCHED-001",
+    "feature": "Schedules and exceptions",
+    "acceptance_criterion": "Support weekly and exception calendars, time zones and daylight saving.",
+    "evidence": "Niagara Scheduling Guide",
+    "pdf_pages_or_section": "Schedule concepts",
+    "status": "partial",
+    "implementation_or_gap": "Weekly schedule block; holidays/time zones/DST pending"
+  },
+  {
+    "id": "REL-001",
+    "feature": "Dependency view",
+    "acceptance_criterion": "Trace incoming/outgoing references and effects of edits.",
+    "evidence": "Niagara Relations Guide",
+    "pdf_pages_or_section": "Relations concepts",
+    "status": "pending",
+    "implementation_or_gap": "Dependency explorer beyond visible graph wires"
+  },
+  {
+    "id": "ALM-001",
+    "feature": "Alarm lifecycle",
+    "acceptance_criterion": "Provide thresholds, delays, acknowledgements, transitions and routing.",
+    "evidence": "ALC Eikon 3.02 Microblock Reference",
+    "pdf_pages_or_section": "Alarm microblocks",
+    "status": "partial",
+    "implementation_or_gap": "Threshold/on-delay simulation alarms; lifecycle/routing pending"
+  },
+  {
+    "id": "FMT-008",
+    "feature": "Sedona SAX/SAB",
+    "acceptance_criterion": "Create valid kit-linked applications and compile for the matching SVM.",
+    "evidence": "Sedona framework doc/apps/apps.md and doc/network/sox.md",
+    "pdf_pages_or_section": "Applications; compiler",
+    "status": "pending",
+    "implementation_or_gap": "Sedonac compiler/kit resolver and native exporter"
+  },
+  {
+    "id": "RUN-003",
+    "feature": "Online component operations",
+    "acceptance_criterion": "Add/edit/link components with version checks, rollback and verified target behavior.",
+    "evidence": "Sedona framework doc/apps/apps.md and doc/network/sox.md",
+    "pdf_pages_or_section": "Sox add/write/link operations",
+    "status": "partial",
+    "implementation_or_gap": "Own-runtime transactional changes; Sedona Sox deployment pending"
+  },
+  {
+    "id": "OBC-001",
+    "feature": "Executable reference sequences",
+    "acceptance_criterion": "Use reference trajectories and functional tests to verify generated control behavior.",
+    "evidence": "OpenBuildingControl specification/example.rst",
+    "pdf_pages_or_section": "Control-sequence verification",
+    "status": "partial",
+    "implementation_or_gap": "Deterministic scenarios; G36 reference comparison pending"
+  },
+  {
+    "id": "OBC-002",
+    "feature": "Semantic lowering",
+    "acceptance_criterion": "Map source execution/units/state into a target-specific intermediate representation.",
+    "evidence": "OpenBuildingControl specification/codeGeneration.rst",
+    "pdf_pages_or_section": "Code generation",
+    "status": "pending",
+    "implementation_or_gap": "Explicit IR exists; vendor target lowering absent"
+  },
+  {
+    "id": "IO-001",
+    "feature": "Physical input configuration",
+    "acceptance_criterion": "Add a real unused sensor terminal and verify reliability/open-circuit on the target.",
+    "evidence": "User-authorized E2/F2 test",
+    "pdf_pages_or_section": "Route information due tomorrow",
+    "status": "pending",
+    "implementation_or_gap": "Native application adapter and physical target test required"
+  },
+  {
+    "id": "CODE-001",
+    "feature": "2025 Title 24",
+    "acceptance_criterion": "Deliver verified code-edition sequences and acceptance evidence for exact hardware.",
+    "evidence": "JCI application note LIT-2026F07",
+    "pdf_pages_or_section": "18.0.2.6 release note",
+    "status": "pending",
+    "implementation_or_gap": "Legacy 1630 eligibility and full system compliance unverified"
+  },
+  {
+    "id": "AUD-001",
+    "feature": "Change evidence",
+    "acceptance_criterion": "Record intent, readback, ownership, original program hash and rollback outcome.",
+    "evidence": "Design inference from transfer/commissioning manuals",
+    "pdf_pages_or_section": "Original engineering requirement",
+    "status": "implemented",
+    "implementation_or_gap": "Hash-linked local audit; BACnet durable ownership journal"
+  },
+  {
+    "id": "OSS-001",
+    "feature": "Honest support status",
+    "acceptance_criterion": "Separate implementation, external dependency and target validation in every adapter.",
+    "evidence": "Research synthesis",
+    "pdf_pages_or_section": "Original engineering requirement",
+    "status": "implemented",
+    "implementation_or_gap": "Capability matrix; unsupported formats fail explicitly"
+  }
+]
