@@ -26,7 +26,7 @@ def test_outside_edits_are_not_ignored_in_embedded_graph_import():
 
 
 def test_unsupported_export_never_masquerades_as_vendor_binary():
-    for format in ["caf", "bog", "gfb", "sab", "spyder", "whatever"]:
+    for format in ["caf", "gfb", "sab", "spyder", "whatever"]:
         with pytest.raises(ConversionError, match="no verified encoder"):
             export_program(all_templates()[0], format)
 

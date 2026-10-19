@@ -1,0 +1,70 @@
+.niagara-inspector .card {
+  margin-bottom: 18px;
+}
+.niagara-info-body {
+  padding: 16px 18px;
+}
+.niagara-info-body dl {
+  margin: 0 0 16px;
+}
+.niagara-info-body dl > div {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 12px;
+  margin-bottom: 9px;
+}
+.niagara-info-body dt {
+  color: var(--muted);
+}
+.niagara-info-body dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.niagara-info-body details summary {
+  cursor: pointer;
+  color: var(--teal);
+}
+.niagara-protected {
+  color: #805811;
+  background: #fff7e6;
+  border: 1px solid #ecdeb7;
+  border-radius: 5px;
+  padding: 12px;
+}
+.niagara-members {
+  padding-left: 20px;
+  margin-bottom: 0;
+}
+.niagara-members li {
+  padding: 5px 0;
+  overflow-wrap: anywhere;
+}
+.niagara-unhandled > p {
+  margin: 12px 18px;
+}
+.niagara-inspector .table-scroll {
+  max-height: 430px;
+}
+.niagara-inspector td {
+  overflow-wrap: anywhere;
+}
+.niagara-inspector td b,
+.niagara-inspector td small {
+  display: block;
+}
+.niagara-inspector td small {
+  padding-top: 5px;
+}
+.niagara-inspector .card-header > input {
+  width: min(460px, 50%);
+}
+.niagara-empty {
+  padding: 14px 18px;
+  margin: 0;
+}
+.niagara-exported {
+  color: #176b5f;
+  background: #e8f6f2;
+  padding: 14px;
+  border-radius: 5px;
+}

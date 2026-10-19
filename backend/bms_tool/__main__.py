@@ -26,7 +26,17 @@ def main():
         if name == "export":
             p.add_argument(
                 "--format",
-                choices=["json", "st", "plcopen", "graphml", "sedona", "sedona-sax", "sedona-sab"],
+                choices=[
+                    "json",
+                    "st",
+                    "plcopen",
+                    "graphml",
+                    "sedona",
+                    "sedona-sax",
+                    "sedona-sab",
+                    "bog",
+                    "temco-bas",
+                ],
                 required=True,
             )
             p.add_argument("--output", type=Path, required=True)

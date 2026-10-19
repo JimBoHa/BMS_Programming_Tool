@@ -60,7 +60,7 @@
     "evidence": "Authorized local CAF samples",
     "pdf_pages_or_section": "ZIP/XML inspection",
     "status": "partial",
-    "implementation_or_gap": "Byte-exact no-op; scalar patch; jobInfo/simulationProperty retained"
+    "implementation_or_gap": "Byte-exact no-op; scalar patches, guarded source rewires and prototype-checked added connections in observed native graph tables; jobInfo/simulationProperty retained"
   },
   {
     "id": "FMT-002",
@@ -68,8 +68,8 @@
     "acceptance_criterion": "Create, rewire, compile and validate native applications for each supported model/release.",
     "evidence": "OCT README and local CAF evidence",
     "pdf_pages_or_section": "Requirements; native container",
-    "status": "pending",
-    "implementation_or_gap": "Native semantics, packages, compiler and download adapter"
+    "status": "partial",
+    "implementation_or_gap": "Observed native blocks/wires/order/positions can be inspected, compatible existing sources rewired and prototype-checked connections added offline. New block identities, complete semantics, packages, compiler and download adapter remain pending"
   },
   {
     "id": "FMT-003",
@@ -248,8 +248,8 @@
     "acceptance_criterion": "Support valid Temco BASIC source conversion and device compiler transfer.",
     "evidence": "Temco T3000 Software Manual Rev4",
     "pdf_pages_or_section": "137-169",
-    "status": "pending",
-    "implementation_or_gap": "Control Basic semantic adapter and acceptance fixtures"
+    "status": "partial",
+    "implementation_or_gap": "Numbered Control Basic import/export, explicit local point bindings and real manufacturer compiler/interpreter verification; arbitrary source, native quality services, physical target packaging and device transfer remain pending"
   },
   {
     "id": "COMM-003",
@@ -276,7 +276,7 @@
     "evidence": "Niagara AX to N4 Migration Guide",
     "pdf_pages_or_section": "Migration and compatibility sections",
     "status": "partial",
-    "implementation_or_gap": "Foreign standard-kit Sedona imports show execution/null/precision/infrastructure differences; unknown logic is rejected; proprietary vendor semantic reports pending"
+    "implementation_or_gap": "Foreign standard-kit Sedona and supported native Niagara BOG/Control Basic imports report execution/null/precision/priority/infrastructure differences; unknown logic is rejected; full proprietary mappings pending"
   },
   {
     "id": "PKG-001",
@@ -293,8 +293,8 @@
     "acceptance_criterion": "Record timestamps, quality and units with bounded retention and export.",
     "evidence": "Niagara Histories Guide",
     "pdf_pages_or_section": "History service concepts",
-    "status": "partial",
-    "implementation_or_gap": "Bounded durable SQLite simulation samples, timestamps, quality, units, cursor queries and CSV; field acquisition remains pending"
+    "status": "implemented",
+    "implementation_or_gap": "Bounded durable simulation and explicit read-only BACnet field sampling, UTC acquisition/receipt timestamps, verified or unknown quality, unit labels, cursor queries and CSV. Field jobs require a connected interface, stop on change/fault and never resume automatically; no native device history import"
   },
   {
     "id": "PKG-002",
@@ -403,5 +403,23 @@
     "pdf_pages_or_section": "Original engineering requirement",
     "status": "implemented",
     "implementation_or_gap": "Capability matrix; unsupported formats fail explicitly"
+  },
+  {
+    "id": "FMT-009",
+    "feature": "Niagara BOG interchange",
+    "acceptance_criterion": "Read native component relationships, preserve unknown archive data and convert only verified primitive semantics with a visible review report.",
+    "evidence": "Tridium kitControl guide; Niagara troubleshooting presentations; public pybog source",
+    "pdf_pages_or_section": "Native component slots, XML/BOG encoding and protection",
+    "status": "partial",
+    "implementation_or_gap": "17 primitive graph types map to real BOG ZIP/XML; independent pybog fixture converts. Unknown logic/configuration is rejected. Native Workbench/station acceptance, stateful components and full station services remain unverified"
+  },
+  {
+    "id": "COMM-004",
+    "feature": "Direct serial BACnet MS/TP",
+    "acceptance_criterion": "Implement framing, CRCs, token management and bounded point services through a selected serial adapter.",
+    "evidence": "BACnet-stack pinned MS/TP implementation and frame encoder",
+    "pdf_pages_or_section": "Legacy master FSM, Annex G CRC examples and independent C frame fixtures",
+    "status": "partial",
+    "implementation_or_gap": "Real Python token master and BACpypes3 data link; HTTP discovery/ReadProperty verified over OS pseudoterminals. Automatic-direction no-echo RS485 hardware required; physical timing, BTCVT, extended frames and proprietary downloads unverified"
   }
 ]

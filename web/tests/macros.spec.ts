@@ -15,7 +15,7 @@ async function loadMacroSource(page: Page) {
   );
   await page
     .locator(
-      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab"]',
+      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"]',
     )
     .setInputFiles({
       name: "rate-limiters.bms.json",

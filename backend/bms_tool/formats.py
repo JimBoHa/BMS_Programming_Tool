@@ -367,6 +367,14 @@ def export_graphml(program):
 
 
 def export_program(program, format):
+    if format == "bog":
+        from .niagara import export_bog
+
+        return export_bog(program), "application/zip", "bog"
+    if format == "temco-bas":
+        from .temco import export_source
+
+        return export_source(program).encode(), "text/plain", "bas"
     if format == "sedona":
         from .sedona import export_bundle
 
@@ -402,6 +410,14 @@ def import_program(content, filename):
     if len(content) > 8 * 1024 * 1024:
         raise ConversionError("Import exceeds 8 MiB.")
     name = filename.lower()
+    if name.endswith(".bog"):
+        from .niagara import import_bog
+
+        return import_bog(content)
+    if name.endswith(".bas"):
+        from .temco import import_source
+
+        return import_source(content.decode("utf-8-sig"))
     if name.endswith(".sedona.zip"):
         from .sedona import import_bundle
 

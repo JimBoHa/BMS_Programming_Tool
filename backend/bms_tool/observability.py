@@ -88,7 +88,11 @@ class ObservabilityStore:
         max_alarm_occurrences=10_000,
         max_sources=256,
         max_conditions=10_000,
+        source_kind="simulation",
     ):
+        if source_kind not in ("simulation", "field"):
+            raise ValueError("source_kind must be simulation or field.")
+        self.source_kind = source_kind
         self.max_samples = _integer(max_samples, "max_samples", 1, 1_000_000)
         self.max_alarm_events = _integer(max_alarm_events, "max_alarm_events", 1, 1_000_000)
         self.max_alarm_occurrences = _integer(
@@ -103,6 +107,47 @@ class ObservabilityStore:
             # Keep schema inspection and ALTER under the same cross-process lock.
             # executescript() would implicitly commit and race concurrent starts.
             db.execute("BEGIN IMMEDIATE")
+            existing = {
+                row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            }
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS observation_metadata("
+                "key TEXT PRIMARY KEY,value TEXT NOT NULL)"
+            )
+            marker = db.execute(
+                "SELECT value FROM observation_metadata WHERE key='source_kind'"
+            ).fetchone()
+            if marker is not None:
+                if marker[0] != source_kind:
+                    raise ValueError(
+                        "Observation database source_kind differs from the requested kind. "
+                        "Use separate simulation and field directories."
+                    )
+            else:
+                # Older stores only supported simulation. An unmarked database
+                # containing evidence must retain that meaning; a genuinely
+                # empty/new store can be initialized for field acquisition.
+                evidence = any(
+                    table in existing
+                    and db.execute(f"SELECT 1 FROM {table} LIMIT 1").fetchone() is not None
+                    for table in (
+                        "observation_sources",
+                        "trend_samples",
+                        "alarm_occurrences",
+                        "alarm_conditions",
+                        "alarm_events",
+                    )
+                )
+                stored_kind = "simulation" if evidence else source_kind
+                if stored_kind != source_kind:
+                    raise ValueError(
+                        "An unmarked observation database contains legacy simulation evidence. "
+                        "It cannot be reopened as field data."
+                    )
+                db.execute(
+                    "INSERT INTO observation_metadata(key,value) VALUES('source_kind',?)",
+                    (stored_kind,),
+                )
             schema = """
                 CREATE TABLE IF NOT EXISTS observation_sources(
                     source TEXT PRIMARY KEY, clock TEXT NOT NULL, digest TEXT NOT NULL,
@@ -207,7 +252,7 @@ class ObservabilityStore:
                 )
 
     def record_scan(self, source, clock, values, alarms=None, *, qualities=None, units=None):
-        """Commit samples and alarm observations together, all explicitly simulation.
+        """Commit samples and alarm observations with this store's explicit source kind.
 
         alarms maps signal to bool or {"active": bool, "message": str}. qualities
         and units may name only sampled signals. Omitted alarms do not imply return.
@@ -279,7 +324,7 @@ class ObservabilityStore:
                         )
                     return {
                         "source": source,
-                        "source_kind": "simulation",
+                        "source_kind": self.source_kind,
                         "duplicate": True,
                         "samples": 0,
                         "events": 0,
@@ -349,7 +394,7 @@ class ObservabilityStore:
             self._retain(db)
         return {
             "source": source,
-            "source_kind": "simulation",
+            "source_kind": self.source_kind,
             "duplicate": False,
             "samples": len(samples),
             "events": events,
@@ -389,12 +434,11 @@ class ObservabilityStore:
         for row in rows:
             sample = dict(row)
             sample["value"] = json.loads(sample["value"])
-            sample["source_kind"] = "simulation"
+            sample["source_kind"] = self.source_kind
             result.append(sample)
         return result
 
-    @staticmethod
-    def _alarm_row(row):
+    def _alarm_row(self, row):
         alarm = dict(row)
         alarm["active"] = bool(alarm["active"])
         alarm["acknowledged"] = bool(alarm["acknowledged"])
@@ -405,7 +449,7 @@ class ObservabilityStore:
             if alarm["active"]
             else "returned"
         )
-        alarm["source_kind"] = "simulation"
+        alarm["source_kind"] = self.source_kind
         return alarm
 
     def alarms(self, *, source=None, signal=None, active=None, unacknowledged=None, limit=500):
@@ -440,7 +484,7 @@ class ObservabilityStore:
             arguments.insert(-1, _integer(alarm_id, "alarm_id", 1, 2**63 - 1))
         with self.connect() as db:
             return [
-                dict(row) | {"source_kind": "simulation"}
+                dict(row) | {"source_kind": self.source_kind}
                 for row in db.execute(
                     f"SELECT * FROM alarm_events WHERE {where} ORDER BY sequence LIMIT ?", arguments
                 )
@@ -547,7 +591,7 @@ class ObservabilityStore:
             ).fetchone()[0]
             counts["open_sources"] = counts["sources"] - counts["ended_sources"]
         return counts | {
-            "source_kind": "simulation",
+            "source_kind": self.source_kind,
             "limits": {
                 "samples": self.max_samples,
                 "alarm_events": self.max_alarm_events,
@@ -580,12 +624,11 @@ class ObservabilityStore:
             """).fetchall()
         return [self._source_row(row) for row in rows]
 
-    @staticmethod
-    def _source_row(row):
+    def _source_row(self, row):
         source = dict(row)
         source.pop("digest", None)
         source["ended"] = bool(source["ended"])
-        source["source_kind"] = "simulation"
+        source["source_kind"] = self.source_kind
         return source
 
     def end_source(self, source, note, *, actor="operator"):
@@ -681,4 +724,9 @@ class ObservabilityStore:
                     f"DELETE FROM {table} WHERE source=?", (source,)
                 ).rowcount
             db.execute("DELETE FROM observation_sources WHERE source=?", (source,))
-        return {"source": source, "source_kind": "simulation", "retired": True, "removed": removed}
+        return {
+            "source": source,
+            "source_kind": self.source_kind,
+            "retired": True,
+            "removed": removed,
+        }

@@ -24,9 +24,11 @@ from pydantic import AwareDatetime, Field
 from .analysis import dependencies
 from .blocks import catalog
 from .caf import CafArchive
+from .caf_graph import CafGraph
 from .connections import Bacnet, modbus_read, ports
 from .deployment import Runtime
 from .engine import Engine, output_type, run_scenario, validate
+from .field_trends import FieldTrends, FieldTrendStart
 from .formats import export_program, import_program
 from .macros import (
     create_definition,
@@ -40,6 +42,7 @@ from .macros import (
 )
 from .models import Program, StrictModel
 from .native_simulator import NativeSimulator
+from .niagara import NiagaraArchive
 from .observability import ObservabilityStore
 from .simulation_group import SimulationGroups, SimulationWorkspace, demo_workspace
 from .storage import Conflict, Store
@@ -138,6 +141,26 @@ class BacnetDiscover(StrictModel):
     high: int = 4194302
 
 
+class BacnetMstp(StrictModel):
+    port: str = Field(min_length=1, max_length=256)
+    mac: int = Field(ge=0, le=127, strict=True)
+    instance: int = Field(default=4190001, ge=0, le=4194302, strict=True)
+    baudrate: int = Field(default=38400, strict=True)
+    max_master: int = Field(default=127, ge=0, le=127, strict=True)
+    max_info_frames: int = Field(default=1, ge=1, le=255, strict=True)
+
+
+class TemcoProgram(StrictModel):
+    program: Program
+    bindings: dict[str, str] = Field(default_factory=dict)
+
+
+class TemcoVerify(TemcoProgram):
+    inputs: dict[str, Any] = Field(default_factory=dict)
+    scans: int = Field(default=1, ge=1, le=1000, strict=True)
+    clock: AwareDatetime | None = None
+
+
 class BacnetRead(StrictModel):
     address: str
     object_id: str
@@ -193,6 +216,10 @@ class ObservationSource(StrictModel):
     source: str = Field(min_length=1, max_length=200)
 
 
+class FieldTrendStop(StrictModel):
+    id: str = Field(min_length=1, max_length=64)
+
+
 class ObservationEnd(ObservationSource):
     note: str = Field(min_length=1, max_length=1000)
     actor: str = Field(default="operator", min_length=1, max_length=120)
@@ -231,8 +258,10 @@ def create_app(state_dir=None):
     native = NativeSimulator(store)
     groups = SimulationGroups()
     observations = ObservabilityStore(store.directory)
+    field_trends = FieldTrends(bacnet, store.directory, audit_store=store)
     simulations = {}
     caf_files = {}
+    niagara_files = {}
     session_token = secrets.token_urlsafe(32)
     control = {"running": False, "inputs": {}, "error": None}
 
@@ -255,6 +284,7 @@ def create_app(state_dir=None):
         task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await task
+        await field_trends.close()
         bacnet.close()
         native.stop()
 
@@ -263,6 +293,7 @@ def create_app(state_dir=None):
     app.state.store = store
     app.state.bacnet = bacnet
     app.state.native = native
+    app.state.field_trends = field_trends
 
     @app.middleware("http")
     async def local_requests(request, call_next):
@@ -319,7 +350,7 @@ def create_app(state_dir=None):
         return {
             "token": session_token,
             "version": "0.1.0",
-            "field_network_open": bacnet.app is not None,
+            "field_network_open": bacnet.status()["connected"],
         }
 
     @app.get("/api/blocks")
@@ -333,6 +364,43 @@ def create_app(state_dir=None):
     @app.get("/api/observations/status")
     def observation_status():
         return observations.status()
+
+    @app.get("/api/field-trends/status")
+    def field_trend_status():
+        return field_trends.status()
+
+    @app.get("/api/field-trends/sources")
+    def field_trend_sources():
+        return field_trends.store.list_sources()
+
+    @app.get("/api/field-trends/samples")
+    def field_trend_samples(
+        source: str | None = None,
+        signal: str | None = None,
+        start: AwareDatetime | None = None,
+        end: AwareDatetime | None = None,
+        after: int = 0,
+        limit: int = 100,
+    ):
+        return field_trends.store.trends(
+            source=source, signal=signal, start=start, end=end, after=after, limit=limit
+        )
+
+    @app.get("/api/field-trends/events")
+    def field_trend_events(source: str | None = None, after: int = 0, limit: int = 100):
+        return field_trends.events(source=source, after=after, limit=limit)
+
+    @app.post("/api/field-trends/start")
+    async def field_trend_start(body: FieldTrendStart):
+        return await field_trends.start(**body.model_dump())
+
+    @app.post("/api/field-trends/stop")
+    async def field_trend_stop(body: FieldTrendStop):
+        return await field_trends.stop(body.id)
+
+    @app.post("/api/field-trends/retire")
+    async def field_trend_retire(body: ObservationSource):
+        return await field_trends.retire_source(body.source)
 
     @app.get("/api/observations/sources")
     def observation_sources():
@@ -692,6 +760,104 @@ def create_app(state_dir=None):
     def serial_ports():
         return ports()
 
+    @app.get("/api/caf/{id}/graphs")
+    def caf_graphs(id: str):
+        return CafGraph(get_caf(id)).diagrams()
+
+    @app.get("/api/caf/{id}/graph")
+    def caf_graph(id: str, ref: str):
+        return CafGraph(get_caf(id)).diagram(ref)
+
+    @app.post("/api/caf/{id}/rewire")
+    def caf_rewire(id: str, body: CafPatchRequest):
+        content, report = CafGraph(get_caf(id)).rewire_sources(body.changes)
+        store.record(
+            "caf.native.rewire.export",
+            {
+                "source_sha256": id,
+                "changes": report,
+                "scope": "Offline observed schema; vendor compiler and controller acceptance unverified",
+            },
+        )
+        return Response(
+            content,
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": 'attachment; filename="rewired-copy.caf"'},
+        )
+
+    @app.post("/api/caf/{id}/connect")
+    def caf_connect(id: str, body: CafPatchRequest):
+        content, report = CafGraph(get_caf(id)).add_connections(body.changes)
+        store.record(
+            "caf.native.connection.export",
+            {
+                "source_sha256": id,
+                "changes": report,
+                "scope": "Offline observed native connection schema; vendor compiler and controller acceptance unverified",
+            },
+        )
+        return Response(
+            content,
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": 'attachment; filename="connected-copy.caf"',
+            },
+        )
+
+    @app.get("/api/niagara/profile")
+    def niagara_profile():
+        from .niagara import DIFFERENCES, NATIVE
+
+        return {
+            "format": "Niagara BOG",
+            "native_types": sorted({*NATIVE, "Input", "Output", "Constant", "Switch"}),
+            "differences": DIFFERENCES,
+            "native_runtime_verified": False,
+        }
+
+    @app.post("/api/niagara/open")
+    async def niagara_open(file: Annotated[UploadFile, File()]):
+        archive = NiagaraArchive(await file.read(8 * 1024 * 1024 + 1))
+
+        def archive_bytes(item):
+            return len(item.original) + sum(len(member) for member in item.members.values())
+
+        while (
+            archive.hash not in niagara_files
+            and niagara_files
+            and (
+                len(niagara_files) >= 16
+                or sum(archive_bytes(item) for item in niagara_files.values())
+                + archive_bytes(archive)
+                > 64 * 1024 * 1024
+            )
+        ):
+            del niagara_files[next(iter(niagara_files))]
+        niagara_files[archive.hash] = archive
+        return archive.summary()
+
+    def get_niagara(id):
+        if id not in niagara_files:
+            raise ValueError(
+                "BOG archive is not open in this server session. Open the original again."
+            )
+        return niagara_files[id]
+
+    @app.get("/api/niagara/{id}")
+    def niagara_archive(id: str):
+        return get_niagara(id).summary()
+
+    @app.post("/api/niagara/{id}/export")
+    def niagara_export(id: str):
+        archive = get_niagara(id)
+        return Response(
+            archive.export(),
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": 'attachment; filename="original-copy.bog"',
+            },
+        )
+
     @app.get("/api/bacnet/status")
     def bacnet_status():
         return bacnet.status()
@@ -699,6 +865,43 @@ def create_app(state_dir=None):
     @app.post("/api/bacnet/connect")
     async def bacnet_connect(body: BacnetConnect):
         return await bacnet.connect(**body.model_dump())
+
+    @app.post("/api/bacnet/connect-mstp")
+    async def bacnet_connect_mstp(body: BacnetMstp):
+        return await bacnet.connect_mstp(**body.model_dump())
+
+    @app.post("/api/bacnet/disconnect")
+    async def bacnet_disconnect():
+        return await bacnet.disconnect()
+
+    @app.get("/api/temco/status")
+    def temco_status():
+        from .temco import native_status
+
+        return native_status()
+
+    @app.post("/api/temco/compile")
+    async def temco_compile(body: TemcoProgram):
+        import base64
+
+        from .temco import compile_program
+
+        result = await asyncio.to_thread(compile_program, body.program, bindings=body.bindings)
+        result["bytecode_base64"] = base64.b64encode(result.pop("bytecode")).decode("ascii")
+        return result
+
+    @app.post("/api/temco/verify")
+    async def temco_verify(body: TemcoVerify):
+        from .temco import verify_program
+
+        return await asyncio.to_thread(
+            verify_program,
+            body.program,
+            body.inputs,
+            bindings=body.bindings,
+            scans=body.scans,
+            clock=body.clock,
+        )
 
     @app.post("/api/bacnet/discover")
     async def discover(body: BacnetDiscover):

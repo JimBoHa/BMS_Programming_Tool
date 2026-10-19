@@ -100,6 +100,33 @@ for r in inventory:
             "status": "metadata and README/license inspected",
         }
     )
+for title, url, note in [
+    (
+        "bbartling/pybog",
+        "https://github.com/bbartling/pybog",
+        "MIT; pinned 0248d941bf230aad2f19f9805be67c0e64bd51ef. Public native BOG encoding reference; independent builder fixture verified locally. No Niagara runtime acceptance claim.",
+    ),
+    (
+        "Temco native compiler/interpreter verification",
+        "https://github.com/temcocontrols/T3000_Building_Automation_System/tree/ae9b9d082de93b35ff2ca59eb1d0c06ae04cec9b",
+        "MIT. Reproducible local host of manufacturer Control Basic compiler and decode interpreter; no field transport.",
+    ),
+    (
+        "BACnet-stack MS/TP encoding reference",
+        "https://github.com/bacnet-stack/bacnet-stack/tree/e295d20baba977132b47bc09f61f28e12f2dfac3",
+        "File-specific GPL-2.0-or-later with GCC exception and MIT. External C frame oracle only; no upstream code or binary bundled. See mstp-provenance.md.",
+    ),
+]:
+    if not any(r["url"] == url for r in refs):
+        refs.append(
+            {
+                "vendor": "Open source / source research",
+                "title": title,
+                "url": url,
+                "notes": note,
+                "status": "source and local behavior reviewed",
+            }
+        )
 (PROJECT / "docs/references.json").write_text(json.dumps(refs, indent=2))
 
 requirements = []
@@ -181,7 +208,7 @@ add(
     "Authorized local CAF samples",
     "ZIP/XML inspection",
     "partial",
-    "Byte-exact no-op; scalar patch; jobInfo/simulationProperty retained",
+    "Byte-exact no-op; scalar patches, guarded source rewires and prototype-checked added connections in observed native graph tables; jobInfo/simulationProperty retained",
 )
 add(
     "FMT-002",
@@ -189,8 +216,8 @@ add(
     "Create, rewire, compile and validate native applications for each supported model/release.",
     "OCT README and local CAF evidence",
     "Requirements; native container",
-    "pending",
-    "Native semantics, packages, compiler and download adapter",
+    "partial",
+    "Observed native blocks/wires/order/positions can be inspected, compatible existing sources rewired and prototype-checked connections added offline. New block identities, complete semantics, packages, compiler and download adapter remain pending",
 )
 add(
     "FMT-003",
@@ -375,8 +402,8 @@ add(
     "Support valid Temco BASIC source conversion and device compiler transfer.",
     temco,
     "137-169",
-    "pending",
-    "Control Basic semantic adapter and acceptance fixtures",
+    "partial",
+    "Numbered Control Basic import/export, explicit local point bindings and real manufacturer compiler/interpreter verification; arbitrary source, native quality services, physical target packaging and device transfer remain pending",
 )
 add(
     "COMM-003",
@@ -404,7 +431,7 @@ add(
     "Niagara AX to N4 Migration Guide",
     "Migration and compatibility sections",
     "partial",
-    "Foreign standard-kit Sedona imports show execution/null/precision/infrastructure differences; unknown logic is rejected; proprietary vendor semantic reports pending",
+    "Foreign standard-kit Sedona and supported native Niagara BOG/Control Basic imports report execution/null/precision/priority/infrastructure differences; unknown logic is rejected; full proprietary mappings pending",
 )
 add(
     "PKG-001",
@@ -421,8 +448,8 @@ add(
     "Record timestamps, quality and units with bounded retention and export.",
     "Niagara Histories Guide",
     "History service concepts",
-    "partial",
-    "Bounded durable SQLite simulation samples, timestamps, quality, units, cursor queries and CSV; field acquisition remains pending",
+    "implemented",
+    "Bounded durable simulation and explicit read-only BACnet field sampling, UTC acquisition/receipt timestamps, verified or unknown quality, unit labels, cursor queries and CSV. Field jobs require a connected interface, stop on change/fault and never resume automatically; no native device history import",
 )
 add(
     "PKG-002",
@@ -533,6 +560,25 @@ add(
     "Original engineering requirement",
     "implemented",
     "Capability matrix; unsupported formats fail explicitly",
+)
+
+add(
+    "FMT-009",
+    "Niagara BOG interchange",
+    "Read native component relationships, preserve unknown archive data and convert only verified primitive semantics with a visible review report.",
+    "Tridium kitControl guide; Niagara troubleshooting presentations; public pybog source",
+    "Native component slots, XML/BOG encoding and protection",
+    "partial",
+    "17 primitive graph types map to real BOG ZIP/XML; independent pybog fixture converts. Unknown logic/configuration is rejected. Native Workbench/station acceptance, stateful components and full station services remain unverified",
+)
+add(
+    "COMM-004",
+    "Direct serial BACnet MS/TP",
+    "Implement framing, CRCs, token management and bounded point services through a selected serial adapter.",
+    "BACnet-stack pinned MS/TP implementation and frame encoder",
+    "Legacy master FSM, Annex G CRC examples and independent C frame fixtures",
+    "partial",
+    "Real Python token master and BACpypes3 data link; HTTP discovery/ReadProperty verified over OS pseudoterminals. Automatic-direction no-echo RS485 hardware required; physical timing, BTCVT, extended frames and proprietary downloads unverified",
 )
 
 with (PROJECT / "docs/FEATURE_REQUIREMENTS.csv").open("w", newline="") as f:

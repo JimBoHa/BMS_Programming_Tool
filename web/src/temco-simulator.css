@@ -1,0 +1,159 @@
+.temco-simulator {
+  max-width: 1320px;
+}
+.temco-simulator .page-intro {
+  align-items: flex-start;
+}
+.temco-availability {
+  border-radius: 20px;
+  background: #e4f4ee;
+  color: #226a52;
+  padding: 8px 12px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.temco-scope {
+  padding: 11px 14px;
+  border-left: 3px solid #587b94;
+  background: #e8f0f6;
+  color: #35546b;
+  line-height: 1.6;
+}
+.temco-card {
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  margin: 16px 0;
+}
+.temco-card h2 {
+  font-size: 17px;
+  margin-bottom: 12px;
+}
+.temco-card p {
+  line-height: 1.6;
+}
+.temco-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 25px;
+}
+.temco-profile-grid strong,
+.temco-profile-grid span,
+.temco-points td small {
+  display: block;
+}
+.temco-profile-grid span {
+  margin-top: 7px;
+  color: #617785;
+  font-size: 12px;
+}
+.temco-card details summary {
+  color: #3a6176;
+  cursor: pointer;
+}
+.temco-card details p {
+  margin-top: 12px;
+  margin-bottom: 0;
+}
+.temco-table-wrap {
+  overflow-x: auto;
+}
+.temco-points,
+.temco-results {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.temco-points th,
+.temco-points td,
+.temco-results th,
+.temco-results td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid #e4ebef;
+}
+.temco-points th,
+.temco-results th {
+  color: #637b8a;
+  background: #f7fafb;
+}
+.temco-points td small {
+  color: #798b96;
+  margin-top: 4px;
+}
+.temco-points input,
+.temco-points select {
+  width: 100%;
+  min-width: 110px;
+  max-width: 190px;
+}
+.temco-muted {
+  color: #87949c;
+}
+.temco-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+.temco-actions label {
+  max-width: 130px;
+}
+.temco-actions label.temco-clock-label {
+  max-width: 235px;
+}
+.temco-trace {
+  margin-top: 18px;
+}
+.temco-trace td small {
+  display: block;
+  margin-top: 5px;
+  color: #617785;
+}
+.temco-error,
+.temco-result-held,
+.temco-result-match {
+  padding: 12px 14px;
+  border-radius: 6px;
+  line-height: 1.6;
+}
+.temco-error {
+  background: #fff0f0;
+  color: #a73d47;
+  border: 1px solid #f2d1d4;
+}
+.temco-result-held {
+  background: #fff6e6;
+  color: #8c6524;
+}
+.temco-result-match {
+  background: #e6f5ed;
+  color: #246a50;
+}
+.temco-verification [role="status"] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+.temco-source {
+  width: 100%;
+  margin: 15px 0;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  background: #f5f8fa;
+}
+@media (max-width: 950px) {
+  .temco-profile-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .temco-simulator .page-intro {
+    flex-direction: column;
+    gap: 10px;
+  }
+}

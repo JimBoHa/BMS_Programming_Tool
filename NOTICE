@@ -18,3 +18,23 @@ layout/null optimization and the SVM's null-pointer/UDP ABI handling. The native
 simulation build binds sockets to loopback. This experimental port is not a
 Sedona-certified platform. Generated application bundles contain an upstream
 license copy and source/build provenance for their included SCode runtime.
+
+The optional Temco Control Basic compiler/interpreter host builds separate
+copies of manufacturer source from temcocontrols/T3000_Building_Automation_System,
+revision ae9b9d082de93b35ff2ca59eb1d0c06ae04cec9b. Upstream:
+https://github.com/temcocontrols/T3000_Building_Automation_System
+The upstream MIT license is retained in third_party/Temco-T3000-LICENSE.txt.
+scripts/setup_temco.py records the host adaptations. Upstream source and built
+executables stay outside this repository. This host has no field transport.
+
+The Niagara BOG adapter uses the public MIT pybog implementation as an encoding
+reference, revision 0248d941bf230aad2f19f9805be67c0e64bd51ef, copyright 2025
+Ben Bartling. Upstream: https://github.com/bbartling/pybog
+The original license is retained in third_party/pybog-LICENSE.txt. No Niagara
+SDK, runtime, keys or protected station data is bundled. Native station acceptance
+and event/status/priority equivalence remain unverified.
+
+The separately written Python MS/TP driver was reviewed against BACnet-stack
+and tested with externally compiled frame encoders. No BACnet-stack C code or
+binaries are bundled or loaded at runtime. File-level source, license and test
+provenance is recorded in docs/mstp-provenance.md.

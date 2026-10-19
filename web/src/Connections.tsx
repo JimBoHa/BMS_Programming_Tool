@@ -21,6 +21,14 @@ export function Connections() {
     [priority, setPriority] = useState(16),
     [plan, setPlan] = useState<any>(null),
     [serialPorts, setSerialPorts] = useState<any[]>([]),
+    [mstp, setMstp] = useState({
+      port: "",
+      mac: 120,
+      instance: 4190001,
+      baudrate: 38400,
+      max_master: 127,
+      max_info_frames: 1,
+    }),
     [modbus, setModbus] = useState({
       transport: "tcp",
       address: "127.0.0.1",
@@ -40,6 +48,40 @@ export function Connections() {
   useEffect(() => {
     refresh().catch((e) => setError(e.message));
   }, []);
+  useEffect(() => {
+    if (status.config?.transport === "mstp") {
+      const saved = status.config;
+      setMstp({
+        port: saved.port,
+        mac: saved.mac,
+        instance: saved.instance,
+        baudrate: saved.baudrate,
+        max_master: saved.max_master,
+        max_info_frames: saved.max_info_frames,
+      });
+      setTarget(saved.mac === 5 ? "6" : "5");
+    }
+  }, [status.config?.transport]);
+  useEffect(() => {
+    if (!status.connected) setPlan(null);
+  }, [status.connected]);
+  useEffect(() => {
+    if (status.config?.transport !== "mstp") return;
+    let live = true;
+    const timer = setInterval(() => {
+      api("/bacnet/status")
+        .then((next) => {
+          if (live) setStatus(next);
+        })
+        .catch((e) => {
+          if (live) setError(e.message);
+        });
+    }, 2000);
+    return () => {
+      live = false;
+      clearInterval(timer);
+    };
+  }, [status.config?.transport]);
   async function action(fn: () => Promise<any>) {
     setBusy(true);
     setError("");
@@ -82,16 +124,37 @@ export function Connections() {
             when you connect.
           </p>
         </div>
-        <span
-          className={
-            "connection-badge " + (status.connected ? "connected" : "")
-          }
-        >
-          <span className="status-dot" />
-          {status.connected
-            ? "BACnet interface open"
-            : "No BACnet interface open"}
-        </span>
+        <div className="button-row">
+          <span
+            className={
+              "connection-badge " + (status.connected ? "connected" : "")
+            }
+          >
+            <span className="status-dot" />
+            {status.connected
+              ? "BACnet interface open"
+              : "No BACnet interface open"}
+          </span>
+          {status.connected && (
+            <button
+              disabled={busy || !!status.commands.length}
+              title={
+                status.commands.length
+                  ? "Relinquish owned BACnet commands before closing"
+                  : "Close the selected BACnet interface"
+              }
+              onClick={() =>
+                action(async () => {
+                  const result = await api("/bacnet/disconnect", {});
+                  if (result.audit_error) setError(result.audit_error);
+                  setPlan(null);
+                })
+              }
+            >
+              Close BACnet interface
+            </button>
+          )}
+        </div>
       </div>
       <div className="two-column">
         <section className="card">
@@ -315,7 +378,7 @@ export function Connections() {
             {plan && (
               <button
                 className="primary"
-                disabled={busy}
+                disabled={busy || !status.connected}
                 onClick={() =>
                   action(async () => {
                     setValue(
@@ -475,35 +538,104 @@ export function Connections() {
         <section className="card">
           <div className="card-header">
             <h3>
-              <Radio size={18} /> Bluetooth and direct MS/TP
+              <Radio size={18} /> Direct BACnet MS/TP
             </h3>
-            <span className="pill pending">ADAPTER REQUIRED</span>
+            <span className="pill">SERIAL MASTER</span>
           </div>
-          <div className="card-body">
-            <p>
-              Enumerating a USB/Bluetooth serial port does not provide the BTCVT
-              protocol or a BACnet MS/TP master.
+          <div className="card-body form-grid">
+            <p className="help-text full">
+              Fixed-address legacy MS/TP master with token handling. Requires an
+              automatic-direction RS-485 adapter without echo. Select an unused
+              master MAC. Physical bus timing and adapters remain unverified;
+              this driver does not implement the BTCVT Bluetooth protocol.
             </p>
-            <p>
-              BTCVT support needs a verified protocol adapter and compatible
-              controller firmware. Direct MS/TP also needs token handling and a
-              supported RS-485 interface.
+            <label className="full">
+              MS/TP serial port
+              <select
+                value={mstp.port}
+                onChange={(e) => {
+                  setPlan(null);
+                  setMstp({ ...mstp, port: e.target.value });
+                }}
+              >
+                <option value="">Select a detected serial interface</option>
+                {serialPorts.map((p) => (
+                  <option key={p.device} value={p.device}>
+                    {p.device} — {p.description}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              MS/TP baud rate
+              <select
+                value={mstp.baudrate}
+                onChange={(e) => {
+                  setPlan(null);
+                  setMstp({ ...mstp, baudrate: Number(e.target.value) });
+                }}
+              >
+                {[9600, 19200, 38400, 57600, 76800, 115200].map((rate) => (
+                  <option key={rate} value={rate}>
+                    {rate}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {(
+              [
+                ["mac", "MS/TP master MAC", 0, 127],
+                ["instance", "MS/TP client device instance", 0, 4194302],
+                ["max_master", "Maximum master MAC", 0, 127],
+                ["max_info_frames", "Maximum frames per token", 1, 255],
+              ] as const
+            ).map(([key, title, min, max]) => (
+              <label key={key}>
+                {title}
+                <input
+                  type="number"
+                  min={min}
+                  max={max}
+                  value={mstp[key]}
+                  onChange={(e) => {
+                    setPlan(null);
+                    setMstp({ ...mstp, [key]: Number(e.target.value) });
+                  }}
+                />
+              </label>
+            ))}
+            <div className="button-row full">
+              <button disabled={busy} onClick={() => action(refresh)}>
+                <RefreshCw size={15} /> Refresh serial interfaces
+              </button>
+              <button
+                className="primary"
+                disabled={
+                  busy || !serialPorts.some((p) => p.device === mstp.port)
+                }
+                onClick={() =>
+                  action(async () => {
+                    await api("/bacnet/connect-mstp", mstp);
+                    setTarget(mstp.mac === 5 ? "6" : "5");
+                    setDevices([]);
+                    setValue(null);
+                    setPlan(null);
+                  })
+                }
+              >
+                <PlugZap size={15} /> Open MS/TP interface
+              </button>
+            </div>
+            <p className="help-text full">
+              Enter the target's decimal MAC in point services after opening.
+              Point reads and owned priority commands use this interface.
+              Application download is a separate, unsupported vendor service.
+              BACnet/IP routing remains available above.
             </p>
-            <p className="help-text">
-              Use a verified BACnet/IP-to-MS/TP router with the BACnet interface
-              above. CCT 14+ dropped BTCVT; older firmware and download paths
-              have separate limits.
-            </p>
-            <div className="small-heading">AVAILABLE SERIAL PORTS</div>
-            {serialPorts.length ? (
-              serialPorts.map((p) => (
-                <p className="mono" key={p.device}>
-                  {p.device}
-                  <small>{p.description}</small>
-                </p>
-              ))
-            ) : (
-              <p>No serial devices detected.</p>
+            {status.serial_link && (
+              <pre className="result full" aria-label="MS/TP link status">
+                {JSON.stringify(status.serial_link, null, 2)}
+              </pre>
             )}
           </div>
         </section>

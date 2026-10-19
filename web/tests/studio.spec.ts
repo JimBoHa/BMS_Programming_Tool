@@ -17,7 +17,7 @@ test("copy a connected nested macro graph into a new project with its libraries"
   );
   await page
     .locator(
-      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab"]',
+      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"]',
     )
     .setInputFiles({
       name: "nested.bms.json",
@@ -64,7 +64,7 @@ test("persist simulation trends and acknowledge returned alarms across reloads",
   );
   await page
     .locator(
-      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab"]',
+      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"]',
     )
     .setInputFiles({
       name: "alarm.bms.json",
@@ -180,7 +180,7 @@ test("configure date exceptions and run an explicit UTC calendar scan", async ({
   );
   await page
     .locator(
-      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab"]',
+      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"]',
     )
     .setInputFiles({
       name: "calendar.bms.json",
@@ -225,7 +225,7 @@ test("select, duplicate and delete connected groups as one undoable edit", async
   );
   await page
     .locator(
-      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab"]',
+      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"]',
     )
     .setInputFiles({
       name: "selection.bms.json",
@@ -282,7 +282,7 @@ test("force and release internal values, retain fault state and export force evi
   );
   await page
     .locator(
-      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab"]',
+      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"]',
     )
     .setInputFiles({
       name: "force-example.bms.json",
@@ -434,7 +434,7 @@ test("convert foreign native SAX and review its execution differences", async ({
   );
   await page
     .locator(
-      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab"]',
+      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"]',
     )
     .setInputFiles({
       name: "foreign.sax",
@@ -471,7 +471,7 @@ test("export and reimport a real native Sedona application bundle", async ({
   const saved = await bundle.path();
   await page
     .locator(
-      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab"]',
+      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"]',
     )
     .setInputFiles({
       name: "native.sedona.zip",
@@ -688,7 +688,7 @@ test("save, export and import a graph through the GUI", async ({ page }) => {
   expect(saved).toBeTruthy();
   await page
     .locator(
-      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab"]',
+      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"]',
     )
     .setInputFiles({
       name: "program.xml",
@@ -773,17 +773,15 @@ test("capabilities disclose native and hardware gaps", async ({ page }) => {
   await page.getByRole("button", { name: "Reference", exact: true }).click();
   await expect(
     page.getByRole("row").filter({ hasText: "Native vendor formats" }),
-  ).toContainText("pending");
+  ).toContainText("partial");
   await expect(
     page
       .getByRole("row")
-      .filter({ hasText: "BTCVT Bluetooth and direct MS/TP" }),
-  ).toContainText("pending");
+      .filter({ hasText: "Direct MS/TP and BTCVT Bluetooth" }),
+  ).toContainText("partial");
   await page.getByRole("button", { name: "Connect", exact: true }).click();
   await expect(page.locator(".connection-badge")).toContainText(
     "No BACnet interface open",
   );
-  await expect(
-    page.getByText("ADAPTER REQUIRED", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("SERIAL MASTER", { exact: true })).toBeVisible();
 });

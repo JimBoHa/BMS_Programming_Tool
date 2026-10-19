@@ -1,0 +1,166 @@
+.caf-native-graph {
+  margin-bottom: 20px;
+}
+.caf-graph-body {
+  padding: 18px;
+}
+.caf-graph-scope {
+  margin-bottom: 16px;
+  max-width: 1100px;
+}
+.caf-graph-selector {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.caf-graph-selector label {
+  flex: 1 1 500px;
+  min-width: 0;
+}
+.caf-graph-selector select {
+  max-width: 100%;
+}
+.caf-graph-selector > small {
+  padding-bottom: 10px;
+}
+.caf-graph-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  padding: 14px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.caf-graph-summary code {
+  overflow-wrap: anywhere;
+}
+.caf-graph-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(330px, 1fr);
+  gap: 18px;
+}
+.caf-graph-columns > section {
+  min-width: 0;
+}
+.caf-graph-columns h4 {
+  color: var(--ink);
+  margin-bottom: 12px;
+}
+.caf-graph-table .table-scroll {
+  max-height: 440px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.caf-graph-table table {
+  min-width: 0;
+  width: 100%;
+}
+.caf-graph-table td,
+.caf-graph-blocks td {
+  overflow-wrap: anywhere;
+}
+.caf-graph-table td b,
+.caf-graph-table td small,
+.caf-graph-blocks td b,
+.caf-graph-blocks td small {
+  display: block;
+}
+.caf-graph-table td small,
+.caf-graph-blocks td small {
+  padding-top: 4px;
+}
+.caf-graph-table tbody tr {
+  cursor: default;
+}
+.caf-graph-table button[aria-pressed="true"] {
+  color: var(--teal);
+  background: #e8f6f2;
+  border-color: #76b8ad;
+}
+.caf-source-rewire {
+  padding: 15px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #f8fafb;
+}
+.caf-source-rewire dl {
+  margin: 0 0 14px;
+}
+.caf-source-rewire dl > div {
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr);
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+.caf-source-rewire dt {
+  color: var(--muted);
+}
+.caf-source-rewire dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.caf-graph-help {
+  font-size: 12px;
+  margin: 10px 0;
+}
+.caf-rewire-review {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: white;
+  margin: 14px 0;
+}
+.caf-rewire-review code {
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.caf-rewire-review small:last-child {
+  grid-column: 1 / -1;
+  line-height: 1.5;
+}
+.caf-graph-blocks,
+.caf-graph-errors,
+.caf-connection-create {
+  margin-top: 16px;
+}
+.caf-graph-blocks summary,
+.caf-graph-errors summary,
+.caf-connection-create summary {
+  cursor: pointer;
+  color: var(--teal);
+  font-weight: 500;
+}
+.caf-graph-blocks .table-scroll {
+  max-height: 400px;
+  margin-top: 12px;
+}
+.caf-graph-errors p {
+  margin: 10px 0;
+  overflow-wrap: anywhere;
+}
+.caf-graph-exported {
+  margin: 14px 0 0;
+  padding: 12px;
+  background: #e8f6f2;
+  border-radius: 5px;
+  color: #176b5f;
+}
+.caf-connection-create {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+.caf-connection-endpoints {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+@media (max-width: 1150px) {
+  .caf-graph-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

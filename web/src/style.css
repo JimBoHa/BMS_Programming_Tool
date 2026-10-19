@@ -256,6 +256,7 @@ pre {
 .nav-rail {
   width: 76px;
   flex-shrink: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -266,6 +267,7 @@ pre {
 .nav-rail button {
   width: 64px;
   height: 64px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   border: none;

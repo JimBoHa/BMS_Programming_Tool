@@ -13,6 +13,7 @@ import math
 import os
 import secrets
 import socket
+import sqlite3
 import struct
 import time
 from argparse import Namespace
@@ -162,13 +163,77 @@ class Bacnet:
     def require(self):
         if self.app is None:
             raise ValueError("Connect a BACnet interface first.")
+        layer = getattr(self.app, "mstp_link", None)
+        if layer is not None and not layer.status()["connected"]:
+            raise ValueError(
+                "MS/TP link stopped. Inspect the link error and reconnect before requesting point services."
+            )
         return self.app
+
+    async def connect_mstp(
+        self, port, mac, instance=4190001, baudrate=38400, max_master=127, max_info_frames=1
+    ):
+        from .mstp import MstpMaster
+        from .mstp_bacnet import create_mstp_application
+
+        if type(instance) is not int or not 0 <= instance <= 4194302:
+            raise ValueError("BACnet device instance outside allowed range.")
+        # Validate the complete link policy before closing a working interface.
+        MstpMaster(mac, baudrate=baudrate, max_master=max_master, max_info_frames=max_info_frames)
+        requested = {
+            "transport": "mstp",
+            "port": port,
+            "mac": mac,
+            "instance": instance,
+            "baudrate": baudrate,
+            "max_master": max_master,
+            "max_info_frames": max_info_frames,
+        }
+        async with self.lock:
+            if self.commands and requested != self.config:
+                raise ValueError(
+                    "Relinquish owned BACnet commands before changing the connection. Reopen the saved interface to recover commands after restart."
+                )
+            if port not in {p["device"] for p in ports()}:
+                raise ValueError(
+                    "Choose an enumerated serial device; arbitrary files cannot be opened as an MS/TP port."
+                )
+            if self.app and requested == self.config and self.status()["connected"]:
+                return self.config
+            self.store.record("bacnet.mstp.connect.requested", requested)
+            if self.app:
+                self.app.close()
+                self.app = None
+                await asyncio.sleep(0)
+            app = await create_mstp_application(
+                **{key: value for key, value in requested.items() if key != "transport"}
+            )
+            self.app, self.config = app, requested
+            self._persist()
+            self.plans.clear()
+            self.store.record("bacnet.mstp.connect", requested)
+            return self.config
+
+    def target_address(self, address):
+        target = _unicast(address)
+        if self.config and self.config.get("transport") == "mstp":
+            if (
+                target.addrType != Address.localStationAddr
+                or target.addrLen != 1
+                or target.addrAddr[0] > 254
+            ):
+                raise ValueError(
+                    "Direct MS/TP targets use a decimal one-octet MAC address, for example 5."
+                )
+            if target.addrAddr[0] == self.config["mac"]:
+                raise ValueError("Select a remote MS/TP MAC, not this client's own address.")
+        return target
 
     async def discover(self, address, low=0, high=4194302):
         if not 0 <= low <= high <= 4194302:
             raise ValueError("Invalid device instance range.")
         app = self.require()
-        target = _unicast(address)
+        target = self.target_address(address)
         responses = await asyncio.wait_for(app.who_is(low, high, address=target, timeout=2), 4)
         rows = [
             {
@@ -189,7 +254,7 @@ class Bacnet:
         try:
             value = await asyncio.wait_for(
                 self.require().read_property(
-                    _unicast(address), object_id, property_id, array_index
+                    self.target_address(address), object_id, property_id, array_index
                 ),
                 6,
             )
@@ -228,7 +293,7 @@ class Bacnet:
             type(value) in (float, int) and not math.isfinite(value)
         ):
             raise ValueError("Command must be a finite scalar.")
-        _unicast(address)
+        self.target_address(address)
         obj = await self.require().parse_object_identifier(object_id)
         if str(obj[0]) not in (
             "analog-output",
@@ -300,7 +365,7 @@ class Bacnet:
             try:
                 response = await asyncio.wait_for(
                     self.require().write_property(
-                        _unicast(address),
+                        self.target_address(address),
                         obj,
                         "present-value",
                         plan["value"],
@@ -365,7 +430,7 @@ class Bacnet:
                 )
             response = await asyncio.wait_for(
                 self.require().write_property(
-                    _unicast(address), obj, "present-value", Null(()), priority=priority
+                    self.target_address(address), obj, "present-value", Null(()), priority=priority
                 ),
                 6,
             )
@@ -384,9 +449,28 @@ class Bacnet:
             self.store.record("bacnet.release", result)
             return result
 
+    async def disconnect(self):
+        async with self.lock:
+            if self.commands:
+                raise ValueError("Relinquish owned BACnet commands before closing the interface.")
+            self.store.record("bacnet.disconnect.requested", {"config": self.config})
+            if self.app:
+                self.app.close()
+                self.app = None
+            self.plans.clear()
+            result = self.status()
+            try:
+                self.store.record("bacnet.disconnected", {"config": self.config})
+            except (OSError, sqlite3.Error) as exc:
+                result["audit_error"] = f"Interface closed; audit completion failed: {exc}"
+            return result
+
     def status(self):
+        layer = getattr(self.app, "mstp_link", None)
+        link = layer.status() if layer is not None else None
         return {
-            "connected": self.app is not None,
+            "connected": self.app is not None and (link is None or link["connected"]),
+            "serial_link": link,
             "config": self.config,
             "commands": [
                 {

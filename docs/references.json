@@ -2539,6 +2539,39 @@
     "notes": "Public vendor flash sheet. Package/schema migration and sensor point remapping reference; not proof of compatibility with legacy VMA/FX-PCV firmware."
   },
   {
+    "vendor": "Tridium",
+    "title": "Mastering Niagara: Hidden Gems, Tips and Troubleshooting (2026)",
+    "url": "https://www.tridium.com/content/dam/tridium/en/documents/niagara-summit-2026/application/tri-niagara-summit-2026-session-nth4.pdf",
+    "pages": 64,
+    "sha256": "58b0a599bd79986a8dc116df789b1de1f7c0eaceb1a82b247a7dae377a4fb320",
+    "status": "downloaded and extracted; native encoding sections reviewed",
+    "local_collection": "multivendor",
+    "local_id": "Tridium-native-58b0a599bd",
+    "notes": "Publicly retrieved. Original notices retained; private local reference only. Native BOG/profile research."
+  },
+  {
+    "vendor": "Tridium",
+    "title": "Troubleshooting Niagara (2023)",
+    "url": "https://www.tridium.com/content/dam/tridium/en/documents/niagara-forum-2023/NF23-Technical-Troubleshooting-Niagara.pdf",
+    "pages": 46,
+    "sha256": "4227e6f66a8eea1b18b2c136c77506bb0562a5c90ffce4839a8533c568c6b838",
+    "status": "downloaded and extracted; native encoding sections reviewed",
+    "local_collection": "multivendor",
+    "local_id": "Tridium-native-4227e6f66a",
+    "notes": "Publicly retrieved. Original notices retained; private local reference only. Native BOG/profile research."
+  },
+  {
+    "vendor": "Tridium",
+    "title": "Niagara AX kitControl Guide (2013)",
+    "url": "https://raw.githubusercontent.com/bbartling/pybog/0248d941bf230aad2f19f9805be67c0e64bd51ef/pdf/docKitControl.pdf",
+    "pages": 80,
+    "sha256": "85fe22301d845c463c0f480ac0ac4c4bf233a2b327e309c5fc1f5f77c0338594",
+    "status": "downloaded and extracted; native encoding sections reviewed",
+    "local_collection": "multivendor",
+    "local_id": "Tridium-native-85fe22301d",
+    "notes": "Publicly retrieved. Original notices retained; private local reference only. Native BOG/profile research."
+  },
+  {
     "vendor": "California Energy Commission",
     "title": "CEC-Programming-Library-Certification-List-2026-09-10.xlsx",
     "url": "https://www.energy.ca.gov/sites/default/files/2026-09/Programming_Library_Certification_List_9_10_2026_ada.xlsx",
@@ -2693,5 +2726,26 @@
     "url": "https://github.com/morluto/rea",
     "notes": "MIT \u00b7 Reverse engineer anything with agents, from app behavior down to native binaries.",
     "status": "metadata and README/license inspected"
+  },
+  {
+    "vendor": "Open source / source research",
+    "title": "bbartling/pybog",
+    "url": "https://github.com/bbartling/pybog",
+    "notes": "MIT; pinned 0248d941bf230aad2f19f9805be67c0e64bd51ef. Public native BOG encoding reference; independent builder fixture verified locally. No Niagara runtime acceptance claim.",
+    "status": "source and local behavior reviewed"
+  },
+  {
+    "vendor": "Open source / source research",
+    "title": "Temco native compiler/interpreter verification",
+    "url": "https://github.com/temcocontrols/T3000_Building_Automation_System/tree/ae9b9d082de93b35ff2ca59eb1d0c06ae04cec9b",
+    "notes": "MIT. Reproducible local host of manufacturer Control Basic compiler and decode interpreter; no field transport.",
+    "status": "source and local behavior reviewed"
+  },
+  {
+    "vendor": "Open source / source research",
+    "title": "BACnet-stack MS/TP encoding reference",
+    "url": "https://github.com/bacnet-stack/bacnet-stack/tree/e295d20baba977132b47bc09f61f28e12f2dfac3",
+    "notes": "File-specific GPL-2.0-or-later with GCC exception and MIT. External C frame oracle only; no upstream code or binary bundled. See mstp-provenance.md.",
+    "status": "source and local behavior reviewed"
   }
 ]

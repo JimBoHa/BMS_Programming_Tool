@@ -17,7 +17,12 @@
   {
     "feature": "Persistent simulation trends and alarm lifecycle",
     "status": "implemented",
-    "scope": "Opt-in successful-scan recording with simulation/receipt timestamps, types, quality and units in bounded SQLite retention. Alarm activation/return/acknowledgment/reactivation, operator notes, event queries, source filters, paged trend CSV and resolved-source retirement. No field trend acquisition or external alarm delivery. Recording failures are distinguished from executed scans. Explicit source end closes abandoned simulation alarms with a distinct source-ended event; acknowledgment precedes retirement."
+    "scope": "Opt-in successful-scan recording with simulation/receipt timestamps, types, quality and units in bounded SQLite retention. Alarm activation/return/acknowledgment/reactivation, operator notes, event queries, source filters, paged trend CSV and resolved-source retirement. Field samples have a separate read-only acquisition service and database. External alarm delivery is not implemented. Recording failures are distinguished from executed scans. Explicit source end closes abandoned simulation alarms with a distinct source-ended event; acknowledgment precedes retirement."
+  },
+  {
+    "feature": "Read-only BACnet field trends",
+    "status": "implemented",
+    "scope": "Explicit polling jobs share an already connected BACnet/IP, routed or direct MS/TP interface. Finite values persist with acquisition/receipt UTC timestamps, unit labels and unknown quality unless reliability/status/out-of-service checks validate. Failures produce durable events without synthetic values; interface changes stop jobs. Separate field/simulation databases enforce source-kind identity. Jobs do not resume on restart. No point writes, native alarms or device history import."
   },
   {
     "feature": "Program and input/output simulation",
@@ -42,7 +47,7 @@
   {
     "feature": "Interchange conversion and export",
     "status": "partial",
-    "scope": "BMS JSON, IEC Structured Text, PLCopen TC6 XML with ST, GraphML and real native Sedona bundles/SAX/SAB/SCode. Studio files re-import with source consistency checks; a declared subset of foreign standard-kit SAX/SAB converts with an execution-difference report. External IEC compiler acceptance remains unverified."
+    "scope": "BMS JSON, IEC Structured Text, PLCopen TC6 XML with ST, GraphML, native Sedona bundles/SAX/SAB/SCode, native Niagara BOG primitive profiles and Temco Control Basic. Studio files verify original source consistency; supported foreign subsets convert with execution-difference reports. External IEC and Niagara runtime acceptance remains unverified."
   },
   {
     "feature": "FX and Metasys CAF inspection",
@@ -52,17 +57,27 @@
   {
     "feature": "CAF application editing",
     "status": "partial",
-    "scope": "Narrow offline scalar patches to existing name/description/stored-value properties. Full block creation, rewiring, target compilation and native validation are pending."
+    "scope": "Narrow offline scalar patches plus observed native block/wire/order/position inspection, guarded rewires and prototype-checked added connections between existing blocks. Exact old tuple/count, opaque native configuration, proven ports, unused destinations and execution ordering are checked. New block identities, complete application semantics, target compilation and native validation remain pending."
   },
   {
     "feature": "Native vendor formats",
-    "status": "pending",
-    "scope": "New JCI CAF/CAP, ALC GFB/logic, Honeywell Spyder application and Niagara BOG/station encoders require verified semantics, compilers/packages and target tests. Sedona is implemented separately. No renamed JSON exports."
+    "status": "partial",
+    "scope": "Native Sedona compilation/execution, native Temco Control Basic compiler/interpreter host and 17 primitive Niagara BOG mappings are available. New JCI CAF/CAP, ALC equipment and Honeywell Spyder encoders still require verified semantics, compilers/packages and target tests. No renamed JSON exports."
   },
   {
     "feature": "Native Sedona applications",
     "status": "implemented",
     "scope": "Pinned upstream compiler creates real kits, SAX, SAB and 64-bit simulator SCode. All 27 graph blocks run in a separate native VM, compared with the graph engine. Native online components/wiring persist through revisions and exports. Exported applications scan automatically; calendar/I/O mapping is a destination-runtime responsibility. Experimental local Unix port, not physical-platform certification."
+  },
+  {
+    "feature": "Native Temco Control Basic",
+    "status": "partial",
+    "scope": "All 27 graph blocks compile into real native bytecode and execute in a pinned manufacturer interpreter host. Persistent state, staged commits, fixed-point differences and explicit host calendar flags are verified. All nine illustrative VAV graphs match 60 native scans. Source/bytecode export and checked authoring annotations support re-import. No physical controller loader, native input-quality service or firmware certification."
+  },
+  {
+    "feature": "Native Niagara BOG primitives",
+    "status": "partial",
+    "scope": "17 primitive graph types map to real bajaObjectGraph ZIP/XML. Supported foreign math/logic/writable components convert with a mandatory event/status/priority review report. Unknown native logic, resources or configuration fail conversion. Original archive inspection/preservation is available in the adapter. No Niagara SDK/runtime acceptance or full station conversion."
   },
   {
     "feature": "BACnet/IP connection",
@@ -77,12 +92,12 @@
   {
     "feature": "Ethernet and USB serial",
     "status": "partial",
-    "scope": "BACnet/IP, Modbus TCP and Modbus RTU with enumerated serial ports. Real TCP sockets and OS pseudoterminal RTU tests cover fragmented replies and CRC rejection. Physical USB/RS-485 hardware remains untested."
+    "scope": "BACnet/IP, direct serial legacy MS/TP master, Modbus TCP and Modbus RTU with enumerated serial ports. Real UDP/TCP and OS pseudoterminal tests verify framed point services. Physical USB/RS485 hardware remains untested."
   },
   {
-    "feature": "BTCVT Bluetooth and direct MS/TP",
-    "status": "pending",
-    "scope": "Requires verified transport/protocol implementation and hardware tests; a generic serial connection is insufficient. Bluetooth firmware/download restrictions remain target constraints."
+    "feature": "Direct MS/TP and BTCVT Bluetooth",
+    "status": "partial",
+    "scope": "Direct legacy MS/TP token master, CRC/frame decoder, bounded pyserial worker and BACpypes3 integration are implemented and exercised through real pseudoterminals. Physical bus timing and adapters remain unverified. BTCVT Bluetooth host protocol and extended/COBS frames are not implemented."
   },
   {
     "feature": "Live application changes",

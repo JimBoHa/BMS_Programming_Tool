@@ -1,4 +1,4 @@
-# Research findings — 2026-10-18
+# Research findings — 2026-10-19
 
 There are useful open source control editors, runtimes, interoperability tools, and protocol stacks. The search did not establish a complete open source compiler/downloader that replaces CCT/PCT for the existing FX-PCV1615/1630 and VMA1630 controllers. Repository feature claims are leads, not evidence that a target controller accepts a generated application.
 
@@ -10,7 +10,7 @@ There are useful open source control editors, runtimes, interoperability tools, 
 | [OpenPLC Runtime](https://github.com/Autonomy-Logic/openplc-runtime) | MIT in current repository LICENSE | Open execution environment and extensible I/O drivers | Requires its runtime on compatible hardware |
 | [Beremiz](https://github.com/beremiz/beremiz) | GPL-3.0 | IEC 61131-3 editing and compiler/runtime ecosystem | IEC target/toolchain compatibility must be verified |
 | [Sedona framework community fork](https://github.com/linsong/sedona) | Academic Free License 3.0; README and LICENSE.md | Component kits, SAX/SAB applications, compiler, virtual machine and Sox live component services | Requires a Sedona-enabled device and matching kits; generic BACnet support does not imply Sedona |
-| [Temco T3000](https://github.com/temcocontrols/T3000_Building_Automation_System) | MIT | Manufacturer-published BAS front end, Control Basic editing, device configuration and BACnet/Modbus integration | Temco native programming semantics/protocols need a dedicated adapter |
+| [Temco T3000](https://github.com/temcocontrols/T3000_Building_Automation_System) | MIT | Manufacturer-published BAS front end, Control Basic editing, device configuration and BACnet/Modbus integration | Native compiler/interpreter adapter now verifies all 27 blocks locally; physical configuration/download still requires a device adapter |
 | [Eclipse 4diac IDE](https://github.com/eclipse-4diac/4diac-ide) and [FORTE](https://github.com/eclipse-4diac/4diac-forte) | EPL-2.0 | IEC 61499 function-block engineering and runtime | IEC 61499 differs from IEC 61131 scan semantics and proprietary DDC applications |
 | [OpenBuildingControl](https://github.com/lbl-srg/obc) and [Modelica Buildings](https://github.com/lbl-srg/modelica-buildings) | Repository-specific notices must be checked before copying implementations | Control Description Language, executable reference sequences and verification methods | Reference models still need target lowering and validated runtime behavior |
 | [BACpypes3](https://github.com/JoelBender/BACpypes3) and [BACnet Stack](https://github.com/bacnet-stack/bacnet-stack) | Inspect package/source notices; repository metadata alone was inconclusive | BACnet application/network services and data-link foundations | Protocol access is not an application compiler |
@@ -40,6 +40,18 @@ All 27 graph block types and the nine illustrative VAV profiles execute through 
 This is an experimental local Unix platform, not physical Sedona certification. The broad upstream test harness includes an `AppTest.verifyCallbacks` assertion that reads an object after removal frees it; that failure is recorded, not counted as a passed certification. Selected native core-value tests and our structural readback/rollback tests pass. A real Sedona controller still needs its matching platform image, ABI, services and kits. This compiler/VM does not make JCI, ALC, Spyder or Niagara firmware accept Sedona applications.
 
 Some search results call themselves BACnet simulators or universal controllers while using commercial/source-available terms or distributing only binary appliances. Those are not automatically reusable open source implementations. They were not incorporated.
+
+## Additional native formats and serial verification
+
+The manufacturer-published [Temco compiler/interpreter source](https://github.com/temcocontrols/T3000_Building_Automation_System/tree/ae9b9d082de93b35ff2ca59eb1d0c06ae04cec9b) is MIT licensed. The new reproducible host emits genuine Control Basic bytecode and executes it with the manufacturer's decode interpreter. All 27 graph blocks, state retention, fault output holds and all nine illustrative VAV profiles have native execution evidence. Calendars use explicit host active/valid flags. The host has simulated points and no physical download service; native integer precision and overflow differences remain visible. See [the Temco profile](temco-native.md).
+
+The MIT [pybog project](https://github.com/bbartling/pybog/tree/0248d941bf230aad2f19f9805be67c0e64bd51ef) supplies a public, independently authored Niagara BOG encoding reference. A supported native primitive profile now imports/exports real ZIP/XML BOG files, with an independent pybog-generated fixture. A separate inspector preserves unknown/protected components and archive resources byte for byte. Conversion rejects logic or configuration it cannot model. There is no installed Niagara station/Workbench acceptance test. See [native BOG scope](niagara-bog.md).
+
+Tridium's [2026 troubleshooting presentation](https://www.tridium.com/content/dam/tridium/en/documents/niagara-summit-2026/application/tri-niagara-summit-2026-session-nth4.pdf), [2023 presentation](https://www.tridium.com/content/dam/tridium/en/documents/niagara-forum-2023/NF23-Technical-Troubleshooting-Niagara.pdf) and the manufacturer kitControl guide were added to the private reference collection. Their 190 pages were extracted and indexed; encoding/component/protection sections were reviewed. Original copyright/confidentiality notices remain, and no manual PDF is redistributed in this repository. The multivendor catalog now has 58 PDF records, 57 distinct PDF hashes.
+
+A separately written legacy MS/TP master now handles token/frame services through pyserial and a BACpypes3 data-link adapter. Production HTTP discovery and ReadProperty use actual pseudoterminals with fixed wire peers. Selected frame octets match an externally compiled pinned BACnet-stack encoder. Physical bus timing, USB adapters, BTCVT, extended frames and vendor application downloads remain unverified. See [the protocol implementation](mstp-transport.md) and [file-specific provenance](mstp-provenance.md).
+
+Authorized local CAFs exposed native block lists, four-short connection records, order, positions and continuation tables. Guarded source rewires and prototype-checked added connections preserve objects and unrelated XML. These operations were exercised on separate copies of all seven samples. There is still no independent JCI compiler, target package installation or field application loader, so offline relationship authoring is not evidence that a controller accepts the application.
 
 ## Local evidence and manual collection
 

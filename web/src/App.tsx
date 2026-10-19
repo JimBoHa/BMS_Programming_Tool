@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useReactFlow, type Connection, type NodeChange } from "@xyflow/react";
 import {
   CircuitBoard,
@@ -24,6 +31,7 @@ import {
   Layers,
   Bell,
   Boxes,
+  Activity,
 } from "lucide-react";
 import { api, download, initSession } from "./api";
 import {
@@ -35,15 +43,41 @@ import {
 } from "./types";
 import { Canvas } from "./Canvas";
 import { Inspector, SimulationPanel } from "./Panels";
-import { NativeCaf } from "./NativeCaf";
-import { Connections } from "./Connections";
-import { RuntimePanel } from "./Runtime";
-import { Resources } from "./Resources";
-import { NativeSimulator } from "./NativeSimulator";
-import { SystemSimulation } from "./SystemSimulation";
 import { SelectionPanel } from "./SelectionPanel";
-import { Observations } from "./Observations";
-import { MacroLibrary } from "./MacroLibrary";
+
+const NativeCaf = lazy(() =>
+  import("./NativeCaf").then((m) => ({ default: m.NativeCaf })),
+);
+const Connections = lazy(() =>
+  import("./Connections").then((m) => ({ default: m.Connections })),
+);
+const RuntimePanel = lazy(() =>
+  import("./Runtime").then((m) => ({ default: m.RuntimePanel })),
+);
+const Resources = lazy(() =>
+  import("./Resources").then((m) => ({ default: m.Resources })),
+);
+const NativeSimulator = lazy(() =>
+  import("./NativeSimulator").then((m) => ({ default: m.NativeSimulator })),
+);
+const TemcoSimulator = lazy(() =>
+  import("./TemcoSimulator").then((m) => ({ default: m.TemcoSimulator })),
+);
+const SystemSimulation = lazy(() =>
+  import("./SystemSimulation").then((m) => ({ default: m.SystemSimulation })),
+);
+const Observations = lazy(() =>
+  import("./Observations").then((m) => ({ default: m.Observations })),
+);
+const MacroLibrary = lazy(() =>
+  import("./MacroLibrary").then((m) => ({ default: m.MacroLibrary })),
+);
+const FieldTrends = lazy(() =>
+  import("./FieldTrends").then((m) => ({ default: m.FieldTrends })),
+);
+const NiagaraInspector = lazy(() =>
+  import("./NiagaraInspector").then((m) => ({ default: m.NiagaraInspector })),
+);
 
 export function App() {
   const [tab, setTab] = useState("editor"),
@@ -634,11 +668,14 @@ export function App() {
   const tabs = [
     { id: "editor", title: "Program", icon: Workflow },
     { id: "caf", title: "CAF files", icon: FileArchive },
+    { id: "bog", title: "BOG files", icon: FileArchive },
     { id: "connections", title: "Connect", icon: Network },
     { id: "runtime", title: "Runtime", icon: Cpu },
     { id: "native", title: "Native sim", icon: FlaskConical },
+    { id: "temco", title: "Temco native", icon: Cpu },
     { id: "system", title: "System sim", icon: Layers },
     { id: "observations", title: "Trends & alarms", icon: Bell },
+    { id: "field-trends", title: "Field trends", icon: Activity },
     { id: "macros", title: "Macros", icon: Boxes },
     { id: "resources", title: "Reference", icon: BookOpen },
   ];
@@ -704,410 +741,433 @@ export function App() {
           </div>
         </nav>
         <main>
-          {tab === "editor" ? (
-            <>
-              {macroEdit && (
-                <div className="macro-edit-banner">
-                  <strong>Editing definition: {macroEdit.definition}</strong>
-                  <span>
-                    Changes apply to every instance. Keep input identifiers,
-                    types and units unchanged.
-                  </span>
-                  <button className="primary" onClick={applyMacroEdit}>
-                    Apply definition changes
-                  </button>
-                  <button onClick={discardMacroEdit}>
-                    Discard definition changes
-                  </button>
-                </div>
-              )}
-              <div className="editor-toolbar">
-                <div className="button-row">
-                  <button
-                    title="New program"
-                    aria-label="New program"
-                    disabled={!!macroEdit}
-                    onClick={() => {
-                      change(blankProgram());
-                      setSelected(null);
-                      setVersions([]);
-                    }}
-                  >
-                    <Plus size={15} /> New
-                  </button>
-                  <select
-                    aria-label="Open saved project"
-                    disabled={!!macroEdit}
-                    value=""
-                    onChange={(e) => loadProject(e.target.value)}
-                  >
-                    <option value="">Open project…</option>
-                    {projects.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} · r{p.revision}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    aria-label="Choose VAV template"
-                    disabled={!!macroEdit}
-                    value=""
-                    onChange={(e) => {
-                      const p = templates.find((p) => p.id === e.target.value);
-                      if (p) {
-                        change({
-                          ...structuredClone(p),
-                          id: p.id + "-" + Date.now().toString(36),
-                        });
+          <Suspense
+            fallback={<div className="loading">Opening workspace…</div>}
+          >
+            {tab === "editor" ? (
+              <>
+                {macroEdit && (
+                  <div className="macro-edit-banner">
+                    <strong>Editing definition: {macroEdit.definition}</strong>
+                    <span>
+                      Changes apply to every instance. Keep input identifiers,
+                      types and units unchanged.
+                    </span>
+                    <button className="primary" onClick={applyMacroEdit}>
+                      Apply definition changes
+                    </button>
+                    <button onClick={discardMacroEdit}>
+                      Discard definition changes
+                    </button>
+                  </div>
+                )}
+                <div className="editor-toolbar">
+                  <div className="button-row">
+                    <button
+                      title="New program"
+                      aria-label="New program"
+                      disabled={!!macroEdit}
+                      onClick={() => {
+                        change(blankProgram());
                         setSelected(null);
                         setVersions([]);
-                        setInputs({});
-                        setTimeout(() => flow.fitView({ padding: 0.2 }), 100);
-                      }
-                    }}
-                  >
-                    <option value="">VAV templates…</option>
-                    {templates.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="toolbar-divider" />
-                  <button
-                    title="Undo"
-                    disabled={!undoStack.length}
-                    onClick={undo}
-                  >
-                    <Undo2 size={15} />
-                  </button>
-                  <button
-                    title="Redo"
-                    disabled={!redoStack.length}
-                    onClick={redo}
-                  >
-                    <Redo2 size={15} />
-                  </button>
-                  <button
-                    title="Fit view"
-                    onClick={() => flow.fitView({ padding: 0.2 })}
-                  >
-                    <Maximize size={15} />
-                  </button>
-                  <button
-                    title="Program settings"
-                    onClick={() => {
-                      setSettings(true);
-                      api(`/projects/${program.id}/versions`)
-                        .then(setVersions)
-                        .catch(() => {});
-                    }}
-                  >
-                    <Settings2 size={15} />
-                  </button>
-                </div>
-                <div className="button-row">
-                  <button onClick={() => importInput.current?.click()}>
-                    <Upload size={15} /> Import
-                  </button>
-                  <input
-                    hidden
-                    type="file"
-                    accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab"
-                    ref={importInput}
-                    onChange={(e) => {
-                      importProgram(e.target.files?.[0]);
-                      e.target.value = "";
-                    }}
-                  />
-                  <select
-                    aria-label="Export format"
-                    value={format}
-                    onChange={(e) => setFormat(e.target.value)}
-                  >
-                    <option value="json">BMS project</option>
-                    <option value="st">Structured Text</option>
-                    <option value="plcopen">PLCopen XML</option>
-                    <option value="graphml">GraphML</option>
-                    <option value="sedona">Native Sedona bundle</option>
-                    <option value="sedona-sax">
-                      Sedona SAX (kit required)
-                    </option>
-                    <option value="sedona-sab">
-                      Sedona SAB (kit required)
-                    </option>
-                  </select>
-                  <button
-                    onClick={async () => {
-                      try {
-                        await download(
-                          "/export",
-                          { program, format },
-                          program.id +
-                            "." +
-                            {
-                              json: "bms.json",
-                              st: "st",
-                              plcopen: "xml",
-                              graphml: "graphml",
-                              sedona: "sedona.zip",
-                              "sedona-sax": "sax",
-                              "sedona-sab": "sab",
-                            }[format],
+                      }}
+                    >
+                      <Plus size={15} /> New
+                    </button>
+                    <select
+                      aria-label="Open saved project"
+                      disabled={!!macroEdit}
+                      value=""
+                      onChange={(e) => loadProject(e.target.value)}
+                    >
+                      <option value="">Open project…</option>
+                      {projects.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} · r{p.revision}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      aria-label="Choose VAV template"
+                      disabled={!!macroEdit}
+                      value=""
+                      onChange={(e) => {
+                        const p = templates.find(
+                          (p) => p.id === e.target.value,
                         );
-                        setMessage(
-                          "Exported " +
-                            format +
-                            ". Native vendor compilation is a separate step.",
-                        );
-                      } catch (e) {
-                        setMessage(String(e));
-                      }
-                    }}
-                  >
-                    <Download size={15} /> Export
-                  </button>
-                </div>
-              </div>
-              <div className="editor-layout">
-                <aside className="palette">
-                  <div className="panel-heading">
-                    <Workflow size={16} /> BLOCK LIBRARY{" "}
-                    <span>{specs.length}</span>
+                        if (p) {
+                          change({
+                            ...structuredClone(p),
+                            id: p.id + "-" + Date.now().toString(36),
+                          });
+                          setSelected(null);
+                          setVersions([]);
+                          setInputs({});
+                          setTimeout(() => flow.fitView({ padding: 0.2 }), 100);
+                        }
+                      }}
+                    >
+                      <option value="">VAV templates…</option>
+                      {templates.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="toolbar-divider" />
+                    <button
+                      title="Undo"
+                      disabled={!undoStack.length}
+                      onClick={undo}
+                    >
+                      <Undo2 size={15} />
+                    </button>
+                    <button
+                      title="Redo"
+                      disabled={!redoStack.length}
+                      onClick={redo}
+                    >
+                      <Redo2 size={15} />
+                    </button>
+                    <button
+                      title="Fit view"
+                      onClick={() => flow.fitView({ padding: 0.2 })}
+                    >
+                      <Maximize size={15} />
+                    </button>
+                    <button
+                      title="Program settings"
+                      onClick={() => {
+                        setSettings(true);
+                        api(`/projects/${program.id}/versions`)
+                          .then(setVersions)
+                          .catch(() => {});
+                      }}
+                    >
+                      <Settings2 size={15} />
+                    </button>
                   </div>
-                  <div className="search">
-                    <Search size={15} />
+                  <div className="button-row">
+                    <button onClick={() => importInput.current?.click()}>
+                      <Upload size={15} /> Import
+                    </button>
                     <input
-                      aria-label="Search blocks"
-                      placeholder="Search blocks…"
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
+                      hidden
+                      type="file"
+                      accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"
+                      ref={importInput}
+                      onChange={(e) => {
+                        importProgram(e.target.files?.[0]);
+                        e.target.value = "";
+                      }}
+                    />
+                    <select
+                      aria-label="Export format"
+                      value={format}
+                      onChange={(e) => setFormat(e.target.value)}
+                    >
+                      <option value="json">BMS project</option>
+                      <option value="st">Structured Text</option>
+                      <option value="plcopen">PLCopen XML</option>
+                      <option value="graphml">GraphML</option>
+                      <option value="bog">
+                        Niagara BOG (primitive profile)
+                      </option>
+                      <option value="temco-bas">Temco Control Basic</option>
+                      <option value="sedona">Native Sedona bundle</option>
+                      <option value="sedona-sax">
+                        Sedona SAX (kit required)
+                      </option>
+                      <option value="sedona-sab">
+                        Sedona SAB (kit required)
+                      </option>
+                    </select>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await download(
+                            "/export",
+                            { program, format },
+                            program.id +
+                              "." +
+                              {
+                                json: "bms.json",
+                                st: "st",
+                                plcopen: "xml",
+                                graphml: "graphml",
+                                bog: "bog",
+                                "temco-bas": "bas",
+                                sedona: "sedona.zip",
+                                "sedona-sax": "sax",
+                                "sedona-sab": "sab",
+                              }[format],
+                          );
+                          setMessage(
+                            format === "bog"
+                              ? "Exported native Niagara BOG primitives. Review event, status and priority semantics in Niagara; native runtime acceptance is unverified."
+                              : format === "temco-bas"
+                                ? "Exported Control Basic source. Compile and compare with the native interpreter in Temco native. Physical download is unavailable."
+                                : "Exported " +
+                                  format +
+                                  ". Review target compatibility before deployment.",
+                          );
+                        } catch (e) {
+                          setMessage(String(e));
+                        }
+                      }}
+                    >
+                      <Download size={15} /> Export
+                    </button>
+                  </div>
+                </div>
+                <div className="editor-layout">
+                  <aside className="palette">
+                    <div className="panel-heading">
+                      <Workflow size={16} /> BLOCK LIBRARY{" "}
+                      <span>{specs.length}</span>
+                    </div>
+                    <div className="search">
+                      <Search size={15} />
+                      <input
+                        aria-label="Search blocks"
+                        placeholder="Search blocks…"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                      />
+                    </div>
+                    <div className="palette-scroll">
+                      {[
+                        "I/O",
+                        "Math",
+                        "Logic",
+                        "Control",
+                        "Supervision",
+                        "Macros",
+                      ].map((category) => (
+                        <div className="palette-group" key={category}>
+                          <div className="small-heading">{category}</div>
+                          {palette
+                            .filter((b) => b.category === category)
+                            .map((b) => (
+                              <button
+                                className="palette-block"
+                                key={specKey(b)}
+                                draggable
+                                onDragStart={(e) => {
+                                  e.dataTransfer.setData(
+                                    "application/bms-kind",
+                                    specKey(b),
+                                  );
+                                  e.dataTransfer.effectAllowed = "copy";
+                                }}
+                                onClick={() => add(specKey(b))}
+                                title={b.help || b.title}
+                              >
+                                <span
+                                  className={
+                                    "block-mark category-" +
+                                    category.toLowerCase().replace("/", "")
+                                  }
+                                >
+                                  {b.stateful
+                                    ? "↻"
+                                    : b.kind === "Input"
+                                      ? "I"
+                                      : b.kind === "Output"
+                                        ? "O"
+                                        : b.title.slice(0, 1)}
+                                </span>
+                                <span>
+                                  {b.title}
+                                  <small>
+                                    {b.inputs.length
+                                      ? b.inputs.length + " inputs"
+                                      : "source"}
+                                  </small>
+                                </span>
+                                <Plus size={13} />
+                              </button>
+                            ))}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="palette-footer">
+                      Drag a block onto the wiresheet.
+                      <br />
+                      Click a block to add it.
+                    </div>
+                  </aside>
+                  <div className="editor-center">
+                    <Canvas
+                      program={program}
+                      blocks={specs}
+                      last={history.at(-1)}
+                      issues={issues}
+                      selected={selection}
+                      onSelect={setSelected}
+                      onChange={nodeChanges}
+                      onBeginDrag={remember}
+                      onConnect={connect}
+                      onAdd={add}
+                      onRemoveWire={(id) =>
+                        change({
+                          ...program,
+                          edges: program.edges.filter((e) => e.id !== id),
+                        })
+                      }
+                    />
+                    <SimulationPanel
+                      program={program}
+                      history={history}
+                      inputs={inputs}
+                      setInputs={setInputs}
+                      forces={forces}
+                      onReleaseForces={() => setForces({})}
+                      running={running}
+                      setRunning={setRunning}
+                      onStep={step}
+                      onReset={() => {
+                        session.current = null;
+                        setHistory([]);
+                        setRunning(false);
+                        setSimError("");
+                        setForces({});
+                      }}
+                      onScenario={(h) => {
+                        session.current = null;
+                        setHistory(h);
+                        setForces(h.at(-1)?.forces || {});
+                      }}
+                      error={simError}
+                      recordHistory={recordHistory}
+                      setRecordHistory={setRecordHistory}
+                      recordingError={recordingError}
+                      nextClock={nextClock}
+                      setNextClock={setNextClock}
                     />
                   </div>
-                  <div className="palette-scroll">
-                    {[
-                      "I/O",
-                      "Math",
-                      "Logic",
-                      "Control",
-                      "Supervision",
-                      "Macros",
-                    ].map((category) => (
-                      <div className="palette-group" key={category}>
-                        <div className="small-heading">{category}</div>
-                        {palette
-                          .filter((b) => b.category === category)
-                          .map((b) => (
-                            <button
-                              className="palette-block"
-                              key={specKey(b)}
-                              draggable
-                              onDragStart={(e) => {
-                                e.dataTransfer.setData(
-                                  "application/bms-kind",
-                                  specKey(b),
-                                );
-                                e.dataTransfer.effectAllowed = "copy";
-                              }}
-                              onClick={() => add(specKey(b))}
-                              title={b.help || b.title}
-                            >
-                              <span
-                                className={
-                                  "block-mark category-" +
-                                  category.toLowerCase().replace("/", "")
-                                }
-                              >
-                                {b.stateful
-                                  ? "↻"
-                                  : b.kind === "Input"
-                                    ? "I"
-                                    : b.kind === "Output"
-                                      ? "O"
-                                      : b.title.slice(0, 1)}
-                              </span>
-                              <span>
-                                {b.title}
-                                <small>
-                                  {b.inputs.length
-                                    ? b.inputs.length + " inputs"
-                                    : "source"}
-                                </small>
-                              </span>
-                              <Plus size={13} />
-                            </button>
-                          ))}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="palette-footer">
-                    Drag a block onto the wiresheet.
-                    <br />
-                    Click a block to add it.
-                  </div>
-                </aside>
-                <div className="editor-center">
-                  <Canvas
-                    program={program}
-                    blocks={specs}
-                    last={history.at(-1)}
-                    issues={issues}
-                    selected={selection}
-                    onSelect={setSelected}
-                    onChange={nodeChanges}
-                    onBeginDrag={remember}
-                    onConnect={connect}
-                    onAdd={add}
-                    onRemoveWire={(id) =>
-                      change({
-                        ...program,
-                        edges: program.edges.filter((e) => e.id !== id),
-                      })
-                    }
-                  />
-                  <SimulationPanel
-                    program={program}
-                    history={history}
-                    inputs={inputs}
-                    setInputs={setInputs}
-                    forces={forces}
-                    onReleaseForces={() => setForces({})}
-                    running={running}
-                    setRunning={setRunning}
-                    onStep={step}
-                    onReset={() => {
-                      session.current = null;
-                      setHistory([]);
-                      setRunning(false);
-                      setSimError("");
-                      setForces({});
-                    }}
-                    onScenario={(h) => {
-                      session.current = null;
-                      setHistory(h);
-                      setForces(h.at(-1)?.forces || {});
-                    }}
-                    error={simError}
-                    recordHistory={recordHistory}
-                    setRecordHistory={setRecordHistory}
-                    recordingError={recordingError}
-                    nextClock={nextClock}
-                    setNextClock={setNextClock}
-                  />
-                </div>
-                {selection.length > 1 ? (
-                  <SelectionPanel
-                    nodes={program.nodes.filter((n) =>
-                      selection.includes(n.id),
-                    )}
-                    onSelect={setSelected}
-                    onCopy={copySelection}
-                    onDuplicate={duplicate}
-                    onDelete={remove}
-                    onAlign={alignSelection}
-                  />
-                ) : (
-                  <Inspector
-                    node={active}
-                    block={specs.find(
-                      (b) =>
-                        b.kind === active?.kind &&
-                        (b.kind !== "Macro" ||
-                          b.parameters.definition ===
-                            active?.params.definition),
-                    )}
-                    onEdit={edit}
-                    onDelete={remove}
-                    onDuplicate={duplicate}
-                    program={program}
-                    onSelect={setSelected}
-                    forces={forces}
-                    onForceChange={setForces}
-                    last={history.at(-1)}
-                  />
-                )}
-              </div>
-              <div className="validation-bar">
-                <button
-                  className={
-                    errors.length ? "validation-error" : "validation-ok"
-                  }
-                  onClick={() => setShowIssues(!showIssues)}
-                >
-                  {errors.length ? (
-                    <AlertTriangle size={14} />
+                  {selection.length > 1 ? (
+                    <SelectionPanel
+                      nodes={program.nodes.filter((n) =>
+                        selection.includes(n.id),
+                      )}
+                      onSelect={setSelected}
+                      onCopy={copySelection}
+                      onDuplicate={duplicate}
+                      onDelete={remove}
+                      onAlign={alignSelection}
+                    />
                   ) : (
-                    <CheckCircle2 size={14} />
-                  )}{" "}
-                  {errors.length
-                    ? errors.length + " graph errors"
-                    : "Graph checks passed"}{" "}
-                  <span>
-                    {issues.filter((d) => d.level === "warning").length} notices
-                  </span>
-                </button>
-                <span>
-                  {program.nodes.length} blocks · {program.edges.length} wires ·{" "}
-                  {program.scan_seconds}s scan · r{program.revision}
-                </span>
-              </div>
-              {showIssues && (
-                <div className="diagnostics">
-                  {issues.length ? (
-                    issues.map((d, i) => (
-                      <button key={i} onClick={() => setSelected(d.node)}>
-                        <span
-                          className={
-                            "pill " + (d.level === "error" ? "pending" : "")
-                          }
-                        >
-                          {d.level}
-                        </span>
-                        <b>{d.node || "Program"}</b>
-                        {d.message}
-                      </button>
-                    ))
-                  ) : (
-                    <p>
-                      All graph checks passed. This checks our graph semantics,
-                      not native firmware compatibility.
-                    </p>
+                    <Inspector
+                      node={active}
+                      block={specs.find(
+                        (b) =>
+                          b.kind === active?.kind &&
+                          (b.kind !== "Macro" ||
+                            b.parameters.definition ===
+                              active?.params.definition),
+                      )}
+                      onEdit={edit}
+                      onDelete={remove}
+                      onDuplicate={duplicate}
+                      program={program}
+                      onSelect={setSelected}
+                      forces={forces}
+                      onForceChange={setForces}
+                      last={history.at(-1)}
+                    />
                   )}
                 </div>
-              )}
-            </>
-          ) : tab === "caf" ? (
-            <NativeCaf />
-          ) : tab === "connections" ? (
-            <Connections />
-          ) : tab === "runtime" ? (
-            <RuntimePanel program={program} inputs={inputs} />
-          ) : tab === "native" ? (
-            <NativeSimulator
-              program={program}
-              onSaved={(p) => {
-                setProgram(p);
-                api("/projects")
-                  .then(setProjects)
-                  .catch((e) => setMessage(String(e)));
-                setMessage(`Saved native revision ${p.revision} locally.`);
-              }}
-            />
-          ) : tab === "system" ? (
-            <SystemSimulation program={program} />
-          ) : tab === "observations" ? (
-            <Observations />
-          ) : tab === "macros" ? (
-            <MacroLibrary
-              program={program}
-              selectedIds={selection}
-              onChange={change}
-              onSelect={setSelected}
-              onEditDefinition={openMacroEdit}
-            />
-          ) : (
-            <Resources />
-          )}
+                <div className="validation-bar">
+                  <button
+                    className={
+                      errors.length ? "validation-error" : "validation-ok"
+                    }
+                    onClick={() => setShowIssues(!showIssues)}
+                  >
+                    {errors.length ? (
+                      <AlertTriangle size={14} />
+                    ) : (
+                      <CheckCircle2 size={14} />
+                    )}{" "}
+                    {errors.length
+                      ? errors.length + " graph errors"
+                      : "Graph checks passed"}{" "}
+                    <span>
+                      {issues.filter((d) => d.level === "warning").length}{" "}
+                      notices
+                    </span>
+                  </button>
+                  <span>
+                    {program.nodes.length} blocks · {program.edges.length} wires
+                    · {program.scan_seconds}s scan · r{program.revision}
+                  </span>
+                </div>
+                {showIssues && (
+                  <div className="diagnostics">
+                    {issues.length ? (
+                      issues.map((d, i) => (
+                        <button key={i} onClick={() => setSelected(d.node)}>
+                          <span
+                            className={
+                              "pill " + (d.level === "error" ? "pending" : "")
+                            }
+                          >
+                            {d.level}
+                          </span>
+                          <b>{d.node || "Program"}</b>
+                          {d.message}
+                        </button>
+                      ))
+                    ) : (
+                      <p>
+                        All graph checks passed. This checks our graph
+                        semantics, not native firmware compatibility.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </>
+            ) : tab === "caf" ? (
+              <NativeCaf />
+            ) : tab === "bog" ? (
+              <NiagaraInspector />
+            ) : tab === "connections" ? (
+              <Connections />
+            ) : tab === "runtime" ? (
+              <RuntimePanel program={program} inputs={inputs} />
+            ) : tab === "native" ? (
+              <NativeSimulator
+                program={program}
+                onSaved={(p) => {
+                  setProgram(p);
+                  api("/projects")
+                    .then(setProjects)
+                    .catch((e) => setMessage(String(e)));
+                  setMessage(`Saved native revision ${p.revision} locally.`);
+                }}
+              />
+            ) : tab === "temco" ? (
+              <TemcoSimulator program={program} />
+            ) : tab === "system" ? (
+              <SystemSimulation program={program} />
+            ) : tab === "observations" ? (
+              <Observations />
+            ) : tab === "field-trends" ? (
+              <FieldTrends />
+            ) : tab === "macros" ? (
+              <MacroLibrary
+                program={program}
+                selectedIds={selection}
+                onChange={change}
+                onSelect={setSelected}
+                onEditDefinition={openMacroEdit}
+              />
+            ) : (
+              <Resources />
+            )}
+          </Suspense>
         </main>
       </div>
       <footer className="app-footer">

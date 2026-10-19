@@ -7,6 +7,7 @@ import {
   FileCheck2,
 } from "lucide-react";
 import { api, download } from "./api";
+import { CafGraphPanel } from "./CafGraphPanel";
 
 export function NativeCaf() {
   const [caf, setCaf] = useState<any>(null),
@@ -18,6 +19,7 @@ export function NativeCaf() {
     [properties, setProperties] = useState<any[]>([]),
     [changes, setChanges] = useState<any[]>([]),
     [error, setError] = useState("");
+  const [filename, setFilename] = useState("controller.caf");
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (!caf) return;
@@ -42,6 +44,7 @@ export function NativeCaf() {
       const form = new FormData();
       form.append("file", file);
       setCaf(await api("/caf", form));
+      setFilename(file.name);
       setChanges([]);
       setSelected(null);
       setProperties([]);
@@ -144,6 +147,7 @@ export function NativeCaf() {
               </p>
             </div>
           </div>
+          <CafGraphPanel id={caf.sha256} filename={filename} />
           <div className="caf-layout">
             <section className="card">
               <div className="card-header">
