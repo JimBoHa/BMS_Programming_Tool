@@ -13,6 +13,7 @@ import io
 import json
 import math
 import re
+import struct
 import zipfile
 from collections import Counter
 from pathlib import Path
@@ -202,6 +203,12 @@ class CafArchive:
                 number = float(value)
                 if not math.isfinite(number):
                     raise ValueError("CAF floating-point value must be finite.")
+                try:
+                    encoded = struct.unpack(">f", struct.pack(">f", number))[0]
+                except OverflowError as exc:
+                    raise ValueError("CAF value exceeds its 32-bit floating-point range.") from exc
+                if number != 0 and encoded == 0:
+                    raise ValueError("CAF value underflows its 32-bit floating-point range.")
                 value = format(number, ".9g")
             elif kind == "boolean":
                 if value not in ("0", "1"):

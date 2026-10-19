@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import re
+import struct
 import xml.etree.ElementTree as XML
 
 from defusedxml import ElementTree as SafeXML
@@ -33,6 +34,12 @@ def _literal(v):
         return "TRUE" if v else "FALSE"
     if type(v) not in (int, float):
         raise ConversionError("Cannot export nonnumeric/nonboolean literal.")
+    try:
+        encoded = struct.unpack(">f", struct.pack(">f", v))[0]
+    except (OverflowError, struct.error) as exc:
+        raise ConversionError("Literal exceeds the IEC REAL 32-bit range.") from exc
+    if v != 0 and encoded == 0:
+        raise ConversionError("Literal underflows the IEC REAL 32-bit range.")
     s = format(v, ".15g")
     return s if any(c in s.lower() for c in ".e") else s + ".0"
 

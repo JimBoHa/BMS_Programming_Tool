@@ -94,6 +94,22 @@ def test_caf_patch_checks_original_value_and_refuses_identity_changes():
         caf.patch([{"ref": "8-1", "property": "3113", "old": "72.000000", "value": "NaN"}])
 
 
+@pytest.mark.parametrize("value", [1e100, 1e-100])
+def test_caf_float_patch_rejects_nonrepresentable_values(value):
+    with pytest.raises(ValueError, match="32-bit"):
+        CafArchive(make_caf()).patch(
+            [{"ref": "8-1", "property": "3113", "old": "72.000000", "value": str(value)}]
+        )
+
+
+@pytest.mark.parametrize("value", [1e100, 1e-100])
+def test_st_export_rejects_nonrepresentable_real_literals(value):
+    p = all_templates()[0]
+    p.nodes[0].params["default"] = value
+    with pytest.raises(ConversionError, match="32-bit"):
+        export_st(p)
+
+
 def test_caf_parser_rejects_entities_and_ambiguous_archives():
     with pytest.raises(ValueError, match="entities"):
         CafArchive(make_caf(b'<!DOCTYPE x [<!ENTITY evil SYSTEM "file:///etc/passwd">]><objects/>'))

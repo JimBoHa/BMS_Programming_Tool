@@ -29,7 +29,7 @@ There are useful open source control editors, runtimes, interoperability tools, 
 
 Tridium's [FOX session example](https://github.com/tridium/forum2025-fox-session-demo) requires Niagara 4.15+, signing configuration and a Niagara installation. Its custom “Tridium Open Source License” imposes redistribution conditions; it is not treated as a generic permissively licensed replacement for Workbench, and its code was not incorporated.
 
-[REA](https://github.com/morluto/rea), MIT, is an analysis framework for applications and binaries. Its source was inspected, not executed. It grants no CCT license or vendor SDK. No installed CCT binary was available in this workspace for an authorized compiler analysis.
+[REA](https://github.com/morluto/rea), MIT, is an analysis framework for applications and binaries. Its source was inspected, not executed. It grants no CCT license or vendor SDK. Guest automation did not produce a usable CCT/PCT installation inventory in the VM, so its installed-toolchain state remains unverified. No CCT binaries were extracted or analyzed.
 
 Some search results call themselves BACnet simulators or universal controllers while using commercial/source-available terms or distributing only binary appliances. Those are not automatically reusable open source implementations. They were not incorporated.
 

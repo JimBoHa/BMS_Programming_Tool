@@ -4,7 +4,7 @@ The implementation is a development build. The checks below validate the stated 
 
 ## Automated verification
 
-- **80 backend tests:** control semantics, strict I/O types and quality, feedback cycles, PI anti-windup, timers, schedules, temperature conversion, rate limiting, alarm delay/reset, complete-scan commits, timed scenarios, revision conflicts, native-format rejection, CAF preservation, online sandbox application changes and rollback, session/origin checks, and network adapters.
+- **84 backend tests:** control semantics, strict I/O types and quality, feedback cycles, PI anti-windup, timers, schedules, temperature conversion, rate limiting, alarm delay/reset, complete-scan commits, timed scenarios, revision conflicts, native-format rejection, CAF preservation and 32-bit numeric range guards, online sandbox application changes and rollback, session/origin checks, and network adapters.
 - **Six browser workflows:** actual drag/drop and pin wiring; simulation and open-circuit refusal; local revisions plus export/re-import; synthetic CAF inspection/scalar edit; online sandbox replacement/rollback; accurate display of native/hardware gaps.
 - **Nine PLCopen exports:** all examples validated against an independently retrieved PLCopen TC6 v2.01 XSD. Schema provenance: <https://raw.githubusercontent.com/mattsse/plcopen-xml-xcore/master/schema/tc6_xml_v201.xsd>. The original PLCopen schema documentation link was stale. The XSD is a local reference and is not redistributed here.
 - TypeScript production build and Ruff checks passed. Current development environment: Python 3.13.16, Node 22.23.3, FastAPI 0.146.0, Pydantic 2.14.1, BACpypes3 0.0.110 and Vite 7.3.7.
@@ -33,3 +33,7 @@ E2/F2 controllers were not contacted or changed. The user will establish a route
 No native CAF/ALC/Spyder/Niagara/Sedona application compiler, proprietary application download, BTCVT transport or direct MS/TP master has been validated. The nine VAV examples are illustrative; no 2025 Title 24 or complete Guideline 36 compliance claim is made.
 
 The requested final GitHub push remains pending because those requested capabilities are incomplete.
+
+## VM toolchain check
+
+The existing Windows VM was started in UTM disposable mode for a read-only toolchain inventory attempt. Guest execution/file retrieval did not produce the inventory, so CCT/PCT installation and licensing status remain unverified. No CCT binary analysis or compiler invocation occurred. The VM returned to the stopped state afterward.
