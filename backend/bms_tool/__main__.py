@@ -6,8 +6,7 @@ from pathlib import Path
 
 from .caf import CafArchive
 from .engine import run_scenario, validate
-from .formats import export_program
-from .models import Program
+from .formats import export_program, import_program
 
 
 def main():
@@ -25,7 +24,11 @@ def main():
         if name == "simulate":
             p.add_argument("--scenario", type=Path, required=True)
         if name == "export":
-            p.add_argument("--format", choices=["json", "st", "plcopen", "graphml"], required=True)
+            p.add_argument(
+                "--format",
+                choices=["json", "st", "plcopen", "graphml", "sedona", "sedona-sax", "sedona-sab"],
+                required=True,
+            )
             p.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.command == "serve":
@@ -42,7 +45,7 @@ def main():
     elif args.command == "caf":
         print(json.dumps(CafArchive(args.file.read_bytes()).summary(), indent=2))
     else:
-        program = Program.model_validate_json(args.file.read_bytes())
+        program = import_program(args.file.read_bytes(), args.file.name)
         if args.command == "validate":
             issues = validate(program)
             print(json.dumps([i.model_dump() for i in issues], indent=2))

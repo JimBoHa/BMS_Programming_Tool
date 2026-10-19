@@ -13,11 +13,12 @@ ROOT = Path(__file__).resolve().parents[2].parent / "Reference_Library"
 records = json.loads((ROOT / "catalog.json").read_text())
 by_path = {r.get("path"): r for r in records if r.get("path")}
 out = ROOT / "index"
-out.mkdir(exist_ok=True)
+out.mkdir(parents=True, exist_ok=True)
 db = sqlite3.connect(out / "manuals.sqlite3")
 db.execute("DROP TABLE IF EXISTS pages")
 db.execute("CREATE VIRTUAL TABLE pages USING fts5(document UNINDEXED,page UNINDEXED,text)")
 pdfs = []
+canonical = {}
 for folder in ("manuals", "extracted"):
     for path in sorted((ROOT / folder).rglob("*.pdf")):
         rel = str(path.relative_to(ROOT))
@@ -38,6 +39,13 @@ for folder in ("manuals", "extracted"):
         sha = hashlib.sha256(path.read_bytes()).hexdigest()
         record["sha256"] = sha
         record["id"] = sha[:16]
+        if sha in canonical:
+            original = canonical[sha]
+            record.update({k: original[k] for k in ("pages", "title", "outline", "review")})
+            record["duplicate_of"] = original["path"]
+            pdfs.append(record)
+            continue
+        record.pop("duplicate_of", None)
         with fitz.open(path) as doc:
             record.update(
                 pages=len(doc), title=doc.metadata.get("title") or path.stem, outline=doc.get_toc()
@@ -52,6 +60,7 @@ for folder in ("manuals", "extracted"):
             "Indexed all extracted page text; selected programming, simulation, transfer, and restriction passages reviewed. Not a line-by-line review of every page."
         )
         pdfs.append(record)
+        canonical[sha] = record
 db.commit()
 db.close()
 (ROOT / "catalog.json").write_text(json.dumps(records, indent=2))
@@ -80,7 +89,8 @@ print(
     json.dumps(
         {
             "pdfs": len(pdfs),
-            "pages": sum(r["pages"] for r in pdfs),
+            "distinct_pdfs": len(canonical),
+            "indexed_pages": sum(r["pages"] for r in canonical.values()),
             "failures": [r["url"] for r in records if r["status"] == "failed"],
         },
         indent=2,

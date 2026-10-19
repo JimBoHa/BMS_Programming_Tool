@@ -1,17 +1,82 @@
 [
- {"feature":"Create and edit control programs","status":"implemented","scope":"Our versioned graph format: 27 block types, typed wiring, engineering units, revisions, validation and undo/redo."},
- {"feature":"Graphical drag-and-drop programming","status":"implemented","scope":"Local browser GUI with block palette, wiring, properties, templates, zoom, minimap and diagnostics."},
- {"feature":"Program and input/output simulation","status":"implemented","scope":"Deterministic scans, feedback memory, PI, timers, schedules, fault injection, timed scenarios and CSV traces. This is our graph runtime, not JCI firmware emulation."},
- {"feature":"Interchange conversion and export","status":"partial","scope":"BMS JSON, IEC Structured Text, PLCopen TC6 XML containing ST, and GraphML. Re-import supports Studio-generated files; arbitrary vendor source and native binaries are not supported. External target compiler acceptance remains unverified."},
- {"feature":"FX and Metasys CAF inspection","status":"implemented","scope":"Observed ZIP/XML containers: preserve all unknown data, jobInfo and simulationProperty entries; readable attribute/class dictionaries; original byte-exact export."},
- {"feature":"CAF application editing","status":"partial","scope":"Narrow offline scalar patches to existing name/description/stored-value properties. Full block creation, rewiring, target compilation and native validation are pending."},
- {"feature":"Native vendor formats","status":"pending","scope":"New CAF/CAP, ALC GFB/logic, Honeywell Spyder application, Niagara BOG/station, Sedona SAX/SAB and other native encoders require verified schemas, kits/compilers and adapter tests. No renamed JSON exports."},
- {"feature":"BACnet/IP connection","status":"implemented","scope":"Explicit unicast discovery, object/property reads, bounded object lists, command previews, priority-slot checks, verified writes, relinquish and durable command recovery. Tested with real loopback UDP."},
- {"feature":"BACnet/IP-to-MS/TP router paths","status":"partial","scope":"Explicit router IP plus DNET/MAC addressing. Actual NPDU routing passed an IP-to-virtual-data-link test. Physical MS/TP and E2/F2 routing remain untested until the network route is available."},
- {"feature":"Ethernet and USB serial","status":"partial","scope":"BACnet/IP and Modbus TCP; Modbus RTU with enumerated serial ports and CRC checks. TCP tested. Physical USB/RTU hardware still needs testing."},
- {"feature":"BTCVT Bluetooth and direct MS/TP","status":"pending","scope":"Requires verified transport/protocol implementation and hardware tests; a generic serial connection is insufficient. Bluetooth firmware/download restrictions remain target constraints."},
- {"feature":"Live application changes","status":"partial","scope":"Atomic graph changes, generation checks, compatible state preservation, execution preflight, audit trail and rollback in our local sandbox runtime. No field outputs bound. Proprietary controller application changes remain pending."},
- {"feature":"E2/F2 unused-input sensor test","status":"pending","scope":"User will provide network routing tomorrow. Requires a native application adapter, target identity, verified unused terminal, original backup and restoration. No field changes attempted."},
- {"feature":"2025 Title 24 / Guideline 36 applications","status":"pending","scope":"Nine illustrative VAV graph examples include six FX/Metasys profiles. They are not certified Title 24 sequences or downloadable native CAFs."},
- {"feature":"Evidence and reference library","status":"implemented","scope":"Vendor manuals, source repository inventory, page-level evidence, feature requirements and explicit support gaps. Copyrighted reference PDFs and site files stay outside the code repository."}
+  {
+    "feature": "Create and edit control programs",
+    "status": "implemented",
+    "scope": "Our versioned graph format: 27 block types, typed wiring, engineering units, revisions, validation and undo/redo."
+  },
+  {
+    "feature": "Graphical drag-and-drop programming",
+    "status": "implemented",
+    "scope": "Local browser GUI with block palette, wiring, properties, templates, zoom, minimap and diagnostics."
+  },
+  {
+    "feature": "Program and input/output simulation",
+    "status": "implemented",
+    "scope": "Deterministic scans, feedback memory, PI, timers, schedules, fault injection, timed scenarios and CSV traces. This is our graph runtime, not JCI firmware emulation."
+  },
+  {
+    "feature": "Interchange conversion and export",
+    "status": "partial",
+    "scope": "BMS JSON, IEC Structured Text, PLCopen TC6 XML with ST, GraphML and real native Sedona bundles/SAX/SAB/SCode. Studio files re-import with source consistency checks; a declared subset of foreign standard-kit SAX/SAB converts with an execution-difference report. External IEC compiler acceptance remains unverified."
+  },
+  {
+    "feature": "FX and Metasys CAF inspection",
+    "status": "implemented",
+    "scope": "Observed ZIP/XML containers: preserve all unknown data, jobInfo and simulationProperty entries; readable attribute/class dictionaries; original byte-exact export."
+  },
+  {
+    "feature": "CAF application editing",
+    "status": "partial",
+    "scope": "Narrow offline scalar patches to existing name/description/stored-value properties. Full block creation, rewiring, target compilation and native validation are pending."
+  },
+  {
+    "feature": "Native vendor formats",
+    "status": "pending",
+    "scope": "New JCI CAF/CAP, ALC GFB/logic, Honeywell Spyder application and Niagara BOG/station encoders require verified semantics, compilers/packages and target tests. Sedona is implemented separately. No renamed JSON exports."
+  },
+  {
+    "feature": "Native Sedona applications",
+    "status": "implemented",
+    "scope": "Pinned upstream compiler creates real kits, SAX, SAB and 64-bit simulator SCode. All 27 graph blocks run in a separate native VM, compared with the graph engine. Native online components/wiring persist through revisions and exports. Exported applications scan automatically; calendar/I/O mapping is a destination-runtime responsibility. Experimental local Unix port, not physical-platform certification."
+  },
+  {
+    "feature": "BACnet/IP connection",
+    "status": "implemented",
+    "scope": "Explicit unicast discovery, object/property reads, bounded object lists, command previews, priority-slot checks, verified writes, relinquish and durable command recovery. Tested with real loopback UDP."
+  },
+  {
+    "feature": "BACnet/IP-to-MS/TP router paths",
+    "status": "partial",
+    "scope": "Explicit router IP plus DNET/MAC addressing. NPDU routing passed an IP-to-virtual-data-link test. Physical MS/TP and E2/F2 remain untested. User supplied Tailscale access; connectivity checks are queued after programming completion."
+  },
+  {
+    "feature": "Ethernet and USB serial",
+    "status": "partial",
+    "scope": "BACnet/IP, Modbus TCP and Modbus RTU with enumerated serial ports. Real TCP sockets and OS pseudoterminal RTU tests cover fragmented replies and CRC rejection. Physical USB/RS-485 hardware remains untested."
+  },
+  {
+    "feature": "BTCVT Bluetooth and direct MS/TP",
+    "status": "pending",
+    "scope": "Requires verified transport/protocol implementation and hardware tests; a generic serial connection is insufficient. Bluetooth firmware/download restrictions remain target constraints."
+  },
+  {
+    "feature": "Live application changes",
+    "status": "partial",
+    "scope": "Graph replacement with state retention and rollback in our sandbox. Real Sox add/write/link/unlink/delete in an owned native SVM; shadow-VM preflight, configuration conflict checks, compensating rollback, persistent project save/export and value/link readback. Proprietary controller application changes remain pending."
+  },
+  {
+    "feature": "E2/F2 unused-input sensor test",
+    "status": "pending",
+    "scope": "Tailscale access supplied; no connectivity or field changes attempted. Checks must follow programming completion. A physical sensor test still needs a native application adapter, exact target/unused terminal, original backup and verified restoration."
+  },
+  {
+    "feature": "2025 Title 24 / Guideline 36 applications",
+    "status": "pending",
+    "scope": "Nine illustrative VAV graph examples include six FX/Metasys profiles. They are not certified Title 24 sequences or downloadable native CAFs."
+  },
+  {
+    "feature": "Evidence and reference library",
+    "status": "implemented",
+    "scope": "Vendor manuals, source repository inventory, page-level evidence, feature requirements and explicit support gaps. Copyrighted reference PDFs and site files stay outside the code repository."
+  }
 ]

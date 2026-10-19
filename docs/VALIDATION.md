@@ -4,8 +4,9 @@ The implementation is a development build. The checks below validate the stated 
 
 ## Automated verification
 
-- **84 backend tests:** control semantics, strict I/O types and quality, feedback cycles, PI anti-windup, timers, schedules, temperature conversion, rate limiting, alarm delay/reset, complete-scan commits, timed scenarios, revision conflicts, native-format rejection, CAF preservation and 32-bit numeric range guards, online sandbox application changes and rollback, session/origin checks, and network adapters.
-- **Six browser workflows:** actual drag/drop and pin wiring; simulation and open-circuit refusal; local revisions plus export/re-import; synthetic CAF inspection/scalar edit; online sandbox replacement/rollback; accurate display of native/hardware gaps.
+- **144 backend tests passed with no skips:** control semantics, strict I/O types and quality, feedback cycles, PI anti-windup, timers, schedules, temperature conversion, rate limiting, alarm delay/reset, complete-scan commits, timed scenarios, revision conflicts, interchange consistency, native-format rejection, CAF preservation and 32-bit numeric range guards, online sandbox application changes and rollback, session/origin checks, and network adapters. The final run took 113.48 seconds and included all seven authorized CAF samples. One upstream Starlette TestClient deprecation warning remains; it does not affect test results.
+- **50 native Sedona integration cases:** all 27 block types, all nine example profiles, feedback/calendar behavior, automatic scanning, fault atomicity, real binary decoding, concurrent compiler processes, native component/link operations, persistent save/export/reopen and compensating recovery after a deliberately dropped write. These use the actual compiler, native SVM and SDK Sox client, rather than substituting the Python engine for native execution.
+- **Nine browser workflows passed:** actual drag/drop and pin wiring; simulation and open-circuit refusal; local revisions plus export/re-import; synthetic CAF inspection/scalar edit; online sandbox replacement/rollback; native application export/import; foreign SAX conversion with an explicit review report; native compile/scan, unused-input null readback, keyboard save, export and rollback; accurate display of native/hardware gaps. The final browser run took 26.3 seconds.
 - **Nine PLCopen exports:** all examples validated against an independently retrieved PLCopen TC6 v2.01 XSD. Schema provenance: <https://raw.githubusercontent.com/mattsse/plcopen-xml-xcore/master/schema/tc6_xml_v201.xsd>. The original PLCopen schema documentation link was stale. The XSD is a local reference and is not redistributed here.
 - TypeScript production build and Ruff checks passed. Current development environment: Python 3.13.16, Node 22.23.3, FastAPI 0.146.0, Pydantic 2.14.1, BACpypes3 0.0.110 and Vite 7.3.7.
 - Dependency audits reported **no known third-party advisories** after updating the environment and Vite. Audit results are a dated package check, not a security certification. The local application itself is unpublished and is assessed through its tests/source review.
@@ -16,7 +17,17 @@ The BACnet tests use real UDP sockets on loopback. They exercise directed Who-Is
 
 Routing uses a real BACnet/IP UDP endpoint and a BACnet router attached to a virtual downstream data link. Reads and discovery reach the remote DNET/MAC address through the router. This verifies NPDU routing, **not physical MS/TP token timing, E2/F2 reachability, or an NAE's routing configuration**.
 
-The Modbus test uses a real local TCP server and deliberately fragmented replies. Serial framing/CRC calculations are covered without a connected RS-485 device. No Bluetooth adapter was available for verification.
+The Modbus tests use a real local TCP server and an actual OS pseudoterminal through pyserial. Fixed known RTU request/response bytes, deliberately fragmented replies and bad-CRC rejection are exercised. This verifies serial framing and the operating-system serial path without claiming physical RS-485, USB adapter or Bluetooth verification.
+
+## Native compiler and simulator
+
+The Sedona SDK is pinned to `406b11f3816fb00db6482640f9cf3397b874b515`. A checksum-verified private Eclipse Temurin 17 JDK builds the Java compiler and bridge. `scripts/setup_sedona.py` reproduces the experimental 64-bit Unix compiler/SVM changes without changing upstream source. Compiler/manifest access is serialized across threads and processes.
+
+Native exports contain real kit, SAB and SCode binaries plus source, hashes, license and provenance. The SDK independently decodes the SAB. The exported application enables automatic scans; interactive simulation advances the main graph explicitly. Physical I/O and calendar inputs require destination-runtime bindings. Native extensions persist null-valued configuration, component order and typed links through SQLite revisions and native export/import/restart. Portable execution/export rejects extensions it would otherwise omit.
+
+Native online changes run first on a second SVM. Apply verifies the original configuration, executes the proposed operations and compares readback with the preview. A missed-write test verifies compensating restoration of the previous configuration. Explicit rollback also verifies readback. A downstream divide-by-zero test verifies that failed scans publish no partial outputs and do not advance feedback state. Native online operations remain sequential; compensation is not an atomic transaction or a physical failsafe.
+
+Selected upstream Boolean, integer, long, float and double tests complete with positive assertion counts and no failures. The broader upstream harness contains `AppTest.verifyCallbacks` assertions that access an object after removal frees it; that observed failure is not counted as a passed platform certification. This port remains experimental and has not been certified or tested on a physical Sedona device.
 
 ## Authorized local CAF samples
 
@@ -28,12 +39,12 @@ Real samples exposed `jobInfo` metadata and separate `simulationProperty` entrie
 
 ## Field and compliance status
 
-E2/F2 controllers were not contacted or changed. The user will establish a route and provide target information later. A physical unused-input test requires a verified native application adapter, target identification, original backup and restoration plan. A normal BACnet point write cannot add that input.
+E2/F2 controllers were not contacted or changed. The user supplied Tailscale access and requested connectivity checks only after programming completion. Those checks remain queued while native target application support is incomplete. Desktop credentials have not been read. A physical unused-input test requires a verified native application adapter, exact target/terminal identification, original backup and verified restoration. A normal BACnet point write cannot add that input.
 
-No native CAF/ALC/Spyder/Niagara/Sedona application compiler, proprietary application download, BTCVT transport or direct MS/TP master has been validated. The nine VAV examples are illustrative; no 2025 Title 24 or complete Guideline 36 compliance claim is made.
+No native CAF/ALC/Spyder/Niagara application compiler, proprietary application download, BTCVT transport or direct MS/TP master has been validated. The working local Sedona compiler is a separate target. The nine VAV examples are illustrative; no 2025 Title 24 or complete Guideline 36 compliance claim is made. Six verified native FX/Metasys CAF applications have not been delivered.
 
 The requested final GitHub push remains pending because those requested capabilities are incomplete.
 
 ## VM toolchain check
 
-The existing Windows VM was started in UTM disposable mode for a read-only toolchain inventory attempt. Guest execution/file retrieval did not produce the inventory, so CCT/PCT installation and licensing status remain unverified. No CCT binary analysis or compiler invocation occurred. The VM returned to the stopped state afterward.
+The existing Windows VM was started in UTM disposable mode. PowerShell inspected 32-bit and 64-bit installed-program registry entries and vendor application directories. Guest execution wrote the result to Windows Temp, and UTM file retrieval recovered a valid inventory. No Johnson Controls CCT/PCT installation appeared in the checked locations. The local result is retained in ignored `local-reports/windows-toolchain-inventory.json`. No CCT binary analysis or compiler invocation occurred. The VM returned to the stopped state afterward.

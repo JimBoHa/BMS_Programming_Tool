@@ -2528,6 +2528,17 @@
     "notes": "Legacy help extracted without executing the installer. Indexed locally; see HTML_HELP.html."
   },
   {
+    "vendor": "Johnson Controls",
+    "title": "Flash Sheet: New NS8000 firmware available in the Generic SA Bus Device package",
+    "url": "https://docs.johnsoncontrols.com/bas/api/khub/documents/qJGLaOTYwigeohhdTpb68g/content",
+    "pages": 4,
+    "sha256": "0301f0c4221654f306a130efb9eb14f941323ca1974a27b947d6c77bb0105e87",
+    "status": "indexed",
+    "local_collection": "multivendor",
+    "local_id": "0301f0c4221654f3",
+    "notes": "Public vendor flash sheet. Package/schema migration and sensor point remapping reference; not proof of compatibility with legacy VMA/FX-PCV firmware."
+  },
+  {
     "vendor": "Open source / source research",
     "title": "Autonomy-Logic/openplc-editor",
     "url": "https://github.com/Autonomy-Logic/openplc-editor",

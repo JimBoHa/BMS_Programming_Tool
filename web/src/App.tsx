@@ -20,6 +20,7 @@ import {
   AlertTriangle,
   Maximize,
   X,
+  FlaskConical,
 } from "lucide-react";
 import { api, download, initSession } from "./api";
 import {
@@ -35,6 +36,7 @@ import { NativeCaf } from "./NativeCaf";
 import { Connections } from "./Connections";
 import { RuntimePanel } from "./Runtime";
 import { Resources } from "./Resources";
+import { NativeSimulator } from "./NativeSimulator";
 
 export function App() {
   const [tab, setTab] = useState("editor"),
@@ -132,14 +134,21 @@ export function App() {
   }
   async function save() {
     try {
-      const p = await api("/projects", {
-        program,
-        expected_revision: program.revision,
-      });
+      const native = tab === "native" ? await api("/native/status") : null;
+      const p = native?.running
+        ? await api("/native/save", {
+            expected_revision: native.program.revision,
+          })
+        : await api("/projects", {
+            program,
+            expected_revision: program.revision,
+          });
       setProgram(p);
       setProjects(await api("/projects"));
       setVersions(await api(`/projects/${p.id}/versions`));
-      setMessage(`Saved revision ${p.revision} locally.`);
+      setMessage(
+        `Saved ${native?.running ? "native " : ""}revision ${p.revision} locally.`,
+      );
     } catch (e) {
       setMessage(String(e));
     }
@@ -176,6 +185,7 @@ export function App() {
         save();
         return;
       }
+      if (tab !== "editor") return;
       if (
         ["INPUT", "SELECT", "TEXTAREA"].includes(
           (e.target as HTMLElement).tagName,
@@ -300,6 +310,7 @@ export function App() {
       });
       setSelected(null);
       setVersions([]);
+      if (imported.metadata?.conversion?.review_required) setSettings(true);
       setMessage("Imported as a new local project.");
     } catch (e) {
       setMessage(String(e));
@@ -317,6 +328,7 @@ export function App() {
     { id: "caf", title: "CAF files", icon: FileArchive },
     { id: "connections", title: "Connect", icon: Network },
     { id: "runtime", title: "Runtime", icon: Cpu },
+    { id: "native", title: "Native sim", icon: FlaskConical },
     { id: "resources", title: "Reference", icon: BookOpen },
   ];
   if (!ready)
@@ -466,7 +478,7 @@ export function App() {
                   <input
                     hidden
                     type="file"
-                    accept=".json,.st,.xml,.graphml"
+                    accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab"
                     ref={importInput}
                     onChange={(e) => {
                       importProgram(e.target.files?.[0]);
@@ -482,6 +494,13 @@ export function App() {
                     <option value="st">Structured Text</option>
                     <option value="plcopen">PLCopen XML</option>
                     <option value="graphml">GraphML</option>
+                    <option value="sedona">Native Sedona bundle</option>
+                    <option value="sedona-sax">
+                      Sedona SAX (kit required)
+                    </option>
+                    <option value="sedona-sab">
+                      Sedona SAB (kit required)
+                    </option>
                   </select>
                   <button
                     onClick={async () => {
@@ -496,6 +515,9 @@ export function App() {
                               st: "st",
                               plcopen: "xml",
                               graphml: "graphml",
+                              sedona: "sedona.zip",
+                              "sedona-sax": "sax",
+                              "sedona-sab": "sab",
                             }[format],
                         );
                         setMessage(
@@ -687,6 +709,17 @@ export function App() {
             <Connections />
           ) : tab === "runtime" ? (
             <RuntimePanel program={program} inputs={inputs} />
+          ) : tab === "native" ? (
+            <NativeSimulator
+              program={program}
+              onSaved={(p) => {
+                setProgram(p);
+                api("/projects")
+                  .then(setProjects)
+                  .catch((e) => setMessage(String(e)));
+                setMessage(`Saved native revision ${p.revision} locally.`);
+              }}
+            />
           ) : (
             <Resources />
           )}
@@ -821,6 +854,14 @@ export function App() {
                 native compiler or certify the graph.
               </p>
               <h3>Saved revisions</h3>
+              {program.metadata?.conversion && (
+                <details open className="conversion-report">
+                  <summary>Native conversion report · review required</summary>
+                  <pre>
+                    {JSON.stringify(program.metadata.conversion, null, 2)}
+                  </pre>
+                </details>
+              )}
               {versions.map((v) => (
                 <button
                   className="version-row"

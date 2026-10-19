@@ -1525,3 +1525,123 @@ tr.active-row td {
 .control-node .output-port {
   font-size: 10px;
 }
+
+.native-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.native-toolbar > div:first-child {
+  flex: 1;
+  min-width: 180px;
+}
+.native-toolbar small {
+  display: block;
+  color: var(--muted);
+  margin-top: 5px;
+}
+.native-trace {
+  max-height: 310px;
+  overflow: auto;
+}
+.native-trace td {
+  font-size: 12px;
+}
+.native-palette {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.native-palette button {
+  cursor: grab;
+  font-size: 12px;
+}
+.native-canvas {
+  height: 370px;
+  position: relative;
+  background: #f5f8fa;
+}
+.native-canvas-empty {
+  position: absolute;
+  inset: 45% 0 auto;
+  text-align: center;
+  pointer-events: none;
+  color: #677787;
+  font-size: 14px;
+}
+.native-block {
+  position: relative;
+  width: 185px;
+  min-height: 118px;
+  background: white;
+  border: 1px solid #b5c9d0;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 3px 12px #16394b0c;
+}
+.native-block.selected {
+  border: 2px solid #089c87;
+}
+.native-block.proposed {
+  border-style: dashed;
+  background: #f2fcf9;
+}
+.native-block b,
+.native-block small {
+  display: block;
+}
+.native-block small {
+  color: #687e8a;
+  font-size: 11px;
+  margin-top: 4px;
+}
+.native-pin {
+  font-size: 11px;
+  height: 24px;
+  color: #728692;
+  margin-top: 7px;
+}
+.native-result {
+  text-align: right;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #087d6c;
+}
+.native-property-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  padding: 16px;
+  border-block: 1px solid var(--border);
+}
+.native-property-strip b {
+  align-self: center;
+}
+.native-property-strip label {
+  max-width: 170px;
+}
+.native-preview {
+  color: #087b69;
+  background: #ecfaf5;
+  border-radius: 6px;
+  padding: 12px;
+}
+.native-workspace pre {
+  max-height: 220px;
+  overflow: auto;
+  font-size: 12px;
+  background: #f4f7fa;
+  padding: 14px;
+}
+
+.conversion-report pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  padding: 10px;
+  background: #f4f7fa;
+}

@@ -7,3 +7,14 @@ Upstream: https://github.com/thecontrolscompany/oct
 The original Apache license is retained in third_party/OCT-LICENSE.txt.
 Mappings are interoperability references, not a vendor SDK or compiler.
 No JCI binaries, controller applications, credentials, or manuals are redistributed.
+
+The optional native compiler/simulator integrates linsong/sedona, commit
+406b11f3816fb00db6482640f9cf3397b874b515, copyright 2006-2013 Tridium, Inc.
+Upstream: https://github.com/linsong/sedona
+Its Academic Free License 3.0 and trademark notice are retained in
+third_party/Sedona-LICENSE.md. The SDK source is downloaded separately;
+scripts/setup_sedona.py reproduces modifications to the compiler's reference
+layout/null optimization and the SVM's null-pointer/UDP ABI handling. The native
+simulation build binds sockets to loopback. This experimental port is not a
+Sedona-certified platform. Generated application bundles contain an upstream
+license copy and source/build provenance for their included SCode runtime.

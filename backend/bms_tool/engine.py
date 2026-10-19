@@ -16,6 +16,19 @@ def validate(program: Program) -> list[Diagnostic]:
     def issue(code, message, node=None, level="error"):
         issues.append(Diagnostic(level=level, code=code, message=message, node=node))
 
+    if "native_sedona" in program.metadata:
+        from .native_document import NativeDocument
+
+        try:
+            NativeDocument.model_validate(program.metadata["native_sedona"])
+            issue(
+                "native_extension",
+                "Additional native Sedona components require Native sim and native export.",
+                level="warning",
+            )
+        except ValueError as exc:
+            issue("native_extension", str(exc))
+
     nodes = {n.id: n for n in program.nodes}
     if len(nodes) != len(program.nodes):
         issue("duplicate_node", "Node identifiers must be unique.")
@@ -204,7 +217,11 @@ class ScanError(ValueError):
 
 
 class Engine:
-    def __init__(self, program: Program):
+    def __init__(self, program: Program, *, allow_native_extension=False):
+        if "native_sedona" in program.metadata and not allow_native_extension:
+            raise ValueError(
+                "This project contains native Sedona components. Use Native sim; portable execution would omit them."
+            )
         self.program = program.model_copy(deep=True)
         issues = validate(self.program)
         errors = [d.message for d in issues if d.level == "error"]

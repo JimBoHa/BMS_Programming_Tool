@@ -29,7 +29,15 @@ There are useful open source control editors, runtimes, interoperability tools, 
 
 Tridium's [FOX session example](https://github.com/tridium/forum2025-fox-session-demo) requires Niagara 4.15+, signing configuration and a Niagara installation. Its custom “Tridium Open Source License” imposes redistribution conditions; it is not treated as a generic permissively licensed replacement for Workbench, and its code was not incorporated.
 
-[REA](https://github.com/morluto/rea), MIT, is an analysis framework for applications and binaries. Its source was inspected, not executed. It grants no CCT license or vendor SDK. Guest automation did not produce a usable CCT/PCT installation inventory in the VM, so its installed-toolchain state remains unverified. No CCT binaries were extracted or analyzed.
+[REA](https://github.com/morluto/rea), MIT, is an analysis framework for applications and binaries. Its source was inspected, not executed. It grants no CCT license or vendor SDK. A read-only Windows guest inventory checked installed-program registries and vendor application directories; no CCT/PCT installation appeared in those locations. The VM was shut down after the inventory. No CCT binaries were extracted or analyzed.
+
+## Native Sedona verification
+
+The pinned Sedona revision `406b11f3816fb00db6482640f9cf3397b874b515` was built locally with a private JDK 17. Its compiler produces actual kits, SAX, executable SAB and SCode. The native C SVM runs on the Apple silicon host with reproducible 64-bit changes recorded in `scripts/setup_sedona.py`. Those changes cover reference-field allocation, pointer-null comparisons, null stack-cell writes, UDP structure offsets, loopback binding and the macOS endian include. The original upstream source remains unchanged.
+
+All 27 graph block types and the nine illustrative VAV profiles execute through that native compiler/VM. Values are read through the SDK's actual Sox client and compared with the separate graph engine. A second native VM preflights structural changes. Saved native configuration and links survive revision storage, export/import and restart. Foreign standard-kit SAX/SAB conversion supports a declared subset and reports changed scan/null/fault semantics; arbitrary native kits do not silently convert.
+
+This is an experimental local Unix platform, not physical Sedona certification. The broad upstream test harness includes an `AppTest.verifyCallbacks` assertion that reads an object after removal frees it; that failure is recorded, not counted as a passed certification. Selected native core-value tests and our structural readback/rollback tests pass. A real Sedona controller still needs its matching platform image, ABI, services and kits. This compiler/VM does not make JCI, ALC, Spyder or Niagara firmware accept Sedona applications.
 
 Some search results call themselves BACnet simulators or universal controllers while using commercial/source-available terms or distributing only binary appliances. Those are not automatically reusable open source implementations. They were not incorporated.
 
@@ -38,6 +46,8 @@ Some search results call themselves BACnet simulators or universal controllers w
 The existing `../Manual_Library` holds the earlier JCI collection. The new `../Reference_Library` contains ALC, Honeywell, Tridium, Temco and standard references, provenance, retrieval failures, SHA-256 hashes, page text, outlines and a searchable SQLite index. Source repositories and offline Sedona/OBC documentation are under `../Reference_Sources`.
 
 The collection is bounded by public searches, linked download indexes and referenced repositories. It is not every manual on the internet. Some old links return 404; some sites return 406; authenticated portals were not bypassed. All extractable PDF pages were indexed. Review focused on contents, programming, resource accounting, simulation, online operations, migration, and explicit limitations; this is not a claim that every word of every manual was read.
+
+The [May 2026 NS8000 firmware flash sheet, LIT-2026F17](https://docs.johnsoncontrols.com/bas/api/khub/documents/qJGLaOTYwigeohhdTpb68g/content) was also downloaded, indexed and reviewed across all four pages. Its hardware-definition update procedure requires checking point connections and occupancy logic after migration. That becomes a desired automatic migration/remapping feature with an explicit verification report. It does not establish that legacy VMA/FX-PCV hardware supports every newer package feature.
 
 ## Turning restrictions into design criteria
 

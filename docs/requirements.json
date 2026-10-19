@@ -123,7 +123,7 @@
     "evidence": "ALC Eikon 3.02 User Guide",
     "pdf_pages_or_section": "52-54",
     "status": "partial",
-    "implementation_or_gap": "Engine clock and input quality; GUI calendar controls pending"
+    "implementation_or_gap": "Engine clock/input quality; native simulation includes an explicit UTC calendar control"
   },
   {
     "id": "SIM-004",
@@ -258,7 +258,7 @@
     "evidence": "Temco T3000 repository README",
     "pdf_pages_or_section": "Communication; source modules",
     "status": "partial",
-    "implementation_or_gap": "TCP loopback verified; physical serial testing pending"
+    "implementation_or_gap": "TCP loopback and real OS pseudoterminal RTU with fragmented replies/CRC rejection verified; physical serial hardware untested"
   },
   {
     "id": "UI-006",
@@ -276,7 +276,7 @@
     "evidence": "Niagara AX to N4 Migration Guide",
     "pdf_pages_or_section": "Migration and compatibility sections",
     "status": "partial",
-    "implementation_or_gap": "Unknown interchange rejected; vendor semantic reports pending"
+    "implementation_or_gap": "Foreign standard-kit Sedona imports show execution/null/precision/infrastructure differences; unknown logic is rejected; proprietary vendor semantic reports pending"
   },
   {
     "id": "PKG-001",
@@ -295,6 +295,15 @@
     "pdf_pages_or_section": "History service concepts",
     "status": "partial",
     "implementation_or_gap": "Simulation history/CSV; durable field trend service pending"
+  },
+  {
+    "id": "PKG-002",
+    "feature": "Hardware schema migration",
+    "acceptance_criterion": "Preserve sensor/controller point connections during hardware-definition changes; show and verify every required remap.",
+    "evidence": "JCI Flash Sheet LIT-2026F17, May 22 2026",
+    "pdf_pages_or_section": "3-4; Installation and Verifying connections after an upgrade",
+    "status": "pending",
+    "implementation_or_gap": "Versioned native hardware-package mappings, migration review and target acceptance tests; do not substitute package definitions silently"
   },
   {
     "id": "SCHED-001",
@@ -329,8 +338,8 @@
     "acceptance_criterion": "Create valid kit-linked applications and compile for the matching SVM.",
     "evidence": "Sedona framework doc/apps/apps.md and doc/network/sox.md",
     "pdf_pages_or_section": "Applications; compiler",
-    "status": "pending",
-    "implementation_or_gap": "Sedonac compiler/kit resolver and native exporter"
+    "status": "implemented",
+    "implementation_or_gap": "Pinned Sedonac compiles generated kits, SAX, real SAB and SCode for the local native SVM; physical platform images require their own ABI/kits"
   },
   {
     "id": "RUN-003",
@@ -339,7 +348,7 @@
     "evidence": "Sedona framework doc/apps/apps.md and doc/network/sox.md",
     "pdf_pages_or_section": "Sox add/write/link operations",
     "status": "partial",
-    "implementation_or_gap": "Own-runtime transactional changes; Sedona Sox deployment pending"
+    "implementation_or_gap": "Native Sox add/write/link/delete on an owned SVM; native preflight, conflict checks, compensating rollback, persistent revisions and complete native export; field vendor adapters pending"
   },
   {
     "id": "OBC-001",
@@ -356,15 +365,15 @@
     "acceptance_criterion": "Map source execution/units/state into a target-specific intermediate representation.",
     "evidence": "OpenBuildingControl specification/codeGeneration.rst",
     "pdf_pages_or_section": "Code generation",
-    "status": "pending",
-    "implementation_or_gap": "Explicit IR exists; vendor target lowering absent"
+    "status": "partial",
+    "implementation_or_gap": "Sedona standard-kit subset imports preserve backward-link scan delays; native code generation implements 27 blocks with independent VM comparisons; proprietary adapters pending"
   },
   {
     "id": "IO-001",
     "feature": "Physical input configuration",
     "acceptance_criterion": "Add a real unused sensor terminal and verify reliability/open-circuit on the target.",
     "evidence": "User-authorized E2/F2 test",
-    "pdf_pages_or_section": "Route information due tomorrow",
+    "pdf_pages_or_section": "Tailscale access supplied; connectivity checks follow programming completion",
     "status": "pending",
     "implementation_or_gap": "Native application adapter and physical target test required"
   },

@@ -227,7 +227,7 @@ add(
     alc,
     "52-54",
     "partial",
-    "Engine clock and input quality; GUI calendar controls pending",
+    "Engine clock/input quality; native simulation includes an explicit UTC calendar control",
 )
 add(
     "SIM-004",
@@ -366,7 +366,7 @@ add(
     "Temco T3000 repository README",
     "Communication; source modules",
     "partial",
-    "TCP loopback verified; physical serial testing pending",
+    "TCP loopback and real OS pseudoterminal RTU with fragmented replies/CRC rejection verified; physical serial hardware untested",
 )
 
 add(
@@ -385,7 +385,7 @@ add(
     "Niagara AX to N4 Migration Guide",
     "Migration and compatibility sections",
     "partial",
-    "Unknown interchange rejected; vendor semantic reports pending",
+    "Foreign standard-kit Sedona imports show execution/null/precision/infrastructure differences; unknown logic is rejected; proprietary vendor semantic reports pending",
 )
 add(
     "PKG-001",
@@ -404,6 +404,15 @@ add(
     "History service concepts",
     "partial",
     "Simulation history/CSV; durable field trend service pending",
+)
+add(
+    "PKG-002",
+    "Hardware schema migration",
+    "Preserve sensor/controller point connections during hardware-definition changes; show and verify every required remap.",
+    "JCI Flash Sheet LIT-2026F17, May 22 2026",
+    "3-4; Installation and Verifying connections after an upgrade",
+    "pending",
+    "Versioned native hardware-package mappings, migration review and target acceptance tests; do not substitute package definitions silently",
 )
 add(
     "SCHED-001",
@@ -440,8 +449,8 @@ add(
     "Create valid kit-linked applications and compile for the matching SVM.",
     sedona,
     "Applications; compiler",
-    "pending",
-    "Sedonac compiler/kit resolver and native exporter",
+    "implemented",
+    "Pinned Sedonac compiles generated kits, SAX, real SAB and SCode for the local native SVM; physical platform images require their own ABI/kits",
 )
 add(
     "RUN-003",
@@ -450,7 +459,7 @@ add(
     sedona,
     "Sox add/write/link operations",
     "partial",
-    "Own-runtime transactional changes; Sedona Sox deployment pending",
+    "Native Sox add/write/link/delete on an owned SVM; native preflight, conflict checks, compensating rollback, persistent revisions and complete native export; field vendor adapters pending",
 )
 add(
     "OBC-001",
@@ -467,15 +476,15 @@ add(
     "Map source execution/units/state into a target-specific intermediate representation.",
     "OpenBuildingControl specification/codeGeneration.rst",
     "Code generation",
-    "pending",
-    "Explicit IR exists; vendor target lowering absent",
+    "partial",
+    "Sedona standard-kit subset imports preserve backward-link scan delays; native code generation implements 27 blocks with independent VM comparisons; proprietary adapters pending",
 )
 add(
     "IO-001",
     "Physical input configuration",
     "Add a real unused sensor terminal and verify reliability/open-circuit on the target.",
     "User-authorized E2/F2 test",
-    "Route information due tomorrow",
+    "Tailscale access supplied; connectivity checks follow programming completion",
     "pending",
     "Native application adapter and physical target test required",
 )

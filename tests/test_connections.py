@@ -1,9 +1,12 @@
 """Actual loopback UDP/TCP tests; no building addresses or broadcast scans."""
 
 import asyncio
+import os
+import select
 import socket
 import struct
 import threading
+import time
 from argparse import Namespace
 
 import pytest
@@ -14,6 +17,49 @@ from bacpypes3.local.networkport import NetworkPortObject
 from bacpypes3.vlan import VirtualNetwork
 from bms_tool.connections import Bacnet, _unicast, crc16, modbus_read
 from bms_tool.storage import Store
+
+
+@pytest.mark.skipif(os.name != "posix", reason="Real pseudoterminal test requires POSIX")
+@pytest.mark.parametrize("corrupt", [False, True])
+def test_real_serial_rtu_exchange_and_crc_rejection(monkeypatch, corrupt):
+    """Exercise pyserial and an OS serial stream, including fragmented bytes."""
+    master, slave = os.openpty()
+    address = os.ttyname(slave)
+    monkeypatch.setattr("bms_tool.connections.ports", lambda: [{"device": address}])
+    errors = []
+
+    def controller():
+        try:
+            request = b""
+            deadline = time.monotonic() + 4
+            while len(request) < 8 and time.monotonic() < deadline:
+                if select.select([master], [], [], 0.1)[0]:
+                    request += os.read(master, 8 - len(request))
+            # Fixed RTU frames avoid generating a response with the CRC routine
+            # under test. Read holding register zero; return decimal ten.
+            assert request.hex() == "010300000001840a"
+            response = bytes.fromhex("010302000a3843")
+            if corrupt:
+                response = response[:-1] + bytes([response[-1] ^ 1])
+            for chunk in (response[:2], response[2:4], response[4:]):
+                os.write(master, chunk)
+                time.sleep(0.01)
+        except Exception as exc:
+            errors.append(exc)
+
+    thread = threading.Thread(target=controller, daemon=True)
+    thread.start()
+    try:
+        if corrupt:
+            with pytest.raises(ValueError, match="CRC"):
+                modbus_read("rtu", address, register=0, count=1)
+        else:
+            assert modbus_read("rtu", address, register=0, count=1)["values"] == [10]
+        thread.join(timeout=5)
+        assert not thread.is_alive() and not errors
+    finally:
+        os.close(master)
+        os.close(slave)
 
 
 def free_udp():

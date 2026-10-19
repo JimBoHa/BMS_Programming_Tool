@@ -24,6 +24,10 @@ class ConversionError(ValueError):
 
 
 def _check(program):
+    if "native_sedona" in program.metadata:
+        raise ConversionError(
+            "This project contains additional native Sedona components. Export JSON or native Sedona; portable export would omit native logic."
+        )
     errors = [d.message for d in validate(program) if d.level == "error"]
     if errors:
         raise ConversionError("; ".join(errors))
@@ -342,6 +346,24 @@ def export_graphml(program):
 
 
 def export_program(program, format):
+    if format == "sedona":
+        from .sedona import export_bundle
+
+        return export_bundle(program), "application/zip", "sedona.zip"
+    if format in ("sedona-sax", "sedona-sab"):
+        import tempfile
+        from pathlib import Path
+
+        from .sedona import compile_program
+
+        with tempfile.TemporaryDirectory(prefix="bms-sedona-export-") as tmp:
+            compile_program(program, tmp)
+            extension = format.removeprefix("sedona-")
+            return (
+                (Path(tmp) / ("app." + extension)).read_bytes(),
+                "application/octet-stream",
+                extension,
+            )
     if format == "json":
         return canonical(program), "application/json", "bms.json"
     if format == "st":
@@ -359,6 +381,18 @@ def import_program(content, filename):
     if len(content) > 8 * 1024 * 1024:
         raise ConversionError("Import exceeds 8 MiB.")
     name = filename.lower()
+    if name.endswith(".sedona.zip"):
+        from .sedona import import_bundle
+
+        return import_bundle(content)
+    if name.endswith((".sax", ".sab")):
+        from .sedona_import import decode_sab, import_sax
+
+        return (
+            import_sax(decode_sab(content), source_kind="SAB")
+            if name.endswith(".sab")
+            else import_sax(content)
+        )
     if name.endswith(".json"):
         return Program.model_validate_json(content)
     if name.endswith(".st"):

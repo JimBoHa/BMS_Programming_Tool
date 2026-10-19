@@ -8,7 +8,10 @@ import json
 import os
 import secrets
 import time
+import xml.etree.ElementTree as XML
+import zipfile
 from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -24,6 +27,7 @@ from .deployment import Runtime
 from .engine import Engine, run_scenario, validate
 from .formats import export_program, import_program
 from .models import Program, StrictModel
+from .native_simulator import NativeSimulator
 from .storage import Conflict, Store
 from .templates import all_templates
 
@@ -36,6 +40,31 @@ class SimulationRequest(StrictModel):
     dt: float | None = None
     session: str | None = None
     steps: int = Field(default=1, ge=1, le=1000)
+    clock: datetime | None = None
+
+
+class NativeStart(StrictModel):
+    program: Program
+
+
+class NativeStep(StrictModel):
+    inputs: dict[str, Any] = Field(default_factory=dict)
+    dt: float | None = Field(default=None, gt=0, le=60)
+    clock: datetime | None = None
+
+
+class NativePlan(StrictModel):
+    operations: list[dict[str, Annotated[str, Field(max_length=256)]]] = Field(
+        min_length=1, max_length=100
+    )
+
+
+class NativeSave(StrictModel):
+    expected_revision: int = Field(ge=0)
+
+
+class NativeExport(StrictModel):
+    format: str = "sedona"
 
 
 class ScenarioRequest(StrictModel):
@@ -121,6 +150,7 @@ def create_app(state_dir=None):
     store = Store(state_dir or os.environ.get("BMS_STUDIO_DATA", str(ROOT / ".state")))
     runtime = Runtime(store)
     bacnet = Bacnet(store)
+    native = NativeSimulator(store)
     simulations = {}
     caf_files = {}
     session_token = secrets.token_urlsafe(32)
@@ -146,11 +176,13 @@ def create_app(state_dir=None):
         with contextlib.suppress(asyncio.CancelledError):
             await task
         bacnet.close()
+        native.stop()
 
     app = FastAPI(title="BMS Studio local API", version="0.1.0", lifespan=lifespan)
     app.state.runtime = runtime
     app.state.store = store
     app.state.bacnet = bacnet
+    app.state.native = native
 
     @app.middleware("http")
     async def local_requests(request, call_next):
@@ -237,7 +269,10 @@ def create_app(state_dir=None):
     @app.post("/api/import")
     async def import_file(file: Annotated[UploadFile, File()]):
         content = await file.read(8 * 1024 * 1024 + 1)
-        return import_program(content, file.filename or "")
+        try:
+            return import_program(content, file.filename or "")
+        except (zipfile.BadZipFile, XML.ParseError, KeyError, TypeError) as exc:
+            raise ValueError("Malformed interchange file: " + type(exc).__name__) from exc
 
     @app.post("/api/export")
     def export_file(body: ExportRequest):
@@ -249,6 +284,55 @@ def create_app(state_dir=None):
                 "Content-Disposition": f'attachment; filename="{body.program.id}.{extension}"'
             },
         )
+
+    @app.get("/api/native/status")
+    def native_status():
+        return native.status()
+
+    @app.post("/api/native/start")
+    def native_start(body: NativeStart):
+        return native.start(body.program)
+
+    @app.post("/api/native/stop")
+    def native_stop():
+        native.stop()
+        return native.status()
+
+    @app.post("/api/native/step")
+    def native_step(body: NativeStep):
+        return native.step(body.inputs, body.dt, body.clock)
+
+    @app.get("/api/native/inventory")
+    def native_inventory():
+        return native.inspect()
+
+    @app.post("/api/native/save")
+    def native_save(body: NativeSave):
+        return native.save(body.expected_revision)
+
+    @app.post("/api/native/export")
+    def native_export(body: NativeExport):
+        if body.format not in ("sedona", "sedona-sax", "sedona-sab", "json"):
+            raise ValueError("Export a native Sedona bundle, SAX, SAB or complete JSON project.")
+        program = native.snapshot_program()
+        content, mime, extension = export_program(program, body.format)
+        return Response(
+            content,
+            media_type=mime,
+            headers={"Content-Disposition": f'attachment; filename="{program.id}.{extension}"'},
+        )
+
+    @app.post("/api/native/plan")
+    def native_plan(body: NativePlan):
+        return native.plan(body.operations)
+
+    @app.post("/api/native/apply")
+    def native_apply(body: TokenRequest):
+        return native.apply(body.token)
+
+    @app.post("/api/native/rollback")
+    def native_rollback(body: RuntimeRollback):
+        return native.rollback(body.backup_id, body.expected_generation)
 
     @app.post("/api/simulation/step")
     async def step(body: SimulationRequest):
@@ -274,7 +358,9 @@ def create_app(state_dir=None):
             simulations[id] = record
         engine = record["engine"]
         record["touched"] = now
-        rows = [engine.step(body.inputs, body.dt) for _ in range(body.steps)]
+        if body.clock is not None and body.steps != 1:
+            raise ValueError("An explicit clock applies to one scan; use single-step mode.")
+        rows = [engine.step(body.inputs, body.dt, body.clock) for _ in range(body.steps)]
         return {
             "session": id,
             "last": rows[-1],

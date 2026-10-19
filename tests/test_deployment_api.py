@@ -96,3 +96,22 @@ def test_api_local_session_origin_and_project_round_trip(tmp_path):
         assert len(client.get("/api/requirements").json()) >= 40
         assert client.get("/api/library/unknown/anything").status_code == 422
         assert client.get("/api/library/jci/not-in-catalog").status_code == 422
+
+
+def test_native_api_refuses_malformed_operations_and_archives_without_starting(tmp_path):
+    with TestClient(create_app(tmp_path)) as client:
+        headers = {"X-Studio-Token": client.get("/api/session").json()["token"]}
+        for path in (123, [], {}, True):
+            response = client.post(
+                "/api/native/plan",
+                json={"operations": [{"op": "delete", "path": path}]},
+                headers=headers,
+            )
+            assert response.status_code == 422, response.text
+        response = client.post(
+            "/api/import",
+            files={"file": ("bad.sedona.zip", b"PKtruncated", "application/zip")},
+            headers=headers,
+        )
+        assert response.status_code == 422, response.text
+        assert not client.get("/api/native/status").json()["running"]

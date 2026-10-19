@@ -74,8 +74,8 @@ def retrieve(url):
 
 
 def main():
-    (ROOT / "manuals").mkdir(exist_ok=True)
-    (ROOT / "research").mkdir(exist_ok=True)
+    (ROOT / "manuals").mkdir(parents=True, exist_ok=True)
+    (ROOT / "research").mkdir(parents=True, exist_ok=True)
     records = {}
     extracted = []
     if (ROOT / "catalog.json").exists():
