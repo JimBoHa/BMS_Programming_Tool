@@ -508,7 +508,7 @@ add(
 )
 
 with (PROJECT / "docs/FEATURE_REQUIREMENTS.csv").open("w", newline="") as f:
-    writer = csv.DictWriter(f, fieldnames=list(requirements[0]),lineterminator="\n")
+    writer = csv.DictWriter(f, fieldnames=list(requirements[0]), lineterminator="\n")
     writer.writeheader()
     writer.writerows(requirements)
 (PROJECT / "docs/requirements.json").write_text(json.dumps(requirements, indent=2))
