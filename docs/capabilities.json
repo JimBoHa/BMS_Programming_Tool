@@ -15,6 +15,21 @@
     "scope": "Deterministic scans, feedback memory, PI, timers, schedules, fault injection, timed scenarios and CSV traces. This is our graph runtime, not JCI firmware emulation."
   },
   {
+    "feature": "Shared-signal system simulation",
+    "status": "implemented",
+    "scope": "2\u201316 graph instances with a common clock and typed/unit-checked previous-cycle links. All programs commit together; a failed cycle holds every state/output. Bounded sessions/history, quality fault records and portable workspace save/reopen. No field interfaces or equipment/firmware emulation."
+  },
+  {
+    "feature": "Internal simulation holds and releases",
+    "status": "implemented",
+    "scope": "Force any core graph block output, retain underlying block state, release individual/all overrides and record computed/forced values. Source faults still fail scans. Timed scenarios replay force maps; CSV includes override evidence. These holds are not exported as controller logic or sent to field devices."
+  },
+  {
+    "feature": "Dependency and edit-impact tracing",
+    "status": "implemented",
+    "scope": "Direct and transitive sources/consumers, affected outputs, previous-scan feedback boundaries, execution-order problems and click-through navigation for the portable core graph."
+  },
+  {
     "feature": "Interchange conversion and export",
     "status": "partial",
     "scope": "BMS JSON, IEC Structured Text, PLCopen TC6 XML with ST, GraphML and real native Sedona bundles/SAX/SAB/SCode. Studio files re-import with source consistency checks; a declared subset of foreign standard-kit SAX/SAB converts with an execution-difference report. External IEC compiler acceptance remains unverified."

@@ -226,8 +226,8 @@ add(
     "Inject calendar, time and communications validity explicitly.",
     alc,
     "52-54",
-    "partial",
-    "Engine clock/input quality; native simulation includes an explicit UTC calendar control",
+    "implemented",
+    "Simulation API clock/input quality, native UTC calendar control and shared-signal group cycle clock",
 )
 add(
     "SIM-004",
@@ -235,8 +235,8 @@ add(
     "Simulate interacting programs through typed shared signals.",
     alc,
     "54-55",
-    "pending",
-    "Multi-program simulation coordinator",
+    "implemented",
+    "2–16 graph instances, typed/unit-checked previous-cycle links, atomic group cycles, common clock, quality faults and portable workspace files",
 )
 add(
     "UI-003",
@@ -282,8 +282,8 @@ add(
     "Override selected signals independently; restore their source cleanly.",
     spyder,
     "374-376;392",
-    "partial",
-    "Input forcing and quality faults; internal block forcing pending",
+    "implemented",
+    "Internal graph simulation holds/releases, independent override maps, computed-value/force traces and timed force events; source faults do not get bypassed",
 )
 add(
     "DBG-001",
@@ -292,7 +292,7 @@ add(
     spyder,
     "367-376",
     "partial",
-    "Explicit point reads/commands; application internal signal watch pending",
+    "Core graph values/force badges and native Sox value/link readback; proprietary field-application internal watch pending",
 )
 add(
     "FMT-005",
@@ -429,8 +429,8 @@ add(
     "Trace incoming/outgoing references and effects of edits.",
     "Niagara Relations Guide",
     "Relations concepts",
-    "pending",
-    "Dependency explorer beyond visible graph wires",
+    "implemented",
+    "Direct and transitive dependencies, affected outputs, memory boundaries and click-through block navigation in the inspector",
 )
 add(
     "ALM-001",

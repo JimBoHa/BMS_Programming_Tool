@@ -16,22 +16,29 @@ import { CircuitBoard } from "lucide-react";
 import type { Block, BmsNode, Program, Scan } from "./types";
 import { showValue } from "./types";
 type ControlNode = Node<
-  { block: BmsNode; spec: Block; value: unknown; invalid: boolean },
+  {
+    block: BmsNode;
+    spec: Block;
+    value: unknown;
+    invalid: boolean;
+    forced: boolean;
+  },
   "control"
 >;
 const ControlBlock = memo(function ControlBlock({
   data,
   selected,
 }: NodeProps<ControlNode>) {
-  const { block, spec, value, invalid } = data;
+  const { block, spec, value, invalid, forced } = data;
   return (
     <div
-      className={`control-node category-${spec.category.toLowerCase().replace("/", "")} ${selected ? "selected" : ""} ${invalid ? "invalid" : ""}`}
+      className={`control-node category-${spec.category.toLowerCase().replace("/", "")} ${selected ? "selected" : ""} ${invalid ? "invalid" : ""} ${forced ? "forced" : ""}`}
       style={{ minHeight: Math.max(108, spec.inputs.length * 29 + 55) }}
     >
       <div className="node-header">
         <span className="node-indicator" />
         <span>{spec.title}</span>
+        {forced && <b className="force-badge">FORCED</b>}
         <small>{block.unit}</small>
       </div>
       <strong className="node-label">{block.label || block.id}</strong>
@@ -101,6 +108,7 @@ export function Canvas({
       },
       value: last?.values[n.id],
       invalid: issues.some((d) => d.node === n.id && d.level === "error"),
+      forced: !!last?.forces && Object.hasOwn(last.forces, n.id),
     },
   }));
   const edges = program.edges.map((e) => ({

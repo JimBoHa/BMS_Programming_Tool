@@ -122,8 +122,8 @@
     "acceptance_criterion": "Inject calendar, time and communications validity explicitly.",
     "evidence": "ALC Eikon 3.02 User Guide",
     "pdf_pages_or_section": "52-54",
-    "status": "partial",
-    "implementation_or_gap": "Engine clock/input quality; native simulation includes an explicit UTC calendar control"
+    "status": "implemented",
+    "implementation_or_gap": "Simulation API clock/input quality, native UTC calendar control and shared-signal group cycle clock"
   },
   {
     "id": "SIM-004",
@@ -131,8 +131,8 @@
     "acceptance_criterion": "Simulate interacting programs through typed shared signals.",
     "evidence": "ALC Eikon 3.02 User Guide",
     "pdf_pages_or_section": "54-55",
-    "status": "pending",
-    "implementation_or_gap": "Multi-program simulation coordinator"
+    "status": "implemented",
+    "implementation_or_gap": "2\u201316 graph instances, typed/unit-checked previous-cycle links, atomic group cycles, common clock, quality faults and portable workspace files"
   },
   {
     "id": "UI-003",
@@ -176,8 +176,8 @@
     "acceptance_criterion": "Override selected signals independently; restore their source cleanly.",
     "evidence": "Honeywell Spyder Tool for WEBs-N4 31-00089-02",
     "pdf_pages_or_section": "374-376;392",
-    "status": "partial",
-    "implementation_or_gap": "Input forcing and quality faults; internal block forcing pending"
+    "status": "implemented",
+    "implementation_or_gap": "Internal graph simulation holds/releases, independent override maps, computed-value/force traces and timed force events; source faults do not get bypassed"
   },
   {
     "id": "DBG-001",
@@ -186,7 +186,7 @@
     "evidence": "Honeywell Spyder Tool for WEBs-N4 31-00089-02",
     "pdf_pages_or_section": "367-376",
     "status": "partial",
-    "implementation_or_gap": "Explicit point reads/commands; application internal signal watch pending"
+    "implementation_or_gap": "Core graph values/force badges and native Sox value/link readback; proprietary field-application internal watch pending"
   },
   {
     "id": "FMT-005",
@@ -320,8 +320,8 @@
     "acceptance_criterion": "Trace incoming/outgoing references and effects of edits.",
     "evidence": "Niagara Relations Guide",
     "pdf_pages_or_section": "Relations concepts",
-    "status": "pending",
-    "implementation_or_gap": "Dependency explorer beyond visible graph wires"
+    "status": "implemented",
+    "implementation_or_gap": "Direct and transitive dependencies, affected outputs, memory boundaries and click-through block navigation in the inspector"
   },
   {
     "id": "ALM-001",

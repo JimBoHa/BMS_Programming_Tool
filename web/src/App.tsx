@@ -21,6 +21,7 @@ import {
   Maximize,
   X,
   FlaskConical,
+  Layers,
 } from "lucide-react";
 import { api, download, initSession } from "./api";
 import {
@@ -37,6 +38,7 @@ import { Connections } from "./Connections";
 import { RuntimePanel } from "./Runtime";
 import { Resources } from "./Resources";
 import { NativeSimulator } from "./NativeSimulator";
+import { SystemSimulation } from "./SystemSimulation";
 
 export function App() {
   const [tab, setTab] = useState("editor"),
@@ -50,6 +52,7 @@ export function App() {
     [format, setFormat] = useState("json"),
     [history, setHistory] = useState<Scan[]>([]),
     [inputs, setInputs] = useState<Record<string, any>>({}),
+    [forces, setForces] = useState<Record<string, number | boolean>>({}),
     [running, setRunning] = useState(false),
     [simError, setSimError] = useState(""),
     [message, setMessage] = useState(""),
@@ -102,6 +105,7 @@ export function App() {
     setRunning(false);
     session.current = null;
     setHistory([]);
+    setForces({});
     setSimError("");
     const timer = setTimeout(() => {
       localStorage.setItem("bms-studio-draft-v1", JSON.stringify(program));
@@ -133,6 +137,10 @@ export function App() {
     setRedoStack((s) => s.slice(0, -1));
   }
   async function save() {
+    if (tab === "system") {
+      window.dispatchEvent(new Event("studio:save-workspace"));
+      return;
+    }
     try {
       const native = tab === "native" ? await api("/native/status") : null;
       const p = native?.running
@@ -160,6 +168,7 @@ export function App() {
       const r = await api("/simulation/step", {
         program,
         inputs,
+        forces,
         session: session.current,
       });
       if (latestProgram.current !== program) return;
@@ -172,7 +181,7 @@ export function App() {
     } finally {
       busy.current = false;
     }
-  }, [program, inputs]);
+  }, [program, inputs, forces]);
   useEffect(() => {
     if (!running) return;
     const timer = setInterval(step, 500);
@@ -329,6 +338,7 @@ export function App() {
     { id: "connections", title: "Connect", icon: Network },
     { id: "runtime", title: "Runtime", icon: Cpu },
     { id: "native", title: "Native sim", icon: FlaskConical },
+    { id: "system", title: "System sim", icon: Layers },
     { id: "resources", title: "Reference", icon: BookOpen },
   ];
   if (!ready)
@@ -365,7 +375,8 @@ export function App() {
           <span className="pill">LOCAL WORKSPACE</span>
         </div>
         <button className="save-button primary" onClick={save}>
-          <Save size={15} /> Save revision
+          <Save size={15} />{" "}
+          {tab === "system" ? "Save workspace" : "Save revision"}
         </button>
       </header>
       <div className="app-body">
@@ -630,6 +641,8 @@ export function App() {
                     history={history}
                     inputs={inputs}
                     setInputs={setInputs}
+                    forces={forces}
+                    onReleaseForces={() => setForces({})}
                     running={running}
                     setRunning={setRunning}
                     onStep={step}
@@ -638,10 +651,12 @@ export function App() {
                       setHistory([]);
                       setRunning(false);
                       setSimError("");
+                      setForces({});
                     }}
                     onScenario={(h) => {
                       session.current = null;
                       setHistory(h);
+                      setForces(h.at(-1)?.forces || {});
                     }}
                     error={simError}
                   />
@@ -652,6 +667,11 @@ export function App() {
                   onEdit={edit}
                   onDelete={remove}
                   onDuplicate={duplicate}
+                  program={program}
+                  onSelect={setSelected}
+                  forces={forces}
+                  onForceChange={setForces}
+                  last={history.at(-1)}
                 />
               </div>
               <div className="validation-bar">
@@ -720,6 +740,8 @@ export function App() {
                 setMessage(`Saved native revision ${p.revision} locally.`);
               }}
             />
+          ) : tab === "system" ? (
+            <SystemSimulation program={program} />
           ) : (
             <Resources />
           )}

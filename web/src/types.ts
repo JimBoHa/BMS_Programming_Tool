@@ -51,6 +51,8 @@ export type Scan = {
   values: Record<string, number | boolean>;
   outputs: Record<string, number | boolean>;
   alarms: { node: string; message: string }[];
+  forces?: Record<string, number | boolean>;
+  computed?: Record<string, number | boolean>;
 };
 export const blankProgram = (): Program => ({
   schema_version: 1,

@@ -2,6 +2,155 @@ import { test, expect } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 
+test("force and release internal values, retain fault state and export force evidence", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const root = path.resolve("..");
+  const buffer = execFileSync(
+    path.join(root, ".venv/bin/python"),
+    [
+      "-c",
+      "from tests.test_simulation_forces import rate_program; p=rate_program(); [(setattr(n,'x',i*280),setattr(n,'y',100)) for i,n in enumerate(p.nodes)]; print(p.model_dump_json())",
+    ],
+    { cwd: root },
+  );
+  await page
+    .locator(
+      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab"]',
+    )
+    .setInputFiles({
+      name: "force-example.bms.json",
+      mimeType: "application/json",
+      buffer,
+    });
+  await page
+    .locator(".react-flow__node")
+    .filter({ hasText: "Rate limiter" })
+    .click();
+  await page.getByLabel("Simulation force value", { exact: true }).fill("50");
+  await page
+    .getByRole("button", { name: "Hold simulation value", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Step simulation", exact: true })
+    .click();
+  await expect(page.locator(".trend-legend")).toContainText("out: 50");
+  await expect(page.locator(".force-badge")).toHaveCount(1);
+  await page
+    .getByLabel("Quality input", { exact: true })
+    .selectOption("open-circuit");
+  await page
+    .getByRole("button", { name: "Step simulation", exact: true })
+    .click();
+  await expect(page.locator(".simulation .inline-error")).toContainText(
+    "open-circuit",
+  );
+  await expect(page.locator(".elapsed")).toHaveText("1.0 s");
+  await page
+    .getByRole("button", { name: "Release simulation force", exact: true })
+    .click();
+  await expect(page.locator(".force-status")).toContainText(
+    "Next scan: automatic. Last completed scan: 50",
+  );
+  await page.getByLabel("Quality input", { exact: true }).selectOption("good");
+  await page
+    .getByRole("button", { name: "Step simulation", exact: true })
+    .click();
+  await expect(page.locator(".trend-legend")).toContainText("out: 2");
+  await expect(page.locator(".force-badge")).toHaveCount(0);
+  const csvEvent = page.waitForEvent("download");
+  await page.getByTitle("Export simulation CSV", { exact: true }).click();
+  const csvFile = await csvEvent;
+  const csv = execFileSync("/bin/cat", [(await csvFile.path())!], {
+    encoding: "utf8",
+  });
+  expect(csv).toContain("force_overrides");
+  expect(csv).toContain('""rate"":50');
+  await page.getByRole("button", { name: "Scenarios", exact: true }).click();
+  await page
+    .getByLabel("Timed simulation events", { exact: true })
+    .fill('[{"time":0,"forces":{"rate":20}},{"time":2,"forces":{}}]');
+  await page.getByLabel("Scenario duration seconds", { exact: true }).fill("4");
+  await page.getByRole("button", { name: "Run scenario", exact: true }).click();
+  await expect(page.locator(".elapsed")).toHaveText("4.0 s");
+  await expect(page.locator(".trend-legend")).toContainText("out: 4");
+});
+
+test("shared-signal simulation preserves cycle boundaries, faults and workspace files", async ({
+  page,
+  request,
+}) => {
+  await page.goto("/");
+  const projects = await (await request.get("/api/projects")).json();
+  await page.getByRole("button", { name: "System sim", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Load shared-signal demo", exact: true })
+    .click();
+  await expect(page.locator(".group-elapsed")).toHaveText("0.0 s");
+  await page.getByRole("button", { name: "Step group", exact: true }).click();
+  await expect(page.locator(".group-trace tbody tr").last()).toContainText(
+    '"scaled":0',
+  );
+  await page.getByRole("button", { name: "Step group", exact: true }).click();
+  await expect(page.locator(".group-trace tbody tr").last()).toContainText(
+    '"scaled":84',
+  );
+  await page
+    .getByLabel("Group input producer.value", { exact: true })
+    .fill("50");
+  await page.getByRole("button", { name: "Step group", exact: true }).click();
+  await page.getByRole("button", { name: "Step group", exact: true }).click();
+  await expect(page.locator(".group-trace tbody tr").last()).toContainText(
+    '"scaled":104',
+  );
+  await page
+    .getByLabel("Group quality producer.value", { exact: true })
+    .selectOption("open-circuit");
+  await page.getByRole("button", { name: "Step group", exact: true }).click();
+  await expect(page.locator(".system-simulation .inline-error")).toContainText(
+    "all programs remain at the previous cycle",
+  );
+  await expect(page.locator(".group-elapsed")).toHaveText("4.0 s");
+  await page
+    .getByLabel("Group quality producer.value", { exact: true })
+    .selectOption("good");
+  await page
+    .getByRole("button", { name: "Run 10 group cycles", exact: true })
+    .click();
+  await expect(page.locator(".group-elapsed")).toHaveText("14.0 s");
+  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await page.getByRole("button", { name: "System sim", exact: true }).click();
+  await expect(page.locator(".group-elapsed")).toHaveText("14.0 s");
+  await expect(
+    page.getByLabel("Group input producer.value", { exact: true }),
+  ).toHaveValue("50");
+  const event = page.waitForEvent("download");
+  await page.keyboard.press("Control+s");
+  const saved = await event;
+  expect(saved.suggestedFilename()).toBe("simulation.bms-workspace.json");
+  expect(await (await request.get("/api/projects")).json()).toEqual(projects);
+  await page
+    .locator('input[type=file][accept=".bms-workspace.json"]')
+    .setInputFiles({
+      name: saved.suggestedFilename(),
+      mimeType: "application/json",
+      buffer: execFileSync("/bin/cat", [(await saved.path())!]),
+    });
+  await expect(page.locator(".group-elapsed")).toHaveText("0.0 s");
+  await page.getByRole("button", { name: "Step group", exact: true }).click();
+  await page.getByRole("button", { name: "Step group", exact: true }).click();
+  await expect(page.locator(".group-trace tbody tr").last()).toContainText(
+    '"scaled":84',
+  );
+  await page.screenshot({
+    path: "test-results/studio-system.png",
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "Close group", exact: true }).click();
+  await expect(page.locator(".group-elapsed")).toHaveCount(0);
+});
+
 test("convert foreign native SAX and review its execution differences", async ({
   page,
   request,
@@ -240,6 +389,15 @@ test("drag blocks, wire pins, edit values and undo", async ({ page }) => {
   await expect(page.locator(".react-flow__edge")).toHaveCount(1);
   await page.getByRole("button", { name: "Step simulation" }).click();
   await expect(page.locator(".trend-legend")).not.toBeEmpty();
+  await page
+    .locator(".react-flow__node")
+    .filter({ hasText: "Constant" })
+    .click();
+  await expect(page.locator(".dependency-view")).toContainText(
+    "1 affected output",
+  );
+  await page.getByRole("button", { name: "Trace Output", exact: true }).click();
+  await expect(page.locator(".inspector h3")).toHaveText("Output");
   await page.getByRole("button", { name: "Undo", exact: true }).click();
   await expect(page.locator(".react-flow__edge")).toHaveCount(0);
 });

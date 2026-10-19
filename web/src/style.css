@@ -1645,3 +1645,132 @@ tr.active-row td {
   padding: 10px;
   background: #f4f7fa;
 }
+.dependency-view {
+  border-top: 1px solid #dce6ea;
+  padding-top: 18px;
+  margin-top: 22px;
+}
+.dependency-view > small,
+.dependency-view button small {
+  color: var(--muted);
+}
+.dependency-view button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin: 5px 0;
+  white-space: normal;
+}
+.dependency-view summary {
+  cursor: pointer;
+  padding: 9px 0;
+  font-size: 12px;
+}
+.group-programs small {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+}
+.group-programs td:first-child {
+  width: 180px;
+}
+.group-programs input {
+  width: 145px;
+}
+.group-link-form {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1fr auto;
+  gap: 12px;
+  align-items: end;
+}
+.group-link-form label,
+.group-input label {
+  display: grid;
+  gap: 7px;
+}
+.group-link-form select,
+.group-link-form input {
+  width: 100%;
+  min-width: 0;
+}
+.group-links > div {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  border-top: 1px solid #e4ebee;
+  margin-top: 16px;
+  padding-top: 12px;
+}
+.group-links small,
+.group-input small {
+  color: var(--muted);
+}
+.group-inputs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+  margin-bottom: 24px;
+}
+.group-inputs fieldset {
+  border: 1px solid #d7e3e8;
+  border-radius: 9px;
+  padding: 18px;
+  min-width: 0;
+}
+.group-inputs legend {
+  font-size: 12px;
+  font-weight: 650;
+  padding: 0 7px;
+}
+.group-input {
+  margin-bottom: 13px;
+}
+.group-input input,
+.group-input select {
+  margin-top: 5px;
+  width: 100%;
+}
+.group-input input[type="checkbox"] {
+  width: auto;
+  justify-self: start;
+}
+.group-trace {
+  max-height: 350px;
+  overflow: auto;
+}
+.system-simulation .button-row.wrap {
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+@media (max-width: 1100px) {
+  .group-link-form {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.control-node.forced {
+  border-color: #bc832a;
+}
+.force-badge {
+  margin-left: 2px;
+  color: #8d5c12;
+  background: #fff0cb;
+  border-radius: 3px;
+  padding: 2px 3px;
+  font-size: 7px;
+  letter-spacing: 0.3px;
+}
+.simulation-force {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid #dce6ea;
+}
+.simulation-force button {
+  width: 100%;
+  margin-bottom: 7px;
+}
+.force-status {
+  font-size: 11px;
+  line-height: 1.6;
+  color: #936519;
+}

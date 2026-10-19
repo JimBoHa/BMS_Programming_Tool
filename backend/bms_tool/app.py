@@ -18,8 +18,9 @@ from typing import Annotated, Any
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
-from pydantic import Field
+from pydantic import AwareDatetime, Field
 
+from .analysis import dependencies
 from .blocks import catalog
 from .caf import CafArchive
 from .connections import Bacnet, modbus_read, ports
@@ -28,6 +29,7 @@ from .engine import Engine, run_scenario, validate
 from .formats import export_program, import_program
 from .models import Program, StrictModel
 from .native_simulator import NativeSimulator
+from .simulation_group import SimulationGroups, SimulationWorkspace, demo_workspace
 from .storage import Conflict, Store
 from .templates import all_templates
 
@@ -41,6 +43,7 @@ class SimulationRequest(StrictModel):
     session: str | None = None
     steps: int = Field(default=1, ge=1, le=1000)
     clock: datetime | None = None
+    forces: dict[str, Any] | None = None
 
 
 class NativeStart(StrictModel):
@@ -72,11 +75,32 @@ class ScenarioRequest(StrictModel):
     events: list[dict[str, Any]]
     duration: float = Field(gt=0, le=86400)
     dt: float | None = Field(default=None, gt=0, le=60)
+    forces: dict[str, Any] | None = None
 
 
 class SaveRequest(StrictModel):
     program: Program
     expected_revision: int = Field(ge=0)
+
+
+class DependencyRequest(StrictModel):
+    program: Program
+    node: str
+
+
+class GroupStart(StrictModel):
+    definition: SimulationWorkspace
+    replace: str | None = None
+
+
+class GroupRequest(StrictModel):
+    session: str
+
+
+class GroupStep(GroupRequest):
+    inputs: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    steps: int = Field(default=1, ge=1, le=100)
+    clock: AwareDatetime | None = None
 
 
 class ExportRequest(StrictModel):
@@ -151,6 +175,7 @@ def create_app(state_dir=None):
     runtime = Runtime(store)
     bacnet = Bacnet(store)
     native = NativeSimulator(store)
+    groups = SimulationGroups()
     simulations = {}
     caf_files = {}
     session_token = secrets.token_urlsafe(32)
@@ -249,6 +274,54 @@ def create_app(state_dir=None):
     @app.post("/api/validate")
     def validation(program: Program):
         return {"issues": [d.model_dump() for d in validate(program)]}
+
+    @app.post("/api/dependencies")
+    def trace_dependencies(body: DependencyRequest):
+        return dependencies(body.program, body.node)
+
+    @app.get("/api/groups/demo")
+    def group_demo():
+        return demo_workspace()
+
+    @app.get("/api/groups")
+    def group_list():
+        return groups.list()
+
+    @app.post("/api/groups/start")
+    def group_start(body: GroupStart):
+        return groups.start(body.definition, body.replace)
+
+    @app.get("/api/groups/{session}")
+    def group_status(session: str):
+        return groups.status(session)
+
+    @app.post("/api/groups/step")
+    def group_step(body: GroupStep):
+        if body.clock is not None and body.steps != 1:
+            raise ValueError("An explicit clock applies to one group cycle.")
+        group = groups.get(body.session)
+        for _ in range(body.steps):
+            group.step(body.inputs, clock=body.clock)
+        return groups.status(body.session)
+
+    @app.post("/api/groups/reset")
+    def group_reset(body: GroupRequest):
+        groups.get(body.session).reset()
+        return groups.status(body.session)
+
+    @app.post("/api/groups/close")
+    def group_close(body: GroupRequest):
+        groups.close(body.session)
+        return {"closed": True}
+
+    @app.post("/api/groups/export")
+    def group_export(body: GroupRequest):
+        return Response(groups.export(body.session), media_type="application/json")
+
+    @app.post("/api/groups/import")
+    async def group_import(file: Annotated[UploadFile, File()], replace: str | None = None):
+        content = await file.read(8 * 1024 * 1024 + 1)
+        return groups.import_file(content, replace)
 
     @app.get("/api/projects")
     def projects():
@@ -360,7 +433,10 @@ def create_app(state_dir=None):
         record["touched"] = now
         if body.clock is not None and body.steps != 1:
             raise ValueError("An explicit clock applies to one scan; use single-step mode.")
-        rows = [engine.step(body.inputs, body.dt, body.clock) for _ in range(body.steps)]
+        rows = [
+            engine.step(body.inputs, body.dt, body.clock, forces=body.forces)
+            for _ in range(body.steps)
+        ]
         return {
             "session": id,
             "last": rows[-1],
@@ -370,7 +446,11 @@ def create_app(state_dir=None):
 
     @app.post("/api/simulation/scenario")
     async def scenario(body: ScenarioRequest):
-        return {"history": run_scenario(body.program, body.events, body.duration, body.dt)}
+        return {
+            "history": run_scenario(
+                body.program, body.events, body.duration, body.dt, forces=body.forces
+            )
+        }
 
     @app.post("/api/caf")
     async def upload_caf(file: Annotated[UploadFile, File()]):

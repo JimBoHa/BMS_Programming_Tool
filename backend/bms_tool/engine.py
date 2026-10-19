@@ -147,7 +147,7 @@ def validate(program: Program) -> list[Diagnostic]:
                 and incoming[(n.id, "in")].unit != p["from"]
             ):
                 raise ValueError("input unit does not match conversion 'from'")
-        except (ValueError, TypeError, KeyError) as exc:
+        except (ValueError, TypeError, KeyError, OverflowError) as exc:
             issue("parameter", str(exc), n.id)
     for kind, limit in (
         ("Input", program.target.physical_inputs),
@@ -233,21 +233,37 @@ class Engine:
         self.state = {}
         self.values = {}
         self.outputs = {}
+        self.forces = {}
         self.time = 0.0
         self.history = []
         self.history_limit = min(10000, max(20, 100000 // max(1, len(program.nodes))))
         self.clock = datetime(2026, 1, 5, tzinfo=UTC)
 
-    def step(self, inputs=None, dt=None, clock=None):
+    def step(self, inputs=None, dt=None, clock=None, *, forces=None):
         inputs = inputs or {}
         unknown = set(inputs) - {n.id for n in self.program.nodes if n.kind == "Input"}
         if unknown:
             raise ScanError("Unknown input identifiers: " + ", ".join(sorted(unknown)))
+        held = self.forces.copy() if forces is None else copy.deepcopy(forces)
+        if not isinstance(held, dict) or held.keys() - self.nodes.keys():
+            raise ScanError("Simulation forces must name existing blocks.")
+        for identifier, value in held.items():
+            typ = output_type(self.nodes[identifier])
+            if typ == "boolean":
+                valid = type(value) is bool
+            else:
+                try:
+                    valid = type(value) in (int, float) and math.isfinite(value)
+                except OverflowError:
+                    valid = False
+            if not valid:
+                raise ScanError(f"{identifier}: force requires a finite {typ} value.")
         dt = self.program.scan_seconds if dt is None else dt
-        if type(dt) not in (int, float) or not math.isfinite(dt) or not 0 < dt <= 60:
+        if type(dt) not in (int, float) or not 0 < dt <= 60:
             raise ScanError("Scan duration must be finite and in (0,60] seconds.")
         current_clock = clock or (self.clock + timedelta(seconds=dt))
         values = {}
+        computed = {}
         state = copy.deepcopy(self.state)
         alarms = []
         try:
@@ -329,8 +345,6 @@ class Engine:
                     active = arg("in") if k == "TimerOn" else arg("in") > p["limit"]
                     s["elapsed"] = s.get("elapsed", 0) + dt if active else 0
                     v = bool(active and s["elapsed"] >= p.get("seconds", p.get("delay")))
-                    if k == "Alarm" and v:
-                        alarms.append({"node": node_id, "message": n.label or "High alarm"})
                 elif k == "Slew":
                     old = s.get("previous", p["initial"])
                     delta = p["rate"] * dt
@@ -371,7 +385,12 @@ class Engine:
                     raise ScanError(f"{node_id}: expected boolean")
                 if expected == "number" and (type(v) not in (int, float) or not math.isfinite(v)):
                     raise ScanError(f"{node_id}: expected finite number")
+                if node_id in held:
+                    computed[node_id] = v
+                    v = held[node_id]
                 values[node_id] = v
+                if k == "Alarm" and v:
+                    alarms.append({"node": node_id, "message": n.label or "High alarm"})
             for n in self.program.nodes:
                 if n.kind == "Delay":
                     state[n.id]["previous"] = values[self.links[(n.id, "in")]]
@@ -381,6 +400,7 @@ class Engine:
         self.state = state
         self.values = values
         self.outputs = outputs
+        self.forces = held
         self.time += dt
         self.clock = current_clock
         row = {
@@ -389,6 +409,8 @@ class Engine:
             "values": values.copy(),
             "outputs": outputs.copy(),
             "alarms": alarms,
+            "forces": held.copy(),
+            "computed": computed,
         }
         self.history.append(row)
         if len(self.history) > self.history_limit:
@@ -403,29 +425,47 @@ class Engine:
             "state": copy.deepcopy(self.state),
             "values": self.values.copy(),
             "outputs": self.outputs.copy(),
+            "forces": self.forces.copy(),
         }
 
 
-def run_scenario(program, events, duration, dt=None):
-    if not 0 < duration <= 86400:
+def run_scenario(program, events, duration, dt=None, *, forces=None):
+    if type(duration) not in (int, float) or not 0 < duration <= 86400:
         raise ValueError("Scenario duration must be in (0,86400].")
     engine = Engine(program)
-    dt = dt or program.scan_seconds
-    if dt > 0 and math.ceil(duration / dt) > engine.history_limit:
+    dt = program.scan_seconds if dt is None else dt
+    if type(dt) not in (int, float) or not 0 < dt <= 60:
+        raise ValueError("Scenario timestep must be finite and in (0,60].")
+    if duration / dt > engine.history_limit:
         raise ValueError(
             "Scenario exceeds 10,000 scans or bounded trace capacity; shorten duration or increase the timestep."
         )
-    if dt <= 0 or math.ceil(duration / dt) > 10000:
-        raise ValueError("Scenario exceeds 10,000 scans or has invalid timestep.")
-    ordered = sorted(events, key=lambda e: e["time"])
     i = 0
     inputs = {}
-    for e in ordered:
-        if type(e["time"]) not in (int, float) or not math.isfinite(e["time"]) or e["time"] < 0:
+    held = forces
+    if len(events) > 10000:
+        raise ValueError("A scenario supports at most 10,000 events.")
+    for e in events:
+        if not isinstance(e, dict) or "time" not in e:
+            raise ValueError("Every scenario event requires a time.")
+        if e.keys() - {"time", "inputs", "forces"} or not isinstance(e.get("inputs", {}), dict):
+            raise ValueError("Scenario events contain time and optional inputs/forces objects.")
+        if "forces" in e and not isinstance(e["forces"], dict):
+            raise ValueError(
+                "Scenario forces must be a complete override map; use {} to release all."
+            )
+        try:
+            finite = type(e["time"]) in (int, float) and math.isfinite(e["time"])
+        except OverflowError:
+            finite = False
+        if not finite or e["time"] < 0:
             raise ValueError("Event times must be finite and nonnegative.")
+    ordered = sorted(events, key=lambda e: e["time"])
     while engine.time < duration - 1e-9:
         while i < len(ordered) and ordered[i]["time"] <= engine.time:
-            inputs.update(ordered[i]["inputs"])
+            inputs.update(ordered[i].get("inputs", {}))
+            if "forces" in ordered[i]:
+                held = ordered[i]["forces"]
             i += 1
-        engine.step(inputs, min(dt, duration - engine.time))
+        engine.step(inputs, min(dt, duration - engine.time), forces=held)
     return engine.history

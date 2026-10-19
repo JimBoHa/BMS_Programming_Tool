@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Play,
   Pause,
@@ -21,12 +21,22 @@ export function Inspector({
   onEdit,
   onDelete,
   onDuplicate,
+  program,
+  onSelect,
+  forces,
+  onForceChange,
+  last,
 }: {
   node?: BmsNode;
   block?: Block;
   onEdit: (node: BmsNode) => void;
   onDelete: () => void;
   onDuplicate: () => void;
+  program: Program;
+  onSelect: (id: string) => void;
+  forces: Record<string, number | boolean>;
+  onForceChange: (forces: Record<string, number | boolean>) => void;
+  last?: Scan;
 }) {
   if (!node || !block)
     return (
@@ -150,8 +160,201 @@ export function Inspector({
             <Trash2 size={14} /> Delete
           </button>
         </div>
+        <ForceEditor
+          key={node.id + ":" + node.value_type}
+          node={node}
+          block={block}
+          forces={forces}
+          onChange={onForceChange}
+          last={last}
+        />
+        <DependencyView program={program} node={node.id} onSelect={onSelect} />
       </div>
     </aside>
+  );
+}
+
+function ForceEditor({
+  node,
+  block,
+  forces,
+  onChange,
+  last,
+}: {
+  node: BmsNode;
+  block: Block;
+  forces: Record<string, number | boolean>;
+  onChange: (forces: Record<string, number | boolean>) => void;
+  last?: Scan;
+}) {
+  const boolean =
+    ["Input", "Constant"].includes(node.kind) || block.output === "same"
+      ? node.value_type === "boolean"
+      : block.output === "boolean";
+  const initial =
+    forces[node.id] ??
+    last?.values[node.id] ??
+    node.params.value ??
+    node.params.default ??
+    (boolean ? false : 0);
+  const [value, setValue] = useState(String(initial));
+  const [error, setError] = useState("");
+  const requested = Object.hasOwn(forces, node.id);
+  const applied = !!last?.forces && Object.hasOwn(last.forces, node.id);
+  return (
+    <div className="simulation-force">
+      <div className="small-heading">SIMULATION FORCE</div>
+      <label>
+        Held output value
+        {boolean ? (
+          <select
+            aria-label="Simulation force value"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+          >
+            <option value="true">TRUE</option>
+            <option value="false">FALSE</option>
+          </select>
+        ) : (
+          <input
+            type="number"
+            step="any"
+            aria-label="Simulation force value"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+          />
+        )}
+      </label>
+      <button
+        onClick={() => {
+          const next = boolean ? value === "true" : Number(value);
+          if (
+            typeof next === "number" &&
+            (!value.trim() || !Number.isFinite(next))
+          ) {
+            setError("Enter a finite force value.");
+            return;
+          }
+          setError("");
+          onChange({ ...forces, [node.id]: next });
+        }}
+      >
+        Hold simulation value
+      </button>
+      <button
+        disabled={!requested}
+        onClick={() => {
+          const next = { ...forces };
+          delete next[node.id];
+          onChange(next);
+        }}
+      >
+        Release simulation force
+      </button>
+      {error && <p className="inline-error">{error}</p>}
+      <p className="force-status">
+        Next scan: {requested ? showValue(forces[node.id]) : "automatic"}. Last
+        completed scan:{" "}
+        {applied ? showValue(last?.forces?.[node.id]) : "automatic"}.
+      </p>
+      <p className="help-text">
+        Applies after the block computes. Internal state continues; source
+        faults still stop the scan. Changes apply on the next successful scan
+        and stay inside this graph simulation.
+      </p>
+    </div>
+  );
+}
+
+function DependencyView({
+  program,
+  node,
+  onSelect,
+}: {
+  program: Program;
+  node: string;
+  onSelect: (id: string) => void;
+}) {
+  const [data, setData] = useState<any>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let live = true;
+    setData(null);
+    setError("");
+    const timer = setTimeout(() => {
+      api("/dependencies", { program, node })
+        .then((result) => {
+          if (live) setData(result);
+        })
+        .catch((e) => {
+          if (live) setError(String(e));
+        });
+    }, 150);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [program, node]);
+  return (
+    <div className="dependency-view">
+      <div className="small-heading">DEPENDENCIES AND EDIT IMPACT</div>
+      {error && <p className="inline-error">{error}</p>}
+      {data ? (
+        <>
+          <small>
+            {data.incoming.length} direct sources · {data.outgoing.length}{" "}
+            direct consumers
+          </small>
+          <p>
+            {data.affected_outputs.length} affected{" "}
+            {data.affected_outputs.length === 1 ? "output" : "outputs"}
+          </p>
+          {data.affected_outputs.map((n: any) => (
+            <button key={n.id} onClick={() => onSelect(n.id)}>
+              Trace {n.label || n.id}
+            </button>
+          ))}
+          <details>
+            <summary>Upstream blocks ({data.upstream.length})</summary>
+            {data.upstream.map((n: any) => (
+              <button key={n.id} onClick={() => onSelect(n.id)}>
+                {n.label || n.id} <small>{n.kind}</small>
+              </button>
+            ))}
+          </details>
+          <details>
+            <summary>Downstream blocks ({data.downstream.length})</summary>
+            {data.downstream.map((n: any) => (
+              <button key={n.id} onClick={() => onSelect(n.id)}>
+                {n.label || n.id} <small>{n.kind}</small>
+              </button>
+            ))}
+          </details>
+          {data.feedback_boundaries.length > 0 && (
+            <p className="help-text">
+              {data.feedback_boundaries.length} feedback{" "}
+              {data.feedback_boundaries.length === 1
+                ? "boundary crosses"
+                : "boundaries cross"}{" "}
+              a previous-scan memory block. Effects can continue on later scans.
+            </p>
+          )}
+          {data.scan_index === null && (
+            <p className="inline-error">
+              Combinational cycle prevents an execution order.
+            </p>
+          )}
+          {data.native_extension_present && (
+            <p className="help-text">
+              This traces the core graph. Inspect added native branches in
+              Native sim.
+            </p>
+          )}
+        </>
+      ) : (
+        !error && <small>Tracing connections…</small>
+      )}
+    </div>
   );
 }
 
@@ -231,6 +434,8 @@ export function SimulationPanel({
   onReset,
   onScenario,
   error,
+  forces,
+  onReleaseForces,
 }: {
   program: Program;
   history: Scan[];
@@ -242,19 +447,32 @@ export function SimulationPanel({
   onReset: () => void;
   onScenario: (h: Scan[]) => void;
   error: string;
+  forces: Record<string, number | boolean>;
+  onReleaseForces: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [events, setEvents] = useState(
     '[{"time":0,"inputs":{"zone":74}},{"time":30,"inputs":{"zone":66}},{"time":60,"inputs":{"zone":76}}]',
   );
   const [scenarioError, setScenarioError] = useState("");
+  const [duration, setDuration] = useState(90);
   function csv() {
     const columns = program.nodes.map((n) => n.id);
     const quote = (v: any) => '"' + String(v ?? "").replaceAll('"', '""') + '"';
     const text = [
-      ["seconds", ...columns].map(quote).join(","),
+      ["seconds", "clock", ...columns, "force_overrides", "computed_values"]
+        .map(quote)
+        .join(","),
       ...history.map((r) =>
-        [r.time, ...columns.map((c) => r.values[c])].map(quote).join(","),
+        [
+          r.time,
+          r.clock,
+          ...columns.map((c) => r.values[c]),
+          JSON.stringify(r.forces || {}),
+          JSON.stringify(r.computed || {}),
+        ]
+          .map(quote)
+          .join(","),
       ),
     ].join("\n");
     saveBlob(
@@ -303,6 +521,11 @@ export function SimulationPanel({
           <button onClick={() => setExpanded(!expanded)}>
             {expanded ? "Hide scenarios" : "Scenarios"}
           </button>
+          {!!Object.keys(forces).length && (
+            <button onClick={onReleaseForces}>
+              Release all forces ({Object.keys(forces).length})
+            </button>
+          )}
         </div>
       </div>
       <div className="simulation-content">
@@ -372,10 +595,23 @@ export function SimulationPanel({
       {expanded && (
         <div className="scenario">
           <label>
-            Timed input events (JSON). Times are simulation seconds.
+            Timed events (JSON). Inputs update existing values; forces replaces
+            the override map. Use forces: {"{}"} to release all.
             <textarea
+              aria-label="Timed simulation events"
               value={events}
               onChange={(e) => setEvents(e.target.value)}
+            />
+          </label>
+          <label>
+            Duration (seconds)
+            <input
+              type="number"
+              min="0.01"
+              max="86400"
+              aria-label="Scenario duration seconds"
+              value={duration}
+              onChange={(e) => setDuration(Number(e.target.value))}
             />
           </label>
           <button
@@ -385,7 +621,8 @@ export function SimulationPanel({
                 const r = await api("/simulation/scenario", {
                   program,
                   events: JSON.parse(events),
-                  duration: 90,
+                  duration,
+                  forces,
                 });
                 onScenario(r.history);
                 setScenarioError("");
@@ -394,7 +631,7 @@ export function SimulationPanel({
               }
             }}
           >
-            Run 90-second scenario
+            Run scenario
           </button>
           {scenarioError && <p className="inline-error">{scenarioError}</p>}
         </div>
