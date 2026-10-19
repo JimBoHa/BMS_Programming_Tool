@@ -80,7 +80,7 @@ export function Canvas({
   blocks: Block[];
   last?: Scan;
   issues: any[];
-  selected: string | null;
+  selected: string[];
   onSelect: (id: string | null) => void;
   onChange: (changes: NodeChange[]) => void;
   onBeginDrag: () => void;
@@ -93,10 +93,15 @@ export function Canvas({
     id: n.id,
     type: "control",
     position: { x: n.x, y: n.y },
-    selected: n.id === selected,
+    selected: selected.includes(n.id),
     data: {
       block: n,
-      spec: blocks.find((b) => b.kind === n.kind) || {
+      spec: blocks.find(
+        (b) =>
+          b.kind === n.kind &&
+          (b.kind !== "Macro" ||
+            b.parameters.definition === n.params.definition),
+      ) || {
         kind: n.kind,
         title: n.kind,
         category: "unknown",
@@ -145,7 +150,6 @@ export function Canvas({
         edges={edges}
         nodeTypes={nodeTypes}
         onNodesChange={onChange}
-        onNodeClick={(_, n) => onSelect(n.id)}
         onPaneClick={() => onSelect(null)}
         onNodeDragStart={onBeginDrag}
         onEdgeDoubleClick={(_, e) => onRemoveWire(e.id)}
@@ -155,6 +159,7 @@ export function Canvas({
         minZoom={0.2}
         maxZoom={2}
         deleteKeyCode={null}
+        multiSelectionKeyCode={["Meta", "Control", "Shift"]}
         proOptions={{ hideAttribution: false }}
       >
         <Background gap={20} size={1} color="#cad4d9" />

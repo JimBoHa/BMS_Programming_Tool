@@ -17,8 +17,8 @@ class Node(StrictModel):
     id: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9_\-]{0,79}$")
     kind: str
     label: str = Field(default="", max_length=200)
-    x: float = 0
-    y: float = 0
+    x: float = 0.0
+    y: float = 0.0
     params: dict[str, Any] = Field(default_factory=dict)
     unit: str = ""
     value_type: Literal["number", "boolean"] = "number"
@@ -61,7 +61,7 @@ class Program(StrictModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     def digest(self):
-        return hashlib.sha256(self.model_dump_json().encode()).hexdigest()
+        return hashlib.sha256(canonical(self)).hexdigest()
 
 
 class Diagnostic(StrictModel):

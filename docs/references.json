@@ -2539,6 +2539,22 @@
     "notes": "Public vendor flash sheet. Package/schema migration and sensor point remapping reference; not proof of compatibility with legacy VMA/FX-PCV firmware."
   },
   {
+    "vendor": "California Energy Commission",
+    "title": "CEC-Programming-Library-Certification-List-2026-09-10.xlsx",
+    "url": "https://www.energy.ca.gov/sites/default/files/2026-09/Programming_Library_Certification_List_9_10_2026_ada.xlsx",
+    "sha256": "eeb1ff9d5a62a7f67fc33e6615bfef9c4c28e323366e01f88d3f5c624c815df6",
+    "status": "downloaded and reviewed",
+    "notes": "Native-target research 2026-10-19; certification list and declaration do not establish legacy-controller eligibility or supply native applications."
+  },
+  {
+    "vendor": "California Energy Commission",
+    "title": "CEC-G36-declaration-2025-07.docx",
+    "url": "https://www.energy.ca.gov/sites/default/files/2025-07/G36_declaration_ADA.docx",
+    "sha256": "a34953e35c7388081d00d7c7d7b2f220fbff2615bc22eac134ab0de98189d471",
+    "status": "downloaded and reviewed",
+    "notes": "Native-target research 2026-10-19; certification list and declaration do not establish legacy-controller eligibility or supply native applications."
+  },
+  {
     "vendor": "Open source / source research",
     "title": "Autonomy-Logic/openplc-editor",
     "url": "https://github.com/Autonomy-Logic/openplc-editor",

@@ -50,6 +50,8 @@ class Runtime:
             "removed": sorted(before.keys() - after.keys()),
             "changed": [id for id in after.keys() & before.keys() if after[id] != before[id]],
             "wiring_changed": old is None or old.edges != program.edges,
+            "macro_definitions_changed": old is None
+            or old.metadata.get("macros") != program.metadata.get("macros"),
         }
         self.plans[token] = {
             "program": program.model_copy(deep=True),
@@ -77,10 +79,10 @@ class Runtime:
             raise ValueError("Runtime changed since preflight. Create a new plan.")
         candidate = Engine(plan["program"])
         if self.engine:
-            old = {n.id: n for n in self.engine.program.nodes}
+            old = self.engine.nodes
             # Preserve state only when kind, parameters, and every incoming source
             # match. Changing a control law or feedback wiring deliberately resets it.
-            for n in candidate.program.nodes:
+            for n in candidate.nodes.values():
                 previous = old.get(n.id)
                 old_links = {k: v for k, v in self.engine.links.items() if k[0] == n.id}
                 new_links = {k: v for k, v in candidate.links.items() if k[0] == n.id}

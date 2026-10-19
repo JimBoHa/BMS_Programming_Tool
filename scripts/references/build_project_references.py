@@ -53,6 +53,25 @@ for r in json.loads((ROOT / "catalog.json").read_text()):
             ),
         }
     )
+extra_sources = ROOT / "research/jci-native-2026-10-19/sources.json"
+if extra_sources.exists():
+    known = {r.get("sha256") for r in refs if r.get("sha256")}
+    for item in json.loads(extra_sources.read_text()):
+        if item["sha256"] in known:
+            continue
+        refs.append(
+            {
+                "vendor": "California Energy Commission"
+                if item["filename"].startswith("CEC-")
+                else "Johnson Controls",
+                "title": item["filename"],
+                "url": item["url"],
+                "sha256": item["sha256"],
+                "status": "downloaded and reviewed",
+                "notes": "Native-target research 2026-10-19; certification list and declaration do not establish legacy-controller eligibility or supply native applications.",
+            }
+        )
+        known.add(item["sha256"])
 inventory = (
     json.loads((ROOT / "research/github/inventory.json").read_text())
     if (ROOT / "research/github/inventory.json").exists()
@@ -264,8 +283,8 @@ add(
     "Create nested, reusable control components with typed interfaces.",
     spyder,
     "56-60",
-    "pending",
-    "Subgraph library and versioned macro interface",
+    "implemented",
+    "Versioned typed single-output libraries, nested instances with independent state, graphical definition editing/apply/discard, draft recovery, bounded expansion and dependency-closed portable exchange",
 )
 add(
     "SIM-005",
@@ -375,8 +394,8 @@ add(
     "Provide zoom, minimap, drag/drop, multi-selection and intuitive linking.",
     "Tridium Niagara 4.12 Features Overview",
     "5",
-    "partial",
-    "Zoom/drag/link/minimap; multi-node editing pending",
+    "implemented",
+    "Zoom, drag/link/minimap, Shift selection, group movement/alignment, internal-wire copy/duplicate, delete and undo; browser verified",
 )
 add(
     "FMT-007",
@@ -403,7 +422,7 @@ add(
     "Niagara Histories Guide",
     "History service concepts",
     "partial",
-    "Simulation history/CSV; durable field trend service pending",
+    "Bounded durable SQLite simulation samples, timestamps, quality, units, cursor queries and CSV; field acquisition remains pending",
 )
 add(
     "PKG-002",
@@ -420,8 +439,8 @@ add(
     "Support weekly and exception calendars, time zones and daylight saving.",
     "Niagara Scheduling Guide",
     "Schedule concepts",
-    "partial",
-    "Weekly schedule block; holidays/time zones/DST pending",
+    "implemented",
+    "IANA zones, both DST folds/skipped minutes, dated closure/window exceptions with explicit overnight precedence; compiled exports require explicit host calendar binding",
 )
 add(
     "REL-001",
@@ -439,7 +458,7 @@ add(
     "ALC Eikon 3.02 Microblock Reference",
     "Alarm microblocks",
     "partial",
-    "Threshold/on-delay simulation alarms; lifecycle/routing pending",
+    "Threshold/on-delay, durable activation/return/acknowledgment/reactivation, operator notes and event history; external delivery/routing pending",
 )
 
 sedona = "Sedona framework doc/apps/apps.md and doc/network/sox.md"

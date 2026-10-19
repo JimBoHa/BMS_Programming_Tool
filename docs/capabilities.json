@@ -7,12 +7,22 @@
   {
     "feature": "Graphical drag-and-drop programming",
     "status": "implemented",
-    "scope": "Local browser GUI with block palette, wiring, properties, templates, zoom, minimap and diagnostics."
+    "scope": "Local browser GUI with block palette, wiring, properties, templates, zoom, minimap, multi-selection, group movement/alignment, internal-wire copy/paste/duplication, grouped delete and undo."
+  },
+  {
+    "feature": "Reusable hierarchical macros",
+    "status": "implemented",
+    "scope": "Typed single-output definitions with required named inputs; nested reusable libraries, independent instance state, graphical definition editing with apply/discard and draft recovery, deterministic bounded expansion, portable dependency-closed library exchange and guarded deletion. Root I/O stays external. Original hierarchy persists through JSON/ST/PLCopen/GraphML/native bundle re-import. Physical terminal bindings remain outside definitions."
+  },
+  {
+    "feature": "Persistent simulation trends and alarm lifecycle",
+    "status": "implemented",
+    "scope": "Opt-in successful-scan recording with simulation/receipt timestamps, types, quality and units in bounded SQLite retention. Alarm activation/return/acknowledgment/reactivation, operator notes, event queries, source filters, paged trend CSV and resolved-source retirement. No field trend acquisition or external alarm delivery. Recording failures are distinguished from executed scans. Explicit source end closes abandoned simulation alarms with a distinct source-ended event; acknowledgment precedes retirement."
   },
   {
     "feature": "Program and input/output simulation",
     "status": "implemented",
-    "scope": "Deterministic scans, feedback memory, PI, timers, schedules, fault injection, timed scenarios and CSV traces. This is our graph runtime, not JCI firmware emulation."
+    "scope": "Deterministic scans, feedback memory, PI, timers, calendar schedules with IANA zones/DST/dated exceptions, fault injection, timed scenarios and CSV traces. Explicit UTC clock injection. This is our graph runtime, not JCI firmware emulation."
   },
   {
     "feature": "Shared-signal system simulation",

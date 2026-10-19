@@ -7,10 +7,18 @@ import math
 from datetime import UTC, datetime, timedelta
 
 from .blocks import BLOCKS
+from .calendar_schedule import compile_schedule, validate_schedule_params
 from .models import Diagnostic, Program
 
 
 def validate(program: Program) -> list[Diagnostic]:
+    if "macros" in program.metadata or any(n.kind == "Macro" for n in program.nodes):
+        from .macros import expand_macros
+
+        try:
+            program = expand_macros(program)
+        except ValueError as exc:
+            return [Diagnostic(level="error", code="macro", message=str(exc))]
     issues = []
 
     def issue(code, message, node=None, level="error"):
@@ -116,12 +124,7 @@ def validate(program: Program) -> list[Diagnostic]:
             ):
                 raise ValueError("use degF, degC or K; output unit must equal 'to'")
             if n.kind == "Schedule":
-                for k in ("start", "end"):
-                    datetime.strptime(p[k], "%H:%M")
-                if not isinstance(p["days"], list) or any(
-                    type(d) is not int or not 0 <= d <= 6 for d in p["days"]
-                ):
-                    raise ValueError("days must be integers 0..6")
+                validate_schedule_params(p)
             if n.kind in ("Input", "Constant", "Delay"):
                 val = p.get("default", p.get("value", p.get("initial")))
                 if n.value_type == "boolean" and type(val) is not bool:
@@ -193,6 +196,10 @@ def input_type(n, port):
 
 
 def execution_order(program):
+    if "macros" in program.metadata or any(n.kind == "Macro" for n in program.nodes):
+        from .macros import expand_macros
+
+        program = expand_macros(program)
     ids = {n.id for n in program.nodes}
     kinds = {n.id: n.kind for n in program.nodes}
     dependencies = {n: set() for n in ids}
@@ -227,16 +234,22 @@ class Engine:
         errors = [d.message for d in issues if d.level == "error"]
         if errors:
             raise ValueError("; ".join(errors))
-        self.order = execution_order(self.program)
-        self.nodes = {n.id: n for n in self.program.nodes}
-        self.links = {(e.target, e.target_port): e.source for e in self.program.edges}
+        from .macros import expand_macros
+
+        self.graph = expand_macros(self.program)
+        self.order = execution_order(self.graph)
+        self.nodes = {n.id: n for n in self.graph.nodes}
+        self.calendars = {
+            n.id: compile_schedule(n.params) for n in self.graph.nodes if n.kind == "Schedule"
+        }
+        self.links = {(e.target, e.target_port): e.source for e in self.graph.edges}
         self.state = {}
         self.values = {}
         self.outputs = {}
         self.forces = {}
         self.time = 0.0
         self.history = []
-        self.history_limit = min(10000, max(20, 100000 // max(1, len(program.nodes))))
+        self.history_limit = min(10000, max(20, 100000 // max(1, len(self.graph.nodes))))
         self.clock = datetime(2026, 1, 5, tzinfo=UTC)
 
     def step(self, inputs=None, dt=None, clock=None, *, forces=None):
@@ -364,20 +377,7 @@ class Engine:
                     s["integral"] = integral
                     v = max(p["min"], min(p["max"], p["kp"] * error + integral))
                 elif k == "Schedule":
-                    minute = current_clock.hour * 60 + current_clock.minute
-                    start = sum(
-                        int(x) * m for x, m in zip(p["start"].split(":"), (60, 1), strict=True)
-                    )
-                    end = sum(int(x) * m for x, m in zip(p["end"].split(":"), (60, 1), strict=True))
-                    day = current_clock.weekday()
-                    v = (
-                        (day in p["days"] and start <= minute < end)
-                        if start <= end
-                        else (
-                            (day in p["days"] and minute >= start)
-                            or ((day - 1) % 7 in p["days"] and minute < end)
-                        )
-                    )
+                    v = self.calendars[node_id].active(current_clock)
                 else:
                     raise ScanError(f"No semantics for {k}")
                 expected = output_type(n)
@@ -391,7 +391,7 @@ class Engine:
                 values[node_id] = v
                 if k == "Alarm" and v:
                     alarms.append({"node": node_id, "message": n.label or "High alarm"})
-            for n in self.program.nodes:
+            for n in self.graph.nodes:
                 if n.kind == "Delay":
                     state[n.id]["previous"] = values[self.links[(n.id, "in")]]
         except (ZeroDivisionError, OverflowError, TypeError, KeyError) as exc:

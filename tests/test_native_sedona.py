@@ -99,6 +99,36 @@ def test_native_fault_does_not_advance_state_or_publish_partial_outputs(native):
     assert recovered["successful_scans"] == 2
 
 
+def test_native_calendar_uses_explicit_host_binding_and_unbound_calendar_holds_output(native):
+    from tests.test_calendar_integration import calendar_program
+
+    native.start(calendar_program())
+    occupied = native.step(clock=datetime(2026, 1, 5, 17, tzinfo=UTC))
+    assert occupied["outputs"]["out"] and occupied["matches_reference"]
+    holiday = native.step(clock=datetime(2026, 1, 6, 17, tzinfo=UTC))
+    assert not holiday["outputs"]["out"] and holiday["matches_reference"]
+    native._request(
+        [
+            {
+                "op": "write",
+                "path": "/logic/graph",
+                "slot": "n_occupied_calendar_valid",
+                "value": "false",
+            },
+            {"op": "invoke", "path": "/logic/graph", "slot": "step"},
+        ]
+    )
+    result = native._request(
+        [
+            {"op": "read", "path": "/logic/graph", "slot": "StudioFault"},
+            {"op": "read", "path": "/logic/graph", "slot": "successfulScans"},
+            {"op": "read", "path": "/logic/graph", "slot": "n_out"},
+        ]
+    )
+    values = {r.get("slot"): r.get("value") for r in result.findall("read")}
+    assert values == {"StudioFault": "true", "successfulScans": "2", "n_out": "false"}
+
+
 def test_native_nan_guard_uses_sedona_null_semantics(native):
     native.start(all_templates()[0])
     native._request(

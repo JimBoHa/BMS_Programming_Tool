@@ -7,6 +7,7 @@ export type Block = {
   parameters: Record<string, any>;
   help: string;
   stateful: boolean;
+  unit?: string;
 };
 export type BmsNode = {
   id: string;

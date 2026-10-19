@@ -49,6 +49,9 @@ def _literal(v):
 
 
 def structured_text_parts(program):
+    from .macros import expand_macros
+
+    program = expand_macros(program)
     _check(program)
     nodes = {n.id: n for n in program.nodes}
     links = {(e.target, e.target_port): e.source for e in program.edges}
@@ -86,12 +89,23 @@ def structured_text_parts(program):
             )
         if n.kind == "Input":
             declarations["inputVars"].append((names[n.id] + "_valid", "BOOL", "TRUE"))
+        if n.kind == "Schedule" and (n.params.get("timezone") or n.params.get("exceptions")):
+            # Full calendar evaluation belongs to the destination host. A false
+            # default validity flag prevents an unbound calendar publishing output.
+            declarations["inputVars"] += [
+                (names[n.id] + "_calendar", "BOOL", "FALSE"),
+                (names[n.id] + "_calendar_valid", "BOOL", "FALSE"),
+            ]
     lines = [
         "(* BMS Studio scan. Inputs and clock are supplied by the target runtime. *)",
         "StudioFault := FALSE;",
         "IF (StudioScanSeconds <= 0.0) OR (StudioScanSeconds > 60.0) THEN StudioFault := TRUE; RETURN; END_IF;",
     ]
     for n in program.nodes:
+        if n.kind == "Schedule" and (n.params.get("timezone") or n.params.get("exceptions")):
+            lines.append(
+                f"IF NOT {names[n.id]}_calendar_valid THEN StudioFault := TRUE; RETURN; END_IF;"
+            )
         if n.kind == "Input":
             test = "NOT " + names[n.id] + "_valid"
             if output_type(n) == "number":
@@ -239,6 +253,13 @@ def structured_text_parts(program):
             expression = f"{name}_memory + MAX(-({lit('rate')} * StudioScanSeconds), MIN({lit('rate')} * StudioScanSeconds, {a('in')} - {name}_memory))"
             commits.append(f"{name}_memory := {name};")
         elif k == "Schedule":
+            if p["timezone"] or p["exceptions"]:
+                expression = name + "_calendar"
+                lines.append(
+                    "(* Host evaluates the project's IANA timezone and dated exceptions; mark valid only for the current scan. *)"
+                )
+                lines.append(f"{name} := {expression};")
+                continue
             start = sum(int(v) * m for v, m in zip(p["start"].split(":"), (60, 1), strict=True))
             end = sum(int(v) * m for v, m in zip(p["end"].split(":"), (60, 1), strict=True))
             days = " OR ".join(f"(StudioDayOfWeek = {d})" for d in p["days"]) or "FALSE"

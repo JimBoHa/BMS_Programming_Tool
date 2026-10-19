@@ -91,6 +91,8 @@ class SimulationGroup:
     def reset(self):
         with self.lock:
             self.engines = {p.alias: Engine(p.program) for p in self.definition.programs}
+            if sum(len(engine.nodes) for engine in self.engines.values()) > 4000:
+                raise ValueError("A simulation workspace supports at most 4,000 expanded blocks.")
             self.external_inputs = {alias: {} for alias in self.engines}
             self.time = 0.0
             self.clock = datetime(2026, 1, 5, tzinfo=UTC)

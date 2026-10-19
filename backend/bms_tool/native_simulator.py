@@ -264,6 +264,16 @@ class NativeSimulator:
             write("StudioScanSeconds", actual_dt)
             write("StudioDayOfWeek", current_clock.weekday())
             write("StudioMinuteOfDay", current_clock.hour * 60 + current_clock.minute)
+            for identifier, calendar in candidate.calendars.items():
+                params = candidate.nodes[identifier].params
+                if params.get("timezone") or params.get("exceptions"):
+                    try:
+                        active = calendar.active(current_clock)
+                        valid = True
+                    except ValueError:
+                        active, valid = False, False
+                    write(_name(identifier) + "_calendar", active)
+                    write(_name(identifier) + "_calendar_valid", valid)
             operations.append({"op": "invoke", "path": "/logic/graph", "slot": "step"})
             slots = ["StudioFault", "successfulScans"] + [
                 _name(n.id) for n in candidate.program.nodes if n.kind == "Output"

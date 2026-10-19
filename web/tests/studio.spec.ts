@@ -2,6 +2,271 @@ import { test, expect } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 
+test("copy a connected nested macro graph into a new project with its libraries", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const root = path.resolve("..");
+  const buffer = execFileSync(
+    path.join(root, ".venv/bin/python"),
+    [
+      "-c",
+      "from tests.test_macro_integration import nested_rate_program; p=nested_rate_program(); [(setattr(n,'x',(i//2)*280),setattr(n,'y',(i%2)*240+100)) for i,n in enumerate(p.nodes)]; print(p.model_dump_json())",
+    ],
+    { cwd: root },
+  );
+  await page
+    .locator(
+      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab"]',
+    )
+    .setInputFiles({
+      name: "nested.bms.json",
+      mimeType: "application/json",
+      buffer,
+    });
+  await page.locator('.react-flow__node[data-id="first"]').click();
+  await page.keyboard.press("Control+a");
+  await expect(page.locator(".selection-panel")).toContainText(
+    "6 blocks selected",
+  );
+  await page.keyboard.press("Control+c");
+  await page.getByRole("button", { name: "New program", exact: true }).click();
+  await page.keyboard.press("Control+v");
+  await expect(page.locator(".react-flow__node")).toHaveCount(6);
+  await page
+    .getByRole("button", { name: "Step simulation", exact: true })
+    .click();
+  await expect(page.locator(".elapsed")).toHaveText("1.0 s");
+  await expect(page.locator(".trend-legend")).toContainText("-1");
+  const event = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export", exact: true }).click();
+  const file = await event;
+  const copied = JSON.parse(
+    execFileSync("/bin/cat", [(await file.path())!], { encoding: "utf8" }),
+  );
+  expect(copied.metadata.macros.definitions).toHaveLength(2);
+  expect(copied.nodes.filter((n: any) => n.kind === "Macro")).toHaveLength(2);
+});
+
+test("persist simulation trends and acknowledge returned alarms across reloads", async ({
+  page,
+  request,
+}) => {
+  await page.goto("/");
+  const root = path.resolve("..");
+  const buffer = execFileSync(
+    path.join(root, ".venv/bin/python"),
+    [
+      "-c",
+      "from bms_tool.models import Program,Node,Edge; p=Program(id='alarm-browser',nodes=[Node(id='sensor',kind='Input',params={'default':200},unit='degF',x=0),Node(id='high',kind='Alarm',label='High temperature',unit='degF',params={'limit':100},x=280),Node(id='result',kind='Output',value_type='boolean',x=560)],edges=[Edge(id='a',source='sensor',target='high'),Edge(id='b',source='high',target='result')]); print(p.model_dump_json())",
+    ],
+    { cwd: root },
+  );
+  await page
+    .locator(
+      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab"]',
+    )
+    .setInputFiles({
+      name: "alarm.bms.json",
+      mimeType: "application/json",
+      buffer,
+    });
+  await page.getByLabel("Persist history", { exact: true }).check();
+  await page
+    .getByRole("button", { name: "Step simulation", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Trends & alarms", exact: true })
+    .click();
+  await expect(page.locator(".alarm-occurrence")).toContainText(
+    "High temperature",
+  );
+  await page
+    .getByLabel(/acknowledgment note$/)
+    .fill("Reviewed simulated high temperature");
+  await page.getByRole("button", { name: /^Acknowledge alarm/ }).click();
+  await expect(page.locator(".alarm-occurrence")).toContainText(
+    "active · acknowledged",
+  );
+  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await page.getByLabel("Simulate sensor", { exact: true }).fill("50");
+  await page
+    .getByRole("button", { name: "Step simulation", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Trends & alarms", exact: true })
+    .click();
+  await expect(page.locator(".alarm-occurrence")).toContainText(
+    "returned · acknowledged",
+  );
+  await page.reload();
+  await page
+    .getByRole("button", { name: "Trends & alarms", exact: true })
+    .click();
+  await expect(page.locator(".alarm-occurrence")).toContainText(
+    "Reviewed simulated high temperature",
+  );
+  const event = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Export shown trends CSV", exact: true })
+    .click();
+  const file = await event;
+  const csv = execFileSync("/bin/cat", [(await file.path())!], {
+    encoding: "utf8",
+  });
+  expect(csv).toContain('"quality","unit"');
+  expect(csv).toContain('"good","degF"');
+  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await page.getByLabel("Persist history", { exact: true }).check();
+  await page
+    .getByRole("button", { name: "Step simulation", exact: true })
+    .click();
+  const active = await (
+    await request.get("/api/observations/alarms?active=true")
+  ).json();
+  expect(active).toHaveLength(1);
+  await page
+    .getByRole("button", { name: "Trends & alarms", exact: true })
+    .click();
+  await page
+    .getByLabel("Observation source", { exact: true })
+    .selectOption(active[0].source);
+  await page
+    .getByText("Retention and source retirement", { exact: true })
+    .click();
+  await page
+    .getByLabel("Reason for ending source", { exact: true })
+    .fill("Simulation reset; close abandoned source");
+  await page
+    .getByRole("button", {
+      name: "End selected simulation source",
+      exact: true,
+    })
+    .click();
+  await expect(page.locator(".alarm-occurrence")).toContainText(
+    "source-ended · unacknowledged",
+  );
+  await expect(page.locator(".alarm-occurrence")).not.toContainText("Returned");
+  await page
+    .getByLabel(`Alarm ${active[0].id} acknowledgment note`, { exact: true })
+    .fill("Reviewed ended source");
+  await page
+    .getByRole("button", {
+      name: `Acknowledge alarm ${active[0].id}`,
+      exact: true,
+    })
+    .click();
+  await expect(page.locator(".alarm-occurrence")).toContainText(
+    "source-ended · acknowledged",
+  );
+  await page.screenshot({
+    path: "test-results/studio-observations.png",
+    fullPage: true,
+  });
+});
+
+test("configure date exceptions and run an explicit UTC calendar scan", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const root = path.resolve("..");
+  const buffer = execFileSync(
+    path.join(root, ".venv/bin/python"),
+    [
+      "-c",
+      "from tests.test_calendar_integration import calendar_program; p=calendar_program(); p.nodes[1].x=280; print(p.model_dump_json())",
+    ],
+    { cwd: root },
+  );
+  await page
+    .locator(
+      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab"]',
+    )
+    .setInputFiles({
+      name: "calendar.bms.json",
+      mimeType: "application/json",
+      buffer,
+    });
+  await page.locator('.react-flow__node[data-id="occupied"]').click();
+  await page
+    .getByLabel("Calendar exception JSON", { exact: true })
+    .fill('[{"date":"2026-01-07","enabled":false}]');
+  await page
+    .getByRole("button", { name: "Apply calendar exceptions", exact: true })
+    .click();
+  await page
+    .getByLabel("Next scan UTC clock", { exact: true })
+    .fill("2026-01-07T17:00");
+  await page
+    .getByRole("button", { name: "Step simulation", exact: true })
+    .click();
+  await expect(page.locator(".trend-legend")).toContainText("out: FALSE");
+  await page
+    .getByLabel("Next scan UTC clock", { exact: true })
+    .fill("2026-01-08T17:00");
+  await page
+    .getByRole("button", { name: "Step simulation", exact: true })
+    .click();
+  await expect(page.locator(".trend-legend")).toContainText("out: TRUE");
+});
+
+test("select, duplicate and delete connected groups as one undoable edit", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const root = path.resolve("..");
+  const buffer = execFileSync(
+    path.join(root, ".venv/bin/python"),
+    [
+      "-c",
+      "from tests.test_simulation_forces import rate_program; p=rate_program(); [(setattr(n,'x',i*280),setattr(n,'y',100)) for i,n in enumerate(p.nodes)]; print(p.model_dump_json())",
+    ],
+    { cwd: root },
+  );
+  await page
+    .locator(
+      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab"]',
+    )
+    .setInputFiles({
+      name: "selection.bms.json",
+      mimeType: "application/json",
+      buffer,
+    });
+  const rate = page.locator('.react-flow__node[data-id="rate"]');
+  const out = page.locator('.react-flow__node[data-id="out"]');
+  await rate.click();
+  await out.click({ modifiers: ["Shift"] });
+  await expect(page.locator(".selection-panel")).toContainText(
+    "2 blocks selected",
+  );
+  await page
+    .getByRole("button", { name: "Duplicate selection", exact: true })
+    .click();
+  await expect(page.locator(".react-flow__node")).toHaveCount(5);
+  await expect(page.locator(".react-flow__edge")).toHaveCount(3);
+  await expect(page.locator(".react-flow__node.selected")).toHaveCount(2);
+  const event = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export", exact: true }).click();
+  const file = await event;
+  const project = JSON.parse(
+    execFileSync("/bin/cat", [(await file.path())!], { encoding: "utf8" }),
+  );
+  const copies = project.nodes.filter((n: any) => n.id.startsWith("copy_"));
+  expect(copies).toHaveLength(2);
+  const copyIds = copies.map((n: any) => n.id);
+  expect(
+    project.edges.filter(
+      (e: any) => copyIds.includes(e.source) && copyIds.includes(e.target),
+    ),
+  ).toHaveLength(1);
+  await page
+    .getByRole("button", { name: "Delete selection", exact: true })
+    .click();
+  await expect(page.locator(".react-flow__node")).toHaveCount(3);
+  await page.getByTitle("Undo", { exact: true }).click();
+  await expect(page.locator(".react-flow__node")).toHaveCount(5);
+});
+
 test("force and release internal values, retain fault state and export force evidence", async ({
   page,
 }) => {
@@ -361,6 +626,7 @@ test("drag blocks, wire pins, edit values and undo", async ({ page }) => {
   await expect(page.locator(".react-flow__node")).toHaveCount(before + 1);
   await page.locator(".palette-block").filter({ hasText: "Output" }).click();
   await expect(page.locator(".react-flow__node")).toHaveCount(2);
+  await page.getByTitle("Fit view", { exact: true }).click();
   await page
     .locator(".react-flow__node")
     .filter({ hasText: "Constant" })

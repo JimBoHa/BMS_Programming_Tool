@@ -123,11 +123,17 @@ BLOCKS = {
         True,
     ),
     "Schedule": Block(
-        "Weekly schedule",
+        "Calendar schedule",
         "Supervision",
         output="boolean",
-        parameters={"start": "08:00", "end": "18:00", "days": [0, 1, 2, 3, 4]},
-        help="Monday=0. Evaluated against explicitly supplied simulation clock; supports overnight periods.",
+        parameters={
+            "start": "08:00",
+            "end": "18:00",
+            "days": [0, 1, 2, 3, 4],
+            "timezone": "",
+            "exceptions": [],
+        },
+        help='Monday=0. Optional IANA timezone and dated exceptions replace the whole local day. Overnight periods belong to their start date. DST repeated minutes run twice; skipped minutes never run. Example exception: [{"date":"2026-12-25","enabled":false}].',
     ),
 }
 

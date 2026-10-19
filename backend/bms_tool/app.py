@@ -7,6 +7,7 @@ import contextlib
 import json
 import os
 import secrets
+import sqlite3
 import time
 import xml.etree.ElementTree as XML
 import zipfile
@@ -25,10 +26,21 @@ from .blocks import catalog
 from .caf import CafArchive
 from .connections import Bacnet, modbus_read, ports
 from .deployment import Runtime
-from .engine import Engine, run_scenario, validate
+from .engine import Engine, output_type, run_scenario, validate
 from .formats import export_program, import_program
+from .macros import (
+    create_definition,
+    delete_macro_definition,
+    export_macro_library,
+    import_macro_library,
+    inspect_macro_definition,
+    instantiate_macro,
+    macro_catalog,
+    update_macro_definition,
+)
 from .models import Program, StrictModel
 from .native_simulator import NativeSimulator
+from .observability import ObservabilityStore
 from .simulation_group import SimulationGroups, SimulationWorkspace, demo_workspace
 from .storage import Conflict, Store
 from .templates import all_templates
@@ -42,8 +54,9 @@ class SimulationRequest(StrictModel):
     dt: float | None = None
     session: str | None = None
     steps: int = Field(default=1, ge=1, le=1000)
-    clock: datetime | None = None
+    clock: AwareDatetime | None = None
     forces: dict[str, Any] | None = None
+    record: bool = False
 
 
 class NativeStart(StrictModel):
@@ -170,12 +183,54 @@ class ModbusRead(StrictModel):
     parity: str = "N"
 
 
+class AlarmAcknowledgement(StrictModel):
+    alarm_id: int = Field(ge=1, strict=True)
+    note: str = Field(min_length=1, max_length=1000)
+    actor: str = Field(default="operator", min_length=1, max_length=120)
+
+
+class ObservationSource(StrictModel):
+    source: str = Field(min_length=1, max_length=200)
+
+
+class ObservationEnd(ObservationSource):
+    note: str = Field(min_length=1, max_length=1000)
+    actor: str = Field(default="operator", min_length=1, max_length=120)
+
+
+class MacroProgram(StrictModel):
+    program: Program
+
+
+class MacroSelection(MacroProgram):
+    selected_ids: list[str] = Field(min_length=1, max_length=2000)
+    name: str = Field(min_length=1, max_length=200)
+
+
+class MacroReference(MacroProgram):
+    definition: str = Field(min_length=1, max_length=80)
+
+
+class MacroInstance(MacroReference):
+    x: float = 0.0
+    y: float = 0.0
+
+
+class MacroImport(MacroProgram):
+    bundle: dict[str, Any]
+
+
+class MacroUpdate(MacroReference):
+    replacement: Program
+
+
 def create_app(state_dir=None):
     store = Store(state_dir or os.environ.get("BMS_STUDIO_DATA", str(ROOT / ".state")))
     runtime = Runtime(store)
     bacnet = Bacnet(store)
     native = NativeSimulator(store)
     groups = SimulationGroups()
+    observations = ObservabilityStore(store.directory)
     simulations = {}
     caf_files = {}
     session_token = secrets.token_urlsafe(32)
@@ -255,6 +310,10 @@ def create_app(state_dir=None):
     async def os_error(request, exc):
         return JSONResponse({"detail": str(exc)}, 503)
 
+    @app.exception_handler(sqlite3.Error)
+    async def storage_error(request, exc):
+        return JSONResponse({"detail": "Local storage operation failed: " + str(exc)}, 503)
+
     @app.get("/api/session")
     def session():
         return {
@@ -271,6 +330,80 @@ def create_app(state_dir=None):
     def templates():
         return [p.model_dump() for p in all_templates()]
 
+    @app.get("/api/observations/status")
+    def observation_status():
+        return observations.status()
+
+    @app.get("/api/observations/sources")
+    def observation_sources():
+        return observations.list_sources()
+
+    @app.get("/api/observations/trends")
+    def observation_trends(
+        source: str | None = None,
+        signal: str | None = None,
+        start: AwareDatetime | None = None,
+        end: AwareDatetime | None = None,
+        after: int = 0,
+        limit: int = 100,
+    ):
+        return observations.trends(
+            source=source, signal=signal, start=start, end=end, after=after, limit=limit
+        )
+
+    @app.get("/api/observations/alarms")
+    def observation_alarms(
+        source: str | None = None,
+        active: bool | None = None,
+        unacknowledged: bool | None = None,
+        limit: int = 100,
+    ):
+        return observations.alarms(
+            source=source, active=active, unacknowledged=unacknowledged, limit=limit
+        )
+
+    @app.get("/api/observations/events")
+    def observation_events(
+        source: str | None = None, alarm_id: int | None = None, after: int = 0, limit: int = 100
+    ):
+        return observations.alarm_events(source=source, alarm_id=alarm_id, after=after, limit=limit)
+
+    @app.post("/api/observations/acknowledge")
+    def observation_acknowledge(body: AlarmAcknowledgement):
+        store.record(
+            "simulation.alarm.acknowledgement.requested",
+            {"alarm_id": body.alarm_id, "actor": body.actor, "note": body.note},
+        )
+        result = observations.acknowledge(body.alarm_id, body.note, actor=body.actor)
+        try:
+            store.record(
+                "simulation.alarm.acknowledged",
+                {"alarm_id": body.alarm_id, "actor": body.actor, "note": body.note},
+            )
+        except (OSError, sqlite3.Error) as exc:
+            result["audit_error"] = f"Acknowledgment committed; audit completion failed: {exc}"
+        return result
+
+    @app.post("/api/observations/retire")
+    def observation_retire(body: ObservationSource):
+        store.record("simulation.observations.retirement.requested", {"source": body.source})
+        result = observations.retire_source(body.source)
+        try:
+            store.record("simulation.observations.retired", {"source": body.source})
+        except (OSError, sqlite3.Error) as exc:
+            result["audit_error"] = f"Retirement committed; audit completion failed: {exc}"
+        return result
+
+    @app.post("/api/observations/end")
+    def observation_end(body: ObservationEnd):
+        store.record("simulation.observations.end.requested", body.model_dump())
+        result = observations.end_source(body.source, body.note, actor=body.actor)
+        try:
+            store.record("simulation.observations.ended", body.model_dump())
+        except (OSError, sqlite3.Error) as exc:
+            result["audit_error"] = f"Source ended; audit completion failed: {exc}"
+        return result
+
     @app.post("/api/validate")
     def validation(program: Program):
         return {"issues": [d.model_dump() for d in validate(program)]}
@@ -278,6 +411,38 @@ def create_app(state_dir=None):
     @app.post("/api/dependencies")
     def trace_dependencies(body: DependencyRequest):
         return dependencies(body.program, body.node)
+
+    @app.post("/api/macros/catalog")
+    def macros_catalog(body: MacroProgram):
+        return {"definitions": macro_catalog(body.program)}
+
+    @app.post("/api/macros/create")
+    def macros_create(body: MacroSelection):
+        return create_definition(body.program, body.selected_ids, body.name)
+
+    @app.post("/api/macros/instantiate")
+    def macros_instantiate(body: MacroInstance):
+        return instantiate_macro(body.program, body.definition, body.x, body.y)
+
+    @app.post("/api/macros/definition")
+    def macros_definition(body: MacroReference):
+        return inspect_macro_definition(body.program, body.definition)
+
+    @app.post("/api/macros/delete")
+    def macros_delete(body: MacroReference):
+        return delete_macro_definition(body.program, body.definition)
+
+    @app.post("/api/macros/export")
+    def macros_export(body: MacroReference):
+        return export_macro_library(body.program, body.definition)
+
+    @app.post("/api/macros/import")
+    def macros_import(body: MacroImport):
+        return import_macro_library(body.program, body.bundle)
+
+    @app.post("/api/macros/update")
+    def macros_update(body: MacroUpdate):
+        return update_macro_definition(body.program, body.definition, body.replacement)
 
     @app.get("/api/groups/demo")
     def group_demo():
@@ -433,15 +598,48 @@ def create_app(state_dir=None):
         record["touched"] = now
         if body.clock is not None and body.steps != 1:
             raise ValueError("An explicit clock applies to one scan; use single-step mode.")
-        rows = [
-            engine.step(body.inputs, body.dt, body.clock, forces=body.forces)
-            for _ in range(body.steps)
-        ]
+        rows = []
+        scan_error = None
+        recording_errors = []
+        source = f"simulation/{body.program.id}/{id}"
+        for _ in range(body.steps):
+            try:
+                row = engine.step(body.inputs, body.dt, body.clock, forces=body.forces)
+            except ValueError as exc:
+                if not rows:
+                    raise
+                scan_error = str(exc)
+                break
+            rows.append(row)
+            if body.record and not recording_errors:
+                try:
+                    observations.record_scan(
+                        source,
+                        row["clock"],
+                        row["values"],
+                        {
+                            n.id: {"active": row["values"][n.id], "message": n.label or n.id}
+                            for n in engine.graph.nodes
+                            if n.kind == "Alarm"
+                        },
+                        units={
+                            n.id: n.unit if output_type(n) == "number" else ""
+                            for n in engine.graph.nodes
+                        },
+                    )
+                except (ValueError, OSError, sqlite3.Error) as exc:
+                    # Execution already succeeded. Recording is a separate service;
+                    # never imply an executed scan was rolled back by a disk error.
+                    recording_errors.append(str(exc))
         return {
             "session": id,
             "last": rows[-1],
             "history": engine.history[-300:],
             "snapshot": engine.snapshot(),
+            "recording_source": source if body.record else None,
+            "recording_error": "; ".join(recording_errors) or None,
+            "scan_error": scan_error,
+            "completed_steps": len(rows),
         }
 
     @app.post("/api/simulation/scenario")

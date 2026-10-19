@@ -124,6 +124,8 @@ export function Inspector({
                 checked={value}
                 onChange={(e) => param(key, e.target.checked)}
               />
+            ) : Array.isArray(value) && key === "exceptions" ? (
+              <JsonParameter value={value} onChange={(v) => param(key, v)} />
             ) : Array.isArray(value) ? (
               <input
                 value={value.join(",")}
@@ -171,6 +173,48 @@ export function Inspector({
         <DependencyView program={program} node={node.id} onSelect={onSelect} />
       </div>
     </aside>
+  );
+}
+
+function JsonParameter({
+  value,
+  onChange,
+}: {
+  value: unknown[];
+  onChange: (v: unknown[]) => void;
+}) {
+  const [text, setText] = useState(JSON.stringify(value, null, 2));
+  const [error, setError] = useState("");
+  useEffect(() => {
+    setText(JSON.stringify(value, null, 2));
+    setError("");
+  }, [JSON.stringify(value)]);
+  return (
+    <>
+      <textarea
+        aria-label="Calendar exception JSON"
+        rows={7}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+      />
+      <button
+        type="button"
+        onClick={() => {
+          try {
+            const parsed = JSON.parse(text);
+            if (!Array.isArray(parsed))
+              throw new Error("Use a JSON array of date exceptions.");
+            onChange(parsed);
+            setError("");
+          } catch (e) {
+            setError(String(e));
+          }
+        }}
+      >
+        Apply calendar exceptions
+      </button>
+      {error && <span className="inline-error">{error}</span>}
+    </>
   );
 }
 
@@ -436,6 +480,11 @@ export function SimulationPanel({
   error,
   forces,
   onReleaseForces,
+  recordHistory,
+  setRecordHistory,
+  recordingError,
+  nextClock,
+  setNextClock,
 }: {
   program: Program;
   history: Scan[];
@@ -449,6 +498,11 @@ export function SimulationPanel({
   error: string;
   forces: Record<string, number | boolean>;
   onReleaseForces: () => void;
+  recordHistory: boolean;
+  setRecordHistory: (v: boolean) => void;
+  recordingError: string;
+  nextClock: string;
+  setNextClock: (v: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [events, setEvents] = useState(
@@ -490,6 +544,14 @@ export function SimulationPanel({
           <small>{running ? "RUNNING" : "OFFLINE"}</small>
         </div>
         <div className="button-row">
+          <label className="record-toggle">
+            <input
+              type="checkbox"
+              checked={recordHistory}
+              onChange={(e) => setRecordHistory(e.target.checked)}
+            />
+            Persist history
+          </label>
           <span className="elapsed">
             {history.at(-1)?.time.toFixed(1) || "0.0"} s
           </span>
@@ -528,6 +590,21 @@ export function SimulationPanel({
           )}
         </div>
       </div>
+      {recordingError && (
+        <div className="inline-error">
+          Scan completed; history recording failed: {recordingError}
+        </div>
+      )}
+      <label className="simulation-clock">
+        Next scan UTC clock (optional)
+        <input
+          type="datetime-local"
+          aria-label="Next scan UTC clock"
+          value={nextClock}
+          onChange={(e) => setNextClock(e.target.value)}
+          step="1"
+        />
+      </label>
       <div className="simulation-content">
         <div className="sim-inputs">
           {program.nodes

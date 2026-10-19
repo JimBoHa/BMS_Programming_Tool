@@ -22,6 +22,8 @@ import {
   X,
   FlaskConical,
   Layers,
+  Bell,
+  Boxes,
 } from "lucide-react";
 import { api, download, initSession } from "./api";
 import {
@@ -39,15 +41,25 @@ import { RuntimePanel } from "./Runtime";
 import { Resources } from "./Resources";
 import { NativeSimulator } from "./NativeSimulator";
 import { SystemSimulation } from "./SystemSimulation";
+import { SelectionPanel } from "./SelectionPanel";
+import { Observations } from "./Observations";
+import { MacroLibrary } from "./MacroLibrary";
 
 export function App() {
   const [tab, setTab] = useState("editor"),
     [program, setProgram] = useState<Program>(blankProgram),
     [blocks, setBlocks] = useState<Block[]>([]),
+    [macroBlocks, setMacroBlocks] = useState<Block[]>([]),
+    [macroEdit, setMacroEdit] = useState<{
+      parent: Program;
+      definition: string;
+      undo: Program[];
+      redo: Program[];
+    } | null>(null),
     [templates, setTemplates] = useState<Program[]>([]),
     [projects, setProjects] = useState<any[]>([]),
     [issues, setIssues] = useState<any[]>([]),
-    [selected, setSelected] = useState<string | null>(null),
+    [selection, setSelection] = useState<string[]>([]),
     [search, setSearch] = useState(""),
     [format, setFormat] = useState("json"),
     [history, setHistory] = useState<Scan[]>([]),
@@ -55,6 +67,9 @@ export function App() {
     [forces, setForces] = useState<Record<string, number | boolean>>({}),
     [running, setRunning] = useState(false),
     [simError, setSimError] = useState(""),
+    [recordHistory, setRecordHistory] = useState(false),
+    [recordingError, setRecordingError] = useState(""),
+    [nextClock, setNextClock] = useState(""),
     [message, setMessage] = useState(""),
     [ready, setReady] = useState(false),
     [settings, setSettings] = useState(false),
@@ -68,6 +83,45 @@ export function App() {
     busy = useRef(false),
     importInput = useRef<HTMLInputElement>(null);
   const flow = useReactFlow();
+  const specs = [...blocks, ...macroBlocks];
+  const specKey = (b: Block) =>
+    b.kind === "Macro" ? "macro:" + b.parameters.definition : b.kind;
+  const selected = selection.at(-1) || null;
+  const clipboard = useRef<{
+    nodes: BmsNode[];
+    edges: Program["edges"];
+    source: Program;
+  } | null>(null);
+  function setSelected(id: string | null) {
+    setSelection(id ? [id] : []);
+  }
+  useEffect(() => {
+    setSelection((ids) =>
+      ids.filter((id) => program.nodes.some((n) => n.id === id)),
+    );
+  }, [program.nodes]);
+  useEffect(() => {
+    let live = true;
+    if (!ready) return;
+    const timer = setTimeout(
+      () =>
+        api("/macros/catalog", { program })
+          .then((r) => {
+            if (live)
+              setMacroBlocks(
+                r.definitions.map((d: any) => ({ ...d, stateful: true })),
+              );
+          })
+          .catch(() => {
+            if (live) setMacroBlocks([]);
+          }),
+      150,
+    );
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [program.metadata.macros, ready]);
   useEffect(() => {
     let live = true;
     initSession()
@@ -92,6 +146,24 @@ export function App() {
               initial = parsed;
           }
         } catch {}
+        try {
+          const draft = JSON.parse(
+            localStorage.getItem("bms-studio-macro-edit-v1") || "null",
+          );
+          if (
+            draft?.parent?.schema_version === 1 &&
+            draft?.draft?.schema_version === 1 &&
+            typeof draft.definition === "string"
+          ) {
+            setMacroEdit({
+              parent: draft.parent,
+              definition: draft.definition,
+              undo: [],
+              redo: [],
+            });
+            initial = draft.draft;
+          }
+        } catch {}
         setProgram(initial);
         setReady(true);
       })
@@ -107,14 +179,24 @@ export function App() {
     setHistory([]);
     setForces({});
     setSimError("");
+    setRecordingError("");
     const timer = setTimeout(() => {
-      localStorage.setItem("bms-studio-draft-v1", JSON.stringify(program));
+      if (macroEdit)
+        localStorage.setItem(
+          "bms-studio-macro-edit-v1",
+          JSON.stringify({
+            parent: macroEdit.parent,
+            definition: macroEdit.definition,
+            draft: program,
+          }),
+        );
+      else localStorage.setItem("bms-studio-draft-v1", JSON.stringify(program));
       api("/validate", program)
         .then((r) => setIssues(r.issues))
         .catch((e) => setMessage(e.message));
     }, 200);
     return () => clearTimeout(timer);
-  }, [program, ready]);
+  }, [program, ready, macroEdit]);
   const remember = useCallback(() => {
     setUndoStack((s) => [...s.slice(-49), structuredClone(program)]);
     setRedoStack([]);
@@ -137,6 +219,10 @@ export function App() {
     setRedoStack((s) => s.slice(0, -1));
   }
   async function save() {
+    if (macroEdit) {
+      await applyMacroEdit();
+      return;
+    }
     if (tab === "system") {
       window.dispatchEvent(new Event("studio:save-workspace"));
       return;
@@ -161,6 +247,69 @@ export function App() {
       setMessage(String(e));
     }
   }
+  async function openMacroEdit(definition: string) {
+    if (macroEdit) return;
+    const parent = program;
+    try {
+      const draft = await api("/macros/definition", {
+        program: parent,
+        definition,
+      });
+      if (latestProgram.current !== parent) {
+        setMessage(
+          "Program changed while loading the definition. Open it again.",
+        );
+        return;
+      }
+      localStorage.setItem("bms-studio-draft-v1", JSON.stringify(parent));
+      setMacroEdit({ parent, definition, undo: undoStack, redo: redoStack });
+      setProgram(draft);
+      setUndoStack([]);
+      setRedoStack([]);
+      setSelected(null);
+      setTab("editor");
+    } catch (e) {
+      setMessage(String(e));
+    }
+  }
+  async function applyMacroEdit() {
+    if (!macroEdit) return;
+    const draft = program;
+    try {
+      const updated = await api("/macros/update", {
+        program: macroEdit.parent,
+        definition: macroEdit.definition,
+        replacement: draft,
+      });
+      if (latestProgram.current !== draft) {
+        setMessage(
+          "Definition changed while applying. Apply the current draft again.",
+        );
+        return;
+      }
+      setProgram(updated);
+      setUndoStack([...macroEdit.undo.slice(-48), macroEdit.parent]);
+      setRedoStack([]);
+      setMacroEdit(null);
+      setSelected(null);
+      localStorage.removeItem("bms-studio-macro-edit-v1");
+      setMessage(
+        "Definition updated in all instances. Save a revision to retain the project.",
+      );
+    } catch (e) {
+      setMessage(String(e));
+    }
+  }
+  function discardMacroEdit() {
+    if (!macroEdit) return;
+    setProgram(macroEdit.parent);
+    setUndoStack(macroEdit.undo);
+    setRedoStack(macroEdit.redo);
+    setMacroEdit(null);
+    setSelected(null);
+    localStorage.removeItem("bms-studio-macro-edit-v1");
+    setMessage("Definition edits discarded.");
+  }
   const step = useCallback(async () => {
     if (busy.current) return;
     busy.current = true;
@@ -170,18 +319,23 @@ export function App() {
         inputs,
         forces,
         session: session.current,
+        record: recordHistory,
+        clock: nextClock ? new Date(nextClock + "Z").toISOString() : undefined,
       });
       if (latestProgram.current !== program) return;
       session.current = r.session;
       setHistory(r.history);
-      setSimError("");
+      setSimError(r.scan_error || "");
+      if (r.scan_error) setRunning(false);
+      setRecordingError(r.recording_error || "");
+      setNextClock("");
     } catch (e) {
       setSimError(String(e));
       setRunning(false);
     } finally {
       busy.current = false;
     }
-  }, [program, inputs, forces]);
+  }, [program, inputs, forces, recordHistory, nextClock]);
   useEffect(() => {
     if (!running) return;
     const timer = setInterval(step, 500);
@@ -205,7 +359,35 @@ export function App() {
         e.preventDefault();
         e.shiftKey ? redo() : undo();
       }
-      if (e.key === "Delete" && selected) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a") {
+        e.preventDefault();
+        setSelection(program.nodes.map((n) => n.id));
+      }
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        e.key.toLowerCase() === "c" &&
+        selection.length
+      ) {
+        e.preventDefault();
+        copySelection();
+      }
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        e.key.toLowerCase() === "v" &&
+        clipboard.current
+      ) {
+        e.preventDefault();
+        pasteSelection();
+      }
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        e.key.toLowerCase() === "d" &&
+        selection.length
+      ) {
+        e.preventDefault();
+        duplicate();
+      }
+      if (["Delete", "Backspace"].includes(e.key) && selection.length) {
         e.preventDefault();
         remove();
       }
@@ -214,16 +396,40 @@ export function App() {
     return () => window.removeEventListener("keydown", keyboard);
   });
   function add(kind: string, x?: number, y?: number) {
-    const b = blocks.find((b) => b.kind === kind);
+    const b = specs.find((b) => specKey(b) === kind);
     if (!b) return;
+    const placedByClick = x === undefined || y === undefined;
+    if (placedByClick) {
+      const height = Math.max(108, b.inputs.length * 29 + 55);
+      for (let slot = 0; slot < 20000; slot++) {
+        x = 100 + (slot % 4) * 280;
+        y = 100 + Math.floor(slot / 4) * 220;
+        const overlaps = program.nodes.some((old) => {
+          const spec = specs.find(
+            (s) =>
+              s.kind === old.kind &&
+              (s.kind !== "Macro" ||
+                s.parameters.definition === old.params.definition),
+          );
+          const oldHeight = Math.max(108, (spec?.inputs.length || 0) * 29 + 55);
+          return (
+            x! < old.x + 252 &&
+            x! + 252 > old.x &&
+            y! < old.y + oldHeight + 32 &&
+            y! + height + 32 > old.y
+          );
+        });
+        if (!overlaps) break;
+      }
+    }
     const n: BmsNode = {
-      id: kind.toLowerCase() + "_" + Date.now().toString(36),
-      kind,
+      id: b.kind.toLowerCase() + "_" + crypto.randomUUID().replaceAll("-", ""),
+      kind: b.kind,
       label: b.title,
       x: x ?? 100 + (program.nodes.length % 4) * 240,
       y: y ?? 100 + Math.floor(program.nodes.length / 4) * 180,
       params: structuredClone(b.parameters),
-      unit: "",
+      unit: b.unit || "",
       value_type: b.output === "boolean" ? "boolean" : "number",
     };
     change({ ...program, nodes: [...program.nodes, n] });
@@ -236,28 +442,102 @@ export function App() {
     });
   }
   function remove() {
-    if (!selected) return;
+    if (!selection.length) return;
     change({
       ...program,
-      nodes: program.nodes.filter((n) => n.id !== selected),
+      nodes: program.nodes.filter((n) => !selection.includes(n.id)),
       edges: program.edges.filter(
-        (e) => e.source !== selected && e.target !== selected,
+        (e) => !selection.includes(e.source) && !selection.includes(e.target),
       ),
     });
     setSelected(null);
   }
   function duplicate() {
-    const n = program.nodes.find((n) => n.id === selected);
-    if (!n) return;
-    const copy = {
+    copySelection();
+    pasteSelection();
+  }
+  function copySelection() {
+    clipboard.current = structuredClone({
+      source: program,
+      nodes: program.nodes.filter((n) => selection.includes(n.id)),
+      edges: program.edges.filter(
+        (e) => selection.includes(e.source) && selection.includes(e.target),
+      ),
+    });
+    setMessage(
+      `Copied ${clipboard.current.nodes.length} blocks and internal wires.`,
+    );
+  }
+  async function pasteSelection() {
+    const clip = clipboard.current;
+    if (!clip?.nodes.length) return;
+    if (
+      program.nodes.length + clip.nodes.length > 2000 ||
+      program.edges.length + clip.edges.length > 10000
+    ) {
+      setMessage("Paste exceeds the project graph size limit.");
+      return;
+    }
+    let base = program;
+    try {
+      const definitions = new Set(
+        clip.nodes
+          .filter((n) => n.kind === "Macro")
+          .map((n) => n.params.definition),
+      );
+      for (const definition of definitions) {
+        const bundle = await api("/macros/export", {
+          program: clip.source,
+          definition,
+        });
+        base = await api("/macros/import", { program: base, bundle });
+      }
+      if (latestProgram.current !== program) {
+        setMessage(
+          "Program changed while pasting. Paste again into the current graph.",
+        );
+        return;
+      }
+    } catch (e) {
+      setMessage(String(e));
+      return;
+    }
+    const ids = Object.fromEntries(
+      clip.nodes.map((n) => [
+        n.id,
+        "copy_" + crypto.randomUUID().replaceAll("-", ""),
+      ]),
+    );
+    const nodes = clip.nodes.map((n) => ({
       ...structuredClone(n),
-      id: n.kind.toLowerCase() + "_" + Date.now().toString(36),
-      label: n.label + " copy",
+      id: ids[n.id],
+      label: (n.label + " copy").slice(0, 200),
       x: n.x + 50,
       y: n.y + 100,
-    };
-    change({ ...program, nodes: [...program.nodes, copy] });
-    setSelected(copy.id);
+    }));
+    const edges = clip.edges.map((e) => ({
+      ...e,
+      id: "wire_" + crypto.randomUUID(),
+      source: ids[e.source],
+      target: ids[e.target],
+    }));
+    change({
+      ...base,
+      nodes: [...program.nodes, ...nodes],
+      edges: [...program.edges, ...edges],
+    });
+    setSelection(nodes.map((n) => n.id));
+  }
+  function alignSelection(axis: "x" | "y") {
+    const nodes = program.nodes.filter((n) => selection.includes(n.id));
+    if (nodes.length < 2) return;
+    const coordinate = Math.min(...nodes.map((n) => n[axis]));
+    change({
+      ...program,
+      nodes: program.nodes.map((n) =>
+        selection.includes(n.id) ? { ...n, [axis]: coordinate } : n,
+      ),
+    });
   }
   function connect(c: Connection) {
     if (!c.source || !c.target || !c.targetHandle) return;
@@ -266,7 +546,7 @@ export function App() {
       edges: [
         ...program.edges,
         {
-          id: "wire_" + Date.now().toString(36),
+          id: "wire_" + crypto.randomUUID(),
           source: c.source,
           target: c.target,
           source_port: c.sourceHandle || "out",
@@ -276,6 +556,17 @@ export function App() {
     });
   }
   function nodeChanges(changes: NodeChange[]) {
+    const selections = changes.filter((c) => c.type === "select");
+    if (selections.length)
+      setSelection((current) => {
+        const ids = new Set(current);
+        for (const c of selections)
+          if (c.type === "select") {
+            if (c.selected) ids.add(c.id);
+            else ids.delete(c.id);
+          }
+        return [...ids];
+      });
     if (!changes.some((c) => c.type === "position" && c.position)) return;
     setProgram((current) => {
       let moved = false;
@@ -296,6 +587,10 @@ export function App() {
     });
   }
   async function loadProject(id: string, revision?: number) {
+    if (macroEdit) {
+      setMessage("Apply or discard definition edits first.");
+      return;
+    }
     try {
       change(
         await api(`/projects/${id}${revision ? "?revision=" + revision : ""}`),
@@ -307,6 +602,10 @@ export function App() {
     }
   }
   async function importProgram(file?: File) {
+    if (macroEdit) {
+      setMessage("Apply or discard definition edits first.");
+      return;
+    }
     if (!file) return;
     try {
       const f = new FormData();
@@ -327,7 +626,7 @@ export function App() {
   }
   const active = program.nodes.find((n) => n.id === selected),
     errors = issues.filter((d) => d.level === "error"),
-    palette = blocks.filter((b) =>
+    palette = specs.filter((b) =>
       (b.title + " " + b.kind + " " + b.category)
         .toLowerCase()
         .includes(search.toLowerCase()),
@@ -339,6 +638,8 @@ export function App() {
     { id: "runtime", title: "Runtime", icon: Cpu },
     { id: "native", title: "Native sim", icon: FlaskConical },
     { id: "system", title: "System sim", icon: Layers },
+    { id: "observations", title: "Trends & alarms", icon: Bell },
+    { id: "macros", title: "Macros", icon: Boxes },
     { id: "resources", title: "Reference", icon: BookOpen },
   ];
   if (!ready)
@@ -376,7 +677,11 @@ export function App() {
         </div>
         <button className="save-button primary" onClick={save}>
           <Save size={15} />{" "}
-          {tab === "system" ? "Save workspace" : "Save revision"}
+          {macroEdit
+            ? "Apply definition"
+            : tab === "system"
+              ? "Save workspace"
+              : "Save revision"}
         </button>
       </header>
       <div className="app-body">
@@ -385,6 +690,7 @@ export function App() {
             <button
               key={t.id}
               className={tab === t.id ? "active" : ""}
+              disabled={!!macroEdit && t.id !== "editor"}
               onClick={() => setTab(t.id)}
               title={t.title}
             >
@@ -400,11 +706,27 @@ export function App() {
         <main>
           {tab === "editor" ? (
             <>
+              {macroEdit && (
+                <div className="macro-edit-banner">
+                  <strong>Editing definition: {macroEdit.definition}</strong>
+                  <span>
+                    Changes apply to every instance. Keep input identifiers,
+                    types and units unchanged.
+                  </span>
+                  <button className="primary" onClick={applyMacroEdit}>
+                    Apply definition changes
+                  </button>
+                  <button onClick={discardMacroEdit}>
+                    Discard definition changes
+                  </button>
+                </div>
+              )}
               <div className="editor-toolbar">
                 <div className="button-row">
                   <button
                     title="New program"
                     aria-label="New program"
+                    disabled={!!macroEdit}
                     onClick={() => {
                       change(blankProgram());
                       setSelected(null);
@@ -415,6 +737,7 @@ export function App() {
                   </button>
                   <select
                     aria-label="Open saved project"
+                    disabled={!!macroEdit}
                     value=""
                     onChange={(e) => loadProject(e.target.value)}
                   >
@@ -427,6 +750,7 @@ export function App() {
                   </select>
                   <select
                     aria-label="Choose VAV template"
+                    disabled={!!macroEdit}
                     value=""
                     onChange={(e) => {
                       const p = templates.find((p) => p.id === e.target.value);
@@ -549,7 +873,7 @@ export function App() {
                 <aside className="palette">
                   <div className="panel-heading">
                     <Workflow size={16} /> BLOCK LIBRARY{" "}
-                    <span>{blocks.length}</span>
+                    <span>{specs.length}</span>
                   </div>
                   <div className="search">
                     <Search size={15} />
@@ -561,55 +885,60 @@ export function App() {
                     />
                   </div>
                   <div className="palette-scroll">
-                    {["I/O", "Math", "Logic", "Control", "Supervision"].map(
-                      (category) => (
-                        <div className="palette-group" key={category}>
-                          <div className="small-heading">{category}</div>
-                          {palette
-                            .filter((b) => b.category === category)
-                            .map((b) => (
-                              <button
-                                className="palette-block"
-                                key={b.kind}
-                                draggable
-                                onDragStart={(e) => {
-                                  e.dataTransfer.setData(
-                                    "application/bms-kind",
-                                    b.kind,
-                                  );
-                                  e.dataTransfer.effectAllowed = "copy";
-                                }}
-                                onClick={() => add(b.kind)}
-                                title={b.help || b.title}
+                    {[
+                      "I/O",
+                      "Math",
+                      "Logic",
+                      "Control",
+                      "Supervision",
+                      "Macros",
+                    ].map((category) => (
+                      <div className="palette-group" key={category}>
+                        <div className="small-heading">{category}</div>
+                        {palette
+                          .filter((b) => b.category === category)
+                          .map((b) => (
+                            <button
+                              className="palette-block"
+                              key={specKey(b)}
+                              draggable
+                              onDragStart={(e) => {
+                                e.dataTransfer.setData(
+                                  "application/bms-kind",
+                                  specKey(b),
+                                );
+                                e.dataTransfer.effectAllowed = "copy";
+                              }}
+                              onClick={() => add(specKey(b))}
+                              title={b.help || b.title}
+                            >
+                              <span
+                                className={
+                                  "block-mark category-" +
+                                  category.toLowerCase().replace("/", "")
+                                }
                               >
-                                <span
-                                  className={
-                                    "block-mark category-" +
-                                    category.toLowerCase().replace("/", "")
-                                  }
-                                >
-                                  {b.stateful
-                                    ? "↻"
-                                    : b.kind === "Input"
-                                      ? "I"
-                                      : b.kind === "Output"
-                                        ? "O"
-                                        : b.title.slice(0, 1)}
-                                </span>
-                                <span>
-                                  {b.title}
-                                  <small>
-                                    {b.inputs.length
-                                      ? b.inputs.length + " inputs"
-                                      : "source"}
-                                  </small>
-                                </span>
-                                <Plus size={13} />
-                              </button>
-                            ))}
-                        </div>
-                      ),
-                    )}
+                                {b.stateful
+                                  ? "↻"
+                                  : b.kind === "Input"
+                                    ? "I"
+                                    : b.kind === "Output"
+                                      ? "O"
+                                      : b.title.slice(0, 1)}
+                              </span>
+                              <span>
+                                {b.title}
+                                <small>
+                                  {b.inputs.length
+                                    ? b.inputs.length + " inputs"
+                                    : "source"}
+                                </small>
+                              </span>
+                              <Plus size={13} />
+                            </button>
+                          ))}
+                      </div>
+                    ))}
                   </div>
                   <div className="palette-footer">
                     Drag a block onto the wiresheet.
@@ -620,10 +949,10 @@ export function App() {
                 <div className="editor-center">
                   <Canvas
                     program={program}
-                    blocks={blocks}
+                    blocks={specs}
                     last={history.at(-1)}
                     issues={issues}
-                    selected={selected}
+                    selected={selection}
                     onSelect={setSelected}
                     onChange={nodeChanges}
                     onBeginDrag={remember}
@@ -659,20 +988,44 @@ export function App() {
                       setForces(h.at(-1)?.forces || {});
                     }}
                     error={simError}
+                    recordHistory={recordHistory}
+                    setRecordHistory={setRecordHistory}
+                    recordingError={recordingError}
+                    nextClock={nextClock}
+                    setNextClock={setNextClock}
                   />
                 </div>
-                <Inspector
-                  node={active}
-                  block={blocks.find((b) => b.kind === active?.kind)}
-                  onEdit={edit}
-                  onDelete={remove}
-                  onDuplicate={duplicate}
-                  program={program}
-                  onSelect={setSelected}
-                  forces={forces}
-                  onForceChange={setForces}
-                  last={history.at(-1)}
-                />
+                {selection.length > 1 ? (
+                  <SelectionPanel
+                    nodes={program.nodes.filter((n) =>
+                      selection.includes(n.id),
+                    )}
+                    onSelect={setSelected}
+                    onCopy={copySelection}
+                    onDuplicate={duplicate}
+                    onDelete={remove}
+                    onAlign={alignSelection}
+                  />
+                ) : (
+                  <Inspector
+                    node={active}
+                    block={specs.find(
+                      (b) =>
+                        b.kind === active?.kind &&
+                        (b.kind !== "Macro" ||
+                          b.parameters.definition ===
+                            active?.params.definition),
+                    )}
+                    onEdit={edit}
+                    onDelete={remove}
+                    onDuplicate={duplicate}
+                    program={program}
+                    onSelect={setSelected}
+                    forces={forces}
+                    onForceChange={setForces}
+                    last={history.at(-1)}
+                  />
+                )}
               </div>
               <div className="validation-bar">
                 <button
@@ -742,6 +1095,16 @@ export function App() {
             />
           ) : tab === "system" ? (
             <SystemSimulation program={program} />
+          ) : tab === "observations" ? (
+            <Observations />
+          ) : tab === "macros" ? (
+            <MacroLibrary
+              program={program}
+              selectedIds={selection}
+              onChange={change}
+              onSelect={setSelected}
+              onEditDefinition={openMacroEdit}
+            />
           ) : (
             <Resources />
           )}

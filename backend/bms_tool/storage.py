@@ -6,11 +6,18 @@ import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
-from .models import Program
+from .models import Program, canonical
+
+LEGACY_HASH_FORMAT = "model-json/1"
+CANONICAL_HASH_FORMAT = "canonical-json/1"
 
 
 class Conflict(ValueError):
     pass
+
+
+class RevisionIntegrityError(ValueError):
+    """A stored revision cannot be verified using its recorded hash algorithm."""
 
 
 class Store:
@@ -19,9 +26,28 @@ class Store:
         self.directory.mkdir(parents=True, exist_ok=True)
         self.db = self.directory / "studio.sqlite3"
         with self.connect() as db:
-            db.executescript("""
-            CREATE TABLE IF NOT EXISTS revisions(id TEXT, revision INTEGER, name TEXT, content TEXT, sha256 TEXT, created TEXT, PRIMARY KEY(id,revision));
-            CREATE TABLE IF NOT EXISTS audit(sequence INTEGER PRIMARY KEY, created TEXT, operation TEXT, detail TEXT, previous_hash TEXT, entry_hash TEXT);
+            # Serialize schema inspection and migration across concurrent app starts.
+            # executescript() implicitly commits, so keep these as individual statements.
+            db.execute("BEGIN IMMEDIATE")
+            db.execute("""
+                CREATE TABLE IF NOT EXISTS revisions(
+                    id TEXT, revision INTEGER, name TEXT, content TEXT, sha256 TEXT,
+                    created TEXT, hash_format TEXT NOT NULL DEFAULT 'model-json/1',
+                    PRIMARY KEY(id,revision)
+                )
+            """)
+            columns = {row["name"] for row in db.execute("PRAGMA table_info(revisions)")}
+            if "hash_format" not in columns:
+                # The default labels existing rows without rewriting their content or hash.
+                db.execute(
+                    "ALTER TABLE revisions ADD COLUMN hash_format TEXT NOT NULL "
+                    "DEFAULT 'model-json/1'"
+                )
+            db.execute("""
+                CREATE TABLE IF NOT EXISTS audit(
+                    sequence INTEGER PRIMARY KEY, created TEXT, operation TEXT,
+                    detail TEXT, previous_hash TEXT, entry_hash TEXT
+                )
             """)
 
     def connect(self):
@@ -43,24 +69,64 @@ class Store:
             p = program.model_copy(deep=True)
             p.revision = current + 1
             created = datetime.now(UTC).isoformat()
+            content = p.model_dump_json()
+            digest = hashlib.sha256(canonical(p)).hexdigest()
             db.execute(
-                "INSERT INTO revisions VALUES(?,?,?,?,?,?)",
-                (p.id, p.revision, p.name, p.model_dump_json(), p.digest(), created),
+                "INSERT INTO revisions(id,revision,name,content,sha256,created,hash_format) "
+                "VALUES(?,?,?,?,?,?,?)",
+                (p.id, p.revision, p.name, content, digest, created, CANONICAL_HASH_FORMAT),
             )
-        self.record("project.save", {"id": p.id, "revision": p.revision, "sha256": p.digest()})
+        self.record(
+            "project.save",
+            {
+                "id": p.id,
+                "revision": p.revision,
+                "sha256": digest,
+                "hash_format": CANONICAL_HASH_FORMAT,
+            },
+        )
         return p
 
     def load(self, id, revision=None):
         with self.connect() as db:
             row = db.execute(
-                "SELECT content FROM revisions WHERE id=? "
+                "SELECT id,revision,name,content,sha256,hash_format FROM revisions WHERE id=? "
                 + ("AND revision=?" if revision is not None else "")
                 + " ORDER BY revision DESC LIMIT 1",
                 (id, revision) if revision is not None else (id,),
             ).fetchone()
         if row is None:
             raise ValueError("Project revision not found.")
-        return Program.model_validate_json(row["content"])
+        hash_format = row["hash_format"]
+        if hash_format not in (LEGACY_HASH_FORMAT, CANONICAL_HASH_FORMAT):
+            raise RevisionIntegrityError(
+                f"Unsupported stored revision hash format: {hash_format!r}."
+            )
+        try:
+            content = row["content"]
+            if not isinstance(content, str):
+                raise ValueError("Stored content is not text.")
+            program = Program.model_validate_json(content)
+            verified = (
+                hashlib.sha256(content.encode()).hexdigest()
+                if hash_format == LEGACY_HASH_FORMAT
+                else hashlib.sha256(canonical(program)).hexdigest()
+            )
+        except (ValueError, UnicodeError) as exc:
+            raise RevisionIntegrityError("Stored project revision content is invalid.") from exc
+        if verified != row["sha256"]:
+            raise RevisionIntegrityError(
+                "Stored project revision failed integrity verification: hash mismatch."
+            )
+        if (program.id, program.revision, program.name) != (
+            row["id"],
+            row["revision"],
+            row["name"],
+        ):
+            raise RevisionIntegrityError(
+                "Stored project revision identity does not match its content."
+            )
+        return program
 
     def projects(self):
         with self.connect() as db:
@@ -76,7 +142,8 @@ class Store:
             return [
                 dict(r)
                 for r in db.execute(
-                    "SELECT revision,name,sha256,created FROM revisions WHERE id=? ORDER BY revision DESC",
+                    "SELECT revision,name,sha256,created,hash_format FROM revisions "
+                    "WHERE id=? ORDER BY revision DESC",
                     (id,),
                 )
             ]

@@ -158,8 +158,8 @@
     "acceptance_criterion": "Create nested, reusable control components with typed interfaces.",
     "evidence": "Honeywell Spyder Tool for WEBs-N4 31-00089-02",
     "pdf_pages_or_section": "56-60",
-    "status": "pending",
-    "implementation_or_gap": "Subgraph library and versioned macro interface"
+    "status": "implemented",
+    "implementation_or_gap": "Versioned typed single-output libraries, nested instances with independent state, graphical definition editing/apply/discard, draft recovery, bounded expansion and dependency-closed portable exchange"
   },
   {
     "id": "SIM-005",
@@ -266,8 +266,8 @@
     "acceptance_criterion": "Provide zoom, minimap, drag/drop, multi-selection and intuitive linking.",
     "evidence": "Tridium Niagara 4.12 Features Overview",
     "pdf_pages_or_section": "5",
-    "status": "partial",
-    "implementation_or_gap": "Zoom/drag/link/minimap; multi-node editing pending"
+    "status": "implemented",
+    "implementation_or_gap": "Zoom, drag/link/minimap, Shift selection, group movement/alignment, internal-wire copy/duplicate, delete and undo; browser verified"
   },
   {
     "id": "FMT-007",
@@ -294,7 +294,7 @@
     "evidence": "Niagara Histories Guide",
     "pdf_pages_or_section": "History service concepts",
     "status": "partial",
-    "implementation_or_gap": "Simulation history/CSV; durable field trend service pending"
+    "implementation_or_gap": "Bounded durable SQLite simulation samples, timestamps, quality, units, cursor queries and CSV; field acquisition remains pending"
   },
   {
     "id": "PKG-002",
@@ -311,8 +311,8 @@
     "acceptance_criterion": "Support weekly and exception calendars, time zones and daylight saving.",
     "evidence": "Niagara Scheduling Guide",
     "pdf_pages_or_section": "Schedule concepts",
-    "status": "partial",
-    "implementation_or_gap": "Weekly schedule block; holidays/time zones/DST pending"
+    "status": "implemented",
+    "implementation_or_gap": "IANA zones, both DST folds/skipped minutes, dated closure/window exceptions with explicit overnight precedence; compiled exports require explicit host calendar binding"
   },
   {
     "id": "REL-001",
@@ -330,7 +330,7 @@
     "evidence": "ALC Eikon 3.02 Microblock Reference",
     "pdf_pages_or_section": "Alarm microblocks",
     "status": "partial",
-    "implementation_or_gap": "Threshold/on-delay simulation alarms; lifecycle/routing pending"
+    "implementation_or_gap": "Threshold/on-delay, durable activation/return/acknowledgment/reactivation, operator notes and event history; external delivery/routing pending"
   },
   {
     "id": "FMT-008",
