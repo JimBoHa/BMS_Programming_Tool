@@ -21,6 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import AwareDatetime, Field
 
 from .analysis import dependencies
+from .bacnet_files import BacnetFiles
 from .bacnet_history import BacnetHistory, BacnetHistoryRequest
 from .blocks import catalog
 from .caf import CafArchive
@@ -47,6 +48,14 @@ from .models import Program, StrictModel
 from .native_simulator import NativeSimulator
 from .niagara import NiagaraArchive
 from .observability import ObservabilityStore
+from .routed_discovery import (
+    ProbeTrunkRequest,
+    RoutedDiscovery,
+    RoutedScanRequest,
+    RouterBindingsRequest,
+    RouterNetworksRequest,
+    RouterProbeRequest,
+)
 from .simulation_group import SimulationGroups, SimulationWorkspace, demo_workspace
 from .storage import Conflict, Store
 from .temco_transfer import TemcoTransfer
@@ -279,6 +288,23 @@ class BacnetWrite(StrictModel):
     priority: int = 16
 
 
+class BacnetObjects(BacnetRead):
+    offset: int = Field(default=0, ge=0, le=20000, strict=True)
+    limit: int = Field(default=100, ge=1, le=200, strict=True)
+    timeout_seconds: float = Field(default=15.0, ge=1, le=30, strict=True)
+
+
+class BacnetFileInspect(StrictModel):
+    address: str = Field(min_length=1, max_length=256)
+    device: str = Field(min_length=1, max_length=80)
+
+
+class BacnetFileRead(StrictModel):
+    inspection_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    object_id: str = Field(min_length=1, max_length=80)
+    metadata_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
 class TokenRequest(StrictModel):
     token: str
 
@@ -365,6 +391,8 @@ def create_app(state_dir=None):
     field_trends = FieldTrends(bacnet, store.directory, audit_store=store)
     temco_transfer = TemcoTransfer(bacnet, store)
     history = BacnetHistory(bacnet, store)
+    routed = RoutedDiscovery(bacnet, store)
+    files = BacnetFiles(bacnet, store)
     notifications = None
     simulations = {}
     caf_files = {}
@@ -440,6 +468,8 @@ def create_app(state_dir=None):
     app.state.field_trends = field_trends
     app.state.temco_transfer = temco_transfer
     app.state.bacnet_history = history
+    app.state.routed_discovery = routed
+    app.state.bacnet_files = files
     app.state.notifications = None
 
     @app.middleware("http")
@@ -1204,6 +1234,59 @@ def create_app(state_dir=None):
     def bacnet_status():
         return bacnet.status()
 
+    @app.get("/api/bacnet/routed-profile")
+    def bacnet_routed_profile():
+        return routed.status()
+
+    @app.post("/api/bacnet/router-networks")
+    async def bacnet_router_networks(body: RouterNetworksRequest):
+        return await routed.networks(**body.model_dump())
+
+    @app.post("/api/bacnet/router-bindings")
+    async def bacnet_router_bindings(body: RouterBindingsRequest):
+        return await routed.bindings(**body.model_dump())
+
+    @app.post("/api/bacnet/scan-trunk")
+    async def bacnet_scan_trunk(body: RoutedScanRequest):
+        return await routed.scan(**body.model_dump())
+
+    @app.post("/api/bacnet/probe-controller")
+    async def bacnet_probe_controller(body: RouterProbeRequest):
+        return await routed.probe(**body.model_dump())
+
+    @app.post("/api/bacnet/probe-trunk")
+    async def bacnet_probe_trunk(body: ProbeTrunkRequest):
+        return await routed.probe_range(**body.model_dump())
+
+    @app.get("/api/bacnet/files/status")
+    def bacnet_files_status():
+        return files.status()
+
+    @app.post("/api/bacnet/files/inspect")
+    async def bacnet_files_inspect(body: BacnetFileInspect):
+        return await files.inspect_config(**body.model_dump())
+
+    @app.post("/api/bacnet/files/read")
+    async def bacnet_files_read(body: BacnetFileRead):
+        return await files.read_raw_file(**body.model_dump())
+
+    @app.get("/api/bacnet/files/captures")
+    def bacnet_file_captures():
+        return files.captures()
+
+    @app.get("/api/bacnet/files/captures/{id}")
+    def bacnet_file_capture(id: str):
+        return files.capture(id)
+
+    @app.get("/api/bacnet/files/captures/{id}/export")
+    def bacnet_file_export(id: str):
+        content, name, content_type = files.export(id)
+        return Response(
+            content,
+            media_type=content_type,
+            headers={"Content-Disposition": f'attachment; filename="{name}"'},
+        )
+
     @app.get("/api/bacnet/history/status")
     def bacnet_history_status():
         return history.status()
@@ -1306,8 +1389,10 @@ def create_app(state_dir=None):
         return await bacnet.read(**body.model_dump())
 
     @app.post("/api/bacnet/objects")
-    async def objects(body: BacnetRead):
-        return await bacnet.objects(body.address, body.object_id)
+    async def objects(body: BacnetObjects):
+        return await bacnet.objects(
+            body.address, body.object_id, body.offset, body.limit, body.timeout_seconds
+        )
 
     @app.post("/api/bacnet/write-plan")
     async def write_plan(body: BacnetWrite):

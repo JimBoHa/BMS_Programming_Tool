@@ -1,6 +1,17 @@
 import { useEffect, useRef, useState } from "react";
-import { Network, RefreshCw, Usb, Radio, Search, PlugZap } from "lucide-react";
-import { api } from "./api";
+import {
+  Download,
+  Network,
+  RefreshCw,
+  Usb,
+  Radio,
+  Search,
+  PlugZap,
+} from "lucide-react";
+import { api, saveBlob } from "./api";
+import { RoutedDiscoveryPanel } from "./RoutedDiscoveryPanel";
+import { BacnetFilesPanel } from "./BacnetFilesPanel";
+import { ControllerProbePanel } from "./ControllerProbePanel";
 
 export function Connections() {
   const [config, setConfig] = useState({
@@ -18,6 +29,15 @@ export function Connections() {
     [foreignLow, setForeignLow] = useState("0"),
     [foreignHigh, setForeignHigh] = useState("4194302"),
     [value, setValue] = useState<any>(null),
+    [objectPage, setObjectPage] = useState<any>(null),
+    [objectOffset, setObjectOffset] = useState("0"),
+    [objectLimit, setObjectLimit] = useState("100"),
+    [objectTimeout, setObjectTimeout] = useState("15"),
+    [objectDownloaded, setObjectDownloaded] = useState(""),
+    [selectedRoute, setSelectedRoute] = useState<{
+      router: string;
+      dnet: number;
+    } | null>(null),
     [status, setStatus] = useState<any>({ connected: false, commands: [] }),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
@@ -48,6 +68,90 @@ export function Connections() {
   const mounted = useRef(false),
     statusEpoch = useRef(0),
     ipDirty = useRef(false);
+  const routerKey = (address?: string) =>
+    address?.trim()
+      ? address.trim().includes(":")
+        ? address.trim()
+        : address.trim() + ":47808"
+      : "";
+  const selectedRouteReady =
+    !selectedRoute ||
+    (status.config?.transport !== "mstp" &&
+      routerKey(status.config?.router) === routerKey(selectedRoute.router) &&
+      Number(status.config?.dnet) === selectedRoute.dnet);
+  const pointReady = status.connected && selectedRouteReady;
+  const probeNetwork = Number(config.dnet);
+  const probeDnet =
+    Number.isInteger(probeNetwork) && probeNetwork >= 1 && probeNetwork <= 65534
+      ? probeNetwork
+      : null;
+  const probeReady =
+    status.connected &&
+    !busy &&
+    status.config?.transport !== "mstp" &&
+    !!config.router.trim() &&
+    probeDnet !== null &&
+    routerKey(config.router) === routerKey(status.config?.router) &&
+    probeDnet === Number(status.config?.dnet);
+  function clearPointResults(clearRoute = false) {
+    setPlan(null);
+    setValue(null);
+    setObjectPage(null);
+    setObjectOffset("0");
+    setObjectDownloaded("");
+    if (clearRoute) setSelectedRoute(null);
+  }
+  function objectInteger(
+    value: string,
+    min: number,
+    max: number,
+    label: string,
+  ) {
+    const parsed = Number(value);
+    if (
+      !value.trim() ||
+      !Number.isInteger(parsed) ||
+      parsed < min ||
+      parsed > max
+    )
+      throw new Error(`${label} must be an integer from ${min} to ${max}.`);
+    return parsed;
+  }
+  async function readObjectPage(offset = objectOffset) {
+    if (!pointReady) return;
+    await action(async () => {
+      const payload = {
+        address: target,
+        object_id: object,
+        offset: objectInteger(offset, 0, 20000, "Object-list offset"),
+        limit: objectInteger(objectLimit, 1, 200, "Object-list page size"),
+        timeout_seconds: objectInteger(
+          objectTimeout,
+          1,
+          30,
+          "Object-list deadline",
+        ),
+      };
+      setObjectPage(null);
+      setObjectDownloaded("");
+      setValue(null);
+      setObjectOffset(String(payload.offset));
+      setObjectPage(await api("/bacnet/objects", payload));
+    });
+  }
+  function exportObjectPage() {
+    if (!objectPage || busy) return;
+    const filename = `bacnet-objects-${String(objectPage.device).replace(/[^A-Za-z0-9_-]/g, "_")}-${objectPage.offset}.json`;
+    saveBlob(
+      new Blob([JSON.stringify(objectPage, null, 2)], {
+        type: "application/json",
+      }),
+      filename,
+    );
+    setObjectDownloaded(
+      `Downloaded the displayed object-list page for ${objectPage.address} / ${objectPage.device}. Completeness and error evidence are preserved.`,
+    );
+  }
   async function refresh() {
     const epoch = ++statusEpoch.current;
     const [next, ports] = await Promise.all([
@@ -103,6 +207,7 @@ export function Connections() {
         max_info_frames: saved.max_info_frames,
       });
       setTarget(saved.mac === 5 ? "6" : "5");
+      clearPointResults(true);
     }
   }, [status.config?.transport]);
   useEffect(() => {
@@ -255,9 +360,9 @@ export function Connections() {
                 page alone does not prove routing.
               </p>
               <p className="help-text">
-                For remote IP networks, register through the destination BBMD.
-                This requires a BBMD that accepts foreign devices; a VPN route
-                alone does not forward BACnet broadcasts.
+                BBMD registration enables broadcast discovery across IP subnets
+                when the BBMD accepts foreign devices. Addressed controller
+                services use the selected router directly.
               </p>
               {status.foreign_device && (
                 <div
@@ -298,7 +403,7 @@ export function Connections() {
                 value={target}
                 onChange={(e) => {
                   setTarget(e.target.value);
-                  setPlan(null);
+                  clearPointResults(true);
                 }}
               />
             </label>
@@ -309,7 +414,7 @@ export function Connections() {
                 value={object}
                 onChange={(e) => {
                   setObject(e.target.value);
-                  setPlan(null);
+                  clearPointResults();
                 }}
               />
             </label>
@@ -353,7 +458,7 @@ export function Connections() {
                 Discover through BBMD
               </button>
               <button
-                disabled={busy || !status.connected}
+                disabled={busy || !pointReady}
                 onClick={() =>
                   action(async () =>
                     setDevices(
@@ -365,7 +470,7 @@ export function Connections() {
                 Who-Is target
               </button>
               <button
-                disabled={busy || !status.connected}
+                disabled={busy || !pointReady}
                 onClick={() =>
                   action(async () =>
                     setValue(
@@ -381,21 +486,130 @@ export function Connections() {
                 Read property
               </button>
               <button
-                disabled={busy || !status.connected}
-                onClick={() =>
-                  action(async () =>
-                    setValue(
-                      await api("/bacnet/objects", {
-                        address: target,
-                        object_id: object,
-                      }),
-                    ),
-                  )
-                }
+                disabled={busy || !pointReady}
+                onClick={() => readObjectPage()}
               >
                 Read object list
               </button>
             </div>
+            {!selectedRouteReady && (
+              <p className="help-text full" role="status">
+                Selected routed target requires router {selectedRoute?.router}{" "}
+                and network {selectedRoute?.dnet}. Review the connection draft
+                and choose Open interface before point services.
+              </p>
+            )}
+            <div
+              className="form-grid full"
+              aria-label="Object-list page request"
+            >
+              {(
+                [
+                  [
+                    "Object-list offset",
+                    objectOffset,
+                    setObjectOffset,
+                    0,
+                    20000,
+                  ],
+                  [
+                    "Object-list page size",
+                    objectLimit,
+                    setObjectLimit,
+                    1,
+                    200,
+                  ],
+                  [
+                    "Object-list deadline seconds",
+                    objectTimeout,
+                    setObjectTimeout,
+                    1,
+                    30,
+                  ],
+                ] as const
+              ).map(([label, current, setter, min, max]) => (
+                <label key={label}>
+                  {label}
+                  <input
+                    type="number"
+                    aria-label={label}
+                    min={min}
+                    max={max}
+                    disabled={busy}
+                    value={current}
+                    onChange={(event) => {
+                      setter(event.target.value);
+                      setObjectPage(null);
+                      setObjectDownloaded("");
+                    }}
+                  />
+                </label>
+              ))}
+            </div>
+            {objectPage && (
+              <div
+                className="full"
+                role="region"
+                aria-label="BACnet object-list page"
+              >
+                <p>
+                  <b>
+                    {objectPage.address} / {objectPage.device}
+                  </b>{" "}
+                  · Offset {objectPage.offset} · {objectPage.objects.length}{" "}
+                  received · Device total {objectPage.total ?? "unknown"}
+                </p>
+                <p>
+                  {objectPage.complete
+                    ? "Page request completed"
+                    : "Page request incomplete"}
+                  {objectPage.truncated ? " · Further indices remain" : ""}.
+                  This page is not an application backup or a verified complete
+                  inventory.
+                </p>
+                {objectPage.error && (
+                  <p className="inline-error" role="alert">
+                    {objectPage.error}
+                  </p>
+                )}
+                <p className="help-text">{objectPage.scope}</p>
+                <div style={{ overflowX: "auto" }}>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Index</th>
+                        <th>Object</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {objectPage.objects.map((item: any) => (
+                        <tr key={item.index}>
+                          <td>{item.index}</td>
+                          <td>{item.object}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="button-row">
+                  <button disabled={busy} onClick={exportObjectPage}>
+                    <Download size={14} /> Download shown object-list JSON
+                  </button>
+                  {objectPage.next_offset !== null &&
+                    objectPage.next_offset !== undefined && (
+                      <button
+                        disabled={busy || !pointReady}
+                        onClick={() =>
+                          readObjectPage(String(objectPage.next_offset))
+                        }
+                      >
+                        Read next object-list page
+                      </button>
+                    )}
+                </div>
+                {objectDownloaded && <p role="status">{objectDownloaded}</p>}
+              </div>
+            )}
             {config.bbmd_address && (
               <>
                 <label>
@@ -430,6 +644,51 @@ export function Connections() {
           </div>
         </section>
       </div>
+      <RoutedDiscoveryPanel
+        connected={
+          status.connected && !busy && status.config?.transport !== "mstp"
+        }
+        onSelect={(device, router, dnet) => {
+          if (busy) return;
+          ipDirty.current = true;
+          setConfig((current) => ({ ...current, router, dnet: String(dnet) }));
+          setTarget(device.address);
+          setObject(device.device);
+          setProperty("object-name");
+          clearPointResults();
+          setSelectedRoute({ router, dnet });
+        }}
+      />
+      <BacnetFilesPanel
+        connected={!!pointReady && !busy}
+        defaultAddress={target}
+        defaultDevice={object.trim().startsWith("device,") ? object : ""}
+      />
+      <ControllerProbePanel
+        connected={!!probeReady}
+        router={config.router}
+        dnet={probeDnet}
+        onSelect={(report) => {
+          if (
+            !probeReady ||
+            !report.live_verified ||
+            routerKey(report.router) !== routerKey(status.config?.router) ||
+            report.dnet !== Number(status.config?.dnet)
+          )
+            return;
+          ipDirty.current = true;
+          setConfig((current) => ({
+            ...current,
+            router: report.router,
+            dnet: String(report.dnet),
+          }));
+          setTarget(report.address);
+          setObject(report.device);
+          setProperty("object-name");
+          clearPointResults();
+          setSelectedRoute({ router: report.router, dnet: report.dnet });
+        }}
+      />
       {!!devices.length && (
         <section className="card">
           <div className="card-header">
@@ -454,7 +713,7 @@ export function Connections() {
                     setTarget(d.address);
                     setObject(d.device);
                     setProperty("object-name");
-                    setPlan(null);
+                    clearPointResults(true);
                   }}
                 >
                   <td>{d.address}</td>
@@ -507,7 +766,7 @@ export function Connections() {
           </div>
           <div className="button-row">
             <button
-              disabled={busy || !status.connected}
+              disabled={busy || !pointReady}
               onClick={() =>
                 action(async () => {
                   let v: any;
@@ -532,7 +791,7 @@ export function Connections() {
             {plan && (
               <button
                 className="primary"
-                disabled={busy || !status.connected}
+                disabled={busy || !pointReady}
                 onClick={() =>
                   action(async () => {
                     setValue(
@@ -783,8 +1042,7 @@ export function Connections() {
                     await api("/bacnet/connect-mstp", mstp);
                     setTarget(mstp.mac === 5 ? "6" : "5");
                     setDevices([]);
-                    setValue(null);
-                    setPlan(null);
+                    clearPointResults(true);
                   })
                 }
               >

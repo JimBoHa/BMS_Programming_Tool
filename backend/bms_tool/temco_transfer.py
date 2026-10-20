@@ -20,11 +20,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from bacpypes3.apdu import ConfirmedPrivateTransferACK, ConfirmedPrivateTransferRequest
-from bacpypes3.appservice import COMPLETED
 from bacpypes3.constructeddata import Any
 from bacpypes3.errors import InvalidTag
 from bacpypes3.primitivedata import Null, OctetString
 
+from .bacnet_exchange import confirmed_exchange
 from .macros import expand_macros
 from .temco import compile_source, import_source
 
@@ -280,7 +280,7 @@ class TemcoTransfer:
         setattr(app, name, received)
         future = None
         try:
-            future = app.request(request)
+            future = asyncio.create_task(confirmed_exchange(app, request))
             done, _ = await asyncio.wait(
                 (future, proprietary), timeout=self.timeout, return_when=asyncio.FIRST_COMPLETED
             )
@@ -288,7 +288,10 @@ class TemcoTransfer:
                 return proprietary.result()
             if future in done:
                 reply = future.result()
-                if not isinstance(reply, ConfirmedPrivateTransferACK):
+                if (
+                    not isinstance(reply, ConfirmedPrivateTransferACK)
+                    or reply.apduInvokeID != request.apduInvokeID
+                ):
                     raise ValueError("Temco private-transfer request was rejected.")
                 result = decode(reply, "resultBlock")
                 if result is None:
@@ -296,21 +299,22 @@ class TemcoTransfer:
                 return result
             raise TimeoutError("Temco private-transfer response timed out.")
         finally:
-            # Firmware answers via unconfirmed service; retire the corresponding
-            # confirmed SSM locally so BACpypes cannot retransmit a write later.
-            for transaction in list(app.asap.clientTransactions):
-                if (
-                    transaction.pdu_address == target
-                    and transaction.invokeID == request.apduInvokeID
-                ):
-                    transaction.set_state(COMPLETED)
+            # Firmware may answer via unconfirmed service before the confirmed
+            # task completes. Cancel AND join our owned dispatch so even a
+            # pre-invoke cache lookup cannot send a write after we return.
             if future is not None:
                 future.cancel()
-                # Its normal done callback runs on a later loop turn. Remove our
-                # own request now as well, so immediate disconnect/reconnect cannot
-                # retain cancelled request bookkeeping. The callback is idempotent.
-                app._request_done(request, future)
-                if future.done() and not future.cancelled():
+                while not future.done():
+                    try:
+                        await asyncio.shield(future)
+                    except asyncio.CancelledError:
+                        # A cancelled child is terminal. Repeated cancellation
+                        # of the outer operation must still let cleanup finish.
+                        if future.done():
+                            break
+                    except Exception:
+                        break
+                if not future.cancelled():
                     future.exception()
             proprietary.cancel()
             if had_own:

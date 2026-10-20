@@ -112,7 +112,37 @@
   {
     "feature": "BACnet/IP connection",
     "status": "implemented",
-    "scope": "Explicit unicast discovery, object/property reads, bounded object lists, command previews, priority-slot checks, verified writes, relinquish and durable command recovery. Optional foreign-device registration adds BBMD broadcast discovery while preserving addressed point services. Independently authored raw UDP peers and real loopback applications exercise protocol traffic. Physical controller acceptance remains unverified."
+    "scope": "Explicit unicast discovery, bounded property/object reads and separately previewed owned commands. Optional foreign-device registration adds BBMD discovery. Native values, paged inventories, routed identity probes and opaque File capture have explicit profiles below. Independent UDP/HTTP/browser checks cover local protocol behavior; authorized read-only site checks identified genuine downstream VMAs and read values. Field writes and native controller-program acceptance remain unverified."
+  },
+  {
+    "feature": "Explicit routed discovery and cached bindings",
+    "status": "implemented",
+    "scope": "One selected IPv4 router network query, optional exact Device identity preflight and address-binding cache read, or one selected-DNET Who-Is response window. Cached hints remain labelled unverified, unknown Device instance 4194303 becomes null, wider MACs retain original bytes, and partial/truncated evidence stays visible. Window completion never proves a complete inventory. Downloadable source evidence and exact opened-route guards; no automatic broad scans or connection changes."
+  },
+  {
+    "feature": "Routed wildcard controller identification",
+    "status": "implemented",
+    "scope": "Read standard Device wildcard 4194303 at one explicit MAC and require matching actual Device identity in ACK/value, then retrieve bounded optional metadata. Explicit pages probe at most 32 MACs sequentially, with spacing, a whole deadline, per-address outcomes and next_mac. Silence remains unknown; selecting a row does not itself prove native programming support. Exact router/DNET must already be open; local raw UDP/HTTP/browser evidence and separately recorded site identity reads."
+  },
+  {
+    "feature": "Paged BACnet object inventory",
+    "status": "implemented",
+    "scope": "Indexed object-list pages up to 200 entries with bounded offset/deadline, count-change guards, exact object indices, retained partial failures and explicit next_offset. The GUI downloads the exact displayed report and clears old pages on target changes. A completed page is not a complete or coherent controller-application backup."
+  },
+  {
+    "feature": "Native BACnet value preservation",
+    "status": "implemented",
+    "scope": "Finite numbers/text/lists/Choice wrappers stay compatible; actual native Boolean becomes JSON bool and schema-backed Sequence fields stay structured. Nonfinite values, integers beyond JavaScript exact range and exact octets remain typed evidence; opaque Any retains hashes and a bounded encoded preview. Depth/item/byte limits reject excessive data. Unknown proprietary datatypes are not guessed, and generic Date/Time fields do not invent timezone or quality."
+  },
+  {
+    "feature": "Owned BACnet commands and exchange lifecycle",
+    "status": "implemented",
+    "scope": "Preflight verifies known BinaryPV/Real/Double/Unsigned types, normalizes exact wire values, preserves requested_value and checks multistate bounds. Journaled ownership precedes writes; exact priority readback rejects even an adjacent changed Real. Cancelled/timed-out operations and shutdown retire their exact pending dispatch/transaction, including pre-invoke cache lookup. Uncertain commands persist for explicit same-interface recovery; no automatic retry after return or relinquish. Actual UDP cancellation, takeover and restart tests; no field write validation."
+  },
+  {
+    "feature": "Opaque standard BACnet File capture",
+    "status": "implemented",
+    "scope": "Inspect advertised Configuration_Files or a bounded Object_List fallback, then explicitly read supported stream/record Files through the existing interface. Identity/metadata/membership guards, exact size/EOF/count checks and bounded APDU/deadline/storage profiles protect immutable local receipts. Export exact stream bytes or record-boundary evidence ZIP offline, retaining times/hashes/source. ReadProperty/AtomicReadFile only: no backup-state transition, AtomicWriteFile, editable CAF conversion or coherent whole-device backup. Local actual UDP/HTTP/browser tested; physical results are recorded separately."
   },
   {
     "feature": "BACnet/IPv4 BBMD foreign-device registration",
@@ -122,7 +152,7 @@
   {
     "feature": "BACnet/IP-to-MS/TP router paths",
     "status": "partial",
-    "scope": "Explicit router IP plus DNET/MAC addressing. NPDU routing is exercised through an IP-to-virtual-data-link test. The approved Tailscale subnet route now permits real unicast BACnet discovery and device metadata reads from both E2/F2 NAEs. Desktop credentials remain unread; web authentication and device writes were not attempted. Downstream physical MS/TP VAV routing and native application acceptance remain unverified."
+    "scope": "Explicit router IP plus DNET/MAC addressing, selected-network discovery and bounded wildcard identity probes. Actual local routed NPDU read/command/release tests use an IP-to-virtual-data-link surrogate. Authorized read-only site checks through the approved Tailscale route identified genuine VMAs and read values on four downstream trunks under E2/F2. Native application upload/download, unused-input changes, direct physical RS485 timing and field writes remain unverified; detailed site results are separate."
   },
   {
     "feature": "Ethernet and USB serial",
@@ -142,7 +172,7 @@
   {
     "feature": "E2/F2 unused-input sensor test",
     "status": "pending",
-    "scope": "The approved Tailscale subnet route reaches both NAEs, and actual read-only BACnet discovery/device metadata reads succeeded. Desktop credentials remain unread; web authentication and controller writes were not attempted. The physical sensor test still requires a verified native application adapter, exact target/unused terminal, original backup and verified restoration. Standard point commands cannot allocate a new native input."
+    "scope": "The approved Tailscale route reaches both NAEs; read-only checks identified genuine downstream VMAs and read values on four trunks. No controller changes occurred. The physical sensor test still requires a verified native application adapter, exact target/unused terminal, original backup and verified restoration. Point commands, inventories and opaque File copies cannot allocate a new native input."
   },
   {
     "feature": "2025 Title 24 / Guideline 36 applications",

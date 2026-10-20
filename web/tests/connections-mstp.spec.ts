@@ -48,7 +48,7 @@ async function mockMstp(
   await page.route("**/api/ports", (route) =>
     route.fulfill({ json: mock.ports }),
   );
-  // All BACnet requests are intercepted. These tests must never activate an
+  // Field BACnet requests are intercepted. These tests must never activate an
   // actual serial worker or a BACnet/IP interface on the isolated test server.
   await page.route("**/api/bacnet/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
@@ -57,6 +57,12 @@ async function mockMstp(
         ? route.request().postDataJSON()
         : null;
     switch (path) {
+      case "/api/bacnet/files/status":
+      case "/api/bacnet/files/captures":
+        // These GETs inspect local service/capture metadata and cannot open an
+        // interface or issue BACnet requests to a device.
+        await route.continue();
+        break;
       case "/api/bacnet/status":
         mock.statusCalls++;
         await route.fulfill({ json: mock.status });

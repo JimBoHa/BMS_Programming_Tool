@@ -27,7 +27,6 @@ from typing import Literal
 from zoneinfo import TZPATH, ZoneInfo, ZoneInfoNotFoundError
 
 from bacpypes3.apdu import ErrorRejectAbortNack, ReadRangeACK, ReadRangeRequest
-from bacpypes3.appservice import COMPLETED
 from bacpypes3.basetypes import (
     DateTime,
     LogRecord,
@@ -41,6 +40,7 @@ from bacpypes3.errors import DecodingError, InvalidTag
 from bacpypes3.primitivedata import ObjectIdentifier
 from pydantic import AwareDatetime, Field, field_validator, model_validator
 
+from .bacnet_exchange import confirmed_exchange
 from .models import StrictModel
 
 SCOPE = "Read-only BACnet Trend Log history; device timestamps interpreted in the operator-selected IANA timezone"
@@ -330,15 +330,14 @@ class BacnetHistory:
             range=selection,
             destination=target,
         )
-        future = None
         try:
-            future = app.request(request)
-            reply = await asyncio.wait_for(future, self.timeout)
+            reply = await asyncio.wait_for(confirmed_exchange(app, request), self.timeout)
             if isinstance(reply, ErrorRejectAbortNack):
                 raise ValueError("BACnet history read rejected: " + str(reply))
             if (
                 not isinstance(reply, ReadRangeACK)
                 or reply.pduSource != target
+                or reply.apduInvokeID != request.apduInvokeID
                 or reply.objectIdentifier != ObjectIdentifier(object_id)
                 or str(reply.propertyIdentifier) != "log-buffer"
                 or reply.propertyArrayIndex is not None
@@ -377,18 +376,6 @@ class BacnetHistory:
             raise ValueError("BACnet history read rejected: " + str(exc)) from exc
         except (DecodingError, InvalidTag, TypeError, AttributeError) as exc:
             raise ValueError("Malformed BACnet Trend Log response: " + str(exc)) from exc
-        finally:
-            if future is not None:
-                for transaction in list(app.asap.clientTransactions):
-                    if (
-                        transaction.pdu_address == target
-                        and transaction.invokeID == request.apduInvokeID
-                    ):
-                        transaction.set_state(COMPLETED)
-                future.cancel()
-                app._request_done(request, future)
-                if future.done() and not future.cancelled():
-                    future.exception()
 
     async def read(self, **parameters):
         request = BacnetHistoryRequest(**parameters)

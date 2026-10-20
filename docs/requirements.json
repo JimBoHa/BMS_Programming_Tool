@@ -222,7 +222,7 @@
     "evidence": "Honeywell Spyder Utility Tool 62-0381",
     "pdf_pages_or_section": "1-8",
     "status": "implemented",
-    "implementation_or_gap": "BACpypes3 BACnet/IP and routed destinations"
+    "implementation_or_gap": "Explicit BACnet/IP/routed reads, exact native value JSON and bounded indexed object pages with partial-error/next-offset export; separate guarded owned point commands. Native application programming remains outside point services"
   },
   {
     "id": "RUN-001",
@@ -391,9 +391,9 @@
     "feature": "Physical input configuration",
     "acceptance_criterion": "Add a real unused sensor terminal and verify reliability/open-circuit on the target.",
     "evidence": "User-authorized E2/F2 test",
-    "pdf_pages_or_section": "Read-only NAE access verified through approved Tailscale subnet route",
+    "pdf_pages_or_section": "Read-only NAE and downstream VMA identity/value access through approved Tailscale subnet route",
     "status": "pending",
-    "implementation_or_gap": "Actual BACnet discovery and device metadata reads succeeded for both E2/F2 NAEs through Tailscale. Credentials not read/web authentication not attempted; no controller changes. Downstream VAV route, native application adapter and physical sensor test still required"
+    "implementation_or_gap": "Authorized read-only checks identified both E2/F2 NAEs and genuine downstream VMAs on four trunks and read values. No controller changes. Native application adapter, exact unused input, verified backup/restoration and physical sensor test remain required; inventories and opaque File copies do not allocate native inputs"
   },
   {
     "id": "CODE-001",
@@ -475,5 +475,59 @@
     "pdf_pages_or_section": "BVLC registration/result/distribution; TTL and grace period",
     "status": "implemented",
     "implementation_or_gap": "Independent raw UDP BBMD/device peers verify registration, forwarded discovery, reads, real 31-second expiry, cancellation/bind cleanup and owned-command recovery. Physical/site BBMD validation remains unverified; this does not provide controller programming"
+  },
+  {
+    "id": "COMM-006",
+    "feature": "Explicit router discovery and cached addresses",
+    "acceptance_criterion": "Query one selected router/network with bounded response windows; distinguish advertised networks, cached hints, unknown Device identities and live I-Am evidence, preserving truncation and provenance.",
+    "evidence": "BACpypes3 pinned network/APDU source; JCI BACnet routing documentation",
+    "pdf_pages_or_section": "Who-Is-Router-To-Network, selected-DNET Who-Is and Device address-binding cache",
+    "status": "implemented",
+    "implementation_or_gap": "Explicit router queries and directed exact-Device cache preflight; unknown instance 4194303 becomes null, original MACs retained, complete response windows never imply complete inventories. Raw UDP, segmented cache, ASGI and browser checks; no automatic broad scan or connection change"
+  },
+  {
+    "id": "COMM-007",
+    "feature": "Wildcard MAC identity and bounded pages",
+    "acceptance_criterion": "Identify one explicitly addressed controller using standard Device wildcard access, or probe at most 32 selected MACs sequentially with timeouts, spacing, per-address outcomes and an explicit resume cursor.",
+    "evidence": "ASHRAE 135.1-2019 Addendum s; ASHRAE 135-2016 Addendum br",
+    "pdf_pages_or_section": "Wildcard ReadProperty test 12.1.3.X3; Device wildcard interoperability",
+    "status": "implemented",
+    "implementation_or_gap": "ACK actual Device identity must match its property value; optional metadata errors remain explicit. Silent MACs stay unknown, exact router/DNET must already be open, row selection never implies native programming support. Independent actual UDP/HTTP/browser tests and separately recorded routed site reads"
+  },
+  {
+    "id": "DATA-003",
+    "feature": "Paged object inventory evidence",
+    "acceptance_criterion": "Read bounded indexed object-list pages and preserve actual indices, partial errors, count-change checks and next offset; export the exact displayed report without claiming an application backup.",
+    "evidence": "BACpypes3 pinned Device schema and ReadProperty definitions; original engineering requirement",
+    "pdf_pages_or_section": "Device Object_List array count/index access and bounded inventory review",
+    "status": "implemented",
+    "implementation_or_gap": "Offset 0..20000, up to 200 entries and a whole-operation deadline; partial rows survive timeout and the operator explicitly requests the next page. Actual UDP/HTTP/browser partial-resume and export tests; target changes clear stale page results"
+  },
+  {
+    "id": "DATA-004",
+    "feature": "Loss-explicit native property values",
+    "acceptance_criterion": "Preserve native Booleans, structured records, octets, nonfinite numeric evidence, large integers and unknown tagged bytes within explicit resource limits, without inventing quality, timezone or proprietary semantics.",
+    "evidence": "BACpypes3 0.0.110 primary datatypes, Sequence/Choice and tag definitions",
+    "pdf_pages_or_section": "Atomic and constructed data encoding; original bounded JSON profile",
+    "status": "implemented",
+    "implementation_or_gap": "Compatible finite/list/Choice shapes, actual JSON Boolean, schema field maps, exact base64 bytes, typed nonfinite/large integers and opaque hashes/previews. Depth/item/byte/cycle bounds fail visibly; unknown vendor type decoding remains unsupported. Actual native UDP/HTTP serialization tests"
+  },
+  {
+    "id": "COMM-008",
+    "feature": "Exact point-command ownership and transaction lifetime",
+    "acceptance_criterion": "Validate native scalar command types before writes, journal exact wire values and preserve uncertain ownership; stop only the owned transaction and pending dispatch on timeout, cancellation or interface closure.",
+    "evidence": "BACpypes3 pinned primitive/APDU/application implementation; original ownership requirement",
+    "pdf_pages_or_section": "BinaryPV, Real, Double, Unsigned, priority arrays and confirmed-service dispatch",
+    "status": "implemented",
+    "implementation_or_gap": "Canonical BinaryPV, finite analog wire rounding, strict positive multistate/state-count checks and requested_value evidence. Exact slot readback rejects adjacent Real takeover; accepted-before-ACK restart recovery and release tested. Owned inline dispatch handles pre-invoke cancellation and shutdown; Temco races join owned dispatch before returning. No automatic retry after return or relinquish; no field write validation"
+  },
+  {
+    "id": "DATA-005",
+    "feature": "Opaque standard BACnet File capture",
+    "acceptance_criterion": "Inspect advertised File objects, explicitly read supported stream/record data with identity/metadata/membership guards, then preserve exact bytes and immutable provenance for offline export without claiming editable CAF or coherent backup.",
+    "evidence": "ASHRAE 135.1-2011 Addendum m; JCI FX-PCV/VMA PICS; BACpypes3 primary File/APDU definitions",
+    "pdf_pages_or_section": "Configuration_Files, Object_List fallback, AtomicReadFile and backup procedure 13.8.1.1",
+    "status": "implemented",
+    "implementation_or_gap": "Bounded Configuration_Files/Object_List inspection, native APDU-aware reads, exact EOF/size/count validation and hashed receipts with record boundaries. Actual UDP/HTTP/browser stream/record/offline export and cancellation checks. ReadProperty/AtomicReadFile only; no backup-state control, File writes, native CAF conversion or whole-device coherence guarantee; physical results recorded separately"
   }
 ]

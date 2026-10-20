@@ -2841,5 +2841,26 @@
     "url": "https://downloads.onesight.solutions/iSMA/Niagara%20Software/IC%20Workbench/Software/",
     "notes": "Selected original signed modules and vendor documentation obtained from the public iC Workbench archive by HTTP ranges. Local-only descriptor, palette, slot, unit and format checks; no vendor code execution, runtime license or station acceptance established. No binaries/source redistributed.",
     "status": "Source/API/format metadata reviewed; no vendor runtime execution"
+  },
+  {
+    "vendor": "Open source / source research",
+    "title": "ASHRAE 135.1-2019 Addendum s: Device wildcard ReadProperty",
+    "url": "https://bacnet.org/wp-content/uploads/sites/4/2024/05/135_1_2019_s_20230331.pdf",
+    "notes": "Primary test 12.1.3.X3 requests Device 4194303 and expects the actual Device identity in the ACK/value. Explicit MAC probes and bounded pages use this standard read, with actual independent UDP fixtures; unknown identities are never inferred from MAC alone.",
+    "status": "source and local behavior reviewed"
+  },
+  {
+    "vendor": "Open source / source research",
+    "title": "ASHRAE 135.1-2011 Addendum m: backup procedure and configuration files",
+    "url": "https://resourcecenter.ashrae.org/File%20Library/Technical%20Resources/Standards%20and%20Guidelines/Standards%20Addenda/135_1_2011_m_Published.pdf",
+    "notes": "Primary backup procedure includes device-control transitions. The separate implemented File service reads existing advertised stream/record files only; opaque captures do not establish a coherent backup or editable CAF upload.",
+    "status": "source and local behavior reviewed"
+  },
+  {
+    "vendor": "Open source / source research",
+    "title": "BACpypes3 pinned BACnet application and native datatype interfaces",
+    "url": "https://github.com/JoelBender/BACpypes3/tree/21f918c0396c72c95e7e635abde18514e58feb8d/bacpypes3",
+    "notes": "Pinned 0.0.110 application, transaction, native datatype and APDU interfaces reviewed for explicit routing, typed JSON preservation, exact native command values and owned confirmed-dispatch cleanup. Independent local UDP/HTTP/browser tests; no claim of universal proprietary datatype or native application compatibility.",
+    "status": "source and local behavior reviewed"
   }
 ]
