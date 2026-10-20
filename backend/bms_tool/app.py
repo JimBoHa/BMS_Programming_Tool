@@ -14,7 +14,7 @@ import zipfile
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -30,6 +30,7 @@ from .deployment import Runtime
 from .engine import Engine, output_type, run_scenario, validate
 from .field_trends import FieldTrends, FieldTrendStart
 from .formats import export_program, import_program
+from .jci_hardware import JciHardwareDefinition, plan_hardware_migration
 from .macros import (
     create_definition,
     delete_macro_definition,
@@ -46,6 +47,7 @@ from .niagara import NiagaraArchive
 from .observability import ObservabilityStore
 from .simulation_group import SimulationGroups, SimulationWorkspace, demo_workspace
 from .storage import Conflict, Store
+from .temco_transfer import TemcoTransfer
 from .templates import all_templates
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -161,6 +163,52 @@ class TemcoVerify(TemcoProgram):
     clock: AwareDatetime | None = None
 
 
+class IecProgram(StrictModel):
+    program: Program
+
+
+class IecVerify(IecProgram):
+    inputs: dict[str, Any] = Field(default_factory=dict)
+    scans: int = Field(default=1, ge=1, le=1000, strict=True)
+    dt: float | None = Field(default=None, gt=0, le=60, strict=True)
+    clock: AwareDatetime | None = None
+
+
+class IecScenario(IecProgram):
+    events: list[dict[str, Any]] = Field(max_length=10000)
+    duration: float = Field(gt=0, le=86400, strict=True)
+    dt: float | None = Field(default=None, gt=0, le=60, strict=True)
+    clock: AwareDatetime | None = None
+
+
+class HardwareSelection(StrictModel):
+    point_ids: list[str] = Field(min_length=1, max_length=4096)
+    system: Literal["imperial", "metric"] = "imperial"
+
+
+class HardwareMigration(HardwareSelection):
+    old_sha: str = Field(pattern=r"^[a-f0-9]{64}$")
+    new_sha: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class TemcoTarget(StrictModel):
+    address: str = Field(min_length=1, max_length=256)
+    device_instance: int = Field(ge=0, le=4194302, strict=True)
+    slot: int = Field(ge=0, le=15, strict=True)
+    expected_model: str = Field(min_length=1, max_length=256)
+    expected_firmware: str = Field(min_length=1, max_length=256)
+
+
+class TemcoReplace(TemcoTarget):
+    source: str = Field(min_length=1, max_length=1024 * 1024)
+    resume: bool = Field(default=True, strict=True)
+
+
+class TemcoRestore(TemcoTarget):
+    backup_id: str = Field(min_length=1, max_length=128)
+    resume: bool = Field(default=True, strict=True)
+
+
 class BacnetRead(StrictModel):
     address: str
     object_id: str
@@ -259,9 +307,11 @@ def create_app(state_dir=None):
     groups = SimulationGroups()
     observations = ObservabilityStore(store.directory)
     field_trends = FieldTrends(bacnet, store.directory, audit_store=store)
+    temco_transfer = TemcoTransfer(bacnet, store)
     simulations = {}
     caf_files = {}
     niagara_files = {}
+    hardware_files = {}
     session_token = secrets.token_urlsafe(32)
     control = {"running": False, "inputs": {}, "error": None}
 
@@ -294,6 +344,7 @@ def create_app(state_dir=None):
     app.state.bacnet = bacnet
     app.state.native = native
     app.state.field_trends = field_trends
+    app.state.temco_transfer = temco_transfer
 
     @app.middleware("http")
     async def local_requests(request, call_next):
@@ -858,6 +909,91 @@ def create_app(state_dir=None):
             },
         )
 
+    @app.post("/api/jci/hardware/open")
+    async def hardware_open(file: Annotated[UploadFile, File()]):
+        definition = JciHardwareDefinition(await file.read(8 * 1024 * 1024 + 1))
+        while (
+            definition.hash not in hardware_files
+            and hardware_files
+            and (
+                len(hardware_files) >= 16
+                or sum(len(item.original) for item in hardware_files.values())
+                + len(definition.original)
+                > 64 * 1024 * 1024
+            )
+        ):
+            del hardware_files[next(iter(hardware_files))]
+        hardware_files[definition.hash] = definition
+        return definition.summary()
+
+    def get_hardware(id):
+        if id not in hardware_files:
+            raise ValueError("Hardware definition is not open. Open the original XML again.")
+        return hardware_files[id]
+
+    @app.post("/api/jci/hardware/migration")
+    def hardware_migration(body: HardwareMigration):
+        return plan_hardware_migration(
+            get_hardware(body.old_sha),
+            get_hardware(body.new_sha),
+            body.point_ids,
+            body.system,
+        )
+
+    @app.get("/api/jci/hardware/{id}")
+    def hardware_summary(id: str, system: Literal["imperial", "metric"] = "imperial"):
+        return get_hardware(id).summary(system)
+
+    @app.post("/api/jci/hardware/{id}/selection")
+    def hardware_selection(id: str, body: HardwareSelection):
+        return get_hardware(id).selection(body.point_ids, body.system)
+
+    @app.post("/api/jci/hardware/{id}/export")
+    def hardware_export(id: str):
+        return Response(
+            get_hardware(id).export(),
+            media_type="application/xml",
+            headers={"Content-Disposition": 'attachment; filename="original-hardware.xml"'},
+        )
+
+    @app.get("/api/iec/status")
+    def iec_status():
+        from .iec import profile
+
+        return profile()
+
+    @app.post("/api/iec/compile")
+    async def iec_compile(body: IecProgram):
+        from .iec import compile_program
+
+        return await asyncio.to_thread(compile_program, body.program)
+
+    @app.post("/api/iec/verify")
+    async def iec_verify(body: IecVerify):
+        from .iec import verify_program
+
+        return await asyncio.to_thread(
+            verify_program,
+            body.program,
+            body.inputs,
+            scans=body.scans,
+            dt=body.dt,
+            clock=body.clock,
+        )
+
+    @app.post("/api/iec/scenario")
+    async def iec_scenario(body: IecScenario):
+        from .iec import verify_scenario
+
+        return await asyncio.to_thread(
+            verify_scenario,
+            body.program,
+            body.events,
+            body.duration,
+            dt=body.dt,
+            clock=body.clock,
+        )
+
     @app.get("/api/bacnet/status")
     def bacnet_status():
         return bacnet.status()
@@ -902,6 +1038,34 @@ def create_app(state_dir=None):
             scans=body.scans,
             clock=body.clock,
         )
+
+    @app.get("/api/temco/transfer/status")
+    def temco_transfer_status():
+        return temco_transfer.status()
+
+    @app.get("/api/temco/transfer/backups")
+    def temco_transfer_backups():
+        return temco_transfer.backups()
+
+    @app.get("/api/temco/transfer/backups/{id}")
+    def temco_transfer_backup(id: str):
+        return temco_transfer.backup(id)
+
+    @app.post("/api/temco/transfer/inspect")
+    async def temco_transfer_inspect(body: TemcoTarget):
+        return await temco_transfer.inspect(**body.model_dump())
+
+    @app.post("/api/temco/transfer/plan")
+    async def temco_transfer_plan(body: TemcoReplace):
+        return await temco_transfer.plan_replace(**body.model_dump())
+
+    @app.post("/api/temco/transfer/restore-plan")
+    async def temco_transfer_restore(body: TemcoRestore):
+        return await temco_transfer.plan_restore(**body.model_dump())
+
+    @app.post("/api/temco/transfer/apply")
+    async def temco_transfer_apply(body: TokenRequest):
+        return await temco_transfer.apply(body.token)
 
     @app.post("/api/bacnet/discover")
     async def discover(body: BacnetDiscover):

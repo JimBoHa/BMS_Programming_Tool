@@ -33,7 +33,7 @@
     "evidence": "JCI Controller Tool Help 18.0 LIT-12011147",
     "pdf_pages_or_section": "286-290",
     "status": "partial",
-    "implementation_or_gap": "Point services and local runtime implemented; native download absent"
+    "implementation_or_gap": "Separate point services, sandbox/Sox changes and Temco program-slot backup/replacement/readback workflows. Temco physical validation and JCI/ALC/Honeywell native loaders remain pending"
   },
   {
     "id": "OPS-002",
@@ -141,7 +141,7 @@
     "evidence": "ALC Eikon 3.02 User Guide",
     "pdf_pages_or_section": "50-51",
     "status": "partial",
-    "implementation_or_gap": "Node/terminal constraints; native memory/cycle estimates pending"
+    "implementation_or_gap": "Node/terminal constraints, real Temco compiler byte counts and conservative target program budget; complete per-controller RAM/flash/cycle estimates pending"
   },
   {
     "id": "FMT-004",
@@ -249,7 +249,7 @@
     "evidence": "Temco T3000 Software Manual Rev4",
     "pdf_pages_or_section": "137-169",
     "status": "partial",
-    "implementation_or_gap": "Numbered Control Basic import/export, explicit local point bindings and real manufacturer compiler/interpreter verification; arbitrary source, native quality services, physical target packaging and device transfer remain pending"
+    "implementation_or_gap": "Numbered source conversion, manufacturer compiler/interpreter execution and explicit native program-slot transfer, backup, readback and compensating restore over real UDP/routed BACnet. Physical hardware, scan cadence, calendar host and whole-device configuration remain unverified"
   },
   {
     "id": "COMM-003",
@@ -411,7 +411,7 @@
     "evidence": "Tridium kitControl guide; Niagara troubleshooting presentations; public pybog source",
     "pdf_pages_or_section": "Native component slots, XML/BOG encoding and protection",
     "status": "partial",
-    "implementation_or_gap": "17 primitive graph types map to real BOG ZIP/XML; independent pybog fixture converts. Unknown logic/configuration is rejected. Native Workbench/station acceptance, stateful components and full station services remain unverified"
+    "implementation_or_gap": "17 primitive graph types map to real BOG ZIP/XML; independent pybog fixture converts. Genuine manufacturer descriptors verify types, inherited slots, link types, units and aliases. Unknown logic and malformed status/configuration fail explicitly. Workbench/station runtime acceptance, stateful components and full station services remain unverified"
   },
   {
     "id": "COMM-004",
@@ -421,5 +421,23 @@
     "pdf_pages_or_section": "Legacy master FSM, Annex G CRC examples and independent C frame fixtures",
     "status": "partial",
     "implementation_or_gap": "Real Python token master and BACpypes3 data link; HTTP discovery/ReadProperty verified over OS pseudoterminals. Automatic-direction no-echo RS485 hardware required; physical timing, BTCVT, extended frames and proprietary downloads unverified"
+  },
+  {
+    "id": "SIM-005",
+    "feature": "Independent IEC execution",
+    "acceptance_criterion": "Compile generated Structured Text with an independent compiler and compare native output, fault and retained-state behavior against the reference simulator.",
+    "evidence": "MatIEC pinned compiler and vendor simulation workflows",
+    "pdf_pages_or_section": "Generated IEC source, runtime driver and independent scan tests",
+    "status": "implemented",
+    "implementation_or_gap": "Real MatIEC to C to Clang execution for all 27 blocks and nine examples; explicit REAL32 differences, quality faults, calendars, macros, timed events and bounded process cleanup. Host verification only"
+  },
+  {
+    "id": "FMT-010",
+    "feature": "Native hardware-definition migration review",
+    "acceptance_criterion": "Inspect native point types, unit profiles, aliases and presets, then identify binding and parameter changes between device-definition revisions without inventing application objects.",
+    "evidence": "JCI OCT native NS8000 DynamicHardwareDefinition and CCT hardware workflows",
+    "pdf_pages_or_section": "Native Interface XML, Measurement, Enum, Bus and Preset records",
+    "status": "implemented",
+    "implementation_or_gap": "Offline typed metadata selection, collision rejection, exact original export and source-hashed migration reports. Sensor metadata does not provide PCV/VMA object allocation, compiler or device writes"
   }
 ]

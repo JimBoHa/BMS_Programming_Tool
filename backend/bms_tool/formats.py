@@ -45,7 +45,12 @@ def _literal(v):
     if v != 0 and encoded == 0:
         raise ConversionError("Literal underflows the IEC REAL 32-bit range.")
     s = format(v, ".15g")
-    return s if any(c in s.lower() for c in ".e") else s + ".0"
+    # IEC real literals require a fractional part, including in scientific
+    # notation. Python's 1e+30 is rejected by independent IEC compilers.
+    mantissa, separator, exponent = s.lower().partition("e")
+    if "." not in mantissa:
+        mantissa += ".0"
+    return mantissa + ("E" + exponent if separator else "")
 
 
 def structured_text_parts(program):

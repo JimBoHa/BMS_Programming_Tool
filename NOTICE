@@ -38,3 +38,18 @@ The separately written Python MS/TP driver was reviewed against BACnet-stack
 and tested with externally compiled frame encoders. No BACnet-stack C code or
 binaries are bundled or loaded at runtime. File-level source, license and test
 provenance is recorded in docs/mstp-provenance.md.
+
+The optional IEC verifier invokes the external MatIEC compiler, revision
+3a41303bcb4e50403417bc39c63f88981d7d961e, from https://github.com/beremiz/matiec.
+The compiler is GPL-3.0-or-later; individual runtime headers retain their LGPL
+notices. scripts/setup_iec.py obtains/builds this dependency separately without
+changing the pinned source. No compiler, runtime headers or generated native
+executable is redistributed in this repository. See docs/iec-native.md.
+
+The original Python Temco program-transfer adapter references manufacturer wire
+layouts in T3000 and ESP32 controller source, revision
+845973a37b91ac5ddac9c465787f2ab3a5037708 at
+https://github.com/temcocontrols/T3-programmable-controller-on-ESP32.
+Independent fixtures use external unchanged BACnet C encoders; their source
+and binaries are not bundled or loaded by the application. See
+docs/temco-transfer.md for file-level provenance and verification limits.

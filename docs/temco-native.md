@@ -7,6 +7,12 @@ graph block types have native execution tests. Physical controller configuration
 download and online application replacement remain outside this adapter.
 Simulated IN/OUT/VAR points are memory arrays; the host has no field transport.
 
+The separate [native program-transfer adapter](temco-transfer.md) implements
+BACnet slot inspection, backup, stop/replacement/readback, conditional resume
+and compensating restore. Its narrower physical firmware profile has a
+128-VAR limit and refuses unprovisioned calendars. Local UDP/routed emulator
+tests do not establish physical execution, flash persistence or scan cadence.
+
 ## Manufacturer source and reproducible build
 
 The reference comes from the manufacturer-published MIT repository

@@ -41,6 +41,22 @@ SEEDS = [
     ),
     (
         "Honeywell",
+        "https://prod-edam.honeywell.com/content/dam/honeywell-edam/hbt/en-us/documents/manuals-and-guides/installation-guides/31-00121.pdf",
+    ),
+    (
+        "Honeywell",
+        "https://www.cochranesupply.com/media/assets/product/documents/Honeywell/SPyder5%20Engineering%20Tool.pdf",
+    ),
+    (
+        "Tridium",
+        "https://downloads.onesight.solutions/iSMA/Niagara%20Software/IC%20Workbench/Manuals/docN4Install.pdf",
+    ),
+    (
+        "Tridium",
+        "https://downloads.onesight.solutions/iSMA/Niagara%20Software/IC%20Workbench/Manuals/Getting_started_with_Niagara_Framework.pdf",
+    ),
+    (
+        "Honeywell",
         "https://prod-edam.honeywell.com/content/dam/honeywell-edam/hbt/en-us/documents/manuals-and-guides/user-manuals/hbt-bms-Spyder-Model-5-VAV-Controller-User-Guide-31-00282ES.pdf",
     ),
     (

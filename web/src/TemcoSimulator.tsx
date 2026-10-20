@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { api, saveBlob } from "./api";
 import { showValue, type Program } from "./types";
+import { TemcoTransfer } from "./TemcoTransfer";
 import "./temco-simulator.css";
 
 type InputValue = { value: string | boolean; quality: string };
@@ -222,8 +223,9 @@ export function TemcoSimulator({ program }: { program: Program }) {
         </span>
       </div>
       <p className="temco-scope">
-        Local simulation uses memory-only points. Physical controller download
-        is not available in this adapter.
+        Local simulation uses memory-only points. The separate controller
+        transfer panel below requires an explicit BACnet target and reviewed
+        stop, replacement and readback plan.
       </p>
       {error && (
         <div className="temco-error" role="alert">
@@ -545,6 +547,7 @@ export function TemcoSimulator({ program }: { program: Program }) {
           </details>
         </section>
       )}
+      <TemcoTransfer source={compiled?.source ?? null} />
       {compiled && (
         <section
           className="temco-card"

@@ -35,8 +35,8 @@ test("compile genuine Control Basic, download bytecode and execute the native in
   await expect(
     page.getByRole("region", { name: "Temco target profile" }),
   ).toContainText("27 block types with retained state");
-  await expect(page.locator(".temco-scope")).toContainText(
-    "Physical controller download is not available",
+  await expect(page.locator(".temco-scope").first()).toContainText(
+    "separate controller transfer panel",
   );
   await page.getByLabel("Temco point for a", { exact: true }).fill("VAR4");
   await page

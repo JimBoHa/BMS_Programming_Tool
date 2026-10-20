@@ -109,12 +109,37 @@ for title, url, note in [
     (
         "Temco native compiler/interpreter verification",
         "https://github.com/temcocontrols/T3000_Building_Automation_System/tree/ae9b9d082de93b35ff2ca59eb1d0c06ae04cec9b",
-        "MIT. Reproducible local host of manufacturer Control Basic compiler and decode interpreter; no field transport.",
+        "MIT. Reproducible host of the manufacturer compiler/interpreter. Separate native BACnet program-slot transfer uses independently checked manufacturer wire layouts; physical hardware remains unverified.",
+    ),
+    (
+        "MatIEC independent Structured Text compilation/execution",
+        "https://github.com/beremiz/matiec/tree/3a41303bcb4e50403417bc39c63f88981d7d961e",
+        "External GPL-3.0-or-later compiler with individually LGPL runtime headers; no compiler/runtime source bundled. All 27 blocks and nine example graphs compile to C and execute independently on this host. No physical PLC deployment claim.",
+    ),
+    (
+        "Temco ESP32 program-transfer firmware reference",
+        "https://github.com/temcocontrols/T3-programmable-controller-on-ESP32/tree/845973a37b91ac5ddac9c465787f2ab3a5037708",
+        "Native private BACnet program service and actual 128-VAR limit reviewed. Original Python adapter; upstream source stays external. UDP, routed NPDU, readback, backup/restore and recovery tested locally.",
     ),
     (
         "BACnet-stack MS/TP encoding reference",
         "https://github.com/bacnet-stack/bacnet-stack/tree/e295d20baba977132b47bc09f61f28e12f2dfac3",
         "File-specific GPL-2.0-or-later with GCC exception and MIT. External C frame oracle only; no upstream code or binary bundled. See mstp-provenance.md.",
+    ),
+    (
+        "Johnson Controls Metasys BasicServices 6.0.5 SDK",
+        "https://www.nuget.org/packages/JohnsonControls.Metasys.BasicServices/6.0.5",
+        "Manufacturer service SDK and XML API documentation downloaded locally; package SHA256 017cea3bb95da40fe565f77993f2451742fdb98cb53f72a694177b5cda7ec199. Server API access does not provide CCT native compilation, FCAccess or field-controller packages.",
+    ),
+    (
+        "Niagara 4.10.9.14 manufacturer module/API reference",
+        "https://downloads.onesight.solutions/iSMA/Niagara%20Software/IC%20Workbench/Software/",
+        "Selected original signed modules and vendor documentation obtained from the public iC Workbench archive by HTTP ranges. Local-only descriptor, palette, slot, unit and format checks; no vendor code execution, runtime license or station acceptance established. No binaries/source redistributed.",
+    ),
+    (
+        "ALC Integration Builder native symbol reference",
+        "https://github.com/automatic-controls/integration-builder-eikon-script",
+        "BSD-3-Clause public script/release archive reviewed locally. Native .logicsymbol ZIPs expose blocks, properties and coordinate wires; licensed EIKON/WebCTRL supplies symbol insertion/compilation. This is not an independent ALC equipment compiler.",
     ),
 ]:
     if not any(r["url"] == url for r in refs):
@@ -124,7 +149,16 @@ for title, url, note in [
                 "title": title,
                 "url": url,
                 "notes": note,
-                "status": "source and local behavior reviewed",
+                "status": (
+                    "Source/API/format metadata reviewed; no vendor runtime execution"
+                    if title
+                    in {
+                        "Johnson Controls Metasys BasicServices 6.0.5 SDK",
+                        "Niagara 4.10.9.14 manufacturer module/API reference",
+                        "ALC Integration Builder native symbol reference",
+                    }
+                    else "source and local behavior reviewed"
+                ),
             }
         )
 (PROJECT / "docs/references.json").write_text(json.dumps(refs, indent=2))
@@ -181,7 +215,7 @@ add(
     jci,
     "286-290",
     "partial",
-    "Point services and local runtime implemented; native download absent",
+    "Separate point services, sandbox/Sox changes and Temco program-slot backup/replacement/readback workflows. Temco physical validation and JCI/ALC/Honeywell native loaders remain pending",
 )
 add(
     "OPS-002",
@@ -291,7 +325,7 @@ add(
     alc,
     "50-51",
     "partial",
-    "Node/terminal constraints; native memory/cycle estimates pending",
+    "Node/terminal constraints, real Temco compiler byte counts and conservative target program budget; complete per-controller RAM/flash/cycle estimates pending",
 )
 add(
     "FMT-004",
@@ -403,7 +437,7 @@ add(
     temco,
     "137-169",
     "partial",
-    "Numbered Control Basic import/export, explicit local point bindings and real manufacturer compiler/interpreter verification; arbitrary source, native quality services, physical target packaging and device transfer remain pending",
+    "Numbered source conversion, manufacturer compiler/interpreter execution and explicit native program-slot transfer, backup, readback and compensating restore over real UDP/routed BACnet. Physical hardware, scan cadence, calendar host and whole-device configuration remain unverified",
 )
 add(
     "COMM-003",
@@ -569,7 +603,7 @@ add(
     "Tridium kitControl guide; Niagara troubleshooting presentations; public pybog source",
     "Native component slots, XML/BOG encoding and protection",
     "partial",
-    "17 primitive graph types map to real BOG ZIP/XML; independent pybog fixture converts. Unknown logic/configuration is rejected. Native Workbench/station acceptance, stateful components and full station services remain unverified",
+    "17 primitive graph types map to real BOG ZIP/XML; independent pybog fixture converts. Genuine manufacturer descriptors verify types, inherited slots, link types, units and aliases. Unknown logic and malformed status/configuration fail explicitly. Workbench/station runtime acceptance, stateful components and full station services remain unverified",
 )
 add(
     "COMM-004",
@@ -579,6 +613,24 @@ add(
     "Legacy master FSM, Annex G CRC examples and independent C frame fixtures",
     "partial",
     "Real Python token master and BACpypes3 data link; HTTP discovery/ReadProperty verified over OS pseudoterminals. Automatic-direction no-echo RS485 hardware required; physical timing, BTCVT, extended frames and proprietary downloads unverified",
+)
+add(
+    "SIM-005",
+    "Independent IEC execution",
+    "Compile generated Structured Text with an independent compiler and compare native output, fault and retained-state behavior against the reference simulator.",
+    "MatIEC pinned compiler and vendor simulation workflows",
+    "Generated IEC source, runtime driver and independent scan tests",
+    "implemented",
+    "Real MatIEC to C to Clang execution for all 27 blocks and nine examples; explicit REAL32 differences, quality faults, calendars, macros, timed events and bounded process cleanup. Host verification only",
+)
+add(
+    "FMT-010",
+    "Native hardware-definition migration review",
+    "Inspect native point types, unit profiles, aliases and presets, then identify binding and parameter changes between device-definition revisions without inventing application objects.",
+    "JCI OCT native NS8000 DynamicHardwareDefinition and CCT hardware workflows",
+    "Native Interface XML, Measurement, Enum, Bus and Preset records",
+    "implemented",
+    "Offline typed metadata selection, collision rejection, exact original export and source-hashed migration reports. Sensor metadata does not provide PCV/VMA object allocation, compiler or device writes",
 )
 
 with (PROJECT / "docs/FEATURE_REQUIREMENTS.csv").open("w", newline="") as f:

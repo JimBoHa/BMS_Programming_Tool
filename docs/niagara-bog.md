@@ -10,6 +10,27 @@ The Niagara adapter exports real Baja Object Graph XML inside a `.bog` ZIP conta
 
 The adapter's tests invoke the independently checked pybog builder to create numeric writables, a constant, subtraction, and native links. The resulting BOG is imported and the finite Studio result is checked as `100 - 40 = 60`. This establishes interoperability with that generator's source encoding. No installed Niagara station or Workbench runtime accepted or executed these exports during validation; the test is not native runtime certification.
 
+### Additional manufacturer SDK evidence
+
+On 2026-10-19, selected original members were downloaded from the public distributor's [iC Workbench 4.10.9.14 archive](https://downloads.onesight.solutions/iSMA/Niagara%20Software/IC%20Workbench/Software/iC_Workbench-4.10.9.14.zip). Exact HTTP ranges and ZIP CRC checks transferred 65,218,471 bytes from the 1,686,770,702-byte archive. The untouched JARs, documentation, license agreement, inspection notes and per-member SHA-256 manifest remain outside Git in `Reference_Library/research/niagara-sdk-4.10.9.14/`; the project does not bundle them. ZIP checks and recorded hashes establish the inspected bytes; a trusted publisher signature chain was not established.
+
+| Member | SHA-256 |
+|---|---|
+| `modules/baja.jar` | `8f8351b226a2e1c7d92f4639e6d3282ab6ccc0e04dc0d27b256b050f7fe746b1` |
+| `modules/control-rt.jar` | `87c2fa2baaed1f1e9be298e9dd66ffe99500210822d57d9a1abbb595309cc3ce` |
+| `modules/kitControl-rt.jar` | `680983fcab508a88da7b09b6fea32afdbb65552b7067be3ccb8b27887b11ee49` |
+| `modules/docDeveloper-doc.jar` | `f74c03e55492495a9e7ba0f077bd5ca24e42fe1b2bea1a1fcf8bcacc55c7b156` |
+| `modules/docSource-doc.jar` | `5d0423c27e3a531e7d4c06d0476fe9de4c6b8e84e8750960fb7e75c78f435470` |
+| `dist/4.10.9.14/nre-config-edge10.dist` | `ef7c125446e318cdc993b80a5f6caadd24b9da50218b674171622f6d63dcc162` |
+
+`docDeveloper-doc.jar!/doc/bog.html` gives the native format and `ValueDocEncoder` / `ValueDocDecoder` APIs. The modules' `META-INF/module.xml` files declare native component names and implementation classes. The developer archive's `.bajadoc` XML gives inherited frozen property names and types. `nre-config-edge10.dist!/defaults/units.xml` gives physical dimensions and transforms. These are stronger static checks than comparing our exporter with our own importer.
+
+The optional `tests/test_niagara_sdk.py` reads this external metadata, using `BMS_TEST_NIAGARA_SDK_DIR` if a different local folder is needed. It checks all 17 Studio kinds, three additional Boolean variants, every emitted frozen property and link endpoint type, all six supported unit records, and module alias reuse in the genuine `module.palette`. It executes our adapter and parses metadata; it does not execute Niagara components or test a station.
+
+That comparison exposed and fixed three substantive interoperability errors: module declarations must remain available to following siblings throughout the document; unit facets require complete serialized `BUnit` values; and compact scalar attributes on complex status slots must not become invented initial values during conversion. Current tests use proper nested status values and explicitly reject the misleading compact form.
+
+The package's 2020-10-20 agreement, `nre-config-edge10.dist!/lib/licenseAgreement.txt`, grants execution on an identified licensed system in section 1.1, describes included API source as reference material in section 1.2, and limits modification/incorporation/redistribution in section 2.1. No licensed local Niagara runtime was established. Reference source remained unchanged outside Git and no vendor implementation code was incorporated. Runtime acceptance remains unverified.
+
 ## Native primitive profile
 
 The profile contains 17 Studio kinds. Boolean/numeric variants can use different native component types.
@@ -27,7 +48,7 @@ The profile contains 17 Studio kinds. Boolean/numeric variants can use different
 
 Source-preserving Studio exports contain a verified embedded source comment. Reimport compares a complete regenerated native XML representation before returning that original graph. A native edit cannot hide behind stale embedded source. To semantically convert an independently edited graph, remove the source comment explicitly; conversion then produces a review report rather than claiming source fidelity.
 
-Foreign BOG import resolves local component handles, root/component module aliases, and supported relative or absolute `slot:` references without contacting a station. Four-input associative operations become explicit Studio reduction chains while preserving every downstream consumer's final result. Unconsumed native results receive visible Studio output taps. Imported metadata records source hash, semantic differences, output taps, and exact supported facet strings.
+Foreign BOG import resolves local component handles, document-wide module aliases, and supported relative or absolute `slot:` references without contacting a station. Four-input associative operations become explicit Studio reduction chains while preserving every downstream consumer's final result. Unconsumed native results receive visible Studio output taps. Imported metadata records source hash, semantic differences, output taps, and exact supported facet strings.
 
 ## Semantic boundaries
 
@@ -35,7 +56,7 @@ Niagara propagates link changes on events. Studio executes deterministic complet
 
 Supported finite values have explicit types. Exported status wrappers explicitly set good initial status. Foreign bad/null status, mixed scalar encodings, duplicate writers, unresolved links, converters, unsupported output slots, unknown component settings, unknown executable components, and unmodeled typed records without handles are rejected. Missing component handles must not cause silent loss of native logic.
 
-The unit profile maps dimensionless values, Fahrenheit, Celsius, kelvin, percent, and cubic feet per minute. Supported display-precision facets remain conversion evidence; only units affect Studio simulation. Finite native bounds or unknown facets are rejected rather than silently discarded. Stateful PI, schedules, delays, timers, alarms, slew limits, native drivers, physical terminals, histories, station credentials, and additional Sedona-native logic have no mapping in this profile.
+The unit profile maps dimensionless values, Fahrenheit, Celsius, kelvin, percent, and cubic feet per minute. Native unit records carry name, symbol, physical dimension and scale/offset; bare display names and changed transforms are rejected. Supported facet keys may appear in any order and remain exact conversion evidence; only units affect Studio simulation. Finite native bounds, duplicate keys, unknown facets, incompatible status wrapper/field types, or unmodeled status metadata are rejected rather than silently discarded. Stateful PI, schedules, delays, timers, alarms, slew limits, native drivers, physical terminals, histories, station credentials, and additional Sedona-native logic have no mapping in this profile.
 
 Raw BOG XML and ZIP archives can be inspected and exported byte for byte. Additional unknown ZIP resources remain preserved in that archive workflow; semantic conversion refuses to discard them. Protected reversible encoding is not removed or bypassed. Limits are 8 MiB input, 32 MiB expanded ZIP content, 64 members, 50,000 XML elements, depth 48, and the Studio graph's 2,000-node / 10,000-edge limits.
 

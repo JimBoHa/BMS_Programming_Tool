@@ -2572,6 +2572,50 @@
     "notes": "Publicly retrieved. Original notices retained; private local reference only. Native BOG/profile research."
   },
   {
+    "vendor": "Tridium",
+    "title": "Niagara 4 Installation Guide",
+    "url": "https://downloads.onesight.solutions/iSMA/Niagara%20Software/IC%20Workbench/Manuals/docN4Install.pdf",
+    "pages": 35,
+    "sha256": "31433092ec6c75a8bf9ef703ef811199ae69d42ef31310525bea025808644aaa",
+    "status": "downloaded",
+    "local_collection": "multivendor",
+    "local_id": "31433092ec6c75a8",
+    "notes": "Local reference; original copyright/confidentiality notices retained."
+  },
+  {
+    "vendor": "Tridium",
+    "title": "Getting Started with the Niagara Framework",
+    "url": "https://downloads.onesight.solutions/iSMA/Niagara%20Software/IC%20Workbench/Manuals/Getting_started_with_Niagara_Framework.pdf",
+    "pages": 430,
+    "sha256": "10548c23d7d631f170b7f5c886d938ae6036f5769fd532e77772f2c8577ac1ba",
+    "status": "downloaded",
+    "local_collection": "multivendor",
+    "local_id": "10548c23d7d631f1",
+    "notes": "Local reference; original copyright/confidentiality notices retained."
+  },
+  {
+    "vendor": "Honeywell",
+    "title": "Honeywell TB3026B Configuration Wizard Guide for N4 (31-00121-02)",
+    "url": "https://prod-edam.honeywell.com/content/dam/honeywell-edam/hbt/en-us/documents/manuals-and-guides/installation-guides/31-00121.pdf",
+    "pages": 120,
+    "sha256": "0dcf1d6345a38046955e67bd74bc6b8972d6d8353dd7a4e7eb468ac3f7516c8e",
+    "status": "downloaded",
+    "local_collection": "multivendor",
+    "local_id": "0dcf1d6345a38046",
+    "notes": "Local reference; original copyright/confidentiality notices retained."
+  },
+  {
+    "vendor": "Honeywell",
+    "title": "Honeywell Spyder Model 5 Engineering Tool User Guide",
+    "url": "https://www.cochranesupply.com/media/assets/product/documents/Honeywell/SPyder5%20Engineering%20Tool.pdf",
+    "pages": 113,
+    "sha256": "53dc87c0696fb54a0ccf421d829ebd9088a74790668dddc43cd2f40ec4bf4fa4",
+    "status": "downloaded",
+    "local_collection": "multivendor",
+    "local_id": "53dc87c0696fb54a",
+    "notes": "Local reference; original copyright/confidentiality notices retained."
+  },
+  {
     "vendor": "California Energy Commission",
     "title": "CEC-Programming-Library-Certification-List-2026-09-10.xlsx",
     "url": "https://www.energy.ca.gov/sites/default/files/2026-09/Programming_Library_Certification_List_9_10_2026_ada.xlsx",
@@ -2738,7 +2782,21 @@
     "vendor": "Open source / source research",
     "title": "Temco native compiler/interpreter verification",
     "url": "https://github.com/temcocontrols/T3000_Building_Automation_System/tree/ae9b9d082de93b35ff2ca59eb1d0c06ae04cec9b",
-    "notes": "MIT. Reproducible local host of manufacturer Control Basic compiler and decode interpreter; no field transport.",
+    "notes": "MIT. Reproducible host of the manufacturer compiler/interpreter. Separate native BACnet program-slot transfer uses independently checked manufacturer wire layouts; physical hardware remains unverified.",
+    "status": "source and local behavior reviewed"
+  },
+  {
+    "vendor": "Open source / source research",
+    "title": "MatIEC independent Structured Text compilation/execution",
+    "url": "https://github.com/beremiz/matiec/tree/3a41303bcb4e50403417bc39c63f88981d7d961e",
+    "notes": "External GPL-3.0-or-later compiler with individually LGPL runtime headers; no compiler/runtime source bundled. All 27 blocks and nine example graphs compile to C and execute independently on this host. No physical PLC deployment claim.",
+    "status": "source and local behavior reviewed"
+  },
+  {
+    "vendor": "Open source / source research",
+    "title": "Temco ESP32 program-transfer firmware reference",
+    "url": "https://github.com/temcocontrols/T3-programmable-controller-on-ESP32/tree/845973a37b91ac5ddac9c465787f2ab3a5037708",
+    "notes": "Native private BACnet program service and actual 128-VAR limit reviewed. Original Python adapter; upstream source stays external. UDP, routed NPDU, readback, backup/restore and recovery tested locally.",
     "status": "source and local behavior reviewed"
   },
   {
@@ -2747,5 +2805,19 @@
     "url": "https://github.com/bacnet-stack/bacnet-stack/tree/e295d20baba977132b47bc09f61f28e12f2dfac3",
     "notes": "File-specific GPL-2.0-or-later with GCC exception and MIT. External C frame oracle only; no upstream code or binary bundled. See mstp-provenance.md.",
     "status": "source and local behavior reviewed"
+  },
+  {
+    "vendor": "Open source / source research",
+    "title": "Johnson Controls Metasys BasicServices 6.0.5 SDK",
+    "url": "https://www.nuget.org/packages/JohnsonControls.Metasys.BasicServices/6.0.5",
+    "notes": "Manufacturer service SDK and XML API documentation downloaded locally; package SHA256 017cea3bb95da40fe565f77993f2451742fdb98cb53f72a694177b5cda7ec199. Server API access does not provide CCT native compilation, FCAccess or field-controller packages.",
+    "status": "Source/API/format metadata reviewed; no vendor runtime execution"
+  },
+  {
+    "vendor": "Open source / source research",
+    "title": "Niagara 4.10.9.14 manufacturer module/API reference",
+    "url": "https://downloads.onesight.solutions/iSMA/Niagara%20Software/IC%20Workbench/Software/",
+    "notes": "Selected original signed modules and vendor documentation obtained from the public iC Workbench archive by HTTP ranges. Local-only descriptor, palette, slot, unit and format checks; no vendor code execution, runtime license or station acceptance established. No binaries/source redistributed.",
+    "status": "Source/API/format metadata reviewed; no vendor runtime execution"
   }
 ]

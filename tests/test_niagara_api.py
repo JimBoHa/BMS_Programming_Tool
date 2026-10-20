@@ -69,3 +69,20 @@ def test_niagara_inspector_cache_evicts_oldest_file_after_sixteen_unique_archive
         assert client.get(f"/api/niagara/{identifiers[0]}").status_code == 422
         assert client.get(f"/api/niagara/{identifiers[1]}").status_code == 200
         assert client.get(f"/api/niagara/{identifiers[-1]}").status_code == 200
+
+
+def test_compact_status_scalar_can_be_preserved_but_cannot_invent_a_native_program_value(tmp_path):
+    raw = b'<bajaObjectGraph version="4.0"><p h="1" n="Value" m="k=kitControl" t="k:NumericConst"><p n="out" v="7"/></p></bajaObjectGraph>'
+    with TestClient(create_app(tmp_path)) as client:
+        headers = {"X-Studio-Token": client.get("/api/session").json()["token"]}
+        inspected = client.post(
+            "/api/niagara/open", files={"file": ("compact.bog", raw)}, headers=headers
+        )
+        assert inspected.status_code == 200
+        identifier = inspected.json()["sha256"]
+        assert client.post(f"/api/niagara/{identifier}/export", headers=headers).content == raw
+        converted = client.post(
+            "/api/import", files={"file": ("compact.bog", raw)}, headers=headers
+        )
+        assert converted.status_code == 422 and "compact scalar is ignored" in converted.text
+        assert client.get("/api/session").json()["field_network_open"] is False

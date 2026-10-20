@@ -32,6 +32,7 @@ import {
   Bell,
   Boxes,
   Activity,
+  Code2,
 } from "lucide-react";
 import { api, download, initSession } from "./api";
 import {
@@ -77,6 +78,14 @@ const FieldTrends = lazy(() =>
 );
 const NiagaraInspector = lazy(() =>
   import("./NiagaraInspector").then((m) => ({ default: m.NiagaraInspector })),
+);
+const HardwareDefinitions = lazy(() =>
+  import("./HardwareDefinitions").then((m) => ({
+    default: m.HardwareDefinitions,
+  })),
+);
+const IECVerifier = lazy(() =>
+  import("./IECVerifier").then((m) => ({ default: m.IECVerifier })),
 );
 
 export function App() {
@@ -669,10 +678,12 @@ export function App() {
     { id: "editor", title: "Program", icon: Workflow },
     { id: "caf", title: "CAF files", icon: FileArchive },
     { id: "bog", title: "BOG files", icon: FileArchive },
+    { id: "hardware", title: "JCI hardware", icon: CircuitBoard },
     { id: "connections", title: "Connect", icon: Network },
     { id: "runtime", title: "Runtime", icon: Cpu },
     { id: "native", title: "Native sim", icon: FlaskConical },
     { id: "temco", title: "Temco native", icon: Cpu },
+    { id: "iec", title: "IEC native", icon: Code2 },
     { id: "system", title: "System sim", icon: Layers },
     { id: "observations", title: "Trends & alarms", icon: Bell },
     { id: "field-trends", title: "Field trends", icon: Activity },
@@ -907,7 +918,7 @@ export function App() {
                             format === "bog"
                               ? "Exported native Niagara BOG primitives. Review event, status and priority semantics in Niagara; native runtime acceptance is unverified."
                               : format === "temco-bas"
-                                ? "Exported Control Basic source. Compile and compare with the native interpreter in Temco native. Physical download is unavailable."
+                                ? "Exported Control Basic source. Compile, verify with the native interpreter and review a separate controller transfer in Temco native."
                                 : "Exported " +
                                   format +
                                   ". Review target compatibility before deployment.",
@@ -1133,6 +1144,8 @@ export function App() {
               <NativeCaf />
             ) : tab === "bog" ? (
               <NiagaraInspector />
+            ) : tab === "hardware" ? (
+              <HardwareDefinitions />
             ) : tab === "connections" ? (
               <Connections />
             ) : tab === "runtime" ? (
@@ -1150,6 +1163,8 @@ export function App() {
               />
             ) : tab === "temco" ? (
               <TemcoSimulator program={program} />
+            ) : tab === "iec" ? (
+              <IECVerifier program={program} />
             ) : tab === "system" ? (
               <SystemSimulation program={program} />
             ) : tab === "observations" ? (

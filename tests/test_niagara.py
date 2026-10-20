@@ -1,6 +1,7 @@
 import io
 import sys
 import tempfile
+import xml.etree.ElementTree as XML
 import zipfile
 from pathlib import Path
 
@@ -8,7 +9,7 @@ import pytest
 from bms_tool.engine import Engine
 from bms_tool.formats import ConversionError
 from bms_tool.models import Edge, Node, Program
-from bms_tool.niagara import NATIVE, SOURCE, NiagaraArchive, export_bog, import_bog
+from bms_tool.niagara import NATIVE, SOURCE, UNITS, NiagaraArchive, export_bog, import_bog
 
 from tests.test_native_sedona import block_program
 
@@ -106,14 +107,14 @@ def test_four_input_reduction_keeps_all_consumers_on_final_result():
     # Result precedes Sum, deliberately exercising forward and backward XML order.
     xml = b"""<bajaObjectGraph version="4.0"><p h="0" n="Root" m="b=baja" t="b:Folder">
     <p h="1" n="Result" m="c=control" t="c:NumericWritable"><p n="fallback"><p n="value" v="0"/></p><p n="Link" t="b:Link"><p n="sourceOrd" v="h:2"/><p n="sourceSlotName" v="out"/><p n="targetSlotName" v="in16"/></p></p>
-    <p h="2" n="Sum" m="k=kitControl" t="k:Add"><p n="inA" v="1"/><p n="inB" v="2"/><p n="inC" v="3"/><p n="inD" v="4"/></p>
+    <p h="2" n="Sum" m="k=kitControl" t="k:Add"><p n="inA"><p n="value" v="1"/></p><p n="inB"><p n="value" v="2"/></p><p n="inC"><p n="value" v="3"/></p><p n="inD"><p n="value" v="4"/></p></p>
     </p></bajaObjectGraph>"""
     converted = import_bog(xml)
     assert list(Engine(converted).step()["outputs"].values()) == [10]
 
 
 def test_boolean_comparator_constant_inputs_remain_numeric():
-    xml = b"""<bajaObjectGraph version="4.0"><p h="0" n="Root" m="b=baja" t="b:Folder"><p h="1" n="Above" m="k=kitControl" t="k:GreaterThan"><p n="inA" v="10"/><p n="inB" v="5"/></p></p></bajaObjectGraph>"""
+    xml = b"""<bajaObjectGraph version="4.0"><p h="0" n="Root" m="b=baja" t="b:Folder"><p h="1" n="Above" m="k=kitControl" t="k:GreaterThan"><p n="inA"><p n="value" v="10"/></p><p n="inB"><p n="value" v="5"/></p></p></p></bajaObjectGraph>"""
     p = import_bog(xml)
     assert list(Engine(p).step()["outputs"].values()) == [True]
 
@@ -134,7 +135,10 @@ def test_native_mixed_finite_unit_facets_round_trip():
         edges=[Edge(id="e", source="in", target="out")],
     )
     data = export_bog(p)
-    assert b"degreeFahrenheit" in NiagaraArchive(data).xml
+    assert (
+        "fahrenheit;\N{DEGREE SIGN}F;(K);*0.5555555555555556+255.37222222222223;"
+        in NiagaraArchive(data).xml.decode()
+    )
     assert {n.unit for n in import_bog(SOURCE.sub(b"", NiagaraArchive(data).xml)).nodes} == {"degF"}
     p.nodes[0].unit = p.nodes[1].unit = "unknown-unit"
     with pytest.raises(ConversionError, match="facet mapping"):
@@ -157,10 +161,93 @@ def test_handleless_typed_native_logic_is_preserved_but_never_silently_dropped(c
 
 
 def test_root_scope_native_module_aliases_are_resolved():
-    raw = b"""<bajaObjectGraph version="4.0" m="b=baja;k=kitControl"><p h="0" n="Root" t="b:Folder"><p h="1" n="C" t="k:NumericConst"><p n="out" v="7"/></p></p></bajaObjectGraph>"""
+    raw = b"""<bajaObjectGraph version="4.0" m="b=baja;k=kitControl"><p h="0" n="Root" t="b:Folder"><p h="1" n="C" t="k:NumericConst"><p n="out"><p n="value" v="7"/></p></p></p></bajaObjectGraph>"""
     assert list(Engine(import_bog(raw)).step()["outputs"].values()) == [7]
     with pytest.raises(ConversionError, match="duplicate native module"):
         NiagaraArchive(raw.replace(b"b=baja;k=kitControl", b"b=baja;b=other"))
+
+
+def test_native_module_aliases_apply_to_following_siblings_and_outer_siblings():
+    raw = b"""<bajaObjectGraph version="4.0"><p h="0" n="Root" m="b=baja" t="b:Folder">
+      <p n="Nested" t="b:Folder"><p h="1" n="First" m="k=kitControl" t="k:NumericConst"><p n="out"><p n="value" v="5"/></p></p></p>
+      <p h="2" n="Second" t="k:NumericConst"><p n="out"><p n="value" v="7"/></p></p>
+    </p></bajaObjectGraph>"""
+    assert NiagaraArchive(raw).summary()["components"][-1]["type"] == "kitControl:NumericConst"
+    assert list(Engine(import_bog(raw)).step()["outputs"].values()) == [5, 7]
+
+
+@pytest.mark.parametrize("unit", ["degF", "degC", "K", "%", "cfm"])
+def test_native_units_include_dimension_and_conversion_transform(unit):
+    program = Program(nodes=[Node(id="value", kind="Input", unit=unit, params={"default": 72})])
+    raw = SOURCE.sub(b"", NiagaraArchive(export_bog(program)).xml)
+    facets = XML.fromstring(raw).find(".//p[@n='facets']").get("v")
+    assert facets == "units=u:" + UNITS[unit]
+    fields = facets[len("units=u:") :].split(";")
+    assert len(fields) == 5 and not fields[-1]
+    assert import_bog(raw).nodes[0].unit == unit
+
+
+@pytest.mark.parametrize(
+    "facets,message",
+    [
+        ("units=u:degreeFahrenheit", "complete serialized BUnit"),
+        ("units=u:fahrenheit;\N{DEGREE SIGN}F;(K);;", "scale/offset differs"),
+        (
+            "units=u:fahrenheit;\N{DEGREE SIGN}F;(m);*0.5555555555555556+255.37222222222223;",
+            "symbol/dimension",
+        ),
+        ("units=u:fahrenheit;\N{DEGREE SIGN}F;(K);*Infinity;", "scale/offset encoding"),
+        ("precision=i:2|precision=i:3", "Duplicate native facet"),
+    ],
+)
+def test_native_units_reject_bare_names_and_changed_physical_dimensions_or_transforms(
+    facets, message
+):
+    raw = SOURCE.sub(b"", NiagaraArchive(export_bog(block_program("Input"))).xml)
+    document = XML.fromstring(raw)
+    XML.SubElement(document.find(".//p[@h='1']"), "p", {"n": "facets", "v": facets})
+    with pytest.raises(ConversionError, match=message):
+        import_bog(XML.tostring(document))
+
+
+def test_native_display_facets_allow_documented_key_order_and_precision_without_units():
+    raw = SOURCE.sub(
+        b"", NiagaraArchive(export_bog(Program(nodes=[Node(id="input", kind="Input")]))).xml
+    )
+    document = XML.fromstring(raw)
+    facets = XML.SubElement(
+        document.find(".//p[@h='1']"), "p", {"n": "facets", "v": "precision=i:2"}
+    )
+    assert import_bog(XML.tostring(document)).nodes[0].unit == ""
+    facets.set("v", "precision=i:2|units=u:celsius;\N{DEGREE SIGN}C;(K);+273.1500;")
+    assert import_bog(XML.tostring(document)).nodes[0].unit == "degC"
+
+
+@pytest.mark.parametrize("slot", ["out", "fallback", "inA"])
+def test_compact_scalar_status_slots_are_rejected_instead_of_inventing_native_values(slot):
+    native_type = {"out": "NumericConst", "fallback": "NumericWritable", "inA": "Add"}[slot]
+    module = "control" if slot == "fallback" else "kitControl"
+    raw = f'<bajaObjectGraph version="4.0"><p h="1" n="Value" m="k={module}" t="k:{native_type}"><p n="{slot}" v="7"/></p></bajaObjectGraph>'.encode()
+    assert NiagaraArchive(raw).export() == raw
+    with pytest.raises(ConversionError, match="compact scalar is ignored"):
+        import_bog(raw)
+
+
+@pytest.mark.parametrize(
+    "replacement,message",
+    [
+        (
+            (b'n="fallback" t="b:StatusNumeric"', b'n="fallback" t="b:String"'),
+            "incompatible explicit type",
+        ),
+        ((b'n="value" v=', b'n="value" t="b:Boolean" v='), "incompatible explicit type"),
+        ((b'n="status" v="0"', b'n="status" v="0;custom=b:true"'), "status facets"),
+    ],
+)
+def test_native_status_wrapper_types_and_quality_metadata_are_not_coerced(replacement, message):
+    raw = SOURCE.sub(b"", NiagaraArchive(export_bog(block_program("Input"))).xml)
+    with pytest.raises(ConversionError, match=message):
+        import_bog(raw.replace(*replacement, 1))
 
 
 @pytest.mark.parametrize("configuration", [b"min=d:10", b"max=d:100", b"customLimit=i:1"])
@@ -168,7 +255,7 @@ def test_unmodeled_native_facets_cannot_be_silently_discarded(configuration):
     raw = SOURCE.sub(b"", NiagaraArchive(export_bog(block_program("Input"))).xml)
     raw = raw.replace(
         b'n="fallback"',
-        b'n="facets" t="b:Facets" v="units=u:null|' + configuration + b'"/><p n="fallback"',
+        b'n="facets" t="b:Facets" v="units=u:null;;;;|' + configuration + b'"/><p n="fallback"',
         1,
     )
     with pytest.raises(ConversionError, match="facet configuration would be lost"):

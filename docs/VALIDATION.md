@@ -4,8 +4,8 @@ This development build validates the stated local behavior. It does not establis
 
 ## Automated checks
 
-- The final full backend run passed **775 tests with no skips in 141.94 seconds**, including all seven authorized CAF samples, source-kind migration, ended-field-source retirement and native compiler resource guards.
-- **34 browser workflows passed in 55.6 seconds** against a production TypeScript/Vite build. All six Temco workflows passed again after the final compiler-bound fixes (3.9 seconds). They cover authoring, typed macros, calendar exceptions, force/release, shared-system simulation, persistent observations, revision/interchange, native Sedona operations, native Temco execution, CAF relationships, BOG inspection/conversion, serial settings and actual loopback field sampling.
+- The final full backend run passed **948 tests with no skips in 165.40 seconds**, including all seven authorized CAFs, genuine external Niagara descriptors, independent native IEC execution, real UDP/routed Temco transfer/recovery and existing simulation/transport/storage coverage.
+- **39 browser workflows passed in approximately 1.2 minutes** against the production TypeScript/Vite build. They cover existing authoring, macros, calendars, simulation, storage, CAF/BOG and field workflows plus genuine IEC compilation/execution, input-quality faults, timed recovery scenarios, native Temco transfer/restore and JCI hardware migration. Temco browser coverage also verifies that source edits cannot hide a completed transfer outcome and that restore previews use the backup run state.
 - Ruff, TypeScript and production Vite build checks pass. Workspace pages load in separate bundles; the main bundle is approximately 413 kB before gzip. Screenshots of native formats, compiled traces, serial settings and field samples were visually inspected.
 - Nine PLCopen example exports previously validated against an independently retrieved TC6 v2.01 XSD. Schema provenance: <https://raw.githubusercontent.com/mattsse/plcopen-xml-xcore/master/schema/tc6_xml_v201.xsd>. XSD conformance is not external PLC compiler acceptance.
 - The environment uses Python 3.13.16, Node 22.23.3, FastAPI 0.146.0, Pydantic 2.14.1, BACpypes3 0.0.110 and Vite 7.3.7. Dependency pins are unchanged from the recorded advisory audit. Upstream Starlette TestClient and pybog Pydantic deprecation warnings remain; they are not failed checks.
@@ -46,6 +46,15 @@ Six real browser workflows cover native source/bytecode downloads, custom points
 
 BOG tests exercise real ZIP/XML, typed component slots, four-input reductions, forward consumers, aliases, local ORD links, finite facets, status handling, source consistency and rejection of unsupported executable configuration. An independently authored public pybog generator creates an application that imports and computes `100 - 40 = 60`. There is no Niagara station/Workbench runtime acceptance test.
 
+An additional 22 tests parse genuine external manufacturer module/API metadata.
+They verify component declarations, inherited frozen property types, emitted
+link endpoints, six complete serialized unit records and real palette aliases.
+This exposed and corrected document-wide alias visibility, invalid bare unit
+facets and compact scalar values that native complex status slots would ignore.
+JARs and reference source remain outside Git; no Niagara implementation code
+was incorporated or executed. Native runtime licensing/acceptance remains
+unestablished. See [the exact evidence and member hashes](niagara-bog.md).
+
 The separate inspector returns original BOG bytes exactly, including protected content, unknown typed records and extra archive members. HTTP tests verify upload/session guards, unsafe input rejection and bounded cache eviction. Browser workflows verify opaque ZIP and raw XML inspection/export without station connections.
 
 Seven authorized CAF files include MS-VMA1630-0, FX-PCV1630-0 and FX-PCV1615-0 in release modes 10.1/10.2. Original files were not changed or uploaded. No-op export is byte exact; scalar edits preserve unrelated XML, job metadata and simulation properties.
@@ -53,6 +62,42 @@ Seven authorized CAF files include MS-VMA1630-0, FX-PCV1630-0 and FX-PCV1615-0 i
 Native CAF graph tests inspect block identities, connection records, order, positions and continuations. A guarded source rewire preserves unrelated native data. Prototype-checked connections add one native connection and continuation record without adding objects or changing execution order. All seven private archives yielded a guarded candidate that reparsed successfully. Browser downloads were independently reparsed to check changed tuples and object counts.
 
 Matching CCT/PCT has not compiled or opened those edits. They have not been downloaded or executed on JCI hardware. Offline structure/readback is not vendor application validation.
+
+## Independent IEC compiler and native Temco transfer
+
+The optional MatIEC toolchain is pinned at
+`3a41303bcb4e50403417bc39c63f88981d7d961e`. All 27 blocks and nine VAV
+profiles pass through the actual exported ST, MatIEC-generated C and a native
+Clang executable. Scan traces compare independent outputs, fault flags and
+retained state. Tests cover input quality, late divide faults, recovery,
+float32 overflow differences, scientific defaults, macros, calendars and timed
+events. A test-owned worker is deliberately suspended to verify bounded timeout,
+termination and temporary-file cleanup. Seventy-one focused compiler/API tests
+passed; no controller I/O is available in that host profile. The compiler's
+upstream Clang warnings stay visible. See [IEC execution details](iec-native.md).
+
+Forty Temco transfer tests use actual BACpypes UDP, manufacturer C/C++ wire
+fixtures, routed NPDU forwarding and an independent firmware-layout emulator.
+The received image executes in the real manufacturer interpreter. Backup,
+slot stop, all five chunk writes, full readback, conditional run-state changes,
+restore, changing identity/generation/capacity, partial loss, external edits,
+journal failures and cancellation are exercised. More than 256 exchanges check
+transaction retirement and invoke-ID wrap. A watchdog catches cancelled-child
+recovery loops; failed request admission restores the app handler. Nonboolean
+resume flags cannot silently start a program. Physical Temco hardware, flash
+persistence and scan cadence remain unverified. See [transfer scope](temco-transfer.md).
+
+Browser workflows use the actual IEC compiler and a real UDP Temco
+emulator. The latter verifies a stopped replacement and restoration of the
+backup's prior running state. Holding a genuine completed HTTP response while
+editing authoring bindings verifies that the field operation's result remains
+visible. No mocked transport substitutes for those native transfers.
+
+Twenty-one JCI hardware/API tests and a browser workflow exercise native
+definition metadata, imperial/metric profiles, actual alias conflicts, presets,
+binding/parameter/interface migration and byte-exact XML export. These are
+offline metadata checks, not PCV/VMA object allocation or native compilation.
+See [hardware-definition evidence](jci-hardware-definition.md).
 
 ## Network and field acquisition tests
 
@@ -74,4 +119,6 @@ JCI/ALC/Honeywell native application compilers/loaders, BTCVT, full proprietary 
 
 The Windows VM inventory checked 32-bit/64-bit installed-program registries and vendor application directories. No CCT/PCT installation appeared. No CCT binary analysis or compiler invocation occurred; the VM returned to the stopped state. The ignored inventory is `local-reports/windows-toolchain-inventory.json`.
 
-The idle main local server was restarted with the final code after backing up `studio.sqlite3` and `observability.sqlite3` under ignored `.state/before-native-expansion/`. Existing observation counts were zero. A production API smoke test compiled/executed three native Temco scans with output 42, confirmed the 17-kind BOG profile and served the built GUI. No BACnet interface, field polling job, native SVM or owned point command was active after that check.
+The idle main local server was restarted with the final code after backing up `studio.sqlite3` and `observability.sqlite3` under ignored `.state/before-transfer-integration/`. Existing observation counts were zero. A production API smoke test independently compiled/executed three IEC and three Temco scans with output 42 and served the built GUI. The transfer service reported no connection, no uncertain operations and no field backups. No BACnet interface, field polling job, native SVM or owned point command was active after that check.
+
+The reference desk now records 253 sources and 49 feature criteria: 24 implemented, 17 partial and eight pending. The multivendor PDF catalog contains 62 records, 61 distinct hashes and 6,777 indexed PDF pages, alongside the earlier JCI collection. Four new guides were downloaded, indexed and selectively reviewed; no claim of reading every manual word for word is made. Manufacturer SDK modules, manuals and original site files remain outside Git.

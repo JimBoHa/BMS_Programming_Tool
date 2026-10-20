@@ -47,12 +47,22 @@
   {
     "feature": "Interchange conversion and export",
     "status": "partial",
-    "scope": "BMS JSON, IEC Structured Text, PLCopen TC6 XML with ST, GraphML, native Sedona bundles/SAX/SAB/SCode, native Niagara BOG primitive profiles and Temco Control Basic. Studio files verify original source consistency; supported foreign subsets convert with execution-difference reports. External IEC and Niagara runtime acceptance remains unverified."
+    "scope": "BMS JSON, IEC Structured Text, PLCopen TC6 XML with ST, GraphML, native Sedona bundles/SAX/SAB/SCode, native Niagara BOG primitive profiles and Temco Control Basic. Studio files verify original source consistency; supported foreign subsets convert with execution-difference reports. Generated ST independently compiles and runs through MatIEC/native C locally; physical PLC and Niagara runtime acceptance remain unverified."
   },
   {
     "feature": "FX and Metasys CAF inspection",
     "status": "implemented",
     "scope": "Observed ZIP/XML containers: preserve all unknown data, jobInfo and simulationProperty entries; readable attribute/class dictionaries; original byte-exact export."
+  },
+  {
+    "feature": "Independent compiled IEC verification",
+    "status": "implemented",
+    "scope": "Studio-generated ST passes unchanged through pinned MatIEC to C and a separate native Clang process. All 27 blocks/nine examples, retained state, quality faults, timed events, calendars, macros and float32 overflow differences have independent execution tests. Host-only memory I/O; no PLC runtime certification or controller deployment."
+  },
+  {
+    "feature": "JCI native hardware definitions",
+    "status": "implemented",
+    "scope": "Offline inspection of observed manufacturer Interface XML: point types, imperial/metric ranges, BACnet identities, aliases and presets. Validated selections and source-hashed migration reports distinguish rebinding/parameter/interface changes. Exact XML export preserves unknown metadata. This does not allocate CAF objects or compile/download a controller program."
   },
   {
     "feature": "CAF application editing",
@@ -72,12 +82,12 @@
   {
     "feature": "Native Temco Control Basic",
     "status": "partial",
-    "scope": "All 27 graph blocks compile into real native bytecode and execute in a pinned manufacturer interpreter host. Persistent state, staged commits, fixed-point differences and explicit host calendar flags are verified. All nine illustrative VAV graphs match 60 native scans. Source/bytecode export and checked authoring annotations support re-import. No physical controller loader, native input-quality service or firmware certification."
+    "scope": "All 27 blocks compile into real manufacturer bytecode and execute in the pinned interpreter host, with retained state and visible fixed-point differences. Separate native BACnet slot transfer stops, backs up, replaces, reads back and conditionally resumes an exact pinned device/slot. Real UDP/routed emulator and recovery tests pass; physical execution, flash persistence and scan cadence remain unverified. Transfer refuses unprovisioned calendars and VARs beyond 128."
   },
   {
     "feature": "Native Niagara BOG primitives",
     "status": "partial",
-    "scope": "17 primitive graph types map to real bajaObjectGraph ZIP/XML. Supported foreign math/logic/writable components convert with a mandatory event/status/priority review report. Unknown native logic, resources or configuration fail conversion. Original archive inspection/preservation is available in the adapter. No Niagara SDK/runtime acceptance or full station conversion."
+    "scope": "17 primitive graph types map to real bajaObjectGraph ZIP/XML. Supported foreign components convert with mandatory event/status/priority review. Genuine manufacturer module/API metadata verifies native classes, inherited slots, link types, serialized units and palette aliases; malformed compact status values are refused. Unknown logic/resources/configuration fail conversion; original archive bytes are preserved separately. No licensed Workbench/station execution or full station conversion."
   },
   {
     "feature": "BACnet/IP connection",
@@ -102,7 +112,7 @@
   {
     "feature": "Live application changes",
     "status": "partial",
-    "scope": "Graph replacement with state retention and rollback in our sandbox. Real Sox add/write/link/unlink/delete in an owned native SVM; shadow-VM preflight, configuration conflict checks, compensating rollback, persistent project save/export and value/link readback. Proprietary controller application changes remain pending."
+    "scope": "Graph replacement with state retention and rollback in our sandbox. Real Sox add/write/link/unlink/delete in an owned native SVM; shadow-VM preflight, configuration conflict checks, compensating rollback, persistent project save/export and value/link readback. Proprietary controller application changes remain pending. Temco slot replacement/restore uses actual private-transfer bytes, durable backup/intent and readback, with compensating recovery; it stops the slot and is not an atomic online edit. Physical hardware remains unverified."
   },
   {
     "feature": "E2/F2 unused-input sensor test",

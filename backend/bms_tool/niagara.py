@@ -65,12 +65,12 @@ VALUE_TYPES = {
     )
 }
 UNITS = {
-    "": "null",
-    "degF": "degreeFahrenheit",
-    "degC": "degreeCelsius",
-    "K": "kelvin",
-    "%": "percent",
-    "cfm": "cubicFeetPerMinute",
+    "": "null;;;;",
+    "degF": "fahrenheit;\N{DEGREE SIGN}F;(K);*0.5555555555555556+255.37222222222223;",
+    "degC": "celsius;\N{DEGREE SIGN}C;(K);+273.15;",
+    "K": "kelvin;K;(K);;",
+    "%": "percent;%;;;",
+    "cfm": "cubic feet per minute;cfm;(m3)(s-1);*4.719474432E-4;",
 }
 SOURCE = re.compile(rb"<!-- BMS_STUDIO_BOG_V1 ([A-Za-z0-9+/=]+) -->")
 DIFFERENCES = [
@@ -126,7 +126,36 @@ def _value(element, name, default=None):
             raise ConversionError(
                 "Non-good native status cannot be converted to a finite initial value."
             )
+        if any(status.get("v", "0").split(";")[1:]):
+            raise ConversionError("Unsupported native status facets would be lost.")
     return _value(child, "value", default)
+
+
+def _status_value(element, name, types, boolean=False, default=None):
+    matches = [p for p in element.findall("p") if p.get("n") == name]
+    if len(matches) > 1:
+        raise ConversionError("Duplicate native property: " + name)
+    if matches:
+        child = matches[0]
+        if "v" in child.attrib:
+            if len(child):
+                raise ConversionError("Native scalar mixes attribute and nested encodings.")
+            raise ConversionError(
+                "Native status-valued slots require nested value/status properties; a compact scalar is ignored by Niagara."
+            )
+        expected = "baja:StatusBoolean" if boolean else "baja:StatusNumeric"
+        if child.get("t") and types.get(id(child)) != expected:
+            raise ConversionError("Native status slot has an incompatible explicit type.")
+        for value in child.findall("p"):
+            if value.get("n") == "value":
+                expected_value = "baja:Boolean" if boolean else "baja:Double"
+            elif value.get("n") == "status":
+                expected_value = "baja:Status"
+            else:
+                continue  # _value reports unknown nested configuration below.
+            if value.get("t") and types.get(id(value)) != expected_value:
+                raise ConversionError("Native status field has an incompatible explicit type.")
+    return _value(element, name, default)
 
 
 def _modules(declarations, inherited):
@@ -146,18 +175,53 @@ def _modules(declarations, inherited):
     return modules
 
 
+def _native_unit(encoded):
+    """Validate the finite observed unit profile, including dimension and transform.
+
+    BUnit values are four semicolon-terminated fields. A display name alone
+    cannot identify the physical unit or replace its scale and offset.
+    """
+    fields = encoded.split(";")
+    if len(fields) != 5 or fields[-1]:
+        raise ConversionError("Native unit facets require a complete serialized BUnit record.")
+    known = {value.split(";", 1)[0]: (key, value.split(";")) for key, value in UNITS.items()}
+    if fields[0] not in known:
+        raise ConversionError("Unknown native unit facets require explicit conversion.")
+    unit, expected = known[fields[0]]
+    if fields[2] != expected[2] or fields[1] not in {"", expected[0], expected[1]}:
+        raise ConversionError("Native unit symbol/dimension is outside the supported profile.")
+
+    def transform(text):
+        number = r"[-+]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?"
+        match = re.fullmatch(r"(?:\*(" + number + r"))?(?:\+(" + number + r"))?", text)
+        if not match:
+            raise ConversionError("Unsupported native unit scale/offset encoding.")
+        scale, offset = float(match[1] or 1), float(match[2] or 0)
+        if not math.isfinite(scale) or not math.isfinite(offset):
+            raise ConversionError("Native unit scale/offset must be finite.")
+        return scale, offset
+
+    if transform(fields[3]) != transform(expected[3]):
+        raise ConversionError("Native unit scale/offset differs from the supported physical unit.")
+    return unit
+
+
 def _unit_facets(facets):
     if not facets:
         return ""
-    parts = facets.split("|")
-    match = re.fullmatch(r"units=u:([A-Za-z]+);*", parts[0])
-    if not match or match[1] not in set(UNITS.values()):
-        raise ConversionError("Unknown native unit facets require explicit conversion.")
-    for extra in parts[1:]:
-        if extra in ("min=d:-inf", "max=d:+inf") or re.fullmatch(r"precision=i:[0-9]{1,2}", extra):
-            continue
-        raise ConversionError("Unsupported native facet configuration would be lost: " + extra)
-    return {value: key for key, value in UNITS.items()}[match[1]]
+    unit, seen = "", set()
+    for part in facets.split("|"):
+        key = part.split("=", 1)[0]
+        if key in seen:
+            raise ConversionError("Duplicate native facet key.")
+        seen.add(key)
+        if part.startswith("units=u:"):
+            unit = _native_unit(part[len("units=u:") :])
+        elif part not in ("min=d:-inf", "max=d:+inf") and not re.fullmatch(
+            r"precision=i:[0-9]{1,2}", part
+        ):
+            raise ConversionError("Unsupported native facet configuration would be lost: " + part)
+    return unit
 
 
 class NiagaraArchive:
@@ -207,7 +271,7 @@ class NiagaraArchive:
                 raise ConversionError("BOG exceeds XML depth/element limits.")
             pending.extend((child, depth + 1) for child in element)
         self.components, self.links, self.by_handle, self.by_path = [], [], {}, {}
-        self.unhandled = []
+        self.unhandled, self.value_types = [], {}
         self._walk(self.root, "", _modules(self.root.get("m", ""), {}), 0)
         for link in self.links:
             source = link["source_ord"]
@@ -230,11 +294,16 @@ class NiagaraArchive:
         for element in parent.findall("p"):
             if len(self.components) + len(self.links) > 10000:
                 raise ConversionError("BOG exceeds 10,000 components/links.")
-            modules = _modules(element.get("m", ""), inherited)
+            # BOG declarations apply to the remainder of the document, including
+            # following siblings and parents' following siblings. They are not
+            # XML namespace declarations with lexical scope.
+            inherited.update(_modules(element.get("m", ""), inherited))
+            modules = inherited
             typ = element.get("t", "")
             if ":" in typ:
                 prefix, name = typ.split(":", 1)
                 typ = modules.get(prefix, prefix) + ":" + name
+            self.value_types[id(element)] = typ
             name = element.get("n", "")
             if typ in ("baja:Link", "baja:ConversionLink", "b:Link", "b:ConversionLink"):
                 self.links.append(
@@ -533,7 +602,14 @@ def import_bog(content: bytes):
                 if kind == "Output"
                 else {
                     "default": _scalar(
-                        _value(element, "fallback", "false" if boolean else "0"), boolean
+                        _status_value(
+                            element,
+                            "fallback",
+                            archive.value_types,
+                            boolean,
+                            "false" if boolean else "0",
+                        ),
+                        boolean,
                     )
                 }
             )
@@ -542,7 +618,18 @@ def import_bog(content: bytes):
             kind, ports, params = (
                 "Constant",
                 {},
-                {"value": _scalar(_value(element, "out", "false" if boolean else "0"), boolean)},
+                {
+                    "value": _scalar(
+                        _status_value(
+                            element,
+                            "out",
+                            archive.value_types,
+                            boolean,
+                            "false" if boolean else "0",
+                        ),
+                        boolean,
+                    )
+                },
             )
         elif typ in ("kitControl:NumericSwitch", "kitControl:BooleanSwitch"):
             kind, ports = "Switch", {"inSwitch": "select", "inTrue": "on", "inFalse": "off"}
@@ -610,7 +697,12 @@ def import_bog(content: bytes):
                     raise ConversionError("Native link source is not an executable component.")
                 source_id = mapped[source_handle][0].id
             else:
-                value = _value(record["element"], slot)
+                value = _status_value(
+                    record["element"],
+                    slot,
+                    archive.value_types,
+                    input_type(node, port) == "boolean",
+                )
                 if value is None:
                     raise ConversionError(
                         "Connect or configure native input " + record["path"] + "." + slot
@@ -625,7 +717,9 @@ def import_bog(content: bytes):
                 if (handle, slot) in incoming:
                     extras.append(mapped[incoming[handle, slot]][0].id)
                 else:
-                    value = _value(record["element"], slot)
+                    value = _status_value(
+                        record["element"], slot, archive.value_types, node.value_type == "boolean"
+                    )
                     if value is not None:
                         extra = const(value, node.value_type == "boolean")
                         nodes[-1].unit = node.unit

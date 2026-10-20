@@ -147,6 +147,40 @@
   line-height: 1.6;
   background: #f5f8fa;
 }
+.temco-card pre {
+  max-width: 100%;
+  max-height: 420px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.temco-results td small {
+  display: block;
+  margin-top: 5px;
+}
+.temco-transfer-plan {
+  margin-top: 20px;
+  padding: 18px;
+  border: 1px solid #bed3de;
+  border-radius: 8px;
+  background: #f6fafc;
+}
+.temco-transfer-review {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 18px;
+}
+.temco-transfer-review input {
+  width: auto;
+  margin-top: 3px;
+}
+.temco-actions label.temco-transfer-review {
+  flex-direction: row;
+  align-items: center;
+  margin-top: 0;
+}
 @media (max-width: 950px) {
   .temco-profile-grid {
     grid-template-columns: 1fr;

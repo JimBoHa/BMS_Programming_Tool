@@ -85,4 +85,15 @@ test("foreign BOG conversion requires visible semantics review and rejects unkno
     page.getByText("No semantic Niagara mapping", { exact: false }),
   ).toBeVisible();
   await expect(page.locator(".react-flow__node")).toHaveCount(before);
+  await input.setInputFiles({
+    name: "ignored-compact-status.bog",
+    mimeType: "application/xml",
+    buffer: Buffer.from(
+      '<bajaObjectGraph version="4.0"><p h="1" n="Value" m="k=kitControl" t="k:NumericConst"><p n="out" v="7"/></p></bajaObjectGraph>',
+    ),
+  });
+  await expect(
+    page.getByText("compact scalar is ignored", { exact: false }),
+  ).toBeVisible();
+  await expect(page.locator(".react-flow__node")).toHaveCount(before);
 });
