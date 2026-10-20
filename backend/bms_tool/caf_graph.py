@@ -12,6 +12,7 @@ import copy
 import hashlib
 import html
 import io
+import math
 import re
 import zipfile
 from typing import Any
@@ -31,6 +32,16 @@ def _integer(text: str | None, maximum: int = 65535) -> int:
     if not re.fullmatch(r"[0-9]{1,10}", value) or not 0 <= int(value) <= maximum:
         raise ValueError("CAF graph index or identifier is outside its unsigned range.")
     return int(value)
+
+
+def _coordinate(text: str) -> str:
+    """Validate native decimal coordinates without normalizing their spelling."""
+    value = text.strip(" \t\r\n")
+    if not re.fullmatch(r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?", value):
+        raise ValueError("CAF graph layout coordinates require finite native floats.")
+    if not math.isfinite(float(value)):
+        raise ValueError("CAF graph layout coordinates require finite native floats.")
+    return text
 
 
 def _shape(element: Any) -> tuple:
@@ -162,7 +173,11 @@ class CafGraph:
             x, y, opaque_code = _record(position, ("float", "float", "unsignedShort"))
             # Preserve coordinate spellings and the third field. Its meaning is not
             # inferred from its location in the record.
-            layout = {"x": x, "y": y, "opaque_code": _integer(opaque_code)}
+            layout = {
+                "x": _coordinate(x),
+                "y": _coordinate(y),
+                "opaque_code": _integer(opaque_code),
+            }
             name = self.archive.scalar(block_props.get("2390")) if "2390" in block_props else None
             ports = []
             if "3184" in block_props:

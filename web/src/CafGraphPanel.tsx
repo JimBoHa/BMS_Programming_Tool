@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, GitBranch, RefreshCw } from "lucide-react";
 import { api, download } from "./api";
 import "./caf-graph.css";
@@ -64,9 +64,15 @@ function editedFilename(filename: string, action = "rewired") {
 export function CafGraphPanel({
   id,
   filename,
+  disabled = false,
+  scalarChangeCount = 0,
+  onDirtyChange,
 }: {
   id: string;
   filename: string;
+  disabled?: boolean;
+  scalarChangeCount?: number;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const [inventory, setInventory] = useState<GraphInventory | null>(null);
   const [diagramRef, setDiagramRef] = useState("");
@@ -81,6 +87,19 @@ export function CafGraphPanel({
   const [error, setError] = useState("");
   const [exported, setExported] = useState("");
   const [refresh, setRefresh] = useState(0);
+  const mounted = useRef(false);
+  const exportRequest = useRef(0);
+  const activeArchive = useRef(id);
+  activeArchive.current = id;
+  const savedProposals = useRef(new Set<string>());
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      exportRequest.current++;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -93,6 +112,8 @@ export function CafGraphPanel({
     setConnectionTargetRef("");
     setError("");
     setExported("");
+    savedProposals.current.clear();
+    exportRequest.current++;
     api(`/caf/${id}/graphs`)
       .then((result: GraphInventory) => {
         if (!active) return;
@@ -117,7 +138,6 @@ export function CafGraphPanel({
     setSourceRef("");
     setConnectionSourceRef("");
     setConnectionTargetRef("");
-    setExported("");
     if (!diagramRef) {
       setLoadingGraph(false);
       return;
@@ -198,24 +218,54 @@ export function CafGraphPanel({
           wire.target_port,
         ]
       : null;
+  const rewireKey = proposed
+    ? JSON.stringify(["rewire", id, diagramRef, wireIndex, proposed])
+    : "";
+  const connectionKey = connectionTuple
+    ? JSON.stringify(["connect", id, diagramRef, wireIndex, connectionTuple])
+    : "";
+  const dirty = Boolean(
+    (rewireKey && !savedProposals.current.has(rewireKey)) ||
+      (connectionKey && !savedProposals.current.has(connectionKey)),
+  );
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
+
+  function discardProposals() {
+    return (
+      !dirty ||
+      window.confirm(
+        "Discard unexported native CAF connection proposals? Cancel to keep the proposal or export its copy first.",
+      )
+    );
+  }
 
   function selectWire(index: number) {
+    if (disabled || exporting || index === wireIndex || !discardProposals())
+      return;
     setWireIndex(index);
     setSourceRef("");
     setConnectionSourceRef("");
     setConnectionTargetRef("");
     setError("");
-    setExported("");
   }
 
   async function exportRewire() {
-    if (!diagram || !wire || !proposedSource || exporting) return;
+    if (!diagram || !wire || !proposedSource || exporting || disabled) return;
+    const request = ++exportRequest.current;
+    const archive = id;
+    const key = rewireKey;
+    const current = () =>
+      mounted.current &&
+      request === exportRequest.current &&
+      activeArchive.current === archive;
     setExporting(true);
     setError("");
-    setExported("");
     try {
       const name = editedFilename(filename);
-      await download(
+      const saved = await download(
         `/caf/${id}/rewire`,
         {
           changes: [
@@ -228,14 +278,17 @@ export function CafGraphPanel({
           ],
         },
         name,
+        current,
       );
+      if (!saved || !current()) return;
+      savedProposals.current.add(key);
       setExported(
-        `Downloaded ${name}. This view still shows the original archive. Open the downloaded copy to inspect the changed records.`,
+        `Browser download requested for ${name}: connection #${wire.index}, ${JSON.stringify(wire.raw)} to ${JSON.stringify(proposed)}. This view still shows the original archive. Open the downloaded copy to inspect the changed records.`,
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      if (current()) setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setExporting(false);
+      if (current()) setExporting(false);
     }
   }
 
@@ -245,15 +298,22 @@ export function CafGraphPanel({
       !wire ||
       !connectionSource ||
       !connectionTarget ||
-      exporting
+      exporting ||
+      disabled
     )
       return;
+    const request = ++exportRequest.current;
+    const archive = id;
+    const key = connectionKey;
+    const current = () =>
+      mounted.current &&
+      request === exportRequest.current &&
+      activeArchive.current === archive;
     setExporting(true);
     setError("");
-    setExported("");
     try {
       const name = editedFilename(filename, "connected");
-      await download(
+      const saved = await download(
         `/caf/${id}/connect`,
         {
           changes: [
@@ -269,14 +329,17 @@ export function CafGraphPanel({
           ],
         },
         name,
+        current,
       );
+      if (!saved || !current()) return;
+      savedProposals.current.add(key);
       setExported(
-        `Downloaded ${name}. This view still shows the original archive. Open the downloaded copy to inspect the added native connection.`,
+        `Browser download requested for ${name}: added native connection ${JSON.stringify(connectionTuple)}. This view still shows the original archive. Open the downloaded copy to inspect the added native connection.`,
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      if (current()) setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setExporting(false);
+      if (current()) setExporting(false);
     }
   }
 
@@ -288,8 +351,10 @@ export function CafGraphPanel({
         </h3>
         <button
           aria-label="Reload native CAF diagrams"
-          disabled={loadingIndex || loadingGraph || exporting}
-          onClick={() => setRefresh((value) => value + 1)}
+          disabled={disabled || loadingIndex || loadingGraph || exporting}
+          onClick={() => {
+            if (discardProposals()) setRefresh((value) => value + 1);
+          }}
         >
           <RefreshCw size={14} /> Reload
         </button>
@@ -301,6 +366,14 @@ export function CafGraphPanel({
           Exported changes are uncompiled. CCT/PCT acceptance and controller
           execution remain unverified.
         </p>
+        {scalarChangeCount > 0 && (
+          <p className="caf-graph-help" role="note">
+            Native connection copies use the original archive and exclude the{" "}
+            {scalarChangeCount} scalar edit{scalarChangeCount === 1 ? "" : "s"}{" "}
+            displayed below. To combine changes, export and open the
+            scalar-edited copy first.
+          </p>
+        )}
         {loadingIndex && <p role="status">Reading native diagrams…</p>}
         {inventory && (
           <>
@@ -310,8 +383,11 @@ export function CafGraphPanel({
                 <select
                   aria-label="Native CAF diagram"
                   value={diagramRef}
-                  disabled={!inventory.diagrams.length || exporting}
-                  onChange={(event) => setDiagramRef(event.target.value)}
+                  disabled={disabled || !inventory.diagrams.length || exporting}
+                  onChange={(event) => {
+                    if (event.target.value === diagramRef || discardProposals())
+                      setDiagramRef(event.target.value);
+                  }}
                 >
                   {!inventory.diagrams.length && (
                     <option value="">No recognized diagrams</option>
@@ -387,6 +463,7 @@ export function CafGraphPanel({
                             <button
                               aria-label={`Select native connection ${item.index}`}
                               aria-pressed={item.index === wireIndex}
+                              disabled={disabled || exporting}
                               onClick={() => selectWire(item.index)}
                             >
                               #{item.index}
@@ -450,13 +527,13 @@ export function CafGraphPanel({
                         value={sourceRef}
                         disabled={
                           !sources.length ||
+                          disabled ||
                           exporting ||
                           !diagram.observed_version
                         }
                         onChange={(event) => {
                           setSourceRef(event.target.value);
                           setError("");
-                          setExported("");
                         }}
                       >
                         <option value="">
@@ -498,7 +575,10 @@ export function CafGraphPanel({
                     <button
                       className="primary"
                       disabled={
-                        !proposed || exporting || !diagram.observed_version
+                        !proposed ||
+                        disabled ||
+                        exporting ||
+                        !diagram.observed_version
                       }
                       onClick={exportRewire}
                     >
@@ -541,12 +621,13 @@ export function CafGraphPanel({
                     <select
                       aria-label="Native new connection source"
                       value={connectionSource?.ref || ""}
-                      disabled={exporting || !diagram.observed_version}
+                      disabled={
+                        disabled || exporting || !diagram.observed_version
+                      }
                       onChange={(event) => {
                         setConnectionSourceRef(event.target.value);
                         setConnectionTargetRef("");
                         setError("");
-                        setExported("");
                       }}
                     >
                       {connectionSources.map((block) => (
@@ -563,13 +644,13 @@ export function CafGraphPanel({
                       value={connectionTargetRef}
                       disabled={
                         exporting ||
+                        disabled ||
                         !diagram.observed_version ||
                         !connectionTargets.length
                       }
                       onChange={(event) => {
                         setConnectionTargetRef(event.target.value);
                         setError("");
-                        setExported("");
                       }}
                     >
                       <option value="">
@@ -607,7 +688,10 @@ export function CafGraphPanel({
                 <button
                   className="primary"
                   disabled={
-                    !connectionTuple || exporting || !diagram.observed_version
+                    !connectionTuple ||
+                    disabled ||
+                    exporting ||
+                    !diagram.observed_version
                   }
                   onClick={exportConnection}
                 >

@@ -1,0 +1,94 @@
+.caf-comparison {
+  max-width: 1400px;
+}
+.caf-compare-files {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.caf-compare-file,
+.caf-compare-summary {
+  padding: 20px;
+}
+.caf-compare-file h2 {
+  margin: 0;
+  font-size: 17px;
+}
+.caf-compare-file p,
+.caf-compare-summary p {
+  line-height: 1.6;
+}
+.caf-compare-file small {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+  color: #657b89;
+}
+.caf-compare-upload {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 7px 9px;
+  cursor: pointer;
+}
+.caf-compare-upload input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.caf-compare-scope {
+  padding: 14px;
+  margin: 18px 0;
+  border-left: 3px solid #588299;
+  background: #e9f2f7;
+  color: #3b5a6b;
+  line-height: 1.6;
+}
+.caf-compare-controls {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+.caf-compare-controls label {
+  width: 250px;
+}
+.caf-compare-report td {
+  width: 31%;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.caf-compare-report td:first-child {
+  width: 38%;
+}
+.caf-compare-report td small {
+  display: block;
+  margin: 6px 0;
+  color: #657b89;
+}
+.caf-compare-report details summary {
+  margin-top: 10px;
+  cursor: pointer;
+  color: #356980;
+}
+.caf-compare-report pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 400px;
+  overflow: auto;
+  font-size: 11px;
+}
+.caf-compare-muted {
+  color: #7a8b94;
+}
+@media (max-width: 900px) {
+  .caf-compare-files {
+    grid-template-columns: 1fr;
+  }
+}

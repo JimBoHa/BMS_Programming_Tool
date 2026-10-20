@@ -36,7 +36,12 @@ export async function api(
   }
   return response.json();
 }
-export async function download(path: string, body: unknown, filename: string) {
+export async function download(
+  path: string,
+  body: unknown,
+  filename: string,
+  shouldSave?: () => boolean,
+) {
   const response = await fetch("/api" + path, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Studio-Token": token },
@@ -50,7 +55,10 @@ export async function download(path: string, body: unknown, filename: string) {
         : JSON.stringify(data.detail),
     );
   }
-  saveBlob(await response.blob(), filename);
+  const blob = await response.blob();
+  if (shouldSave && !shouldSave()) return false;
+  saveBlob(blob, filename);
+  return true;
 }
 export function saveBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);

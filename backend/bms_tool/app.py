@@ -22,8 +22,10 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import AwareDatetime, Field
 
 from .analysis import dependencies
+from .bacnet_history import BacnetHistory, BacnetHistoryRequest
 from .blocks import catalog
 from .caf import CafArchive
+from .caf_compare import compare_cafs
 from .caf_graph import CafGraph
 from .connections import Bacnet, modbus_read, ports
 from .deployment import Runtime
@@ -128,6 +130,19 @@ class ExportRequest(StrictModel):
 
 class CafPatchRequest(StrictModel):
     changes: list[dict[str, Any]] = Field(max_length=1000)
+
+
+class CafCompareRequest(StrictModel):
+    before_sha: str = Field(pattern=r"^[a-f0-9]{64}$")
+    after_sha: str = Field(pattern=r"^[a-f0-9]{64}$")
+    offset: int = Field(default=0, ge=0, le=200000, strict=True)
+    limit: int = Field(default=100, ge=1, le=500, strict=True)
+    category: str | None = None
+    query: str = Field(default="", max_length=200)
+
+
+class HistoryCaptureRequest(StrictModel):
+    id: str = Field(pattern=r"^[a-f0-9]{32}$")
 
 
 class BacnetConnect(StrictModel):
@@ -308,6 +323,7 @@ def create_app(state_dir=None):
     observations = ObservabilityStore(store.directory)
     field_trends = FieldTrends(bacnet, store.directory, audit_store=store)
     temco_transfer = TemcoTransfer(bacnet, store)
+    history = BacnetHistory(bacnet, store)
     simulations = {}
     caf_files = {}
     niagara_files = {}
@@ -345,6 +361,7 @@ def create_app(state_dir=None):
     app.state.native = native
     app.state.field_trends = field_trends
     app.state.temco_transfer = temco_transfer
+    app.state.bacnet_history = history
 
     @app.middleware("http")
     async def local_requests(request, call_next):
@@ -782,6 +799,17 @@ def create_app(state_dir=None):
             raise ValueError("Open the CAF file first.")
         return caf_files[id]
 
+    @app.post("/api/caf/compare")
+    def caf_compare(body: CafCompareRequest):
+        return compare_cafs(
+            get_caf(body.before_sha),
+            get_caf(body.after_sha),
+            offset=body.offset,
+            limit=body.limit,
+            category=body.category,
+            query=body.query,
+        )
+
     @app.get("/api/caf/{id}/objects")
     def caf_objects(id: str, q: str = "", offset: int = 0, limit: int = 200):
         rows = get_caf(id).inventory(q)
@@ -997,6 +1025,26 @@ def create_app(state_dir=None):
     @app.get("/api/bacnet/status")
     def bacnet_status():
         return bacnet.status()
+
+    @app.get("/api/bacnet/history/status")
+    def bacnet_history_status():
+        return history.status()
+
+    @app.post("/api/bacnet/history/read")
+    async def bacnet_history_read(body: BacnetHistoryRequest):
+        return await history.read(**body.model_dump())
+
+    @app.post("/api/bacnet/history/save")
+    def bacnet_history_save(body: HistoryCaptureRequest):
+        return history.save(body.id)
+
+    @app.get("/api/bacnet/history/captures")
+    def bacnet_history_captures():
+        return history.captures()
+
+    @app.get("/api/bacnet/history/captures/{id}")
+    def bacnet_history_capture(id: str):
+        return history.capture(id)
 
     @app.post("/api/bacnet/connect")
     async def bacnet_connect(body: BacnetConnect):

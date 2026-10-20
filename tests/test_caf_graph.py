@@ -130,6 +130,58 @@ def test_native_graph_resolves_hierarchical_bacnet_identity_and_execution_order(
     assert not inventory["capabilities"]["native_compile"]
 
 
+@pytest.mark.parametrize("axis,original", [("x", "1.000"), ("y", "2.000")])
+@pytest.mark.parametrize(
+    "value",
+    ["NaN", "Infinity", "-INF", "1e309", "-1e309", "1_000", "١", "1.2.3", "", ".", "\u00a01"],
+)
+def test_invalid_native_coordinates_block_inspection_and_graph_edits(axis, original, value):
+    data = CafArchive(make_graph(wires=[(0, 663, 2, 513)]))
+    xml = data.xml.replace(
+        f"<float>{original}</float>".encode(), f"<float>{value}</float>".encode(), 1
+    )
+    graph = CafGraph(pack(xml))
+    inventory = graph.diagrams()
+    assert not inventory["diagrams"]
+    assert inventory["errors"] == [
+        {"ref": REF, "error": "CAF graph layout coordinates require finite native floats."}
+    ]
+    with pytest.raises(ValueError, match="finite native floats"):
+        graph.diagram(REF)
+    with pytest.raises(ValueError, match="finite native floats"):
+        graph.rewire_sources([change()])
+    with pytest.raises(ValueError, match="finite native floats"):
+        graph.add_connections([connection()])
+    assert graph.archive.xml == xml
+
+
+@pytest.mark.parametrize(
+    "x,y",
+    [("-0.0", "+12.500"), (".5", "1."), ("6.25E+1", " \t-2.50e-2 \n")],
+)
+def test_finite_native_coordinate_spellings_survive_inspection_and_rewire(x, y):
+    original = CafArchive(make_graph()).xml
+    original = original.replace(b"<float>1.000</float>", f"<float>{x}</float>".encode(), 1)
+    original = original.replace(b"<float>2.000</float>", f"<float>{y}</float>".encode(), 1)
+    graph = CafGraph(pack(original))
+    assert not graph.diagrams()["errors"]
+    assert graph.diagram(REF)["blocks"][0]["layout"] == {
+        "x": x,
+        "y": y,
+        "opaque_code": 0,
+    }
+    result, _ = graph.rewire_sources([change()])
+    assert CafArchive(result).xml == original.replace(
+        record(*shorts(0, 663, 2, 513)).encode(), record(*shorts(1, 663, 2, 513)).encode(), 1
+    )
+    assert CafGraph(result).diagram(REF)["blocks"][0]["layout"] == {
+        "x": x,
+        "y": y,
+        "opaque_code": 0,
+    }
+    assert graph.archive.xml == original
+
+
 @pytest.mark.parametrize(
     "boolean,expected", [("0", False), ("1", True), ("false", False), ("true", True)]
 )
@@ -260,7 +312,6 @@ def test_rewire_cannot_join_feedback_even_if_source_precedes_target():
             "unsigned range",
         ),
         (b"<boolean>1</boolean>", b"<boolean>maybe</boolean>", "boolean"),
-        (b'<property id="3117">', b'<property id="3118">', "duplicate"),
     ],
 )
 def test_malformed_native_graph_is_reported_without_guessing(old, new, message):
@@ -271,6 +322,13 @@ def test_malformed_native_graph_is_reported_without_guessing(old, new, message):
     assert message in inventory["errors"][0]["error"]
     with pytest.raises(ValueError, match=message):
         graph.diagram(REF)
+
+
+def test_duplicate_native_graph_properties_are_rejected_before_inspection():
+    original = CafArchive(make_graph())
+    malformed = original.xml.replace(b'<property id="3117">', b'<property id="3118">', 1)
+    with pytest.raises(ValueError, match="duplicate property identifiers"):
+        CafGraph(pack(malformed))
 
 
 def test_byte_rewriter_refuses_unobserved_lexical_serialization_without_reformatting():

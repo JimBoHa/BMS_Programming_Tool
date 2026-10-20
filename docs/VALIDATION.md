@@ -4,9 +4,10 @@ This development build validates the stated local behavior. It does not establis
 
 ## Automated checks
 
-- The final full backend run passed **948 tests with no skips in 165.40 seconds**, including all seven authorized CAFs, genuine external Niagara descriptors, independent native IEC execution, real UDP/routed Temco transfer/recovery and existing simulation/transport/storage coverage.
-- **39 browser workflows passed in approximately 1.2 minutes** against the production TypeScript/Vite build. They cover existing authoring, macros, calendars, simulation, storage, CAF/BOG and field workflows plus genuine IEC compilation/execution, input-quality faults, timed recovery scenarios, native Temco transfer/restore and JCI hardware migration. Temco browser coverage also verifies that source edits cannot hide a completed transfer outcome and that restore previews use the backup run state.
-- Ruff, TypeScript and production Vite build checks pass. Workspace pages load in separate bundles; the main bundle is approximately 413 kB before gzip. Screenshots of native formats, compiled traces, serial settings and field samples were visually inspected.
+- The final full backend run passed **1,103 tests with no skips in 171.96 seconds**, including all seven authorized CAFs, genuine external Niagara descriptors, independent native IEC execution, real UDP/routed Temco transfer/recovery, native CAF comparison/hardening, BACnet history/capture checks and existing simulation/transport/storage coverage.
+- **55 browser workflows passed in approximately 1.5 minutes** against the production TypeScript/Vite build. They cover existing authoring, macros, calendars, simulation, storage, CAF/BOG and field workflows plus genuine IEC compilation/execution, input-quality faults, timed recovery scenarios, native Temco transfer/restore, JCI hardware migration, native CAF revision comparison and device Trend Log history. CAF cases hold actual HTTP responses to verify stale selection/upload/download handling and retain unexported drafts through tab changes. A 501-record comparison export traverses multiple API pages. History cases use actual UDP ReadRange for complete, limited, partial, empty and DST-fold reads, CSV provenance, sealed captures and restart. A delayed initial status cannot overwrite a fresh connected status.
+- Eight focused CAF-comparison/history browser workflows also passed against the final backend snapshot in 12.4 seconds.
+- Ruff, TypeScript and production Vite build checks pass. Workspace pages load in separate bundles; the main bundle is approximately 415 kB before gzip. Screenshots of native formats, compiled traces, serial settings, field samples, CAF comparison and device history were visually inspected.
 - Nine PLCopen example exports previously validated against an independently retrieved TC6 v2.01 XSD. Schema provenance: <https://raw.githubusercontent.com/mattsse/plcopen-xml-xcore/master/schema/tc6_xml_v201.xsd>. XSD conformance is not external PLC compiler acceptance.
 - The environment uses Python 3.13.16, Node 22.23.3, FastAPI 0.146.0, Pydantic 2.14.1, BACpypes3 0.0.110 and Vite 7.3.7. Dependency pins are unchanged from the recorded advisory audit. Upstream Starlette TestClient and pybog Pydantic deprecation warnings remain; they are not failed checks.
 
@@ -57,7 +58,22 @@ unestablished. See [the exact evidence and member hashes](niagara-bog.md).
 
 The separate inspector returns original BOG bytes exactly, including protected content, unknown typed records and extra archive members. HTTP tests verify upload/session guards, unsafe input rejection and bounded cache eviction. Browser workflows verify opaque ZIP and raw XML inspection/export without station connections.
 
-Seven authorized CAF files include MS-VMA1630-0, FX-PCV1630-0 and FX-PCV1615-0 in release modes 10.1/10.2. Original files were not changed or uploaded. No-op export is byte exact; scalar edits preserve unrelated XML, job metadata and simulation properties.
+Seven authorized CAF files include MS-VMA1630-0, FX-PCV1630-0 and FX-PCV1615-0 in release modes 10.1/10.2. Original files were not changed or uploaded outside this computer. No-op export is byte exact; scalar edits preserve unrelated XML, job metadata and simulation properties.
+
+Adversarial CAF tests cover corrupted compression, duplicate identities/wrappers,
+DTD/entity encodings, depth/element/name/namespace resource bounds, regex
+lookalikes inside comments/CDATA, unsupported edit encodings and cached ZIP
+metadata isolation. Scalar edits use actual parser byte positions and reparse
+the precise native target for readback. Native diagram coordinates reject
+nonfinite/malformed values while preserving valid decimal spellings.
+
+Offline CAF comparison tests distinguish archive bytes, normalized XML records,
+application/simulation values, graph fields, order, target metadata and unknown
+content. Comments/PIs and prefixed QName bindings, including unprefixed
+`xsi:type` default-namespace resolution, cannot disappear as formatting changes.
+Mixed text and significant tails remain in evidence. Bounded value/attribute/
+identity previews retain complete comparison hashes; matching uses full native
+identities. Both source files remain unchanged. See [comparison scope](caf-comparison.md).
 
 Native CAF graph tests inspect block identities, connection records, order, positions and continuations. A guarded source rewire preserves unrelated native data. Prototype-checked connections add one native connection and continuation record without adding objects or changing execution order. All seven private archives yielded a guarded candidate that reparsed successfully. Browser downloads were independently reparsed to check changed tuples and object counts.
 
@@ -111,6 +127,18 @@ Field trend tests use real BACpypes3 UDP numeric/binary reads with independently
 
 The browser starts read-only sampling against a local test controller, observes 12.5 with good quality, exports CSV, stops, reloads retained data and explicitly deletes only that ended test source. Audit/poll events remain after sample retirement. Active/open sources are refused; failed retirement intent preserves data, while failed completion evidence reports deletion committed. See [field acquisition details](field-trends.md).
 
+Existing device history has a separate read-only `ReadRange` profile. Fifty-two
+service/API checks use actual UDP and a routed virtual link for all eleven
+LogRecord alternatives, timezone/DST resolution, sequence wrap/gaps/windows,
+partial failures, malformed replies, cancellation and transaction cleanup.
+Out-of-profile integers retain exact evidence without lossy JavaScript numbers.
+Capture tests verify restart, integrity, atomic nonreplacement, capacity,
+interrupted saves and bounded file-lock contention. FIFO/symlink and deeply
+nested files are rejected without blocking or opening a field connection.
+JSON/CSV retain report completion/errors, timezone/fold and original timestamps;
+an empty CSV uses an explicit metadata-only row. Captures do not backfill the
+simulation or polling databases. See [history scope](bacnet-history.md).
+
 ## Site, compliance and VM status
 
 E2/F2 were not contacted or changed. Tailscale checks remain deferred under the user's instruction to finish programming first. Desktop credentials have not been read. A real unused-input sensor test needs a verified native application adapter, exact target/terminal, original backup and verified restoration. BACnet point commands cannot add that input.
@@ -119,6 +147,15 @@ JCI/ALC/Honeywell native application compilers/loaders, BTCVT, full proprietary 
 
 The Windows VM inventory checked 32-bit/64-bit installed-program registries and vendor application directories. No CCT/PCT installation appeared. No CCT binary analysis or compiler invocation occurred; the VM returned to the stopped state. The ignored inventory is `local-reports/windows-toolchain-inventory.json`.
 
-The idle main local server was restarted with the final code after backing up `studio.sqlite3` and `observability.sqlite3` under ignored `.state/before-transfer-integration/`. Existing observation counts were zero. A production API smoke test independently compiled/executed three IEC and three Temco scans with output 42 and served the built GUI. The transfer service reported no connection, no uncertain operations and no field backups. No BACnet interface, field polling job, native SVM or owned point command was active after that check.
+The preceding native-transfer integration backed up `studio.sqlite3` and `observability.sqlite3` under ignored `.state/before-transfer-integration/`. Its production API smoke independently compiled/executed three IEC and three Temco scans with output 42. The transfer service reported no connection, no uncertain operations and no field backups.
 
-The reference desk now records 253 sources and 49 feature criteria: 24 implemented, 17 partial and eight pending. The multivendor PDF catalog contains 62 records, 61 distinct hashes and 6,777 indexed PDF pages, alongside the earlier JCI collection. Four new guides were downloaded, indexed and selectively reviewed; no claim of reading every manual word for word is made. Manufacturer SDK modules, manuals and original site files remain outside Git.
+The latest idle-server update also backed up the project, simulation and field
+databases under ignored `.state/before-history-comparison/`. The actual local
+production API served the built GUI, compared an authored scalar-edited CAF,
+returned the original CAF byte exactly and exposed the new history profile.
+A history request with no connected interface failed explicitly without opening
+a field socket. The main server retained no active BACnet connection, field
+polling job, native SVM, system simulation or owned point command. Captures from
+automated browser tests live only in isolated temporary test state.
+
+The reference desk now records 254 sources and 51 feature criteria: 26 implemented, 17 partial and eight pending. The multivendor PDF catalog contains 63 records, 62 distinct hashes and 6,791 indexed PDF pages, alongside the earlier JCI collection. Four guides in the preceding research pass and the primary 14-page ASHRAE Trend Log addendum were downloaded, indexed and selectively reviewed; no claim of reading every manual word for word is made. Manufacturer SDK modules, manuals and original site files remain outside Git.

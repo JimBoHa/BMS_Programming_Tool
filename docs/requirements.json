@@ -81,6 +81,15 @@
     "implementation_or_gap": "Both sample families inspected; cross-target compilation pending"
   },
   {
+    "id": "FMT-008",
+    "feature": "Native CAF change review",
+    "acceptance_criterion": "Compare exact native object/record identities, application and simulation values, wiring/order and opaque metadata while preserving both original files and review hashes.",
+    "evidence": "Authorized local CAF samples and parsed XML evidence",
+    "pdf_pages_or_section": "Offline native-record inspection",
+    "status": "implemented",
+    "implementation_or_gap": "CAF compare: bounded paged/filterable before/after values and full-record hashes; namespace-bound QName tokens, comments/PIs, mixed text and unknown records remain visible. No native compilation or compatibility approval"
+  },
+  {
     "id": "COMM-001",
     "feature": "Bluetooth transport",
     "acceptance_criterion": "Provide an adapter with explicit firmware and transfer compatibility.",
@@ -294,7 +303,16 @@
     "evidence": "Niagara Histories Guide",
     "pdf_pages_or_section": "History service concepts",
     "status": "implemented",
-    "implementation_or_gap": "Bounded durable simulation and explicit read-only BACnet field sampling, UTC acquisition/receipt timestamps, verified or unknown quality, unit labels, cursor queries and CSV. Field jobs require a connected interface, stop on change/fault and never resume automatically; no native device history import"
+    "implementation_or_gap": "Bounded durable simulation and explicit read-only BACnet field sampling, UTC acquisition/receipt timestamps, verified or unknown quality, unit labels, cursor queries and CSV. Field jobs require a connected interface, stop on change/fault and never resume automatically. Separate explicit Trend Log history retrieval preserves original device timestamps and immutable captures"
+  },
+  {
+    "id": "DATA-002",
+    "feature": "Existing BACnet device history",
+    "acceptance_criterion": "Retrieve standard single-value Trend Log records with bounded forward ReadRange pagination, explicit device timezone, unresolved-clock evidence, quality and partial-result reporting; save immutable captures without polling or device writes.",
+    "evidence": "ASHRAE 135-2001 Addendum b; BACpypes3 0.0.110 primary datatypes/APDU definitions",
+    "pdf_pages_or_section": "Trend Log and ReadRange sections",
+    "status": "implemented",
+    "implementation_or_gap": "Real UDP/routed local services, all 11 LogRecord alternatives, DST/sequence wrap/gaps, timeouts/cancellation, sealed captures, browser JSON/CSV provenance and restart tested. Physical devices, Trend Log Multiple and proprietary histories remain outside profile"
   },
   {
     "id": "PKG-002",

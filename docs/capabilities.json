@@ -22,7 +22,12 @@
   {
     "feature": "Read-only BACnet field trends",
     "status": "implemented",
-    "scope": "Explicit polling jobs share an already connected BACnet/IP, routed or direct MS/TP interface. Finite values persist with acquisition/receipt UTC timestamps, unit labels and unknown quality unless reliability/status/out-of-service checks validate. Failures produce durable events without synthetic values; interface changes stop jobs. Separate field/simulation databases enforce source-kind identity. Jobs do not resume on restart. No point writes, native alarms or device history import."
+    "scope": "Explicit polling jobs share an already connected BACnet/IP, routed or direct MS/TP interface. Finite values persist with acquisition/receipt UTC timestamps, unit labels and unknown quality unless reliability/status/out-of-service checks validate. Failures produce durable events without synthetic values; interface changes stop jobs. Separate field/simulation databases enforce source-kind identity. Jobs do not resume on restart. No point writes or native alarms. Existing Trend Log history has a separate explicit retrieval/capture service."
+  },
+  {
+    "feature": "Existing BACnet Trend Log history",
+    "status": "implemented",
+    "scope": "Explicit bounded forward ReadRange through the connected interface; standard single-value Trend Log only. Device timezone/fold, original local clocks, unresolved UTC, all 11 datum alternatives, quality, sequence gaps/wrap and partial failures stay visible. Immutable sealed captures and JSON/CSV retain provenance. No auto-connect, background polling, device writes, physical-device validation or proprietary history import."
   },
   {
     "feature": "Program and input/output simulation",
@@ -53,6 +58,11 @@
     "feature": "FX and Metasys CAF inspection",
     "status": "implemented",
     "scope": "Observed ZIP/XML containers: preserve all unknown data, jobInfo and simulationProperty entries; readable attribute/class dictionaries; original byte-exact export."
+  },
+  {
+    "feature": "Native CAF revision comparison",
+    "status": "implemented",
+    "scope": "Offline exact object/record comparison with categories, bounded previews, source/full-record hashes, filters, pagination and JSON export. Application/simulation values, wiring/order, opaque metadata, comments/PIs and referenced QName bindings stay visible. Originals unchanged; no native compilation, retargeting, firmware compatibility or device write."
   },
   {
     "feature": "Independent compiled IEC verification",

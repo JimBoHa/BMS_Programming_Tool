@@ -728,7 +728,17 @@ test("inspect and patch a synthetic CAF without changing its model", async ({
   );
   const event = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export CAF copy" }).click();
-  expect((await event).suggestedFilename()).toBe("edited-copy.caf");
+  const exported = await event;
+  expect(exported.suggestedFilename()).toBe("synthetic-scalars.caf");
+  execFileSync(
+    path.join(root, ".venv/bin/python"),
+    [
+      "-c",
+      "from bms_tool.caf import CafArchive; from pathlib import Path; import sys; a=CafArchive(Path(sys.argv[1]).read_bytes()); assert a.summary()['model']=='MS-VMA1630-0'; assert next(p for p in a.properties('8-1') if p['id']=='3113')['scalar']['text']=='75'",
+      (await exported.path())!,
+    ],
+    { cwd: root },
+  );
   await page.screenshot({
     path: "test-results/studio-caf.png",
     fullPage: true,

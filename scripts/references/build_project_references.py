@@ -141,6 +141,11 @@ for title, url, note in [
         "https://github.com/automatic-controls/integration-builder-eikon-script",
         "BSD-3-Clause public script/release archive reviewed locally. Native .logicsymbol ZIPs expose blocks, properties and coordinate wires; licensed EIKON/WebCTRL supplies symbol insertion/compilation. This is not an independent ALC equipment compiler.",
     ),
+    (
+        "ASHRAE 135-2001 Addendum b: Trend Log timestamps and ReadRange sequences",
+        "https://bacnet.org/wp-content/uploads/sites/4/2022/08/Add-2001-135b.pdf",
+        "Primary protocol reference for device-local log timestamps, ReadRange sequence ordering and wrap to 1. Implemented standard single-value Trend Log profile is tested with actual UDP/routed local services; physical devices and proprietary history formats remain unverified.",
+    ),
 ]:
     if not any(r["url"] == url for r in refs):
         refs.append(
@@ -261,6 +266,15 @@ add(
     "49-50; 243-244",
     "partial",
     "Both sample families inspected; cross-target compilation pending",
+)
+add(
+    "FMT-008",
+    "Native CAF change review",
+    "Compare exact native object/record identities, application and simulation values, wiring/order and opaque metadata while preserving both original files and review hashes.",
+    "Authorized local CAF samples and parsed XML evidence",
+    "Offline native-record inspection",
+    "implemented",
+    "CAF compare: bounded paged/filterable before/after values and full-record hashes; namespace-bound QName tokens, comments/PIs, mixed text and unknown records remain visible. No native compilation or compatibility approval",
 )
 add(
     "COMM-001",
@@ -483,7 +497,16 @@ add(
     "Niagara Histories Guide",
     "History service concepts",
     "implemented",
-    "Bounded durable simulation and explicit read-only BACnet field sampling, UTC acquisition/receipt timestamps, verified or unknown quality, unit labels, cursor queries and CSV. Field jobs require a connected interface, stop on change/fault and never resume automatically; no native device history import",
+    "Bounded durable simulation and explicit read-only BACnet field sampling, UTC acquisition/receipt timestamps, verified or unknown quality, unit labels, cursor queries and CSV. Field jobs require a connected interface, stop on change/fault and never resume automatically. Separate explicit Trend Log history retrieval preserves original device timestamps and immutable captures",
+)
+add(
+    "DATA-002",
+    "Existing BACnet device history",
+    "Retrieve standard single-value Trend Log records with bounded forward ReadRange pagination, explicit device timezone, unresolved-clock evidence, quality and partial-result reporting; save immutable captures without polling or device writes.",
+    "ASHRAE 135-2001 Addendum b; BACpypes3 0.0.110 primary datatypes/APDU definitions",
+    "Trend Log and ReadRange sections",
+    "implemented",
+    "Real UDP/routed local services, all 11 LogRecord alternatives, DST/sequence wrap/gaps, timeouts/cancellation, sealed captures, browser JSON/CSV provenance and restart tested. Physical devices, Trend Log Multiple and proprietary histories remain outside profile",
 )
 add(
     "PKG-002",

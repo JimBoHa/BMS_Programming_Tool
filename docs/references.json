@@ -2616,6 +2616,17 @@
     "notes": "Local reference; original copyright/confidentiality notices retained."
   },
   {
+    "vendor": "ASHRAE / BACnet",
+    "title": "ANSI/ASHRAE 135-2001 Addendum b: Trend Log timestamps and record ordering",
+    "url": "https://bacnet.org/wp-content/uploads/sites/4/2022/08/Add-2001-135b.pdf",
+    "pages": 14,
+    "sha256": "8c066fd6d4c8e8930a86830eb88ad257bceb9fd1655d2cdc804c184eaedad11e",
+    "status": "downloaded",
+    "local_collection": "multivendor",
+    "local_id": "8c066fd6d4c8e893",
+    "notes": "Local reference; original copyright/confidentiality notices retained."
+  },
+  {
     "vendor": "California Energy Commission",
     "title": "CEC-Programming-Library-Certification-List-2026-09-10.xlsx",
     "url": "https://www.energy.ca.gov/sites/default/files/2026-09/Programming_Library_Certification_List_9_10_2026_ada.xlsx",

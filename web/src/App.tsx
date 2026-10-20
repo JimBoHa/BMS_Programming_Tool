@@ -33,6 +33,7 @@ import {
   Boxes,
   Activity,
   Code2,
+  FileCheck2,
 } from "lucide-react";
 import { api, download, initSession } from "./api";
 import {
@@ -87,8 +88,15 @@ const HardwareDefinitions = lazy(() =>
 const IECVerifier = lazy(() =>
   import("./IECVerifier").then((m) => ({ default: m.IECVerifier })),
 );
+const CafComparison = lazy(() =>
+  import("./CafComparison").then((m) => ({ default: m.CafComparison })),
+);
+const DeviceHistory = lazy(() =>
+  import("./DeviceHistory").then((m) => ({ default: m.DeviceHistory })),
+);
 
 export function App() {
+  const [cafVisited, setCafVisited] = useState(false);
   const [tab, setTab] = useState("editor"),
     [program, setProgram] = useState<Program>(blankProgram),
     [blocks, setBlocks] = useState<Block[]>([]),
@@ -677,6 +685,7 @@ export function App() {
   const tabs = [
     { id: "editor", title: "Program", icon: Workflow },
     { id: "caf", title: "CAF files", icon: FileArchive },
+    { id: "caf-compare", title: "CAF compare", icon: FileCheck2 },
     { id: "bog", title: "BOG files", icon: FileArchive },
     { id: "hardware", title: "JCI hardware", icon: CircuitBoard },
     { id: "connections", title: "Connect", icon: Network },
@@ -687,6 +696,7 @@ export function App() {
     { id: "system", title: "System sim", icon: Layers },
     { id: "observations", title: "Trends & alarms", icon: Bell },
     { id: "field-trends", title: "Field trends", icon: Activity },
+    { id: "device-history", title: "Device history", icon: Activity },
     { id: "macros", title: "Macros", icon: Boxes },
     { id: "resources", title: "Reference", icon: BookOpen },
   ];
@@ -739,7 +749,10 @@ export function App() {
               key={t.id}
               className={tab === t.id ? "active" : ""}
               disabled={!!macroEdit && t.id !== "editor"}
-              onClick={() => setTab(t.id)}
+              onClick={() => {
+                if (t.id === "caf") setCafVisited(true);
+                setTab(t.id);
+              }}
               title={t.title}
             >
               <t.icon size={21} />
@@ -752,10 +765,22 @@ export function App() {
           </div>
         </nav>
         <main>
+          {cafVisited && (
+            <div
+              hidden={tab !== "caf"}
+              style={{ display: tab === "caf" ? undefined : "none" }}
+            >
+              <Suspense
+                fallback={<div className="loading">Opening CAF workspace…</div>}
+              >
+                <NativeCaf visible={tab === "caf"} />
+              </Suspense>
+            </div>
+          )}
           <Suspense
             fallback={<div className="loading">Opening workspace…</div>}
           >
-            {tab === "editor" ? (
+            {tab === "caf" ? null : tab === "editor" ? (
               <>
                 {macroEdit && (
                   <div className="macro-edit-banner">
@@ -1140,8 +1165,8 @@ export function App() {
                   </div>
                 )}
               </>
-            ) : tab === "caf" ? (
-              <NativeCaf />
+            ) : tab === "caf-compare" ? (
+              <CafComparison />
             ) : tab === "bog" ? (
               <NiagaraInspector />
             ) : tab === "hardware" ? (
@@ -1171,6 +1196,8 @@ export function App() {
               <Observations />
             ) : tab === "field-trends" ? (
               <FieldTrends />
+            ) : tab === "device-history" ? (
+              <DeviceHistory />
             ) : tab === "macros" ? (
               <MacroLibrary
                 program={program}

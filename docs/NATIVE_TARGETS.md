@@ -21,4 +21,9 @@ BACnet/IP, explicit routed destinations and direct legacy MS/TP provide addresse
 
 Six native 2025 Title 24 CAF applications have not been delivered. The nine VAV example graphs are illustrative, even where their generated Temco/Sedona programs match the reference simulator. Controller eligibility, complete sequences, field commissioning and compliance evidence still require separate verification.
 
+The [native CAF comparison workspace](caf-comparison.md) reviews exact observed
+record identities, graph fields, simulation values and opaque XML evidence
+without modifying either source file. It does not close the JCI compiler,
+package, loader or hardware-validation gaps in the table above.
+
 E2/F2 site access and the final GitHub push remain deferred under the user's instruction to finish programming first. Site credentials have not been read, and the site has not been contacted.

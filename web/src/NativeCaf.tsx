@@ -9,7 +9,17 @@ import {
 import { api, download } from "./api";
 import { CafGraphPanel } from "./CafGraphPanel";
 
-export function NativeCaf() {
+function scalarSignature(changes: any[]) {
+  return JSON.stringify(
+    [...changes].sort(
+      (a, b) =>
+        String(a.ref).localeCompare(String(b.ref)) ||
+        String(a.property).localeCompare(String(b.property)),
+    ),
+  );
+}
+
+export function NativeCaf({ visible = true }: { visible?: boolean }) {
   const [caf, setCaf] = useState<any>(null),
     [objects, setObjects] = useState<any[]>([]),
     [total, setTotal] = useState(0),
@@ -20,10 +30,46 @@ export function NativeCaf() {
     [changes, setChanges] = useState<any[]>([]),
     [error, setError] = useState("");
   const [filename, setFilename] = useState("controller.caf");
+  const [archiveGeneration, setArchiveGeneration] = useState(0);
+  const [opening, setOpening] = useState(false);
+  const [loadingObjects, setLoadingObjects] = useState(false);
+  const [loadingProperties, setLoadingProperties] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [graphDirty, setGraphDirty] = useState(false);
+  const [savedScalarKey, setSavedScalarKey] = useState("[]");
+  const [exported, setExported] = useState("");
   const input = useRef<HTMLInputElement>(null);
+  const mounted = useRef(false);
+  const uploadRequest = useRef(0);
+  const propertyRequest = useRef(0);
+  const exportRequest = useRef(0);
+  const activeArchive = useRef<string | null>(null);
+  const scalarKey = scalarSignature(changes);
+  const unsavedScalars = changes.length > 0 && scalarKey !== savedScalarKey;
+  useEffect(() => {
+    if (!unsavedScalars && !graphDirty) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [unsavedScalars, graphDirty]);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      uploadRequest.current++;
+      propertyRequest.current++;
+      exportRequest.current++;
+    };
+  }, []);
   useEffect(() => {
     if (!caf) return;
     let active = true;
+    setObjects([]);
+    setTotal(0);
+    setLoadingObjects(true);
     api(
       `/caf/${caf.sha256}/objects?q=${encodeURIComponent(query)}&offset=${offset}`,
     )
@@ -33,52 +79,140 @@ export function NativeCaf() {
           setTotal(r.total);
         }
       })
-      .catch((e) => setError(e.message));
+      .catch((e) => {
+        if (active) setError(e.message);
+      })
+      .finally(() => {
+        if (active) setLoadingObjects(false);
+      });
     return () => {
       active = false;
     };
   }, [caf, query, offset]);
   async function upload(file?: File) {
-    if (!file) return;
+    if (!file || !visible) return;
+    if (
+      (unsavedScalars || graphDirty) &&
+      !window.confirm(
+        "Discard unexported CAF edits and open another file? Cancel to keep editing or export the current changes first.",
+      )
+    )
+      return;
+    const request = ++uploadRequest.current;
+    setOpening(true);
+    setError("");
     try {
       const form = new FormData();
       form.append("file", file);
-      setCaf(await api("/caf", form));
+      const next = await api("/caf", form);
+      if (!mounted.current || request !== uploadRequest.current) return;
+      activeArchive.current = next.sha256;
+      propertyRequest.current++;
+      exportRequest.current++;
+      setCaf(next);
+      setArchiveGeneration((value) => value + 1);
       setFilename(file.name);
+      setObjects([]);
+      setTotal(0);
+      setQuery("");
       setChanges([]);
+      setSavedScalarKey("[]");
+      setGraphDirty(false);
+      setExported("");
+      setExporting(false);
       setSelected(null);
       setProperties([]);
+      setLoadingProperties(false);
       setError("");
       setOffset(0);
     } catch (e) {
-      setError(String(e));
+      if (mounted.current && request === uploadRequest.current)
+        setError(String(e));
+    } finally {
+      if (mounted.current && request === uploadRequest.current)
+        setOpening(false);
     }
   }
   async function select(object: any) {
+    if (opening || !caf) return;
+    const request = ++propertyRequest.current;
+    const archive = caf.sha256;
+    setSelected(object);
+    setProperties([]);
+    setLoadingProperties(true);
+    setError("");
     try {
-      setSelected(object);
-      setProperties(
-        await api(
-          `/caf/${caf.sha256}/properties?ref=${encodeURIComponent(object.ref)}`,
-        ),
+      const result = await api(
+        `/caf/${archive}/properties?ref=${encodeURIComponent(object.ref)}`,
       );
-      setError("");
+      if (
+        mounted.current &&
+        request === propertyRequest.current &&
+        activeArchive.current === archive
+      )
+        setProperties(result);
     } catch (e) {
-      setError(String(e));
+      if (
+        mounted.current &&
+        request === propertyRequest.current &&
+        activeArchive.current === archive
+      )
+        setError(String(e));
+    } finally {
+      if (mounted.current && request === propertyRequest.current)
+        setLoadingProperties(false);
     }
   }
   function change(p: any, value: string) {
-    const rest = changes.filter(
-      (c) => !(c.ref === selected.ref && c.property === p.id),
-    );
-    if (value !== p.scalar.text)
-      rest.push({
-        ref: selected.ref,
-        property: p.id,
-        old: p.scalar.text,
-        value,
-      });
-    setChanges(rest);
+    setChanges((previous) => {
+      const rest = previous.filter(
+        (c) => !(c.ref === selected.ref && c.property === p.id),
+      );
+      if (value !== p.scalar.text)
+        rest.push({
+          ref: selected.ref,
+          property: p.id,
+          old: p.scalar.text,
+          value,
+        });
+      return rest;
+    });
+    setError("");
+  }
+  async function exportScalars() {
+    if (!caf || exporting || opening || !visible) return;
+    const request = ++exportRequest.current;
+    const archive = caf.sha256;
+    const snapshot = changes.map((item) => ({ ...item }));
+    const key = scalarSignature(snapshot);
+    const basename = filename.replace(/\.caf$/i, "");
+    const name = `${basename}-${snapshot.length ? "scalars" : "original"}.caf`;
+    const current = () =>
+      mounted.current &&
+      request === exportRequest.current &&
+      activeArchive.current === archive;
+    setExporting(true);
+    setError("");
+    try {
+      const saved = await download(
+        `/caf/${archive}/export`,
+        { changes: snapshot },
+        name,
+        current,
+      );
+      if (!saved || !current()) return;
+      setSavedScalarKey(key);
+      setExported(
+        `Browser download requested for ${name} with ${snapshot.length} scalar change${snapshot.length === 1 ? "" : "s"}. This view still shows the original archive; current scalar drafts remain visible.`,
+      );
+    } catch (e) {
+      if (current())
+        setError(
+          `Scalar CAF export failed: ${e instanceof Error ? e.message : String(e)}`,
+        );
+    } finally {
+      if (current()) setExporting(false);
+    }
   }
   return (
     <div className="workspace-page">
@@ -99,9 +233,14 @@ export function NativeCaf() {
           accept=".caf"
           hidden
           ref={input}
-          onChange={(e) => upload(e.target.files?.[0])}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            void upload(file);
+          }}
         />
       </div>
+      {opening && <p role="status">Opening CAF archive…</p>}
       {!caf ? (
         <div
           className="upload-zone"
@@ -118,6 +257,7 @@ export function NativeCaf() {
         </div>
       ) : (
         <>
+          <p aria-label="Current CAF archive">{filename}</p>
           <div className="stat-grid">
             <div>
               <small>CONTROLLER</small>
@@ -147,7 +287,14 @@ export function NativeCaf() {
               </p>
             </div>
           </div>
-          <CafGraphPanel id={caf.sha256} filename={filename} />
+          <CafGraphPanel
+            key={`${caf.sha256}:${archiveGeneration}`}
+            id={caf.sha256}
+            filename={filename}
+            disabled={opening || !visible}
+            scalarChangeCount={changes.length}
+            onDirtyChange={setGraphDirty}
+          />
           <div className="caf-layout">
             <section className="card">
               <div className="card-header">
@@ -164,7 +311,7 @@ export function NativeCaf() {
                   />
                 </div>
               </div>
-              <div className="table-scroll">
+              <div className="table-scroll" aria-busy={loadingObjects}>
                 <table>
                   <thead>
                     <tr>
@@ -178,7 +325,7 @@ export function NativeCaf() {
                       <tr
                         key={o.ref}
                         className={o.ref === selected?.ref ? "active-row" : ""}
-                        onClick={() => select(o)}
+                        onClick={() => void select(o)}
                       >
                         <td>
                           <b>
@@ -204,7 +351,8 @@ export function NativeCaf() {
                   Previous
                 </button>
                 <small>
-                  {offset + 1}–{Math.min(offset + 200, total)} of {total}
+                  {total ? offset + 1 : 0}–{Math.min(offset + 200, total)} of{" "}
+                  {total}
                 </small>
                 <button
                   disabled={offset + 200 >= total}
@@ -226,6 +374,9 @@ export function NativeCaf() {
               ) : (
                 <div className="properties-list">
                   <p className="mono ref">{selected.ref}</p>
+                  {loadingProperties && (
+                    <p role="status">Reading selected object properties…</p>
+                  )}
                   {properties.map((p) => {
                     const edited =
                       p.editable &&
@@ -247,6 +398,7 @@ export function NativeCaf() {
                             p.editable ? (
                               <input
                                 aria-label={"CAF property " + p.id}
+                                disabled={opening}
                                 value={edited?.value ?? p.scalar.text}
                                 onChange={(e) => change(p, e.target.value)}
                               />
@@ -275,9 +427,24 @@ export function NativeCaf() {
               <small>
                 Unchanged export preserves the original file bytes exactly.
               </small>
+              {unsavedScalars && (
+                <small>Current scalar edits have not been exported.</small>
+              )}
+              {graphDirty && (
+                <small>
+                  Scalar copies exclude pending native connection proposals.
+                  Open the connection-edited copy first to combine changes.
+                </small>
+              )}
             </div>
             <button
+              disabled={opening || exporting || !changes.length}
               onClick={() => {
+                if (
+                  unsavedScalars &&
+                  !window.confirm("Discard unexported scalar CAF edits?")
+                )
+                  return;
                 setChanges([]);
               }}
             >
@@ -285,25 +452,29 @@ export function NativeCaf() {
             </button>
             <button
               className="primary"
-              onClick={async () => {
-                try {
-                  await download(
-                    `/caf/${caf.sha256}/export`,
-                    { changes },
-                    changes.length ? "edited-copy.caf" : "original-copy.caf",
-                  );
-                  setError("");
-                } catch (e) {
-                  setError(String(e));
-                }
-              }}
+              disabled={opening || exporting}
+              onClick={exportScalars}
             >
-              <Download size={15} /> Export CAF copy
+              <Download size={15} />{" "}
+              {exporting ? "Preparing CAF copy…" : "Export CAF copy"}
             </button>
           </div>
+          {exported && (
+            <p
+              className="caf-graph-exported"
+              role="status"
+              aria-label="Scalar CAF export result"
+            >
+              {exported}
+            </p>
+          )}
         </>
       )}
-      {error && <div className="inline-error">{error}</div>}
+      {error && (
+        <div className="inline-error" role="alert">
+          {error}
+        </div>
+      )}
     </div>
   );
 }
