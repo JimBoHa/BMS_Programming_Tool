@@ -44,7 +44,7 @@ type ScanRequest = {
   timeout_seconds: number;
   max_devices: number;
 };
-type Scan = {
+export type RoutedScanResult = {
   request: ScanRequest;
   report: WindowReport & { dnet: number; devices: RoutedDevice[] };
 };
@@ -64,9 +64,11 @@ function integer(value: string, low: number, high: number, label: string) {
 export function RoutedDiscoveryPanel({
   connected,
   onSelect,
+  onDiscovered,
 }: {
   connected: boolean;
   onSelect?: (device: RoutedDevice, router: string, dnet: number) => void;
+  onDiscovered?: (result: RoutedScanResult) => void;
 }) {
   const [router, setRouter] = useState("");
   const [dnet, setDnet] = useState("");
@@ -76,7 +78,7 @@ export function RoutedDiscoveryPanel({
   const [seconds, setSeconds] = useState("3"),
     [limit, setLimit] = useState("128");
   const [networks, setNetworks] = useState<NetworkReport | null>(null);
-  const [scan, setScan] = useState<Scan | null>(null);
+  const [scan, setScan] = useState<RoutedScanResult | null>(null);
   const [bindings, setBindings] = useState<BindingReport | null>(null);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -159,7 +161,11 @@ export function RoutedDiscoveryPanel({
         throw new Error("Minimum device instance must not exceed maximum.");
       setScan(null);
       const report = await api("/bacnet/scan-trunk", payload);
-      if (current(request)) setScan({ request: payload, report });
+      if (current(request)) {
+        const result = { request: payload, report };
+        setScan(result);
+        onDiscovered?.(result);
+      }
     });
   }
   async function readBindings() {
@@ -469,6 +475,11 @@ export function RoutedDiscoveryPanel({
         </div>
         {scan && (
           <div role="region" aria-label="Routed device response">
+            {onDiscovered && (
+              <p>
+                <a href="#bacnet-device-scan">View named Scan results</a>
+              </p>
+            )}
             <div className="routed-report-heading">
               <b>
                 Network {scan.report.dnet} via {scan.report.router}

@@ -161,6 +161,11 @@ for title, url, note in [
         "https://github.com/JoelBender/BACpypes3/tree/21f918c0396c72c95e7e635abde18514e58feb8d/bacpypes3",
         "Pinned 0.0.110 application, transaction, native datatype and APDU interfaces reviewed for explicit routing, typed JSON preservation, exact native command values and owned confirmed-dispatch cleanup. Independent local UDP/HTTP/browser tests; no claim of universal proprietary datatype or native application compatibility.",
     ),
+    (
+        "ifaddr operating-system interface enumeration",
+        "https://github.com/ifaddr/ifaddr",
+        "MIT; pinned 0.2.0. The bound IPv4 interface's operating-system prefix determines local broadcast scope; point-to-point interfaces require directed discovery. An explicit connection prefix is used only when no operating-system interface match exists. No subnet mask is guessed.",
+    ),
 ]:
     if not any(r["url"] == url for r in refs):
         refs.append(
@@ -181,7 +186,7 @@ for title, url, note in [
                 ),
             }
         )
-(PROJECT / "docs/references.json").write_text(json.dumps(refs, indent=2))
+(PROJECT / "docs/references.json").write_text(json.dumps(refs, indent=2) + "\n")
 
 requirements = []
 
@@ -745,10 +750,28 @@ add(
     "implemented",
     "Bounded Configuration_Files/Object_List inspection, native APDU-aware reads, exact EOF/size/count validation and hashed receipts with record boundaries. Actual UDP/HTTP/browser stream/record/offline export and cancellation checks. ReadProperty/AtomicReadFile only; no backup-state control, File writes, native CAF conversion or whole-device coherence guarantee; physical results recorded separately",
 )
+add(
+    "COMM-009",
+    "Scoped BACnet/IP network, single-IP and range scan",
+    "Discover BACnet/IP Device identities on the bound subnet or registered BBMD network, one explicit IPv4 endpoint, or a selected inclusive range, with bounded paced requests, source checks, continuation and timestamped evidence.",
+    "User Connect/Scan requirement; BACpypes3 pinned BVLC/NPDU/APDU definitions; ifaddr primary interface API",
+    "Who-Is/I-Am, Original-Unicast/Broadcast-NPDU, Forwarded-NPDU and Distribute-Broadcast-To-Network",
+    "implemented",
+    "Already-open IPv4 interface only; real OS subnet mask, no guessed /24. Up to 65,536 selected addresses with at most 256 per explicit page, 20 packets/second and 30-second operation bound. Forwarded evidence is accepted only through the configured BBMD; own endpoint and routed I-Am are excluded. No silence-to-unused inference or automatic continuation",
+)
+add(
+    "DATA-006",
+    "Named IP and routed discovery inventory",
+    "Combine actual IP and routed discovery observations into a named list retaining exact route/endpoint and Device identity, standard Device metadata, genuinely exposed Program names, read statuses, timestamps and CSV/JSON provenance.",
+    "User named discovery-list requirement; BACpypes3 pinned Device/Program object and ReadProperty definitions",
+    "Device Object_List and standard Program objects",
+    "implemented",
+    "Exact Device verification precedes optional reads. Sequential displayed-page reads are bounded to 15 seconds per device, 512 object identifiers and 16 Program objects; partial evidence survives errors. Not exposed requires a complete inventory without Program objects. Firmware/application version/description never substitute for program names. Duplicate instances across routers/trunks remain separate; cached bindings are not relabelled live discoveries",
+)
 
 with (PROJECT / "docs/FEATURE_REQUIREMENTS.csv").open("w", newline="") as f:
     writer = csv.DictWriter(f, fieldnames=list(requirements[0]), lineterminator="\n")
     writer.writeheader()
     writer.writerows(requirements)
-(PROJECT / "docs/requirements.json").write_text(json.dumps(requirements, indent=2))
+(PROJECT / "docs/requirements.json").write_text(json.dumps(requirements, indent=2) + "\n")
 print("Reference records:", len(refs), "feature criteria:", len(requirements))

@@ -115,6 +115,11 @@
     "scope": "Explicit unicast discovery, bounded property/object reads and separately previewed owned commands. Optional foreign-device registration adds BBMD discovery. Native values, paged inventories, routed identity probes and opaque File capture have explicit profiles below. Independent UDP/HTTP/browser checks cover local protocol behavior; authorized read-only site checks identified genuine downstream VMAs and read values. Field writes and native controller-program acceptance remain unverified."
   },
   {
+    "feature": "Scoped BACnet/IP scan and named device inventory",
+    "status": "implemented",
+    "scope": "Connect/Scan discovers the actual bound subnet or registered BBMD network, one IPv4 endpoint, or an inclusive range of up to 65,536 addresses with explicit 256-address continuation pages. Requests are paced and bounded; replies retain source, scope and timestamps. IP and routed Who-Is results share searchable/sortable pages with exact endpoint/router/DNET/MAC and Device identity, Device name, vendor/model, firmware and separate application software version. Sequential bounded metadata reads inspect genuine standard Program objects; no names are inferred from version strings. Stop/retry, per-property evidence and CSV/JSON preserve partial/unknown status. Duplicate Device IDs across routes remain distinct. Silence does not prove absence, and this does not upload a native controller program."
+  },
+  {
     "feature": "Explicit routed discovery and cached bindings",
     "status": "implemented",
     "scope": "One selected IPv4 router network query, optional exact Device identity preflight and address-binding cache read, or one selected-DNET Who-Is response window. Cached hints remain labelled unverified, unknown Device instance 4194303 becomes null, wider MACs retain original bytes, and partial/truncated evidence stays visible. Window completion never proves a complete inventory. Downloadable source evidence and exact opened-route guards; no automatic broad scans or connection changes."

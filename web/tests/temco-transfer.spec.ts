@@ -173,16 +173,19 @@ test("native Temco UI replaces and restores an actual loopback BACnet program im
     const heldReply = new Promise<void>((resolve) => {
       releaseReply = resolve;
     });
-    await page.route(
-      "**/api/temco/transfer/apply",
-      async (route) => {
-        const response = await route.fetch();
+    let holdFirstApply = true;
+    // Keep interception installed through the post-apply status request. Removing
+    // a one-shot route while its fulfilled reply starts another browser fetch can
+    // leave that fetch paused inside Chromium, even though the API stays healthy.
+    await page.route("**/api/temco/transfer/apply", async (route) => {
+      const response = await route.fetch();
+      if (holdFirstApply) {
+        holdFirstApply = false;
         completed();
         await heldReply;
-        await route.fulfill({ response });
-      },
-      { times: 1 },
-    );
+      }
+      await route.fulfill({ response });
+    });
     await page
       .getByRole("button", {
         name: "Apply reviewed Temco transfer",
@@ -259,7 +262,17 @@ test("native Temco UI replaces and restores an actual loopback BACnet program im
     });
   } finally {
     releaseReply?.();
-    await request.post("/api/bacnet/disconnect", { headers, data: {} });
-    server.process.kill();
+    try {
+      await request.post("/api/bacnet/disconnect", {
+        headers,
+        data: {},
+        timeout: 3000,
+      });
+    } catch {
+      // Playwright closes its request context on timeout. Preserve that original
+      // failure while still terminating the emulator owned by this test.
+    } finally {
+      server.process.kill();
+    }
   }
 });

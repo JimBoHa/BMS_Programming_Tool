@@ -30,9 +30,11 @@ from .caf_graph import CafGraph
 from .caf_simulation import CafSimulationProfile
 from .connections import Bacnet, modbus_read, ports
 from .deployment import Runtime
+from .device_details import DeviceDetails, DeviceDetailsRequest
 from .engine import Engine, output_type, run_scenario, validate
 from .field_trends import FieldTrends, FieldTrendStart
 from .formats import export_program, import_program
+from .ip_discovery import IpDiscovery, IpScanRequest
 from .jci_hardware import JciHardwareDefinition, plan_hardware_migration
 from .macros import (
     create_definition,
@@ -392,6 +394,8 @@ def create_app(state_dir=None):
     temco_transfer = TemcoTransfer(bacnet, store)
     history = BacnetHistory(bacnet, store)
     routed = RoutedDiscovery(bacnet, store)
+    ip_discovery = IpDiscovery(bacnet, store)
+    device_details = DeviceDetails(bacnet, store)
     files = BacnetFiles(bacnet, store)
     notifications = None
     simulations = {}
@@ -469,6 +473,8 @@ def create_app(state_dir=None):
     app.state.temco_transfer = temco_transfer
     app.state.bacnet_history = history
     app.state.routed_discovery = routed
+    app.state.ip_discovery = ip_discovery
+    app.state.device_details = device_details
     app.state.bacnet_files = files
     app.state.notifications = None
 
@@ -1237,6 +1243,22 @@ def create_app(state_dir=None):
     @app.get("/api/bacnet/routed-profile")
     def bacnet_routed_profile():
         return routed.status()
+
+    @app.get("/api/bacnet/ip-scan-profile")
+    def bacnet_ip_scan_profile():
+        return ip_discovery.status()
+
+    @app.post("/api/bacnet/scan-ip")
+    async def bacnet_scan_ip(body: IpScanRequest):
+        return await ip_discovery.scan(**body.model_dump())
+
+    @app.get("/api/bacnet/device-details/profile")
+    def bacnet_device_details_profile():
+        return device_details.status()
+
+    @app.post("/api/bacnet/device-details")
+    async def bacnet_device_details(body: DeviceDetailsRequest):
+        return await device_details.read(**body.model_dump())
 
     @app.post("/api/bacnet/router-networks")
     async def bacnet_router_networks(body: RouterNetworksRequest):
