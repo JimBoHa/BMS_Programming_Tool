@@ -17,12 +17,17 @@
   {
     "feature": "Persistent simulation trends and alarm lifecycle",
     "status": "implemented",
-    "scope": "Opt-in successful-scan recording with simulation/receipt timestamps, types, quality and units in bounded SQLite retention. Alarm activation/return/acknowledgment/reactivation, operator notes, event queries, source filters, paged trend CSV and resolved-source retirement. Field samples have a separate read-only acquisition service and database. External alarm delivery is not implemented. Recording failures are distinguished from executed scans. Explicit source end closes abandoned simulation alarms with a distinct source-ended event; acknowledgment precedes retirement."
+    "scope": "Opt-in successful-scan recording with simulation/receipt timestamps, types, quality and units in bounded SQLite retention. Alarm activation/return/acknowledgment/reactivation, operator notes, event queries, source filters, paged trend CSV and resolved-source retirement. Recording failures are distinguished from executed scans. Explicit source ending closes abandoned simulation alarms with a distinct source-ended event; acknowledgment precedes retirement. Separate services provide field acquisition and optional webhook delivery. Persisted logical store identity and source kind survive complete workspace copies."
+  },
+  {
+    "feature": "Durable alarm webhook delivery",
+    "status": "implemented",
+    "scope": "Explicitly enabled HTTP(S) routes deliver recorded simulation alarm events through a bounded durable SQLite outbox. Original source/time evidence, stable idempotency keys, payload hashes, per-route ordering, bounded backoff and retention/capacity gaps remain visible. Ambiguous sends require operator retry or discard; receipts do not acknowledge alarms or prove human receipt. Routes restart disabled. URL/bearer environment references keep secrets out of persisted configuration and logs; redirects and environment proxies are disabled. Actual loopback receivers, cross-process crash recovery and storage faults are tested. No native controller alarm acquisition, email or exactly-once guarantee."
   },
   {
     "feature": "Read-only BACnet field trends",
     "status": "implemented",
-    "scope": "Explicit polling jobs share an already connected BACnet/IP, routed or direct MS/TP interface. Finite values persist with acquisition/receipt UTC timestamps, unit labels and unknown quality unless reliability/status/out-of-service checks validate. Failures produce durable events without synthetic values; interface changes stop jobs. Separate field/simulation databases enforce source-kind identity. Jobs do not resume on restart. No point writes or native alarms. Existing Trend Log history has a separate explicit retrieval/capture service."
+    "scope": "Explicit polling jobs share an already connected BACnet/IP, BBMD foreign-device, routed or direct MS/TP interface. Finite values persist with acquisition/receipt UTC timestamps, unit labels and unknown quality unless reliability/status/out-of-service checks validate. Failures produce durable events without synthetic values; interface changes stop jobs. Separate field/simulation databases enforce source-kind identity. Jobs do not resume on restart. No point writes or native alarms. Existing Trend Log history has a separate explicit retrieval/capture service."
   },
   {
     "feature": "Existing BACnet Trend Log history",
@@ -52,7 +57,7 @@
   {
     "feature": "Interchange conversion and export",
     "status": "partial",
-    "scope": "BMS JSON, IEC Structured Text, PLCopen TC6 XML with ST, GraphML, native Sedona bundles/SAX/SAB/SCode, native Niagara BOG primitive profiles and Temco Control Basic. Studio files verify original source consistency; supported foreign subsets convert with execution-difference reports. Generated ST independently compiles and runs through MatIEC/native C locally; physical PLC and Niagara runtime acceptance remain unverified."
+    "scope": "BMS JSON, IEC Structured Text, PLCopen TC6 XML with ST, GraphML, native Sedona bundles/SAX/SAB/SCode, a 20-kind native Niagara BOG profile and Temco Control Basic. Studio files verify original source consistency; supported foreign subsets convert with execution-difference reports. Generated ST independently compiles and runs through MatIEC/native C locally; physical PLC and Niagara runtime acceptance remain unverified."
   },
   {
     "feature": "FX and Metasys CAF inspection",
@@ -80,9 +85,14 @@
     "scope": "Narrow offline scalar patches plus observed native block/wire/order/position inspection, guarded rewires and prototype-checked added connections between existing blocks. Exact old tuple/count, opaque native configuration, proven ports, unused destinations and execution ordering are checked. New block identities, complete application semantics, target compilation and native validation remain pending."
   },
   {
+    "feature": "Native CAF saved simulation profiles",
+    "status": "implemented",
+    "scope": "Source-hashed portable profiles inspect all observed saved simulation records and edit existing supported native float/Boolean startup values into a separate CAF copy. Enum, unknown and unsupported records remain read-only; ordinary properties and opaque metadata are preserved. Exact record identities, finite float32 bounds and unchanged-profile byte identity are checked against authorized samples. The workspace retains drafts and guards pending downloads. No JCI logic execution, new native block creation or vendor reopen/simulation acceptance is established."
+  },
+  {
     "feature": "Native vendor formats",
     "status": "partial",
-    "scope": "Native Sedona compilation/execution, native Temco Control Basic compiler/interpreter host and 17 primitive Niagara BOG mappings are available. New JCI CAF/CAP, ALC equipment and Honeywell Spyder encoders still require verified semantics, compilers/packages and target tests. No renamed JSON exports."
+    "scope": "Native Sedona compilation/execution, native Temco Control Basic compiler/interpreter host and 20 Niagara BOG graph-kind mappings are available. New JCI CAF/CAP, ALC equipment and Honeywell Spyder encoders still require verified semantics, compilers/packages and target tests. Native archive inspection, saved CAF simulation-value editing and supported conversion profiles do not establish proprietary controller compilation or deployment."
   },
   {
     "feature": "Native Sedona applications",
@@ -97,27 +107,32 @@
   {
     "feature": "Native Niagara BOG primitives",
     "status": "partial",
-    "scope": "17 primitive graph types map to real bajaObjectGraph ZIP/XML. Supported foreign components convert with mandatory event/status/priority review. Genuine manufacturer module/API metadata verifies native classes, inherited slots, link types, serialized units and palette aliases; malformed compact status values are refused. Unknown logic/resources/configuration fail conversion; original archive bytes are preserved separately. No licensed Workbench/station execution or full station conversion."
+    "scope": "20 graph kinds map to real bajaObjectGraph ZIP/XML, including Clamp, clamped/extrapolating Scale and absolute-temperature Convert. Supported foreign Reset, explicit temperature-unit converters and primitive components convert with mandatory event/status/priority review. Composite mappings preserve units, bounds and reversed endpoint meaning. Genuine manufacturer module/API metadata verifies native classes, inherited slots, link types, serialized units and palette aliases. Unknown logic/resources/configuration fail conversion; original archive bytes are preserved separately. No licensed Workbench/station execution or full station conversion."
   },
   {
     "feature": "BACnet/IP connection",
     "status": "implemented",
-    "scope": "Explicit unicast discovery, object/property reads, bounded object lists, command previews, priority-slot checks, verified writes, relinquish and durable command recovery. Tested with real loopback UDP."
+    "scope": "Explicit unicast discovery, object/property reads, bounded object lists, command previews, priority-slot checks, verified writes, relinquish and durable command recovery. Optional foreign-device registration adds BBMD broadcast discovery while preserving addressed point services. Independently authored raw UDP peers and real loopback applications exercise protocol traffic. Physical controller acceptance remains unverified."
+  },
+  {
+    "feature": "BACnet/IPv4 BBMD foreign-device registration",
+    "status": "implemented",
+    "scope": "Explicit registration with an existing BBMD, exact-source acknowledgments, managed renewal, bounded lease/grace tracking, dead-link health and best-effort TTL-zero deregistration. Explicit bounded broadcast Who-Is preserves original forwarded source addresses. Failed registration/lease requires reconnect, and exact interface/BBMD settings remain bound to owned command recovery. Independently authored raw loopback BVLC peers exercise real wire requests, source checks, discovery, renewal, actual expiry, teardown and recovery. No BBMD hosting/configuration, BACnet/SC, IPv6 BVLL, NAT traversal or physical BBMD verification."
   },
   {
     "feature": "BACnet/IP-to-MS/TP router paths",
     "status": "partial",
-    "scope": "Explicit router IP plus DNET/MAC addressing. NPDU routing passed an IP-to-virtual-data-link test. Physical MS/TP and E2/F2 remain untested. User supplied Tailscale access; connectivity checks are queued after programming completion."
+    "scope": "Explicit router IP plus DNET/MAC addressing. NPDU routing is exercised through an IP-to-virtual-data-link test. Authorized read-only checks reached the site Mac through Tailscale, but no approved target-subnet route was visible and both E2/F2 NAE HTTP/HTTPS probes timed out. Desktop credentials were not read; authentication and device writes were not attempted. Physical routing/controller acceptance remains unverified."
   },
   {
     "feature": "Ethernet and USB serial",
     "status": "partial",
-    "scope": "BACnet/IP, direct serial legacy MS/TP master, Modbus TCP and Modbus RTU with enumerated serial ports. Real UDP/TCP and OS pseudoterminal tests verify framed point services. Physical USB/RS485 hardware remains untested."
+    "scope": "BACnet/IP, optional IPv4 BBMD foreign-device registration, direct serial legacy MS/TP master, Modbus TCP and Modbus RTU with enumerated serial interfaces. Real UDP/TCP and test-owned OS pseudoterminals verify framed point services. Physical USB/RS485 hardware remains untested. Bluetooth is excluded from the current verification scope."
   },
   {
     "feature": "Direct MS/TP and BTCVT Bluetooth",
     "status": "partial",
-    "scope": "Direct legacy MS/TP token master, CRC/frame decoder, bounded pyserial worker and BACpypes3 integration are implemented and exercised through real pseudoterminals. Physical bus timing and adapters remain unverified. BTCVT Bluetooth host protocol and extended/COBS frames are not implemented."
+    "scope": "Direct legacy MS/TP token master, CRC/frame decoder, bounded pyserial worker and BACpypes3 integration are implemented and exercised through real pseudoterminals. Physical bus timing and adapters remain unverified. BTCVT Bluetooth host protocol and extended/COBS frames are not implemented. Bluetooth configuration is excluded from the requested verification pass; the original BTCVT implementation requirement remains incomplete."
   },
   {
     "feature": "Live application changes",
@@ -127,7 +142,7 @@
   {
     "feature": "E2/F2 unused-input sensor test",
     "status": "pending",
-    "scope": "Tailscale access supplied; no connectivity or field changes attempted. Checks must follow programming completion. A physical sensor test still needs a native application adapter, exact target/unused terminal, original backup and verified restoration."
+    "scope": "Read-only site checks were authorized. The site Mac responded through Tailscale, but no approved route to the target subnet was visible and both NAE HTTP/HTTPS probes timed out. Desktop credentials were not read; authentication and device writes were not attempted. The physical sensor test remains pending a working route, native application adapter, exact target/unused terminal, original backup and verified restoration. Standard point commands cannot allocate a new native input."
   },
   {
     "feature": "2025 Title 24 / Guideline 36 applications",

@@ -1,5 +1,6 @@
 """Durable observation evidence, independent of live controller interfaces."""
 
+import shutil
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
@@ -14,6 +15,25 @@ SOURCE = "simulation/" + "program" * 15 + "/session-abc123"
 
 def clock(second=0):
     return BASE + timedelta(seconds=second)
+
+
+def test_logical_stream_identity_survives_restart_move_and_concurrent_legacy_migration(tmp_path):
+    directory = tmp_path / "original"
+    store = ObservabilityStore(directory)
+    store.record_scan("portable", clock(), {"temperature": 72})
+    original = store.identity()
+    assert ObservabilityStore(directory).identity() == original
+    copied = tmp_path / "copied"
+    shutil.copytree(directory, copied)
+    assert ObservabilityStore(copied).identity() == original
+    assert ObservabilityStore(tmp_path / "new-stream").identity() != original
+    with store.connect() as db:
+        db.execute("DELETE FROM observation_metadata WHERE key='store_id'")
+    with ThreadPoolExecutor(max_workers=4) as workers:
+        identities = list(workers.map(lambda _: ObservabilityStore(directory).identity(), range(4)))
+    assert identities[0] != original
+    assert all(identity == identities[0] for identity in identities)
+    assert ObservabilityStore(directory).trends(source="portable")[0]["value"] == 72
 
 
 def test_samples_survive_restart_preserve_boolean_units_quality_and_scope(tmp_path):

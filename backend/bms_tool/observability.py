@@ -13,6 +13,7 @@ import hashlib
 import json
 import math
 import sqlite3
+import uuid
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -148,6 +149,12 @@ class ObservabilityStore:
                     "INSERT INTO observation_metadata(key,value) VALUES('source_kind',?)",
                     (stored_kind,),
                 )
+            # Logical stream identity survives workspace copies and moves. File
+            # inodes and absolute paths are host details, not observation provenance.
+            db.execute(
+                "INSERT OR IGNORE INTO observation_metadata(key,value) VALUES('store_id',?)",
+                (uuid.uuid4().hex,),
+            )
             schema = """
                 CREATE TABLE IF NOT EXISTS observation_sources(
                     source TEXT PRIMARY KEY, clock TEXT NOT NULL, digest TEXT NOT NULL,
@@ -216,6 +223,24 @@ class ObservabilityStore:
                 yield db
         finally:
             db.close()
+
+    def identity(self):
+        """Identify a persisted logical stream without tying it to a host path."""
+        with self.connect() as db:
+            metadata = dict(
+                db.execute(
+                    "SELECT key,value FROM observation_metadata WHERE key IN ('store_id','source_kind')"
+                )
+            )
+        identifier = metadata.get("store_id")
+        if (
+            metadata.get("source_kind") != self.source_kind
+            or not isinstance(identifier, str)
+            or len(identifier) != 32
+            or any(char not in "0123456789abcdef" for char in identifier)
+        ):
+            raise ValueError("Observation stream identity is missing or invalid.")
+        return {"store_id": identifier, "source_kind": self.source_kind}
 
     @staticmethod
     def _event(db, alarm_id, source, signal, event, clock, recorded_at, actor="", note=""):

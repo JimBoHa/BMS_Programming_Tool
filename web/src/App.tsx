@@ -34,6 +34,7 @@ import {
   Activity,
   Code2,
   FileCheck2,
+  BellRing,
 } from "lucide-react";
 import { api, download, initSession } from "./api";
 import {
@@ -94,11 +95,20 @@ const CafComparison = lazy(() =>
 const DeviceHistory = lazy(() =>
   import("./DeviceHistory").then((m) => ({ default: m.DeviceHistory })),
 );
+const CafSimulationPanel = lazy(() =>
+  import("./CafSimulationPanel").then((m) => ({
+    default: m.CafSimulationPanel,
+  })),
+);
+const Notifications = lazy(() =>
+  import("./Notifications").then((m) => ({ default: m.Notifications })),
+);
 
 export function App() {
   const [cafVisited, setCafVisited] = useState(false);
+  const [cafSimulationVisited, setCafSimulationVisited] = useState(false);
   const [tab, setTab] = useState("editor"),
-    [program, setProgram] = useState<Program>(blankProgram),
+    [program, setProgramState] = useState<Program>(blankProgram),
     [blocks, setBlocks] = useState<Block[]>([]),
     [macroBlocks, setMacroBlocks] = useState<Block[]>([]),
     [macroEdit, setMacroEdit] = useState<{
@@ -110,6 +120,9 @@ export function App() {
     [templates, setTemplates] = useState<Program[]>([]),
     [projects, setProjects] = useState<any[]>([]),
     [issues, setIssues] = useState<any[]>([]),
+    [validationStatus, setValidationStatus] = useState<
+      "pending" | "complete" | "error"
+    >("pending"),
     [selection, setSelection] = useState<string[]>([]),
     [search, setSearch] = useState(""),
     [format, setFormat] = useState("json"),
@@ -126,10 +139,42 @@ export function App() {
     [settings, setSettings] = useState(false),
     [versions, setVersions] = useState<any[]>([]),
     [showIssues, setShowIssues] = useState(false),
+    [saving, setSaving] = useState(false),
+    [lastSaved, setLastSaved] = useState<{
+      id: string;
+      name: string;
+      revision: number;
+    } | null>(null),
     [undoStack, setUndoStack] = useState<Program[]>([]),
     [redoStack, setRedoStack] = useState<Program[]>([]);
   const latestProgram = useRef(program);
-  latestProgram.current = program;
+  const draftEpoch = useRef(0),
+    loadEpoch = useRef(0),
+    validationEpoch = useRef(0),
+    versionsEpoch = useRef(0),
+    projectsEpoch = useRef(0),
+    saveActive = useRef(false);
+  const renderedDraftEpoch = draftEpoch.current;
+  const renderedNavigationEpoch = loadEpoch.current;
+  function setProgram(next: Program | ((current: Program) => Program)) {
+    const updated =
+      typeof next === "function" ? next(latestProgram.current) : next;
+    if (updated === latestProgram.current) return;
+    latestProgram.current = updated;
+    draftEpoch.current++;
+    setProgramState(updated);
+  }
+  async function refreshProjects() {
+    const epoch = ++projectsEpoch.current;
+    const rows = await api("/projects");
+    if (epoch === projectsEpoch.current) setProjects(rows);
+  }
+  async function refreshVersions(id: string) {
+    const epoch = ++versionsEpoch.current;
+    const rows = await api(`/projects/${id}/versions`);
+    if (epoch === versionsEpoch.current && latestProgram.current.id === id)
+      setVersions(rows);
+  }
   const session = useRef<string | null>(null),
     busy = useRef(false),
     importInput = useRef<HTMLInputElement>(null);
@@ -225,6 +270,10 @@ export function App() {
   }, []);
   useEffect(() => {
     if (!ready) return;
+    const epoch = ++validationEpoch.current;
+    let live = true;
+    setIssues([]);
+    setValidationStatus("pending");
     setRunning(false);
     session.current = null;
     setHistory([]);
@@ -243,10 +292,31 @@ export function App() {
         );
       else localStorage.setItem("bms-studio-draft-v1", JSON.stringify(program));
       api("/validate", program)
-        .then((r) => setIssues(r.issues))
-        .catch((e) => setMessage(e.message));
+        .then((r) => {
+          if (
+            live &&
+            epoch === validationEpoch.current &&
+            latestProgram.current === program
+          ) {
+            setIssues(r.issues);
+            setValidationStatus("complete");
+          }
+        })
+        .catch((e) => {
+          if (
+            live &&
+            epoch === validationEpoch.current &&
+            latestProgram.current === program
+          ) {
+            setValidationStatus("error");
+            setMessage(e.message);
+          }
+        });
     }, 200);
-    return () => clearTimeout(timer);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
   }, [program, ready, macroEdit]);
   const remember = useCallback(() => {
     setUndoStack((s) => [...s.slice(-49), structuredClone(program)]);
@@ -269,6 +339,60 @@ export function App() {
     setProgram(redoStack.at(-1)!);
     setRedoStack((s) => s.slice(0, -1));
   }
+  function recordSaved(
+    p: Program,
+    snapshot: Program,
+    epoch: number,
+    navigation: number,
+    native = false,
+  ) {
+    const current = latestProgram.current;
+    const unchanged =
+      current === snapshot &&
+      draftEpoch.current === epoch &&
+      loadEpoch.current === navigation;
+    if (unchanged) setProgram(p);
+    else if (
+      loadEpoch.current === navigation &&
+      current.id === snapshot.id &&
+      p.id === snapshot.id &&
+      current.revision === snapshot.revision
+    ) {
+      // The saved base advanced, while the user's later content stays intact.
+      // Keeping this revision also allows the next save without a false conflict.
+      setProgram({ ...current, revision: p.revision });
+    }
+    if (loadEpoch.current === navigation && p.id === snapshot.id) {
+      const advance = (rows: Program[]) =>
+        rows.map((row) =>
+          row.id === p.id && row.revision === snapshot.revision
+            ? { ...row, revision: p.revision }
+            : row,
+        );
+      setUndoStack(advance);
+      setRedoStack(advance);
+      setMacroEdit((draft) =>
+        draft &&
+        draft.parent.id === p.id &&
+        draft.parent.revision === snapshot.revision
+          ? {
+              ...draft,
+              parent: { ...draft.parent, revision: p.revision },
+              undo: advance(draft.undo),
+              redo: advance(draft.redo),
+            }
+          : draft,
+      );
+    }
+    setLastSaved({ id: p.id, name: p.name, revision: p.revision });
+    const outcome =
+      (native
+        ? `Saved native revision ${p.revision} locally. ${p.name}.`
+        : `Saved revision ${p.revision} of ${p.name} locally.`) +
+      (unchanged ? "" : " Current draft edits were kept.");
+    setMessage(outcome);
+    return outcome;
+  }
   async function save() {
     if (macroEdit) {
       await applyMacroEdit();
@@ -278,6 +402,12 @@ export function App() {
       window.dispatchEvent(new Event("studio:save-workspace"));
       return;
     }
+    if (saveActive.current) return;
+    saveActive.current = true;
+    setSaving(true);
+    const snapshot = latestProgram.current;
+    const epoch = draftEpoch.current,
+      navigation = loadEpoch.current;
     try {
       const native = tab === "native" ? await api("/native/status") : null;
       const p = native?.running
@@ -285,17 +415,30 @@ export function App() {
             expected_revision: native.program.revision,
           })
         : await api("/projects", {
-            program,
-            expected_revision: program.revision,
+            program: snapshot,
+            expected_revision: snapshot.revision,
           });
-      setProgram(p);
-      setProjects(await api("/projects"));
-      setVersions(await api(`/projects/${p.id}/versions`));
-      setMessage(
-        `Saved ${native?.running ? "native " : ""}revision ${p.revision} locally.`,
+      const outcome = recordSaved(
+        p,
+        snapshot,
+        epoch,
+        navigation,
+        !!native?.running,
       );
+      const refreshed = await Promise.allSettled([
+        refreshProjects(),
+        refreshVersions(p.id),
+      ]);
+      if (
+        refreshed.some((result) => result.status === "rejected") &&
+        latestProgram.current.id === p.id
+      )
+        setMessage(outcome + " Saved-project details could not be refreshed.");
     } catch (e) {
-      setMessage(String(e));
+      setMessage(`Could not save ${snapshot.name}: ${String(e)}`);
+    } finally {
+      saveActive.current = false;
+      setSaving(false);
     }
   }
   async function openMacroEdit(definition: string) {
@@ -642,14 +785,28 @@ export function App() {
       setMessage("Apply or discard definition edits first.");
       return;
     }
+    if (!id) return;
+    const request = ++loadEpoch.current,
+      epoch = draftEpoch.current;
+    const snapshot = latestProgram.current;
     try {
-      change(
-        await api(`/projects/${id}${revision ? "?revision=" + revision : ""}`),
+      const loaded = await api(
+        `/projects/${id}${revision ? "?revision=" + revision : ""}`,
       );
-      setVersions(await api(`/projects/${id}/versions`));
+      if (request !== loadEpoch.current) return;
+      if (epoch !== draftEpoch.current || latestProgram.current !== snapshot) {
+        setMessage(
+          "Current draft changed while loading. Open the project again to replace it.",
+        );
+        return;
+      }
+      change(loaded);
       setSelected(null);
+      setVersions([]);
+      await refreshVersions(id);
     } catch (e) {
-      setMessage(String(e));
+      if (request === loadEpoch.current && latestProgram.current === snapshot)
+        setMessage(String(e));
     }
   }
   async function importProgram(file?: File) {
@@ -658,10 +815,20 @@ export function App() {
       return;
     }
     if (!file) return;
+    const request = ++loadEpoch.current,
+      epoch = draftEpoch.current;
+    const snapshot = latestProgram.current;
     try {
       const f = new FormData();
       f.append("file", file);
       const imported = await api("/import", f);
+      if (request !== loadEpoch.current) return;
+      if (epoch !== draftEpoch.current || latestProgram.current !== snapshot) {
+        setMessage(
+          "Current draft changed while importing. Import the file again to replace it.",
+        );
+        return;
+      }
       change({
         ...imported,
         id: imported.id.slice(0, 50) + "-import-" + Date.now().toString(36),
@@ -672,7 +839,8 @@ export function App() {
       if (imported.metadata?.conversion?.review_required) setSettings(true);
       setMessage("Imported as a new local project.");
     } catch (e) {
-      setMessage(String(e));
+      if (request === loadEpoch.current && latestProgram.current === snapshot)
+        setMessage(String(e));
     }
   }
   const active = program.nodes.find((n) => n.id === selected),
@@ -686,6 +854,7 @@ export function App() {
     { id: "editor", title: "Program", icon: Workflow },
     { id: "caf", title: "CAF files", icon: FileArchive },
     { id: "caf-compare", title: "CAF compare", icon: FileCheck2 },
+    { id: "caf-simulation", title: "CAF simulation", icon: FlaskConical },
     { id: "bog", title: "BOG files", icon: FileArchive },
     { id: "hardware", title: "JCI hardware", icon: CircuitBoard },
     { id: "connections", title: "Connect", icon: Network },
@@ -695,6 +864,7 @@ export function App() {
     { id: "iec", title: "IEC native", icon: Code2 },
     { id: "system", title: "System sim", icon: Layers },
     { id: "observations", title: "Trends & alarms", icon: Bell },
+    { id: "notifications", title: "Alarm delivery", icon: BellRing },
     { id: "field-trends", title: "Field trends", icon: Activity },
     { id: "device-history", title: "Device history", icon: Activity },
     { id: "macros", title: "Macros", icon: Boxes },
@@ -733,7 +903,11 @@ export function App() {
           />
           <span className="pill">LOCAL WORKSPACE</span>
         </div>
-        <button className="save-button primary" onClick={save}>
+        <button
+          className="save-button primary"
+          onClick={save}
+          disabled={saving}
+        >
           <Save size={15} />{" "}
           {macroEdit
             ? "Apply definition"
@@ -751,6 +925,7 @@ export function App() {
               disabled={!!macroEdit && t.id !== "editor"}
               onClick={() => {
                 if (t.id === "caf") setCafVisited(true);
+                if (t.id === "caf-simulation") setCafSimulationVisited(true);
                 setTab(t.id);
               }}
               title={t.title}
@@ -777,10 +952,27 @@ export function App() {
               </Suspense>
             </div>
           )}
+          {cafSimulationVisited && (
+            <div
+              hidden={tab !== "caf-simulation"}
+              style={{ display: tab === "caf-simulation" ? undefined : "none" }}
+            >
+              <Suspense
+                fallback={
+                  <div className="loading">
+                    Opening CAF simulation workspace…
+                  </div>
+                }
+              >
+                <CafSimulationPanel visible={tab === "caf-simulation"} />
+              </Suspense>
+            </div>
+          )}
           <Suspense
             fallback={<div className="loading">Opening workspace…</div>}
           >
-            {tab === "caf" ? null : tab === "editor" ? (
+            {tab === "caf" || tab === "caf-simulation" ? null : tab ===
+              "editor" ? (
               <>
                 {macroEdit && (
                   <div className="macro-edit-banner">
@@ -876,9 +1068,7 @@ export function App() {
                       title="Program settings"
                       onClick={() => {
                         setSettings(true);
-                        api(`/projects/${program.id}/versions`)
-                          .then(setVersions)
-                          .catch(() => {});
+                        refreshVersions(program.id).catch(() => {});
                       }}
                     >
                       <Settings2 size={15} />
@@ -1118,18 +1308,26 @@ export function App() {
                 <div className="validation-bar">
                   <button
                     className={
-                      errors.length ? "validation-error" : "validation-ok"
+                      validationStatus === "complete"
+                        ? errors.length
+                          ? "validation-error"
+                          : "validation-ok"
+                        : ""
                     }
                     onClick={() => setShowIssues(!showIssues)}
                   >
-                    {errors.length ? (
+                    {validationStatus !== "complete" || errors.length ? (
                       <AlertTriangle size={14} />
                     ) : (
                       <CheckCircle2 size={14} />
                     )}{" "}
-                    {errors.length
-                      ? errors.length + " graph errors"
-                      : "Graph checks passed"}{" "}
+                    {validationStatus === "pending"
+                      ? "Checking graph…"
+                      : validationStatus === "error"
+                        ? "Graph check unavailable"
+                        : errors.length
+                          ? errors.length + " graph errors"
+                          : "Graph checks passed"}{" "}
                     <span>
                       {issues.filter((d) => d.level === "warning").length}{" "}
                       notices
@@ -1158,8 +1356,11 @@ export function App() {
                       ))
                     ) : (
                       <p>
-                        All graph checks passed. This checks our graph
-                        semantics, not native firmware compatibility.
+                        {validationStatus === "pending"
+                          ? "Checking the current graph…"
+                          : validationStatus === "error"
+                            ? "Graph checks did not complete."
+                            : "All graph checks passed. This checks our graph semantics, not native firmware compatibility."}
                       </p>
                     )}
                   </div>
@@ -1179,11 +1380,14 @@ export function App() {
               <NativeSimulator
                 program={program}
                 onSaved={(p) => {
-                  setProgram(p);
-                  api("/projects")
-                    .then(setProjects)
-                    .catch((e) => setMessage(String(e)));
-                  setMessage(`Saved native revision ${p.revision} locally.`);
+                  recordSaved(
+                    p,
+                    program,
+                    renderedDraftEpoch,
+                    renderedNavigationEpoch,
+                    true,
+                  );
+                  refreshProjects().catch((e) => setMessage(String(e)));
                 }}
               />
             ) : tab === "temco" ? (
@@ -1194,6 +1398,8 @@ export function App() {
               <SystemSimulation program={program} />
             ) : tab === "observations" ? (
               <Observations />
+            ) : tab === "notifications" ? (
+              <Notifications />
             ) : tab === "field-trends" ? (
               <FieldTrends />
             ) : tab === "device-history" ? (
@@ -1214,8 +1420,18 @@ export function App() {
       </div>
       <footer className="app-footer">
         <span>
-          <span className="status-dot on" /> Data stays on this computer
+          <span className="status-dot on" /> Local storage · configured alarm
+          delivery
         </span>
+        {lastSaved && (
+          <span
+            role="status"
+            aria-label="Last saved revision"
+            title={lastSaved.id}
+          >
+            Saved {lastSaved.name} · r{lastSaved.revision}
+          </span>
+        )}
         <span>
           BMS Studio 0.1 · Development build · Native vendor adapters pending
         </span>

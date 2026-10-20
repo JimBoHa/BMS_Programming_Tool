@@ -1,0 +1,123 @@
+.caf-simulation-scope {
+  border: 1px solid #d2b66e;
+  background: #fff9e8;
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin-bottom: 18px;
+  color: #634c15;
+}
+.caf-simulation-scope p {
+  margin: 6px 0 0;
+  line-height: 1.55;
+}
+.caf-simulation-error,
+.caf-simulation-message {
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin: 12px 0;
+  overflow-wrap: anywhere;
+}
+.caf-simulation-error {
+  color: #9a2232;
+  background: #fff0f1;
+  border: 1px solid #efc6cd;
+}
+.caf-simulation-message {
+  color: #1b5c48;
+  background: #edf8f3;
+  border: 1px solid #bedfcf;
+}
+.caf-simulation-summary {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: center;
+  background: white;
+  padding: 16px;
+  border: 1px solid var(--line, #e1e5e9);
+  border-radius: 10px;
+}
+.caf-simulation-summary code {
+  font-size: 11px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.caf-simulation-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0;
+}
+.caf-simulation-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.caf-simulation-toolbar input {
+  margin-left: auto;
+  min-width: 210px;
+}
+.caf-simulation-empty {
+  padding: 42px 24px;
+  text-align: center;
+  background: white;
+  border: 1px dashed var(--line, #d5dde4);
+  border-radius: 10px;
+  line-height: 1.6;
+  color: var(--muted, #64748b);
+}
+.caf-simulation-empty p {
+  max-width: 680px;
+  margin: 10px auto;
+}
+.caf-simulation-table {
+  overflow: auto;
+  background: white;
+  border: 1px solid var(--line, #e1e5e9);
+  border-radius: 10px;
+}
+.caf-simulation-table table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 900px;
+}
+.caf-simulation-table th,
+.caf-simulation-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line, #e1e5e9);
+  text-align: left;
+  vertical-align: top;
+}
+.caf-simulation-table th {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: #f6f8fa;
+}
+.caf-simulation-table td strong,
+.caf-simulation-table td code,
+.caf-simulation-table td small {
+  display: block;
+  max-width: 370px;
+  overflow-wrap: anywhere;
+}
+.caf-simulation-table td code {
+  font-size: 11px;
+  margin: 5px 0;
+  white-space: pre-wrap;
+}
+.caf-simulation-table td small {
+  font-size: 11px;
+  color: var(--muted, #64748b);
+  line-height: 1.5;
+}
+.caf-simulation-table input {
+  width: 150px;
+}
+.caf-simulation-validation {
+  font-size: 12px;
+  color: var(--muted, #64748b);
+  line-height: 1.5;
+  margin-top: 16px;
+}

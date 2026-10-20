@@ -4,10 +4,10 @@ This development build validates the stated local behavior. It does not establis
 
 ## Automated checks
 
-- The final full backend run passed **1,103 tests with no skips in 171.96 seconds**, including all seven authorized CAFs, genuine external Niagara descriptors, independent native IEC execution, real UDP/routed Temco transfer/recovery, native CAF comparison/hardening, BACnet history/capture checks and existing simulation/transport/storage coverage.
-- **55 browser workflows passed in approximately 1.5 minutes** against the production TypeScript/Vite build. They cover existing authoring, macros, calendars, simulation, storage, CAF/BOG and field workflows plus genuine IEC compilation/execution, input-quality faults, timed recovery scenarios, native Temco transfer/restore, JCI hardware migration, native CAF revision comparison and device Trend Log history. CAF cases hold actual HTTP responses to verify stale selection/upload/download handling and retain unexported drafts through tab changes. A 501-record comparison export traverses multiple API pages. History cases use actual UDP ReadRange for complete, limited, partial, empty and DST-fold reads, CSV provenance, sealed captures and restart. A delayed initial status cannot overwrite a fresh connected status.
-- Eight focused CAF-comparison/history browser workflows also passed against the final backend snapshot in 12.4 seconds.
-- Ruff, TypeScript and production Vite build checks pass. Workspace pages load in separate bundles; the main bundle is approximately 415 kB before gzip. Screenshots of native formats, compiled traces, serial settings, field samples, CAF comparison and device history were visually inspected.
+- The final full backend run passed **1,279 tests with no skips in 232.12 seconds**, including all seven authorized CAFs, saved CAF simulation profiles, genuine external Niagara descriptors, independent native IEC execution, real UDP/routed Temco transfer/recovery, native CAF comparison/hardening, BACnet history/capture, real-time BBMD lease expiry, durable webhook delivery and existing simulation/transport/storage coverage.
+- **71 browser workflows passed in approximately 1.8 minutes** against the production TypeScript/Vite build. They cover authoring, macros, calendars, simulation, storage, CAF/BOG and field workflows, genuine IEC compilation/execution, quality faults, timed recovery, native Temco transfer/restore, JCI hardware migration, native CAF comparison/saved simulation values, 20-kind Niagara conversion, device Trend Log history, BBMD registration/discovery/renewal and actual HTTP webhook receipts/retries. Held genuine responses verify draft preservation and stale save/load/import/validation/preview handling. A 501-record comparison export traverses multiple API pages. History cases use actual UDP ReadRange for complete, limited, partial, empty and DST-fold reads, CSV provenance, sealed captures and restart. Notification tests explicitly end, acknowledge and retire only their own isolated test sources after verifying delivery leaves alarms unacknowledged; this prevents test-order contamination.
+- Ruff, TypeScript and production Vite build checks pass. Workspace pages load in separate bundles; the main bundle is approximately 419 kB before gzip. Screenshots of native formats, compiled traces, serial settings, field samples, CAF comparison/simulation, BBMD state, alarm delivery and device history were visually inspected.
+- After a final route-detail spacing correction, the production build and both actual-receiver alarm-delivery browser workflows passed again in 11.6 seconds.
 - Nine PLCopen example exports previously validated against an independently retrieved TC6 v2.01 XSD. Schema provenance: <https://raw.githubusercontent.com/mattsse/plcopen-xml-xcore/master/schema/tc6_xml_v201.xsd>. XSD conformance is not external PLC compiler acceptance.
 - The environment uses Python 3.13.16, Node 22.23.3, FastAPI 0.146.0, Pydantic 2.14.1, BACpypes3 0.0.110 and Vite 7.3.7. Dependency pins are unchanged from the recorded advisory audit. Upstream Starlette TestClient and pybog Pydantic deprecation warnings remain; they are not failed checks.
 
@@ -23,7 +23,15 @@ Calendar tests cover IANA zones, both autumn folds, skipped spring minutes, date
 
 Simulation observations preserve simulation/receipt UTC timestamps, types, units and quality in SQLite. Alarm activation/return/acknowledgment/reactivation and explicit source ending remain distinct events. A partial batch reports completed scans, scan errors and recording failures separately. Audit completion failures cannot imply a committed acknowledgment or deletion rolled back.
 
-Each observation database now retains a source-kind marker. Established field/simulation stores cannot be reopened under the other kind. Legacy unmarked stores containing evidence retain simulation identity. Tests cover migration, restart, corruption, concurrent access, bounds and retirement. Program revisions retain their legacy checksum format and audit history; new revisions use canonical JSON hashes and verify integrity on load.
+Each observation database retains a source-kind marker and a stable logical store UUID. Established field/simulation stores cannot be reopened under the other kind. Legacy unmarked stores containing evidence retain simulation identity. Concurrent migration assigns one UUID; copying or moving the same database retains it. The outbox binds to that logical stream rather than a machine path or inode. Tests cover migration, restart, copying, corruption, concurrent access, bounds and retirement. Program revisions retain their legacy checksum format and audit history; new revisions use canonical JSON hashes and verify integrity on load.
+
+Browser tests hold genuine HTTP responses while authors edit, start a new graph, save, load, import or prepare a runtime change. Late responses cannot replace newer drafts, validation results or runtime plans. A save records its completed snapshot while retaining edits made during the request, including macro and undo/redo state.
+
+## Durable alarm delivery
+
+The explicit HTTP webhook outbox is verified against actual loopback HTTP servers. Tests cover future-only and deliberate historical cursors, source/event filters, unchanged event timestamps and quality, stable payload hashes and idempotency keys, restart with routes paused, 2xx receipts, bounded 429/5xx backoff, terminal 4xx responses, ambiguous outcomes, operator retries/discards and explicit completed-history pruning. Delivery never acknowledges the original alarm. Retention gaps and capacity limits remain visible rather than silently dropping evidence.
+
+A separate OS owner lock prevents two services from dispatching the same workspace. A crash or receipt-storage failure after a request records uncertainty; the service does not silently resend it. A real SQLite lock held through an HTTP 204 receipt verifies recovery without a second request. Routes can reference an environment variable for the destination URL and bearer token; their values are not persisted, returned or logged. Fixed destination URLs are ordinary local configuration and are documented as plaintext. Missing/replaced observation sources stop dispatch while existing receipt history remains readable. An incompatible persisted outbox leaves other programming features available and preserves the original database. No third-party notifications or site messages were sent during testing. See [delivery scope](notification-outbox.md).
 
 ## Native Sedona execution and online changes
 
@@ -47,6 +55,8 @@ Six real browser workflows cover native source/bytecode downloads, custom points
 
 BOG tests exercise real ZIP/XML, typed component slots, four-input reductions, forward consumers, aliases, local ORD links, finite facets, status handling, source consistency and rejection of unsupported executable configuration. An independently authored public pybog generator creates an application that imports and computes `100 - 40 = 60`. There is no Niagara station/Workbench runtime acceptance test.
 
+The supported native exchange profile now has 20 graph kinds. Clamp uses native Min/Max components; clamped same-unit Scale uses Reset, while other scales use explicit arithmetic and facets. Convert uses NumericUnitConverter. Genuine external descriptors verify the emitted slots and units. Source-free Reset/converter imports are tested. The previous 17-kind native XML output remains byte identical. This evidence establishes format structure and conversion behavior, not station execution.
+
 An additional 22 tests parse genuine external manufacturer module/API metadata.
 They verify component declarations, inherited frozen property types, emitted
 link endpoints, six complete serialized unit records and real palette aliases.
@@ -59,6 +69,8 @@ unestablished. See [the exact evidence and member hashes](niagara-bog.md).
 The separate inspector returns original BOG bytes exactly, including protected content, unknown typed records and extra archive members. HTTP tests verify upload/session guards, unsafe input rejection and bounded cache eviction. Browser workflows verify opaque ZIP and raw XML inspection/export without station connections.
 
 Seven authorized CAF files include MS-VMA1630-0, FX-PCV1630-0 and FX-PCV1615-0 in release modes 10.1/10.2. Original files were not changed or uploaded outside this computer. No-op export is byte exact; scalar edits preserve unrelated XML, job metadata and simulation properties.
+
+The native saved-input profile identifies 72 simulation-property records in four of the files: 39 floating-point, 11 Boolean and 22 enumerated records. All seven archives are covered. Only observed floating-point/Boolean leaves are editable, with exact archive hash, full record metadata and old-value guards. Enumerations remain read-only because their source definitions are from a different firmware generation. Native exports replace only the selected simulation leaf and independently reparse the result; ordinary application properties remain exact. Browser flows cover profile exchange, invalid value refusal, draft retention and suppression of a late download after leaving the workspace. These saved inputs do not execute the proprietary JCI simulator. See [CAF simulation profile](caf-simulation-profiles.md).
 
 Adversarial CAF tests cover corrupted compression, duplicate identities/wrappers,
 DTD/entity encodings, depth/element/name/namespace resource bounds, regex
@@ -119,6 +131,8 @@ See [hardware-definition evidence](jci-hardware-definition.md).
 
 BACnet/IP tests use actual loopback UDP for directed discovery, reads, unused priority commands, readback, occupied-slot refusal, restart ownership recovery and relinquish. Explicit disconnect refuses owned commands; a later audit-completion failure still reports that closing succeeded. Routed NPDU discovery/reads traverse an actual UDP router attached to a virtual downstream data link.
 
+Foreign-device tests use an independent raw UDP BBMD and point peer. They verify registration, source/length-checked acknowledgments, forwarded distributed discovery, ReadProperty, real short-TTL renewal, rejection, best-effort deregistration and the full 31-second lease/grace expiry without mocked time. Failed registration or lease loss disables point operations while allowing interface closure. Owned-command recovery retains the exact BBMD/TTL configuration. Actual OS bind failure releases workers and sockets. Browser tests exercise registration, renewal, discovery, reads, reload and failed-lease controls; a pending command plan cannot be retargeted by a concurrent interface or point edit. Physical BBMD/router acceptance remains unverified. See [foreign-device profile](bacnet-foreign-device.md).
+
 Direct MS/TP tests use actual pyserial/OS pseudoterminals and fixed wire peers through production HTTP endpoints. They cover CRCs, framing, token management, retries, turnaround, bounded queues, immediate/deferred replies, duplicate-MAC faults, reconnect and exact-interface command recovery. Six frame fixtures independently match an externally compiled unchanged BACnet-stack C encoder. This is not a physical bus or BTL certification. Automatic-direction no-echo RS485 hardware is required; BTCVT and extended/COBS frames remain unsupported.
 
 Modbus tests use real TCP sockets and pseudoterminals, including fixed request/response frames, fragmented responses and bad-CRC rejection. Physical USB, RS485 and Bluetooth adapters remain untested.
@@ -141,9 +155,9 @@ simulation or polling databases. See [history scope](bacnet-history.md).
 
 ## Site, compliance and VM status
 
-E2/F2 were not contacted or changed. Tailscale checks remain deferred under the user's instruction to finish programming first. Desktop credentials have not been read. A real unused-input sensor test needs a verified native application adapter, exact target/terminal, original backup and verified restoration. BACnet point commands cannot add that input.
+The user authorized read-only E2/F2 checks during development. Tailscale ping reached the site Mac at 100.75.44.107 directly and, on a later retest, through DERP. This Mac accepts subnet routes, but the peer had no visible approved 192.0.2.0/24 route. After the user reported approval, the visible peer routes gained 0.0.0.0/0 and ::/0 (exit-node routes); the required private subnet still did not appear. Both NAEs (192.0.2.32 and 192.0.2.35) timed out on TCP 80/443, and the OS selected its ordinary LAN default route. The endpoint list supplied by the user includes the site Mac's 192.0.2.191 address; endpoints do not establish subnet-route approval. Setup instructions and private diagnostic evidence are retained in ignored `local-reports/`. No local exit node was selected. Desktop credentials have not been read, authentication has not been attempted and no controller changes occurred. A real unused-input sensor test needs a verified native application adapter, exact target/terminal, original backup and verified restoration. BACnet point commands cannot add that input.
 
-JCI/ALC/Honeywell native application compilers/loaders, BTCVT, full proprietary conversions, physical target packaging, external alarm delivery and six verified native 2025 Title 24 CAF applications remain incomplete. Native Temco and Sedona execution does not establish support on that firmware. The requested final GitHub push remains pending.
+JCI/ALC/Honeywell native application compilers/loaders, BTCVT, full proprietary conversions, physical target packaging and six verified native 2025 Title 24 CAF applications remain incomplete. Explicit webhook delivery is implemented within its documented profile; native-controller alarm acquisition, SMTP/email and human receipt are outside it. Native Temco and Sedona execution does not establish support on that firmware. Bluetooth configuration is excluded from this test pass. No physical USB serial adapter was present. The requested final GitHub push remains pending full completion.
 
 The Windows VM inventory checked 32-bit/64-bit installed-program registries and vendor application directories. No CCT/PCT installation appeared. No CCT binary analysis or compiler invocation occurred; the VM returned to the stopped state. The ignored inventory is `local-reports/windows-toolchain-inventory.json`.
 
@@ -158,4 +172,15 @@ a field socket. The main server retained no active BACnet connection, field
 polling job, native SVM, system simulation or owned point command. Captures from
 automated browser tests live only in isolated temporary test state.
 
-The reference desk now records 254 sources and 51 feature criteria: 26 implemented, 17 partial and eight pending. The multivendor PDF catalog contains 63 records, 62 distinct hashes and 6,791 indexed PDF pages, alongside the earlier JCI collection. Four guides in the preceding research pass and the primary 14-page ASHRAE Trend Log addendum were downloaded, indexed and selectively reviewed; no claim of reading every manual word for word is made. Manufacturer SDK modules, manuals and original site files remain outside Git.
+Before the latest integration, the same three databases were copied through
+SQLite's backup API into ignored `.state/before-nonbluetooth-integration/` and
+passed integrity checks. The verified idle server was restarted with the new
+backend and built GUI at <http://127.0.0.1:8765>. Its production smoke exported
+one guarded floating-point simulation leaf from an authorized native CAF,
+reparsed the result, retained the same object count and returned the cached
+original byte exactly. It exposed all 20 Niagara kinds and an available empty
+notification service. No route, field connection, polling job, native VM,
+shared-system session or owned command was active. Original CAF bytes were
+rehashed unchanged. No destination was configured in the main outbox.
+
+The reference desk records 255 sources and 53 feature criteria: 29 implemented, 16 partial and eight pending. The multivendor PDF catalog contains 64 records, 63 distinct hashes and 6,813 indexed PDF pages, alongside the earlier JCI collection. Downloaded primary references include the 14-page ASHRAE Trend Log addendum and the 22-page ASHRAE BBMD/foreign-device addendum. Manuals were indexed and selectively reviewed; no claim of reading every manual word for word is made. Manufacturer SDK modules, manuals and original site files remain outside Git.

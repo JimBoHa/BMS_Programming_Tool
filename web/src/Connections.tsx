@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Network, RefreshCw, Usb, Radio, Search, PlugZap } from "lucide-react";
 import { api } from "./api";
 
@@ -8,11 +8,15 @@ export function Connections() {
       instance: 4190001,
       router: "",
       dnet: "",
+      bbmd_address: "",
+      foreign_ttl: 60,
     }),
     [target, setTarget] = useState("127.0.0.1:47808"),
     [object, setObject] = useState("analog-value,1"),
     [property, setProperty] = useState("present-value"),
     [devices, setDevices] = useState<any[]>([]),
+    [foreignLow, setForeignLow] = useState("0"),
+    [foreignHigh, setForeignHigh] = useState("4194302"),
     [value, setValue] = useState<any>(null),
     [status, setStatus] = useState<any>({ connected: false, commands: [] }),
     [error, setError] = useState(""),
@@ -41,13 +45,52 @@ export function Connections() {
       parity: "N",
     }),
     [modbusResult, setModbusResult] = useState<any>(null);
+  const mounted = useRef(false),
+    statusEpoch = useRef(0),
+    ipDirty = useRef(false);
   async function refresh() {
-    setStatus(await api("/bacnet/status"));
-    setSerialPorts(await api("/ports"));
+    const epoch = ++statusEpoch.current;
+    const [next, ports] = await Promise.all([
+      api("/bacnet/status"),
+      api("/ports"),
+    ]);
+    if (mounted.current && epoch === statusEpoch.current) {
+      setStatus(next);
+      setSerialPorts(ports);
+    }
   }
   useEffect(() => {
+    mounted.current = true;
     refresh().catch((e) => setError(e.message));
+    return () => {
+      mounted.current = false;
+      statusEpoch.current++;
+    };
   }, []);
+  useEffect(() => {
+    const saved = status.config;
+    if (!saved?.local_address || saved.transport === "mstp" || ipDirty.current)
+      return;
+    setConfig({
+      local_address: saved.local_address,
+      instance: saved.instance,
+      router: saved.router || "",
+      dnet:
+        saved.dnet === null || saved.dnet === undefined
+          ? ""
+          : String(saved.dnet),
+      bbmd_address: saved.bbmd_address || "",
+      foreign_ttl: saved.foreign_ttl || 60,
+    });
+  }, [
+    status.config?.local_address,
+    status.config?.instance,
+    status.config?.router,
+    status.config?.dnet,
+    status.config?.bbmd_address,
+    status.config?.foreign_ttl,
+    status.config?.transport,
+  ]);
   useEffect(() => {
     if (status.config?.transport === "mstp") {
       const saved = status.config;
@@ -66,12 +109,15 @@ export function Connections() {
     if (!status.connected) setPlan(null);
   }, [status.connected]);
   useEffect(() => {
-    if (status.config?.transport !== "mstp") return;
+    if (status.config?.transport !== "mstp" && !status.config?.bbmd_address)
+      return;
     let live = true;
     const timer = setInterval(() => {
+      const epoch = ++statusEpoch.current;
       api("/bacnet/status")
         .then((next) => {
-          if (live) setStatus(next);
+          if (live && mounted.current && epoch === statusEpoch.current)
+            setStatus(next);
         })
         .catch((e) => {
           if (live) setError(e.message);
@@ -81,8 +127,10 @@ export function Connections() {
       live = false;
       clearInterval(timer);
     };
-  }, [status.config?.transport]);
+  }, [status.config?.transport, status.config?.bbmd_address]);
   async function action(fn: () => Promise<any>) {
+    if (busy) return;
+    statusEpoch.current++;
     setBusy(true);
     setError("");
     try {
@@ -99,9 +147,11 @@ export function Connections() {
       {title}
       <input
         type={type}
+        disabled={busy}
         value={config[name]}
         onChange={(e) => {
           setPlan(null);
+          ipDirty.current = true;
           setConfig({
             ...config,
             [name]:
@@ -120,8 +170,8 @@ export function Connections() {
           <span className="eyebrow">COMMISSIONING</span>
           <h1>Connections</h1>
           <p>
-            Directed BACnet requests and Modbus reads. Network interfaces open
-            when you connect.
+            Directed BACnet requests, explicit BBMD discovery and Modbus reads.
+            Network interfaces open when you connect.
           </p>
         </div>
         <div className="button-row">
@@ -135,7 +185,9 @@ export function Connections() {
               ? "BACnet interface open"
               : "No BACnet interface open"}
           </span>
-          {status.connected && (
+          {(status.connected ||
+            status.foreign_device ||
+            status.serial_link) && (
             <button
               disabled={busy || !!status.commands.length}
               title={
@@ -168,6 +220,13 @@ export function Connections() {
             {field("instance", "Client device instance", "number")}
             {field("router", "Router IP (optional)")}
             {field("dnet", "MS/TP destination network (optional)", "number")}
+            {field("bbmd_address", "BBMD address / UDP port (optional)")}
+            {config.bbmd_address &&
+              field(
+                "foreign_ttl",
+                "Foreign registration TTL (seconds)",
+                "number",
+              )}
             <div className="full">
               <button
                 disabled={busy}
@@ -178,7 +237,12 @@ export function Connections() {
                       ...config,
                       router: config.router || null,
                       dnet: config.dnet ? Number(config.dnet) : null,
+                      bbmd_address: config.bbmd_address.trim() || null,
+                      foreign_ttl: config.bbmd_address.trim()
+                        ? config.foreign_ttl
+                        : 60,
                     });
+                    ipDirty.current = false;
                     setPlan(null);
                   })
                 }
@@ -190,6 +254,33 @@ export function Connections() {
                 expose a usable BACnet routing path; reachability of its web
                 page alone does not prove routing.
               </p>
+              <p className="help-text">
+                For remote IP networks, register through the destination BBMD.
+                This requires a BBMD that accepts foreign devices; a VPN route
+                alone does not forward BACnet broadcasts.
+              </p>
+              {status.foreign_device && (
+                <div
+                  aria-label="BACnet foreign registration status"
+                  role="status"
+                >
+                  <b>
+                    {status.foreign_device.registered
+                      ? "Foreign registration active"
+                      : "Foreign registration unavailable"}
+                  </b>
+                  <p>
+                    {status.foreign_device.bbmd_address} · TTL{" "}
+                    {status.foreign_device.ttl}s · lease remaining{" "}
+                    {status.foreign_device.lease_remaining_seconds ?? 0}s
+                  </p>
+                  {status.foreign_device.error && (
+                    <p className="inline-error">
+                      {status.foreign_device.error}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </section>
@@ -203,6 +294,7 @@ export function Connections() {
             <label className="full">
               Unicast target
               <input
+                disabled={busy}
                 value={target}
                 onChange={(e) => {
                   setTarget(e.target.value);
@@ -213,6 +305,7 @@ export function Connections() {
             <label>
               Object identifier
               <input
+                disabled={busy}
                 value={object}
                 onChange={(e) => {
                   setObject(e.target.value);
@@ -223,11 +316,42 @@ export function Connections() {
             <label>
               Property
               <input
+                disabled={busy}
                 value={property}
                 onChange={(e) => setProperty(e.target.value)}
               />
             </label>
             <div className="button-row full">
+              <button
+                disabled={
+                  busy ||
+                  !status.connected ||
+                  !status.foreign_device?.registered
+                }
+                onClick={() =>
+                  action(async () => {
+                    const low = Number(foreignLow),
+                      high = Number(foreignHigh);
+                    if (
+                      !foreignLow ||
+                      !foreignHigh ||
+                      !Number.isInteger(low) ||
+                      !Number.isInteger(high) ||
+                      low < 0 ||
+                      high > 4194302 ||
+                      low > high
+                    )
+                      throw new Error(
+                        "BBMD discovery requires an ordered instance range from 0 to 4194302.",
+                      );
+                    setDevices(
+                      await api("/bacnet/discover-foreign", { low, high }),
+                    );
+                  })
+                }
+              >
+                Discover through BBMD
+              </button>
               <button
                 disabled={busy || !status.connected}
                 onClick={() =>
@@ -272,6 +396,32 @@ export function Connections() {
                 Read object list
               </button>
             </div>
+            {config.bbmd_address && (
+              <>
+                <label>
+                  BBMD discovery minimum instance
+                  <input
+                    type="number"
+                    min={0}
+                    max={4194302}
+                    disabled={busy}
+                    value={foreignLow}
+                    onChange={(e) => setForeignLow(e.target.value)}
+                  />
+                </label>
+                <label>
+                  BBMD discovery maximum instance
+                  <input
+                    type="number"
+                    min={0}
+                    max={4194302}
+                    disabled={busy}
+                    value={foreignHigh}
+                    onChange={(e) => setForeignHigh(e.target.value)}
+                  />
+                </label>
+              </>
+            )}
             {value && (
               <pre className="result full">
                 {JSON.stringify(value, null, 2)}
@@ -298,7 +448,9 @@ export function Connections() {
               {devices.map((d, i) => (
                 <tr
                   key={i}
+                  aria-disabled={busy}
                   onClick={() => {
+                    if (busy) return;
                     setTarget(d.address);
                     setObject(d.device);
                     setProperty("object-name");
@@ -330,6 +482,7 @@ export function Connections() {
             <label>
               Command value
               <input
+                disabled={busy}
                 value={command}
                 onChange={(e) => {
                   setCommand(e.target.value);
@@ -340,6 +493,7 @@ export function Connections() {
             <label>
               BACnet priority
               <input
+                disabled={busy}
                 type="number"
                 min={8}
                 max={16}
@@ -401,6 +555,7 @@ export function Connections() {
                 {c.address} · {c.object} · priority {c.priority} · {c.status}
               </span>
               <button
+                disabled={busy}
                 onClick={() =>
                   action(() => api("/bacnet/release", { token: c.id }))
                 }
@@ -418,6 +573,7 @@ export function Connections() {
               <Usb size={18} /> Modbus TCP / USB serial
             </h3>
             <button
+              disabled={busy}
               onClick={() => action(refresh)}
               title="Refresh serial ports"
             >
@@ -428,6 +584,7 @@ export function Connections() {
             <label>
               Transport
               <select
+                disabled={busy}
                 value={modbus.transport}
                 onChange={(e) =>
                   setModbus({
@@ -448,6 +605,7 @@ export function Connections() {
               Address or serial port
               {modbus.transport === "rtu" ? (
                 <select
+                  disabled={busy}
                   value={modbus.address}
                   onChange={(e) =>
                     setModbus({ ...modbus, address: e.target.value })
@@ -462,6 +620,7 @@ export function Connections() {
                 </select>
               ) : (
                 <input
+                  disabled={busy}
                   value={modbus.address}
                   onChange={(e) =>
                     setModbus({ ...modbus, address: e.target.value })
@@ -480,6 +639,7 @@ export function Connections() {
               <label key={k}>
                 {k === "register" ? "Register (zero based)" : k}
                 <input
+                  disabled={busy}
                   type="number"
                   value={modbus[k as keyof typeof modbus]}
                   onChange={(e) =>
@@ -491,6 +651,7 @@ export function Connections() {
             <label>
               Table
               <select
+                disabled={busy}
                 value={modbus.table}
                 onChange={(e) =>
                   setModbus({ ...modbus, table: e.target.value })
@@ -505,6 +666,7 @@ export function Connections() {
               <label>
                 Parity
                 <select
+                  disabled={busy}
                   value={modbus.parity}
                   onChange={(e) =>
                     setModbus({ ...modbus, parity: e.target.value })
@@ -552,6 +714,7 @@ export function Connections() {
             <label className="full">
               MS/TP serial port
               <select
+                disabled={busy}
                 value={mstp.port}
                 onChange={(e) => {
                   setPlan(null);
@@ -569,6 +732,7 @@ export function Connections() {
             <label>
               MS/TP baud rate
               <select
+                disabled={busy}
                 value={mstp.baudrate}
                 onChange={(e) => {
                   setPlan(null);
@@ -593,6 +757,7 @@ export function Connections() {
               <label key={key}>
                 {title}
                 <input
+                  disabled={busy}
                   type="number"
                   min={min}
                   max={max}
