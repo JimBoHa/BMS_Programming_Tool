@@ -589,9 +589,9 @@ add(
     "Physical input configuration",
     "Add a real unused sensor terminal and verify reliability/open-circuit on the target.",
     "User-authorized E2/F2 test",
-    "Read-only checks authorized: site Mac reachable, target network route unavailable",
+    "Read-only NAE access verified through approved Tailscale subnet route",
     "pending",
-    "Site Mac reached through Tailscale; no approved target subnet route visible and both NAE HTTP/HTTPS probes timed out. Credentials not read/authentication not attempted. Native application adapter and physical sensor test still required",
+    "Actual BACnet discovery and device metadata reads succeeded for both E2/F2 NAEs through Tailscale. Credentials not read/web authentication not attempted; no controller changes. Downstream VAV route, native application adapter and physical sensor test still required",
 )
 add(
     "CODE-001",

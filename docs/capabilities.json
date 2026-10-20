@@ -122,7 +122,7 @@
   {
     "feature": "BACnet/IP-to-MS/TP router paths",
     "status": "partial",
-    "scope": "Explicit router IP plus DNET/MAC addressing. NPDU routing is exercised through an IP-to-virtual-data-link test. Authorized read-only checks reached the site Mac through Tailscale, but no approved target-subnet route was visible and both E2/F2 NAE HTTP/HTTPS probes timed out. Desktop credentials were not read; authentication and device writes were not attempted. Physical routing/controller acceptance remains unverified."
+    "scope": "Explicit router IP plus DNET/MAC addressing. NPDU routing is exercised through an IP-to-virtual-data-link test. The approved Tailscale subnet route now permits real unicast BACnet discovery and device metadata reads from both E2/F2 NAEs. Desktop credentials remain unread; web authentication and device writes were not attempted. Downstream physical MS/TP VAV routing and native application acceptance remain unverified."
   },
   {
     "feature": "Ethernet and USB serial",
@@ -142,7 +142,7 @@
   {
     "feature": "E2/F2 unused-input sensor test",
     "status": "pending",
-    "scope": "Read-only site checks were authorized. The site Mac responded through Tailscale, but no approved route to the target subnet was visible and both NAE HTTP/HTTPS probes timed out. Desktop credentials were not read; authentication and device writes were not attempted. The physical sensor test remains pending a working route, native application adapter, exact target/unused terminal, original backup and verified restoration. Standard point commands cannot allocate a new native input."
+    "scope": "The approved Tailscale subnet route reaches both NAEs, and actual read-only BACnet discovery/device metadata reads succeeded. Desktop credentials remain unread; web authentication and controller writes were not attempted. The physical sensor test still requires a verified native application adapter, exact target/unused terminal, original backup and verified restoration. Standard point commands cannot allocate a new native input."
   },
   {
     "feature": "2025 Title 24 / Guideline 36 applications",
