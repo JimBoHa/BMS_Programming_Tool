@@ -93,8 +93,12 @@ and package. Only one private exchange is pending under the shared connection
 lock. BACpypes confirmed transaction state is retired locally after each exchange
 so a late library retry cannot repeat a write. This cleanup uses the pinned
 BACpypes3 0.0.110 transaction interface.
+Confirmed dispatch runs in an owned task that is cancelled and joined before
+returning, including cancellation during the native device-cache lookup before
+the state machine sets its invoke identifier, or when an unconfirmed reply wins.
 Request bookkeeping is cleared before returning, and the previous private-message
-handler is restored even if BACpypes rejects admission synchronously.
+handler is restored even if BACpypes rejects dispatch. Actual UDP regressions
+hold that early lookup and verify no confirmed request or write arrives later.
 
 ## Planning, backup and replacement
 

@@ -1,0 +1,35 @@
+.routed-discovery .card-body {
+  display: grid;
+  gap: 16px;
+}
+.routed-discovery .card-body > p {
+  margin: 0;
+}
+.routed-action {
+  display: flex;
+  align-items: end;
+  padding-bottom: 1px;
+}
+.routed-networks,
+.routed-report-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.routed-report-heading {
+  justify-content: space-between;
+}
+.routed-window {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.routed-window p {
+  margin: 8px 0;
+}
+.routed-table {
+  overflow-x: auto;
+}
+.routed-table table {
+  width: 100%;
+}

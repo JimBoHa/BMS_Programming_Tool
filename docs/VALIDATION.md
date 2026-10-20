@@ -4,10 +4,10 @@ This development build validates the stated local behavior. It does not establis
 
 ## Automated checks
 
-- The final full backend run passed **1,279 tests with no skips in 232.12 seconds**, including all seven authorized CAFs, saved CAF simulation profiles, genuine external Niagara descriptors, independent native IEC execution, real UDP/routed Temco transfer/recovery, native CAF comparison/hardening, BACnet history/capture, real-time BBMD lease expiry, durable webhook delivery and existing simulation/transport/storage coverage.
-- **71 browser workflows passed in approximately 1.8 minutes** against the production TypeScript/Vite build. They cover authoring, macros, calendars, simulation, storage, CAF/BOG and field workflows, genuine IEC compilation/execution, quality faults, timed recovery, native Temco transfer/restore, JCI hardware migration, native CAF comparison/saved simulation values, 20-kind Niagara conversion, device Trend Log history, BBMD registration/discovery/renewal and actual HTTP webhook receipts/retries. Held genuine responses verify draft preservation and stale save/load/import/validation/preview handling. A 501-record comparison export traverses multiple API pages. History cases use actual UDP ReadRange for complete, limited, partial, empty and DST-fold reads, CSV provenance, sealed captures and restart. Notification tests explicitly end, acknowledge and retire only their own isolated test sources after verifying delivery leaves alarms unacknowledged; this prevents test-order contamination.
+- The final full backend run passed **1,437 tests with no skips in 323.37 seconds**, including all seven authorized CAFs, saved CAF simulation profiles, genuine external Niagara descriptors, independent native IEC execution, real UDP/routed Temco transfer/recovery, native CAF comparison/hardening, BACnet history/capture, real-time BBMD lease expiry, durable webhook delivery and existing simulation/transport/storage coverage. New coverage includes independent raw-router discovery, wildcard identity and paced MAC pages, partial indexed object inventories, native value preservation, stream/record File capture, strict command scalars and exact ownership, and cancellation during native dispatch before invoke-ID assignment.
+- **81 browser workflows passed in approximately 2.6 minutes** against the production TypeScript/Vite build. They cover authoring, macros, calendars, simulation, storage, CAF/BOG and field workflows, genuine IEC compilation/execution, quality faults, timed recovery, native Temco transfer/restore, JCI hardware migration, native CAF comparison/saved simulation values, 20-kind Niagara conversion, device Trend Log history, BBMD registration/discovery/renewal and actual HTTP webhook receipts/retries. Additional real UDP browser workflows cover routed cache/discovery, wildcard controller selection, paced MAC pages, partial object-list continuation/export and opaque File reads/exports. Held genuine responses verify draft preservation and stale save/load/import/validation/preview handling. A 501-record comparison export traverses multiple API pages. History cases use actual UDP ReadRange for complete, limited, partial, empty and DST-fold reads, CSV provenance, sealed captures and restart. Notification tests explicitly end, acknowledge and retire only their own isolated test sources after verifying delivery leaves alarms unacknowledged; this prevents test-order contamination.
 - Ruff, TypeScript and production Vite build checks pass. Workspace pages load in separate bundles; the main bundle is approximately 419 kB before gzip. Screenshots of native formats, compiled traces, serial settings, field samples, CAF comparison/simulation, BBMD state, alarm delivery and device history were visually inspected.
-- After a final route-detail spacing correction, the production build and both actual-receiver alarm-delivery browser workflows passed again in 11.6 seconds.
+- After adding adjustable MAC-page timing for slower field replies, the final production build and all four actual-UDP controller-probe browser workflows passed again in 13.8 seconds. They verify chosen timing values on the wire/API report, bounds, stale-result invalidation and explicit continuation. Backend code was unchanged after the full 1,437-test run.
 - Nine PLCopen example exports previously validated against an independently retrieved TC6 v2.01 XSD. Schema provenance: <https://raw.githubusercontent.com/mattsse/plcopen-xml-xcore/master/schema/tc6_xml_v201.xsd>. XSD conformance is not external PLC compiler acceptance.
 - The environment uses Python 3.13.16, Node 22.23.3, FastAPI 0.146.0, Pydantic 2.14.1, BACpypes3 0.0.110 and Vite 7.3.7. Dependency pins are unchanged from the recorded advisory audit. Upstream Starlette TestClient and pybog Pydantic deprecation warnings remain; they are not failed checks.
 
@@ -104,7 +104,7 @@ termination and temporary-file cleanup. Seventy-one focused compiler/API tests
 passed; no controller I/O is available in that host profile. The compiler's
 upstream Clang warnings stay visible. See [IEC execution details](iec-native.md).
 
-Forty Temco transfer tests use actual BACpypes UDP, manufacturer C/C++ wire
+Forty-three Temco transfer tests use actual BACpypes UDP, manufacturer C/C++ wire
 fixtures, routed NPDU forwarding and an independent firmware-layout emulator.
 The received image executes in the real manufacturer interpreter. Backup,
 slot stop, all five chunk writes, full readback, conditional run-state changes,
@@ -157,9 +157,89 @@ simulation or polling databases. See [history scope](bacnet-history.md).
 
 After the user approved the subnet and restarted Tailscale on the site Mac, the 192.0.2.0/24 route appeared in the peer's approved primary routes and the OS selected utun4 for both NAEs. TCP 80/443 connections succeeded. Both HTTPS peers presented self-signed certificates with the expected E2-NAE/F2-NAE names; certificate-chain trust was not established. Public web roots and documented UI paths returned HTTP 403. The legacy TimeService metadata request redirected to its 400 page. No credentials were transmitted to a guessed login endpoint.
 
-Actual production BACnet unicast discovery and ReadProperty succeeded through that route: E2-NAE at 192.0.2.32 is device 505; F2-NAE at 192.0.2.35 is device 506. Both report model MS-NAE5510-2, firmware 11.0.7.40 and vendor 5. These are NAE firmware values, not the downstream VAV firmware. The ephemeral BACnet client read only object-name, model-name and firmware-revision, then closed its socket. No controller writes, application transfers or native live edits occurred. Desktop credentials remain unread and web authentication remains untested. Private diagnostic evidence is retained in ignored `local-reports/site-route-retest-after-restart.json`, `site-http-identity.json` and `site-bacnet-readonly.json`. No local exit node was selected.
+Actual production BACnet unicast discovery and ReadProperty succeeded through that route: E2-NAE at 192.0.2.32 is device 505; F2-NAE at 192.0.2.35 is device 506. Both report model MS-NAE5510-2, firmware 11.0.7.40 and vendor 5. These are NAE firmware values, not the downstream VAV firmware. Desktop credentials remain unread and web authentication remains untested. The BACnet checks did not require those credentials. Private engine-access evidence is retained in ignored `local-reports/site-route-retest-after-restart.json`, `site-http-identity.json` and `site-bacnet-readonly.json`. No local exit node was selected.
 
-These successful NAE reads do not establish downstream IP-to-MS/TP VAV routing or native application acceptance. A real unused-input sensor test still needs a verified native application adapter, exact target/terminal, original backup and verified restoration. BACnet point commands cannot add that input.
+Subsequent addressed reads established actual downstream VMA access on all four
+selected MS/TP networks. Device wildcard `4194303` returned the actual controller
+identifier; the identifier in the ACK and property value agreed. All four
+controllers report vendor 5, model `MS-VMA1630-0`, firmware `6.2.0.1054` and
+application software version `10.1`.
+
+| Engine | Routed address | Device instance | Controller name | Observed trunk I-Am rows |
+| --- | --- | --- | --- | --- |
+| E2 | 2105:7 | 5007 | TB4-101 | 81 |
+| E2 | 2205:7 | 5007 | TB4-304 | 62 |
+| F2 | 2106:5 | 5005 | TB5-101 | 70 |
+| F2 | 2206:5 | 5005 | TB5-302 | 68 |
+
+The four three-second selected-network Who-Is windows observed 281 Device/MAC
+rows. This is a set of responses on each network, not a globally unique physical
+controller count or exhaustive inventory. Both router-network advertisement
+queries remained silent; the exact Device address-binding reads returned 161
+cached entries for E2 and 145 for F2. Cache entries remain unverified hints.
+Separate paced wildcard pages attempted MACs 0 through 127 on each trunk.
+The 0.75-second default missed one already identified F2 VMA; explicit
+two-second probes subsequently identified MAC5 on both F2 networks. The GUI now
+exposes bounded response-window, spacing and overall-deadline controls and
+invalidates old results after editing them. A timeout still means unknown.
+
+Device identifiers repeat across networks. Discovery and selection retain the
+router, network and MAC rather than treating an instance as a globally unique
+site identifier. Each controller returned 84 objects. Independent indexed reads
+collected 20/20/20/20/4 entries per controller with no page errors; all 336
+ordered objects matched their prior snapshots. Earlier larger production HTTP
+requests retained partial/time-out reports, and a later real browser explicitly
+read and exported two 20-object pages. Direct reads retrieved
+discharge-air temperature, velocity pressure, zone temperature and heating
+output, together with units, reliability, status flags and out-of-service.
+The actual inventories contain no standard Trend Log object; stored VMA history
+retrieval therefore has no physical target in this sample. The separate local
+UDP history tests remain the evidence for that service.
+
+Field testing exposed a real routing defect: Hop Count 1 did not reach the VMA
+through the NAE. The same interface and addressed wildcard request succeeded
+with Hop Count 16 and with the native stack's 255. Routed scans and probes now
+use 255 while retaining exact selected IP router, DNET/MAC and response-source
+checks. A fresh-socket Hop-255 probe succeeded without a preliminary direct
+router read. No new automatic router preflight was added. The existing measured
+I-Am preflight for a large address-binding read remains separate.
+
+All four VMAs advertise six BACnet File objects despite an empty
+`configuration-files` property. The file reader now discovers only File objects
+actually present in the bounded Device object list and retains its inventory
+hash. Production HTTP AtomicReadFile captured Archive File3 (`.moi`), Static
+File11 (`.pss`) and Dynamic File12 (`.pss`) from each VMA: **12 source files,
+152,229 bytes total**. Independent export checks matched every size, SHA-256 and
+receipt. Private copies and a manifest live outside Git in the sibling
+`Controller_Uploads/2026-10-19/` directory. A real browser additionally inspected
+the six Files, captured/exported Static PSS and verified its hash. This is raw
+controller-file evidence, not an editable CAF or a verified coherent application
+backup. Firmware files were not downloaded.
+
+Bounded offline analysis of the first 36,880-byte MOI expanded its single gzip
+member to 188,288 bytes of native binary data, with an MOI header and model
+prefix, rather than CAF XML. JCI documents a separate XML/MOI/PSS conversion
+component and persistent storage for commissioning changes in its
+[CCT manual](https://docs.johnsoncontrols.com/bas/api/khub/documents/oljzrL52qtPGho8In2ASqA/content).
+The copied PSS files therefore remain alongside the MOI; gzip decompression
+alone does not establish an editable CAF conversion.
+
+Four explicit production field-trend jobs each persisted two actual zone
+temperature samples with verified good quality and Fahrenheit unit labels,
+then stopped. A real browser selected one source and exported its two rows with
+acquisition/receipt times, source, quality and units. The private full API and
+browser evidence is `site-routed-field-final.json` and
+`site-ui-verification.json`; the latter records a corrected test-harness CSV
+selector and initially over-restrictive local validation-request guard. Neither
+required an application change. Independent discovery/page reports are
+`site-e2-routing-pages-final.json` and `site-f2-routing-pages-final.json`.
+
+A real unused-input sensor test still needs a verified native application
+adapter, exact target/terminal, original backup and verified restoration.
+BACnet point commands cannot add that input. No field WriteProperty,
+ReinitializeDevice, backup-state change or native application modification was
+issued. Desktop credentials were not needed for these BACnet reads and remain
+unread; web authentication remains untested.
 
 JCI/ALC/Honeywell native application compilers/loaders, BTCVT, full proprietary conversions, physical target packaging and six verified native 2025 Title 24 CAF applications remain incomplete. Explicit webhook delivery is implemented within its documented profile; native-controller alarm acquisition, SMTP/email and human receipt are outside it. Native Temco and Sedona execution does not establish support on that firmware. Bluetooth configuration is excluded from this test pass. No physical USB serial adapter was present. The requested final GitHub push remains pending full completion.
 
@@ -167,16 +247,16 @@ The Windows VM inventory checked 32-bit/64-bit installed-program registries and 
 
 The preceding native-transfer integration backed up `studio.sqlite3` and `observability.sqlite3` under ignored `.state/before-transfer-integration/`. Its production API smoke independently compiled/executed three IEC and three Temco scans with output 42. The transfer service reported no connection, no uncertain operations and no field backups.
 
-The latest idle-server update also backed up the project, simulation and field
+The earlier history/comparison update also backed up the project, simulation and field
 databases under ignored `.state/before-history-comparison/`. The actual local
 production API served the built GUI, compared an authored scalar-edited CAF,
 returned the original CAF byte exactly and exposed the new history profile.
 A history request with no connected interface failed explicitly without opening
 a field socket. The main server retained no active BACnet connection, field
 polling job, native SVM, system simulation or owned point command. Captures from
-automated browser tests live only in isolated temporary test state.
+automated loopback browser tests live only in isolated temporary test state.
 
-Before the latest integration, the same three databases were copied through
+Before the preceding non-Bluetooth integration, the same three databases were copied through
 SQLite's backup API into ignored `.state/before-nonbluetooth-integration/` and
 passed integrity checks. The verified idle server was restarted with the new
 backend and built GUI at <http://127.0.0.1:8765>. Its production smoke exported
@@ -187,4 +267,20 @@ notification service. No route, field connection, polling job, native VM,
 shared-system session or owned command was active. Original CAF bytes were
 rehashed unchanged. No destination was configured in the main outbox.
 
-The reference desk records 255 sources and 53 feature criteria: 29 implemented, 16 partial and eight pending. The multivendor PDF catalog contains 64 records, 63 distinct hashes and 6,813 indexed PDF pages, alongside the earlier JCI collection. Downloaded primary references include the 14-page ASHRAE Trend Log addendum and the 22-page ASHRAE BBMD/foreign-device addendum. Manuals were indexed and selectively reviewed; no claim of reading every manual word for word is made. Manufacturer SDK modules, manuals and original site files remain outside Git.
+For the current routed-field integration, all four project, simulation, field
+and notification databases were copied with SQLite's backup API into ignored
+`.state/before-routed-integration-final/`; every backup passed integrity checks.
+The final production server at <http://127.0.0.1:8765> was restarted from an idle
+state. It retained all 14 File captures (12 source files and two repeat
+verification captures) and 14 field samples (six earlier NAE-proxy readings plus
+eight direct VMA readings). No BACnet connection, polling job or owned command
+resumed. The browser then reopened/exported the saved PSS and field CSV with the
+interface closed, verifying the file hash and both selected source rows again.
+All 14 saved file exports also passed independent offline size/SHA-256 checks.
+The private evidence is `local-reports/site-restart-persistence.json`. All
+separate field-test interfaces also closed; no site traffic remains active.
+The consolidated private result is
+`local-reports/site-bacnet-verification-final.json`; the user export directory
+also includes the eight direct samples with route/point identity in CSV.
+
+The reference desk records 258 sources and 59 feature criteria: 35 implemented, 16 partial and eight pending. The multivendor PDF catalog contains 64 records, 63 distinct hashes and 6,813 indexed PDF pages, alongside the earlier JCI collection. Downloaded primary references include the 14-page ASHRAE Trend Log addendum and the 22-page ASHRAE BBMD/foreign-device addendum. Manuals were indexed and selectively reviewed; no claim of reading every manual word for word is made. Manufacturer SDK modules, manuals and original site files remain outside Git.

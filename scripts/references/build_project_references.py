@@ -146,6 +146,21 @@ for title, url, note in [
         "https://bacnet.org/wp-content/uploads/sites/4/2022/08/Add-2001-135b.pdf",
         "Primary protocol reference for device-local log timestamps, ReadRange sequence ordering and wrap to 1. Implemented standard single-value Trend Log profile is tested with actual UDP/routed local services; physical devices and proprietary history formats remain unverified.",
     ),
+    (
+        "ASHRAE 135.1-2019 Addendum s: Device wildcard ReadProperty",
+        "https://bacnet.org/wp-content/uploads/sites/4/2024/05/135_1_2019_s_20230331.pdf",
+        "Primary test 12.1.3.X3 requests Device 4194303 and expects the actual Device identity in the ACK/value. Explicit MAC probes and bounded pages use this standard read, with actual independent UDP fixtures; unknown identities are never inferred from MAC alone.",
+    ),
+    (
+        "ASHRAE 135.1-2011 Addendum m: backup procedure and configuration files",
+        "https://resourcecenter.ashrae.org/File%20Library/Technical%20Resources/Standards%20and%20Guidelines/Standards%20Addenda/135_1_2011_m_Published.pdf",
+        "Primary backup procedure includes device-control transitions. The separate implemented File service reads existing advertised stream/record files only; opaque captures do not establish a coherent backup or editable CAF upload.",
+    ),
+    (
+        "BACpypes3 pinned BACnet application and native datatype interfaces",
+        "https://github.com/JoelBender/BACpypes3/tree/21f918c0396c72c95e7e635abde18514e58feb8d/bacpypes3",
+        "Pinned 0.0.110 application, transaction, native datatype and APDU interfaces reviewed for explicit routing, typed JSON preservation, exact native command values and owned confirmed-dispatch cleanup. Independent local UDP/HTTP/browser tests; no claim of universal proprietary datatype or native application compatibility.",
+    ),
 ]:
     if not any(r["url"] == url for r in refs):
         refs.append(
@@ -415,7 +430,7 @@ add(
     "Honeywell Spyder Utility Tool 62-0381",
     "1-8",
     "implemented",
-    "BACpypes3 BACnet/IP and routed destinations",
+    "Explicit BACnet/IP/routed reads, exact native value JSON and bounded indexed object pages with partial-error/next-offset export; separate guarded owned point commands. Native application programming remains outside point services",
 )
 
 temco = "Temco T3000 Software Manual Rev4"
@@ -589,9 +604,9 @@ add(
     "Physical input configuration",
     "Add a real unused sensor terminal and verify reliability/open-circuit on the target.",
     "User-authorized E2/F2 test",
-    "Read-only NAE access verified through approved Tailscale subnet route",
+    "Read-only NAE and downstream VMA identity/value access through approved Tailscale subnet route",
     "pending",
-    "Actual BACnet discovery and device metadata reads succeeded for both E2/F2 NAEs through Tailscale. Credentials not read/web authentication not attempted; no controller changes. Downstream VAV route, native application adapter and physical sensor test still required",
+    "Authorized read-only checks identified both E2/F2 NAEs and genuine downstream VMAs on four trunks and read values. No controller changes. Native application adapter, exact unused input, verified backup/restoration and physical sensor test remain required; inventories and opaque File copies do not allocate native inputs",
 )
 add(
     "CODE-001",
@@ -675,6 +690,60 @@ add(
     "BVLC registration/result/distribution; TTL and grace period",
     "implemented",
     "Independent raw UDP BBMD/device peers verify registration, forwarded discovery, reads, real 31-second expiry, cancellation/bind cleanup and owned-command recovery. Physical/site BBMD validation remains unverified; this does not provide controller programming",
+)
+add(
+    "COMM-006",
+    "Explicit router discovery and cached addresses",
+    "Query one selected router/network with bounded response windows; distinguish advertised networks, cached hints, unknown Device identities and live I-Am evidence, preserving truncation and provenance.",
+    "BACpypes3 pinned network/APDU source; JCI BACnet routing documentation",
+    "Who-Is-Router-To-Network, selected-DNET Who-Is and Device address-binding cache",
+    "implemented",
+    "Explicit router queries and directed exact-Device cache preflight; unknown instance 4194303 becomes null, original MACs retained, complete response windows never imply complete inventories. Raw UDP, segmented cache, ASGI and browser checks; no automatic broad scan or connection change",
+)
+add(
+    "COMM-007",
+    "Wildcard MAC identity and bounded pages",
+    "Identify one explicitly addressed controller using standard Device wildcard access, or probe at most 32 selected MACs sequentially with timeouts, spacing, per-address outcomes and an explicit resume cursor.",
+    "ASHRAE 135.1-2019 Addendum s; ASHRAE 135-2016 Addendum br",
+    "Wildcard ReadProperty test 12.1.3.X3; Device wildcard interoperability",
+    "implemented",
+    "ACK actual Device identity must match its property value; optional metadata errors remain explicit. Silent MACs stay unknown, exact router/DNET must already be open, row selection never implies native programming support. Independent actual UDP/HTTP/browser tests and separately recorded routed site reads",
+)
+add(
+    "DATA-003",
+    "Paged object inventory evidence",
+    "Read bounded indexed object-list pages and preserve actual indices, partial errors, count-change checks and next offset; export the exact displayed report without claiming an application backup.",
+    "BACpypes3 pinned Device schema and ReadProperty definitions; original engineering requirement",
+    "Device Object_List array count/index access and bounded inventory review",
+    "implemented",
+    "Offset 0..20000, up to 200 entries and a whole-operation deadline; partial rows survive timeout and the operator explicitly requests the next page. Actual UDP/HTTP/browser partial-resume and export tests; target changes clear stale page results",
+)
+add(
+    "DATA-004",
+    "Loss-explicit native property values",
+    "Preserve native Booleans, structured records, octets, nonfinite numeric evidence, large integers and unknown tagged bytes within explicit resource limits, without inventing quality, timezone or proprietary semantics.",
+    "BACpypes3 0.0.110 primary datatypes, Sequence/Choice and tag definitions",
+    "Atomic and constructed data encoding; original bounded JSON profile",
+    "implemented",
+    "Compatible finite/list/Choice shapes, actual JSON Boolean, schema field maps, exact base64 bytes, typed nonfinite/large integers and opaque hashes/previews. Depth/item/byte/cycle bounds fail visibly; unknown vendor type decoding remains unsupported. Actual native UDP/HTTP serialization tests",
+)
+add(
+    "COMM-008",
+    "Exact point-command ownership and transaction lifetime",
+    "Validate native scalar command types before writes, journal exact wire values and preserve uncertain ownership; stop only the owned transaction and pending dispatch on timeout, cancellation or interface closure.",
+    "BACpypes3 pinned primitive/APDU/application implementation; original ownership requirement",
+    "BinaryPV, Real, Double, Unsigned, priority arrays and confirmed-service dispatch",
+    "implemented",
+    "Canonical BinaryPV, finite analog wire rounding, strict positive multistate/state-count checks and requested_value evidence. Exact slot readback rejects adjacent Real takeover; accepted-before-ACK restart recovery and release tested. Owned inline dispatch handles pre-invoke cancellation and shutdown; Temco races join owned dispatch before returning. No automatic retry after return or relinquish; no field write validation",
+)
+add(
+    "DATA-005",
+    "Opaque standard BACnet File capture",
+    "Inspect advertised File objects, explicitly read supported stream/record data with identity/metadata/membership guards, then preserve exact bytes and immutable provenance for offline export without claiming editable CAF or coherent backup.",
+    "ASHRAE 135.1-2011 Addendum m; JCI FX-PCV/VMA PICS; BACpypes3 primary File/APDU definitions",
+    "Configuration_Files, Object_List fallback, AtomicReadFile and backup procedure 13.8.1.1",
+    "implemented",
+    "Bounded Configuration_Files/Object_List inspection, native APDU-aware reads, exact EOF/size/count validation and hashed receipts with record boundaries. Actual UDP/HTTP/browser stream/record/offline export and cancellation checks. ReadProperty/AtomicReadFile only; no backup-state control, File writes, native CAF conversion or whole-device coherence guarantee; physical results recorded separately",
 )
 
 with (PROJECT / "docs/FEATURE_REQUIREMENTS.csv").open("w", newline="") as f:

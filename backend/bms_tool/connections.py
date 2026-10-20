@@ -21,24 +21,16 @@ from argparse import Namespace
 import serial
 from bacpypes3.apdu import ErrorRejectAbortNack
 from bacpypes3.app import Application
+from bacpypes3.basetypes import BinaryPV
 from bacpypes3.pdu import Address, LocalBroadcast
-from bacpypes3.primitivedata import Null
+from bacpypes3.primitivedata import Double, Null, Real, Unsigned
 from serial.tools import list_ports
 
+from .bacnet_read import close_application, read_property
+from .bacnet_values import json_value
+from .bacnet_write import write_property
+
 MAX_FOREIGN_DEVICES = 1000
-
-
-def json_value(value):
-    if isinstance(value, Null):
-        return None
-    choice = getattr(value, "_choice", None)
-    if choice:
-        return {"type": choice, "value": json_value(getattr(value, choice))}
-    if isinstance(value, (list, tuple)):
-        return [json_value(v) for v in value]
-    if isinstance(value, (str, int, float, bool)) or value is None:
-        return value
-    return str(value)
 
 
 def _unicast(address):
@@ -58,8 +50,8 @@ def _slot_matches(slot, expected):
     if not isinstance(slot, dict) or slot.get("type") == "null":
         return False
     actual = slot.get("value")
-    if type(actual) in (float, int) and type(expected) in (float, int):
-        return math.isclose(actual, expected, rel_tol=1e-6, abs_tol=1e-7)
+    # Preflight stores the exact native-wire number. Even one adjacent Real
+    # represents a changed command, not rounding that we can claim as our own.
     return actual == expected
 
 
@@ -150,7 +142,7 @@ class Bacnet:
                 return self.config
             self.store.record("bacnet.connect.requested", requested)
             if self.app:
-                self.app.close()
+                close_application(self.app)
                 self.app = None
                 await asyncio.sleep(0)
             # Detect invalid/unavailable interfaces before BACpypes starts a
@@ -185,7 +177,7 @@ class Bacnet:
                 if router:
                     await app.nsap.update_router_references(None, router_target, [dnet])
             except BaseException:
-                app.close()
+                close_application(app)
                 raise
             self.app = app
             self.config = requested
@@ -242,7 +234,7 @@ class Bacnet:
                 return self.config
             self.store.record("bacnet.mstp.connect.requested", requested)
             if self.app:
-                self.app.close()
+                close_application(self.app)
                 self.app = None
                 await asyncio.sleep(0)
             app = await create_mstp_application(
@@ -267,6 +259,18 @@ class Bacnet:
                 )
             if target.addrAddr[0] == self.config["mac"]:
                 raise ValueError("Select a remote MS/TP MAC, not this client's own address.")
+        elif target.addrType == Address.remoteStationAddr:
+            if (
+                not self.config
+                or not self.config.get("router")
+                or self.config.get("dnet") != target.addrNet
+            ):
+                raise ValueError(
+                    "Routed targets require the selected router and destination network to be opened first."
+                )
+            route = getattr(target, "addrRoute", None)
+            if route is not None and route != Address(self.config["router"]):
+                raise ValueError("Target route differs from the explicitly opened BACnet router.")
         return target
 
     async def discover(self, address, low=0, high=4194302):
@@ -343,8 +347,12 @@ class Bacnet:
     async def _read(self, address, object_id, property_id="present-value", array_index=None):
         try:
             value = await asyncio.wait_for(
-                self.require().read_property(
-                    self.target_address(address), object_id, property_id, array_index
+                read_property(
+                    self.require(),
+                    self.target_address(address),
+                    object_id,
+                    property_id,
+                    array_index,
                 ),
                 6,
             )
@@ -365,23 +373,81 @@ class Bacnet:
             "value": json_value(await self._read(address, object_id, property_id, array_index)),
         }
 
-    async def objects(self, address, device):
-        length = int(await self._read(address, device, "object-list", 0))
-        if length > 20000:
-            raise ValueError("Object list exceeds 20,000 item limit.")
-        rows = []
-        # Sequential, bounded reads avoid saturating an MS/TP trunk.
-        for index in range(1, min(length, 500) + 1):
-            obj = await self._read(address, device, "object-list", index)
-            rows.append({"object": str(obj)})
-        return {"objects": rows, "total": length, "truncated": length > 500}
+    async def objects(self, address, device, offset=0, limit=100, timeout_seconds=15.0):
+        if type(offset) is not int or not 0 <= offset <= 20000:
+            raise ValueError("Object-list offset must be0..20000.")
+        if type(limit) is not int or not 1 <= limit <= 200:
+            raise ValueError("Object-list page size must be1..200.")
+        if (
+            type(timeout_seconds) not in (int, float)
+            or not math.isfinite(timeout_seconds)
+            or not 1 <= timeout_seconds <= 30
+        ):
+            raise ValueError("Object-list operation deadline must be1..30 seconds.")
+        self.target_address(address)
+        rows, length, error = [], None, None
+        # The deadline includes lock acquisition, rather than extending behind
+        # another operation. Completed entries survive a later read failure.
+        try:
+            async with asyncio.timeout(timeout_seconds):
+                async with self.lock:
+                    app, config = self.require(), dict(self.config)
+                    raw_length = await self._read(address, device, "object-list", 0)
+                    if not isinstance(raw_length, int) or not 0 <= raw_length <= 20000:
+                        raise ValueError("Object list exceeds its integer0..20000 profile.")
+                    length = int(raw_length)
+                    if offset > length:
+                        raise ValueError("Object-list offset exceeds the device's list length.")
+                    for index in range(offset + 1, min(length, offset + limit) + 1):
+                        if self.require() is not app or self.config != config:
+                            raise ValueError(
+                                "BACnet interface changed during object-list retrieval."
+                            )
+                        obj = await self._read(address, device, "object-list", index)
+                        rows.append({"object": str(obj), "index": index})
+                        if index < min(length, offset + limit):
+                            await asyncio.sleep(0.05)
+                    if self.require() is not app or self.config != config:
+                        raise ValueError("BACnet interface changed during object-list retrieval.")
+                    if int(await self._read(address, device, "object-list", 0)) != length:
+                        raise ValueError("Device object-list length changed during this page.")
+        except TimeoutError:
+            error = "Object-list operation timed out; completed entries are retained."
+        except ValueError as exc:
+            if length is None or not rows:
+                raise
+            error = str(exc)
+        next_offset = offset + len(rows)
+        more = length is not None and next_offset < length
+        result = {
+            "address": address,
+            "device": device,
+            "objects": rows,
+            "total": length,
+            "offset": offset,
+            "limit": limit,
+            "next_offset": next_offset if more else None,
+            "truncated": more,
+            "complete": error is None,
+            "error": error,
+            "scope": "One read-only object-list page; complete does not imply a stable application backup.",
+        }
+        self.store.record(
+            "bacnet.objects",
+            {
+                "address": address,
+                "device": device,
+                "offset": offset,
+                "received": len(rows),
+                "error": error,
+            },
+        )
+        return result
 
     async def plan_write(self, address, object_id, value, priority=16):
         if not 8 <= priority <= 16:
             raise ValueError("Engineering commands use priorities 8..16.")
-        if type(value) not in (float, int, bool, str) or (
-            type(value) in (float, int) and not math.isfinite(value)
-        ):
+        if type(value) not in (float, int, bool, str):
             raise ValueError("Command must be a finite scalar.")
         self.target_address(address)
         obj = await self.require().parse_object_identifier(object_id)
@@ -396,6 +462,50 @@ class Bacnet:
             raise ValueError(
                 "Only commandable output/value objects are supported. Creating/configuring a physical input requires a native application adapter."
             )
+        requested_value = value
+        vendor = await self.require().get_vendor_info(device_address=self.target_address(address))
+        object_class = vendor.get_object_class(obj[0])
+        datatype = object_class.get_property_type("present-value") if object_class else None
+        if str(obj[0]) in ("binary-output", "binary-value"):
+            if datatype is None or not issubclass(datatype, BinaryPV):
+                raise ValueError("Binary command requires a known BinaryPV present-value datatype.")
+            # BACnet BinaryPV is an enum, not truthiness. Persist the exact
+            # numeric value transmitted/read back so restart ownership works.
+            if type(value) is str and value in ("inactive", "active"):
+                value = int(value == "active")
+            elif type(value) in (bool, int, float) and value in (0, 1):
+                value = int(value)
+            else:
+                raise ValueError("BinaryPV command must be active, inactive, 0, 1, or a boolean.")
+        elif str(obj[0]) in ("analog-output", "analog-value"):
+            if datatype is None or not issubclass(datatype, Real):
+                raise ValueError("Analog command requires a known Real or Double datatype.")
+            if type(value) not in (int, float):
+                raise ValueError(
+                    "Analog command must be a finite integer or float; no strings or booleans."
+                )
+            try:
+                # Double derives from Real; check it first. Persist exactly the
+                # number that survives BACnet's native IEEE wire encoding, so
+                # accepted-but-unacknowledged commands retain provable ownership.
+                wire_format = "!d" if issubclass(datatype, Double) else "!f"
+                value = struct.unpack(wire_format, struct.pack(wire_format, value))[0]
+            except (OverflowError, struct.error) as exc:
+                raise ValueError("Analog command is outside the finite native wire range.") from exc
+            if not math.isfinite(value):
+                raise ValueError("Analog command must remain finite in its native wire datatype.")
+        else:
+            if datatype is None or not issubclass(datatype, Unsigned):
+                raise ValueError("Multistate command requires a known Unsigned datatype.")
+            if type(value) is not int or value < 1:
+                raise ValueError(
+                    "Multistate command must be a positive integer; no strings, floats or booleans."
+                )
+            states = await self._read(address, object_id, "number-of-states")
+            if not isinstance(states, int) or states < 1:
+                raise ValueError("Multistate object has an invalid number-of-states.")
+            if value > states:
+                raise ValueError("Multistate command exceeds the object's number-of-states.")
         slot = json_value(await self._read(address, object_id, "priority-array", priority))
         if slot != {"type": "null", "value": None}:
             raise ValueError(
@@ -408,6 +518,7 @@ class Bacnet:
             "address": address,
             "object_id": object_id,
             "value": value,
+            "requested_value": requested_value,
             "priority": priority,
             "before": before,
             "name": name,
@@ -424,6 +535,7 @@ class Bacnet:
             "priority": priority,
             "before": before,
             "value": value,
+            "requested_value": requested_value,
             "expires_in": 300,
             "operation": "BACnet present-value command; not a controller program modification",
         }
@@ -454,7 +566,8 @@ class Bacnet:
             self._persist()
             try:
                 response = await asyncio.wait_for(
-                    self.require().write_property(
+                    write_property(
+                        self.require(),
                         self.target_address(address),
                         obj,
                         "present-value",
@@ -519,8 +632,13 @@ class Bacnet:
                     "Priority slot was changed by another client. Inspect it before releasing."
                 )
             response = await asyncio.wait_for(
-                self.require().write_property(
-                    self.target_address(address), obj, "present-value", Null(()), priority=priority
+                write_property(
+                    self.require(),
+                    self.target_address(address),
+                    obj,
+                    "present-value",
+                    Null(()),
+                    priority=priority,
                 ),
                 6,
             )
@@ -545,7 +663,7 @@ class Bacnet:
                 raise ValueError("Relinquish owned BACnet commands before closing the interface.")
             self.store.record("bacnet.disconnect.requested", {"config": self.config})
             if self.app:
-                self.app.close()
+                close_application(self.app)
                 self.app = None
             self.plans.clear()
             result = self.status()
@@ -586,7 +704,7 @@ class Bacnet:
                 self.store.record("bacnet.shutdown.pending_commands", self.status()["commands"])
         finally:
             if self.app:
-                self.app.close()
+                close_application(self.app)
                 self.app = None
 
 

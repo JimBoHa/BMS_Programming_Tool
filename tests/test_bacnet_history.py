@@ -10,7 +10,7 @@ import time
 from datetime import UTC, datetime
 
 import pytest
-from bacpypes3.apdu import ReadRangeACK
+from bacpypes3.apdu import APDU, ConfirmedRequestPDU, ReadRangeACK
 from bacpypes3.app import Application
 from bacpypes3.basetypes import DateTime, ErrorType, LogRecord, LogRecordLogDatum
 from bacpypes3.constructeddata import Any, ListOf
@@ -18,9 +18,11 @@ from bacpypes3.errors import ExecutionError
 from bacpypes3.local.device import DeviceObject
 from bacpypes3.local.networkport import NetworkPortObject
 from bacpypes3.object import TrendLogObject
+from bacpypes3.pdu import PDU
 from bacpypes3.primitivedata import CharacterString, TagClass
 from bacpypes3.vlan import VirtualNetwork
 from bms_tool.bacnet_history import BacnetHistory, BacnetHistoryRequest
+from bms_tool.bacnet_read import close_application
 from bms_tool.connections import Bacnet
 from bms_tool.storage import Store
 
@@ -442,6 +444,62 @@ async def test_cancelling_read_retires_wire_transaction_and_never_starts_backgro
     before = len(server.requests)
     await asyncio.sleep(0.12)
     assert len(server.requests) == before
+
+
+@pytest.mark.parametrize("exit_method", ["caller", "shutdown", "timeout"])
+async def test_history_preinvoke_exit_cannot_dispatch_readrange_after_return(
+    link, monkeypatch, exit_method
+):
+    server, connector, service, target = link
+    service.timeout = 0.05 if exit_method == "timeout" else 1.0
+    app = connector.app
+    entered, release = asyncio.Event(), asyncio.Event()
+    original_lookup = app.device_info_cache.get_device_info
+    original_wire = server.asap.confirmation
+    packets = []
+
+    async def held(address):
+        entered.set()
+        await release.wait()
+        return await original_lookup(address)
+
+    async def observed(pdu):
+        packet = APDU.decode(PDU(bytes(pdu.pduData)))
+        if isinstance(packet, ConfirmedRequestPDU):
+            packets.append(packet.apduService)
+        await original_wire(pdu)
+
+    monkeypatch.setattr(app.device_info_cache, "get_device_info", held)
+    monkeypatch.setattr(server.asap, "confirmation", observed)
+    pending = asyncio.create_task(service.read(**target))
+    try:
+        await asyncio.wait_for(entered.wait(), 1)
+        [transaction] = app.asap.clientTransactions
+        assert transaction.invokeID is None
+        assert transaction.segmentAPDU.apduInvokeID is not None
+        if exit_method == "caller":
+            pending.cancel()
+        elif exit_method == "shutdown":
+            close_application(app)
+        if exit_method == "timeout":
+            with pytest.raises(ValueError, match="TimeoutError"):
+                await pending
+        else:
+            with pytest.raises(asyncio.CancelledError):
+                await pending
+        assert not app.asap.clientTransactions and not app._requests
+        assert not connector.lock.locked() and not server.requests
+        release.set()
+        await asyncio.sleep(0.1)
+        assert not packets and not server.requests
+    finally:
+        release.set()
+        if not pending.done():
+            pending.cancel()
+            try:
+                await pending
+            except asyncio.CancelledError:
+                pass
 
 
 async def test_connector_lock_wait_has_operation_deadline_without_releasing_another_owner(link):

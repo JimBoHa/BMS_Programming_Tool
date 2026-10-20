@@ -495,7 +495,7 @@ async def test_cancellation_keeps_lock_through_verified_original_restore(link, m
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("existing_handler", [False, True])
-async def test_synchronous_bacpypes_request_admission_failure_restores_receive_handler(
+async def test_bacpypes_dispatch_admission_failure_restores_receive_handler(
     link, monkeypatch, existing_handler
 ):
     server, client, adapter, address = link
@@ -509,15 +509,99 @@ async def test_synchronous_bacpypes_request_admission_failure_restores_receive_h
         setattr(app, name, prior)
     original = getattr(app, name, None)
 
-    def reject(request):
+    async def reject(app, request):
         raise ValueError("fixture synchronous admission failure")
 
-    monkeypatch.setattr(app, "request", reject)
+    monkeypatch.setattr("bms_tool.bacnet_exchange.ApplicationServiceElement.request", reject)
     with pytest.raises(ValueError, match="admission failure"):
         await adapter._exchange(address, 7, 3)
     assert getattr(app, name, None) is original
     assert (name in app.__dict__) is existing_handler
     assert not app._requests and not app.asap.clientTransactions and not server.requests
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("command", [7, 107])
+async def test_private_transfer_cancel_before_invoke_cannot_dispatch_later(
+    link, monkeypatch, command
+):
+    server, client, adapter, address = link
+    adapter.timeout = 1.0
+    app = client.app
+    name = "do_UnconfirmedPrivateTransferRequest"
+    original_handler = getattr(app, name, None)
+    entered, release = asyncio.Event(), asyncio.Event()
+    lookup = app.device_info_cache.get_device_info
+
+    async def held(address):
+        entered.set()
+        await release.wait()
+        return await lookup(address)
+
+    monkeypatch.setattr(app.device_info_cache, "get_device_info", held)
+    body = bytes(server.descriptors[3]) if command == 107 else b""
+    task = asyncio.create_task(adapter._exchange(address, command, 3, body=body))
+    try:
+        await asyncio.wait_for(entered.wait(), 2)
+        [transaction] = app.asap.clientTransactions
+        assert transaction.invokeID is None
+        assert transaction.segmentAPDU.apduInvokeID is not None
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert not app._requests and not app.asap.clientTransactions
+        assert getattr(app, name, None) is original_handler and name not in app.__dict__
+        release.set()
+        await asyncio.sleep(0.15)
+        assert not server.requests and not server.writes
+    finally:
+        release.set()
+        if not task.done():
+            task.cancel()
+
+
+@pytest.mark.asyncio
+async def test_unconfirmed_private_result_joins_preinvoke_dispatch_before_return(link, monkeypatch):
+    server, client, adapter, address = link
+    adapter.timeout = 1.0
+    app = client.app
+    entered, release = asyncio.Event(), asyncio.Event()
+    lookup = app.device_info_cache.get_device_info
+
+    async def held(address):
+        entered.set()
+        await release.wait()
+        return await lookup(address)
+
+    monkeypatch.setattr(app.device_info_cache, "get_device_info", held)
+    task = asyncio.create_task(
+        adapter._exchange(address, 107, 3, body=bytes(server.descriptors[3]))
+    )
+    try:
+        await asyncio.wait_for(entered.wait(), 2)
+        [transaction] = app.asap.clientTransactions
+        assert transaction.invokeID is None
+        # An actual peer UDP NULL result wins while our confirmed dispatch is
+        # held before sending. Regardless of that legacy response's origin,
+        # _exchange must not let the abandoned request write after returning.
+        await server.request(
+            UnconfirmedPrivateTransferRequest(
+                vendorID=260,
+                serviceNumber=1,
+                serviceParameters=Any(Null(())),
+                destination=client.target_address(client.config["local_address"]),
+            )
+        )
+        assert await asyncio.wait_for(task, 2) == b""
+        assert not app._requests and not app.asap.clientTransactions
+        assert "do_UnconfirmedPrivateTransferRequest" not in app.__dict__
+        release.set()
+        await asyncio.sleep(0.15)
+        assert not server.requests and not server.writes
+    finally:
+        release.set()
+        if not task.done():
+            task.cancel()
 
 
 def test_cancelled_recovery_child_exits_with_durable_manual_recovery_under_external_watchdog(

@@ -180,6 +180,10 @@ async def test_actual_npdu_routing_via_udp_to_virtual_field_network(tmp_path):
         assert result["value"] == 12.5
         devices = await client.discover("2001:4", 4190012, 4190012)
         assert devices and devices[0]["address"] == "2001:4"
+        plan = await client.plan_write("2001:4", "analog-value,1", 42.25)
+        commanded = await client.apply_write(plan["token"])
+        assert commanded["present_value"] == 42.25
+        assert (await client.release(commanded["command"]))["present_value"] == 12.5
     finally:
         client.close()
         field.close()
