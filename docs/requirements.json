@@ -391,9 +391,9 @@
     "feature": "Physical input configuration",
     "acceptance_criterion": "Add a real unused sensor terminal and verify reliability/open-circuit on the target.",
     "evidence": "User-authorized E2/F2 test",
-    "pdf_pages_or_section": "Read-only checks authorized: site Mac reachable, target network route unavailable",
+    "pdf_pages_or_section": "Read-only NAE access verified through approved Tailscale subnet route",
     "status": "pending",
-    "implementation_or_gap": "Site Mac reached through Tailscale; no approved target subnet route visible and both NAE HTTP/HTTPS probes timed out. Credentials not read/authentication not attempted. Native application adapter and physical sensor test still required"
+    "implementation_or_gap": "Actual BACnet discovery and device metadata reads succeeded for both E2/F2 NAEs through Tailscale. Credentials not read/web authentication not attempted; no controller changes. Downstream VAV route, native application adapter and physical sensor test still required"
   },
   {
     "id": "CODE-001",

@@ -28,4 +28,4 @@ record identities, graph fields, simulation values and opaque XML evidence
 without modifying either source file. It does not close the JCI compiler,
 package, loader or hardware-validation gaps in the table above.
 
-The user authorized read-only E2/F2 access during development. This Mac reached the site Mac over Tailscale, but no approved route to 192.168.75.0/24 was visible. TCP attempts to both NAEs (192.168.75.32 and 192.168.75.35, ports 80/443) timed out through the default LAN route. Site credentials have not been read, authentication has not been attempted, and no controller changes occurred. The final GitHub push remains pending full completion.
+The approved Tailscale subnet route now reaches both E2/F2 NAEs. Actual BACnet discovery and device-property reads verified both engines as MS-NAE5510-2, firmware 11.0.7.40. TCP 80/443 also respond; HTTPS uses self-signed certificates and the public UI paths return HTTP 403. Site credentials have not been read, web authentication has not been attempted, and no controller changes occurred. Downstream VAV routing and native program changes remain unverified. The final GitHub push remains pending full completion.
