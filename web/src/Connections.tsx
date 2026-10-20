@@ -9,7 +9,11 @@ import {
   PlugZap,
 } from "lucide-react";
 import { api, saveBlob } from "./api";
-import { RoutedDiscoveryPanel } from "./RoutedDiscoveryPanel";
+import {
+  RoutedDiscoveryPanel,
+  type RoutedScanResult,
+} from "./RoutedDiscoveryPanel";
+import { DeviceScanPanel, type ScanTarget } from "./DeviceScanPanel";
 import { BacnetFilesPanel } from "./BacnetFilesPanel";
 import { ControllerProbePanel } from "./ControllerProbePanel";
 
@@ -26,6 +30,7 @@ export function Connections() {
     [object, setObject] = useState("analog-value,1"),
     [property, setProperty] = useState("present-value"),
     [devices, setDevices] = useState<any[]>([]),
+    [routedResult, setRoutedResult] = useState<RoutedScanResult | null>(null),
     [foreignLow, setForeignLow] = useState("0"),
     [foreignHigh, setForeignHigh] = useState("4194302"),
     [value, setValue] = useState<any>(null),
@@ -100,6 +105,26 @@ export function Connections() {
     setObjectOffset("0");
     setObjectDownloaded("");
     if (clearRoute) setSelectedRoute(null);
+  }
+  function selectScannedDevice(device: ScanTarget) {
+    if (busy) return;
+    setTarget(device.address);
+    setObject(device.device);
+    setProperty("object-name");
+    clearPointResults(true);
+    if (
+      device.source === "routed" &&
+      device.router &&
+      device.dnet !== undefined
+    ) {
+      ipDirty.current = true;
+      setConfig((current) => ({
+        ...current,
+        router: device.router!,
+        dnet: String(device.dnet),
+      }));
+      setSelectedRoute({ router: device.router, dnet: device.dnet });
+    }
   }
   function objectInteger(
     value: string,
@@ -275,8 +300,9 @@ export function Connections() {
           <span className="eyebrow">COMMISSIONING</span>
           <h1>Connections</h1>
           <p>
-            Directed BACnet requests, explicit BBMD discovery and Modbus reads.
-            Network interfaces open when you connect.
+            Scan BACnet/IP networks and routed controllers, read device details,
+            and work with selected points. Network interfaces open when you
+            connect.
           </p>
         </div>
         <div className="button-row">
@@ -644,10 +670,19 @@ export function Connections() {
           </div>
         </section>
       </div>
+      <DeviceScanPanel
+        connected={
+          status.connected && !busy && status.config?.transport !== "mstp"
+        }
+        localAddress={status.config?.local_address || config.local_address}
+        routedResult={routedResult}
+        onSelect={selectScannedDevice}
+      />
       <RoutedDiscoveryPanel
         connected={
           status.connected && !busy && status.config?.transport !== "mstp"
         }
+        onDiscovered={setRoutedResult}
         onSelect={(device, router, dnet) => {
           if (busy) return;
           ipDirty.current = true;

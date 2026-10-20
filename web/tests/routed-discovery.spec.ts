@@ -23,11 +23,28 @@ async function rawRouter() {
     [
       "-u",
       "-c",
-      `
+      String.raw`
 import asyncio,json,sys
 from tests.test_routed_discovery import RawRouter
+class DiscoveryRouter(RawRouter):
+    def datagram_received(self,data,address):
+        packet=data[4:]
+        # The joined Scan view now requests Device identity metadata. This
+        # discovery-only peer explicitly rejects that read on the real wire.
+        if len(packet)>=9 and packet[:2]==b'\x01\x24' and packet[4]==1:
+            dnet=int.from_bytes(packet[2:4],'big');mac=packet[5:6];apdu=packet[7:]
+            if len(apdu)==11 and apdu[0]&0xf0==0 and apdu[3]==12 and apdu[-2:]==b'\x19\x4b':
+                try:
+                    assert data[:2]==b'\x81\x0a' and int.from_bytes(data[2:4],'big')==len(data)
+                    assert dnet==2105 and mac in (b'\x4f',b'\x50') and packet[6]==255
+                    assert apdu[4]==12 and int.from_bytes(apdu[5:9],'big')==((8<<22)|(132000+mac[0]))
+                    response=b'\x01\x08'+packet[2:6]+b'\x50'+apdu[2:3]+b'\x0c\x91\x02\x91\x20'
+                    self.transport.sendto(b'\x81\x0a'+(len(response)+4).to_bytes(2,'big')+response,address)
+                except Exception as error:self.errors.append(error)
+                return
+        super().datagram_received(data,address)
 async def main():
-    transport,peer=await asyncio.get_running_loop().create_datagram_endpoint(RawRouter,local_addr=('127.0.0.1',0))
+    transport,peer=await asyncio.get_running_loop().create_datagram_endpoint(DiscoveryRouter,local_addr=('127.0.0.1',0))
     print(json.dumps({'router':peer.endpoint}),flush=True)
     try: await asyncio.to_thread(sys.stdin.readline)
     finally:

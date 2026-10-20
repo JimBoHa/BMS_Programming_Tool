@@ -529,5 +529,23 @@
     "pdf_pages_or_section": "Configuration_Files, Object_List fallback, AtomicReadFile and backup procedure 13.8.1.1",
     "status": "implemented",
     "implementation_or_gap": "Bounded Configuration_Files/Object_List inspection, native APDU-aware reads, exact EOF/size/count validation and hashed receipts with record boundaries. Actual UDP/HTTP/browser stream/record/offline export and cancellation checks. ReadProperty/AtomicReadFile only; no backup-state control, File writes, native CAF conversion or whole-device coherence guarantee; physical results recorded separately"
+  },
+  {
+    "id": "COMM-009",
+    "feature": "Scoped BACnet/IP network, single-IP and range scan",
+    "acceptance_criterion": "Discover BACnet/IP Device identities on the bound subnet or registered BBMD network, one explicit IPv4 endpoint, or a selected inclusive range, with bounded paced requests, source checks, continuation and timestamped evidence.",
+    "evidence": "User Connect/Scan requirement; BACpypes3 pinned BVLC/NPDU/APDU definitions; ifaddr primary interface API",
+    "pdf_pages_or_section": "Who-Is/I-Am, Original-Unicast/Broadcast-NPDU, Forwarded-NPDU and Distribute-Broadcast-To-Network",
+    "status": "implemented",
+    "implementation_or_gap": "Already-open IPv4 interface only; real OS subnet mask, no guessed /24. Up to 65,536 selected addresses with at most 256 per explicit page, 20 packets/second and 30-second operation bound. Forwarded evidence is accepted only through the configured BBMD; own endpoint and routed I-Am are excluded. No silence-to-unused inference or automatic continuation"
+  },
+  {
+    "id": "DATA-006",
+    "feature": "Named IP and routed discovery inventory",
+    "acceptance_criterion": "Combine actual IP and routed discovery observations into a named list retaining exact route/endpoint and Device identity, standard Device metadata, genuinely exposed Program names, read statuses, timestamps and CSV/JSON provenance.",
+    "evidence": "User named discovery-list requirement; BACpypes3 pinned Device/Program object and ReadProperty definitions",
+    "pdf_pages_or_section": "Device Object_List and standard Program objects",
+    "status": "implemented",
+    "implementation_or_gap": "Exact Device verification precedes optional reads. Sequential displayed-page reads are bounded to 15 seconds per device, 512 object identifiers and 16 Program objects; partial evidence survives errors. Not exposed requires a complete inventory without Program objects. Firmware/application version/description never substitute for program names. Duplicate instances across routers/trunks remain separate; cached bindings are not relabelled live discoveries"
   }
 ]

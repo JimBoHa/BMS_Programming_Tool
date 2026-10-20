@@ -2862,5 +2862,12 @@
     "url": "https://github.com/JoelBender/BACpypes3/tree/21f918c0396c72c95e7e635abde18514e58feb8d/bacpypes3",
     "notes": "Pinned 0.0.110 application, transaction, native datatype and APDU interfaces reviewed for explicit routing, typed JSON preservation, exact native command values and owned confirmed-dispatch cleanup. Independent local UDP/HTTP/browser tests; no claim of universal proprietary datatype or native application compatibility.",
     "status": "source and local behavior reviewed"
+  },
+  {
+    "vendor": "Open source / source research",
+    "title": "ifaddr operating-system interface enumeration",
+    "url": "https://github.com/ifaddr/ifaddr",
+    "notes": "MIT; pinned 0.2.0. The bound IPv4 interface's operating-system prefix determines local broadcast scope; point-to-point interfaces require directed discovery. An explicit connection prefix is used only when no operating-system interface match exists. No subnet mask is guessed.",
+    "status": "source and local behavior reviewed"
   }
 ]

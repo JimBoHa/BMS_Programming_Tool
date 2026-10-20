@@ -1,17 +1,93 @@
-# Validation record — 2026-10-19
+# Validation record — 2026-10-20
 
 This development build validates the stated local behavior. It does not establish universal native-controller compatibility. [Native target support](NATIVE_TARGETS.md) records the remaining compiler, format and field-deployment gaps.
 
 ## Automated checks
 
-- The final full backend run passed **1,437 tests with no skips in 323.37 seconds**, including all seven authorized CAFs, saved CAF simulation profiles, genuine external Niagara descriptors, independent native IEC execution, real UDP/routed Temco transfer/recovery, native CAF comparison/hardening, BACnet history/capture, real-time BBMD lease expiry, durable webhook delivery and existing simulation/transport/storage coverage. New coverage includes independent raw-router discovery, wildcard identity and paced MAC pages, partial indexed object inventories, native value preservation, stream/record File capture, strict command scalars and exact ownership, and cancellation during native dispatch before invoke-ID assignment.
-- **81 browser workflows passed in approximately 2.6 minutes** against the production TypeScript/Vite build. They cover authoring, macros, calendars, simulation, storage, CAF/BOG and field workflows, genuine IEC compilation/execution, quality faults, timed recovery, native Temco transfer/restore, JCI hardware migration, native CAF comparison/saved simulation values, 20-kind Niagara conversion, device Trend Log history, BBMD registration/discovery/renewal and actual HTTP webhook receipts/retries. Additional real UDP browser workflows cover routed cache/discovery, wildcard controller selection, paced MAC pages, partial object-list continuation/export and opaque File reads/exports. Held genuine responses verify draft preservation and stale save/load/import/validation/preview handling. A 501-record comparison export traverses multiple API pages. History cases use actual UDP ReadRange for complete, limited, partial, empty and DST-fold reads, CSV provenance, sealed captures and restart. Notification tests explicitly end, acknowledge and retire only their own isolated test sources after verifying delivery leaves alarms unacknowledged; this prevents test-order contamination.
+- The full backend run passed **1,499 tests with no skips in 338.61 seconds**, including all seven authorized CAFs, saved CAF simulation profiles, genuine external Niagara descriptors, independent native IEC execution, real UDP/routed Temco transfer/recovery, native CAF comparison/hardening, BACnet history/capture, real-time BBMD lease expiry, durable webhook delivery and existing simulation/transport/storage coverage. Scan coverage adds independently encoded BVLC discovery, IP range continuation, Device/Program metadata and actual UDP/HTTP integration. After the full run started, a narrow prefix-mismatch fix retained the actual OS subnet for single/range exclusions; **all 63 focused Scan backend checks passed again in 32.69 seconds**, including the added regression. This does not claim a second full run after that fix.
+- **All 87 browser workflows were verified** against the production TypeScript/Vite build. The initial full run passed 83 and exposed four test-fixture failures in 4.8 minutes: three serial UI fixtures rejected the newly added read-only Scan-profile GET, and a one-shot Playwright interceptor stalled the Temco test after successful transfer/readback. The three corrected serial cases passed in 5.4 seconds; the corrected Temco case passed eight repeats in 18.5 seconds. No production code or timeout was changed for these fixture repairs; this records the full run plus focused reruns, not a second full-suite run. They cover authoring, macros, calendars, simulation, storage, CAF/BOG and field workflows, genuine IEC compilation/execution, quality faults, timed recovery, native Temco transfer/restore, JCI hardware migration, native CAF comparison/saved simulation values, 20-kind Niagara conversion, device Trend Log history, BBMD registration/discovery/renewal and actual HTTP webhook receipts/retries. Additional real UDP browser workflows cover routed cache/discovery, wildcard controller selection, paced MAC pages, partial object-list continuation/export and opaque File reads/exports. Held genuine responses verify draft preservation and stale save/load/import/validation/preview handling. A 501-record comparison export traverses multiple API pages. History cases use actual UDP ReadRange for complete, limited, partial, empty and DST-fold reads, CSV provenance, sealed captures and restart. Notification tests explicitly end, acknowledge and retire only their own isolated test sources after verifying delivery leaves alarms unacknowledged; this prevents test-order contamination.
 - Ruff, TypeScript and production Vite build checks pass. Workspace pages load in separate bundles; the main bundle is approximately 419 kB before gzip. Screenshots of native formats, compiled traces, serial settings, field samples, CAF comparison/simulation, BBMD state, alarm delivery and device history were visually inspected.
-- After adding adjustable MAC-page timing for slower field replies, the final production build and all four actual-UDP controller-probe browser workflows passed again in 13.8 seconds. They verify chosen timing values on the wire/API report, bounds, stale-result invalidation and explicit continuation. Backend code was unchanged after the full 1,437-test run.
+- Earlier adjustable MAC-page timing checks passed all four actual-UDP controller-probe browser workflows in 13.8 seconds. The current full browser run also covers these controls: chosen timing values on the wire/API report, bounds, stale-result invalidation and explicit continuation.
 - Nine PLCopen example exports previously validated against an independently retrieved TC6 v2.01 XSD. Schema provenance: <https://raw.githubusercontent.com/mattsse/plcopen-xml-xcore/master/schema/tc6_xml_v201.xsd>. XSD conformance is not external PLC compiler acceptance.
-- The environment uses Python 3.13.16, Node 22.23.3, FastAPI 0.146.0, Pydantic 2.14.1, BACpypes3 0.0.110 and Vite 7.3.7. Dependency pins are unchanged from the recorded advisory audit. Upstream Starlette TestClient and pybog Pydantic deprecation warnings remain; they are not failed checks.
+- The environment uses Python 3.13.16, Node 22.23.3, FastAPI 0.146.0, Pydantic 2.14.1, BACpypes3 0.0.110, ifaddr 0.2.0 and Vite 7.3.7. Existing dependency pins are unchanged; ifaddr was added for actual OS subnet resolution, and the lock file is consistent. Upstream Starlette TestClient and pybog Pydantic deprecation warnings remain; they are not failed checks.
 
 Full test output and screenshot artifacts remain in ignored `local-reports/` and `web/test-results/`. Original controller programs, installed SDKs, manuals, VM images and credentials are not part of the code repository.
+
+## Connect Scan and named discovery
+
+The Connect tab now supports local BACnet/IP discovery, a single literal IPv4
+endpoint and inclusive IP ranges with explicit 256-address continuation. Local
+scope comes from the actual OS subnet, with registered BBMD-network discovery
+handled separately. A Tailscale /32 correctly directs the operator to single-IP
+or range mode. Exact endpoint/source checks, bounded pacing and response windows,
+own-socket exclusion, malformed announcements, duplicates, capability conflicts,
+foreign-device lease loss and handler cleanup have independent raw-UDP tests.
+The loopback broadcast delivery constraint and test-only mirror are documented
+in [the IP profile](ip-discovery.md); they do not establish remote physical LAN
+broadcast acceptance.
+
+A separate controlled LAN check used this Mac's actual Ethernet/Wi-Fi IPv4
+subnet and an independent raw UDP listener on a free high port. Exactly one
+production Original-Broadcast-NPDU reached that listener at the actual subnet
+broadcast address, verified by `recvmsg` destination evidence. Its I-Am was
+accepted through the production collector; the one-second window completed and
+both sockets closed. No mirror, port 47808 traffic or building-controller access
+was involved. The private report is `local-reports/device-scan-local-lan.json`.
+This verifies actual local OS broadcast delivery, not a remote hardware device's
+response.
+
+IP observations and actual routed Who-Is responses feed one named inventory.
+Device details verify exact identity before optional reads. Standard Program
+names come only from actual Program objects. A complete validated inventory with
+none returns `not_exposed`; partial, failed and capped inventories do not. Actual
+UDP tests cover 84-object whole arrays, larger indexed arrays, changing counts,
+wrong ACKs/identities, source-pinned routes before commissioning-route selection,
+existing command ownership, unrelated in-flight reads, cancellation and deadlines.
+
+Six new browser workflows use real UDP Device/Program objects and independently
+encoded discovery/router peers. They verify single/range/local response handling,
+duplicate identities across addresses/routes, genuine Program names, metadata
+errors, formula-safe CSV and JSON provenance, empty-report exports and clear,
+explicit 258-address range continuation, Stop after the current bounded RPC,
+stale results, and stable 20-device pages while names affect sorting. CSV includes
+separate device and full-report rows, so empty continuation pages retain evidence.
+Selection fills the exact target/route draft without reopening the interface.
+
+The existing strict serial-browser fixtures now allow only the new local
+read-only Scan-profile GET while continuing to reject scan and write requests.
+The Temco test retained the first real apply response to exercise an authoring
+edit during an in-flight operation. Its one-shot auto-unrouting could stall the
+following browser fetch even though an independent status request returned HTTP
+200 in 8.7 milliseconds. A stable interceptor now holds only the first response,
+and cleanup always terminates its owned emulator. Eight repeated real native
+replacement/restore workflows passed without raising the 30-second test timeout.
+
+Authorized read-only field checks through Tailscale found Device 505 at E2 and
+Device 506 at F2 in both single-IP and four-host range scans. Device details read
+the actual names `E2-NAE` and `F2-NAE`. Their large object lists exceed this
+metadata profile's 512-object cap, so Program-name inspection remains explicitly
+limited rather than asserting no programs exist. Four selected routed Who-Is
+windows and details reads returned `TB4-101`, `TB4-304`, `TB5-101` and `TB5-302`
+on the four previously verified trunks. Each selected VMA returned a complete
+84-object list without standard Program objects. Device instances 5007 and 5005
+remain distinct across their separate networks.
+
+Eight actual production-browser stages repeated single/range and four routed
+checks, displayed real names/model/firmware and Program status, exported all six
+identities and six discovery scopes as JSON/CSV, and verified draft-only target
+selection. CSV parsing separately checked exact names, routes, duplicate
+instances and Program status. No controller writes or credential reads occurred.
+Private evidence is `local-reports/site-device-scan-feature.json`,
+`site-device-scan-ui.json` and the corresponding exports/screenshots. An initial
+browser-test endpoint whitelist omitted local graph validation/catalog POSTs;
+the harness was corrected against the retained request evidence without
+repeating site traffic.
+
+Four SQLite databases were backed up before updating the local service. The
+restart and final checks retained all 14 prior File captures and 14 field trend
+samples. Original closed connection settings were restored; the service ended
+with no open BACnet interface, owned commands or running field jobs. The private
+restart record is `local-reports/device-scan-restart.json`.
 
 ## Graph semantics and durable state
 
@@ -166,11 +242,11 @@ controllers report vendor 5, model `MS-VMA1630-0`, firmware `6.2.0.1054` and
 application software version `10.1`.
 
 | Engine | Routed address | Device instance | Controller name | Observed trunk I-Am rows |
-| --- | --- | --- | --- | --- |
-| E2 | 2105:7 | 5007 | TB4-101 | 81 |
-| E2 | 2205:7 | 5007 | TB4-304 | 62 |
-| F2 | 2106:5 | 5005 | TB5-101 | 70 |
-| F2 | 2206:5 | 5005 | TB5-302 | 68 |
+| ------ | -------------- | --------------- | --------------- | ------------------------ |
+| E2     | 2105:7         | 5007            | TB4-101         | 81                       |
+| E2     | 2205:7         | 5007            | TB4-304         | 62                       |
+| F2     | 2106:5         | 5005            | TB5-101         | 70                       |
+| F2     | 2206:5         | 5005            | TB5-302         | 68                       |
 
 The four three-second selected-network Who-Is windows observed 281 Device/MAC
 rows. This is a set of responses on each network, not a globally unique physical
@@ -283,4 +359,4 @@ The consolidated private result is
 `local-reports/site-bacnet-verification-final.json`; the user export directory
 also includes the eight direct samples with route/point identity in CSV.
 
-The reference desk records 258 sources and 59 feature criteria: 35 implemented, 16 partial and eight pending. The multivendor PDF catalog contains 64 records, 63 distinct hashes and 6,813 indexed PDF pages, alongside the earlier JCI collection. Downloaded primary references include the 14-page ASHRAE Trend Log addendum and the 22-page ASHRAE BBMD/foreign-device addendum. Manuals were indexed and selectively reviewed; no claim of reading every manual word for word is made. Manufacturer SDK modules, manuals and original site files remain outside Git.
+The reference desk records 259 sources and 61 feature criteria: 37 implemented, 16 partial and eight pending. The Scan feature adds scoped IP discovery and named device inventory criteria, with the primary ifaddr interface reference. The multivendor PDF catalog contains 64 records, 63 distinct hashes and 6,813 indexed PDF pages, alongside the earlier JCI collection. Downloaded primary references include the 14-page ASHRAE Trend Log addendum and the 22-page ASHRAE BBMD/foreign-device addendum. Manuals were indexed and selectively reviewed; no claim of reading every manual word for word is made. Manufacturer SDK modules, manuals and original site files remain outside Git.
