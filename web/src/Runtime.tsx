@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Cpu, Play, Pause, ShieldCheck, RotateCcw } from "lucide-react";
 import { api } from "./api";
 import type { Program } from "./types";
@@ -13,33 +13,82 @@ export function RuntimePanel({
 }) {
   const [status, setStatus] = useState<any>(null),
     [plan, setPlan] = useState<any>(null),
+    [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const mounted = useRef(false),
+    active = useRef(false),
+    statusEpoch = useRef(0),
+    planEpoch = useRef(0);
+  const key = JSON.stringify({ program, inputs });
+  const latest = useRef(key);
+  latest.current = key;
+  const currentPlan =
+    plan?.key === key &&
+    (!status || plan.result.generation === status.generation)
+      ? plan.result
+      : null;
+  async function refresh() {
+    const epoch = ++statusEpoch.current;
+    const next = await api("/runtime");
+    if (mounted.current && epoch === statusEpoch.current) setStatus(next);
+  }
   useEffect(() => {
+    mounted.current = true;
     let live = true;
     const update = () =>
-      api("/runtime")
-        .then((r) => {
-          if (live) setStatus(r);
-        })
-        .catch((e) => {
-          if (live) setError(e.message);
-        });
+      refresh().catch((e) => {
+        if (live) setError(e.message);
+      });
     update();
     const timer = setInterval(update, 1000);
     return () => {
       live = false;
+      mounted.current = false;
+      statusEpoch.current++;
+      planEpoch.current++;
       clearInterval(timer);
     };
   }, []);
-  useEffect(() => setPlan(null), [program, inputs]);
+  useEffect(() => {
+    planEpoch.current++;
+    setPlan(null);
+  }, [key]);
   async function action(fn: () => Promise<any>) {
+    if (active.current) return;
+    active.current = true;
+    setBusy(true);
+    setError("");
+    statusEpoch.current++;
     try {
       await fn();
-      setStatus(await api("/runtime"));
-      setError("");
+      if (mounted.current) await refresh();
     } catch (e) {
-      setError(String(e));
+      if (mounted.current) setError(String(e));
+    } finally {
+      active.current = false;
+      if (mounted.current) setBusy(false);
     }
+  }
+  function preview() {
+    if (active.current) return;
+    const epoch = ++planEpoch.current;
+    const snapshot = key;
+    setPlan(null);
+    action(async () => {
+      const result = await api("/runtime/plan", { program, inputs });
+      if (
+        !mounted.current ||
+        epoch !== planEpoch.current ||
+        latest.current !== snapshot
+      ) {
+        if (mounted.current)
+          setError(
+            "Proposed application changed while previewing. Preview the current draft again.",
+          );
+        return;
+      }
+      setPlan({ key: snapshot, result });
+    });
   }
   return (
     <div className="workspace-page">
@@ -92,37 +141,32 @@ export function RuntimePanel({
           <div className="card-body">
             <h2>{program.name}</h2>
             <p>{program.description}</p>
-            <button
-              className="primary"
-              onClick={() =>
-                action(async () =>
-                  setPlan(await api("/runtime/plan", { program, inputs })),
-                )
-              }
-            >
+            <button className="primary" disabled={busy} onClick={preview}>
               Validate and preview deployment
             </button>
-            {plan && (
+            {currentPlan && (
               <>
                 <div className="diff-summary">
-                  <span>+{plan.diff.added.length} added</span>
-                  <span>−{plan.diff.removed.length} removed</span>
-                  <span>{plan.diff.changed.length} changed</span>
+                  <span>+{currentPlan.diff.added.length} added</span>
+                  <span>−{currentPlan.diff.removed.length} removed</span>
+                  <span>{currentPlan.diff.changed.length} changed</span>
                   <span>
-                    {plan.diff.wiring_changed
+                    {currentPlan.diff.wiring_changed
                       ? "Wiring changed"
                       : "Wiring unchanged"}
                   </span>
                 </div>
                 <pre className="result">
-                  {JSON.stringify(plan.preflight_outputs, null, 2)}
+                  {JSON.stringify(currentPlan.preflight_outputs, null, 2)}
                 </pre>
                 <button
                   className="primary"
+                  disabled={busy}
                   onClick={() =>
                     action(async () => {
-                      await api("/runtime/apply", { token: plan.token });
+                      if (latest.current !== key) return;
                       setPlan(null);
+                      await api("/runtime/apply", { token: currentPlan.token });
                     })
                   }
                 >
@@ -136,7 +180,7 @@ export function RuntimePanel({
           <div className="card-header">
             <h3>Running application</h3>
             <button
-              disabled={!status?.program}
+              disabled={busy || !status?.program}
               onClick={() =>
                 action(() =>
                   api("/runtime/control", {
@@ -203,6 +247,7 @@ export function RuntimePanel({
                   <td>{b.generation}</td>
                   <td>
                     <button
+                      disabled={busy}
                       onClick={() =>
                         action(() =>
                           api("/runtime/rollback", {

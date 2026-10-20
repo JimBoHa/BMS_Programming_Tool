@@ -21,9 +21,11 @@ from argparse import Namespace
 import serial
 from bacpypes3.apdu import ErrorRejectAbortNack
 from bacpypes3.app import Application
-from bacpypes3.pdu import Address
+from bacpypes3.pdu import Address, LocalBroadcast
 from bacpypes3.primitivedata import Null
 from serial.tools import list_ports
+
+MAX_FOREIGN_DEVICES = 1000
 
 
 def json_value(value):
@@ -90,7 +92,47 @@ class Bacnet:
         temporary.chmod(0o600)
         os.replace(temporary, self.journal)
 
-    async def connect(self, local_address, instance=4190001, router=None, dnet=None):
+    async def connect(
+        self,
+        local_address,
+        instance=4190001,
+        router=None,
+        dnet=None,
+        bbmd_address=None,
+        foreign_ttl=60,
+    ):
+        if type(instance) is not int or not 0 <= instance <= 4194302:
+            raise ValueError("BACnet device instance outside allowed range.")
+        local = _unicast(local_address)
+        if not hasattr(local, "addrTuple") or ipaddress.ip_address(local.addrTuple[0]).version != 4:
+            raise ValueError("Local BACnet interface requires an IPv4 bind address.")
+        if bool(router) != (dnet is not None):
+            raise ValueError("Router address and destination network must be supplied together.")
+        if dnet is not None and (type(dnet) is not int or not 1 <= dnet <= 65534):
+            raise ValueError("Destination network must be1..65534.")
+        router_target = None if router is None else _unicast(router)
+        if router_target is not None and (
+            not hasattr(router_target, "addrTuple")
+            or ipaddress.ip_address(router_target.addrTuple[0]).version != 4
+        ):
+            raise ValueError("BACnet/IP router requires a unicast IPv4 address.")
+        bbmd = None
+        if bbmd_address is not None:
+            bbmd = _unicast(bbmd_address)
+            if (
+                not hasattr(bbmd, "addrTuple")
+                or ipaddress.ip_address(bbmd.addrTuple[0]).version != 4
+                or bbmd.addrTuple[1] == 0
+            ):
+                raise ValueError(
+                    "BBMD registration requires a unicast IPv4 address and nonzero UDP port."
+                )
+            if type(foreign_ttl) is not int or not 1 <= foreign_ttl <= 65535:
+                raise ValueError("Foreign-device TTL must be an integer1..65535 seconds.")
+            if bbmd.addrTuple == local.addrTuple:
+                raise ValueError("BBMD must be a separate IPv4 endpoint from the local client.")
+        elif type(foreign_ttl) is not int or foreign_ttl != 60:
+            raise ValueError("Foreign-device TTL requires a BBMD address.")
         async with self.lock:
             requested = {
                 "local_address": local_address,
@@ -98,23 +140,15 @@ class Bacnet:
                 "router": router,
                 "dnet": dnet,
             }
+            if bbmd is not None:
+                requested.update(bbmd_address=str(bbmd), foreign_ttl=foreign_ttl)
             if self.commands and requested != self.config:
                 raise ValueError(
                     "Relinquish owned BACnet commands before changing the connection. Reopen the saved interface to recover commands after restart."
                 )
-            if self.app and requested == self.config:
+            if self.app and requested == self.config and self.status()["connected"]:
                 return self.config
-            if not 0 <= instance <= 4194302:
-                raise ValueError("BACnet device instance outside allowed range.")
-            local = _unicast(local_address)
-            if not hasattr(local, "addrTuple"):
-                raise ValueError("Local BACnet interface requires an IPv4 bind address.")
-            if bool(router) != (dnet is not None):
-                raise ValueError(
-                    "Router address and destination network must be supplied together."
-                )
-            if dnet is not None and not 1 <= dnet <= 65534:
-                raise ValueError("Destination network must be 1..65534.")
+            self.store.record("bacnet.connect.requested", requested)
             if self.app:
                 self.app.close()
                 self.app = None
@@ -133,7 +167,12 @@ class Bacnet:
                 ttl=30,
                 bbmd=None,
             )
-            app = Application.from_args(args)
+            if bbmd is not None:
+                from .foreign_bacnet import create_foreign_application
+
+                app = await create_foreign_application(local, bbmd, foreign_ttl, instance=instance)
+            else:
+                app = Application.from_args(args)
             try:
                 # BACpypes creates datagram endpoints in scheduled tasks.
                 await asyncio.sleep(0.2)
@@ -144,17 +183,12 @@ class Bacnet:
                             "Could not bind the BACnet UDP socket. Check the local IP/port and other BACnet applications."
                         )
                 if router:
-                    await app.nsap.update_router_references(None, _unicast(router), [dnet])
+                    await app.nsap.update_router_references(None, router_target, [dnet])
             except BaseException:
                 app.close()
                 raise
             self.app = app
-            self.config = {
-                "local_address": local_address,
-                "instance": instance,
-                "router": router,
-                "dnet": dnet,
-            }
+            self.config = requested
             self._persist()
             self.plans.clear()
             self.store.record("bacnet.connect", self.config)
@@ -167,6 +201,12 @@ class Bacnet:
         if layer is not None and not layer.status()["connected"]:
             raise ValueError(
                 "MS/TP link stopped. Inspect the link error and reconnect before requesting point services."
+            )
+        foreign = getattr(self.app, "foreign_link", None)
+        if foreign is not None and not foreign.status()["connected"]:
+            raise ValueError(
+                foreign.error
+                or "BBMD foreign-device registration is unavailable; reconnect explicitly."
             )
         return self.app
 
@@ -249,6 +289,56 @@ class Bacnet:
             {"target": address, "range": [low, high], "devices": rows},
         )
         return rows
+
+    async def discover_foreign(self, low=0, high=4194302):
+        if type(low) is not int or type(high) is not int or not 0 <= low <= high <= 4194302:
+            raise ValueError("Invalid device instance range.")
+        async with asyncio.timeout(6):
+            async with self.lock:
+                app = self.require()
+                if getattr(app, "foreign_link", None) is None:
+                    raise ValueError(
+                        "Explicit BBMD discovery requires a registered foreign-device connection."
+                    )
+                future = app.who_is(low, high, address=LocalBroadcast(), timeout=2)
+                # The pinned helper otherwise retains every unique I-Am until
+                # timeout. Bound the new broadcast service without changing
+                # concurrent unicast collectors or the application's handlers.
+                collector = next(item for item in app._who_is_futures if item.future is future)
+                original_match = collector.match
+
+                def bounded_match(reply):
+                    if future.done():
+                        return
+                    original_match(reply)
+                    if not future.done() and len(collector.i_ams) >= MAX_FOREIGN_DEVICES:
+                        future.set_exception(
+                            ValueError(
+                                "BBMD discovery result limit reached; narrow the device instance range."
+                            )
+                        )
+
+                collector.match = bounded_match
+                replies = await future
+                self.require()
+                rows = [
+                    {
+                        "address": str(reply.pduSource),
+                        "device": str(reply.iAmDeviceIdentifier),
+                        "vendor": int(reply.vendorID),
+                        "max_apdu": int(reply.maxAPDULengthAccepted),
+                    }
+                    for reply in replies
+                ]
+                self.store.record(
+                    "bacnet.foreign.discovery",
+                    {
+                        "range": [low, high],
+                        "bbmd_address": self.config["bbmd_address"],
+                        "devices": rows,
+                    },
+                )
+                return rows
 
     async def _read(self, address, object_id, property_id="present-value", array_index=None):
         try:
@@ -468,9 +558,14 @@ class Bacnet:
     def status(self):
         layer = getattr(self.app, "mstp_link", None)
         link = layer.status() if layer is not None else None
+        foreign = getattr(self.app, "foreign_link", None)
+        registration = foreign.status() if foreign is not None else None
         return {
-            "connected": self.app is not None and (link is None or link["connected"]),
+            "connected": self.app is not None
+            and (link is None or link["connected"])
+            and (registration is None or registration["connected"]),
             "serial_link": link,
+            "foreign_device": registration,
             "config": self.config,
             "commands": [
                 {
@@ -486,11 +581,13 @@ class Bacnet:
 
     def close(self):
         # Do not silently relinquish field commands during process shutdown.
-        if self.commands:
-            self.store.record("bacnet.shutdown.pending_commands", self.status()["commands"])
-        if self.app:
-            self.app.close()
-            self.app = None
+        try:
+            if self.commands:
+                self.store.record("bacnet.shutdown.pending_commands", self.status()["commands"])
+        finally:
+            if self.app:
+                self.app.close()
+                self.app = None
 
 
 def ports():

@@ -172,6 +172,8 @@ requirements = []
 
 
 def add(id, feature, criterion, source, pages, status, implementation):
+    if any(row["id"] == id for row in requirements):
+        raise ValueError(f"Duplicate feature criterion identifier: {id}")
     requirements.append(
         {
             "id": id,
@@ -268,7 +270,7 @@ add(
     "Both sample families inspected; cross-target compilation pending",
 )
 add(
-    "FMT-008",
+    "FMT-011",
     "Native CAF change review",
     "Compare exact native object/record identities, application and simulation values, wiring/order and opaque metadata while preserving both original files and review hashes.",
     "Authorized local CAF samples and parsed XML evidence",
@@ -541,8 +543,8 @@ add(
     "Provide thresholds, delays, acknowledgements, transitions and routing.",
     "ALC Eikon 3.02 Microblock Reference",
     "Alarm microblocks",
-    "partial",
-    "Threshold/on-delay, durable activation/return/acknowledgment/reactivation, operator notes and event history; external delivery/routing pending",
+    "implemented",
+    "Graph thresholds/on-delay, durable activation/return/acknowledgment/reactivation and operator notes. Explicit source/event webhook routes use a durable ordered outbox, bounded retries, stable idempotency keys, uncertain receipts, gap evidence and restart-off activity. Receipts do not acknowledge alarms. Native intrinsic alarms, SMTP/email and human receipt remain outside this profile",
 )
 
 sedona = "Sedona framework doc/apps/apps.md and doc/network/sox.md"
@@ -587,9 +589,9 @@ add(
     "Physical input configuration",
     "Add a real unused sensor terminal and verify reliability/open-circuit on the target.",
     "User-authorized E2/F2 test",
-    "Tailscale access supplied; connectivity checks follow programming completion",
+    "Read-only checks authorized: site Mac reachable, target network route unavailable",
     "pending",
-    "Native application adapter and physical target test required",
+    "Site Mac reached through Tailscale; no approved target subnet route visible and both NAE HTTP/HTTPS probes timed out. Credentials not read/authentication not attempted. Native application adapter and physical sensor test still required",
 )
 add(
     "CODE-001",
@@ -626,7 +628,7 @@ add(
     "Tridium kitControl guide; Niagara troubleshooting presentations; public pybog source",
     "Native component slots, XML/BOG encoding and protection",
     "partial",
-    "17 primitive graph types map to real BOG ZIP/XML; independent pybog fixture converts. Genuine manufacturer descriptors verify types, inherited slots, link types, units and aliases. Unknown logic and malformed status/configuration fail explicitly. Workbench/station runtime acceptance, stateful components and full station services remain unverified",
+    "20 graph kinds map to real BOG ZIP/XML (including composite Clamp and native Scale/Convert); independent pybog fixture converts. Genuine manufacturer descriptors verify types, inherited slots, link types, units and aliases. Unknown logic and malformed status/configuration fail explicitly. Workbench/station runtime acceptance, stateful components and full station services remain unverified",
 )
 add(
     "COMM-004",
@@ -638,7 +640,7 @@ add(
     "Real Python token master and BACpypes3 data link; HTTP discovery/ReadProperty verified over OS pseudoterminals. Automatic-direction no-echo RS485 hardware required; physical timing, BTCVT, extended frames and proprietary downloads unverified",
 )
 add(
-    "SIM-005",
+    "SIM-007",
     "Independent IEC execution",
     "Compile generated Structured Text with an independent compiler and compare native output, fault and retained-state behavior against the reference simulator.",
     "MatIEC pinned compiler and vendor simulation workflows",
@@ -654,6 +656,25 @@ add(
     "Native Interface XML, Measurement, Enum, Bus and Preset records",
     "implemented",
     "Offline typed metadata selection, collision rejection, exact original export and source-hashed migration reports. Sensor metadata does not provide PCV/VMA object allocation, compiler or device writes",
+)
+
+add(
+    "SIM-008",
+    "Native CAF saved simulation inputs",
+    "Export and edit archive-bound native saved simulation values while preserving ordinary program properties and refusing unknown enum/type/version semantics.",
+    "JCI Controller Tool Help: Simulation mode; authorized local native CAFs",
+    "Saved startup simulation settings; simulationProperty records",
+    "implemented",
+    "Complete source-hashed profiles, observed float32/boolean guards, exact native readback, byte-preserving unknown data, bounded profile size, explicit draft handling and real browser downloads. No JCI execution or hardware acceptance claim",
+)
+add(
+    "COMM-005",
+    "BACnet/IP foreign device through BBMD",
+    "Explicitly register, renew, discover and use point services across a BBMD while preserving lease health, exact recovery configuration and deterministic teardown.",
+    "BACpypes3 pinned IPv4/BVLC source; ASHRAE 135-2004 Addendum m",
+    "BVLC registration/result/distribution; TTL and grace period",
+    "implemented",
+    "Independent raw UDP BBMD/device peers verify registration, forwarded discovery, reads, real 31-second expiry, cancellation/bind cleanup and owned-command recovery. Physical/site BBMD validation remains unverified; this does not provide controller programming",
 )
 
 with (PROJECT / "docs/FEATURE_REQUIREMENTS.csv").open("w", newline="") as f:

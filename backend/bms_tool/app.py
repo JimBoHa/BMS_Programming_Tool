@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import json
 import os
 import secrets
@@ -27,6 +26,7 @@ from .blocks import catalog
 from .caf import CafArchive
 from .caf_compare import compare_cafs
 from .caf_graph import CafGraph
+from .caf_simulation import CafSimulationProfile
 from .connections import Bacnet, modbus_read, ports
 from .deployment import Runtime
 from .engine import Engine, output_type, run_scenario, validate
@@ -132,6 +132,10 @@ class CafPatchRequest(StrictModel):
     changes: list[dict[str, Any]] = Field(max_length=1000)
 
 
+class CafSimulationRequest(StrictModel):
+    profile: dict[str, Any]
+
+
 class CafCompareRequest(StrictModel):
     before_sha: str = Field(pattern=r"^[a-f0-9]{64}$")
     after_sha: str = Field(pattern=r"^[a-f0-9]{64}$")
@@ -145,11 +149,48 @@ class HistoryCaptureRequest(StrictModel):
     id: str = Field(pattern=r"^[a-f0-9]{32}$")
 
 
+class NotificationRouteRequest(StrictModel):
+    name: str = Field(min_length=1, max_length=100)
+    url: str | None = Field(default=None, min_length=1, max_length=2048)
+    url_env: str | None = Field(default=None, min_length=1, max_length=128)
+    sources: list[str] | None = Field(default=None, max_length=128)
+    events: list[str] | None = Field(default=None, min_length=1, max_length=4)
+    bearer_env: str | None = Field(default=None, min_length=1, max_length=128)
+    start_after: int | None = Field(default=None, ge=0, le=2**63 - 1, strict=True)
+
+
+class NotificationEnableRequest(StrictModel):
+    route_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    enabled: bool = Field(strict=True)
+
+
+class NotificationActionRequest(StrictModel):
+    id: int = Field(ge=1, le=2**63 - 1, strict=True)
+    actor: str = Field(default="operator", min_length=1, max_length=100)
+    note: str = Field(min_length=1, max_length=500)
+
+
+class NotificationPruneRequest(StrictModel):
+    through_id: int = Field(ge=1, le=2**63 - 1, strict=True)
+    limit: int = Field(default=1000, ge=1, le=1000, strict=True)
+
+
+class NotificationCycleRequest(StrictModel):
+    limit: int = Field(default=20, ge=1, le=20, strict=True)
+
+
 class BacnetConnect(StrictModel):
     local_address: str
     instance: int = 4190001
     router: str | None = None
     dnet: int | None = None
+    bbmd_address: str | None = Field(default=None, min_length=1, max_length=256)
+    foreign_ttl: int = Field(default=60, ge=1, le=65535, strict=True)
+
+
+class BacnetForeignDiscover(StrictModel):
+    low: int = Field(default=0, ge=0, le=4194302, strict=True)
+    high: int = Field(default=4194302, ge=0, le=4194302, strict=True)
 
 
 class BacnetDiscover(StrictModel):
@@ -324,6 +365,7 @@ def create_app(state_dir=None):
     field_trends = FieldTrends(bacnet, store.directory, audit_store=store)
     temco_transfer = TemcoTransfer(bacnet, store)
     history = BacnetHistory(bacnet, store)
+    notifications = None
     simulations = {}
     caf_files = {}
     niagara_files = {}
@@ -333,6 +375,32 @@ def create_app(state_dir=None):
 
     @asynccontextmanager
     async def lifespan(app):
+        nonlocal notifications
+        from .notification_outbox import NotificationOutbox
+
+        app.state.notification_worker_error = None
+        app.state.notification_startup_error = None
+        try:
+            notifications = NotificationOutbox(store.directory / "notifications", observations)
+        except (ValueError, OSError, sqlite3.Error) as exc:
+            notifications = None
+            app.state.notification_startup_error = "Alarm delivery unavailable: " + str(exc)
+        app.state.notifications = notifications
+
+        async def notification_ticks():
+            while True:
+                await asyncio.sleep(1)
+                if notifications is None:
+                    continue
+                try:
+                    async with asyncio.timeout(30):
+                        await notifications.cycle(limit=20)
+                    app.state.notification_worker_error = None
+                except Exception as exc:
+                    app.state.notification_worker_error = (
+                        "Delivery pass failed: " + type(exc).__name__
+                    )
+
         async def ticks():
             while True:
                 await asyncio.sleep(runtime.engine.program.scan_seconds if runtime.engine else 1)
@@ -345,14 +413,24 @@ def create_app(state_dir=None):
                         control["error"] = str(exc)
                         store.record("runtime.scan.failed", {"error": str(exc)})
 
-        task = asyncio.create_task(ticks())
-        yield
-        task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await task
-        await field_trends.close()
-        bacnet.close()
-        native.stop()
+        tasks = [asyncio.create_task(ticks()), asyncio.create_task(notification_ticks())]
+        try:
+            yield
+        finally:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            try:
+                if notifications is not None:
+                    await notifications.close()
+            finally:
+                try:
+                    await field_trends.close()
+                finally:
+                    try:
+                        bacnet.close()
+                    finally:
+                        native.stop()
 
     app = FastAPI(title="BMS Studio local API", version="0.1.0", lifespan=lifespan)
     app.state.runtime = runtime
@@ -362,6 +440,7 @@ def create_app(state_dir=None):
     app.state.field_trends = field_trends
     app.state.temco_transfer = temco_transfer
     app.state.bacnet_history = history
+    app.state.notifications = None
 
     @app.middleware("http")
     async def local_requests(request, call_next):
@@ -473,6 +552,84 @@ def create_app(state_dir=None):
     @app.get("/api/observations/sources")
     def observation_sources():
         return observations.list_sources()
+
+    def notification_service():
+        if notifications is None:
+            raise ValueError(
+                getattr(app.state, "notification_startup_error", None)
+                or "Alarm delivery service has not started."
+            )
+        return notifications
+
+    @app.get("/api/notifications/status")
+    def notification_status():
+        if notifications is None:
+            return {
+                "available": False,
+                "active_routes": 0,
+                "enabled_routes": [],
+                "latest_alarm_event_sequence": 0,
+                "worker_error": getattr(app.state, "notification_startup_error", None)
+                or "Alarm delivery service has not started.",
+            }
+        return {
+            **notification_service().status(),
+            "available": True,
+            "worker_error": app.state.notification_worker_error,
+        }
+
+    @app.get("/api/notifications/routes")
+    def notification_routes():
+        return notification_service().routes() if notifications is not None else []
+
+    @app.post("/api/notifications/routes")
+    def notification_route_create(body: NotificationRouteRequest):
+        return notification_service().create_route(**body.model_dump())
+
+    @app.post("/api/notifications/routes/enable")
+    def notification_route_enable(body: NotificationEnableRequest):
+        return notification_service().enable_route(body.route_id, body.enabled)
+
+    @app.get("/api/notifications/deliveries")
+    def notification_deliveries(
+        route_id: str | None = None, state: str | None = None, after: int = 0, limit: int = 100
+    ):
+        if notifications is None:
+            return {"rows": [], "total": 0, "next_after": None}
+        return notification_service().deliveries(
+            route_id=route_id, state=state, after=after, limit=limit
+        )
+
+    @app.get("/api/notifications/deliveries/{id}")
+    def notification_delivery(id: int):
+        return notification_service().delivery(id)
+
+    @app.post("/api/notifications/retry")
+    def notification_retry(body: NotificationActionRequest):
+        return notification_service().retry(body.id, body.note, actor=body.actor)
+
+    @app.post("/api/notifications/discard")
+    def notification_discard(body: NotificationActionRequest):
+        return notification_service().discard(body.id, body.note, actor=body.actor)
+
+    @app.post("/api/notifications/prune")
+    def notification_prune(body: NotificationPruneRequest):
+        return notification_service().prune_completed(**body.model_dump())
+
+    @app.post("/api/notifications/cycle")
+    async def notification_cycle(body: NotificationCycleRequest):
+        try:
+            async with asyncio.timeout(30):
+                result = await notification_service().cycle(**body.model_dump())
+            app.state.notification_worker_error = None
+            return result
+        except TimeoutError:
+            return JSONResponse(
+                {
+                    "detail": "Delivery pass timed out. Completed and uncertain results remain in delivery history."
+                },
+                504,
+            )
 
     @app.get("/api/observations/trends")
     def observation_trends(
@@ -822,6 +979,27 @@ def create_app(state_dir=None):
     def caf_properties(id: str, ref: str):
         return get_caf(id).properties(ref)
 
+    @app.get("/api/caf/{id}/simulation")
+    def caf_simulation(id: str):
+        return CafSimulationProfile(get_caf(id)).summary()
+
+    @app.get("/api/caf/{id}/simulation/profile")
+    def caf_simulation_profile(id: str):
+        return CafSimulationProfile(get_caf(id)).export_profile()
+
+    @app.post("/api/caf/{id}/simulation")
+    def caf_simulation_export(id: str, body: CafSimulationRequest):
+        content, changes = CafSimulationProfile(get_caf(id)).apply(body.profile)
+        store.record(
+            "caf.simulation.export",
+            {"source_sha256": id, "changed_records": len(changes), "native_validation": "pending"},
+        )
+        return Response(
+            content,
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": 'attachment; filename="simulation-copy.caf"'},
+        )
+
     @app.post("/api/caf/{id}/export")
     def caf_export(id: str, body: CafPatchRequest):
         content, changes = get_caf(id).patch(body.changes)
@@ -885,12 +1063,12 @@ def create_app(state_dir=None):
 
     @app.get("/api/niagara/profile")
     def niagara_profile():
-        from .niagara import DIFFERENCES, NATIVE
+        from .niagara import DIFFERENCES, EXTENDED_DIFFERENCES, SUPPORTED
 
         return {
             "format": "Niagara BOG",
-            "native_types": sorted({*NATIVE, "Input", "Output", "Constant", "Switch"}),
-            "differences": DIFFERENCES,
+            "native_types": sorted(SUPPORTED),
+            "differences": DIFFERENCES + EXTENDED_DIFFERENCES,
             "native_runtime_verified": False,
         }
 
@@ -1049,6 +1227,10 @@ def create_app(state_dir=None):
     @app.post("/api/bacnet/connect")
     async def bacnet_connect(body: BacnetConnect):
         return await bacnet.connect(**body.model_dump())
+
+    @app.post("/api/bacnet/discover-foreign")
+    async def bacnet_discover_foreign(body: BacnetForeignDiscover):
+        return await bacnet.discover_foreign(**body.model_dump())
 
     @app.post("/api/bacnet/connect-mstp")
     async def bacnet_connect_mstp(body: BacnetMstp):

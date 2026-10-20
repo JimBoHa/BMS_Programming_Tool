@@ -2627,6 +2627,17 @@
     "notes": "Local reference; original copyright/confidentiality notices retained."
   },
   {
+    "vendor": "ASHRAE / BACnet",
+    "title": "ANSI/ASHRAE 135-2004 Addendum m: BACnet corrections including foreign-device registration",
+    "url": "https://bacnet.org/wp-content/uploads/sites/4/2022/08/Add-2004-135m.pdf",
+    "pages": 22,
+    "sha256": "871ba5193e16cbc4d37e963e2e6c1e50c69a27a6099f5be27460f1ae593eaf2e",
+    "status": "downloaded",
+    "local_collection": "multivendor",
+    "local_id": "871ba5193e16cbc4",
+    "notes": "Local reference; original copyright/confidentiality notices retained."
+  },
+  {
     "vendor": "California Energy Commission",
     "title": "CEC-Programming-Library-Certification-List-2026-09-10.xlsx",
     "url": "https://www.energy.ca.gov/sites/default/files/2026-09/Programming_Library_Certification_List_9_10_2026_ada.xlsx",

@@ -21,6 +21,7 @@ import zlib
 from defusedxml import ElementTree as SafeXML
 from defusedxml.common import DefusedXmlException
 
+from .blocks import BLOCKS
 from .engine import input_type, output_type, validate
 from .formats import ConversionError
 from .macros import expand_macros
@@ -40,8 +41,17 @@ NATIVE = {
     "And": ("kitControl:And", {"a": "inA", "b": "inB"}),
     "Or": ("kitControl:Or", {"a": "inA", "b": "inB"}),
     "Not": ("kitControl:Not", {"in": "in"}),
+    "Scale": ("kitControl:Reset", {"in": "inA"}),
+    "Convert": ("kitControl:NumericUnitConverter", {"in": "in"}),
 }
 REVERSE = {typ: (kind, {v: k for k, v in ports.items()}) for kind, (typ, ports) in NATIVE.items()}
+SUPPORTED = {*NATIVE, "Input", "Output", "Constant", "Switch", "Clamp"}
+RESET_LIMITS = {
+    "in_min": "inputLowLimit",
+    "in_max": "inputHighLimit",
+    "out_min": "outputLowLimit",
+    "out_max": "outputHighLimit",
+}
 REDUCTIONS = {"Add", "Multiply", "Min", "Max", "And", "Or"}
 FOLDERS = {
     f"{module}:{name}" for module in ("baja", "b") for name in ("Folder", "UnrestrictedFolder")
@@ -79,6 +89,9 @@ DIFFERENCES = [
     "Writable outputs bind at native priority 16; existing higher-priority commands can take precedence.",
     "This conversion does not configure physical I/O, alarms, histories, drivers or station credentials.",
     "Native station/Workbench acceptance and execution have not been verified in this environment.",
+]
+EXTENDED_DIFFERENCES = [
+    "Reset scaling and unit conversions can round differently from Studio; finite steady-state comparisons do not establish event/status or overflow equivalence.",
 ]
 
 
@@ -378,6 +391,109 @@ class NiagaraArchive:
         return self.original
 
 
+def _lower_composites(graph: Program):
+    """Lower finite Clamp/unclamped Scale using documented existing primitives.
+
+    Clamped Scale with matching input/output units remains a native Reset. Its
+    single facets slot describes its input; differing engineering units need a
+    composite with independently faceted intermediate/output components. Reset
+    always clamps and must never represent an extrapolating Scale. Source-free
+    import exposes composites as their ordinary native primitives.
+    """
+    nodes, edges = [], [edge.model_copy(deep=True) for edge in graph.edges]
+    reserved_nodes, reserved_edges = {n.id for n in graph.nodes}, {e.id for e in edges}
+    by_id = {n.id: n for n in graph.nodes}
+
+    def identifier(reserved, prefix):
+        index = len(reserved)
+        while (candidate := prefix + str(index)) in reserved:
+            index += 1
+        reserved.add(candidate)
+        return candidate
+
+    def add(kind, unit, *, value=None, parent):
+        if len(reserved_nodes) >= min(2000, graph.target.max_nodes):
+            raise ConversionError("Niagara composite expansion exceeds the target node limit.")
+        node = Node(
+            id=identifier(reserved_nodes, "niagara_lower_"),
+            kind=kind,
+            unit=unit,
+            params={} if value is None else {"value": _scalar(value)},
+            x=parent.x - 180,
+            y=parent.y,
+            label=("Native " + kind + " for " + (parent.label or parent.id))[:200],
+        )
+        nodes.append(node)
+        return node.id
+
+    def wire(source, target, port):
+        if len(edges) >= 10000:
+            raise ConversionError("Niagara composite expansion exceeds 10,000 edges.")
+        edges.append(
+            Edge(
+                id=identifier(reserved_edges, "niagara_edge_"),
+                source=source,
+                target=target,
+                target_port=port,
+            )
+        )
+
+    for node in graph.nodes:
+        params = {**BLOCKS[node.kind].parameters, **node.params}
+        input_unit = None
+        if node.kind == "Scale":
+            incoming = next(e for e in graph.edges if e.target == node.id)
+            input_unit = by_id[incoming.source].unit
+        if node.kind == "Clamp":
+            minimum = add("Min", node.unit, parent=node)
+            lower = add("Constant", node.unit, value=params["min"], parent=node)
+            upper = add("Constant", node.unit, value=params["max"], parent=node)
+            nodes.append(node.model_copy(deep=True, update={"kind": "Max", "params": {}}))
+            for edge in edges:
+                if edge.target == node.id:
+                    edge.target, edge.target_port = minimum, "a"
+            wire(upper, minimum, "b")
+            wire(minimum, node.id, "a")
+            wire(lower, node.id, "b")
+        elif node.kind == "Scale" and (not params["clamp"] or input_unit != node.unit):
+            subtract = add("Subtract", input_unit, parent=node)
+            divide = add("Divide", "", parent=node)
+            multiply = add("Multiply", node.unit, parent=node)
+            in_min = add("Constant", input_unit, value=params["in_min"], parent=node)
+            in_span = add(
+                "Constant", input_unit, value=params["in_max"] - params["in_min"], parent=node
+            )
+            out_span = add(
+                "Constant", node.unit, value=params["out_max"] - params["out_min"], parent=node
+            )
+            out_min = add("Constant", node.unit, value=params["out_min"], parent=node)
+            nodes.append(node.model_copy(deep=True, update={"kind": "Add", "params": {}}))
+            for edge in edges:
+                if edge.target == node.id:
+                    edge.target, edge.target_port = subtract, "a"
+            wire(in_min, subtract, "b")
+            wire(subtract, divide, "a")
+            wire(in_span, divide, "b")
+            if params["clamp"]:
+                minimum = add("Min", "", parent=node)
+                maximum = add("Max", "", parent=node)
+                zero = add("Constant", "", value=0, parent=node)
+                one = add("Constant", "", value=1, parent=node)
+                wire(divide, minimum, "a")
+                wire(one, minimum, "b")
+                wire(minimum, maximum, "a")
+                wire(zero, maximum, "b")
+                wire(maximum, multiply, "a")
+            else:
+                wire(divide, multiply, "a")
+            wire(out_span, multiply, "b")
+            wire(multiply, node.id, "a")
+            wire(out_min, node.id, "b")
+        else:
+            nodes.append(node.model_copy(deep=True))
+    return graph.model_copy(deep=True, update={"nodes": nodes, "edges": edges})
+
+
 def niagara_xml(program: Program):
     if "native_sedona" in program.metadata:
         raise ConversionError("Additional Sedona logic has no Niagara mapping.")
@@ -385,9 +501,7 @@ def niagara_xml(program: Program):
     errors = [d.message for d in validate(graph) if d.level == "error"]
     if errors:
         raise ConversionError("; ".join(errors))
-    unsupported = sorted(
-        {n.kind for n in graph.nodes} - {*NATIVE, "Input", "Output", "Constant", "Switch"}
-    )
+    unsupported = sorted({n.kind for n in graph.nodes} - SUPPORTED)
     if unsupported:
         raise ConversionError(
             "Niagara native primitive profile does not lower: " + ", ".join(unsupported)
@@ -396,6 +510,10 @@ def niagara_xml(program: Program):
         raise ConversionError(
             "Physical terminals need a Niagara driver binding; native export cannot omit them."
         )
+    differences = DIFFERENCES + (
+        EXTENDED_DIFFERENCES if any(n.kind in {"Scale", "Convert"} for n in graph.nodes) else []
+    )
+    graph = _lower_composites(graph)
     root = ET.Element(
         "bajaObjectGraph",
         {"version": "4.0", "reversibleEncodingKeySource": "none", "FIPSEnabled": "false"},
@@ -407,7 +525,7 @@ def niagara_xml(program: Program):
         root, "p", {"n": "StudioProgram", "h": "root", "m": "b=baja", "t": "b:Folder"}
     )
     ET.SubElement(
-        folder, "p", {"n": "studioConversionReview", "t": "b:String", "v": " ".join(DIFFERENCES)}
+        folder, "p", {"n": "studioConversionReview", "t": "b:String", "v": " ".join(differences)}
     )
     handles = {n.id: format(i + 1, "x") for i, n in enumerate(graph.nodes)}
     elements, ports = {}, {}
@@ -457,7 +575,15 @@ def niagara_xml(program: Program):
             "p",
             {"n": "wsAnnotation", "t": "b:WsAnnotation", "v": f"{round(n.x)},{round(n.y)},8"},
         )
-        if n.unit and not boolean:
+        if n.kind == "Convert":
+            parameters = {**BLOCKS[n.kind].parameters, **n.params}
+            for slot, key in (("inFacets", "from"), ("outFacets", "to")):
+                ET.SubElement(
+                    element,
+                    "p",
+                    {"n": slot, "t": "b:Facets", "v": "units=u:" + UNITS[parameters[key]]},
+                )
+        elif n.unit and not boolean:
             if n.unit not in UNITS:
                 raise ConversionError("Niagara unit has no verified facet mapping: " + n.unit)
             ET.SubElement(
@@ -470,6 +596,19 @@ def niagara_xml(program: Program):
                 else n.params.get("default", False if boolean else 0)
             )
             prop(element, "out" if n.kind == "Constant" else "fallback", default, boolean)
+        if n.kind == "Scale":
+            parameters = {**BLOCKS[n.kind].parameters, **n.params}
+            if parameters["in_min"] > parameters["in_max"]:
+                parameters["in_min"], parameters["in_max"] = (
+                    parameters["in_max"],
+                    parameters["in_min"],
+                )
+                parameters["out_min"], parameters["out_max"] = (
+                    parameters["out_max"],
+                    parameters["out_min"],
+                )
+            for key, slot in RESET_LIMITS.items():
+                prop(element, slot, parameters[key])
         if n.kind in ("Add", "Multiply", "And", "Or"):
             neutral = (
                 True
@@ -635,11 +774,29 @@ def import_bog(content: bytes):
             kind, ports = "Switch", {"inSwitch": "select", "inTrue": "on", "inFalse": "off"}
         elif typ in REVERSE:
             kind, ports = REVERSE[typ]
+            if kind == "Scale":
+                params = {"clamp": True}
+                for key, slot in RESET_LIMITS.items():
+                    value = _status_value(element, slot, archive.value_types)
+                    if value is None:
+                        raise ConversionError(
+                            "Configure every native Reset limit explicitly before conversion."
+                        )
+                    params[key] = _scalar(value)
+                if params["in_min"] >= params["in_max"]:
+                    raise ConversionError(
+                        "Native Reset inputLowLimit must be less than inputHighLimit."
+                    )
         else:
             raise ConversionError("No semantic Niagara mapping for " + typ)
         allowed_properties = {*ports, "out", "fallback", "facets", "wsAnnotation", "displayName"}
         if kind in REDUCTIONS:
             allowed_properties.update({"inC", "inD"})
+        if kind == "Scale":
+            allowed_properties.update(RESET_LIMITS.values())
+        if kind == "Convert":
+            allowed_properties -= {"facets", "fallback"}
+            allowed_properties.update({"inFacets", "outFacets"})
 
         def unsupported_property(p, allowed=allowed_properties, node_kind=kind):
             if p.get("n") in allowed or p.get("h") or p.get("t", "").endswith(":Link"):
@@ -657,10 +814,32 @@ def import_bog(content: bytes):
             raise ConversionError(
                 "Unsupported native component configuration would be lost: " + record["path"]
             )
-        facets = _value(element, "facets", "")
-        unit = _unit_facets(facets)
-        if facets:
-            native_facets[record["path"]] = facets
+        if kind == "Convert":
+            converter_facets = {}
+            for key, slot in (("from", "inFacets"), ("to", "outFacets")):
+                prop = element.find("./p[@n='" + slot + "']")
+                if (
+                    prop is not None
+                    and prop.get("t")
+                    and archive.value_types.get(id(prop)) != "baja:Facets"
+                ):
+                    raise ConversionError(
+                        "Native unit converter facets must have type baja:Facets."
+                    )
+                facets = _value(element, slot, "")
+                params[key] = _unit_facets(facets)
+                if params[key] not in {"degF", "degC", "K"}:
+                    raise ConversionError(
+                        "Native unit converter requires explicit supported temperature units."
+                    )
+                converter_facets[slot] = facets
+            unit = params["to"]
+            native_facets[record["path"]] = converter_facets
+        else:
+            facets = _value(element, "facets", "")
+            unit = _unit_facets(facets)
+            if facets:
+                native_facets[record["path"]] = facets
         node = Node(
             id=identifier,
             kind=kind,
@@ -708,7 +887,11 @@ def import_bog(content: bytes):
                         "Connect or configure native input " + record["path"] + "." + slot
                     )
                 source_id = const(value, input_type(node, port) == "boolean")
-                nodes[-1].unit = node.unit if nodes[-1].value_type == "number" else ""
+                nodes[-1].unit = (
+                    (node.params["from"] if node.kind == "Convert" else node.unit)
+                    if nodes[-1].value_type == "number"
+                    else ""
+                )
             sources.append(source_id)
             wire(source_id, node.id, port)
         if node.kind in REDUCTIONS:
@@ -767,7 +950,7 @@ def import_bog(content: bytes):
                 "source_format": "Niagara BOG",
                 "source_sha256": archive.hash,
                 "review_required": True,
-                "differences": DIFFERENCES,
+                "differences": DIFFERENCES + EXTENDED_DIFFERENCES,
                 "published_leaf_taps": leaf_taps,
                 "native_facets": native_facets,
             }

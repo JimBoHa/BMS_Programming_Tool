@@ -81,7 +81,7 @@
     "implementation_or_gap": "Both sample families inspected; cross-target compilation pending"
   },
   {
-    "id": "FMT-008",
+    "id": "FMT-011",
     "feature": "Native CAF change review",
     "acceptance_criterion": "Compare exact native object/record identities, application and simulation values, wiring/order and opaque metadata while preserving both original files and review hashes.",
     "evidence": "Authorized local CAF samples and parsed XML evidence",
@@ -347,8 +347,8 @@
     "acceptance_criterion": "Provide thresholds, delays, acknowledgements, transitions and routing.",
     "evidence": "ALC Eikon 3.02 Microblock Reference",
     "pdf_pages_or_section": "Alarm microblocks",
-    "status": "partial",
-    "implementation_or_gap": "Threshold/on-delay, durable activation/return/acknowledgment/reactivation, operator notes and event history; external delivery/routing pending"
+    "status": "implemented",
+    "implementation_or_gap": "Graph thresholds/on-delay, durable activation/return/acknowledgment/reactivation and operator notes. Explicit source/event webhook routes use a durable ordered outbox, bounded retries, stable idempotency keys, uncertain receipts, gap evidence and restart-off activity. Receipts do not acknowledge alarms. Native intrinsic alarms, SMTP/email and human receipt remain outside this profile"
   },
   {
     "id": "FMT-008",
@@ -391,9 +391,9 @@
     "feature": "Physical input configuration",
     "acceptance_criterion": "Add a real unused sensor terminal and verify reliability/open-circuit on the target.",
     "evidence": "User-authorized E2/F2 test",
-    "pdf_pages_or_section": "Tailscale access supplied; connectivity checks follow programming completion",
+    "pdf_pages_or_section": "Read-only checks authorized: site Mac reachable, target network route unavailable",
     "status": "pending",
-    "implementation_or_gap": "Native application adapter and physical target test required"
+    "implementation_or_gap": "Site Mac reached through Tailscale; no approved target subnet route visible and both NAE HTTP/HTTPS probes timed out. Credentials not read/authentication not attempted. Native application adapter and physical sensor test still required"
   },
   {
     "id": "CODE-001",
@@ -429,7 +429,7 @@
     "evidence": "Tridium kitControl guide; Niagara troubleshooting presentations; public pybog source",
     "pdf_pages_or_section": "Native component slots, XML/BOG encoding and protection",
     "status": "partial",
-    "implementation_or_gap": "17 primitive graph types map to real BOG ZIP/XML; independent pybog fixture converts. Genuine manufacturer descriptors verify types, inherited slots, link types, units and aliases. Unknown logic and malformed status/configuration fail explicitly. Workbench/station runtime acceptance, stateful components and full station services remain unverified"
+    "implementation_or_gap": "20 graph kinds map to real BOG ZIP/XML (including composite Clamp and native Scale/Convert); independent pybog fixture converts. Genuine manufacturer descriptors verify types, inherited slots, link types, units and aliases. Unknown logic and malformed status/configuration fail explicitly. Workbench/station runtime acceptance, stateful components and full station services remain unverified"
   },
   {
     "id": "COMM-004",
@@ -441,7 +441,7 @@
     "implementation_or_gap": "Real Python token master and BACpypes3 data link; HTTP discovery/ReadProperty verified over OS pseudoterminals. Automatic-direction no-echo RS485 hardware required; physical timing, BTCVT, extended frames and proprietary downloads unverified"
   },
   {
-    "id": "SIM-005",
+    "id": "SIM-007",
     "feature": "Independent IEC execution",
     "acceptance_criterion": "Compile generated Structured Text with an independent compiler and compare native output, fault and retained-state behavior against the reference simulator.",
     "evidence": "MatIEC pinned compiler and vendor simulation workflows",
@@ -457,5 +457,23 @@
     "pdf_pages_or_section": "Native Interface XML, Measurement, Enum, Bus and Preset records",
     "status": "implemented",
     "implementation_or_gap": "Offline typed metadata selection, collision rejection, exact original export and source-hashed migration reports. Sensor metadata does not provide PCV/VMA object allocation, compiler or device writes"
+  },
+  {
+    "id": "SIM-008",
+    "feature": "Native CAF saved simulation inputs",
+    "acceptance_criterion": "Export and edit archive-bound native saved simulation values while preserving ordinary program properties and refusing unknown enum/type/version semantics.",
+    "evidence": "JCI Controller Tool Help: Simulation mode; authorized local native CAFs",
+    "pdf_pages_or_section": "Saved startup simulation settings; simulationProperty records",
+    "status": "implemented",
+    "implementation_or_gap": "Complete source-hashed profiles, observed float32/boolean guards, exact native readback, byte-preserving unknown data, bounded profile size, explicit draft handling and real browser downloads. No JCI execution or hardware acceptance claim"
+  },
+  {
+    "id": "COMM-005",
+    "feature": "BACnet/IP foreign device through BBMD",
+    "acceptance_criterion": "Explicitly register, renew, discover and use point services across a BBMD while preserving lease health, exact recovery configuration and deterministic teardown.",
+    "evidence": "BACpypes3 pinned IPv4/BVLC source; ASHRAE 135-2004 Addendum m",
+    "pdf_pages_or_section": "BVLC registration/result/distribution; TTL and grace period",
+    "status": "implemented",
+    "implementation_or_gap": "Independent raw UDP BBMD/device peers verify registration, forwarded discovery, reads, real 31-second expiry, cancellation/bind cleanup and owned-command recovery. Physical/site BBMD validation remains unverified; this does not provide controller programming"
   }
 ]
