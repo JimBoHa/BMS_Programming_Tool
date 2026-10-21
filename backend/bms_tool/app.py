@@ -22,6 +22,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import AwareDatetime, Field
 
 from .analysis import dependencies
+from .bacnet_cov import BacnetCov, CovAction, CovStart
 from .bacnet_files import BacnetFiles
 from .bacnet_history import BacnetHistory, BacnetHistoryRequest
 from .blocks import catalog
@@ -391,6 +392,7 @@ def create_app(state_dir=None):
     store = Store(state_dir or os.environ.get("BMS_STUDIO_DATA", str(ROOT / ".state")))
     runtime = Runtime(store)
     bacnet = Bacnet(store)
+    cov = BacnetCov(bacnet, store)
     native = NativeSimulator(store)
     groups = SimulationGroups()
     observations = ObservabilityStore(store.directory)
@@ -468,14 +470,18 @@ def create_app(state_dir=None):
                         await hardware_workbench.close()
                     finally:
                         try:
-                            bacnet.close()
+                            await cov.close()
                         finally:
-                            native.stop()
+                            try:
+                                bacnet.close()
+                            finally:
+                                native.stop()
 
     app = FastAPI(title="BMS Studio local API", version="0.1.0", lifespan=lifespan)
     app.state.runtime = runtime
     app.state.store = store
     app.state.bacnet = bacnet
+    app.state.bacnet_cov = cov
     app.state.native = native
     app.state.field_trends = field_trends
     app.state.temco_transfer = temco_transfer
@@ -1297,6 +1303,26 @@ def create_app(state_dir=None):
     @app.get("/api/bacnet/status")
     def bacnet_status():
         return bacnet.status()
+
+    @app.get("/api/bacnet/cov/status")
+    async def cov_status():
+        return cov.status()
+
+    @app.get("/api/bacnet/cov/jobs/{id}")
+    async def cov_detail(id: str):
+        return cov.detail(id)
+
+    @app.post("/api/bacnet/cov/start")
+    async def cov_start(body: CovStart):
+        return await cov.start(**body.model_dump())
+
+    @app.post("/api/bacnet/cov/renew")
+    async def cov_renew(body: CovAction):
+        return await cov.renew(body.id)
+
+    @app.post("/api/bacnet/cov/stop")
+    async def cov_stop(body: CovAction):
+        return await cov.stop(body.id)
 
     @app.get("/api/bacnet/routed-profile")
     def bacnet_routed_profile():
