@@ -13,6 +13,7 @@ from defusedxml import ElementTree as SafeXML
 from .blocks import BLOCKS
 from .engine import execution_order, output_type, validate
 from .models import Program, canonical
+from .temperature import DELTA_FOR_ABSOLUTE, difference_expression
 
 PLC = "http://www.plcopen.org/xml/tc6_0201"
 XHTML = "http://www.w3.org/1999/xhtml"
@@ -203,6 +204,15 @@ def structured_text_parts(program):
                 if p["to"] == "K"
                 else c
             )
+        elif k == "TemperatureDifference":
+            expression = f"{a('a')} - {a('b')}"
+        elif k == "DeltaConvert":
+            expression = difference_expression(a("in"), p["from"], p["to"])
+        elif k == "TemperatureOffset":
+            difference = difference_expression(
+                a("difference"), p["difference_unit"], DELTA_FOR_ABSOLUTE[p["unit"]]
+            )
+            expression = f"{a('base')} + {difference}"
         elif k == "Switch":
             lines.append(
                 f"IF {a('select')} THEN {name} := {a('on')}; ELSE {name} := {a('off')}; END_IF;"

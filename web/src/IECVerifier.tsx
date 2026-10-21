@@ -218,7 +218,7 @@ export function IECVerifier({ program }: { program: Program }) {
         <h2>Native execution profile</h2>
         <div className="temco-profile-grid">
           <p>
-            <strong>27 blocks and nested macros</strong>
+            <strong>30 blocks and nested macros</strong>
             <span>
               Retained state, staged scan commits, timers, PI, schedules and
               input-quality validity flags.
