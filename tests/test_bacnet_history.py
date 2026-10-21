@@ -1,7 +1,6 @@
 """Actual UDP ReadRange exchanges against an independently authored Trend Log device."""
 
 import asyncio
-import fcntl
 import json
 import os
 import socket
@@ -552,21 +551,20 @@ async def test_busy_cross_process_capture_lock_is_bounded_and_does_not_hold_memo
     link, monkeypatch
 ):
     import bms_tool.bacnet_history as history
+    import bms_tool.file_access as access
 
     _, _, service, target = link
     report = await service.read(**target, count=1)
     started_lock = threading.Event()
-    real_flock = fcntl.flock
+    real_try_lock = access.try_lock
 
-    def watched(fd, operation):
-        if operation & fcntl.LOCK_EX:
-            started_lock.set()
-        return real_flock(fd, operation)
+    def watched(fd):
+        started_lock.set()
+        return real_try_lock(fd)
 
     monkeypatch.setattr(history, "CAPTURE_LOCK_SECONDS", 0.1)
-    with (service.directory / ".capture.lock").open("a+b") as held:
-        real_flock(held.fileno(), fcntl.LOCK_EX)
-        monkeypatch.setattr(history.fcntl, "flock", watched)
+    with access.file_lock(service.directory / ".capture.lock", timeout=0, busy="held"):
+        monkeypatch.setattr(access, "try_lock", watched)
         saving = asyncio.create_task(asyncio.to_thread(service.save, report["id"]))
         try:
             assert await asyncio.to_thread(started_lock.wait, 0.5)
@@ -580,7 +578,6 @@ async def test_busy_cross_process_capture_lock_is_bounded_and_does_not_hold_memo
                 await asyncio.wait_for(asyncio.shield(saving), 0.5)
             assert time.monotonic() - before < 0.5
         finally:
-            real_flock(held.fileno(), fcntl.LOCK_UN)
             await asyncio.gather(saving, return_exceptions=True)
 
 

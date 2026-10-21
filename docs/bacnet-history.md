@@ -147,8 +147,11 @@ pages may be needed for devices that do not segment large responses.
 Reading alone keeps a bounded recent in-memory report cache. Saving accepts a
 server-created report ID, never caller-supplied replacement evidence. Captures
 are written under the application's `bacnet-history` directory with restricted
-file permissions, fsynced data/directory and atomic creation without replacing
-an existing capture. A canonical JSON SHA-256 seal is checked on every saved
+POSIX file permissions, flushed file data and atomic creation without replacing
+an existing capture. POSIX also flushes the directory. Windows validates native
+file handles and refuses reparse points, but does not claim directory/power-loss
+durability; the status response and browser display this storage limit. See
+[portable storage](portable-storage.md). A canonical JSON SHA-256 seal is checked on every saved
 read; summaries expose that hash. This detects accidental edits, rather than
 providing a cryptographic signature from the controller.
 
