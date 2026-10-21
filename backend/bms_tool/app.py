@@ -23,6 +23,7 @@ from pydantic import AwareDatetime, Field
 from .analysis import dependencies
 from .bacnet_files import BacnetFiles
 from .bacnet_history import BacnetHistory, BacnetHistoryRequest
+from .bbmd_tables import BbmdCancel, BbmdInspection, BbmdTables
 from .blocks import catalog
 from .caf import CafArchive
 from .caf_compare import compare_cafs
@@ -395,6 +396,7 @@ def create_app(state_dir=None):
     history = BacnetHistory(bacnet, store)
     routed = RoutedDiscovery(bacnet, store)
     ip_discovery = IpDiscovery(bacnet, store)
+    bbmd_tables = BbmdTables(bacnet, store)
     device_details = DeviceDetails(bacnet, store)
     files = BacnetFiles(bacnet, store)
     notifications = None
@@ -453,16 +455,19 @@ def create_app(state_dir=None):
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
             try:
-                if notifications is not None:
-                    await notifications.close()
+                await bbmd_tables.close()
             finally:
                 try:
-                    await field_trends.close()
+                    if notifications is not None:
+                        await notifications.close()
                 finally:
                     try:
-                        bacnet.close()
+                        await field_trends.close()
                     finally:
-                        native.stop()
+                        try:
+                            bacnet.close()
+                        finally:
+                            native.stop()
 
     app = FastAPI(title="BMS Studio local API", version="0.1.0", lifespan=lifespan)
     app.state.runtime = runtime
@@ -474,6 +479,7 @@ def create_app(state_dir=None):
     app.state.bacnet_history = history
     app.state.routed_discovery = routed
     app.state.ip_discovery = ip_discovery
+    app.state.bbmd_tables = bbmd_tables
     app.state.device_details = device_details
     app.state.bacnet_files = files
     app.state.notifications = None
@@ -1332,6 +1338,22 @@ def create_app(state_dir=None):
     @app.post("/api/bacnet/connect")
     async def bacnet_connect(body: BacnetConnect):
         return await bacnet.connect(**body.model_dump())
+
+    @app.get("/api/bacnet/bbmd-tables/status")
+    async def bbmd_table_status():
+        return bbmd_tables.status()
+
+    @app.get("/api/bacnet/bbmd-tables/jobs/{id}")
+    async def bbmd_table_detail(id: str):
+        return bbmd_tables.detail(id)
+
+    @app.post("/api/bacnet/bbmd-tables/start")
+    async def bbmd_table_start(body: BbmdInspection):
+        return bbmd_tables.start(**body.model_dump())
+
+    @app.post("/api/bacnet/bbmd-tables/cancel")
+    async def bbmd_table_cancel(body: BbmdCancel):
+        return await bbmd_tables.cancel(body.id)
 
     @app.post("/api/bacnet/discover-foreign")
     async def bacnet_discover_foreign(body: BacnetForeignDiscover):
