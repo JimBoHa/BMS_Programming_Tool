@@ -108,7 +108,9 @@ test("field sampling persists actual loopback BACnet values and CSV with verifie
     const samples = page.getByRole("region", {
       name: "Saved field trend samples",
     });
-    await expect(samples).toContainText("12.5", { timeout: 10000 });
+    // Older COV receipts may have the same value; wait for this poll source.
+    await expect(samples).toContainText("zone_temperature", { timeout: 15000 });
+    await expect(samples).toContainText("12.5");
     await expect(samples).toContainText("good");
     await expect(samples).toContainText("degF");
     const status = await (await request.get("/api/field-trends/status")).json();
@@ -150,7 +152,9 @@ test("field sampling persists actual loopback BACnet values and CSV with verifie
     await page
       .getByRole("button", { name: "Delete ended field history", exact: true })
       .click();
-    await expect(samples.locator("tbody tr")).toHaveCount(0);
+    await expect(
+      samples.locator("tbody tr").filter({ hasText: job.source }),
+    ).toHaveCount(0);
     expect(
       (await (await request.get("/api/field-trends/sources")).json()).some(
         (s: any) => s.source === job.source,

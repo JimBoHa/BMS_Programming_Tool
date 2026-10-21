@@ -133,18 +133,21 @@ test("routed COV UI defaults selected route, keeps pending source identity, expo
       panel.getByLabel("Expected COV Device", { exact: true }),
     ).toHaveValue("");
     await expect(panel).toContainText("2001:4 via");
-    await expect(panel.getByText(/^Notification 1 ·/)).toBeVisible();
+    const current = panel
+      .getByRole("region", { name: /^COV monitor cov-/ })
+      .first();
+    await expect(current.getByText(/^Notification 1 ·/)).toBeVisible();
     const download = page.waitForEvent("download");
-    await panel.getByRole("button", { name: "Export COV evidence" }).click();
+    await current.getByRole("button", { name: "Export COV evidence" }).click();
     const file = await download;
     const evidence = JSON.parse(readFileSync((await file.path())!, "utf8"));
     expect(evidence.config.address).toBe("2001:4");
     expect(evidence.events[0].route.next_hop).toBe(peer.config.router);
     expect(evidence.events[0].route.source).toBe("2001:4");
     expect(evidence.events[0].values[0].value).toBe(12.5);
-    await panel.getByRole("button", { name: "Renew COV lease" }).click();
+    await current.getByRole("button", { name: "Renew COV lease" }).click();
     await expect(panel).toContainText("Explicit renewal acknowledged.");
-    await panel.getByRole("button", { name: "Stop COV monitor" }).click();
+    await current.getByRole("button", { name: "Stop COV monitor" }).click();
     await expect(panel).toContainText("Cancellation acknowledged.");
     await panel
       .getByLabel("COV source path", { exact: true })

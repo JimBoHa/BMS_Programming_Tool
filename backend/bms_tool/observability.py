@@ -167,6 +167,10 @@ class ObservabilityStore:
                     value TEXT NOT NULL, value_type TEXT NOT NULL,
                     quality TEXT NOT NULL, unit TEXT NOT NULL, recorded_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS observation_provenance(
+                    source TEXT PRIMARY KEY REFERENCES observation_sources(source) ON DELETE CASCADE,
+                    metadata TEXT NOT NULL
+                );
                 CREATE INDEX IF NOT EXISTS trends_by_source_signal
                     ON trend_samples(source, signal, sequence);
                 CREATE INDEX IF NOT EXISTS trends_by_clock ON trend_samples(clock);
@@ -455,11 +459,21 @@ class ObservabilityStore:
             rows = db.execute(
                 f"SELECT * FROM trend_samples WHERE {where} ORDER BY sequence LIMIT ?", arguments
             ).fetchall()
+            provenance = dict(db.execute("SELECT source,metadata FROM observation_provenance"))
         result = []
         for row in rows:
             sample = dict(row)
             sample["value"] = json.loads(sample["value"])
             sample["source_kind"] = self.source_kind
+            if sample["source"] in provenance:
+                meta = json.loads(provenance[sample["source"]])
+                sample.update(
+                    acquisition_kind=meta["acquisition_kind"],
+                    clock_basis=meta["clock_basis"],
+                    source_clock=meta["source_clock"],
+                    receipt_at=sample["clock"],
+                    provenance=meta,
+                )
             result.append(sample)
         return result
 
@@ -647,7 +661,16 @@ class ObservabilityStore:
                 ) a ON a.source=s.source
                 ORDER BY s.clock DESC,s.source LIMIT 4096
             """).fetchall()
-        return [self._source_row(row) for row in rows]
+            provenance = dict(db.execute("SELECT source,metadata FROM observation_provenance"))
+        return [
+            self._source_row(row)
+            | (
+                {"provenance": json.loads(provenance[row["source"]])}
+                if row["source"] in provenance
+                else {}
+            )
+            for row in rows
+        ]
 
     def _source_row(self, row):
         source = dict(row)

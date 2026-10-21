@@ -66,9 +66,11 @@ evidence per notification. Old notifications are evicted with a visible dropped
 count. Retired monitor evictions are also counted. Oversized/unsupported
 notifications are rejected and counted. Local
 status returns the latest three notifications per record; **Export COV
-evidence** retrieves all currently retained notifications. Samples are in memory
-and disappear after restart; lifecycle audit metadata uses the ordinary local
-audit store. This is not durable trend acquisition or an alarm subscription.
+evidence** retrieves all currently retained session notifications. Without
+explicit recording, these samples remain in memory and disappear after restart;
+lifecycle audit metadata uses the ordinary local audit store. Opt-in durable
+receipt/trend recording is described below. COV monitoring is not an alarm
+subscription.
 
 BBMD/foreign-device, direct serial and BTCVT configurations remain unsupported.
 Routed segmented notifications are refused, rather than inferring a return path
@@ -81,7 +83,11 @@ Those are remaining work, not implied by this profile.
 - `GET /api/bacnet/cov/status`: limits and monitor summaries/recent evidence.
 - `GET /api/bacnet/cov/jobs/{id}`: the complete retained monitor evidence.
 - `POST /api/bacnet/cov/start`: `address`, `device`, `object_id`, `lifetime`,
-  `confirmed`, and optional paired `router`/`dnet` for an exact routed address.
+  `confirmed`, optional paired `router`/`dnet` for an exact routed address, and
+  optional strict boolean `record_observations` (defaults false).
+- `GET /api/bacnet/cov/recordings`: locally saved recording sources and counters.
+- `GET /api/bacnet/cov/recordings/{id}/events?after=0&limit=100`: locally saved
+  evidence with a nonnegative sequence cursor and limit 1–1,000.
 - `POST /api/bacnet/cov/renew` and `/stop`: `id`.
 
 Mutating routes require the normal loopback origin/session protections. Tests
@@ -113,3 +119,75 @@ The Connect form defaults to the selected router/network. Changing its source
 clears stale identities; changing the parent selection while a start is pending
 does not relabel that monitor. The completed action identifies its original
 source, and each monitor/export retains its own immutable route configuration.
+
+## Opt-in durable receipts and field trends
+
+**Record COV receipts and eligible trends locally** is off initially and resets
+when the source selection changes. Select it before starting a monitor. A normal
+monitor still keeps only its bounded session evidence; opting in creates a
+separate durable `cov/<monitor-id>` source in the **existing field observation
+SQLite store**. Source provenance identifies the acquisition as `bacnet-cov`,
+the verified Device and object, connector configuration, explicit route, process
+identifier and notification mode. Accepted notification rows retain their actual
+next-hop/NPDU source evidence and native property values, array indexes, priority,
+encoded values and decoding/type information. Invalid packets are counted as
+rejected evidence, never promoted into samples.
+
+Notification callbacks and confirmed ACK handling perform no SQLite writes.
+They submit evidence to a bounded 64-item queue; a single background writer
+commits receipts and eligible samples atomically off the event loop. Queue loss,
+rejected packets, explicit renewals, stops, local expiry, interface changes and
+remote cancellation outcomes are recorded separately. A database failure stops
+recording, exposes a storage error and counts omitted notifications; it does not
+turn off the finite monitor or suppress confirmed ACKs. Failed notification
+writes are never silently retried. If even the final gap/closure cannot be saved,
+the next process marks the source interrupted with an **unknown uncommitted
+tail**. Durable counters alone cannot measure that tail.
+
+COV provides no controller timestamp in this profile. `received_at` is this
+computer's UTC receipt/event time; `recorded_at` is the separate local commit
+time. `source_clock` remains null and `clock_basis` is `receipt`. Backward or
+repeated receipt-clock readings remain unchanged, accompanied by a clock anomaly
+event. No controller time is guessed and no monotonic timestamp is fabricated.
+
+Only one unambiguous decoded, finite numeric/boolean present-value can become a
+trend sample. Unknown, opaque, nonfinite, array-valued or conflicting values stay
+raw evidence. Native datatype checks exclude numeric-looking enumerations other
+than BinaryPV. Trend quality stays **unknown** for absent or normal received
+statusFlags; an actual fault flag gives `fault`, and other asserted status flags
+give `unreliable`. A notification never establishes good sensor quality. Units
+are left empty rather than inferred. These samples share **Field trends** with
+polled values while retaining their own provenance, receipt-clock labels and CSV
+columns; no polling job is created.
+
+Use **Load saved COV observations** in Connect to reopen local history after a
+restart. It performs local reads only. Select a recording, inspect its raw source
+and receipt evidence, page forward/backward, or **Download saved COV page** as
+JSON (at most 100 events per displayed page). The saved list includes durable
+loss/rejection counts, retained evidence eviction counts and evicted trend links
+for still-retained receipts. Field trends also exports each displayed sample page
+as CSV, including COV provenance. Refresh these views explicitly for current
+committed recording counters. New subscriptions and recording are never resumed
+automatically. An OS-owned lock permits only one COV writer per field workspace;
+other processes may read history, but opt-in recording rejects until ownership is
+released. Lock support uses POSIX flock or Windows byte locking; actual Windows
+execution remains unverified.
+
+Default raw evidence retention is **5,000 events across COV sources**; old rows
+are removed and their source's eviction counter increases. Numeric samples obey
+the field store's existing 100,000-sample retention. Receipt and sample retention
+are independent; the `samples_evicted` count covers references in retained raw
+evidence only. Source capacity is shared with polled sources (256 by default).
+Deleting an ended source through **Delete ended field history** also deletes its
+COV raw receipts/provenance. Open sources cannot be deleted through that action.
+Recording adds no point writes, auto-renewal, reconnect, BBMD, serial/BTCVT, native
+JCI application transfer or physical MS/TP validation.
+
+Additional tests use actual direct and routed loopback UDP notifications plus
+SQLite and guarded HTTP: opt-in/off, native/opaque values and source provenance,
+confirmed ACK continuity during storage failure, queue overflow, rejected packet
+accounting, finite expiry/interface closure, writer ownership, cancellation before
+Subscribe, retention and restart unknown-tail recovery. Browser tests exercise
+explicit opt-in, source-change reset, saved history reopen, JSON download and
+Field trends/CSV provenance against an actual loopback UDP publisher. These
+virtual downstream devices do not establish physical JCI interoperability.
