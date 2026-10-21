@@ -5,6 +5,7 @@ import "./hardware-survey.css";
 
 type RecordValue = Record<string, any>;
 type Target = {
+  transport?: "bacnet-ip" | "direct-mstp";
   address: string;
   device: string;
   router?: string;
@@ -61,6 +62,7 @@ type Job = {
   error?: string;
   progress?: unknown;
   target?: Target;
+  connector_config?: RecordValue;
 };
 type HardwareStatus = {
   limits?: RecordValue;
@@ -85,9 +87,14 @@ function text(value: unknown): string {
   if (value === undefined || value === null || value === "") return "—";
   return typeof value === "object" ? JSON.stringify(value) : String(value);
 }
-function sourceLabel(target?: Target) {
+function sourceLabel(target?: Target, connector?: RecordValue) {
   if (!target) return "Source unavailable";
-  return `${target.address} / ${target.device}${target.router ? ` via ${target.router}` : ""}${target.dnet != null ? ` · DNET ${target.dnet}` : ""}`;
+  const serial = target.transport === "direct-mstp";
+  const link =
+    serial && connector
+      ? ` · ${connector.port} · ${connector.baudrate} baud · client MAC ${connector.mac} · instance ${connector.instance} · max master ${connector.max_master} · max info frames ${connector.max_info_frames}`
+      : "";
+  return `${serial ? "Direct MS/TP MAC " : ""}${target.address} / ${target.device}${target.router ? ` via ${target.router}` : ""}${target.dnet != null ? ` · DNET ${target.dnet}` : ""}${link}`;
 }
 function hostLabel(input: Pick<SurveyInput, "sa_mac" | "host">) {
   if (input.sa_mac != null) return `SA ${input.sa_mac}`;
@@ -133,13 +140,18 @@ export function HardwareSurveyPanel({
   defaultDevice,
   defaultRouter = "",
   defaultDnet = null,
+  defaultTransport = "bacnet-ip",
+  interfaceConfig,
 }: {
   connected: boolean;
   defaultAddress: string;
   defaultDevice: string;
   defaultRouter?: string;
   defaultDnet?: number | null;
+  defaultTransport?: "bacnet-ip" | "direct-mstp";
+  interfaceConfig?: RecordValue;
 }) {
+  const [transport, setTransport] = useState(defaultTransport);
   const [address, setAddress] = useState(defaultAddress);
   const [device, setDevice] = useState(defaultDevice);
   const [router, setRouter] = useState(defaultRouter);
@@ -214,11 +226,19 @@ export function HardwareSurveyPanel({
   }, []);
   useEffect(() => {
     invalidate();
+    setTransport(defaultTransport);
     setAddress(defaultAddress);
     setDevice(defaultDevice);
     setRouter(defaultRouter);
     setDnet(defaultDnet == null ? "" : String(defaultDnet));
-  }, [connected, defaultAddress, defaultDevice, defaultRouter, defaultDnet]);
+  }, [
+    connected,
+    defaultAddress,
+    defaultDevice,
+    defaultRouter,
+    defaultDnet,
+    defaultTransport,
+  ]);
   useEffect(() => {
     let active = true;
     setArchiveEvidence(null);
@@ -382,11 +402,21 @@ export function HardwareSurveyPanel({
         throw new Error(
           "Enter the explicit controller address and Device object, such as device,1234.",
         );
+      if (
+        transport === "direct-mstp" &&
+        (!/^(?:0|[1-9][0-9]{0,2})$/.test(address) ||
+          Number(address) > 254 ||
+          Number(address) === interfaceConfig?.mac)
+      )
+        throw new Error(
+          "Select a remote decimal MS/TP MAC from 0 through 254, excluding this client's own station.",
+        );
       if (Boolean(router.trim()) !== Boolean(dnet.trim()))
         throw new Error(
           "Supply both router and destination network for a routed target, or leave both empty for a direct target.",
         );
       const next = await api(`${base}/survey`, {
+        transport,
         address: address.trim(),
         device: device.trim(),
         ...(router.trim()
@@ -741,6 +771,21 @@ export function HardwareSurveyPanel({
   const groups = [...new Set(inputs.map(hostLabel))].sort();
   const relocationSources = (report?.inputs || []).filter(isBinaryOnUniversal);
   const disabled = busy || polling;
+  const archiveInterfaceReady =
+    !report ||
+    (report.target.transport === "direct-mstp"
+      ? interfaceConfig?.transport === "mstp" &&
+        !!report.connector_config &&
+        [
+          "transport",
+          "port",
+          "mac",
+          "instance",
+          "baudrate",
+          "max_master",
+          "max_info_frames",
+        ].every((key) => report.connector_config[key] === interfaceConfig[key])
+      : interfaceConfig?.transport !== "mstp");
   const selectedArchive =
     archiveEvidence?.id === archiveId
       ? archiveEvidence
@@ -770,11 +815,41 @@ export function HardwareSurveyPanel({
           plans run locally.
         </p>
         <p className="help-text">
-          Live hardware surveys and controller archive reads use BACnet/IP,
-          including IP-routed MS/TP. Direct serial MS/TP hardware surveys are
-          not supported here.
+          Surveys and existing archive reads use the already-open BACnet/IP
+          interface or an explicitly selected direct serial MS/TP link. Serial
+          targets use a remote decimal MAC; no router or connection is opened
+          automatically. Physical USB/RS-485 timing and BTCVT remain unverified.
         </p>
+        {interfaceConfig?.transport === "mstp" && (
+          <p aria-label="Hardware serial interface">
+            Open serial interface: {interfaceConfig.port} ·{" "}
+            {interfaceConfig.baudrate} baud · client MAC {interfaceConfig.mac} ·
+            instance {interfaceConfig.instance} · max master{" "}
+            {interfaceConfig.max_master} · max info frames{" "}
+            {interfaceConfig.max_info_frames}
+          </p>
+        )}
         <div className="hardware-target form-grid">
+          <label>
+            Hardware transport
+            <select
+              aria-label="Hardware transport"
+              value={transport}
+              onChange={(e) =>
+                edit(() => {
+                  const next = e.target.value as "bacnet-ip" | "direct-mstp";
+                  setTransport(next);
+                  if (next === "direct-mstp") {
+                    setRouter("");
+                    setDnet("");
+                  }
+                })
+              }
+            >
+              <option value="bacnet-ip">BACnet/IP or IP-routed MS/TP</option>
+              <option value="direct-mstp">Direct serial MS/TP</option>
+            </select>
+          </label>
           <label>
             Hardware controller address
             <input
@@ -794,6 +869,7 @@ export function HardwareSurveyPanel({
             Hardware router (optional)
             <input
               value={router}
+              disabled={transport === "direct-mstp"}
               onChange={(e) => edit(() => setRouter(e.target.value))}
             />
           </label>
@@ -801,6 +877,7 @@ export function HardwareSurveyPanel({
             Hardware destination network (optional)
             <input
               value={dnet}
+              disabled={transport === "direct-mstp"}
               type="number"
               min={1}
               max={65534}
@@ -864,14 +941,17 @@ export function HardwareSurveyPanel({
         </div>
         {!connected && (
           <p className="help-text">
-            Use a BACnet/IP interface and select a Device object to run a
-            survey. Saved reports and archive analysis remain available offline.
+            Open a healthy BACnet/IP or direct serial MS/TP interface and select
+            an exact Device object to run a survey. Saved reports and archive
+            analysis remain available offline.
           </p>
         )}
         {job && (
           <div className="hardware-job" role="status">
             <strong>Survey {job.status}</strong> · {job.id}
-            {job.target && <p>{sourceLabel(job.target)}</p>}
+            {job.target && (
+              <p>{sourceLabel(job.target, job.connector_config)}</p>
+            )}
             {job.progress != null && <pre>{text(job.progress)}</pre>}
             <button disabled={busy} onClick={refreshJobProgress}>
               Refresh hardware job progress
@@ -890,7 +970,8 @@ export function HardwareSurveyPanel({
               <option value="">Choose a running or finished job</option>
               {(status.jobs || []).map((saved) => (
                 <option key={saved.id} value={saved.id}>
-                  {saved.id} · {saved.status} · {sourceLabel(saved.target)}
+                  {saved.id} · {saved.status} ·{" "}
+                  {sourceLabel(saved.target, saved.connector_config)}
                 </option>
               ))}
             </select>
@@ -947,7 +1028,7 @@ export function HardwareSurveyPanel({
                       saved.identity?.object_name ||
                       "Controller survey"}
                     {" · "}
-                    {sourceLabel(saved.target)}
+                    {sourceLabel(saved.target, saved.connector_config)}
                     {" · "}
                     {saved.saved_at || saved.finished_at || "Time unavailable"}
                     {saved.imported === true ? " · Imported" : ""}
@@ -1148,7 +1229,8 @@ export function HardwareSurveyPanel({
               </div>
             </div>
             <p className="hardware-source">
-              <strong>Report source:</strong> {sourceLabel(report.target)}
+              <strong>Report source:</strong>{" "}
+              {sourceLabel(report.target, report.connector_config)}
             </p>
             <p aria-label="Hardware report provenance">
               {report.imported === true
@@ -1190,9 +1272,22 @@ export function HardwareSurveyPanel({
                   onChange={(e) => setArchiveFileObject(e.target.value)}
                 />
               </label>
-              <button disabled={!connected || disabled} onClick={readArchive}>
+              <button
+                disabled={!connected || disabled || !archiveInterfaceReady}
+                onClick={readArchive}
+              >
                 Read controller archive
               </button>
+              {!archiveInterfaceReady && (
+                <p
+                  className="help-text"
+                  aria-label="Archive interface mismatch"
+                >
+                  Open the saved report's matching transport and exact serial
+                  port, baud, station and master policy, or run a new survey on
+                  the current interface.
+                </p>
+              )}
               <p className="help-text">
                 Explicitly read the selected report’s advertised native archive
                 and correlate its configured hardware. Source identity is

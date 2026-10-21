@@ -262,7 +262,7 @@ async def test_survey_job_cancel_retains_partial_and_retires_owned_requests(tmp_
     app = create_app(tmp_path)
     entered = asyncio.Event()
 
-    async def hold(body, progress=None):
+    async def hold(body, progress=None, *, expected_config=None):
         report = offline_report()
         report["inventory"]["complete"] = False
         report["inputs_complete"] = False
