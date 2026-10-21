@@ -188,5 +188,10 @@
     "feature": "Evidence and reference library",
     "status": "implemented",
     "scope": "Vendor manuals, source repository inventory, page-level evidence, feature requirements and explicit support gaps. Copyrighted reference PDFs and site files stay outside the code repository."
+  },
+  {
+    "feature": "Bounded BACnet object COV monitoring",
+    "status": "implemented",
+    "scope": "Direct unicast BACnet/IPv4 object subscriptions only; exact Device/object/source/process/mode checks, explicit finite renewal and cancellation, bounded received evidence, native array indexes/priority/opaque datatypes and local receipt times. Real UDP/HTTP/browser tests; no automatic reconnect/renewal, durable samples, routed/MS/TP/BBMD/BTCVT or physical JCI acceptance."
   }
 ]
