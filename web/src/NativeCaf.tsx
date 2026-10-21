@@ -9,6 +9,7 @@ import {
 import { api, download } from "./api";
 import { CafGraphPanel } from "./CafGraphPanel";
 import { CafHardwarePanel } from "./CafHardwarePanel";
+import { JciPreflight } from "./JciPreflight";
 
 function scalarSignature(changes: any[]) {
   return JSON.stringify(
@@ -290,6 +291,11 @@ export function NativeCaf({ visible = true }: { visible?: boolean }) {
               </p>
             </div>
           </div>
+          <JciPreflight
+            key={`preflight:${caf.sha256}:${archiveGeneration}`}
+            id={caf.sha256}
+            disabled={opening || !visible}
+          />
           <CafHardwarePanel
             key={`hardware:${caf.sha256}:${archiveGeneration}`}
             id={caf.sha256}
