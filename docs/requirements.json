@@ -547,5 +547,14 @@
     "pdf_pages_or_section": "Device Object_List and standard Program objects",
     "status": "implemented",
     "implementation_or_gap": "Exact Device verification precedes optional reads. Sequential displayed-page reads are bounded to 15 seconds per device, 512 object identifiers and 16 Program objects; partial evidence survives errors. Not exposed requires a complete inventory without Program objects. Firmware/application version/description never substitute for program names. Duplicate instances across routers/trunks remain separate; cached bindings are not relabelled live discoveries"
+  },
+  {
+    "id": "HW-SUPPLY-001",
+    "feature": "Auxiliary sensor supply budget planning",
+    "acceptance_criterion": "Calculate bounded shared/terminal and steady/startup demand from explicit rail/load declarations; preserve rating basis, AC/DC domains, voltage envelopes, source/profile hashes, incomplete coverage and saved-plan revisions.",
+    "evidence": "MF-7ce49c7dbe; exact JCI PCG26/PCV/VMA/PCX installation documents; primary Belimo22UTH-510X datasheet",
+    "pdf_pages_or_section": "Source revisions, reviewed PDF/capture hashes and scope in docs/sensor-supply-budgeting.md",
+    "status": "implemented",
+    "implementation_or_gap": "72 backend and11 browser cases with local API, numeric/unknown/incompatibility, revision/restart/source guards and delayed export tests. No field requests, rewiring, native allocation or certification. Unknown manufacturer maximum/startup/auxiliary voltage tolerance remain incomplete."
   }
 ]

@@ -188,5 +188,10 @@
     "feature": "Evidence and reference library",
     "status": "implemented",
     "scope": "Vendor manuals, source repository inventory, page-level evidence, feature requirements and explicit support gaps. Copyrighted reference PDFs and site files stay outside the code repository."
+  },
+  {
+    "feature": "Offline sensor supply budgeting",
+    "status": "implemented",
+    "scope": "Exact reviewed JCI auxiliary rails and combined Belimo sensor profiles plus explicit custom supplies; AC/DC voltage envelopes, shared and terminal current budgets, physical quantities and steady/startup demand. Guarded local revisioned plans/import/export and optional exact survey binding. Maximum/startup/tolerance and existing load gaps stay explicit. No wiring approval, new input allocation, native program changes or field writes; publisher extraction hashes are distinguished from PDF byte hashes."
   }
 ]
