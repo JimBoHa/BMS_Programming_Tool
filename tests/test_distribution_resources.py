@@ -106,6 +106,8 @@ def test_built_wheel_installs_and_serves_without_source_checkout(tmp_path):
         manifest = json.loads(archive.read("bms_tool/data/distribution.json"))
         assert re.fullmatch(r"[0-9a-f]{40}", manifest["source_commit"])
         assert "index.html" in manifest["ui_files"]
+        metadata_name = next(n for n in names if n.endswith(".dist-info/METADATA"))
+        assert "Requires-Dist: tzdata==2026.5" in archive.read(metadata_name).decode()
     subprocess.run(
         [
             sys.executable,
@@ -130,7 +132,13 @@ import bms_tool
 from bms_tool.app import create_app
 from bms_tool.resources import state_directory
 from fastapi.testclient import TestClient
+from datetime import datetime,timedelta
+from zoneinfo import ZoneInfo,TZPATH
 assert Path(bms_tool.__file__).is_relative_to(Path(sys.argv[1]))
+assert TZPATH==(), 'Acceptance must exercise packaged timezone data, not the host database'
+zone=ZoneInfo('America/Los_Angeles')
+assert datetime(2026,1,5,tzinfo=zone).utcoffset()==timedelta(hours=-8)
+assert datetime(2026,7,5,tzinfo=zone).utcoffset()==timedelta(hours=-7)
 with TestClient(create_app(sys.argv[2])) as client:
     page=client.get('/')
     assert page.status_code==200 and '<div id="root">' in page.text, page.text[:200]
@@ -147,6 +155,7 @@ print(json.dumps({'installed_from':str(Path(bms_tool.__file__).parent),'ui_and_m
 """
     env = os.environ.copy()
     env.pop("PYTHONPATH", None)
+    env["PYTHONTZPATH"] = ""
     result = subprocess.run(
         [sys.executable, "-c", code, str(installed), str(tmp_path / "user-state")],
         cwd=tmp_path,
