@@ -21,7 +21,7 @@ import queue
 import threading
 import time
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import IntEnum
 
 import serial
@@ -82,6 +82,7 @@ class Frame:
     destination: int
     source: int
     data: bytes = b""
+    owner: object | None = field(default=None, compare=False, repr=False)
 
     def __post_init__(self):
         _integer(int(self.frame_type), "Frame type", 0, 7)
@@ -304,7 +305,7 @@ class MstpMaster:
         self.last_now = now
         return now
 
-    def send_npdu(self, destination, data, *, expecting_reply=False):
+    def send_npdu(self, destination, data, *, expecting_reply=False, owner=None):
         _integer(destination, "Destination MAC", 0, 255)
         if destination == self.mac:
             raise ValueError("Select a different destination MAC.")
@@ -321,10 +322,26 @@ class MstpMaster:
             destination,
             self.mac,
             data,
+            owner=owner,
         )
         if self._queued_application_frames() >= MAX_QUEUE:
             raise ValueError("MS/TP transmit queue is full (64 frames).")
         self.tx_queue.append(frame)
+
+    def retire_owner(self, owner):
+        """Remove only unsent application frames for this exact opaque owner."""
+        if owner is None:
+            raise ValueError("Retiring serial frames requires an explicit owner.")
+        before = len(self.tx_queue)
+        self.tx_queue = deque(frame for frame in self.tx_queue if frame.owner is not owner)
+        removed = before - len(self.tx_queue)
+        if self.pending_tx is not None and self.pending_tx[0].owner is owner:
+            self.pending_tx = None
+            removed += 1
+        self.stats["retired_application_frames"] = (
+            self.stats.get("retired_application_frames", 0) + removed
+        )
+        return removed
 
     def send_reply(self, destination, data, *, now=None):
         """Send immediately only for the matching open request; otherwise queue.
@@ -754,12 +771,14 @@ class SerialMstpLink:
                             self.master.stats["receive_overruns"] += 1
                     if self.master.fault:
                         raise ValueError(self.master.fault)
-                if frame is not None:
-                    encoded = frame.encode()
-                    written = self._serial.write(encoded)
-                    if written != len(encoded):
-                        raise OSError("Incomplete MS/TP serial write; link stopped.")
-                    with self._lock:
+                    if frame is not None:
+                        # Retirement and the bounded write share the lock. A caller
+                        # can remove an unsent frame or wait for an already-started
+                        # write; no selected frame escapes after retirement returns.
+                        encoded = frame.encode()
+                        written = self._serial.write(encoded)
+                        if written != len(encoded):
+                            raise OSError("Incomplete MS/TP serial write; link stopped.")
                         self.master.transmit_complete(time.monotonic())
                 self._stop.wait(0.001)
         except Exception as exc:
@@ -773,10 +792,14 @@ class SerialMstpLink:
             if self._serial is not None:
                 self._serial.close()
 
-    def send_npdu(self, destination, data, *, expecting_reply=False):
+    def send_npdu(self, destination, data, *, expecting_reply=False, owner=None):
         with self._lock:
             self._require()
-            self.master.send_npdu(destination, data, expecting_reply=expecting_reply)
+            self.master.send_npdu(destination, data, expecting_reply=expecting_reply, owner=owner)
+
+    def retire_owner(self, owner):
+        with self._lock:
+            return self.master.retire_owner(owner)
 
     def send_reply(self, destination, data):
         with self._lock:
