@@ -5,6 +5,11 @@
     "scope": "Our versioned graph format: 30 block types, typed wiring, engineering units, revisions, validation and undo/redo."
   },
   {
+    "feature": "Per-target conversion source review",
+    "status": "implemented",
+    "scope": "Explicit current-graph preview runs six actual in-process source encoders/re-importers, lists changed authoring fields and numeric/quality/clock/calendar requirements, and exports source-hashed evidence. Sedona source lowering only; missing JCI/ALC/Spyder encoders remain blocked. No native compilation, field traffic or semantic-equivalence/acceptance claim. Source changes and late replies invalidate displayed evidence."
+  },
+  {
     "feature": "Explicit temperature quantities",
     "status": "implemented",
     "scope": "TemperatureDifference, DeltaConvert and TemperatureOffset use distinct absolute/delta unit tokens and checked port contracts. Existing Convert, graph schema and legacy stored hashes remain unchanged. Graph simulation, ST/PLCopen/GraphML/BMS, native Sedona and Temco compilation/execution, and genuine Niagara delta facets preserve these explicit quantities. Native numeric/quality differences and Niagara station acceptance limits remain visible. No general dimensional algebra or native JCI compilation."

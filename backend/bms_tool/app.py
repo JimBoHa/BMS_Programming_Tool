@@ -29,6 +29,7 @@ from .caf_compare import compare_cafs
 from .caf_graph import CafGraph
 from .caf_simulation import CafSimulationProfile
 from .connections import Bacnet, modbus_read, ports
+from .conversion_preview import conversion_preview
 from .deployment import Runtime
 from .device_details import DeviceDetails, DeviceDetailsRequest
 from .engine import Engine, output_type, run_scenario, validate
@@ -137,6 +138,10 @@ class GroupStep(GroupRequest):
 class ExportRequest(StrictModel):
     program: Program
     format: str
+
+
+class ConversionPreviewRequest(StrictModel):
+    program: Program
 
 
 class CafPatchRequest(StrictModel):
@@ -851,6 +856,10 @@ def create_app(state_dir=None):
                 "Content-Disposition": f'attachment; filename="{body.program.id}.{extension}"'
             },
         )
+
+    @app.post("/api/conversion/preview")
+    def preview_conversion(body: ConversionPreviewRequest):
+        return conversion_preview(body.program)
 
     @app.get("/api/native/status")
     def native_status():
