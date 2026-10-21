@@ -27,6 +27,7 @@ from .blocks import catalog
 from .caf import CafArchive
 from .caf_compare import compare_cafs
 from .caf_graph import CafGraph
+from .caf_scenarios import CafInputScenarios, CafScenarioStore
 from .caf_simulation import CafSimulationProfile
 from .connections import Bacnet, modbus_read, ports
 from .deployment import Runtime
@@ -145,6 +146,23 @@ class CafPatchRequest(StrictModel):
 
 class CafSimulationRequest(StrictModel):
     profile: dict[str, Any]
+
+
+class CafLocalScenarioRequest(StrictModel):
+    scenario: dict[str, Any]
+
+
+class CafLocalScenarioSave(CafLocalScenarioRequest):
+    id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
+    expected_revision: int = Field(ge=0, strict=True)
+
+
+class CafLocalScenarioFrame(CafLocalScenarioRequest):
+    time: float = Field(ge=0, le=86400, strict=True)
+
+
+class CafLocalScenarioDelete(StrictModel):
+    expected_revision: int = Field(ge=1, strict=True)
 
 
 class CafCompareRequest(StrictModel):
@@ -400,6 +418,7 @@ def create_app(state_dir=None):
     notifications = None
     simulations = {}
     caf_files = {}
+    caf_scenarios = CafScenarioStore(store)
     niagara_files = {}
     hardware_files = {}
     session_token = secrets.token_urlsafe(32)
@@ -1034,6 +1053,43 @@ def create_app(state_dir=None):
             content,
             media_type="application/octet-stream",
             headers={"Content-Disposition": 'attachment; filename="simulation-copy.caf"'},
+        )
+
+    @app.get("/api/caf/{id}/local-scenarios")
+    def caf_local_scenarios(id: str):
+        adapter = CafInputScenarios(get_caf(id))
+        return {
+            "contract": adapter.contract(),
+            "template": adapter.template(),
+            "saved": caf_scenarios.list(adapter),
+        }
+
+    @app.post("/api/caf/{id}/local-scenarios/validate")
+    def caf_local_scenario_validate(id: str, body: CafLocalScenarioRequest):
+        return {"scenario": CafInputScenarios(get_caf(id)).validate(body.scenario)}
+
+    @app.post("/api/caf/{id}/local-scenarios/preview")
+    def caf_local_scenario_preview(id: str, body: CafLocalScenarioRequest):
+        return CafInputScenarios(get_caf(id)).preview(body.scenario)
+
+    @app.post("/api/caf/{id}/local-scenarios/startup-profile")
+    def caf_local_scenario_startup(id: str, body: CafLocalScenarioFrame):
+        return {"profile": CafInputScenarios(get_caf(id)).startup_profile(body.scenario, body.time)}
+
+    @app.post("/api/caf/{id}/local-scenarios/save")
+    def caf_local_scenario_save(id: str, body: CafLocalScenarioSave):
+        return caf_scenarios.save(
+            CafInputScenarios(get_caf(id)), body.scenario, body.id, body.expected_revision
+        )
+
+    @app.get("/api/caf/{id}/local-scenarios/{scenario_id}")
+    def caf_local_scenario_load(id: str, scenario_id: str):
+        return caf_scenarios.load(CafInputScenarios(get_caf(id)), scenario_id)
+
+    @app.delete("/api/caf/{id}/local-scenarios/{scenario_id}")
+    def caf_local_scenario_delete(id: str, scenario_id: str, body: CafLocalScenarioDelete):
+        return caf_scenarios.delete(
+            CafInputScenarios(get_caf(id)), scenario_id, body.expected_revision
         )
 
     @app.post("/api/caf/{id}/export")
