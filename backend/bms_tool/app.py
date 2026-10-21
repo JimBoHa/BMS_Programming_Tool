@@ -39,6 +39,7 @@ from .formats import export_program, import_program
 from .hardware_workbench import HardwareWorkbench, hardware_router
 from .ip_discovery import IpDiscovery, IpScanRequest
 from .jci_hardware import JciHardwareDefinition, plan_hardware_migration
+from .jci_preflight import PreflightRequest, inventory_template, preflight
 from .macros import (
     create_definition,
     delete_macro_definition,
@@ -1000,6 +1001,28 @@ def create_app(state_dir=None):
         if id not in caf_files:
             raise ValueError("Open the CAF file first.")
         return caf_files[id]
+
+    @app.get("/api/jci/preflight/template")
+    def preflight_template():
+        return inventory_template()
+
+    @app.get("/api/caf/{id}/preflight")
+    def caf_preflight_inspect(id: str):
+        return preflight(get_caf(id), PreflightRequest())
+
+    @app.post("/api/caf/{id}/preflight")
+    def caf_preflight(id: str, body: PreflightRequest):
+        hardware = get_hardware(body.hardware_sha256.lower()) if body.hardware_sha256 else None
+        return preflight(get_caf(id), body, hardware)
+
+    @app.post("/api/caf/{id}/preflight/export")
+    def caf_preflight_export(id: str, body: PreflightRequest):
+        hardware = get_hardware(body.hardware_sha256.lower()) if body.hardware_sha256 else None
+        return Response(
+            json.dumps(preflight(get_caf(id), body, hardware), indent=2, ensure_ascii=True),
+            media_type="application/json",
+            headers={"Content-Disposition": 'attachment; filename="jci-target-readiness.json"'},
+        )
 
     @app.post("/api/caf/compare")
     def caf_compare(body: CafCompareRequest):
