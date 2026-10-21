@@ -25,6 +25,8 @@ The app binds to loopback and works without a cloud account. Project revisions, 
 
 For UI development, run `npm run dev` in `web/` alongside the Python server. The Vite server proxies `/api` to port 8765.
 
+To prepare another computer without requiring Node.js on that computer, build an [installable wheel with the browser UI and public metadata](docs/portable-distribution.md). Its installed application uses the user's data directory and leaves field interfaces closed until explicitly connected. Native compiler toolchains, vendor licenses and Bluetooth drivers remain separate dependencies.
+
 ## Working features
 
 - Drag blocks from the palette, connect pins, edit units/properties, and save numbered revisions. Shift-click multiple blocks to move, align, copy, duplicate or delete them together; internal wires follow the copied selection. Undo restores a group operation. Double-click a wire to remove it.

@@ -25,7 +25,7 @@ bms-tool = "bms_tool.__main__:main"
 where = ["backend"]
 
 [tool.setuptools.package-data]
-bms_tool = ["data/*.json", "sedona_bridge/*.java"]
+bms_tool = ["data/*.json", "data/app_docs/*.json", "sedona_bridge/*.java", "web_assets/*", "web_assets/assets/*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["backend"]

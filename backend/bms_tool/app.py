@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-import os
 import secrets
 import sqlite3
 import time
@@ -55,6 +54,7 @@ from .models import Program, StrictModel
 from .native_simulator import NativeSimulator
 from .niagara import NiagaraArchive
 from .observability import ObservabilityStore
+from .resources import public_document, state_directory, web_directory
 from .routed_discovery import (
     ProbeTrunkRequest,
     RoutedDiscovery,
@@ -389,7 +389,7 @@ class MacroUpdate(MacroReference):
 
 
 def create_app(state_dir=None):
-    store = Store(state_dir or os.environ.get("BMS_STUDIO_DATA", str(ROOT / ".state")))
+    store = Store(state_dir or state_directory())
     runtime = Runtime(store)
     bacnet = Bacnet(store)
     cov = BacnetCov(bacnet, store)
@@ -1545,16 +1545,15 @@ def create_app(state_dir=None):
 
     @app.get("/api/capabilities")
     def capabilities():
-        return json.loads((ROOT / "docs" / "capabilities.json").read_text())
+        return public_document("capabilities.json")
 
     @app.get("/api/references")
     def references():
-        file = ROOT / "docs" / "references.json"
-        return json.loads(file.read_text()) if file.exists() else []
+        return public_document("references.json")
 
     @app.get("/api/requirements")
     def requirements():
-        return json.loads((ROOT / "docs/requirements.json").read_text())
+        return public_document("requirements.json")
 
     @app.get("/api/library/{collection}/{document_id}")
     def local_manual(collection: str, document_id: str):
@@ -1580,8 +1579,8 @@ def create_app(state_dir=None):
             raise ValueError("Catalog PDF is missing or outside the collection.")
         return FileResponse(path, media_type="application/pdf")
 
-    dist = ROOT / "web" / "dist"
-    if dist.exists():
+    dist = web_directory()
+    if dist is not None:
         app.mount("/", StaticFiles(directory=dist, html=True), name="web")
     else:
 
