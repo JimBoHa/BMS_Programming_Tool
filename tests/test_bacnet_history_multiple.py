@@ -42,6 +42,8 @@ def record(number=1, *, kind="logData", stamp=None, values=None):
 
 
 class MultipleDevice(Application):
+    record_type = LogMultipleRecord
+
     def setup(self):
         self.history = TrendLogMultipleObject(
             objectIdentifier=("trend-log-multiple", 1),
@@ -124,7 +126,7 @@ class MultipleDevice(Application):
                 int(len(chosen) < min(count, max(0, len(records) - start))),
             ],
             itemCount=len(chosen),
-            itemData=Any(ListOf(LogMultipleRecord)(chosen)),
+            itemData=Any(ListOf(self.record_type)(chosen)),
             **({"firstSequenceNumber": self.sequences[start]} if chosen else {}),
         )
         if self.mutation:

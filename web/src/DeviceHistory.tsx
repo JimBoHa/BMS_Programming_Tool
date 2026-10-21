@@ -278,17 +278,19 @@ export function DeviceHistory() {
       <div className="page-intro">
         <div>
           <span className="eyebrow">BACNET · EXISTING DEVICE HISTORY</span>
-          <h1>Device trend history</h1>
+          <h1>Device history</h1>
           <p>
-            Read stored Trend Log records through the shared BACnet connection.
-            Save explicit local captures without starting a polling job.
+            Read stored Trend Log, Trend Log Multiple and Event Log records
+            through the shared BACnet connection. Save explicit local captures
+            without starting a polling job.
           </p>
         </div>
         <History size={30} />
       </div>
       <p className="temco-scope">
-        BACnet log timestamps do not include a timezone. Enter the timezone used
-        by the device clock. Unresolved clock values and non-sample records
+        BACnet log timestamps do not include a timezone. Single-value Trend Log
+        reads require a device timezone; the other profiles can retain
+        unresolved native clocks. Unresolved clock values and non-sample records
         remain visible with their original data. These captures stay separate
         from simulation and live field-trend databases.
       </p>
@@ -641,6 +643,7 @@ export function DeviceHistory() {
         </section>
       )}
       <MultipleHistoryPanel />
+      <MultipleHistoryPanel eventLog />
     </div>
   );
 }
