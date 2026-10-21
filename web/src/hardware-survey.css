@@ -1,0 +1,123 @@
+.hardware-survey .card-body {
+  display: grid;
+  gap: 16px;
+}
+.hardware-survey .card-header h3,
+.hardware-file-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.hardware-survey .card-body > p,
+.hardware-report > p {
+  margin: 0;
+}
+.hardware-saved-grid,
+.hardware-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.hardware-saved-grid > div,
+.hardware-report,
+.hardware-relocation[open] {
+  display: grid;
+  gap: 12px;
+}
+.hardware-heading,
+.hardware-archive-choice {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.hardware-archive-choice > label {
+  flex: 1;
+  min-width: 240px;
+}
+.hardware-survey h4 {
+  margin: 4px 0;
+}
+.hardware-survey details {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+.hardware-survey summary {
+  cursor: pointer;
+}
+.hardware-limit-grid {
+  margin-top: 12px;
+}
+.hardware-file-button {
+  position: relative;
+  width: fit-content;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.hardware-file-button input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.hardware-file-button.disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.hardware-table {
+  overflow-x: auto;
+}
+.hardware-table table {
+  width: 100%;
+  font-size: 12px;
+}
+.hardware-table td {
+  vertical-align: top;
+  min-width: 110px;
+  max-width: 360px;
+  overflow-wrap: anywhere;
+}
+.hardware-table td p {
+  margin: 6px 0 0;
+}
+.hardware-survey pre {
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.hardware-source,
+.hardware-job,
+.hardware-plan {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+}
+.hardware-ui-binary {
+  font-size: 11px;
+  font-weight: 600;
+}
+.hardware-checkbox {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+.hardware-checkbox input {
+  width: auto;
+}
+@media (max-width: 800px) {
+  .hardware-saved-grid,
+  .hardware-filter-grid {
+    grid-template-columns: 1fr;
+  }
+}

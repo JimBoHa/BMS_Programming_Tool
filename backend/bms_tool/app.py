@@ -36,6 +36,7 @@ from .device_details import DeviceDetails, DeviceDetailsRequest
 from .engine import Engine, output_type, run_scenario, validate
 from .field_trends import FieldTrends, FieldTrendStart
 from .formats import export_program, import_program
+from .hardware_workbench import HardwareWorkbench, hardware_router
 from .ip_discovery import IpDiscovery, IpScanRequest
 from .jci_hardware import JciHardwareDefinition, plan_hardware_migration
 from .macros import (
@@ -399,6 +400,7 @@ def create_app(state_dir=None):
     ip_discovery = IpDiscovery(bacnet, store)
     device_details = DeviceDetails(bacnet, store)
     files = BacnetFiles(bacnet, store)
+    hardware_workbench = HardwareWorkbench(bacnet, store, files)
     notifications = None
     simulations = {}
     caf_files = {}
@@ -462,9 +464,12 @@ def create_app(state_dir=None):
                     await field_trends.close()
                 finally:
                     try:
-                        bacnet.close()
+                        await hardware_workbench.close()
                     finally:
-                        native.stop()
+                        try:
+                            bacnet.close()
+                        finally:
+                            native.stop()
 
     app = FastAPI(title="BMS Studio local API", version="0.1.0", lifespan=lifespan)
     app.state.runtime = runtime
@@ -478,7 +483,9 @@ def create_app(state_dir=None):
     app.state.ip_discovery = ip_discovery
     app.state.device_details = device_details
     app.state.bacnet_files = files
+    app.state.hardware_workbench = hardware_workbench
     app.state.notifications = None
+    app.include_router(hardware_router(hardware_workbench))
 
     @app.middleware("http")
     async def local_requests(request, call_next):
