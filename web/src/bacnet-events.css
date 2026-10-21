@@ -40,3 +40,8 @@
 .bacnet-events-error {
   color: #a21b31;
 }
+.bacnet-event-ack {
+  border-top: 1px solid #d8e0e7;
+  margin-top: 24px;
+  padding-top: 14px;
+}

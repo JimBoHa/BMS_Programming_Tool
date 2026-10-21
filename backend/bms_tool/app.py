@@ -22,6 +22,7 @@ from pydantic import AwareDatetime, Field
 
 from .analysis import dependencies
 from .bacnet_cov import BacnetCov, CovAction, CovStart
+from .bacnet_event_ack import EventAckApply, EventAcknowledgements, EventAckPreview
 from .bacnet_events import EventCancelRequest, EventInventory, EventInventoryRequest
 from .bacnet_files import BacnetFiles
 from .bacnet_history import BacnetHistory, BacnetHistoryRequest
@@ -427,6 +428,7 @@ def create_app(state_dir=None):
     ip_discovery = IpDiscovery(bacnet, store)
     device_details = DeviceDetails(bacnet, store)
     event_inventory = EventInventory(bacnet, store)
+    event_ack = EventAcknowledgements(bacnet, store, event_inventory)
     files = BacnetFiles(bacnet, store)
     hardware_workbench = HardwareWorkbench(bacnet, store, files)
     notifications = None
@@ -499,7 +501,10 @@ def create_app(state_dir=None):
                             await cov.close()
                         finally:
                             try:
-                                await event_inventory.close()
+                                try:
+                                    await event_ack.close()
+                                finally:
+                                    await event_inventory.close()
                             finally:
                                 try:
                                     bacnet.close()
@@ -519,6 +524,7 @@ def create_app(state_dir=None):
     app.state.ip_discovery = ip_discovery
     app.state.device_details = device_details
     app.state.event_inventory = event_inventory
+    app.state.event_ack = event_ack
     app.state.bacnet_files = files
     app.state.hardware_workbench = hardware_workbench
     app.state.notifications = None
@@ -1427,6 +1433,26 @@ def create_app(state_dir=None):
     async def bacnet_events_cancel(body: EventCancelRequest):
         return event_inventory.cancel(body.operation_id)
 
+    @app.get("/api/bacnet/events/ack/profile")
+    def bacnet_event_ack_profile():
+        return event_ack.status()
+
+    @app.post("/api/bacnet/events/ack/preview")
+    async def bacnet_event_ack_preview(body: EventAckPreview):
+        return await event_ack.preview(**body.model_dump())
+
+    @app.post("/api/bacnet/events/ack/apply")
+    async def bacnet_event_ack_apply(body: EventAckApply):
+        return await event_ack.apply(**body.model_dump())
+
+    @app.post("/api/bacnet/events/ack/cancel")
+    async def bacnet_event_ack_cancel(body: EventCancelRequest):
+        return event_ack.cancel(body.operation_id)
+
+    @app.get("/api/bacnet/events/ack/receipts/{identifier}")
+    def bacnet_event_ack_receipt(identifier: str):
+        return event_ack.receipt(identifier)
+
     @app.post("/api/bacnet/router-networks")
     async def bacnet_router_networks(body: RouterNetworksRequest):
         return await routed.networks(**body.model_dump())
@@ -1498,6 +1524,7 @@ def create_app(state_dir=None):
 
     @app.post("/api/bacnet/connect")
     async def bacnet_connect(body: BacnetConnect):
+        await event_ack.close()
         await event_inventory.close()
         return await bacnet.connect(**body.model_dump())
 
@@ -1507,11 +1534,13 @@ def create_app(state_dir=None):
 
     @app.post("/api/bacnet/connect-mstp")
     async def bacnet_connect_mstp(body: BacnetMstp):
+        await event_ack.close()
         await event_inventory.close()
         return await bacnet.connect_mstp(**body.model_dump())
 
     @app.post("/api/bacnet/disconnect")
     async def bacnet_disconnect():
+        await event_ack.close()
         await event_inventory.close()
         return await bacnet.disconnect()
 
