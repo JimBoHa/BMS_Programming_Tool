@@ -71,6 +71,7 @@ async function mockMstp(
       case "/api/bacnet/files/status":
       case "/api/bacnet/files/captures":
       case "/api/bacnet/cov/status":
+      case "/api/bacnet/events/ack/profile":
         // These GETs inspect local service/capture metadata and cannot open an
         // interface or issue BACnet requests to a device.
         await route.continue();
