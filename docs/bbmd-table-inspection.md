@@ -4,8 +4,9 @@ This focused profile covers the read-only portion of manual feature
 **MF-7558ea4aa8** and audit **IA-120b496d86**. It inspects one existing IPv4
 BBMD's Broadcast Distribution Table (BDT) and Foreign Device Table (FDT), using
 only BVLC Read-BDT (`0x02`) and Read-FDT (`0x06`). It does not change either table,
-registration settings, routing, or point values. BBMD hosting, Write-BDT,
-Delete-FDT-entry, BACnet/SC and IPv6 administration remain separate pending work.
+registration settings, routing, or point values. Explicit Write-BDT and
+Delete-FDT-entry have a separate [reviewed administration profile](bbmd-table-administration.md).
+BBMD hosting, BACnet/SC and IPv6 administration remain pending work.
 No site, physical JCI device, MS/TP trunk, or BTCVT adapter was contacted.
 
 ## Operator workflow

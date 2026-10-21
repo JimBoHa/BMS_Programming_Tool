@@ -196,7 +196,12 @@
   },
   {
     "feature": "BBMD table writes, FDT deletion and hosting",
-    "status": "pending",
-    "scope": "Remaining scope of MF-7558ea4aa8 / IA-120b496d86: verified Write-BDT, Delete-FDT-entry and BBMD hosting/configuration require separate ownership, backup/readback, failure/recovery and vendor validation profiles. BACnet/SC and IPv6 administration remain outside this read-only implementation."
+    "status": "partial",
+    "scope": "MF-7558ea4aa8 / IA-120b496d86 table changes have a separate reviewed plain-IPv4 profile below. BBMD hosting, BACnet/SC, IPv6 administration and physical vendor acceptance remain pending; foreign-registration/native/custom-management conflicts are deliberately refused for writes."
+  },
+  {
+    "feature": "Reviewed IPv4 BBMD table changes",
+    "status": "implemented",
+    "scope": "Explicit fresh source-pinned Write-BDT replacement or exact Delete-FDT with sealed 60-second one-use review, native masks/ports/lease evidence, durable original/preapply/intent and bounded SQLite receipts. Exact BDT or FDT address/TTL membership baseline is rechecked before one mutation; post-state readback is an observation, never proven authorship, atomic CAS or lease-generation identity. Native Results/NACKs stay evidence with bounded counters/reserved NACK retention. No automatic retry/rollback/reconnect; postdispatch loss stays unknown; restart disables all actions and restoring BDT requires a new explicit proposal. Real independent UDP, HTTP/browser, storage-fault/ownership, cancellation/observer/restart tests only. Plain IPv4 refuses foreign/native/custom-management owners; no hosting, SC/IPv6, controller programming or physical BBMD/JCI acceptance."
   }
 ]

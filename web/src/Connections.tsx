@@ -16,6 +16,7 @@ import {
 import { DeviceScanPanel, type ScanTarget } from "./DeviceScanPanel";
 import { BacnetFilesPanel } from "./BacnetFilesPanel";
 import { BbmdTablesPanel } from "./BbmdTablesPanel";
+import { BbmdAdminPanel } from "./BbmdAdminPanel";
 import { ControllerProbePanel } from "./ControllerProbePanel";
 
 export function Connections() {
@@ -698,6 +699,19 @@ export function Connections() {
       <BbmdTablesPanel
         connected={
           !!status.connected && !busy && status.config?.transport !== "mstp"
+        }
+        defaultEndpoint={
+          status.config?.bbmd_address ||
+          selectedRoute?.router ||
+          (target.includes(".") ? target : "")
+        }
+      />
+      <BbmdAdminPanel
+        connected={
+          !!status.connected &&
+          !busy &&
+          status.config?.transport !== "mstp" &&
+          !status.config?.bbmd_address
         }
         defaultEndpoint={
           status.config?.bbmd_address ||
