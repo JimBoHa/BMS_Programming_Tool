@@ -66,6 +66,7 @@ async function mockMstp(
       return;
     }
     switch (path) {
+      case "/api/bacnet/hardware/status":
       case "/api/bacnet/files/status":
       case "/api/bacnet/files/captures":
         // These GETs inspect local service/capture metadata and cannot open an
