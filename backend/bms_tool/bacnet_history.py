@@ -268,6 +268,10 @@ def _record(record, *, sequence, received_at, zone, fold):
 
 
 class BacnetHistory:
+    profile = PROFILE
+    source_kind = "device-history"
+    storage_name = "bacnet-history"
+
     def __init__(self, bacnet, store_or_directory=None, *, timeout=3.0, operation_timeout=30.0):
         if not 0.05 <= timeout <= 6 or not timeout <= operation_timeout <= 60:
             raise ValueError(
@@ -277,14 +281,14 @@ class BacnetHistory:
         self.timeout, self.operation_timeout = timeout, operation_timeout
         self.store = store_or_directory if hasattr(store_or_directory, "record") else None
         directory = getattr(store_or_directory, "directory", store_or_directory)
-        self.directory = Path(directory or bacnet.store.directory) / "bacnet-history"
+        self.directory = Path(directory or bacnet.store.directory) / self.storage_name
         self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
         self._lock = threading.RLock()
         self._reports = OrderedDict()
 
     def status(self):
         return {
-            "profile": PROFILE,
+            "profile": self.profile,
             "scope": SCOPE,
             "read_only": True,
             "connected": self.bacnet.status()["connected"],
@@ -558,7 +562,11 @@ class BacnetHistory:
                 report, sort_keys=True, allow_nan=False, separators=(",", ":")
             ).encode()
             wrapper = json.dumps(
-                {"format": PROFILE, "sha256": hashlib.sha256(raw).hexdigest(), "report": report},
+                {
+                    "format": self.profile,
+                    "sha256": hashlib.sha256(raw).hexdigest(),
+                    "report": report,
+                },
                 sort_keys=True,
                 allow_nan=False,
             ).encode()
@@ -643,12 +651,12 @@ class BacnetHistory:
         except RecursionError as exc:
             raise ValueError("Saved history report exceeds the nesting profile.") from exc
         if (
-            wrapper.get("format") != PROFILE
+            wrapper.get("format") != self.profile
             or wrapper.get("sha256") != hashlib.sha256(raw).hexdigest()
             or not isinstance(report, dict)
             or report.get("id") != id
-            or report.get("source_kind") != "device-history"
-            or report.get("profile") != PROFILE
+            or report.get("source_kind") != self.source_kind
+            or report.get("profile") != self.profile
             or not isinstance(report.get("records"), list)
             or len(report["records"]) > 1000
             or any(not isinstance(record, dict) for record in report["records"])
