@@ -188,5 +188,10 @@
     "feature": "Evidence and reference library",
     "status": "implemented",
     "scope": "Vendor manuals, source repository inventory, page-level evidence, feature requirements and explicit support gaps. Copyrighted reference PDFs and site files stay outside the code repository."
+  },
+  {
+    "feature": "Portable native local storage ownership",
+    "status": "implemented",
+    "scope": "POSIX flock and Windows msvcrt byte-zero ownership with bounded capture waits, final-component safe regular-file handles, reparse/device refusal, non-inheritance, unchanged capture seals and no-overwrite hard-link publication. Native cross-process/crash/contention and capture restart tests; authored Windows boundary tests do not replace runtime acceptance. POSIX directory fsync retained; Windows file-data flush only, namespace/power-loss durability unverified. Native IEC host remains explicitly POSIX-only."
   }
 ]

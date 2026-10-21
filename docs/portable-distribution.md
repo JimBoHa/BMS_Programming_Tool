@@ -66,3 +66,10 @@ import that installed package from outside the checkout, serve its browser asset
 and metadata, and verify that field networking stays closed. Resource tests also
 check source-checkout compatibility, unrelated neighboring directories and user
 data paths on the three operating-system profiles.
+
+
+Local captures and process locks have a separate
+[portable storage profile](portable-storage.md). Windows uses native byte-range
+ownership and handle-based reparse checks. File data is flushed; Windows
+namespace/power-loss durability remains unverified. Native IEC execution remains
+an explicit POSIX-only optional profile.

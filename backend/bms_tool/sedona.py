@@ -22,6 +22,7 @@ from xml.etree import ElementTree as XML
 
 from defusedxml import ElementTree as SafeXML
 
+from .file_access import file_lock
 from .formats import ConversionError, structured_text_parts
 from .models import Program, canonical
 
@@ -34,20 +35,19 @@ _ACTIVE_TOOL_LOCK = threading.local()
 def _tool_lock(sdk):
     # The SDK's kit/manifest database is shared by servers and command-line
     # clients. A thread lock alone does not serialize separate processes.
-    import fcntl
-
     with _COMPILER_LOCK:
         if getattr(_ACTIVE_TOOL_LOCK, "sdk", None) == str(sdk):
             yield
             return
-        with (sdk / ".bms-toolchain.lock").open("a+b") as lock:
-            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        with file_lock(
+            sdk / ".bms-toolchain.lock", timeout=45,
+            busy="The Sedona SDK is busy rebuilding or compiling.",
+        ):
             _ACTIVE_TOOL_LOCK.sdk = str(sdk)
             try:
                 yield
             finally:
                 _ACTIVE_TOOL_LOCK.sdk = None
-                fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
 
 
 def toolchain():

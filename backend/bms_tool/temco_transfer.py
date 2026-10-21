@@ -25,6 +25,7 @@ from bacpypes3.errors import InvalidTag
 from bacpypes3.primitivedata import Null, OctetString
 
 from .bacnet_exchange import confirmed_exchange
+from .file_access import open_regular, sync_directory
 from .macros import expand_macros
 from .temco import compile_source, import_source
 
@@ -103,18 +104,14 @@ class TemcoTransfer:
 
     def _save(self, path, value):
         temporary = path.with_name(path.name + "." + secrets.token_hex(6) + ".tmp")
-        fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        fd = open_regular(temporary, writable=True, create=True, exclusive=True)
         try:
             with os.fdopen(fd, "w") as stream:
                 json.dump(value, stream, sort_keys=True, allow_nan=False)
                 stream.flush()
                 os.fsync(stream.fileno())
             os.replace(temporary, path)
-            directory_fd = os.open(self.directory, os.O_RDONLY)
-            try:
-                os.fsync(directory_fd)
-            finally:
-                os.close(directory_fd)
+            sync_directory(self.directory)
         finally:
             temporary.unlink(missing_ok=True)
 
