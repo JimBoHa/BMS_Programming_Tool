@@ -60,6 +60,7 @@ from .macros import (
 )
 from .models import Program, StrictModel
 from .native_simulator import NativeSimulator
+from .network_number_plan import network_plan_router
 from .niagara import NiagaraArchive
 from .observability import ObservabilityStore
 from .resources import public_document, state_directory, web_directory
@@ -552,6 +553,7 @@ def create_app(state_dir=None):
     app.state.notifications = None
     app.include_router(hardware_router(hardware_workbench))
     app.include_router(supply_router(supply_plans))
+    app.include_router(network_plan_router())
 
     @app.middleware("http")
     async def local_requests(request, call_next):

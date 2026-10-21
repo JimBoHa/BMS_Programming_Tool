@@ -2869,5 +2869,25 @@
     "url": "https://github.com/ifaddr/ifaddr",
     "notes": "MIT; pinned 0.2.0. The bound IPv4 interface's operating-system prefix determines local broadcast scope; point-to-point interfaces require directed discovery. An explicit connection prefix is used only when no operating-system interface match exists. No subnet mask is guessed.",
     "status": "source and local behavior reviewed"
+  },
+  {
+    "vendor": "ASHRAE/BACnet",
+    "title": "ANSI/ASHRAE 135-1995 errata, September 7, 1999",
+    "url": "https://bacnet.org/wp-content/uploads/sites/4/2022/08/135-1995-Errata-9-7-1999.pdf",
+    "document": "135-1995 Errata 1999-09-07",
+    "pages": 11,
+    "sha256": "5e0c5a707ba360fe10d1d72396088aec34688118974b4d3739788fec52ad2c8e",
+    "status": "reviewed",
+    "notes": "Primary PDF; 6.2.2.1 physical-network numeric range. Private source outside repository."
+  },
+  {
+    "vendor": "NIST/BACnet",
+    "title": "GSA Guide to Specifying Interoperable Building Automation and Control Systems Using BACnet",
+    "url": "https://bacnet.org/wp-content/uploads/sites/4/2022/06/NISTIR-6392.pdf",
+    "document": "NISTIR 6392, November 1999",
+    "pages": 80,
+    "sha256": "2e15fa8a34e1f36a93deb848a775664c83e1c0254b862af09768ad464319f80f",
+    "status": "reviewed",
+    "notes": "Primary author PDF; 6.1, 6.4, 6.6.2 reviewed for internetwork numbering and BACnet/IP subnet distinctions. Private source outside repository."
   }
 ]
