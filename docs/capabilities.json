@@ -193,5 +193,10 @@
     "feature": "Evidence and reference library",
     "status": "implemented",
     "scope": "Vendor manuals, source repository inventory, page-level evidence, feature requirements and explicit support gaps. Copyrighted reference PDFs and site files stay outside the code repository."
+  },
+  {
+    "feature": "Standard BACnet Event Log history",
+    "status": "implemented",
+    "scope": "Explicit bounded read-only standard type25 Event Log ReadRange over connected direct/routed IPv4. Exact Device/log identities, native notification parameters/enums/TimeStamp choices, logger/read/event clocks, status and clock changes remain distinct; unsupported native record encodings retain bounded opaque itemData evidence without guessed notifications. Sealed separate captures/restart and JSON/CSV browser export are tested with local UDP/routed peers. Physical support on any exact JCI device/firmware remains unknown. No unsolicited alarm subscriptions, device writes, synthesized human receipt/ack lifecycle or proprietary JCI historian access."
   }
 ]
