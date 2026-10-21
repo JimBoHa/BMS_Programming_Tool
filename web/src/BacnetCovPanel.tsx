@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, saveBlob } from "./api";
+import { BacnetCovRecordings } from "./BacnetCovRecordings";
 
 export function BacnetCovPanel({
   connected,
@@ -31,6 +32,7 @@ export function BacnetCovPanel({
   const [object, setObject] = useState(defaultObject);
   const [lifetime, setLifetime] = useState("60");
   const [confirmed, setConfirmed] = useState(true);
+  const [record, setRecord] = useState(false);
   const [status, setStatus] = useState<any>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -59,6 +61,7 @@ export function BacnetCovPanel({
     setMac(match ? match[2] : "");
     setError("");
     setNotice("");
+    setRecord(false);
   }, [
     defaultAddress,
     defaultDevice,
@@ -118,6 +121,7 @@ export function BacnetCovPanel({
                 object_id: object,
                 lifetime: Number(lifetime),
                 confirmed,
+                record_observations: record,
               }
             : { id };
         const changed = await api(`/bacnet/cov/${action}`, body);
@@ -167,6 +171,7 @@ export function BacnetCovPanel({
               onChange={(e) => {
                 selection.current++;
                 setMode(e.target.value);
+                setRecord(false);
                 setDevice("");
                 setObject("");
                 setNotice("");
@@ -183,7 +188,10 @@ export function BacnetCovPanel({
                 <input
                   aria-label="COV router IP / port"
                   value={router}
-                  onChange={(e) => setRouter(e.target.value)}
+                  onChange={(e) => {
+                    setRouter(e.target.value);
+                    setRecord(false);
+                  }}
                   disabled={busy}
                 />
               </label>
@@ -195,7 +203,10 @@ export function BacnetCovPanel({
                   min={1}
                   max={65534}
                   value={dnet}
-                  onChange={(e) => setDnet(e.target.value)}
+                  onChange={(e) => {
+                    setDnet(e.target.value);
+                    setRecord(false);
+                  }}
                   disabled={busy}
                 />
               </label>
@@ -207,7 +218,10 @@ export function BacnetCovPanel({
                   min={0}
                   max={254}
                   value={mac}
-                  onChange={(e) => setMac(e.target.value)}
+                  onChange={(e) => {
+                    setMac(e.target.value);
+                    setRecord(false);
+                  }}
                   disabled={busy}
                 />
               </label>
@@ -219,7 +233,10 @@ export function BacnetCovPanel({
               <input
                 aria-label="COV device IP / port"
                 value={address}
-                onChange={(e) => setAddress(e.target.value)}
+                onChange={(e) => {
+                  setAddress(e.target.value);
+                  setRecord(false);
+                }}
                 disabled={busy}
               />
             </label>
@@ -230,7 +247,10 @@ export function BacnetCovPanel({
               aria-label="Expected COV Device"
               placeholder="device,12345"
               value={device}
-              onChange={(e) => setDevice(e.target.value)}
+              onChange={(e) => {
+                setDevice(e.target.value);
+                setRecord(false);
+              }}
               disabled={busy}
             />
           </label>
@@ -239,7 +259,10 @@ export function BacnetCovPanel({
             <input
               aria-label="COV monitored object"
               value={object}
-              onChange={(e) => setObject(e.target.value)}
+              onChange={(e) => {
+                setObject(e.target.value);
+                setRecord(false);
+              }}
               disabled={busy}
             />
           </label>
@@ -269,6 +292,23 @@ export function BacnetCovPanel({
             </select>
           </label>
         </div>
+        <label>
+          <input
+            type="checkbox"
+            checked={record}
+            disabled={busy}
+            aria-label="Record COV receipts and eligible trends locally"
+            onChange={(e) => setRecord(e.target.checked)}
+          />{" "}
+          Record COV receipts and eligible trends locally
+        </label>
+        <p className="help-text">
+          Recording is off by default. Receipt time is not the controller clock;
+          normal COV flags do not prove good sensor quality. A bounded
+          background writer records accepted receipts, losses and lifecycle
+          events. Storage failure stops recording while the finite monitor
+          continues.
+        </p>
         <button
           disabled={
             busy ||
@@ -327,6 +367,19 @@ export function BacnetCovPanel({
             <p>
               {job.remote_outcome} {job.reason}
             </p>
+            {job.recording && (
+              <p role="status">
+                Local recording:{" "}
+                {job.recording.active
+                  ? "active"
+                  : job.recording.fault
+                    ? "storage fault"
+                    : "stopped"}{" "}
+                ·{job.recording.source} · Saved: {job.recording.recorded} ·
+                Omitted: {job.recording.dropped} · Rejected:{" "}
+                {job.recording.discarded} {job.recording.last_error}
+              </p>
+            )}
             {job.last_ignored && (
               <p className="help-text">
                 Last ignored notification: {job.last_ignored}
@@ -393,6 +446,7 @@ export function BacnetCovPanel({
             ))}
           </section>
         ))}
+        <BacnetCovRecordings />
       </div>
     </section>
   );

@@ -84,3 +84,10 @@ The focused backend tests are:
 The implementation includes 38 focused field-service tests. Tests include actual BACpypes3 UDP reads of numeric and binary points on loopback, verified quality, restart persistence, unknown/malformed quality, partial failures, nonfinite rejection, configuration changes, application replacement, clock faults, read timeout/cancellation, bounded jobs, read serialization, immediate stop, audit/storage failures and source-kind migration. Retirement tests cover active/open/unknown-source refusal, explicit deletion, restart and capacity recovery, and both intent/completion evidence failures. Loopback reads use the real BACnet application and sockets; injected peers exercise specific fault cases.
 
 Physical equipment and E2/F2 were not contacted. This feature is host polling, not BACnet COV subscription or retrieval of a controller's Trend Log objects. It does not implement native alarm acquisition, external notification delivery, proprietary application programming or Title 24 sequence certification. Hardware and site-specific interoperability remain separate tests.
+
+Explicitly recorded COV numeric receipts also share this field store through the
+[separate COV recording service](bacnet-cov.md#opt-in-durable-receipts-and-field-trends).
+They keep acquisition kind `bacnet-cov`, local receipt time, an unknown controller
+clock and conservative quality; they do not create or join a polling job. Their
+raw notification/lifecycle evidence is reopened in Connect. Source deletion also
+removes the selected ended source's COV receipts and provenance.
