@@ -228,5 +228,10 @@
     "feature": "Offline sensor supply budgeting",
     "status": "implemented",
     "scope": "Exact reviewed JCI auxiliary rails and combined Belimo sensor profiles plus explicit custom supplies; AC/DC voltage envelopes, shared and terminal current budgets, physical quantities and steady/startup demand. Guarded local revisioned plans/import/export and optional exact survey binding. Maximum/startup/tolerance and existing load gaps stay explicit. No wiring approval, new input allocation, native program changes or field writes; publisher extraction hashes are distinguished from PDF byte hashes."
+  },
+  {
+    "feature": "Standard BACnet Event Log history",
+    "status": "implemented",
+    "scope": "Explicit bounded read-only standard type25 Event Log ReadRange over connected direct/routed IPv4. Exact Device/log identities, native notification parameters/enums/TimeStamp choices, logger/read/event clocks, status and clock changes remain distinct; unsupported native record encodings retain bounded opaque itemData evidence without guessed notifications. Sealed separate captures/restart and JSON/CSV browser export are tested with local UDP/routed peers. Physical support on any exact JCI device/firmware remains unknown. No unsolicited alarm subscriptions, device writes, synthesized human receipt/ack lifecycle or proprietary JCI historian access."
   }
 ]

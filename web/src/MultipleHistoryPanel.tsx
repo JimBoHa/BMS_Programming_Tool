@@ -11,12 +11,42 @@ function cell(value: unknown) {
   if (typeof value === "string" && /^\s*[=+@-]/.test(text)) text = "'" + text;
   return '"' + text.replaceAll('"', '""') + '"';
 }
-export function MultipleHistoryPanel() {
+export function MultipleHistoryPanel({
+  eventLog = false,
+}: {
+  eventLog?: boolean;
+}) {
+  const endpoint = eventLog ? "/bacnet/event-log" : "/bacnet/history-multiple";
+  const filePrefix = eventLog
+    ? "bacnet-event-log-history"
+    : "bacnet-multiple-history";
+  function label(value: string) {
+    return eventLog
+      ? value
+          .replaceAll(
+            "BACnet Trend Log Multiple history",
+            "BACnet Event Log history",
+          )
+          .replaceAll("Multiple history Trend Log object", "Event log object")
+          .replaceAll(
+            "Multiple history clock timezone",
+            "Event log logger timezone",
+          )
+          .replaceAll(
+            "Multiple-channel device history",
+            "Native Event Log history",
+          )
+          .replaceAll("Trend Log Multiple", "Event Log")
+          .replaceAll("Multiple history", "Event log")
+          .replaceAll("multiple-channel", "event-log")
+          .replaceAll("multiple-history", "event-log")
+      : value;
+  }
   const [status, setStatus] = useState<any>(null);
   const [fields, setFields] = useState({
     address: "",
     device: "",
-    object_id: "trend-log-multiple,1",
+    object_id: eventLog ? "event-log,1" : "trend-log-multiple,1",
     router: "",
     dnet: "",
     device_timezone: "",
@@ -39,13 +69,13 @@ export function MultipleHistoryPanel() {
   const statusRequest = useRef(0);
   function cancelDetached() {
     if (operation.current)
-      void api("/bacnet/history-multiple/cancel", {
+      void api(endpoint + "/cancel", {
         operation_id: operation.current,
       }).catch(() => {});
   }
   async function refresh() {
     const request = ++statusRequest.current;
-    const next = await api("/bacnet/history-multiple/status");
+    const next = await api(endpoint + "/status");
     if (mounted.current && request === statusRequest.current) setStatus(next);
   }
   useEffect(() => {
@@ -107,7 +137,7 @@ export function MultipleHistoryPanel() {
         delete payload.reference_time;
         Object.assign(payload, report.next_cursor);
       }
-      const result = await api("/bacnet/history-multiple/read", payload);
+      const result = await api(endpoint + "/read", payload);
       if (mounted.current && generation === epoch.current) setReport(result);
     } catch (failure) {
       if (mounted.current && generation === epoch.current)
@@ -124,12 +154,14 @@ export function MultipleHistoryPanel() {
     setMessage("");
     try {
       if (kind === "save") {
-        await api("/bacnet/history-multiple/save", { id: report.id });
+        await api(endpoint + "/save", { id: report.id });
         setMessage(
-          "Saved a sealed local Trend Log Multiple capture. Repeated saves retain the original evidence.",
+          label(
+            "Saved a sealed local Trend Log Multiple capture. Repeated saves retain the original evidence.",
+          ),
         );
       } else if (kind === "load") {
-        const saved = await api("/bacnet/history-multiple/captures/" + capture);
+        const saved = await api(endpoint + "/captures/" + capture);
         if (mounted.current) {
           setReport(saved);
           setOffset(0);
@@ -165,11 +197,118 @@ export function MultipleHistoryPanel() {
         new Blob([JSON.stringify(report, null, 2)], {
           type: "application/json",
         }),
-        `bacnet-multiple-history-${report.id}.json`,
+        `${filePrefix}-${report.id}.json`,
       );
+  }
+  function exportEventCsv() {
+    const common = {
+      source_kind: report.source_kind,
+      report_id: report.id,
+      report_sha256: report.evidence_sha256,
+      address: report.target.address,
+      device: report.target.device,
+      router: report.target.router,
+      dnet: report.target.dnet,
+      event_log_object: report.target.object_id,
+      report_status: report.status,
+      complete: report.complete,
+      records_complete: report.records_complete,
+      truncated: report.truncated,
+      errors: report.errors,
+      warnings: report.warnings,
+      next_cursor: report.next_cursor,
+      logger_timezone: report.timezone,
+      current_configuration_basis: report.current_configuration_basis,
+      current_configuration_consistency:
+        report.current_configuration_consistency,
+    };
+    const recordColumns = [
+      "export_row_kind",
+      "sequence",
+      "logger_native_timestamp",
+      "logger_interpreted_utc",
+      "read_receipt_utc",
+      "datum_type",
+      "process_identifier",
+      "initiating_device",
+      "event_object",
+      "notification_class",
+      "priority",
+      "event_type",
+      "notify_type",
+      "ack_required",
+      "from_state",
+      "to_state",
+      "embedded_event_timestamp",
+      "embedded_event_utc",
+      "native_event_values",
+      "message_text",
+      "log_status",
+      "time_change",
+      "quality",
+      "quality_basis",
+      "raw_record",
+      "undecoded_page",
+    ];
+    const columns = [...Object.keys(common), ...recordColumns];
+    const rows: Record<string, unknown>[] = report.records.map((row: any) => ({
+      ...common,
+      export_row_kind: "native_record",
+      sequence: row.sequence,
+      logger_native_timestamp: row.local_timestamp,
+      logger_interpreted_utc: row.source_clock,
+      read_receipt_utc: row.read_received_at,
+      datum_type: row.datum_type,
+      process_identifier: row.notification?.process_identifier,
+      initiating_device: row.notification?.initiating_device,
+      event_object: row.notification?.event_object,
+      notification_class: row.notification?.notification_class,
+      priority: row.notification?.priority,
+      event_type: row.notification?.event_type,
+      notify_type: row.notification?.notify_type,
+      ack_required: row.notification?.ack_required,
+      from_state: row.notification?.from_state,
+      to_state: row.notification?.to_state,
+      embedded_event_timestamp: row.notification?.event_timestamp.raw,
+      embedded_event_utc: row.notification?.event_timestamp.source_clock_utc,
+      native_event_values: row.notification?.event_values,
+      message_text: row.notification?.message_text,
+      log_status: row.log_status,
+      time_change: row.time_change,
+      quality: row.quality,
+      quality_basis: row.quality_basis,
+      raw_record: row.raw,
+    }));
+    for (const page of report.undecoded_pages ?? [])
+      rows.push({
+        ...common,
+        export_row_kind: "undecoded_native_page",
+        undecoded_page: page,
+      });
+    if (!rows.length)
+      rows.push({ ...common, export_row_kind: "report_metadata" });
+    saveBlob(
+      new Blob(
+        [
+          "\ufeff" +
+            [
+              columns.map(cell).join(","),
+              ...rows.map((row) =>
+                columns.map((key) => cell(row[key])).join(","),
+              ),
+            ].join("\r\n"),
+        ],
+        { type: "text/csv;charset=utf-8" },
+      ),
+      `${filePrefix}-${report.id}.csv`,
+    );
   }
   function exportCsv() {
     if (!report) return;
+    if (eventLog) {
+      exportEventCsv();
+      return;
+    }
     const columns = [
       "source_kind",
       "report_id",
@@ -272,7 +411,7 @@ export function MultipleHistoryPanel() {
         ],
         { type: "text/csv;charset=utf-8" },
       ),
-      `bacnet-multiple-history-${report.id}.csv`,
+      `${filePrefix}-${report.id}.csv`,
     );
   }
   const input = (
@@ -296,59 +435,79 @@ export function MultipleHistoryPanel() {
   return (
     <section
       className="temco-card"
-      aria-label="BACnet Trend Log Multiple history"
+      aria-label={label("BACnet Trend Log Multiple history")}
     >
-      <h2>Multiple-channel device history</h2>
-      <p>
-        Explicitly read standard Trend Log Multiple objects through the current
-        BACnet/IP interface or a pinned IP router. Native channels, nulls,
-        failures, clock changes, and log status remain distinct. This is not a
-        proprietary JCI history or device/program backup.
-      </p>
-      <p>
-        Historical channel quality is unknown because this native record type
-        has no per-channel historical status flags. Current channel references
-        do not establish historical wiring or channel assignments. Leave the
-        clock timezone blank to preserve unresolved native date/time without
-        inventing UTC.
-      </p>
+      <h2>{label("Multiple-channel device history")}</h2>
+      {eventLog ? (
+        <>
+          <p>
+            Explicitly read recorded native Event Log notifications, log status
+            and clock adjustments. A recorded notification does not prove
+            delivery, human receipt, acknowledgement lifecycle or resolution. No
+            unsolicited subscriptions or device writes are started.
+          </p>
+          <p>
+            The outer logger timestamp, embedded event-source timestamp and
+            local read receipt remain separate. An optional logger timezone
+            never assigns a timezone to another initiating device. Current
+            logger configuration is read-time evidence, not proven historical
+            configuration.
+          </p>
+        </>
+      ) : (
+        <>
+          <p>
+            Explicitly read standard Trend Log Multiple objects through the
+            current BACnet/IP interface or a pinned IP router. Native channels,
+            nulls, failures, clock changes, and log status remain distinct. This
+            is not a proprietary JCI history or device/program backup.
+          </p>
+          <p>
+            Historical channel quality is unknown because this native record
+            type has no per-channel historical status flags. Current channel
+            references do not establish historical wiring or channel
+            assignments. Leave the clock timezone blank to preserve unresolved
+            native date/time without inventing UTC.
+          </p>
+        </>
+      )}
       <p>
         Shared interface: {status?.connected ? "connected" : "not connected"}.
         No automatic polling or device writes.
       </p>
       <fieldset disabled={busy}>
-        <legend>Exact multiple-channel source and range</legend>
+        <legend>{label("Exact multiple-channel source and range")}</legend>
         <div className="temco-actions">
           {input(
             "address",
-            "Multiple history device address",
+            label("Multiple history device address"),
             "text",
             "IPv4:port or DNET:MAC",
           )}
           {input(
             "device",
-            "Multiple history Device object",
+            label("Multiple history Device object"),
             "text",
             "device,1234",
           )}
-          {input("object_id", "Multiple history Trend Log object")}
+          {input("object_id", label("Multiple history Trend Log object"))}
           {input(
             "router",
-            "Multiple history router",
+            label("Multiple history router"),
             "text",
             "Explicit IPv4 next hop",
           )}
-          {input("dnet", "Multiple history DNET", "number")}
+          {input("dnet", label("Multiple history DNET"), "number")}
           {input(
             "device_timezone",
-            "Multiple history clock timezone",
+            label("Multiple history clock timezone"),
             "text",
             "Optional IANA zone",
           )}
         </div>
         <div className="temco-actions">
           <label>
-            Multiple history range mode
+            {label("Multiple history range mode")}
             <select
               value={fields.mode}
               onChange={(event) => edit("mode", event.target.value)}
@@ -361,14 +520,18 @@ export function MultipleHistoryPanel() {
           {fields.mode === "time"
             ? input(
                 "reference_time",
-                "Multiple history reference time UTC",
+                label("Multiple history reference time UTC"),
                 "datetime-local",
               )
-            : input("reference", "Multiple history range reference", "number")}
-          {input("count", "Multiple history record limit", "number")}
-          {input("page_size", "Multiple history page size", "number")}
+            : input(
+                "reference",
+                label("Multiple history range reference"),
+                "number",
+              )}
+          {input("count", label("Multiple history record limit"), "number")}
+          {input("page_size", label("Multiple history page size"), "number")}
           <label>
-            Multiple history DST fold
+            {label("Multiple history DST fold")}
             <select
               value={fields.fold}
               onChange={(event) => edit("fold", event.target.value)}
@@ -385,38 +548,38 @@ export function MultipleHistoryPanel() {
           disabled={busy || !status?.connected}
           onClick={() => void read()}
         >
-          Read multiple-channel history
+          {label("Read multiple-channel history")}
         </button>
         <button
           disabled={busy || !status?.connected || !report?.next_cursor}
           onClick={() => void read(true)}
         >
-          Read next multiple-history range
+          {label("Read next multiple-history range")}
         </button>
         <button disabled={!operation.current} onClick={cancelDetached}>
-          Cancel multiple-history read
+          {label("Cancel multiple-history read")}
         </button>
         <button disabled={busy} onClick={() => void localAction("refresh")}>
-          Refresh multiple-history status
+          {label("Refresh multiple-history status")}
         </button>
         <button
           disabled={busy || !report}
           onClick={() => void localAction("save")}
         >
-          Save multiple-history capture
+          {label("Save multiple-history capture")}
         </button>
         <button disabled={busy || !report} onClick={exportJson}>
-          Export multiple-history JSON
+          {label("Export multiple-history JSON")}
         </button>
         <button disabled={busy || !report} onClick={exportCsv}>
-          Export multiple-history CSV
+          {label("Export multiple-history CSV")}
         </button>
       </div>
       <div className="temco-actions">
         <label>
-          Saved multiple-history capture
+          {label("Saved multiple-history capture")}
           <select
-            aria-label="Saved multiple-history capture"
+            aria-label={label("Saved multiple-history capture")}
             disabled={busy}
             value={capture}
             onChange={(event) => setCapture(event.target.value)}
@@ -434,7 +597,7 @@ export function MultipleHistoryPanel() {
           disabled={busy || !capture}
           onClick={() => void localAction("load")}
         >
-          Load multiple-history capture
+          {label("Load multiple-history capture")}
         </button>
       </div>
       {busy && (
@@ -446,7 +609,7 @@ export function MultipleHistoryPanel() {
       {error && <p role="alert">{error}</p>}
       {message && <p role="status">{message}</p>}
       {report && (
-        <section aria-label="Multiple history evidence">
+        <section aria-label={label("Multiple history evidence")}>
           <p role="status">
             {report.status} · {report.records.length} native records ·{" "}
             {report.pages.length} pages · identity{" "}
@@ -467,21 +630,57 @@ export function MultipleHistoryPanel() {
           {report.warnings.map((value: string, index: number) => (
             <p key={index}>{value}</p>
           ))}
-          <p>
-            Current reference coherence: {report.channel_reference_consistency}.
-            Native range completion: {String(report.records_complete)}. Matching
-            current snapshots do not prove historical assignments.
-          </p>
+          {eventLog &&
+            report.undecoded_pages?.map((page: any, index: number) => (
+              <section key={index} aria-label="Uninterpreted native event page">
+                <p>
+                  Typed interpretation deferred. Native itemData:{" "}
+                  {page.item_data_tags.bytes} bytes · SHA-256{" "}
+                  {page.item_data_tags.sha256} · truncated:{" "}
+                  {String(page.item_data_tags.truncated)}. No notification
+                  records were guessed from this page.
+                </p>
+                <details>
+                  <summary>Uninterpreted native page evidence</summary>
+                  <pre>{JSON.stringify(page, null, 2)}</pre>
+                </details>
+              </section>
+            ))}
+          {eventLog ? (
+            <p>
+              Current logger configuration:{" "}
+              {report.current_configuration_consistency}. Native range
+              completion: {String(report.records_complete)}. Stored notification
+              fields do not establish human receipt or resolution.
+            </p>
+          ) : (
+            <p>
+              Current reference coherence:{" "}
+              {report.channel_reference_consistency}. Native range completion:{" "}
+              {String(report.records_complete)}. Matching current snapshots do
+              not prove historical assignments.
+            </p>
+          )}
           <details>
-            <summary>Current channel-reference metadata</summary>
+            <summary>
+              {eventLog
+                ? "Current logger configuration metadata"
+                : "Current channel-reference metadata"}
+            </summary>
             <pre>
               {JSON.stringify(
-                {
-                  basis: report.channel_reference_basis,
-                  references: report.channel_references,
-                  recheck: report.channel_reference_recheck,
-                  metadata: report.metadata,
-                },
+                eventLog
+                  ? {
+                      basis: report.current_configuration_basis,
+                      before: report.metadata,
+                      after: report.current_configuration_recheck,
+                    }
+                  : {
+                      basis: report.channel_reference_basis,
+                      references: report.channel_references,
+                      recheck: report.channel_reference_recheck,
+                      metadata: report.metadata,
+                    },
                 null,
                 2,
               )}
@@ -495,7 +694,11 @@ export function MultipleHistoryPanel() {
                   <th>Native date/time</th>
                   <th>Interpreted UTC</th>
                   <th>Native record choice</th>
-                  <th>Channels and values</th>
+                  <th>
+                    {eventLog
+                      ? "Recorded native notification and values"
+                      : "Channels and values"}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -514,13 +717,57 @@ export function MultipleHistoryPanel() {
                       <td>{row.source_clock ?? "unresolved"}</td>
                       <td>{row.datum_type}</td>
                       <td>
-                        {row.channels.map((channel: any) => (
+                        {(row.channels ?? []).map((channel: any) => (
                           <p key={channel.index}>
                             Channel {channel.index}: {channel.datum_type}{" "}
                             {JSON.stringify(channel.raw.value)} · quality{" "}
                             {channel.quality}
                           </p>
                         ))}
+                        {row.notification && (
+                          <>
+                            <p>
+                              {row.notification.initiating_device} ·{" "}
+                              {row.notification.event_object} ·{" "}
+                              {row.notification.notify_type.name}
+                            </p>
+                            <p>
+                              Native event type{" "}
+                              {row.notification.event_type.name} (
+                              {row.notification.event_type.value}); state{" "}
+                              {row.notification.from_state?.name ??
+                                "not recorded"}{" "}
+                              → {row.notification.to_state.name}; priority{" "}
+                              {row.notification.priority}.
+                            </p>
+                            <p>
+                              Embedded event timestamp:{" "}
+                              <code>
+                                {JSON.stringify(
+                                  row.notification.event_timestamp.raw,
+                                )}
+                              </code>
+                              . Source UTC unresolved.
+                            </p>
+                            {row.notification.message_text !== null && (
+                              <p>{row.notification.message_text}</p>
+                            )}
+                            <details>
+                              <summary>
+                                Native recorded notification parameters
+                              </summary>
+                              <pre>
+                                {JSON.stringify(row.notification, null, 2)}
+                              </pre>
+                            </details>
+                          </>
+                        )}
+                        {eventLog && (
+                          <p>Historical event quality: {row.quality}.</p>
+                        )}
+                        {row.status_decode_error && (
+                          <p>{row.status_decode_error}</p>
+                        )}
                         {row.log_status && (
                           <p>{JSON.stringify(row.log_status)}</p>
                         )}
@@ -541,7 +788,7 @@ export function MultipleHistoryPanel() {
               disabled={offset === 0}
               onClick={() => setOffset(Math.max(0, offset - 50))}
             >
-              Previous multiple-history rows
+              {label("Previous multiple-history rows")}
             </button>
             <span>
               {report.records.length ? offset + 1 : 0}–
@@ -552,11 +799,13 @@ export function MultipleHistoryPanel() {
               disabled={offset + 50 >= report.records.length}
               onClick={() => setOffset(offset + 50)}
             >
-              Next multiple-history rows
+              {label("Next multiple-history rows")}
             </button>
           </div>
           <details>
-            <summary>Native multiple-history evidence and provenance</summary>
+            <summary>
+              {label("Native multiple-history evidence and provenance")}
+            </summary>
             <pre>{JSON.stringify(report, null, 2)}</pre>
           </details>
         </section>

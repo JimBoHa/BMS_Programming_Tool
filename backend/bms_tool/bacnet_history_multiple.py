@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import copy
 import hashlib
 import json
@@ -88,6 +89,15 @@ class MultipleHistoryCancel(StrictModel):
     operation_id: str = Field(pattern=r"^[A-Za-z0-9_-]{8,80}$")
 
 
+class UndecodableHistoryPage(ValueError):
+    """A verified native ACK whose bounded record tags cannot be decoded safely."""
+
+    def __init__(self, evidence, *, raw_tags):
+        super().__init__(evidence["error"])
+        self.evidence = evidence
+        self.raw_tags = raw_tags
+
+
 def _record(native, *, sequence, received_at, zone, fold, references):
     raw = json_value(native)
     if zone is None:
@@ -157,6 +167,11 @@ def _record(native, *, sequence, received_at, zone, fold, references):
 
 class MultipleHistory(BacnetHistory):
     profile = PROFILE
+    scope = SCOPE
+    request_type = MultipleHistoryRequest
+    record_type = LogMultipleRecord
+    record_decoder = staticmethod(_record)
+    consistency = "Native order retained; sequence-anchored continuation when supplied. No atomic snapshot or historical channel mapping is implied."
     source_kind = "device-history-trend-log-multiple"
     storage_name = "bacnet-history-multiple"
 
@@ -175,8 +190,8 @@ class MultipleHistory(BacnetHistory):
     def status(self):
         result = super().status()
         result.update(
-            profile=PROFILE,
-            scope=SCOPE,
+            profile=self.profile,
+            scope=self.scope,
             source_kind=self.source_kind,
             active_operation=None if self._active is None else self._active["operation_id"],
         )
@@ -201,7 +216,7 @@ class MultipleHistory(BacnetHistory):
             if active["task"] is not asyncio.current_task():
                 await asyncio.gather(active["task"], return_exceptions=True)
 
-    async def _metadata(self, session, request, report):
+    async def _identities(self, session, request, report):
         identity = await self.path._read(session, request.device, "object-identifier")
         report["device_identity"] = {"raw": json_value(identity), "received_at": _utc()}
         if identity != ObjectIdentifier(request.device):
@@ -210,7 +225,10 @@ class MultipleHistory(BacnetHistory):
         obj = await self.path._read(session, request.object_id, "object-identifier")
         report["object_identity"] = {"raw": json_value(obj), "received_at": _utc()}
         if obj != ObjectIdentifier(request.object_id):
-            raise ValueError("Selected Trend Log Multiple object identity mismatch.")
+            raise ValueError("Selected history object identity mismatch.")
+
+    async def _metadata(self, session, request, report):
+        await self._identities(session, request, report)
         properties = report["metadata"]
         for prop in (
             "object-name",
@@ -366,9 +384,9 @@ class MultipleHistory(BacnetHistory):
                 or (isinstance(exc, ErrorPDU) and exc.apduService != native.apduService)
             ):
                 raise ValueError(
-                    "Trend Log Multiple rejection source/invoke/service mismatch."
+                    "Native history rejection source/invoke/service mismatch."
                 ) from exc
-            raise ValueError("Native Trend Log Multiple ReadRange rejected: " + str(exc)) from exc
+            raise ValueError("Native history ReadRange rejected: " + str(exc)) from exc
         self.path._guard(session)
         if (
             not isinstance(reply, ReadRangeACK)
@@ -379,37 +397,64 @@ class MultipleHistory(BacnetHistory):
             or str(reply.propertyIdentifier) != "log-buffer"
             or reply.propertyArrayIndex is not None
         ):
-            raise ValueError(
-                "Trend Log Multiple ACK source/invoke/service/object/property mismatch."
-            )
+            raise ValueError("Native history ACK source/invoke/service/object/property mismatch.")
         encoded = bytes(reply.encode().encode().pduData)
         if len(encoded) > MAX_PAGE_BYTES or int(reply.itemCount) > count:
-            raise ValueError("Trend Log Multiple page exceeds request/byte bounds.")
-        values = reply.itemData.cast_out(ListOf(LogMultipleRecord))
-        if len(values) != int(reply.itemCount):
-            raise ValueError("Trend Log Multiple itemCount differs from decoded records.")
+            raise ValueError("Native history page exceeds request/byte bounds.")
         flags = list(reply.resultFlags)
         if len(flags) != 3 or (flags[1] and flags[2]):
             raise ValueError("Invalid forward ReadRange result flags.")
         first = None if reply.firstSequenceNumber is None else int(reply.firstSequenceNumber)
         if first is not None and not 0 <= first <= UINT32:
             raise ValueError("Native sequence metadata exceeds Unsigned32.")
-        if values and (
+        if reply.itemCount and (
             (first is not None and first == 0) or (mode != "position" and first is None)
         ):
             raise ValueError(
                 "Populated sequence/time page requires an actual native sequence anchor."
             )
-        if mode == "sequence" and values and ((first - reference) % UINT32 + len(values) > count):
+        if (
+            mode == "sequence"
+            and reply.itemCount
+            and ((first - reference) % UINT32 + int(reply.itemCount) > count)
+        ):
             raise ValueError(
-                "Trend Log Multiple page falls outside the requested forward sequence window."
+                "Native history page falls outside the requested forward sequence window."
             )
+        values = self._decode_records(reply, encoded)
+        if len(values) != int(reply.itemCount):
+            raise ValueError("Native history itemCount differs from decoded records.")
         return values, first, flags, encoded, native.apduInvokeID
 
+    def _decode_records(self, reply, encoded):
+        return reply.itemData.cast_out(ListOf(self.record_type))
+
+    def _failure_text(self, exc):
+        return str(exc) or type(exc).__name__
+
+    def _metadata_fields(self):
+        return {
+            "metadata": {},
+            "channel_references": [],
+            "channel_reference_count": None,
+            "channel_reference_consistency": "not-checked",
+            "channel_reference_basis": "Current references only. Historical channel assignments cannot be established from LogMultipleRecord.",
+        }
+
+    def _cleanup_report(self, report):
+        if report["channel_reference_consistency"] != "unchanged-current-snapshots":
+            for row in report["records"]:
+                for channel in row["channels"]:
+                    channel["reference"] = None
+                if row["channels"]:
+                    row["reference_alignment"] = (
+                        "current-reference-coherence-unverified; no historical reference assignment"
+                    )
+
     async def read(self, **parameters):
-        request = MultipleHistoryRequest(**parameters)
+        request = self.request_type(**parameters)
         if self._active is not None:
-            raise ValueError("A Trend Log Multiple read is already running.")
+            raise ValueError("A native history read is already running.")
         if request.operation_id in self._cancelled:
             raise ValueError("Read was cancelled before admission; use a new operation_id.")
         active = {
@@ -420,8 +465,8 @@ class MultipleHistory(BacnetHistory):
         self._active = active
         report = {
             "id": secrets.token_hex(16),
-            "profile": PROFILE,
-            "scope": SCOPE,
+            "profile": self.profile,
+            "scope": self.scope,
             "source_kind": self.source_kind,
             "request": request.model_dump(mode="json"),
             "target": {
@@ -431,11 +476,7 @@ class MultipleHistory(BacnetHistory):
             "read_at": _utc(),
             "received_at": _utc(),
             "identity_verified": False,
-            "metadata": {},
-            "channel_references": [],
-            "channel_reference_count": None,
-            "channel_reference_consistency": "not-checked",
-            "channel_reference_basis": "Current references only. Historical channel assignments cannot be established from LogMultipleRecord.",
+            **self._metadata_fields(),
             "timezone": None
             if request.device_timezone is None
             else _timezone_provenance(request.device_timezone),
@@ -449,7 +490,7 @@ class MultipleHistory(BacnetHistory):
             "errors": [],
             "warnings": [],
             "next_cursor": None,
-            "consistency": "Native order retained; sequence-anchored continuation when supplied. No atomic snapshot or historical channel mapping is implied.",
+            "consistency": self.consistency,
         }
         mode, reference = request.mode, request.reference
         zone = None if request.device_timezone is None else _zone(request.device_timezone)
@@ -497,7 +538,7 @@ class MultipleHistory(BacnetHistory):
                                 "Empty native page claimed moreItems; pagination cannot advance."
                             )
                         decoded = [
-                            _record(
+                            self.record_decoder(
                                 value,
                                 sequence=None if first is None else _sequence(first, index),
                                 received_at=received,
@@ -529,7 +570,7 @@ class MultipleHistory(BacnetHistory):
                             > MAX_BYTES - 65536
                         ):
                             raise ValueError(
-                                "Trend Log Multiple report exceeds the 2 MiB capture profile; page not imported."
+                                "Native history report exceeds the 2 MiB capture profile; page not imported."
                             )
                         report["records"].extend(decoded)
                         report["pages"].append(page)
@@ -562,6 +603,24 @@ class MultipleHistory(BacnetHistory):
                             "Page bound reached; continue only with an explicit new read."
                         )
                     await self._verify_references(session, request, report, refs)
+        except UndecodableHistoryPage as exc:
+            report.update(
+                status="partial" if report["pages"] else "unsupported_native_records",
+                truncated=True,
+                complete=False,
+            )
+            tags = exc.evidence["item_data_tags"]
+            raw = exc.raw_tags
+            # Enforce the report budget before expanding the bounded native
+            # ACK tags to base64. Preserve a labelled prefix and full hash
+            # when previously acquired records leave insufficient room.
+            expanded_bytes = 4 * ((len(raw) + 2) // 3)
+            if len(_bytes(report)) + len(_bytes(exc.evidence)) + expanded_bytes > MAX_BYTES - 8192:
+                raw = raw[:3072]
+                tags["truncated"] = True
+            tags["base64"] = base64.b64encode(raw).decode("ascii")
+            report["undecoded_pages"] = [exc.evidence]
+            report["errors"].append(self._failure_text(exc))
         except asyncio.CancelledError:
             if active["cancel_reason"] is None:
                 raise
@@ -580,18 +639,11 @@ class MultipleHistory(BacnetHistory):
             report.update(
                 status="partial" if report["pages"] else "failed", truncated=True, complete=False
             )
-            report["errors"].append(str(exc) or type(exc).__name__)
+            report["errors"].append(self._failure_text(exc))
         finally:
             if session is not None:
                 report["ignored_router_packets"] = session.get("ignored_router_packets", 0)
-            if report["channel_reference_consistency"] != "unchanged-current-snapshots":
-                for row in report["records"]:
-                    for channel in row["channels"]:
-                        channel["reference"] = None
-                    if row["channels"]:
-                        row["reference_alignment"] = (
-                            "current-reference-coherence-unverified; no historical reference assignment"
-                        )
+            self._cleanup_report(report)
             if self._active is active:
                 self._active = None
         report["finished_at"] = _utc()
