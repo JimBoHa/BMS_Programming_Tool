@@ -16,6 +16,7 @@ import {
 import { DeviceScanPanel, type ScanTarget } from "./DeviceScanPanel";
 import { BacnetFilesPanel } from "./BacnetFilesPanel";
 import { ControllerProbePanel } from "./ControllerProbePanel";
+import { HardwareSurveyPanel } from "./HardwareSurveyPanel";
 
 export function Connections() {
   const [config, setConfig] = useState({
@@ -698,6 +699,23 @@ export function Connections() {
         connected={!!pointReady && !busy}
         defaultAddress={target}
         defaultDevice={object.trim().startsWith("device,") ? object : ""}
+      />
+      <HardwareSurveyPanel
+        connected={!!pointReady && !busy && status.config?.transport !== "mstp"}
+        defaultAddress={target}
+        defaultDevice={object.trim().startsWith("device,") ? object : ""}
+        defaultRouter={
+          selectedRoute?.router ||
+          (/^\d+(?::\d+)?$/.test(target.trim())
+            ? status.config?.router || ""
+            : "")
+        }
+        defaultDnet={
+          selectedRoute?.dnet ??
+          (/^\d+(?::\d+)?$/.test(target.trim())
+            ? (status.config?.dnet ?? null)
+            : null)
+        }
       />
       <ControllerProbePanel
         connected={!!probeReady}
