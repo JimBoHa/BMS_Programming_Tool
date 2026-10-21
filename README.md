@@ -116,6 +116,12 @@ The upstream broad test harness contains `AppTest.verifyCallbacks` assertions th
 
 ## Interchange semantics
 
+The editor's **Review conversion formats** compares real source encoders and
+editable round trips, shows per-target execution requirements and unsupported
+native formats, and exports a source-hashed JSON report. Source edits invalidate
+the review. Native compilation and physical acceptance remain separate; see
+[conversion source review](docs/conversion-preview.md).
+
 The graph runtime uses finite Python floating-point numbers, strict booleans, named ports, explicit engineering units and deterministic topological execution. Feedback requires a one-scan memory block. Scan state and outputs commit only after the entire scan succeeds. Fault input quality fails the scan instead of substituting a plausible value.
 
 Project hashes use canonical JSON so object-key insertion order does not change identity during export/re-import. Stored revisions record their checksum format. Existing revisions retain their original content, hashes and audit records; loads verify either the original model-JSON hash or the new canonical-JSON hash and reject corruption.
