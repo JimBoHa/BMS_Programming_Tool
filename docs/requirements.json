@@ -552,9 +552,9 @@
     "id": "HW-SUPPLY-001",
     "feature": "Auxiliary sensor supply budget planning",
     "acceptance_criterion": "Calculate bounded shared/terminal and steady/startup demand from explicit rail/load declarations; preserve rating basis, AC/DC domains, voltage envelopes, source/profile hashes, incomplete coverage and saved-plan revisions.",
-    "evidence": "MF-7ce49c7dbe; exact JCI PCG26/PCV/VMA/PCX installation documents; primary Belimo22UTH-510X datasheet",
+    "evidence": "MF-7ce49c7dbe; exact JCI PCG26/PCV/VMA/PCX installation documents; primary Belimo 22UTH-510X datasheet",
     "pdf_pages_or_section": "Source revisions, reviewed PDF/capture hashes and scope in docs/sensor-supply-budgeting.md",
     "status": "implemented",
-    "implementation_or_gap": "72 backend and11 browser cases with local API, numeric/unknown/incompatibility, revision/restart/source guards and delayed export tests. No field requests, rewiring, native allocation or certification. Unknown manufacturer maximum/startup/auxiliary voltage tolerance remain incomplete."
+    "implementation_or_gap": "72 backend and 11 browser cases with local API, numeric/unknown/incompatibility, revision/restart/source guards and delayed export tests. No field requests, rewiring, native allocation or certification. Unknown manufacturer maximum/startup/auxiliary voltage tolerance remain incomplete."
   }
 ]
