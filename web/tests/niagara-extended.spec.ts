@@ -46,7 +46,7 @@ test("Clamp, Scale and Convert export genuine native BOG and preserve reviewed f
   });
   await expect(page.locator(".react-flow__node")).toHaveCount(7);
   const profile = await (await request.get("/api/niagara/profile")).json();
-  expect(profile.native_types).toHaveLength(20);
+  expect(profile.native_types).toHaveLength(23);
   expect(profile.native_types).toEqual(
     expect.arrayContaining(["Clamp", "Scale", "Convert"]),
   );

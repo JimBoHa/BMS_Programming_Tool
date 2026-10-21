@@ -9,6 +9,12 @@ from datetime import UTC, datetime, timedelta
 from .blocks import BLOCKS
 from .calendar_schedule import compile_schedule, validate_schedule_params
 from .models import Diagnostic, Program
+from .temperature import (
+    DELTA_FOR_ABSOLUTE,
+    TEMPERATURE_BLOCKS,
+    convert_difference,
+    input_units,
+)
 
 
 def validate(program: Program) -> list[Diagnostic]:
@@ -70,6 +76,9 @@ def validate(program: Program) -> list[Diagnostic]:
         if expected == "number" and b.kind not in (
             "Scale",
             "Convert",
+            "TemperatureDifference",
+            "DeltaConvert",
+            "TemperatureOffset",
             "PI",
             "Multiply",
             "Divide",
@@ -123,6 +132,15 @@ def validate(program: Program) -> list[Diagnostic]:
                 or n.unit != p["to"]
             ):
                 raise ValueError("use degF, degC or K; output unit must equal 'to'")
+            if n.kind in TEMPERATURE_BLOCKS:
+                required = input_units(n.kind, p, n.unit)
+                for port, unit in required.items():
+                    source = incoming.get((n.id, port))
+                    if source is not None and source.unit != unit:
+                        raise ValueError(
+                            f"{port} requires {unit}, received {source.unit or 'dimensionless'}; "
+                            "absolute temperatures and differences are distinct quantities"
+                        )
             if n.kind == "Schedule":
                 validate_schedule_params(p)
             if n.kind in ("Input", "Constant", "Delay"):
@@ -333,6 +351,14 @@ class Engine:
                         else arg("in")
                     )
                     v = c * 9 / 5 + 32 if p["to"] == "degF" else c + 273.15 if p["to"] == "K" else c
+                elif k == "TemperatureDifference":
+                    v = arg("a") - arg("b")
+                elif k == "DeltaConvert":
+                    v = convert_difference(arg("in"), p["from"], p["to"])
+                elif k == "TemperatureOffset":
+                    v = arg("base") + convert_difference(
+                        arg("difference"), p["difference_unit"], DELTA_FOR_ABSOLUTE[p["unit"]]
+                    )
                 elif k == "Greater":
                     v = arg("a") > arg("b")
                 elif k == "Less":

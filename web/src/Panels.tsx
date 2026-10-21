@@ -59,7 +59,17 @@ export function Inspector({
     );
   const p = { ...block.parameters, ...node.params };
   function param(key: string, value: any) {
-    if (node) onEdit({ ...node, params: { ...node.params, [key]: value } });
+    if (node) {
+      let unit = node.unit;
+      if (key === "unit" && node.kind === "TemperatureDifference")
+        unit =
+          { degF: "delta-degF", degC: "delta-degC", K: "delta-K" }[
+            value as "degF" | "degC" | "K"
+          ] || node.unit;
+      if (key === "unit" && node.kind === "TemperatureOffset") unit = value;
+      if (key === "to" && node.kind === "DeltaConvert") unit = value;
+      onEdit({ ...node, unit, params: { ...node.params, [key]: value } });
+    }
   }
   return (
     <aside className="inspector">
@@ -109,7 +119,7 @@ export function Inspector({
         <label>
           Engineering units
           <input
-            placeholder="e.g. degF, %, cfm"
+            placeholder="e.g. degF, delta-degF, %, cfm"
             value={node.unit}
             onChange={(e) => onEdit({ ...node, unit: e.target.value })}
           />

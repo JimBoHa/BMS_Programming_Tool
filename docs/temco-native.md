@@ -2,7 +2,7 @@
 
 The adapter exports genuine numbered `.bas` source, imports a declared native
 subset into editable graphs, compiles with Temco’s own compiler, and executes
-actual native bytecode in a local host of the controller interpreter. All 27
+actual native bytecode in a local host of the controller interpreter. All 30
 graph block types have native execution tests. Physical controller configuration,
 download and online application replacement remain outside this adapter.
 Simulated IN/OUT/VAR points are memory arrays; the host has no field transport.
@@ -40,7 +40,7 @@ hashes before execution. Set `BMS_TEMCO_HOME` to an explicitly installed host.
 
 ## Source profile and retained state
 
-All 27 graph types lower to executable native statements: Input, Output,
+All 30 graph types lower to executable native statements: Input, Output,
 Constant, Add, Subtract, Multiply, Divide, Min, Max, Abs, Clamp, Scale, Convert,
 Greater, Less, Equal, And, Or, Not, Switch, Delay, PI, Deadband, TimerOn, Slew,
 Alarm and Schedule. Nested macros are expanded first. Additional native Sedona
@@ -134,7 +134,7 @@ artifact recovers its original graph, state semantics, units and macro library.
 ## Local evidence
 
 `tests/test_temco.py` has **162 passing tests**. These include actual compiler and
-interpreter execution for all 27 types, six changing-input state trajectories,
+interpreter execution for all 30 types, six changing-input state trajectories,
 PI antiwindup and reversal, delayed feedback, rollback on later/first-scan
 arithmetic faults, timer saturation, nested stateful macros, host-calendar flags,
 annotation integrity/decompression bounds, numeric differences, compiler
@@ -164,3 +164,5 @@ invalid-point errors, retained-state traces, an explicit UTC calendar boundary,
 foreign-extension rejection and visible overflow mismatch. No compiler response
 is mocked. This host has not been tested on physical Temco hardware and is not
 a certified replacement for the complete T3000 front end or controller firmware.
+
+The three [explicit temperature quantity blocks](temperature-quantities.md) lower to native arithmetic and retain checked authoring metadata, including delta units.
