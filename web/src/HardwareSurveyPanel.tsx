@@ -118,7 +118,35 @@ function capacityLabel(capacity: unknown) {
     Array.isArray(items)
       ? items.map((slot) => `IN${slot}`).join(", ") || "none"
       : "unknown";
-  return `Universal: ${slots(values.universal_inputs)} · Binary: ${slots(values.binary_inputs)}${values.voltage_input_range ? ` · ${values.voltage_input_range}` : ""}`;
+  return `Physical universal inputs: ${slots(values.universal_inputs)} · Dedicated binary inputs: ${slots(values.binary_inputs)}${values.voltage_input_range ? ` · ${values.voltage_input_range}` : ""}`;
+}
+function CapacityEvidence({ capacity }: { capacity: unknown }) {
+  if (!capacity || typeof capacity !== "object") return null;
+  const values = capacity as RecordValue;
+  const source = values.source_document as RecordValue | undefined;
+  const label = source
+    ? `${source.document_number} Rev ${source.revision} (${source.date}), PDF pages ${(source.pdf_pages || []).join(", ")}`
+    : "Manufacturer capacity reference";
+  const url = source?.url || values.source;
+  const trustedUrl =
+    typeof url === "string" &&
+    url.startsWith("https://docs.johnsoncontrols.com/")
+      ? url
+      : null;
+  return (
+    <>
+      {values.physical_terminal_scope && (
+        <p className="help-text">{text(values.physical_terminal_scope)}</p>
+      )}
+      {trustedUrl && (
+        <p className="help-text">
+          <a href={trustedUrl} target="_blank" rel="noopener noreferrer">
+            {label}
+          </a>
+        </p>
+      )}
+    </>
+  );
 }
 function isBinaryOnUniversal(input: SurveyInput) {
   return (
@@ -1096,7 +1124,10 @@ export function HardwareSurveyPanel({
                             {text(module.configured_model || module.model)}
                           </td>
                           <td>{text(module.name)}</td>
-                          <td>{capacityLabel(module.capacity)}</td>
+                          <td>
+                            {capacityLabel(module.capacity)}
+                            <CapacityEvidence capacity={module.capacity} />
+                          </td>
                         </tr>
                       ),
                     )}
@@ -1252,13 +1283,25 @@ export function HardwareSurveyPanel({
                           {capacityLabel(
                             module.capacity || module.input_capacity,
                           )}
+                          <CapacityEvidence
+                            capacity={module.capacity || module.input_capacity}
+                          />
                         </td>
                         <td>
                           {text(
-                            module.evidence ||
+                            module.model_evidence ||
+                              module.evidence ||
                               module.source ||
                               module.warnings ||
                               "Physical hardware unverified",
+                          )}
+                          {!!module.unmapped_input_objects?.length && (
+                            <p className="help-text">
+                              Unmapped input assignments:{" "}
+                              {module.unmapped_input_objects.join(", ")}. These
+                              are retained as evidence; spare terminals remain
+                              unverified.
+                            </p>
                           )}
                         </td>
                       </tr>

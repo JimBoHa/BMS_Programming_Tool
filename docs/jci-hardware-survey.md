@@ -39,12 +39,40 @@ even when not exposed through the BACnet Object_List.
 
 ## Scope and model coverage
 
-Exact documented capacity profiles currently cover FX-PCG2611-0, FX-PCX3711-0 and
+Exact documented capacity profiles cover FX-PCG2611-0, FX-PCX3711-0 and
 FX-PCX3721-0, including the supported PCX model spelling without the `-0` suffix.
-Unknown models remain visible but do not acquire guessed capacities. The same
-survey can retain standard input metadata for other JCI FX/Metasys controllers;
-this does not establish their spare-terminal capacity. In particular, this
-feature does not claim complete PCV/VMA1630/1615 hardware support.
+They also cover these four VAV models:
+
+| Exact model | Physical universal input terminals | Dedicated BI terminals | Installation reference |
+| --- | --- | --- | --- |
+| FX-PCV1615-0, FX-PCV1630-0 | IN1, IN2, IN3; 0–10 VDC, resistive or dry-contact mode | None | [24-10143-357 Rev H, 2019-03-22](https://docs.johnsoncontrols.com/bas/r/Facility-Explorer/en-US/FX-PCV1615/1626/1628/1630-Programmable-VAV-Box-Controllers-Installation-Instructions/H), PDF pp5–6,15,27 |
+| MS-VMA1615-0, MS-VMA1630-0 | IN1, IN2, IN3; 0–10 VDC, resistive or dry-contact mode | None | [24-10143-217 Rev K, 2019-10-18](https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/VMA1615/1626/1628/1630-VAV-Controllers-Installation-Guide/K), PDF pp2,8,19 |
+
+The installation diagrams and specifications establish three external input
+terminals separately from each controller's integral differential pressure
+transducer (DPT). Binary dry-contact mode uses one of those three universal
+inputs; binary and configurable **outputs** do not add dedicated binary inputs.
+A binary BACnet object assigned to UI IN2 occupies physical IN2.
+
+The integrated DPT is not a spare external input. This profile does not claim an
+internal BACnet/firmware slot mapping. An AI4/slot-4 assignment remains visible as
+unmapped evidence and cannot create a candidate IN4. Unmapped host/slot/type data
+keeps potential spares unverified until corroborated; a plausible name or object
+instance alone does not identify a physical terminal. Native-only input
+assignments still occupy their terminals after successful archive correlation.
+
+Each VAV capacity and candidate includes the exact installation document number,
+revision/date, PDF pages, original document SHA-256 and manufacturer URL. The UI
+shows the reference and distinguishes physical universal inputs from dedicated
+binary inputs. Native configured model evidence is labelled separately from
+survey identity evidence; neither verifies an installed physical label.
+
+Only the listed complete model strings acquire these profiles. Other suffixes
+(including `-1`, `-0G`, `-0U` and unknown revisions) remain unknown; no capacity is
+inferred from a model prefix, exposed point count or existing slot numbers.
+Existing saved reports preserve their original snapshot: run a new survey or
+reimport report JSON to recompute capacity analysis with this version. Native
+model mismatch/conflict still withholds usable spare-terminal claims.
 
 Native inspection recognizes a bounded subset of MOI BACnet-tagged hardware
 records and existing CAF XML scalar records. It preserves the original source
@@ -109,7 +137,7 @@ targets, stale-result isolation, retry, persistence, imports, filters, exports a
 engineering plans. There are no private site fixtures or field acceptance claims.
 
 ```sh
-.venv/bin/python -m pytest tests/test_hardware_survey.py tests/test_hardware_workbench_api.py
+.venv/bin/python -m pytest tests/test_hardware_survey.py tests/test_hardware_workbench_api.py tests/test_vav_capacities.py
 cd web
 npm run build
 npx playwright test tests/hardware-survey.spec.ts
