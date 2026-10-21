@@ -79,6 +79,42 @@ PICS_SOURCE = (
 )
 
 
+VAV_CAPACITY_SOURCES = {
+    "fx": {
+        "title": "FX-PCV1615/1626/1628/1630 Programmable VAV Box Controllers Installation Instructions",
+        "document_number": "24-10143-357",
+        "revision": "H",
+        "date": "2019-03-22",
+        "pdf_pages": [5, 6, 15, 27],
+        "sections": "Wiring diagram Figure 2; feature callouts; I/O Table 3; specifications Table 10",
+        "sha256": "0247275ca05080ab30ff5ee10e046f3d4877e2629ca0079262e9e0f610addd36",
+        "url": (
+            "https://docs.johnsoncontrols.com/bas/r/Facility-Explorer/en-US/"
+            "FX-PCV1615/1626/1628/1630-Programmable-VAV-Box-Controllers-Installation-Instructions/H"
+        ),
+    },
+    "metasys": {
+        "title": "VMA1615/1626/1628/1630 VAV Controllers Installation Guide",
+        "document_number": "24-10143-217",
+        "revision": "K",
+        "date": "2019-10-18",
+        "pdf_pages": [2, 8, 19],
+        "sections": "Wiring terminations Figure 1; I/O Table 2; specifications Table 10",
+        "sha256": "789139c207dd93409c8b17fe6645772ed1365a4912ed1e5589d1db0a38f2c5ca",
+        "url": (
+            "https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/"
+            "VMA1615/1626/1628/1630-VAV-Controllers-Installation-Guide/K"
+        ),
+    },
+}
+VAV_CAPACITY_MODELS = {
+    "FX-PCV1615-0": "fx",
+    "FX-PCV1630-0": "fx",
+    "MS-VMA1615-0": "metasys",
+    "MS-VMA1630-0": "metasys",
+}
+
+
 def _utc():
     return datetime.now(UTC).isoformat(timespec="microseconds")
 
@@ -95,6 +131,29 @@ def model_capacity(model):
     if not isinstance(model, str):
         return None
     name = model.upper().strip()
+    if name in VAV_CAPACITY_MODELS:
+        source = copy.deepcopy(VAV_CAPACITY_SOURCES[VAV_CAPACITY_MODELS[name]])
+        return {
+            "profile": "jci-vav-physical-inputs/1",
+            "model": name,
+            "universal_inputs": [1, 2, 3],
+            "binary_inputs": [],
+            "voltage_input_range": "0–10 VDC",
+            "source": source["url"],
+            "source_document": source,
+            "physical_terminal_scope": (
+                "External IN1–IN3 only. Binary dry-contact mode occupies a universal input. "
+                "The integrated differential pressure transducer is not a spare external terminal."
+            ),
+            "onboard_sensors": [
+                {
+                    "name": "Integrated differential pressure transducer (DPT)",
+                    "physical_terminal": None,
+                    "spare_eligible": False,
+                    "slot_mapping": "Internal BACnet/firmware slot mapping is not established by this profile.",
+                }
+            ],
+        }
     if name == "FX-PCG2611-0":
         return {
             "universal_inputs": [1, 2, 3, 4, 5, 6],
@@ -145,7 +204,9 @@ def occupancy(report):
     modules = copy.deepcopy(report.get("modules", []))
     base_model = report.get("identity", {}).get("model")
     base_capacity = model_capacity(base_model)
-    if base_capacity and not any(m.get("host") == "local" for m in modules):
+    if isinstance(base_model, str) and base_model and not any(
+        m.get("host") == "local" for m in modules
+    ):
         modules.insert(
             0,
             {
@@ -153,7 +214,7 @@ def occupancy(report):
                 "sa_mac": None,
                 "configured_model": base_model,
                 "capacity": base_capacity,
-                "model_evidence": "Device model-name",
+                "model_evidence": "Controller model from this report's identity",
             },
         )
     points = report.get("inputs", [])
@@ -176,6 +237,16 @@ def occupancy(report):
         key = ("local", None) if module.get("host") == "local" else ("sa", module.get("sa_mac"))
         capacity = model_capacity(module.get("configured_model"))
         module["capacity"] = capacity
+        if module.get("host") == "local":
+            # The native record's configured model is not a live Device read.
+            # Recompute this label for imports/correlation instead of retaining
+            # a supplied claim that the installed physical label was verified.
+            module["model_evidence"] = (
+                "Native configured controller model"
+                if report.get("profile") == ARCHIVE_PROFILE
+                else "Survey controller model (supplied evidence if imported)"
+            )
+            module["installed_model_verified"] = False
         assigned = [p for p in points if _host_key(p) == key]
         module["assigned_inputs"] = [p.get("object") for p in assigned]
         used = {p["slot"] for p in assigned if type(p.get("slot")) is int}
@@ -194,6 +265,19 @@ def occupancy(report):
                 for p in assigned
             )
         module["occupied_slots"] = sorted(used)
+        physical_slots = (
+            set(capacity["universal_inputs"]) | set(capacity["binary_inputs"])
+            if capacity
+            else set()
+        )
+        module["occupied_physical_slots"] = sorted(used & physical_slots)
+        module["unmapped_input_objects"] = [
+            p.get("object")
+            for p in assigned
+            if capacity and (
+                p.get("slot") not in physical_slots or p.get("terminal_type") not in {"UI", "BI"}
+            )
+        ]
         module["candidate_inputs"] = []
         if capacity is None:
             module["capacity_status"] = "unknown-model"
@@ -214,6 +298,9 @@ def occupancy(report):
                     "terminal_type": kind,
                     "voltage_capable": kind == "UI",
                     "configured_model": module.get("configured_model"),
+                    "capacity_source": copy.deepcopy(
+                        capacity.get("source_document") or {"url": capacity.get("source")}
+                    ),
                     "status": "candidate" if candidate_ok and not uncertain else "unverified",
                     "reason": (
                         "No observed assignment; verify native configuration and wiring."
