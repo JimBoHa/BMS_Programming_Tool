@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, FileSearch, RefreshCw, Search, Upload } from "lucide-react";
 import { api, saveBlob } from "./api";
 import "./hardware-survey.css";
+import { SensorSupplyPanel } from "./SensorSupplyPanel";
 
 type RecordValue = Record<string, any>;
 type Target = {
@@ -1849,6 +1850,16 @@ export function HardwareSurveyPanel({
             </details>
           </section>
         )}
+        <details className="hardware-supply-planner">
+          <summary>Sensor power supply budget</summary>
+          <SensorSupplyPanel
+            reference={
+              report?.content_sha256
+                ? { id: report.id, content_sha256: report.content_sha256 }
+                : null
+            }
+          />
+        </details>
       </div>
     </section>
   );
