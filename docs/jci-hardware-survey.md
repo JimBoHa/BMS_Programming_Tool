@@ -5,6 +5,10 @@ explicit BACnet/IP controller, an explicit IP router plus DNET/MAC address, or a
 already-open direct serial MS/TP interface with a selected local MAC/Device.
 Nothing in the application preloads a particular site's survey results.
 
+The separate [sensor supply budget](sensor-supply-budgeting.md) panel plans power
+from reviewed auxiliary-supply facts or explicitly declared external supplies.
+It works offline and can optionally bind the exact current survey as evidence.
+
 The survey verifies the Device identity, reads the indexed Object_List, and
 reads exposed analog, binary, and multistate inputs. Input rows retain names,
 descriptions, values, units, reliability, status flags, out-of-service state,

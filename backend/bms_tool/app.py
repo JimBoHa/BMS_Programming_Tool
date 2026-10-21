@@ -70,6 +70,7 @@ from .routed_discovery import (
     RouterNetworksRequest,
     RouterProbeRequest,
 )
+from .sensor_supply import SupplyPlans, supply_router
 from .simulation_group import SimulationGroups, SimulationWorkspace, demo_workspace
 from .storage import Conflict, Store
 from .temco_transfer import TemcoTransfer
@@ -437,6 +438,7 @@ def create_app(state_dir=None):
     event_ack = EventAcknowledgements(bacnet, store, event_inventory)
     files = BacnetFiles(bacnet, store)
     hardware_workbench = HardwareWorkbench(bacnet, store, files)
+    supply_plans = SupplyPlans(store, hardware_workbench)
     notifications = None
     simulations = {}
     caf_files = {}
@@ -543,6 +545,7 @@ def create_app(state_dir=None):
     app.state.hardware_workbench = hardware_workbench
     app.state.notifications = None
     app.include_router(hardware_router(hardware_workbench))
+    app.include_router(supply_router(supply_plans))
 
     @app.middleware("http")
     async def local_requests(request, call_next):
