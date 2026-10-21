@@ -223,5 +223,10 @@
     "feature": "BBMD table writes, FDT deletion and hosting",
     "status": "pending",
     "scope": "Remaining scope of MF-7558ea4aa8 / IA-120b496d86: verified Write-BDT, Delete-FDT-entry and BBMD hosting/configuration require separate ownership, backup/readback, failure/recovery and vendor validation profiles. BACnet/SC and IPv6 administration remain outside this read-only implementation."
+  },
+  {
+    "feature": "Offline sensor supply budgeting",
+    "status": "implemented",
+    "scope": "Exact reviewed JCI auxiliary rails and combined Belimo sensor profiles plus explicit custom supplies; AC/DC voltage envelopes, shared and terminal current budgets, physical quantities and steady/startup demand. Guarded local revisioned plans/import/export and optional exact survey binding. Maximum/startup/tolerance and existing load gaps stay explicit. No wiring approval, new input allocation, native program changes or field writes; publisher extraction hashes are distinguished from PDF byte hashes."
   }
 ]
