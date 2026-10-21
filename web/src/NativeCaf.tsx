@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { api, download } from "./api";
 import { CafGraphPanel } from "./CafGraphPanel";
+import { CafHardwarePanel } from "./CafHardwarePanel";
 import { JciPreflight } from "./JciPreflight";
 
 function scalarSignature(changes: any[]) {
@@ -37,6 +38,7 @@ export function NativeCaf({ visible = true }: { visible?: boolean }) {
   const [loadingProperties, setLoadingProperties] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [graphDirty, setGraphDirty] = useState(false);
+  const [hardwareDirty, setHardwareDirty] = useState(false);
   const [savedScalarKey, setSavedScalarKey] = useState("[]");
   const [exported, setExported] = useState("");
   const input = useRef<HTMLInputElement>(null);
@@ -48,14 +50,14 @@ export function NativeCaf({ visible = true }: { visible?: boolean }) {
   const scalarKey = scalarSignature(changes);
   const unsavedScalars = changes.length > 0 && scalarKey !== savedScalarKey;
   useEffect(() => {
-    if (!unsavedScalars && !graphDirty) return;
+    if (!unsavedScalars && !graphDirty && !hardwareDirty) return;
     const warn = (event: BeforeUnloadEvent) => {
       event.preventDefault();
       event.returnValue = "";
     };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [unsavedScalars, graphDirty]);
+  }, [unsavedScalars, graphDirty, hardwareDirty]);
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -93,7 +95,7 @@ export function NativeCaf({ visible = true }: { visible?: boolean }) {
   async function upload(file?: File) {
     if (!file || !visible) return;
     if (
-      (unsavedScalars || graphDirty) &&
+      (unsavedScalars || graphDirty || hardwareDirty) &&
       !window.confirm(
         "Discard unexported CAF edits and open another file? Cancel to keep editing or export the current changes first.",
       )
@@ -119,6 +121,7 @@ export function NativeCaf({ visible = true }: { visible?: boolean }) {
       setChanges([]);
       setSavedScalarKey("[]");
       setGraphDirty(false);
+      setHardwareDirty(false);
       setExported("");
       setExporting(false);
       setSelected(null);
@@ -292,6 +295,13 @@ export function NativeCaf({ visible = true }: { visible?: boolean }) {
             key={`preflight:${caf.sha256}:${archiveGeneration}`}
             id={caf.sha256}
             disabled={opening || !visible}
+          />
+          <CafHardwarePanel
+            key={`hardware:${caf.sha256}:${archiveGeneration}`}
+            id={caf.sha256}
+            filename={filename}
+            disabled={opening || !visible}
+            onDirtyChange={setHardwareDirty}
           />
           <CafGraphPanel
             key={`${caf.sha256}:${archiveGeneration}`}
