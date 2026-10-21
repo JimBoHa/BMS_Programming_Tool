@@ -48,6 +48,7 @@ from .macros import (
 )
 from .models import Program, StrictModel
 from .native_simulator import NativeSimulator
+from .network_number_plan import network_plan_router
 from .niagara import NiagaraArchive
 from .observability import ObservabilityStore
 from .routed_discovery import (
@@ -477,6 +478,7 @@ def create_app(state_dir=None):
     app.state.device_details = device_details
     app.state.bacnet_files = files
     app.state.notifications = None
+    app.include_router(network_plan_router())
 
     @app.middleware("http")
     async def local_requests(request, call_next):
