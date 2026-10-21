@@ -24,6 +24,7 @@ from .bacnet_read import read_property
 from .bacnet_values import json_value
 from .models import StrictModel
 from .routed_discovery import ROUTED_HOP_COUNT, _router
+from .scoped_hooks import restore_attribute
 
 PROFILE = "bacnet-device-details/1"
 SCOPE = (
@@ -229,10 +230,7 @@ class DeviceDetails:
                     ("indication", directed, previous_send),
                 ):
                     if nsap.__dict__.get(name) is temporary:
-                        if previous is _MISSING:
-                            delattr(nsap, name)
-                        else:
-                            setattr(nsap, name, previous)
+                        restore_attribute(nsap, name, previous, _MISSING)
 
     async def _read(self, session, obj, prop, index=None):
         self._guard(session)

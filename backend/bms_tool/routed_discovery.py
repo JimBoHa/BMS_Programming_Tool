@@ -32,6 +32,7 @@ from .bacnet_exchange import confirmed_exchange
 from .bacnet_read import read_property
 from .bacnet_values import json_value
 from .models import StrictModel
+from .scoped_hooks import restore_attribute
 
 PROFILE = "bacnet-explicit-router-discovery/1"
 SCOPE = (
@@ -398,10 +399,7 @@ class RoutedDiscovery:
                     ("indication", directed, previous_send),
                 ):
                     if nsap.__dict__.get(name) is temporary:
-                        if previous is _MISSING:
-                            delattr(nsap, name)
-                        else:
-                            setattr(nsap, name, previous)
+                        restore_attribute(nsap, name, previous, _MISSING)
             self.bacnet.lock.release()
 
     async def probe(self, **arguments):
@@ -829,8 +827,5 @@ class RoutedDiscovery:
         finally:
             observing = False
             if nsap is not None and nsap.__dict__.get("process_npdu") is observer:
-                if previous is _MISSING:
-                    del nsap.process_npdu
-                else:
-                    nsap.process_npdu = previous
+                restore_attribute(nsap, "process_npdu", previous, _MISSING)
             self.bacnet.lock.release()
