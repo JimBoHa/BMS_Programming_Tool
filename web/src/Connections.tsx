@@ -729,20 +729,28 @@ export function Connections() {
         defaultDevice={object.trim().startsWith("device,") ? object : ""}
       />
       <HardwareSurveyPanel
-        connected={!!pointReady && !busy && status.config?.transport !== "mstp"}
+        connected={!!pointReady && !busy}
+        defaultTransport={
+          status.config?.transport === "mstp" ? "direct-mstp" : "bacnet-ip"
+        }
+        interfaceConfig={status.config}
         defaultAddress={target}
         defaultDevice={object.trim().startsWith("device,") ? object : ""}
         defaultRouter={
-          selectedRoute?.router ||
-          (/^\d+(?::\d+)?$/.test(target.trim())
-            ? status.config?.router || ""
-            : "")
+          status.config?.transport === "mstp"
+            ? ""
+            : selectedRoute?.router ||
+              (/^\d+(?::\d+)?$/.test(target.trim())
+                ? status.config?.router || ""
+                : "")
         }
         defaultDnet={
-          selectedRoute?.dnet ??
-          (/^\d+(?::\d+)?$/.test(target.trim())
-            ? (status.config?.dnet ?? null)
-            : null)
+          status.config?.transport === "mstp"
+            ? null
+            : (selectedRoute?.dnet ??
+              (/^\d+(?::\d+)?$/.test(target.trim())
+                ? (status.config?.dnet ?? null)
+                : null))
         }
       />
       <ControllerProbePanel

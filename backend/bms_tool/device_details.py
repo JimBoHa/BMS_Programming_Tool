@@ -154,6 +154,18 @@ class DeviceDetails:
                 or self.bacnet.config != session["config"]
             ):
                 raise ValueError("BACnet application/configuration changed.")
+            if (session["config"] or {}).get("transport") == "mstp":
+                link = getattr(session["app"], "mstp_link", None)
+                actual = link.status() if link is not None else {}
+                if (
+                    any(
+                        actual.get(key) != session["config"].get(key)
+                        for key in ("port", "mac", "baudrate", "max_master", "max_info_frames")
+                    )
+                    or int(session["app"].device_object.objectIdentifier[1])
+                    != session["config"]["instance"]
+                ):
+                    raise ValueError("Serial link identity/configuration changed.")
             for layer in session["app"].link_layers.values():
                 server = getattr(layer, "server", None)
                 if server is not None and (
@@ -171,6 +183,25 @@ class DeviceDetails:
             app = self.bacnet.require()
             config = copy.deepcopy(self.bacnet.config)
             adapter = app.nsap.local_adapter
+            if getattr(options, "transport", "bacnet-ip") == "direct-mstp":
+                # Hardware-only request models opt in; the public DeviceDetailsRequest
+                # and event/COV requests retain their existing IPv4 profile.
+                from .hardware_target import serial_identity
+
+                identity = serial_identity(config, options)
+                target = self.bacnet.target_address(options.address)
+                if (
+                    adapter is None
+                    or adapter.adapterAddr != Address(str(identity["mac"]))
+                    or getattr(app, "mstp_link", None) is None
+                ):
+                    raise ValueError(
+                        "Direct MS/TP hardware reads require the already-open matching serial interface."
+                    )
+                session = {"app": app, "config": config, "target": target, "last_request": 0.0}
+                self._guard(session)
+                yield session
+                return
             if (
                 config is None
                 or config.get("transport") == "mstp"

@@ -1,7 +1,8 @@
 # JCI physical input surveys and spare-terminal planning
 
 **Connect → Hardware survey** builds a fresh, bounded, read-only inventory for an
-explicit BACnet/IP controller or an explicit IP router plus DNET/MAC address.
+explicit BACnet/IP controller, an explicit IP router plus DNET/MAC address, or an
+already-open direct serial MS/TP interface with a selected local MAC/Device.
 Nothing in the application preloads a particular site's survey results.
 
 The survey verifies the Device identity, reads the indexed Object_List, and
@@ -14,8 +15,8 @@ unknown; a binary object on a universal terminal still occupies that terminal.
 
 ## Browser workflow
 
-1. Open a BACnet/IP connection and select a controller from discovery, or enter
-   its exact address and Device instance in the hardware panel. Routed targets
+1. Open a BACnet/IP or direct serial MS/TP connection, then enter the exact
+   address and Device instance in the hardware panel or select an IP discovery result. Routed targets
    require both the literal IP router and its DNET. Survey requests may use an
    explicit route without changing the engineering connection's configuration.
 2. Choose object, input and operation-time limits. Start the survey, inspect
@@ -89,8 +90,9 @@ before engineering a change. Real hardware/electrical limits still apply.
 Relocation and sensor plans perform no controller writes, native compilation,
 program download, live reassignment, activation or rewiring. Those actions still
 need a verified manufacturer-compatible authoring/transfer path and physical
-commissioning. Direct serial MS/TP and BTCVT are outside this panel's transport
-profile. No field connection opens on import, page load or server restart.
+commissioning. Direct serial MS/TP now has an [explicit read-only survey/archive
+profile](jci-direct-serial-survey.md); BTCVT remains outside that profile. No field
+connection opens on import, page load or server restart.
 
 ## Bounds and persistence
 
@@ -113,20 +115,20 @@ profile. No field connection opens on import, page load or server restart.
 
 All routes are under `/api/bacnet/hardware`:
 
-| Route | Purpose |
-| --- | --- |
-| `GET /status` | Limits and saved reports, archives, jobs and available captures |
-| `POST /survey` | Start an explicitly addressed bounded survey |
-| `GET /jobs/{id}`; `POST /jobs/{id}/cancel` | Read progress or cancel the owned job |
-| `GET /jobs/{id}/export` | Export exact job evidence |
-| `POST /import-report` | Validate and save supplied survey JSON |
-| `GET /reports/{id}`; `GET /reports/{id}/export?format=json\|csv` | Reopen or export a report |
-| `POST /archive`; `POST /archive/capture` | Analyze local native bytes or a saved capture |
-| `POST /read-archive` | Read an existing advertised Archive .moi File object |
-| `GET /archives/{id}`; `GET /archives/{id}/export?format=json\|source` | Reopen analysis or export evidence/original bytes |
-| `POST /enrich` | Correlate a saved survey with archive assignments |
-| `POST /relocation`; `POST /sensor-plan` | Generate review-only engineering plans |
-| `DELETE /{reports\|archives\|jobs}/{id}` | Remove a saved item; active jobs must be cancelled first |
+| Route                                                                 | Purpose                                                         |
+| --------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `GET /status`                                                         | Limits and saved reports, archives, jobs and available captures |
+| `POST /survey`                                                        | Start an explicitly addressed bounded survey                    |
+| `GET /jobs/{id}`; `POST /jobs/{id}/cancel`                            | Read progress or cancel the owned job                           |
+| `GET /jobs/{id}/export`                                               | Export exact job evidence                                       |
+| `POST /import-report`                                                 | Validate and save supplied survey JSON                          |
+| `GET /reports/{id}`; `GET /reports/{id}/export?format=json\|csv`      | Reopen or export a report                                       |
+| `POST /archive`; `POST /archive/capture`                              | Analyze local native bytes or a saved capture                   |
+| `POST /read-archive`                                                  | Read an existing advertised Archive .moi File object            |
+| `GET /archives/{id}`; `GET /archives/{id}/export?format=json\|source` | Reopen analysis or export evidence/original bytes               |
+| `POST /enrich`                                                        | Correlate a saved survey with archive assignments               |
+| `POST /relocation`; `POST /sensor-plan`                               | Generate review-only engineering plans                          |
+| `DELETE /{reports\|archives\|jobs}/{id}`                              | Remove a saved item; active jobs must be cancelled first        |
 
 ## Validation
 
