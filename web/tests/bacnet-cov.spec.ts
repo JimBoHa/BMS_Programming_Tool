@@ -85,6 +85,13 @@ test("Connect COV UI performs real verified subscription, renewal, evidence expo
     await page
       .getByLabel("Local bind address / UDP port", { exact: true })
       .fill(`127.0.0.1:${await freePort()}`);
+    await page.getByLabel("Router IP (optional)", { exact: true }).fill("");
+    await page
+      .getByLabel("MS/TP destination network (optional)", { exact: true })
+      .fill("");
+    await page
+      .getByLabel("BBMD address / UDP port (optional)", { exact: true })
+      .fill("");
     await page
       .getByRole("button", { name: "Open interface", exact: true })
       .click();
@@ -101,11 +108,14 @@ test("Connect COV UI performs real verified subscription, renewal, evidence expo
       .getByRole("button", { name: "Start verified COV monitor" })
       .click();
     await expect(panel).toContainText("1 active monitors");
-    await expect(panel.getByText(/^Notification 1 ·/)).toBeVisible();
-    await panel.getByRole("button", { name: "Renew COV lease" }).click();
+    const monitor = panel
+      .getByRole("region", { name: /^COV monitor cov-/ })
+      .first();
+    await expect(monitor.getByText(/^Notification 1 ·/)).toBeVisible();
+    await monitor.getByRole("button", { name: "Renew COV lease" }).click();
     await expect(panel).toContainText("Explicit renewal acknowledged.");
     const pending = page.waitForEvent("download");
-    await panel.getByRole("button", { name: "Export COV evidence" }).click();
+    await monitor.getByRole("button", { name: "Export COV evidence" }).click();
     const downloaded = await pending;
     const evidence = JSON.parse(
       readFileSync((await downloaded.path())!, "utf8"),
@@ -113,7 +123,7 @@ test("Connect COV UI performs real verified subscription, renewal, evidence expo
     expect(evidence.events[0].values[0].value).toBe(12.5);
     expect(evidence.config.confirmed).toBe(true);
     expect(evidence.events[0].device).toBe("device,4190010");
-    await panel.getByRole("button", { name: "Stop COV monitor" }).click();
+    await monitor.getByRole("button", { name: "Stop COV monitor" }).click();
     await expect(panel).toContainText("Cancellation acknowledged.");
     await expect(panel).toContainText("0 active monitors");
     await panel
@@ -134,9 +144,7 @@ test("Connect COV UI performs real verified subscription, renewal, evidence expo
   }
 });
 
-test("COV monitor does not imply routed or BBMD transport support", async ({
-  page,
-}) => {
+test("COV monitor does not imply BBMD transport support", async ({ page }) => {
   await page.route("**/api/bacnet/status", (route) =>
     route.fulfill({
       json: {
@@ -144,8 +152,7 @@ test("COV monitor does not imply routed or BBMD transport support", async ({
         commands: [],
         config: {
           local_address: "127.0.0.1:47809",
-          router: "127.0.0.1:47808",
-          dnet: 2001,
+          bbmd_address: "127.0.0.1:47808",
         },
       },
     }),
@@ -159,5 +166,5 @@ test("COV monitor does not imply routed or BBMD transport support", async ({
   await expect(
     panel.getByRole("button", { name: "Start verified COV monitor" }),
   ).toBeDisabled();
-  await expect(panel).toContainText("without a router or BBMD");
+  await expect(panel).toContainText("without BBMD or direct serial");
 });

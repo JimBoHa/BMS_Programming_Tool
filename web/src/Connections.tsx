@@ -702,12 +702,13 @@ export function Connections() {
           !!status.connected &&
           !busy &&
           status.config?.transport !== "mstp" &&
-          !status.config?.router &&
           !status.config?.bbmd_address
         }
         defaultAddress={target}
         defaultDevice={object.trim().startsWith("device,") ? object : ""}
         defaultObject={object}
+        defaultRouter={selectedRoute?.router || status.config?.router || ""}
+        defaultDnet={selectedRoute?.dnet || status.config?.dnet}
       />
       <BacnetEventsPanel
         connected={

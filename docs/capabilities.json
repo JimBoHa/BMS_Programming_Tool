@@ -197,6 +197,6 @@
   {
     "feature": "Bounded BACnet object COV monitoring",
     "status": "implemented",
-    "scope": "Direct unicast BACnet/IPv4 object subscriptions only; exact Device/object/source/process/mode checks, explicit finite renewal and cancellation, bounded received evidence, native array indexes/priority/opaque datatypes and local receipt times. Real UDP/HTTP/browser tests; no automatic reconnect/renewal, durable samples, routed/MS/TP/BBMD/BTCVT or physical JCI acceptance."
+    "scope": "Direct BACnet/IPv4 and explicit IPv4-router/DNET:MAC object subscriptions; exact Device/object/actual-next-hop/NPDU-source/process/mode checks and task-scoped pinned ACK routing, explicit finite renewal and cancellation, bounded received evidence, native array indexes/priority/opaque datatypes and local receipt times. Real UDP/HTTP/browser tests; no automatic reconnect/renewal, durable samples, routed segmented notifications, BBMD/direct serial/BTCVT or physical JCI acceptance."
   }
 ]
