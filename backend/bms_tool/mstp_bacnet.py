@@ -17,6 +17,11 @@ from bacpypes3.pdu import PDU, Address, LocalBroadcast, LocalStation
 from .mstp import BROADCAST, SerialMstpLink, _integer
 
 
+class _ConfirmedOwner:
+    def __init__(self, layer, previous):
+        self.layer, self.previous, self.retired = layer, previous, False
+
+
 class MstpLinkLayer(Server[PDU]):
     def __init__(self, link: SerialMstpLink):
         super().__init__()
@@ -37,6 +42,10 @@ class MstpLinkLayer(Server[PDU]):
     async def indication(self, pdu: PDU):
         if self.closed or self.pump_error:
             raise ValueError(self.pump_error or "The MS/TP link layer is closed.")
+        owner = pdu.pduUserData
+        owner = owner if isinstance(owner, _ConfirmedOwner) and owner.layer is self else None
+        if owner is not None and owner.retired:
+            return
         destination = pdu.pduDestination
         if destination is None:
             raise ValueError("MS/TP requires an explicit destination MAC.")
@@ -57,7 +66,20 @@ class MstpLinkLayer(Server[PDU]):
         if mac != BROADCAST and not expecting:
             self.link.send_reply(mac, npdu)
         else:
-            self.link.send_npdu(mac, npdu, expecting_reply=expecting)
+            self.link.send_npdu(mac, npdu, expecting_reply=expecting, owner=owner)
+
+    def own_confirmed_request(self, request):
+        owner = _ConfirmedOwner(self, request.pduUserData)
+        request.pduUserData = owner
+        return owner
+
+    def retire_confirmed_request(self, request, owner):
+        owner.retired = True
+        try:
+            return self.link.retire_owner(owner)
+        finally:
+            if request.pduUserData is owner:
+                request.pduUserData = owner.previous
 
     async def _receive(self):
         try:
