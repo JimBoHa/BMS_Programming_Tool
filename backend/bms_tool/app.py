@@ -23,6 +23,7 @@ from pydantic import AwareDatetime, Field
 from .analysis import dependencies
 from .bacnet_files import BacnetFiles
 from .bacnet_history import BacnetHistory, BacnetHistoryRequest
+from .bacnet_history_multiple import MultipleHistory, MultipleHistoryCancel, MultipleHistoryRequest
 from .blocks import catalog
 from .caf import CafArchive
 from .caf_compare import compare_cafs
@@ -393,6 +394,7 @@ def create_app(state_dir=None):
     field_trends = FieldTrends(bacnet, store.directory, audit_store=store)
     temco_transfer = TemcoTransfer(bacnet, store)
     history = BacnetHistory(bacnet, store)
+    multiple_history = MultipleHistory(bacnet, store)
     routed = RoutedDiscovery(bacnet, store)
     ip_discovery = IpDiscovery(bacnet, store)
     device_details = DeviceDetails(bacnet, store)
@@ -460,7 +462,10 @@ def create_app(state_dir=None):
                     await field_trends.close()
                 finally:
                     try:
-                        bacnet.close()
+                        try:
+                            await multiple_history.close()
+                        finally:
+                            bacnet.close()
                     finally:
                         native.stop()
 
@@ -472,6 +477,7 @@ def create_app(state_dir=None):
     app.state.field_trends = field_trends
     app.state.temco_transfer = temco_transfer
     app.state.bacnet_history = history
+    app.state.multiple_history = multiple_history
     app.state.routed_discovery = routed
     app.state.ip_discovery = ip_discovery
     app.state.device_details = device_details
@@ -1329,8 +1335,29 @@ def create_app(state_dir=None):
     def bacnet_history_capture(id: str):
         return history.capture(id)
 
+    @app.get("/api/bacnet/history-multiple/status")
+    def bacnet_multiple_history_status():
+        return multiple_history.status()
+
+    @app.post("/api/bacnet/history-multiple/read")
+    async def bacnet_multiple_history_read(body: MultipleHistoryRequest):
+        return await multiple_history.read(**body.model_dump())
+
+    @app.post("/api/bacnet/history-multiple/cancel")
+    async def bacnet_multiple_history_cancel(body: MultipleHistoryCancel):
+        return multiple_history.cancel(body.operation_id)
+
+    @app.post("/api/bacnet/history-multiple/save")
+    def bacnet_multiple_history_save(body: HistoryCaptureRequest):
+        return multiple_history.save(body.id)
+
+    @app.get("/api/bacnet/history-multiple/captures/{id}")
+    def bacnet_multiple_history_capture(id: str):
+        return multiple_history.capture(id)
+
     @app.post("/api/bacnet/connect")
     async def bacnet_connect(body: BacnetConnect):
+        await multiple_history.close()
         return await bacnet.connect(**body.model_dump())
 
     @app.post("/api/bacnet/discover-foreign")
@@ -1339,10 +1366,12 @@ def create_app(state_dir=None):
 
     @app.post("/api/bacnet/connect-mstp")
     async def bacnet_connect_mstp(body: BacnetMstp):
+        await multiple_history.close()
         return await bacnet.connect_mstp(**body.model_dump())
 
     @app.post("/api/bacnet/disconnect")
     async def bacnet_disconnect():
+        await multiple_history.close()
         return await bacnet.disconnect()
 
     @app.get("/api/temco/status")

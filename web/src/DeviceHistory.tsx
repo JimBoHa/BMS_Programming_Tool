@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Database, Download, History, RefreshCw, Save } from "lucide-react";
 import { api, saveBlob } from "./api";
+import { MultipleHistoryPanel } from "./MultipleHistoryPanel";
 import "./temco-simulator.css";
 
 type RecordValue = {
@@ -639,6 +640,7 @@ export function DeviceHistory() {
           </details>
         </section>
       )}
+      <MultipleHistoryPanel />
     </div>
   );
 }
