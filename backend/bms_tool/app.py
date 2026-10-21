@@ -31,6 +31,7 @@ from .bacnet_history_multiple import MultipleHistory, MultipleHistoryCancel, Mul
 from .bbmd_admin import BbmdAdmin, BbmdAdminApply, BbmdAdminPreview, BbmdAdminRestore
 from .bbmd_tables import BbmdCancel, BbmdInspection, BbmdTables
 from .blocks import catalog
+from .bus_preflight import bus_preflight_router
 from .caf import CafArchive
 from .caf_compare import compare_cafs
 from .caf_graph import CafGraph
@@ -567,6 +568,7 @@ def create_app(state_dir=None):
     app.include_router(hardware_router(hardware_workbench))
     app.include_router(supply_router(supply_plans))
     app.include_router(network_plan_router())
+    app.include_router(bus_preflight_router())
 
     @app.middleware("http")
     async def local_requests(request, call_next):
