@@ -14,6 +14,7 @@ from bacpypes3.vlan import VirtualNetwork
 from bms_tool.bacnet_cov import BacnetCov, CovStart
 from bms_tool.bacnet_read import close_application
 from bms_tool.connections import Bacnet
+from bms_tool.device_details import DeviceDetails, DeviceDetailsRequest
 from bms_tool.storage import Store
 
 from .test_bacnet_cov import notification, wait_for
@@ -292,6 +293,34 @@ async def test_routed_finite_expiry_and_interface_close_do_not_reconnect(routed_
     await wait_for(lambda: not service.jobs[second["id"]]["active"])
     assert service.detail(second["id"])["state"] == "interface_changed"
     assert not service._hooks and not service._route_hooks
+
+
+async def test_final_expiry_inside_held_details_path_unwraps_retired_hooks_before_reinstall(
+    routed_cov,
+):
+    _, _, _, client, service, config, _ = routed_cov
+    now = [100.0]
+    service.clock = lambda: now[0]
+    nsap = client.app.nsap
+
+    async def unrelated(adapter, packet):
+        await original(adapter, packet)
+
+    original = nsap.process_npdu
+    nsap.process_npdu = unrelated
+    before_source = nsap.__dict__["process_npdu"]
+    before_send = nsap.__dict__.get("indication")
+    options = DeviceDetailsRequest(
+        **{key: config[key] for key in ("address", "device", "router", "dnet")}
+    )
+    for _ in range(3):
+        started = await service.start(**config, confirmed=False)
+        async with DeviceDetails(client, None)._path(options):
+            now[0] += 11
+            await wait_for(lambda identifier=started["id"]: not service.jobs[identifier]["active"])
+            assert not service._route_hooks
+        assert nsap.__dict__["process_npdu"] is before_source
+        assert nsap.__dict__.get("indication") is before_send
 
 
 async def test_routed_cancel_timeout_is_uncertain_and_shutdown_cancels_remaining_monitor(
