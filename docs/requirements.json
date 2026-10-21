@@ -574,5 +574,14 @@
     "pdf_pages_or_section": "Printed pages1-11; native record acquisition does not establish human receipt or historical configuration",
     "status": "implemented",
     "implementation_or_gap": "Read-only standard type25 profile tested via real direct/routed UDP, API and browser. Unknown NotificationParameters choices are deferred with native tags; physical support, unsolicited alarm subscriptions and proprietary JCI historian remain unverified/outside profile."
+  },
+  {
+    "id": "SYS-FILE-001",
+    "feature": "Portable native capture storage and process ownership",
+    "acceptance_criterion": "Import and operate local capture storage on supported POSIX/Windows hosts without weakening native ownership, regular-file checks, capture hashes, exclusive publication or bounded waits.",
+    "evidence": "IA-55a533399b supplement; Python msvcrt and Microsoft CreateFileW/GetFileInformationByHandle/_open_osfhandle primary APIs",
+    "pdf_pages_or_section": "docs/portable-storage.md; native process ownership and safe final-component handles",
+    "status": "implemented",
+    "implementation_or_gap": "Native POSIX cross-process/capture regressions and authored Windows failure branches; unchanged suite prepared for actual Windows acceptance. Native Windows file-data fsync with namespace/power-loss durability explicitly unverified; unsupported filesystems fail closed. Native IEC runtime remains POSIX-only."
   }
 ]

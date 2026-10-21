@@ -8,7 +8,6 @@ This local host profile has no physical I/O, network or controller download.
 from __future__ import annotations
 
 import copy
-import fcntl
 import hashlib
 import json
 import math
@@ -26,6 +25,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from .engine import Engine, output_type
+from .file_access import file_lock
 from .formats import ConversionError, export_st, structured_text_parts
 from .macros import expand_macros
 from .models import Program
@@ -53,6 +53,8 @@ def _library_digest(directory):
 
 
 def toolchain():
+    if os.name != "posix":
+        raise ConversionError("The current native IEC host profile requires POSIX process pipes.")
     home = Path(os.environ.get("BMS_IEC_HOME", ROOT.parent / ".toolchain" / ("matiec-" + PIN[:12])))
     if not (home / "manifest.json").is_file() or not (home / "bin/iec2c").is_file():
         raise ConversionError("Native IEC compiler unavailable. Run scripts/setup_iec.py first.")
@@ -71,8 +73,6 @@ def toolchain():
         raise ConversionError("Native IEC runtime headers or host clang compiler are unavailable.")
     if _library_digest(home / "source/lib") != manifest.get("library_sha256"):
         raise ConversionError("The IEC runtime library checksum differs from its build manifest.")
-    if os.name != "posix":
-        raise ConversionError("The current native IEC host profile requires POSIX process pipes.")
     return home.resolve(), manifest
 
 
@@ -82,21 +82,14 @@ def _tool_lock(home):
     if not _LOCK.acquire(timeout=45):
         raise ConversionError("The IEC compiler queue is busy; retry after current work ends.")
     try:
-        with (home / ".build.lock").open("a+b") as lock:
-            while True:
-                try:
-                    fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                    break
-                except BlockingIOError:
-                    if time.monotonic() >= deadline:
-                        raise ConversionError(
-                            "The IEC toolchain is busy rebuilding or compiling."
-                        ) from None
-                    time.sleep(0.02)
-            try:
+        try:
+            with file_lock(
+                home / ".build.lock", timeout=max(0, deadline - time.monotonic()),
+                busy="The IEC toolchain is busy rebuilding or compiling.",
+            ):
                 yield
-            finally:
-                fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+        except ValueError as exc:
+            raise ConversionError(str(exc)) from exc
     finally:
         _LOCK.release()
 
