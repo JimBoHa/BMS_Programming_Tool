@@ -192,6 +192,11 @@
   {
     "feature": "Bounded BACnet object COV monitoring",
     "status": "implemented",
-    "scope": "Direct BACnet/IPv4 and explicit IPv4-router/DNET:MAC object subscriptions; exact Device/object/actual-next-hop/NPDU-source/process/mode checks and task-scoped pinned ACK routing, explicit finite renewal and cancellation, bounded received evidence, native array indexes/priority/opaque datatypes and local receipt times. Real UDP/HTTP/browser tests; no automatic reconnect/renewal, durable samples, routed segmented notifications, BBMD/direct serial/BTCVT or physical JCI acceptance."
+    "scope": "Direct BACnet/IPv4 and explicit IPv4-router/DNET:MAC object subscriptions; exact Device/object/actual-next-hop/NPDU-source/process/mode checks and task-scoped pinned ACK routing, explicit finite renewal and cancellation, bounded received evidence, native array indexes/priority/opaque datatypes and local receipt times. Real UDP/HTTP/browser tests; no automatic reconnect/renewal, routed segmented notifications, BBMD/direct serial/BTCVT or physical JCI acceptance."
+  },
+  {
+    "feature": "Opt-in durable BACnet COV receipts and field trends",
+    "status": "implemented",
+    "scope": "Explicit recording only; actual accepted direct/routed COV callbacks enter a bounded nonblocking queue and atomic background writes in the field observation store. Exact native values, verified source/route/process identity, receipt versus unknown controller clock, finite lifecycle, discarded/dropped/storage-failure and retention evidence. Eligible finite numeric/boolean values share Field trends with distinct COV provenance and conservative quality. Local history paging/JSON and CSV export persist across restart; recording/subscriptions remain off. Exclusive POSIX/Windows writer-lock branches; Windows execution, physical JCI/MS/TP and BTCVT remain unverified."
   }
 ]

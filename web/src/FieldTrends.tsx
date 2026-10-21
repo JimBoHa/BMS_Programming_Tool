@@ -101,6 +101,11 @@ export function FieldTrends() {
     const columns = [
       "sequence",
       "source_kind",
+      "acquisition_kind",
+      "clock_basis",
+      "source_clock",
+      "receipt_at",
+      "provenance",
       "source",
       "signal",
       "clock",
@@ -111,7 +116,12 @@ export function FieldTrends() {
       "unit",
     ];
     const quote = (value: unknown) =>
-      '"' + String(value ?? "").replaceAll('"', '""') + '"';
+      '"' +
+      (typeof value === "object" && value !== null
+        ? JSON.stringify(value)
+        : String(value ?? "")
+      ).replaceAll('"', '""') +
+      '"';
     saveBlob(
       new Blob(
         [
@@ -135,7 +145,8 @@ export function FieldTrends() {
           <h1>Field trends</h1>
           <p>
             Read addressed BACnet values through the interface selected in
-            Connect. Samples and acquisition events persist locally.
+            Connect. Samples and acquisition events persist locally. Explicitly
+            recorded COV numeric receipts also appear with their own provenance.
           </p>
         </div>
         <span className={"connection-badge " + (connected ? "connected" : "")}>
@@ -373,7 +384,11 @@ export function FieldTrends() {
               <option value="">All field sources</option>
               {sources.map((stream: any) => (
                 <option key={stream.source} value={stream.source}>
-                  {stream.source} · {stream.samples} samples
+                  {stream.source} ·{" "}
+                  {stream.provenance?.acquisition_kind === "bacnet-cov"
+                    ? "COV receipts · "
+                    : ""}
+                  {stream.samples} samples
                 </option>
               ))}
             </select>
@@ -400,7 +415,8 @@ export function FieldTrends() {
               Delete ended field history
             </button>
             <span className="help-text">
-              Deletes saved samples and the selected ended source marker.
+              Deletes saved samples and the selected ended source marker. COV
+              receipts and provenance belonging to this source are also deleted.
               Acquisition log events remain.
             </span>
           </div>
@@ -410,8 +426,8 @@ export function FieldTrends() {
             <thead>
               <tr>
                 <th>Source / signal</th>
-                <th>Acquired UTC</th>
-                <th>Received UTC</th>
+                <th>Observation / receipt UTC</th>
+                <th>Saved UTC</th>
                 <th>Value</th>
                 <th>Quality</th>
                 <th>Unit</th>
@@ -424,6 +440,12 @@ export function FieldTrends() {
                     {sample.source}
                     <br />
                     {sample.signal}
+                    {sample.acquisition_kind === "bacnet-cov" && (
+                      <>
+                        <br />
+                        COV receipt · controller clock unknown
+                      </>
+                    )}
                   </td>
                   <td>{sample.clock}</td>
                   <td>{sample.recorded_at}</td>
