@@ -17,6 +17,7 @@ from bms_tool.models import Edge, Node, Program
 from bms_tool.native_simulator import NativeSimulator
 from bms_tool.sedona import compiler, toolchain
 from bms_tool.storage import Store
+from bms_tool.temperature import TEMPERATURE_BLOCKS, input_units
 from bms_tool.templates import all_templates
 
 
@@ -41,7 +42,7 @@ def native(tmp_path):
 
 
 def block_program(kind):
-    node = Node(id="block", kind=kind)
+    node = Node(id="block", kind=kind, unit=BLOCKS[kind].unit)
     if kind == "Input":
         node.params = {"default": 2.5}
     if kind == "Constant":
@@ -63,6 +64,8 @@ def block_program(kind):
         )
         if kind == "Convert":
             source.unit = "degF"
+        if kind in TEMPERATURE_BLOCKS:
+            source.unit = input_units(kind, BLOCKS[kind].parameters, node.unit)[port]
         nodes.append(source)
         edges.append(Edge(id=f"edge{i}", source=source.id, target=node.id, target_port=port))
     nodes.append(Node(id="out", kind="Output", value_type=output_type(node), unit=node.unit))

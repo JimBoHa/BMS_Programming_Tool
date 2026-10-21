@@ -2811,7 +2811,7 @@
     "vendor": "Open source / source research",
     "title": "MatIEC independent Structured Text compilation/execution",
     "url": "https://github.com/beremiz/matiec/tree/3a41303bcb4e50403417bc39c63f88981d7d961e",
-    "notes": "External GPL-3.0-or-later compiler with individually LGPL runtime headers; no compiler/runtime source bundled. All 27 blocks and nine example graphs compile to C and execute independently on this host. No physical PLC deployment claim.",
+    "notes": "External GPL-3.0-or-later compiler with individually LGPL runtime headers; no compiler/runtime source bundled. All 30 blocks and nine example graphs compile to C and execute independently on this host. No physical PLC deployment claim.",
     "status": "source and local behavior reviewed"
   },
   {
