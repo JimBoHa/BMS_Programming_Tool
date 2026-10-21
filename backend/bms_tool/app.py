@@ -24,6 +24,7 @@ from .analysis import dependencies
 from .bacnet_files import BacnetFiles
 from .bacnet_history import BacnetHistory, BacnetHistoryRequest
 from .blocks import catalog
+from .bus_preflight import bus_preflight_router
 from .caf import CafArchive
 from .caf_compare import compare_cafs
 from .caf_graph import CafGraph
@@ -477,6 +478,7 @@ def create_app(state_dir=None):
     app.state.device_details = device_details
     app.state.bacnet_files = files
     app.state.notifications = None
+    app.include_router(bus_preflight_router())
 
     @app.middleware("http")
     async def local_requests(request, call_next):

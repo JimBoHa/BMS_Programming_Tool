@@ -16,6 +16,7 @@ import {
 import { DeviceScanPanel, type ScanTarget } from "./DeviceScanPanel";
 import { BacnetFilesPanel } from "./BacnetFilesPanel";
 import { ControllerProbePanel } from "./ControllerProbePanel";
+import { BusPreflightPanel } from "./BusPreflightPanel";
 
 export function Connections() {
   const [config, setConfig] = useState({
@@ -670,6 +671,7 @@ export function Connections() {
           </div>
         </section>
       </div>
+      <BusPreflightPanel />
       <DeviceScanPanel
         connected={
           status.connected && !busy && status.config?.transport !== "mstp"
