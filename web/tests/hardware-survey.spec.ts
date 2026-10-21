@@ -274,6 +274,7 @@ test("hardware survey keeps explicit routed source, binary-on-UI occupancy, erro
     requests.find((request) => request.path.endsWith("/survey"))?.body,
   ).toEqual({
     ...target,
+    transport: "bacnet-ip",
     max_objects: 512,
     max_inputs: 256,
     timeout_seconds: 120,

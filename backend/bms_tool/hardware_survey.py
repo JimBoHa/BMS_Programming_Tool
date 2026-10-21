@@ -50,7 +50,8 @@ from pydantic import Field
 
 from .bacnet_exchange import confirmed_exchange
 from .bacnet_values import json_value
-from .device_details import DeviceDetails, DeviceDetailsRequest
+from .device_details import DeviceDetails
+from .hardware_target import HardwareTargetRequest, serial_identity
 
 PROFILE = "bacnet-hardware-survey/1"
 ARCHIVE_PROFILE = "jci-moi-hardware-evidence/1"
@@ -83,7 +84,7 @@ def _utc():
     return datetime.now(UTC).isoformat(timespec="microseconds")
 
 
-class HardwareSurveyRequest(DeviceDetailsRequest):
+class HardwareSurveyRequest(HardwareTargetRequest):
     max_objects: int = Field(default=512, ge=1, le=4096, strict=True)
     max_inputs: int = Field(default=256, ge=1, le=1024, strict=True)
     timeout_seconds: float = Field(default=45, ge=0.1, le=180, allow_inf_nan=False)
@@ -368,7 +369,7 @@ class HardwareSurvey:
                 raise ValueError("ReadPropertyMultiple result lacks value and error.")
         return result
 
-    async def survey(self, request, progress=None):
+    async def survey(self, request, progress=None, *, expected_config=None):
         options = (
             request
             if isinstance(request, HardwareSurveyRequest)
@@ -377,7 +378,10 @@ class HardwareSurvey:
         details = DeviceDetails(self.bacnet, self.store, timeout=options.property_timeout)
         result = {
             "profile": PROFILE,
-            "target": {k: getattr(options, k) for k in ("address", "device", "router", "dnet")},
+            "target": {
+                k: getattr(options, k) for k in ("transport", "address", "device", "router", "dnet")
+            },
+            "connector_config": None,
             "identity": {},
             "read_only": True,
             "controller_writes": False,
@@ -389,7 +393,9 @@ class HardwareSurvey:
             "candidates": [],
             "errors": [],
             "boundary": BOUNDARY,
-            "limits": options.model_dump(exclude={"address", "device", "router", "dnet"}),
+            "limits": options.model_dump(
+                exclude={"transport", "address", "device", "router", "dnet"}
+            ),
         }
 
         async def publish():
@@ -402,6 +408,11 @@ class HardwareSurvey:
         try:
             async with asyncio.timeout(options.timeout_seconds):
                 async with details._path(options) as session:
+                    if expected_config is not None and session["config"] != expected_config:
+                        raise ValueError(
+                            "Hardware job interface changed before its first read; start a new job explicitly."
+                        )
+                    result["connector_config"] = copy.deepcopy(session["config"])
                     fields = [
                         ("object-identifier", None, ObjectIdentifier),
                         ("object-name", None, CharacterString),
@@ -641,7 +652,9 @@ def validate_report(report):
     target = report.get("target")
     if not isinstance(target, dict):
         raise ValueError("Hardware survey requires an explicit target.")
-    options = DeviceDetailsRequest.model_validate(target)
+    options = HardwareTargetRequest.model_validate(target)
+    if options.transport == "direct-mstp":
+        serial_identity(report.get("connector_config"), options)
     identity = report.get("identity")
     if not isinstance(identity, dict) or identity.get("object") != options.device:
         raise ValueError("Verified survey identity must match the target Device.")
