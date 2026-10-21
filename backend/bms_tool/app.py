@@ -23,6 +23,7 @@ from pydantic import AwareDatetime, Field
 from .analysis import dependencies
 from .bacnet_files import BacnetFiles
 from .bacnet_history import BacnetHistory, BacnetHistoryRequest
+from .bbmd_admin import BbmdAdmin, BbmdAdminApply, BbmdAdminPreview, BbmdAdminRestore
 from .bbmd_tables import BbmdCancel, BbmdInspection, BbmdTables
 from .blocks import catalog
 from .caf import CafArchive
@@ -397,6 +398,12 @@ def create_app(state_dir=None):
     routed = RoutedDiscovery(bacnet, store)
     ip_discovery = IpDiscovery(bacnet, store)
     bbmd_tables = BbmdTables(bacnet, store)
+    bbmd_admin_error = None
+    try:
+        bbmd_admin = BbmdAdmin(bacnet, bbmd_tables, store.directory)
+    except (ValueError, OSError, sqlite3.Error) as exc:
+        bbmd_admin = None
+        bbmd_admin_error = "BBMD administration unavailable: " + str(exc)[:1000]
     device_details = DeviceDetails(bacnet, store)
     files = BacnetFiles(bacnet, store)
     notifications = None
@@ -455,19 +462,23 @@ def create_app(state_dir=None):
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
             try:
-                await bbmd_tables.close()
+                if bbmd_admin is not None:
+                    await bbmd_admin.close()
             finally:
                 try:
-                    if notifications is not None:
-                        await notifications.close()
+                    await bbmd_tables.close()
                 finally:
                     try:
-                        await field_trends.close()
+                        if notifications is not None:
+                            await notifications.close()
                     finally:
                         try:
-                            bacnet.close()
+                            await field_trends.close()
                         finally:
-                            native.stop()
+                            try:
+                                bacnet.close()
+                            finally:
+                                native.stop()
 
     app = FastAPI(title="BMS Studio local API", version="0.1.0", lifespan=lifespan)
     app.state.runtime = runtime
@@ -480,6 +491,8 @@ def create_app(state_dir=None):
     app.state.routed_discovery = routed
     app.state.ip_discovery = ip_discovery
     app.state.bbmd_tables = bbmd_tables
+    app.state.bbmd_admin = bbmd_admin
+    app.state.bbmd_admin_startup_error = bbmd_admin_error
     app.state.device_details = device_details
     app.state.bacnet_files = files
     app.state.notifications = None
@@ -1338,6 +1351,41 @@ def create_app(state_dir=None):
     @app.post("/api/bacnet/connect")
     async def bacnet_connect(body: BacnetConnect):
         return await bacnet.connect(**body.model_dump())
+
+    def bbmd_admin_service():
+        if bbmd_admin is None:
+            raise ValueError(bbmd_admin_error or "BBMD administration unavailable.")
+        return bbmd_admin
+
+    @app.get("/api/bacnet/bbmd-admin/status")
+    async def bbmd_admin_status():
+        if bbmd_admin is None:
+            return {"available": False, "reason": bbmd_admin_error, "active": []}
+        return bbmd_admin.status()
+
+    @app.get("/api/bacnet/bbmd-admin/history")
+    async def bbmd_admin_history():
+        return await bbmd_admin_service().saved_history()
+
+    @app.get("/api/bacnet/bbmd-admin/receipts/{id}")
+    async def bbmd_admin_receipt(id: str):
+        return await bbmd_admin_service().saved_detail(id)
+
+    @app.post("/api/bacnet/bbmd-admin/preview")
+    async def bbmd_admin_preview(body: BbmdAdminPreview):
+        return await bbmd_admin_service().preview(**body.model_dump())
+
+    @app.post("/api/bacnet/bbmd-admin/apply")
+    async def bbmd_admin_apply(body: BbmdAdminApply):
+        return await bbmd_admin_service().apply(**body.model_dump())
+
+    @app.post("/api/bacnet/bbmd-admin/cancel")
+    async def bbmd_admin_cancel(body: BbmdCancel):
+        return await bbmd_admin_service().cancel(body.id)
+
+    @app.post("/api/bacnet/bbmd-admin/restore-preview")
+    async def bbmd_admin_restore_preview(body: BbmdAdminRestore):
+        return await bbmd_admin_service().restore_preview(body.id, body.timeout_seconds)
 
     @app.get("/api/bacnet/bbmd-tables/status")
     async def bbmd_table_status():
