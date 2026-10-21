@@ -188,5 +188,15 @@
     "feature": "Evidence and reference library",
     "status": "implemented",
     "scope": "Vendor manuals, source repository inventory, page-level evidence, feature requirements and explicit support gaps. Copyrighted reference PDFs and site files stay outside the code repository."
+  },
+  {
+    "feature": "Read-only IPv4 BBMD table inspection",
+    "status": "implemented",
+    "scope": "Explicit one-endpoint native BVLC Read-BDT/Read-FDT on the already-open normal/foreign UDP interface. Exact peer, app/config/link/socket identity, raw mask bytes, TTL/remaining lease evidence, bounded snapshots and raw hashes; malformed/bounds/NACK/timeout/cancel outcomes; paced requests and joined teardown. Independently encoded real UDP, HTTP and browser checks preserve concurrent point reads, foreign renewals and unrelated native handlers. No atomicity or transaction-ID freshness guarantee, inferred live devices, table writes/deletion, hosting, BACnet/SC, IPv6, durable storage or physical JCI/BBMD validation."
+  },
+  {
+    "feature": "BBMD table writes, FDT deletion and hosting",
+    "status": "pending",
+    "scope": "Remaining scope of MF-7558ea4aa8 / IA-120b496d86: verified Write-BDT, Delete-FDT-entry and BBMD hosting/configuration require separate ownership, backup/readback, failure/recovery and vendor validation profiles. BACnet/SC and IPv6 administration remain outside this read-only implementation."
   }
 ]
