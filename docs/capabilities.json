@@ -233,5 +233,10 @@
     "feature": "Standard BACnet Event Log history",
     "status": "implemented",
     "scope": "Explicit bounded read-only standard type25 Event Log ReadRange over connected direct/routed IPv4. Exact Device/log identities, native notification parameters/enums/TimeStamp choices, logger/read/event clocks, status and clock changes remain distinct; unsupported native record encodings retain bounded opaque itemData evidence without guessed notifications. Sealed separate captures/restart and JSON/CSV browser export are tested with local UDP/routed peers. Physical support on any exact JCI device/firmware remains unknown. No unsolicited alarm subscriptions, device writes, synthesized human receipt/ack lifecycle or proprietary JCI historian access."
+  },
+  {
+    "feature": "BACnet network-number engineering plans",
+    "status": "implemented",
+    "scope": "Offline operator-declared internetwork/domain and physical-network identities; exact attachment/endpoint-port records, shared-network multi-router validation, collision/mismatch/unknown findings and an explicitly selected JCI Release 15 Remote Field Bus profile. Generic 1..65534 numbering is separate from 2000/65000 reservations for new R15 IP/MS/TP assignments. Complete Connect authoring and source-guarded plan JSON reopen/export; sealed full-plan review reports, stale response/download invalidation and strict finite bounds. No inferred topology, globally available-number claim, scans, automatic renumbering, server-side plan persistence or controller writes."
   }
 ]

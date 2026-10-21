@@ -20,6 +20,7 @@ import { ControllerProbePanel } from "./ControllerProbePanel";
 import { HardwareSurveyPanel } from "./HardwareSurveyPanel";
 import { BacnetCovPanel } from "./BacnetCovPanel";
 import { BacnetEventsPanel } from "./BacnetEventsPanel";
+import { NetworkNumberPlanPanel } from "./NetworkNumberPlanPanel";
 
 export function Connections() {
   const [config, setConfig] = useState({
@@ -674,6 +675,7 @@ export function Connections() {
           </div>
         </section>
       </div>
+      <NetworkNumberPlanPanel />
       <DeviceScanPanel
         connected={
           status.connected && !busy && status.config?.transport !== "mstp"
