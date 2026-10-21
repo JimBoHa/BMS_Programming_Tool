@@ -22,6 +22,7 @@ from pydantic import AwareDatetime, Field
 
 from .analysis import dependencies
 from .bacnet_cov import BacnetCov, CovAction, CovStart
+from .bacnet_events import EventCancelRequest, EventInventory, EventInventoryRequest
 from .bacnet_files import BacnetFiles
 from .bacnet_history import BacnetHistory, BacnetHistoryRequest
 from .blocks import catalog
@@ -402,6 +403,7 @@ def create_app(state_dir=None):
     routed = RoutedDiscovery(bacnet, store)
     ip_discovery = IpDiscovery(bacnet, store)
     device_details = DeviceDetails(bacnet, store)
+    event_inventory = EventInventory(bacnet, store)
     files = BacnetFiles(bacnet, store)
     hardware_workbench = HardwareWorkbench(bacnet, store, files)
     notifications = None
@@ -473,9 +475,12 @@ def create_app(state_dir=None):
                             await cov.close()
                         finally:
                             try:
-                                bacnet.close()
+                                await event_inventory.close()
                             finally:
-                                native.stop()
+                                try:
+                                    bacnet.close()
+                                finally:
+                                    native.stop()
 
     app = FastAPI(title="BMS Studio local API", version="0.1.0", lifespan=lifespan)
     app.state.runtime = runtime
@@ -489,6 +494,7 @@ def create_app(state_dir=None):
     app.state.routed_discovery = routed
     app.state.ip_discovery = ip_discovery
     app.state.device_details = device_details
+    app.state.event_inventory = event_inventory
     app.state.bacnet_files = files
     app.state.hardware_workbench = hardware_workbench
     app.state.notifications = None
@@ -1344,6 +1350,18 @@ def create_app(state_dir=None):
     async def bacnet_device_details(body: DeviceDetailsRequest):
         return await device_details.read(**body.model_dump())
 
+    @app.get("/api/bacnet/events/profile")
+    def bacnet_events_profile():
+        return event_inventory.status()
+
+    @app.post("/api/bacnet/events/read")
+    async def bacnet_events_read(body: EventInventoryRequest):
+        return await event_inventory.read(**body.model_dump())
+
+    @app.post("/api/bacnet/events/cancel")
+    async def bacnet_events_cancel(body: EventCancelRequest):
+        return event_inventory.cancel(body.operation_id)
+
     @app.post("/api/bacnet/router-networks")
     async def bacnet_router_networks(body: RouterNetworksRequest):
         return await routed.networks(**body.model_dump())
@@ -1415,6 +1433,7 @@ def create_app(state_dir=None):
 
     @app.post("/api/bacnet/connect")
     async def bacnet_connect(body: BacnetConnect):
+        await event_inventory.close()
         return await bacnet.connect(**body.model_dump())
 
     @app.post("/api/bacnet/discover-foreign")
@@ -1423,10 +1442,12 @@ def create_app(state_dir=None):
 
     @app.post("/api/bacnet/connect-mstp")
     async def bacnet_connect_mstp(body: BacnetMstp):
+        await event_inventory.close()
         return await bacnet.connect_mstp(**body.model_dump())
 
     @app.post("/api/bacnet/disconnect")
     async def bacnet_disconnect():
+        await event_inventory.close()
         return await bacnet.disconnect()
 
     @app.get("/api/temco/status")
