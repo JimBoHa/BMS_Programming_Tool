@@ -14,8 +14,8 @@ from bacpypes3.npdu import NPDU
 from bacpypes3.pdu import PCI, PDU, Address, RemoteStation
 
 from .routed_discovery import ROUTED_HOP_COUNT
+from .scoped_hooks import ScopedAttribute
 
-_MISSING = object()
 _REPLY = contextvars.ContextVar("bms-owned-cov-reply", default=None)
 
 
@@ -149,8 +149,7 @@ class CovRouteHooks:
             (nsap, "indication", send),
             (self.adapter, "process_npdu", adapter_send),
         ):
-            self.saved.append((obj, name, obj.__dict__.get(name, _MISSING), replacement))
-            setattr(obj, name, replacement)
+            self.saved.append(ScopedAttribute(obj, name, replacement))
 
     def owns(self, adapter, packet):
         """Allow only a separately pinned observer through a scoped read filter."""
@@ -174,9 +173,5 @@ class CovRouteHooks:
 
     def close(self):
         self.enabled = False
-        for obj, name, previous, replacement in reversed(self.saved):
-            if obj.__dict__.get(name) is replacement:
-                if previous is _MISSING:
-                    delattr(obj, name)
-                else:
-                    setattr(obj, name, previous)
+        for hook in reversed(self.saved):
+            hook.close()
