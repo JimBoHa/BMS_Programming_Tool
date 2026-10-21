@@ -18,6 +18,7 @@ import { BacnetFilesPanel } from "./BacnetFilesPanel";
 import { ControllerProbePanel } from "./ControllerProbePanel";
 import { HardwareSurveyPanel } from "./HardwareSurveyPanel";
 import { BacnetCovPanel } from "./BacnetCovPanel";
+import { BacnetEventsPanel } from "./BacnetEventsPanel";
 
 export function Connections() {
   const [config, setConfig] = useState({
@@ -707,6 +708,19 @@ export function Connections() {
         defaultAddress={target}
         defaultDevice={object.trim().startsWith("device,") ? object : ""}
         defaultObject={object}
+      />
+      <BacnetEventsPanel
+        connected={
+          !!status.connected && !busy && status.config?.transport !== "mstp"
+        }
+        defaultAddress={target}
+        defaultDevice={object.trim().startsWith("device,") ? object : ""}
+        defaultRouter={
+          selectedRoute?.router || (/^\d+:/.test(target) ? config.router : "")
+        }
+        defaultDnet={
+          selectedRoute?.dnet ?? (/^\d+:/.test(target) ? probeDnet : null)
+        }
       />
       <BacnetFilesPanel
         connected={!!pointReady && !busy}

@@ -1,0 +1,42 @@
+.bacnet-events {
+  padding: 22px;
+  margin: 20px 0;
+}
+.bacnet-events fieldset {
+  border: 1px solid #d8e0e7;
+  border-radius: 8px;
+  padding: 16px;
+}
+.bacnet-events-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px;
+}
+.bacnet-events label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.bacnet-events input {
+  width: 100%;
+  min-width: 0;
+}
+.bacnet-events-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0;
+}
+.bacnet-events pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 520px;
+  overflow: auto;
+}
+.bacnet-events td {
+  vertical-align: top;
+}
+.bacnet-events-error {
+  color: #a21b31;
+}
