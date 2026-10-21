@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, saveBlob } from "./api";
+import { BacnetEventAckPanel } from "./BacnetEventAckPanel";
 import "./bacnet-events.css";
 
 type EventRow = {
@@ -56,6 +57,7 @@ export function BacnetEventsPanel({
   const [selected, setSelected] = useState<EventRow | null>(null);
   const [offset, setOffset] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [ackBusy, setAckBusy] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -109,7 +111,7 @@ export function BacnetEventsPanel({
     change();
   }
   async function read(resume = false) {
-    if (!connected || operation.current) return;
+    if (!connected || operation.current || ackBusy) return;
     const generation = ++epoch.current;
     let identifier: string | null = null;
     setError("");
@@ -287,7 +289,7 @@ export function BacnetEventsPanel({
       {!connected && (
         <p>Open a BACnet/IP interface in Connect before querying events.</p>
       )}
-      <fieldset disabled={busy}>
+      <fieldset disabled={busy || ackBusy}>
         <legend>Exact event source</legend>
         <div className="bacnet-events-fields">
           <label>
@@ -337,13 +339,13 @@ export function BacnetEventsPanel({
       <div className="bacnet-events-actions">
         <button
           className="primary"
-          disabled={!connected || busy}
+          disabled={!connected || busy || ackBusy}
           onClick={() => void read()}
         >
           Query device events
         </button>
         <button
-          disabled={!connected || busy || !report?.next_cursor}
+          disabled={!connected || busy || ackBusy || !report?.next_cursor}
           onClick={() => void read(true)}
         >
           Continue event query
@@ -436,7 +438,10 @@ export function BacnetEventsPanel({
                       </td>
                       <td>{value.received_at}</td>
                       <td>
-                        <button onClick={() => setSelected(value)}>
+                        <button
+                          disabled={ackBusy}
+                          onClick={() => setSelected(value)}
+                        >
                           Inspect event {value.object_id}
                         </button>
                       </td>
@@ -483,6 +488,17 @@ export function BacnetEventsPanel({
           </details>
         </div>
       )}
+      <BacnetEventAckPanel
+        connected={connected}
+        report={report}
+        selected={selected}
+        parentBusy={busy}
+        onBusy={setAckBusy}
+        onAttempt={() => {
+          setReport(null);
+          setSelected(null);
+        }}
+      />
     </section>
   );
 }
