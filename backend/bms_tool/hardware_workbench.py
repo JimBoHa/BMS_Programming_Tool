@@ -25,7 +25,7 @@ from fastapi import APIRouter, File, UploadFile
 from fastapi.responses import Response
 from pydantic import Field
 
-from .device_details import DeviceDetails, DeviceDetailsRequest
+from .device_details import DeviceDetails
 from .hardware_survey import (
     HardwareSurvey,
     HardwareSurveyRequest,
@@ -35,6 +35,7 @@ from .hardware_survey import (
     relocation_plan,
     validate_report,
 )
+from .hardware_target import HardwareTargetRequest, serial_identity
 from .models import StrictModel
 
 MAX_DOCUMENT = 8 * 1024 * 1024
@@ -219,7 +220,11 @@ class HardwareWorkbench:
         if not isinstance(target, dict):
             raise ValueError("Hardware report requires an explicit target.")
         HardwareSurveyRequest.model_validate(
-            {key: target[key] for key in ("address", "device", "router", "dnet") if key in target}
+            {
+                key: target[key]
+                for key in ("transport", "address", "device", "router", "dnet")
+                if key in target
+            }
         )
         inputs = result.get("inputs")
         if (
@@ -324,6 +329,7 @@ class HardwareWorkbench:
                         "id",
                         "saved_at",
                         "target",
+                        "connector_config",
                         "identity",
                         "status",
                         "origin",
@@ -341,6 +347,7 @@ class HardwareWorkbench:
             )
         return {
             "profile": "hardware-workbench/1",
+            "supported_transports": ["bacnet-ip", "direct-mstp"],
             "read_only": True,
             "native_apply_supported": False,
             "limits": {
@@ -375,9 +382,23 @@ class HardwareWorkbench:
         if len(self.jobs) >= MAX_JOBS:
             raise ValueError("Hardware read history is full; remove a finished job first.")
         if kind == "survey":
-            body = HardwareSurveyRequest.model_validate(body).model_dump()
+            options = HardwareSurveyRequest.model_validate(body)
+            if options.transport == "direct-mstp":
+                serial_identity(self.bacnet.config, options)
+            elif (self.bacnet.config or {}).get("transport") == "mstp":
+                raise ValueError(
+                    "Select direct-mstp explicitly for a hardware survey over the open serial interface."
+                )
+            body = options.model_dump()
         elif kind == "archive-read":
             report = self.report(body["report_id"])
+            target = HardwareTargetRequest.model_validate(report["target"])
+            if target.transport == "direct-mstp":
+                serial_identity(self.bacnet.config, target)
+                if self.bacnet.config != report.get("connector_config"):
+                    raise ValueError(
+                        "Serial interface differs from the saved survey; reopen that exact interface or run a new survey."
+                    )
             if not report.get("inventory", {}).get("complete"):
                 raise ValueError(
                     "Complete the object inventory before selecting an existing archive."
@@ -392,6 +413,12 @@ class HardwareWorkbench:
             "started_at": now(),
             "progress": {},
             "read_only": True,
+            "connector_config": copy.deepcopy(self.bacnet.config),
+            "target": {
+                key: body.get(key) for key in ("transport", "address", "device", "router", "dnet")
+            }
+            if kind == "survey"
+            else copy.deepcopy(report["target"]),
         }
         self._write("job", key, job)
         self.jobs[key] = job
@@ -413,7 +440,9 @@ class HardwareWorkbench:
 
         try:
             if kind == "survey":
-                result = await self.surveys.survey(body, progress=progress)
+                result = await self.surveys.survey(
+                    body, progress=progress, expected_config=job["connector_config"]
+                )
                 saved = self.save_report(result, origin="live-read")
                 job.update(
                     report=saved,
@@ -505,10 +534,10 @@ class HardwareWorkbench:
         from .bacnet_exchange import confirmed_exchange
         from .hardware_survey import read_fields
 
-        target = DeviceDetailsRequest(
+        target = HardwareTargetRequest(
             **{
                 key: report["target"][key]
-                for key in ("address", "device", "router", "dnet")
+                for key in ("transport", "address", "device", "router", "dnet")
                 if key in report["target"]
             }
         )
@@ -546,6 +575,13 @@ class HardwareWorkbench:
         started = now()
         async with asyncio.timeout(240):
             async with details._path(target) as session:
+                if session["config"] != job["connector_config"] or (
+                    target.transport == "direct-mstp"
+                    and session["config"] != report.get("connector_config")
+                ):
+                    raise ValueError(
+                        "Hardware archive interface changed; run a new survey before reading."
+                    )
                 identity = values(
                     await read_fields(details, session, target.device, identity_fields)
                 )
@@ -669,6 +705,7 @@ class HardwareWorkbench:
         receipt = {
             "kind": "existing-controller-file",
             "target": target.model_dump(),
+            "connector_config": copy.deepcopy(session["config"]),
             "file_object": obj,
             "file_object_list_index": file_index,
             "source_inventory_sha256": digest(objects),
@@ -804,7 +841,10 @@ def report_csv(report):
         "errors",
     ]
     writer = csv.writer(stream)
-    writer.writerow(["controller", "device", "address", "router", "dnet"] + keys)
+    writer.writerow(
+        ["controller", "device", "address", "router", "dnet", "transport", "connector_config"]
+        + keys
+    )
 
     def value(item):
         if isinstance(item, (dict, list)):
@@ -822,6 +862,8 @@ def report_csv(report):
                 target.get("address"),
                 target.get("router"),
                 target.get("dnet"),
+                target.get("transport", "bacnet-ip"),
+                value(report.get("connector_config")),
             ]
             + [value(row.get(key)) for key in keys]
         )
@@ -916,9 +958,7 @@ def hardware_router(workbench):
         return Response(
             data,
             media_type="application/octet-stream",
-            headers={
-                "Content-Disposition": f'attachment; filename="hardware-{key}.{extension}"'
-            },
+            headers={"Content-Disposition": f'attachment; filename="hardware-{key}.{extension}"'},
         )
 
     @router.post("/enrich")
