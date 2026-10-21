@@ -12,7 +12,7 @@ import copy
 import hashlib
 import json
 import math
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, nullcontext
 from datetime import UTC, datetime
 
 from bacpypes3.npdu import NPDU
@@ -163,8 +163,10 @@ class DeviceDetails:
             raise _InterfaceChanged("Device-details interface changed; repeat explicitly.") from exc
 
     @asynccontextmanager
-    async def _path(self, options):
-        async with self.bacnet.lock:
+    async def _path(self, options, *, lock_held=False, preserve_packet=None):
+        # A composite operation may already own the same connection lock.
+        # Default callers continue to acquire it here.
+        async with nullcontext() if lock_held else self.bacnet.lock:
             app = self.bacnet.require()
             config = copy.deepcopy(self.bacnet.config)
             adapter = app.nsap.local_adapter
@@ -199,6 +201,7 @@ class DeviceDetails:
                     and incoming_adapter is adapter
                     and packet.npduSADR == target
                     and packet.pduSource != router
+                    and not (preserve_packet and preserve_packet(incoming_adapter, packet))
                 ):
                     session["ignored_router_packets"] += 1
                     return

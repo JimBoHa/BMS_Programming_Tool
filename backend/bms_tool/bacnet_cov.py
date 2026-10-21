@@ -1,4 +1,4 @@
-"""Owned, finite, bounded SubscribeCOV monitoring on direct BACnet/IPv4.
+"""Owned finite SubscribeCOV monitoring on direct or explicitly routed BACnet/IPv4.
 
 No automatic renewal, reconnection, discovery, point writes, or native program
 services. Notifications are evidence of receipt, not independent sensor quality.
@@ -8,9 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
-import ipaddress
 import json
-import re
 import secrets
 from collections import deque
 from dataclasses import dataclass
@@ -26,18 +24,21 @@ from bacpypes3.constructeddata import Array
 from bacpypes3.errors import ServicesError
 from bacpypes3.pdu import PDU, Address
 from bacpypes3.primitivedata import Atomic, ObjectIdentifier, Unsigned
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from .bacnet_exchange import confirmed_exchange
 from .bacnet_read import read_property
 from .bacnet_values import json_value
 from .connections import _unicast
+from .cov_route import CovRouteEvidence, CovRouteHooks, remote_source
+from .device_details import DeviceDetails, DeviceDetailsRequest
 from .models import StrictModel
 
-PROFILE = "direct-ip-object-cov/1"
+PROFILE = "explicit-ip-routed-object-cov/2"
 SCOPE = (
-    "Direct unicast BACnet/IPv4 object-level SubscribeCOV only. Existing connected "
-    "interface; no routed MS/TP, BBMD, serial, BTCVT, automatic renewal or reconnection. "
+    "Direct BACnet/IPv4 or explicit IPv4-router/DNET:MAC object-level SubscribeCOV. "
+    "Routed notifications must be unsegmented. Existing connected IPv4 interface; "
+    "no BBMD, serial, BTCVT, automatic renewal or reconnection. "
     "No point values or controller programs are changed. Physical JCI acceptance is unverified."
 )
 MAX_ACTIVE = 8
@@ -52,6 +53,7 @@ class _Transport:
     owner: object
     direct_unicast: bool
     previous_user_data: object
+    route: CovRouteEvidence | None = None
 
 
 def _utc():
@@ -64,6 +66,8 @@ class CovStart(StrictModel):
     object_id: str = Field(min_length=1, max_length=100)
     lifetime: int = Field(default=60, ge=5, le=3600, strict=True)
     confirmed: bool = Field(default=True, strict=True)
+    router: str | None = Field(default=None, min_length=1, max_length=64)
+    dnet: int | None = Field(default=None, ge=1, le=65534, strict=True)
 
     @field_validator("device", "object_id")
     @classmethod
@@ -82,21 +86,15 @@ class CovStart(StrictModel):
             raise ValueError("Expected Device identity must be a Device object.")
         return value
 
-    @field_validator("address")
-    @classmethod
-    def direct_address(cls, value):
-        if not re.fullmatch(r"(?:[0-9]{1,3}\.){3}[0-9]{1,3}(?::[0-9]{1,5})?", value):
-            raise ValueError(
-                "Select one literal IPv4 address, optionally followed by its UDP port."
-            )
-        target = _unicast(value)
-        if (
-            not hasattr(target, "addrTuple")
-            or ipaddress.ip_address(target.addrTuple[0]).version != 4
-            or target.addrTuple[1] == 0
-        ):
-            raise ValueError("COV monitoring requires a direct unicast IPv4 address and UDP port.")
-        return str(target)
+    @model_validator(mode="after")
+    def exact_path(self):
+        path = DeviceDetailsRequest(
+            address=self.address, device=self.device, router=self.router, dnet=self.dnet
+        )
+        if path.router is not None and Address(path.address).addrLen != 1:
+            raise ValueError("The routed COV profile requires a one-byte MS/TP MAC.")
+        self.address, self.router, self.dnet = path.address, path.router, path.dnet
+        return self
 
 
 class CovAction(StrictModel):
@@ -113,6 +111,7 @@ class BacnetCov:
         self._lock = asyncio.Lock()
         self._hooks = {}
         self._transport_hooks = {}
+        self._route_hooks = {}
         self._provenance_owner = object()
         self._closed = False
         self._evicted = 0
@@ -168,7 +167,13 @@ class BacnetCov:
                 )
                 if own is None:
                     return await fallback(apdu)
-                await self._receive(own, apdu, mode, direct=direct)
+                await self._receive(
+                    own,
+                    apdu,
+                    mode,
+                    direct=direct,
+                    route=provenance.route if isinstance(provenance, _Transport) else None,
+                )
 
             hooks[name] = (previous, receive)
             setattr(app, name, receive)
@@ -190,16 +195,29 @@ class BacnetCov:
                 except Exception:
                     cov = False
                 if cov:
+                    path = packet.pduUserData
+                    route = (
+                        path
+                        if isinstance(path, CovRouteEvidence)
+                        and path.owner is self._provenance_owner
+                        else None
+                    )
                     packet.pduUserData = _Transport(
                         self._provenance_owner,
-                        getattr(packet.pduDestination, "addrType", None)
+                        route.direct_unicast
+                        if route
+                        else getattr(packet.pduDestination, "addrType", None)
                         == Address.localStationAddr,
-                        packet.pduUserData,
+                        route.previous_user_data if route else packet.pduUserData,
+                        route,
                     )
             await original(packet)
 
         service.confirmation = transport
         self._transport_hooks[app] = (service, previous, transport, enabled)
+        self._route_hooks[app] = CovRouteHooks(
+            app, self._provenance_owner, lambda: self.jobs.values(), self._guard
+        )
 
     def _restore(self, app):
         if any(job["active"] and job["app"] is app for job in self.jobs.values()):
@@ -219,6 +237,9 @@ class BacnetCov:
                     delattr(service, "confirmation")
                 else:
                     service.confirmation = previous
+        route = self._route_hooks.pop(app, None)
+        if route is not None:
+            route.close()
 
     def _decode(self, job, item):
         prop = item.propertyIdentifier
@@ -245,16 +266,29 @@ class BacnetCov:
                 row.update(decode_status="decode_error", decode_error=str(exc)[:500])
         return row
 
-    async def _receive(self, job, apdu, confirmed, *, direct=None):
+    async def _receive(self, job, apdu, confirmed, *, direct=None, route=None):
         try:
             self._guard(job)
             if direct is None:
                 direct = getattr(apdu.pduDestination, "addrType", None) == Address.localStationAddr
+            if job["config"].router is not None and (
+                route is None
+                or route.next_hop != job["config"].router
+                or route.remote_source != job["config"].address
+                or route.segmented
+            ):
+                raise ValueError(
+                    "Routed notification provenance differs from the pinned router/DNET:MAC."
+                )
             if (
                 not job["active"]
                 or self.clock() >= job["expires"]
                 or apdu.subscriberProcessIdentifier != job["process_id"]
-                or apdu.pduSource != job["target"]
+                or (
+                    remote_source(apdu.pduSource) != job["config"].address
+                    if job["config"].router
+                    else apdu.pduSource != job["target"]
+                )
                 or not direct
                 or apdu.initiatingDeviceIdentifier != ObjectIdentifier(job["config"].device)
                 or apdu.monitoredObjectIdentifier != ObjectIdentifier(job["config"].object_id)
@@ -272,6 +306,12 @@ class BacnetCov:
                 "object": str(apdu.monitoredObjectIdentifier),
                 "process_id": int(apdu.subscriberProcessIdentifier),
                 "confirmed": confirmed,
+                "route": {
+                    "router": job["config"].router,
+                    "dnet": job["config"].dnet,
+                    "next_hop": route.next_hop if route else str(apdu.pduSource),
+                    "source": route.remote_source if route else None,
+                },
                 "time_remaining": int(apdu.timeRemaining),
                 "quality": "Not independently assessed; inspect received status-flags/reliability.",
                 "values": [self._decode(job, value) for value in apdu.listOfValues],
@@ -291,7 +331,21 @@ class BacnetCov:
         if confirmed:
             await job["app"].response(SimpleAckPDU(context=apdu))
 
+    def _path(self, config):
+        app = self.bacnet.require()
+        route = self._route_hooks.get(app)
+        options = DeviceDetailsRequest(
+            address=config.address, device=config.device, router=config.router, dnet=config.dnet
+        )
+        return DeviceDetails(self.bacnet, self.store)._path(
+            options, lock_held=True, preserve_packet=route.owns if route else None
+        )
+
     async def _exchange(self, job, cancel=False):
+        async with self._path(job["config"]):
+            return await self._pinned_exchange(job, cancel)
+
+    async def _pinned_exchange(self, job, cancel=False):
         self._guard(job)
         fields = (
             {}
@@ -368,11 +422,9 @@ class BacnetCov:
                 raise ValueError("At most eight active COV monitors are supported.")
             app = self.bacnet.require()
             interface = copy.deepcopy(self.bacnet.status()["config"])
-            if interface.get("transport") == "mstp" or any(
-                interface.get(key) is not None for key in ("router", "dnet", "bbmd_address")
-            ):
+            if interface.get("transport") == "mstp" or interface.get("bbmd_address") is not None:
                 raise ValueError(
-                    "This COV profile requires direct BACnet/IPv4 without router or BBMD."
+                    "This COV profile requires BACnet/IPv4 without BBMD or direct serial."
                 )
             job = {
                 "id": "cov-" + secrets.token_hex(12),
@@ -391,20 +443,29 @@ class BacnetCov:
                 "reason": "",
                 "expires": 0,
             }
-            for identifier in (config.device, config.object_id):
-                self._guard(job)
-                identity = await asyncio.wait_for(
-                    read_property(app, job["target"], identifier, "object-identifier"), self.timeout
-                )
-                self._guard(job)
-                if identity != ObjectIdentifier(identifier):
-                    raise ValueError(
-                        "Selected Device or monitored object identity differs from its readback."
+            self._install(app)
+            try:
+                async with self._path(config):
+                    for identifier in (config.device, config.object_id):
+                        self._guard(job)
+                        identity = await asyncio.wait_for(
+                            read_property(app, job["target"], identifier, "object-identifier"),
+                            self.timeout,
+                        )
+                        self._guard(job)
+                        if identity != ObjectIdentifier(identifier):
+                            raise ValueError(
+                                "Selected Device or monitored object identity differs from its readback."
+                            )
+                    vendor = await asyncio.wait_for(
+                        app.get_vendor_info(device_address=job["target"]), self.timeout
                     )
-            vendor = await asyncio.wait_for(
-                app.get_vendor_info(device_address=job["target"]), self.timeout
-            )
-            job["object_class"] = vendor.get_object_class(ObjectIdentifier(config.object_id)[0])
+                    job["object_class"] = vendor.get_object_class(
+                        ObjectIdentifier(config.object_id)[0]
+                    )
+            except BaseException:
+                self._restore(app)
+                raise
             used = {value["process_id"] for value in self.jobs.values()}
             used.update(key[1] for key in app._cov_contexts)
             process = secrets.randbelow(2**32 - 1) + 1
