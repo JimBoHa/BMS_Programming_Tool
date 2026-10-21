@@ -27,6 +27,7 @@ from .bacnet_events import EventCancelRequest, EventInventory, EventInventoryReq
 from .bacnet_files import BacnetFiles
 from .bacnet_history import BacnetHistory, BacnetHistoryRequest
 from .bacnet_history_multiple import MultipleHistory, MultipleHistoryCancel, MultipleHistoryRequest
+from .bbmd_tables import BbmdCancel, BbmdInspection, BbmdTables
 from .blocks import catalog
 from .caf import CafArchive
 from .caf_compare import compare_cafs
@@ -430,6 +431,7 @@ def create_app(state_dir=None):
     multiple_history = MultipleHistory(bacnet, store)
     routed = RoutedDiscovery(bacnet, store)
     ip_discovery = IpDiscovery(bacnet, store)
+    bbmd_tables = BbmdTables(bacnet, store)
     device_details = DeviceDetails(bacnet, store)
     event_inventory = EventInventory(bacnet, store)
     event_ack = EventAcknowledgements(bacnet, store, event_inventory)
@@ -492,31 +494,34 @@ def create_app(state_dir=None):
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
             try:
-                if notifications is not None:
-                    await notifications.close()
+                await bbmd_tables.close()
             finally:
                 try:
-                    await field_trends.close()
+                    if notifications is not None:
+                        await notifications.close()
                 finally:
                     try:
-                        await hardware_workbench.close()
+                        await field_trends.close()
                     finally:
                         try:
-                            await cov.close()
+                            await hardware_workbench.close()
                         finally:
                             try:
+                                await cov.close()
+                            finally:
                                 try:
                                     await event_ack.close()
                                 finally:
-                                    await event_inventory.close()
-                            finally:
-                                try:
-                                    await multiple_history.close()
-                                finally:
                                     try:
-                                        bacnet.close()
+                                        await event_inventory.close()
                                     finally:
-                                        native.stop()
+                                        try:
+                                            await multiple_history.close()
+                                        finally:
+                                            try:
+                                                bacnet.close()
+                                            finally:
+                                                native.stop()
 
     app = FastAPI(title="BMS Studio local API", version="0.1.0", lifespan=lifespan)
     app.state.runtime = runtime
@@ -530,6 +535,7 @@ def create_app(state_dir=None):
     app.state.multiple_history = multiple_history
     app.state.routed_discovery = routed
     app.state.ip_discovery = ip_discovery
+    app.state.bbmd_tables = bbmd_tables
     app.state.device_details = device_details
     app.state.event_inventory = event_inventory
     app.state.event_ack = event_ack
@@ -1564,6 +1570,22 @@ def create_app(state_dir=None):
         await event_inventory.close()
         await multiple_history.close()
         return await bacnet.connect(**body.model_dump())
+
+    @app.get("/api/bacnet/bbmd-tables/status")
+    async def bbmd_table_status():
+        return bbmd_tables.status()
+
+    @app.get("/api/bacnet/bbmd-tables/jobs/{id}")
+    async def bbmd_table_detail(id: str):
+        return bbmd_tables.detail(id)
+
+    @app.post("/api/bacnet/bbmd-tables/start")
+    async def bbmd_table_start(body: BbmdInspection):
+        return bbmd_tables.start(**body.model_dump())
+
+    @app.post("/api/bacnet/bbmd-tables/cancel")
+    async def bbmd_table_cancel(body: BbmdCancel):
+        return await bbmd_tables.cancel(body.id)
 
     @app.post("/api/bacnet/discover-foreign")
     async def bacnet_discover_foreign(body: BacnetForeignDiscover):

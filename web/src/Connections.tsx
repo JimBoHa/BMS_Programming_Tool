@@ -15,6 +15,7 @@ import {
 } from "./RoutedDiscoveryPanel";
 import { DeviceScanPanel, type ScanTarget } from "./DeviceScanPanel";
 import { BacnetFilesPanel } from "./BacnetFilesPanel";
+import { BbmdTablesPanel } from "./BbmdTablesPanel";
 import { ControllerProbePanel } from "./ControllerProbePanel";
 import { HardwareSurveyPanel } from "./HardwareSurveyPanel";
 import { BacnetCovPanel } from "./BacnetCovPanel";
@@ -721,6 +722,16 @@ export function Connections() {
         }
         defaultDnet={
           selectedRoute?.dnet ?? (/^\d+:/.test(target) ? probeDnet : null)
+        }
+      />
+      <BbmdTablesPanel
+        connected={
+          !!status.connected && !busy && status.config?.transport !== "mstp"
+        }
+        defaultEndpoint={
+          status.config?.bbmd_address ||
+          selectedRoute?.router ||
+          (target.includes(".") ? target : "")
         }
       />
       <BacnetFilesPanel

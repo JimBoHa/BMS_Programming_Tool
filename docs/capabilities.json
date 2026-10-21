@@ -213,5 +213,15 @@
     "feature": "Opt-in durable BACnet COV receipts and field trends",
     "status": "implemented",
     "scope": "Explicit recording only; actual accepted direct/routed COV callbacks enter a bounded nonblocking queue and atomic background writes in the field observation store. Exact native values, verified source/route/process identity, receipt versus unknown controller clock, finite lifecycle, discarded/dropped/storage-failure and retention evidence. Eligible finite numeric/boolean values share Field trends with distinct COV provenance and conservative quality. Local history paging/JSON and CSV export persist across restart; recording/subscriptions remain off. Exclusive POSIX/Windows writer-lock branches; Windows execution, physical JCI/MS/TP and BTCVT remain unverified."
+  },
+  {
+    "feature": "Read-only IPv4 BBMD table inspection",
+    "status": "implemented",
+    "scope": "Explicit one-endpoint native BVLC Read-BDT/Read-FDT on the already-open normal/foreign UDP interface. Exact peer, app/config/link/socket identity, raw mask bytes, TTL/remaining lease evidence, bounded snapshots and raw hashes; malformed/bounds/NACK/timeout/cancel outcomes; paced requests and joined teardown. Independently encoded real UDP, HTTP and browser checks preserve concurrent point reads, foreign renewals and unrelated native handlers. No atomicity or transaction-ID freshness guarantee, inferred live devices, table writes/deletion, hosting, BACnet/SC, IPv6, durable storage or physical JCI/BBMD validation."
+  },
+  {
+    "feature": "BBMD table writes, FDT deletion and hosting",
+    "status": "pending",
+    "scope": "Remaining scope of MF-7558ea4aa8 / IA-120b496d86: verified Write-BDT, Delete-FDT-entry and BBMD hosting/configuration require separate ownership, backup/readback, failure/recovery and vendor validation profiles. BACnet/SC and IPv6 administration remain outside this read-only implementation."
   }
 ]
