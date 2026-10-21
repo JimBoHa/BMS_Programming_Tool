@@ -39,6 +39,16 @@ dependency installer. Platform-specific Python dependencies still need compatibl
 wheels. Apple silicon, Windows and Linux need their own environments; copying a
 virtual environment between computers is not an installation method.
 
+The declared dependencies include the first-party `tzdata` fallback for IANA
+calendar and acknowledgement-clock timezones. Windows and minimal containers
+may lack a system IANA database; Python's [zoneinfo data-source documentation](https://docs.python.org/3/library/zoneinfo.html#data-sources)
+recommends declaring this dependency for portable applications. Version
+2026.5 is pinned from the [official package release](https://pypi.org/project/tzdata/2026.5/).
+System timezone data retains its normal precedence. Installed-wheel acceptance
+disables system timezone paths and checks both winter and summer offsets from
+the packaged fallback. This emulates missing timezone data; it does not claim
+execution on a Windows host.
+
 Source checkouts keep the existing `.state` location. Installed distributions
 default to the user's application-data folder: `~/Library/Application Support/BMS
 Studio` on macOS, `%LOCALAPPDATA%\BMS Studio` on Windows, or
