@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 import secrets
@@ -27,6 +28,7 @@ from .blocks import catalog
 from .caf import CafArchive
 from .caf_compare import compare_cafs
 from .caf_graph import CafGraph
+from .caf_hardware import CafHardwareBindings, HardwareExportRequest, HardwareMoveRequest
 from .caf_simulation import CafSimulationProfile
 from .connections import Bacnet, modbus_read, ports
 from .deployment import Runtime
@@ -1014,6 +1016,32 @@ def create_app(state_dir=None):
     @app.get("/api/caf/{id}/properties")
     def caf_properties(id: str, ref: str):
         return get_caf(id).properties(ref)
+
+    @app.get("/api/caf/{id}/hardware")
+    def caf_hardware(id: str):
+        return CafHardwareBindings(get_caf(id)).summary()
+
+    @app.post("/api/caf/{id}/hardware/preview")
+    def caf_hardware_preview(id: str, body: HardwareMoveRequest):
+        return CafHardwareBindings(get_caf(id)).preview(body)
+
+    @app.post("/api/caf/{id}/hardware/export")
+    def caf_hardware_export(id: str, body: HardwareExportRequest):
+        content, plan = CafHardwareBindings(get_caf(id)).export(body)
+        store.record(
+            "caf.hardware.export",
+            {
+                "source_sha256": id,
+                "output_sha256": hashlib.sha256(content).hexdigest(),
+                "plan": plan,
+                "native_validation": "pending",
+            },
+        )
+        return Response(
+            content,
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": 'attachment; filename="hardware-copy.caf"'},
+        )
 
     @app.get("/api/caf/{id}/simulation")
     def caf_simulation(id: str):
