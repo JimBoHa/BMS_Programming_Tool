@@ -324,16 +324,15 @@ async def test_interface_replacement_stops_old_capture_without_opening_new_monit
     assert not service._hooks and not previous._requests and not client.app._cov_contexts
 
 
-async def test_routed_mstp_and_bbmd_configurations_refused_before_traffic(network):
+async def test_mstp_and_bbmd_configurations_refused_before_traffic(network):
     _, _, client, service, config = network
     original = client.config
     for changes in (
-        {"router": "127.0.0.1:47808", "dnet": 2001},
         {"bbmd_address": "127.0.0.1:47808"},
         {"transport": "mstp"},
     ):
         client.config = original | changes
-        with pytest.raises(ValueError, match="direct BACnet/IPv4"):
+        with pytest.raises(ValueError, match="BACnet/IPv4"):
             await service.start(**config)
     client.config = original
     assert service.status()["jobs"] == []

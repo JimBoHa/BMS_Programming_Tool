@@ -6,13 +6,27 @@ export function BacnetCovPanel({
   defaultAddress,
   defaultDevice,
   defaultObject,
+  defaultRouter = "",
+  defaultDnet,
 }: {
   connected: boolean;
   defaultAddress: string;
   defaultDevice: string;
   defaultObject: string;
+  defaultRouter?: string;
+  defaultDnet?: number;
 }) {
   const [address, setAddress] = useState(defaultAddress);
+  const [mode, setMode] = useState(defaultRouter ? "routed" : "direct");
+  const [router, setRouter] = useState(defaultRouter);
+  const [dnet, setDnet] = useState(String(defaultDnet || ""));
+  const [mac, setMac] = useState("");
+  const [notice, setNotice] = useState("");
+  const selection = useRef(0);
+  const previousSource = useRef({
+    path: JSON.stringify([defaultAddress, defaultRouter, defaultDnet]),
+    device: defaultDevice,
+  });
   const [device, setDevice] = useState(defaultDevice);
   const [object, setObject] = useState(defaultObject);
   const [lifetime, setLifetime] = useState("60");
@@ -22,13 +36,36 @@ export function BacnetCovPanel({
   const [error, setError] = useState("");
   const mounted = useRef(false);
   const operation = useRef(false);
-  useEffect(() => setAddress(defaultAddress), [defaultAddress]);
   useEffect(() => {
-    if (defaultDevice) setDevice(defaultDevice);
-  }, [defaultDevice]);
-  useEffect(() => {
-    if (!defaultObject.startsWith("device,")) setObject(defaultObject);
-  }, [defaultObject]);
+    selection.current++;
+    setAddress(
+      defaultAddress.includes(":") && !defaultAddress.includes(".")
+        ? ""
+        : defaultAddress,
+    );
+    const path = JSON.stringify([defaultAddress, defaultRouter, defaultDnet]);
+    setDevice(
+      path !== previousSource.current.path &&
+        defaultDevice === previousSource.current.device
+        ? ""
+        : defaultDevice,
+    );
+    previousSource.current = { path, device: defaultDevice };
+    setObject(defaultObject.startsWith("device,") ? "" : defaultObject);
+    setMode(defaultRouter ? "routed" : "direct");
+    setRouter(defaultRouter);
+    setDnet(String(defaultDnet || ""));
+    const match = /^([0-9]+):([0-9]+)$/.exec(defaultAddress);
+    setMac(match ? match[2] : "");
+    setError("");
+    setNotice("");
+  }, [
+    defaultAddress,
+    defaultDevice,
+    defaultObject,
+    defaultRouter,
+    defaultDnet,
+  ]);
   useEffect(() => {
     mounted.current = true;
     let cancelled = false;
@@ -56,6 +93,7 @@ export function BacnetCovPanel({
     operation.current = true;
     setBusy(true);
     setError("");
+    const generation = selection.current;
     try {
       if (action === "export") {
         const result = await api(`/bacnet/cov/jobs/${id}`);
@@ -70,14 +108,28 @@ export function BacnetCovPanel({
         const body =
           action === "start"
             ? {
-                address,
+                address:
+                  mode === "routed"
+                    ? `${Number(dnet)}:${Number(mac)}`
+                    : address,
+                router: mode === "routed" ? router : null,
+                dnet: mode === "routed" ? Number(dnet) : null,
                 device,
                 object_id: object,
                 lifetime: Number(lifetime),
                 confirmed,
               }
             : { id };
-        await api(`/bacnet/cov/${action}`, body);
+        const changed = await api(`/bacnet/cov/${action}`, body);
+        if (
+          mounted.current &&
+          action === "start" &&
+          generation !== selection.current
+        ) {
+          setNotice(
+            `Monitor started for the earlier selection: ${changed.config.device} at ${changed.config.address}. Its recorded source remains shown below.`,
+          );
+        }
         const result = await api("/bacnet/cov/status");
         if (mounted.current) setStatus(result);
       }
@@ -95,25 +147,83 @@ export function BacnetCovPanel({
       </div>
       <div className="card-body">
         <p>
-          Receive controller notifications through an existing direct BACnet/IP
-          connection. Starting verifies the selected Device and point
-          identities. No point values are written.
+          Receive controller notifications directly over BACnet/IP or through an
+          explicit NAE/router and DNET:MAC. Starting verifies the selected
+          Device and point identities. No point values are written.
         </p>
         <p className="help-text">
-          Finite leases require explicit renewal. No automatic reconnect, routed
-          MS/TP, BBMD, serial, or BTCVT support in this profile. Device
-          acceptance and sensor quality require separate verification.
+          Finite leases require explicit renewal. Routed notifications must be
+          unsegmented. No automatic reconnect, BBMD, direct serial, or BTCVT
+          support in this profile. Device acceptance and sensor quality require
+          separate verification.
         </p>
         <div className="form-grid">
           <label>
-            COV device IP / port
-            <input
-              aria-label="COV device IP / port"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
+            COV source path
+            <select
+              aria-label="COV source path"
+              value={mode}
               disabled={busy}
-            />
+              onChange={(e) => {
+                selection.current++;
+                setMode(e.target.value);
+                setDevice("");
+                setObject("");
+                setNotice("");
+              }}
+            >
+              <option value="direct">Direct BACnet/IP</option>
+              <option value="routed">Explicit NAE/router to MS/TP</option>
+            </select>
           </label>
+          {mode === "routed" && (
+            <>
+              <label>
+                COV router IP / port
+                <input
+                  aria-label="COV router IP / port"
+                  value={router}
+                  onChange={(e) => setRouter(e.target.value)}
+                  disabled={busy}
+                />
+              </label>
+              <label>
+                COV destination network
+                <input
+                  aria-label="COV destination network"
+                  type="number"
+                  min={1}
+                  max={65534}
+                  value={dnet}
+                  onChange={(e) => setDnet(e.target.value)}
+                  disabled={busy}
+                />
+              </label>
+              <label>
+                COV controller MAC
+                <input
+                  aria-label="COV controller MAC"
+                  type="number"
+                  min={0}
+                  max={254}
+                  value={mac}
+                  onChange={(e) => setMac(e.target.value)}
+                  disabled={busy}
+                />
+              </label>
+            </>
+          )}
+          {mode === "direct" && (
+            <label>
+              COV device IP / port
+              <input
+                aria-label="COV device IP / port"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                disabled={busy}
+              />
+            </label>
+          )}
           <label>
             Expected COV Device
             <input
@@ -163,7 +273,17 @@ export function BacnetCovPanel({
           disabled={
             busy ||
             !connected ||
-            !address.trim() ||
+            (mode === "direct"
+              ? !address.trim()
+              : !router.trim() ||
+                !dnet ||
+                !mac ||
+                !Number.isInteger(Number(dnet)) ||
+                Number(dnet) < 1 ||
+                Number(dnet) > 65534 ||
+                !Number.isInteger(Number(mac)) ||
+                Number(mac) < 0 ||
+                Number(mac) > 254) ||
             !device.trim() ||
             !object.trim()
           }
@@ -173,10 +293,11 @@ export function BacnetCovPanel({
         </button>
         {!connected && (
           <p className="help-text">
-            Connect a direct BACnet/IPv4 interface without a router or BBMD to
+            Connect a BACnet/IPv4 interface without BBMD or direct serial to
             start a monitor.
           </p>
         )}
+        {notice && <p role="status">{notice}</p>}
         {error && (
           <p role="alert" className="inline-error">
             {error}
@@ -197,7 +318,8 @@ export function BacnetCovPanel({
               {job.config.device} · {job.config.object_id} · {job.state}
             </h4>
             <p>
-              {job.config.address} ·{" "}
+              {job.config.address}{" "}
+              {job.config.router ? `via ${job.config.router}` : "direct"} ·{" "}
               {job.config.confirmed ? "Confirmed" : "Unconfirmed"} · Lease
               remaining: {job.lease_seconds_remaining}s · Received:{" "}
               {job.received} · Dropped: {job.dropped} · Ignored: {job.ignored}
