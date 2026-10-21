@@ -57,7 +57,7 @@ def cov_header(packet):
 
 
 class CovRouteHooks:
-    def __init__(self, app, owner, jobs, guard):
+    def __init__(self, app, owner, jobs, guard, on_discard=None):
         self.app, self.owner, self.jobs, self.guard = app, owner, jobs, guard
         self.adapter = app.nsap.local_adapter
         self.enabled = True
@@ -127,10 +127,14 @@ class CovRouteHooks:
                     or source != own["config"].address
                     or evidence.segmented
                 ):
-                    own["ignored"] += 1
-                    own["last_ignored"] = (
+                    reason = (
                         "Routed COV next-hop/source mismatch or unsupported segmented notification."
                     )
+                    if on_discard:
+                        on_discard(own, reason)
+                    else:
+                        own["ignored"] += 1
+                        own["last_ignored"] = reason
                     return
             packet.pduUserData = evidence
             token = (

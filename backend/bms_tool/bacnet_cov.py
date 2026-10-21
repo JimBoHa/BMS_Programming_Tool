@@ -68,6 +68,7 @@ class CovStart(StrictModel):
     confirmed: bool = Field(default=True, strict=True)
     router: str | None = Field(default=None, min_length=1, max_length=64)
     dnet: int | None = Field(default=None, ge=1, le=65534, strict=True)
+    record_observations: bool = Field(default=False, strict=True)
 
     @field_validator("device", "object_id")
     @classmethod
@@ -102,7 +103,7 @@ class CovAction(StrictModel):
 
 
 class BacnetCov:
-    def __init__(self, bacnet, store=None, *, timeout=3.0, clock=None):
+    def __init__(self, bacnet, store=None, *, timeout=3.0, clock=None, recorder=None):
         if type(timeout) not in (int, float) or not 0.01 <= timeout <= 6:
             raise ValueError("COV exchange timeout must be 0.01..6 seconds.")
         self.bacnet, self.store, self.timeout = bacnet, store, timeout
@@ -115,6 +116,13 @@ class BacnetCov:
         self._provenance_owner = object()
         self._closed = False
         self._evicted = 0
+        self.recorder = recorder
+
+    def _discard(self, job, reason):
+        job["ignored"] += 1
+        job["last_ignored"] = str(reason)[:500]
+        if self.recorder is not None:
+            self.recorder.discarded(job.get("recording"), reason)
 
     def _guard(self, job):
         status = self.bacnet.status()
@@ -127,6 +135,16 @@ class BacnetCov:
         self.bacnet.require()
 
     def _audit(self, action, job):
+        if self.recorder is not None and action in {"started", "renewed"}:
+            self.recorder.submit(
+                job.get("recording"),
+                action,
+                {
+                    "received_at": _utc(),
+                    "state": job["state"],
+                    "remote_outcome": job["remote_outcome"],
+                },
+            )
         if self.store is not None:
             try:
                 detail = self._view(job, limit=0)
@@ -216,7 +234,7 @@ class BacnetCov:
         service.confirmation = transport
         self._transport_hooks[app] = (service, previous, transport, enabled)
         self._route_hooks[app] = CovRouteHooks(
-            app, self._provenance_owner, lambda: self.jobs.values(), self._guard
+            app, self._provenance_owner, lambda: self.jobs.values(), self._guard, self._discard
         )
 
     def _restore(self, app):
@@ -261,7 +279,11 @@ class BacnetCov:
                 if issubclass(datatype, Array) and item.propertyArrayIndex is not None:
                     datatype = Unsigned if item.propertyArrayIndex == 0 else datatype._subtype
                 value = item.value.cast_out(datatype, null=issubclass(datatype, Atomic))
-                row.update(value=json_value(value), decode_status="decoded")
+                row.update(
+                    value=json_value(value),
+                    decode_status="decoded",
+                    native_datatype=datatype.__name__,
+                )
             except Exception as exc:
                 row.update(decode_status="decode_error", decode_error=str(exc)[:500])
         return row
@@ -322,9 +344,10 @@ class BacnetCov:
             if len(job["events"]) == MAX_EVENTS:
                 job["dropped"] += 1
             job["events"].append(row)
+            if self.recorder is not None:
+                self.recorder.submit(job.get("recording"), "notification", row)
         except Exception as exc:
-            job["ignored"] += 1
-            job["last_ignored"] = str(exc)[:500]
+            self._discard(job, exc)
             if confirmed:
                 raise ServicesError(errorCode="unknownSubscription") from exc
             return
@@ -383,6 +406,18 @@ class BacnetCov:
         if task is not None and task is not asyncio.current_task():
             task.cancel()
         self._restore(job["app"])
+        if self.recorder is not None:
+            self.recorder.end(
+                job.get("recording"),
+                {
+                    "received_at": _utc(),
+                    "state": state,
+                    "reason": reason,
+                    "remote_outcome": outcome,
+                    "notifications_received": job["received"],
+                    "notifications_ignored": job["ignored"],
+                },
+            )
         self._audit(state, job)
 
     async def _watch(self, job):
@@ -418,6 +453,8 @@ class BacnetCov:
         async with self._lock, self.bacnet.lock:
             if self._closed:
                 raise ValueError("COV manager is closed.")
+            if config.record_observations and self.recorder is None:
+                raise ValueError("Durable COV recording is unavailable in this service.")
             if sum(job["active"] for job in self.jobs.values()) >= MAX_ACTIVE:
                 raise ValueError("At most eight active COV monitors are supported.")
             app = self.bacnet.require()
@@ -488,6 +525,8 @@ class BacnetCov:
             self.jobs[job["id"]] = job
             self._install(app)
             try:
+                if config.record_observations:
+                    job["recording"] = await self.recorder.begin(job)
                 await self._exchange(job)
                 job.update(
                     state="active",
@@ -596,3 +635,5 @@ class BacnetCov:
             identifiers = list(self.jobs)
         for identifier in identifiers:
             await self.stop(identifier)
+        if self.recorder is not None:
+            await self.recorder.close()

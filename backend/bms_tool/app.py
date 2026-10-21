@@ -35,6 +35,7 @@ from .caf_scenarios import CafInputScenarios, CafScenarioStore
 from .caf_simulation import CafSimulationProfile
 from .connections import Bacnet, modbus_read, ports
 from .conversion_preview import conversion_preview
+from .cov_observations import CovObservations
 from .deployment import Runtime
 from .device_details import DeviceDetails, DeviceDetailsRequest
 from .engine import Engine, output_type, run_scenario, validate
@@ -417,11 +418,12 @@ def create_app(state_dir=None):
     store = Store(state_dir or state_directory())
     runtime = Runtime(store)
     bacnet = Bacnet(store)
-    cov = BacnetCov(bacnet, store)
     native = NativeSimulator(store)
     groups = SimulationGroups()
     observations = ObservabilityStore(store.directory)
     field_trends = FieldTrends(bacnet, store.directory, audit_store=store)
+    cov_recordings = CovObservations(field_trends.store)
+    cov = BacnetCov(bacnet, store, recorder=cov_recordings)
     temco_transfer = TemcoTransfer(bacnet, store)
     history = BacnetHistory(bacnet, store)
     routed = RoutedDiscovery(bacnet, store)
@@ -1388,6 +1390,14 @@ def create_app(state_dir=None):
     @app.get("/api/bacnet/cov/jobs/{id}")
     async def cov_detail(id: str):
         return cov.detail(id)
+
+    @app.get("/api/bacnet/cov/recordings")
+    def cov_saved_recordings():
+        return cov_recordings.recordings()
+
+    @app.get("/api/bacnet/cov/recordings/{id}/events")
+    def cov_saved_events(id: str, after: int = 0, limit: int = 100):
+        return cov_recordings.events(id, after=after, limit=limit)
 
     @app.post("/api/bacnet/cov/start")
     async def cov_start(body: CovStart):
