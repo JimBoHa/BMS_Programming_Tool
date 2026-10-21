@@ -24,6 +24,8 @@ async def confirmed_exchange(app, request):
             break
     else:
         raise ValueError("BACnet destination has no available transaction identifiers.")
+    serial_layer = getattr(app, "mstp_link", None)
+    serial_owner = serial_layer.own_confirmed_request(request) if serial_layer is not None else None
     future = asyncio.get_running_loop().create_future()
     owner = asyncio.current_task()
     retiring = False
@@ -48,6 +50,8 @@ async def confirmed_exchange(app, request):
         return await future
     finally:
         retiring = True
+        if serial_owner is not None:
+            serial_layer.retire_confirmed_request(request, serial_owner)
         for transaction in list(app.asap.clientTransactions):
             context = getattr(transaction, "segmentAPDU", None)
             # ClientSSM sets its own invokeID after an asynchronous cache
