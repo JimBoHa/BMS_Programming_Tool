@@ -825,3 +825,119 @@ test("saved jobs can resume after navigation, partial jobs stop polling, and loc
     `/api/bacnet/hardware/archives/${archive.id}`,
   ]);
 });
+
+for (const model of ["FX-PCV1630-0", "MS-VMA1615-0"]) {
+  test(`${model} shows documented physical terminals and DPT limits with manual provenance`, async ({
+    page,
+  }) => {
+    const vav: any = JSON.parse(JSON.stringify(report));
+    const fx = model.startsWith("FX");
+    const source = {
+      document_number: fx ? "24-10143-357" : "24-10143-217",
+      revision: fx ? "H" : "K",
+      date: fx ? "2019-03-22" : "2019-10-18",
+      pdf_pages: fx ? [5, 6, 15, 27] : [2, 8, 19],
+      url: fx
+        ? "https://docs.johnsoncontrols.com/bas/r/Facility-Explorer/en-US/FX-PCV1615/1626/1628/1630-Programmable-VAV-Box-Controllers-Installation-Instructions/H"
+        : "https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/VMA1615/1626/1628/1630-VAV-Controllers-Installation-Guide/K",
+    };
+    vav.identity.model = model;
+    vav.modules = [
+      {
+        host: "local",
+        sa_mac: null,
+        configured_model: model,
+        model_evidence:
+          "Survey controller model (supplied evidence if imported)",
+        unmapped_input_objects: ["analog-input,4"],
+        capacity: {
+          universal_inputs: [1, 2, 3],
+          binary_inputs: [],
+          voltage_input_range: "0–10 VDC",
+          source_document: source,
+          physical_terminal_scope:
+            "External IN1–IN3 only. Binary dry-contact mode occupies a universal input. The integrated differential pressure transducer is not a spare external terminal.",
+        },
+      },
+    ];
+    vav.inputs = [
+      {
+        ...report.inputs[0],
+        object: "analog-input,51",
+        device_type: "UI IN1",
+        host: { kind: "local-configured" },
+        sa_mac: null,
+        slot: 1,
+      },
+      {
+        ...report.inputs[1],
+        object: "binary-input,52",
+        device_type: "UI IN2",
+        host: { kind: "local-configured" },
+        sa_mac: null,
+        slot: 2,
+      },
+      {
+        object: "analog-input,4",
+        name: "Authored internal pressure",
+        device_type: "AI4",
+        host: { kind: "local-configured" },
+        sa_mac: null,
+        slot: 4,
+      },
+    ];
+    vav.candidates = [
+      {
+        host: "local",
+        sa_mac: null,
+        slot: 3,
+        terminal: "IN3",
+        terminal_type: "UI",
+        status: "unverified",
+        reason: "Internal slot mapping is unverified",
+      },
+    ];
+    const { panel, requests } = await setup(page, async (route, request) => {
+      if (request.path !== `/api/bacnet/hardware/reports/${report.id}`)
+        return false;
+      await route.fulfill({ json: vav });
+      return true;
+    });
+    await openSaved(panel);
+    const results = panel.getByRole("region", {
+      name: "Hardware survey results",
+      exact: true,
+    });
+    await expect(results).toContainText(
+      "Physical universal inputs: IN1, IN2, IN3 · Dedicated binary inputs: none",
+    );
+    await expect(results).toContainText(
+      "integrated differential pressure transducer is not a spare external terminal",
+    );
+    await expect(results).toContainText(
+      "Unmapped input assignments: analog-input,4",
+    );
+    await expect(results).toContainText("Authored internal pressure");
+    await expect(results).toContainText(
+      "Binary object occupying a universal input",
+    );
+    await expect(
+      results.getByRole("link", {
+        name: new RegExp(`${source.document_number} Rev ${source.revision}`),
+      }),
+    ).toHaveAttribute("href", source.url);
+    const spares = results.getByRole("region", {
+      name: "Candidate spare input terminals",
+      exact: true,
+    });
+    await expect(spares).toContainText("IN3");
+    await expect(spares).not.toContainText("IN4");
+    await expect(spares).not.toContainText("IN2");
+    expect(
+      requests.filter(
+        (request) =>
+          request.method !== "GET" && request.path.startsWith("/api/bacnet/"),
+      ),
+    ).toEqual([]);
+  });
+}
