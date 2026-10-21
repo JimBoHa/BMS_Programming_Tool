@@ -156,6 +156,9 @@ async function setup(page: Page) {
     if (
       request.method() === "GET" &&
       (path === "/api/bacnet/ip-scan-profile" ||
+        path === "/api/bacnet/cov/status" ||
+        path === "/api/bacnet/events/profile" ||
+        path === "/api/bacnet/events/ack/profile" ||
         path.startsWith("/api/bacnet/files/"))
     )
       return route.continue();
