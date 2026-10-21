@@ -5,6 +5,11 @@
     "scope": "Our versioned graph format: 27 block types, typed wiring, engineering units, revisions, validation and undo/redo."
   },
   {
+    "feature": "Standard BACnet Trend Log Multiple history",
+    "status": "implemented",
+    "scope": "Explicit bounded native multi-channel ReadRange over direct or pinned routed IPv4 verifies Device/log identity and current references, preserves native choices/clock/quality uncertainty, and saves sealed captures with JSON/CSV and restart integrity. Current reference coherence never proves historical assignments. Exact-device support, physical JCI acceptance, proprietary historians, native application backup and unsolicited subscriptions remain unverified or outside this profile."
+  },
+  {
     "feature": "Graphical drag-and-drop programming",
     "status": "implemented",
     "scope": "Local browser GUI with block palette, wiring, properties, templates, zoom, minimap, multi-selection, group movement/alignment, internal-wire copy/paste/duplication, grouped delete and undo."

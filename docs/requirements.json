@@ -547,5 +547,14 @@
     "pdf_pages_or_section": "Device Object_List and standard Program objects",
     "status": "implemented",
     "implementation_or_gap": "Exact Device verification precedes optional reads. Sequential displayed-page reads are bounded to 15 seconds per device, 512 object identifiers and 16 Program objects; partial evidence survives errors. Not exposed requires a complete inventory without Program objects. Firmware/application version/description never substitute for program names. Duplicate instances across routers/trunks remain separate; cached bindings are not relabelled live discoveries"
+  },
+  {
+    "id": "HIST-MULTI-001",
+    "feature": "Standard multi-channel field history",
+    "acceptance_criterion": "Retrieve bounded native Trend Log Multiple records with exact source identity, raw channel indices, current-reference coherence evidence and sealed restart-verifiable captures.",
+    "evidence": "ANSI/ASHRAE 135-2004 Addendum b, section135-2004b-3; pinned BACpypes3 native datatypes",
+    "pdf_pages_or_section": "Printed pages13-25; current metadata is not proven historical mapping",
+    "status": "implemented",
+    "implementation_or_gap": "Read-only standard type27 profile; real UDP/routed/API/browser tests. No physical target acceptance, proprietary historian, device writes or native program backup."
   }
 ]
