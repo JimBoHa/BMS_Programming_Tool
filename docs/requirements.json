@@ -549,6 +549,24 @@
     "implementation_or_gap": "Exact Device verification precedes optional reads. Sequential displayed-page reads are bounded to 15 seconds per device, 512 object identifiers and 16 Program objects; partial evidence survives errors. Not exposed requires a complete inventory without Program objects. Firmware/application version/description never substitute for program names. Duplicate instances across routers/trunks remain separate; cached bindings are not relabelled live discoveries"
   },
   {
+    "id": "COMM-COV-001",
+    "feature": "Bounded BACnet object change-of-value monitoring",
+    "acceptance_criterion": "Verify Device and monitored object identities before subscribing; retain bounded notification evidence and explicit finite renewal/cancellation/expiry outcomes without point writes or automatic reconnect.",
+    "evidence": "BACpypes3 0.0.110 primary COV/APDU/datatype/application source; feature audit IA-c6c0348b91",
+    "pdf_pages_or_section": "SubscribeCOV and confirmed/unconfirmed COV notifications",
+    "status": "implemented",
+    "implementation_or_gap": "Direct BACnet/IPv4 and explicit IPv4-router/DNET:MAC. Real UDP/HTTP/browser evidence; exact IPv4 next-hop/NPDU source/Device/object/process/mode checks and task-scoped pinned ACK routing, native indexes/priority/opaque values, owned transaction retirement and lifecycle bounds. Routed segmented notifications, BBMD/direct serial/BTCVT, physical JCI acceptance remain outside profile."
+  },
+  {
+    "id": "COMM-COV-002",
+    "feature": "Opt-in durable COV observations and shared field trends",
+    "acceptance_criterion": "Persist only explicitly opted-in accepted COV receipts with exact source/native evidence, bounded nonblocking writes, separate receipt/source clocks, conservative numeric trends, explicit gaps/retention/storage faults and restart off.",
+    "evidence": "BACpypes3 0.0.110 COV/APDU/datatype source; shared field observation retention and provenance criteria",
+    "pdf_pages_or_section": "Accepted COV callback recording into local field observation SQLite",
+    "status": "implemented",
+    "implementation_or_gap": "Real direct/routed UDP, storage failure/overflow/ownership/retention/restart/HTTP/browser tests. Local history paging and JSON/CSV export. Windows lock branch authored but actual Windows execution and physical JCI/MS/TP/BTCVT remain unverified."
+  },
+  {
     "id": "HIST-MULTI-001",
     "feature": "Standard multi-channel field history",
     "acceptance_criterion": "Retrieve bounded native Trend Log Multiple records with exact source identity, raw channel indices, current-reference coherence evidence and sealed restart-verifiable captures.",
@@ -556,6 +574,24 @@
     "pdf_pages_or_section": "Printed pages13-25; current metadata is not proven historical mapping",
     "status": "implemented",
     "implementation_or_gap": "Read-only standard type27 profile; real UDP/routed/API/browser tests. No physical target acceptance, proprietary historian, device writes or native program backup."
+  },
+  {
+    "id": "COMM-BBMD-001",
+    "feature": "Read-only BBMD BDT/FDT inspection",
+    "acceptance_criterion": "Explicitly read one BBMD over the existing IP/foreign interface with exact source/socket identity; preserve native masks and lease fields, raw evidence, bounded cancellation/deadlines and unrelated services.",
+    "evidence": "MF-7558ea4aa8; IA-120b496d86 partial scope; BACpypes3 0.0.110 primary BVLC and service source",
+    "pdf_pages_or_section": "Read-BDT/ACK 0x02/0x03; Read-FDT/ACK 0x06/0x07; native Results",
+    "status": "implemented",
+    "implementation_or_gap": "Real independently encoded UDP peers, malformed/oversize/empty/NACK/timeout, native-owner/foreign-renewal/concurrent-read checks, API/browser and snapshot export. No transaction-ID or atomic snapshot guarantee; physical interoperability unverified."
+  },
+  {
+    "id": "COMM-BBMD-002",
+    "feature": "BBMD administration writes and hosting",
+    "acceptance_criterion": "Add separately verified table-write/delete/hosting profiles with exact ownership, original backup, readback and recovery.",
+    "evidence": "MF-7558ea4aa8; IA-120b496d86 remaining scope",
+    "pdf_pages_or_section": "Write-BDT; Delete-FDT-entry; BBMD hosting/configuration",
+    "status": "partial",
+    "implementation_or_gap": "Reviewed plain-IPv4 table-write/delete profile implemented under COMM-BBMD-003. Hosting, BACnet/SC, IPv6 administration and physical vendor acceptance remain pending."
   },
   {
     "id": "HW-SUPPLY-001",
@@ -576,6 +612,15 @@
     "implementation_or_gap": "Read-only standard type25 profile tested via real direct/routed UDP, API and browser. Unknown NotificationParameters choices are deferred with native tags; physical support, unsolicited alarm subscriptions and proprietary JCI historian remain unverified/outside profile."
   },
   {
+    "id": "MF-bf2ca3ef67",
+    "feature": "Unique BACnet network-number plan validation",
+    "acceptance_criterion": "Diagnose conflicts only across explicitly declared domains and physical networks; preserve unknowns, engine/router matches, R15 scope and source-hashed portable review evidence.",
+    "evidence": "JCI LIT-12011034 R15; ASHRAE 135-1995 errata; NISTIR 6392",
+    "pdf_pages_or_section": "JCI PDF 10, 12\u201313; errata 6.2.2.1; NIST 6.1, 6.4, 6.6.2",
+    "status": "implemented",
+    "implementation_or_gap": "Offline strict plan/review API and Connect authoring/import/export; 1..65534 assignable range, explicit R15 new-assignment restrictions, domain/physical/endpoint conflict checks, report seals and stale-response guards. Operator assertions only; no scans, global availability, auto-renumbering or device writes."
+  },
+  {
     "id": "SYS-FILE-001",
     "feature": "Portable native capture storage and process ownership",
     "acceptance_criterion": "Import and operate local capture storage on supported POSIX/Windows hosts without weakening native ownership, regular-file checks, capture hashes, exclusive publication or bounded waits.",
@@ -583,5 +628,41 @@
     "pdf_pages_or_section": "docs/portable-storage.md; native process ownership and safe final-component handles",
     "status": "implemented",
     "implementation_or_gap": "Native POSIX cross-process/capture regressions and authored Windows failure branches; unchanged suite prepared for actual Windows acceptance. Native Windows file-data fsync with namespace/power-loss durability explicitly unverified; unsupported filesystems fail closed. Native IEC runtime remains POSIX-only."
+  },
+  {
+    "id": "COMM-BBMD-003",
+    "feature": "Reviewed BBMD table replacement and endpoint deletion",
+    "acceptance_criterion": "Require fresh exact-source one-use review, durable before/preapply/intent, baseline recheck, one mutation and separate actual table observation without authorship/CAS/generation claims.",
+    "evidence": "MF-7558ea4aa8; IA-120b496d86 table-change scope; BACpypes3 0.0.110 primary BVLC/service source",
+    "pdf_pages_or_section": "Write-BDT 0x01; Delete-FDT-entry 0x08; native Result/NACK",
+    "status": "implemented",
+    "implementation_or_gap": "Independent raw UDP exact masks/ports/lease evidence, rogue/stale/ambiguous Results, no-retry/readback races, foreign/native/custom observer refusal, bounded durable receipts, storage/restart/cancel/HTTP/browser checks. Plain IPv4 only; restore is a new reviewed BDT proposal. Physical interoperability unverified; no atomic CAS, proven authorship, lease generation or permanent FDT removal."
+  },
+  {
+    "id": "MF-f11f41d83c",
+    "feature": "Bus-specific JCI reserved MAC addresses",
+    "acceptance_criterion": "Compare declared device role, exact model/generation and physical bus scope with reviewed FC/SA address reservations; retain unknown switch/model interpretations.",
+    "evidence": "JCI LIT-12011034 R15; LIT-12011670 2024-12-11; NS8000 refreshed LIT-12013113",
+    "pdf_pages_or_section": "Address tables; FC/SA rules; connection and service-port sections",
+    "status": "implemented",
+    "implementation_or_gap": "Offline strict plan/review API and full Connect authoring/import/export with source hashes, review seals and stale-response guards. Operator-declared physical graph only; unknown hardware/generation, cable/power/host capacities remain unresolved. No scans, device writes or measured wiring approval."
+  },
+  {
+    "id": "MF-a83e60bb0d",
+    "feature": "SA single-segment topology preflight",
+    "acceptance_criterion": "Distinguish one-host private SA bus from repeater-segmented FC networks and preserve cable/EOL/device-capacity limitations.",
+    "evidence": "JCI LIT-12011034 R15; LIT-12011670 2024-12-11; NS8000 refreshed LIT-12013113",
+    "pdf_pages_or_section": "Address tables; FC/SA rules; connection and service-port sections",
+    "status": "implemented",
+    "implementation_or_gap": "Offline strict plan/review API and full Connect authoring/import/export with source hashes, review seals and stale-response guards. Operator-declared physical graph only; unknown hardware/generation, cable/power/host capacities remain unresolved. No scans, device writes or measured wiring approval."
+  },
+  {
+    "id": "MF-f663c4c102",
+    "feature": "Planned bus daisy-chain and branch checks",
+    "acceptance_criterion": "Detect disconnected/cyclic/ordinary branch graphs while distinguishing exact supported sensor service leaves and FC repeater-side bridges from ordinary trunk wiring.",
+    "evidence": "JCI LIT-12011034 R15; LIT-12011670 2024-12-11; NS8000 refreshed LIT-12013113",
+    "pdf_pages_or_section": "Address tables; FC/SA rules; connection and service-port sections",
+    "status": "implemented",
+    "implementation_or_gap": "Offline strict plan/review API and full Connect authoring/import/export with source hashes, review seals and stale-response guards. Operator-declared physical graph only; unknown hardware/generation, cable/power/host capacities remain unresolved. No scans, device writes or measured wiring approval."
   }
 ]
