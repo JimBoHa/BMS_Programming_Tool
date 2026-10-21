@@ -23,8 +23,8 @@ from pydantic import AwareDatetime, Field
 from .analysis import dependencies
 from .bacnet_cov import BacnetCov, CovAction, CovStart
 from .bacnet_event_ack import EventAckApply, EventAcknowledgements, EventAckPreview
-from .bacnet_events import EventCancelRequest, EventInventory, EventInventoryRequest
 from .bacnet_event_log import EventLogHistory, EventLogHistoryRequest
+from .bacnet_events import EventCancelRequest, EventInventory, EventInventoryRequest
 from .bacnet_files import BacnetFiles
 from .bacnet_history import BacnetHistory, BacnetHistoryRequest
 from .bacnet_history_multiple import MultipleHistory, MultipleHistoryCancel, MultipleHistoryRequest
