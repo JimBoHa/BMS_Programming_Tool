@@ -547,5 +547,14 @@
     "pdf_pages_or_section": "Device Object_List and standard Program objects",
     "status": "implemented",
     "implementation_or_gap": "Exact Device verification precedes optional reads. Sequential displayed-page reads are bounded to 15 seconds per device, 512 object identifiers and 16 Program objects; partial evidence survives errors. Not exposed requires a complete inventory without Program objects. Firmware/application version/description never substitute for program names. Duplicate instances across routers/trunks remain separate; cached bindings are not relabelled live discoveries"
+  },
+  {
+    "id": "SYS-FILE-001",
+    "feature": "Portable native capture storage and process ownership",
+    "acceptance_criterion": "Import and operate local capture storage on supported POSIX/Windows hosts without weakening native ownership, regular-file checks, capture hashes, exclusive publication or bounded waits.",
+    "evidence": "IA-55a533399b supplement; Python msvcrt and Microsoft CreateFileW/GetFileInformationByHandle/_open_osfhandle primary APIs",
+    "pdf_pages_or_section": "docs/portable-storage.md; native process ownership and safe final-component handles",
+    "status": "implemented",
+    "implementation_or_gap": "Native POSIX cross-process/capture regressions and authored Windows failure branches; unchanged suite prepared for actual Windows acceptance. Native Windows file-data fsync with namespace/power-loss durability explicitly unverified; unsupported filesystems fail closed. Native IEC runtime remains POSIX-only."
   }
 ]

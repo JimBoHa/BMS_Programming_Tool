@@ -145,7 +145,7 @@ instead of pretending the backup represents one scan.
 Backups contain the complete image and raw descriptor, explicit target,
 generation and SHA256 hashes. A further SHA256 seal covers every saved field,
 including unknown descriptor bytes and target. Backups and the journal are
-written with mode 0600, atomic rename and file/directory fsync under
+written with POSIX mode 0600, atomic rename and flushed file data under
 `temco-program-transfers` in the local data directory. The original backup and
 durable operation intent exist before the first stop request. This is a program
 slot backup, not a whole-device configuration or point-value backup.
@@ -227,3 +227,9 @@ client and emulator transaction cleanup. The browser UI transfer/backup download
 restore workflow also passed against this same separate-process emulator.
 The cancelled-recovery regression runs the real UDP emulator in a subprocess
 with an external watchdog, so a frozen asyncio event loop is detected safely.
+
+
+Local journals use native safe-file temporary creation. POSIX also flushes the
+directory; Windows does not claim directory/power-loss durability. Windows ACLs
+are inherited from the controlled data directory. See
+[portable storage](portable-storage.md); native transfer acceptance is unchanged.

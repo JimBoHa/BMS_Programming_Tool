@@ -291,6 +291,11 @@ export function DeviceHistory() {
         remain visible with their original data. These captures stay separate
         from simulation and live field-trend databases.
       </p>
+      {status?.storage && (
+        <p className="temco-scope" aria-label="History storage durability">
+          Local capture storage: {status.storage.durability}
+        </p>
+      )}
       <section className="temco-card" aria-label="BACnet history request">
         <h2>Addressed read-only request</h2>
         <p>
