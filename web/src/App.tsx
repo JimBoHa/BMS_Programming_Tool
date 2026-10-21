@@ -47,6 +47,7 @@ import {
 import { Canvas } from "./Canvas";
 import { Inspector, SimulationPanel } from "./Panels";
 import { SelectionPanel } from "./SelectionPanel";
+import { ConversionPreview } from "./ConversionPreview";
 
 const NativeCaf = lazy(() =>
   import("./NativeCaf").then((m) => ({ default: m.NativeCaf })),
@@ -1147,6 +1148,7 @@ export function App() {
                     </button>
                   </div>
                 </div>
+                <ConversionPreview program={program} />
                 <div className="editor-layout">
                   <aside className="palette">
                     <div className="panel-heading">

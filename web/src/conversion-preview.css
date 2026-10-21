@@ -1,0 +1,40 @@
+.conversion-preview {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.conversion-preview p {
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 8px 0;
+}
+.conversion-table-scroll {
+  max-height: 460px;
+  overflow: auto;
+}
+.conversion-preview table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+}
+.conversion-preview th,
+.conversion-preview td {
+  padding: 10px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+}
+.conversion-preview th {
+  position: sticky;
+  top: 0;
+  background: #edf2f4;
+}
+.conversion-preview td:first-child {
+  min-width: 180px;
+}
+.conversion-preview li {
+  margin: 8px 0;
+}
+.conversion-preview code {
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
