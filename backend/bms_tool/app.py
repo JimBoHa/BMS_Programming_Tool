@@ -24,6 +24,7 @@ from .analysis import dependencies
 from .bacnet_cov import BacnetCov, CovAction, CovStart
 from .bacnet_event_ack import EventAckApply, EventAcknowledgements, EventAckPreview
 from .bacnet_events import EventCancelRequest, EventInventory, EventInventoryRequest
+from .bacnet_event_log import EventLogHistory, EventLogHistoryRequest
 from .bacnet_files import BacnetFiles
 from .bacnet_history import BacnetHistory, BacnetHistoryRequest
 from .bacnet_history_multiple import MultipleHistory, MultipleHistoryCancel, MultipleHistoryRequest
@@ -430,6 +431,7 @@ def create_app(state_dir=None):
     temco_transfer = TemcoTransfer(bacnet, store)
     history = BacnetHistory(bacnet, store)
     multiple_history = MultipleHistory(bacnet, store)
+    event_log = EventLogHistory(bacnet, store)
     routed = RoutedDiscovery(bacnet, store)
     ip_discovery = IpDiscovery(bacnet, store)
     bbmd_tables = BbmdTables(bacnet, store)
@@ -518,12 +520,15 @@ def create_app(state_dir=None):
                                         await event_inventory.close()
                                     finally:
                                         try:
-                                            await multiple_history.close()
+                                            await event_log.close()
                                         finally:
                                             try:
-                                                bacnet.close()
+                                                await multiple_history.close()
                                             finally:
-                                                native.stop()
+                                                try:
+                                                    bacnet.close()
+                                                finally:
+                                                    native.stop()
 
     app = FastAPI(title="BMS Studio local API", version="0.1.0", lifespan=lifespan)
     app.state.runtime = runtime
@@ -535,6 +540,7 @@ def create_app(state_dir=None):
     app.state.temco_transfer = temco_transfer
     app.state.bacnet_history = history
     app.state.multiple_history = multiple_history
+    app.state.event_log = event_log
     app.state.routed_discovery = routed
     app.state.ip_discovery = ip_discovery
     app.state.bbmd_tables = bbmd_tables
@@ -1567,10 +1573,31 @@ def create_app(state_dir=None):
     def bacnet_multiple_history_capture(id: str):
         return multiple_history.capture(id)
 
+    @app.get("/api/bacnet/event-log/status")
+    def bacnet_event_log_status():
+        return event_log.status()
+
+    @app.post("/api/bacnet/event-log/read")
+    async def bacnet_event_log_read(body: EventLogHistoryRequest):
+        return await event_log.read(**body.model_dump())
+
+    @app.post("/api/bacnet/event-log/cancel")
+    async def bacnet_event_log_cancel(body: MultipleHistoryCancel):
+        return event_log.cancel(body.operation_id)
+
+    @app.post("/api/bacnet/event-log/save")
+    def bacnet_event_log_save(body: HistoryCaptureRequest):
+        return event_log.save(body.id)
+
+    @app.get("/api/bacnet/event-log/captures/{id}")
+    def bacnet_event_log_capture(id: str):
+        return event_log.capture(id)
+
     @app.post("/api/bacnet/connect")
     async def bacnet_connect(body: BacnetConnect):
         await event_ack.close()
         await event_inventory.close()
+        await event_log.close()
         await multiple_history.close()
         return await bacnet.connect(**body.model_dump())
 
@@ -1598,6 +1625,7 @@ def create_app(state_dir=None):
     async def bacnet_connect_mstp(body: BacnetMstp):
         await event_ack.close()
         await event_inventory.close()
+        await event_log.close()
         await multiple_history.close()
         return await bacnet.connect_mstp(**body.model_dump())
 
@@ -1605,6 +1633,7 @@ def create_app(state_dir=None):
     async def bacnet_disconnect():
         await event_ack.close()
         await event_inventory.close()
+        await event_log.close()
         await multiple_history.close()
         return await bacnet.disconnect()
 
