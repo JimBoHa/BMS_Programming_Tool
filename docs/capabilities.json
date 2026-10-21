@@ -2,7 +2,12 @@
   {
     "feature": "Create and edit control programs",
     "status": "implemented",
-    "scope": "Our versioned graph format: 27 block types, typed wiring, engineering units, revisions, validation and undo/redo."
+    "scope": "Our versioned graph format: 30 block types, typed wiring, engineering units, revisions, validation and undo/redo."
+  },
+  {
+    "feature": "Explicit temperature quantities",
+    "status": "implemented",
+    "scope": "TemperatureDifference, DeltaConvert and TemperatureOffset use distinct absolute/delta unit tokens and checked port contracts. Existing Convert, graph schema and legacy stored hashes remain unchanged. Graph simulation, ST/PLCopen/GraphML/BMS, native Sedona and Temco compilation/execution, and genuine Niagara delta facets preserve these explicit quantities. Native numeric/quality differences and Niagara station acceptance limits remain visible. No general dimensional algebra or native JCI compilation."
   },
   {
     "feature": "Graphical drag-and-drop programming",
@@ -57,7 +62,7 @@
   {
     "feature": "Interchange conversion and export",
     "status": "partial",
-    "scope": "BMS JSON, IEC Structured Text, PLCopen TC6 XML with ST, GraphML, native Sedona bundles/SAX/SAB/SCode, a 20-kind native Niagara BOG profile and Temco Control Basic. Studio files verify original source consistency; supported foreign subsets convert with execution-difference reports. Generated ST independently compiles and runs through MatIEC/native C locally; physical PLC and Niagara runtime acceptance remain unverified."
+    "scope": "BMS JSON, IEC Structured Text, PLCopen TC6 XML with ST, GraphML, native Sedona bundles/SAX/SAB/SCode, a 23-kind native Niagara BOG profile and Temco Control Basic. Studio files verify original source consistency; supported foreign subsets convert with execution-difference reports. Generated ST independently compiles and runs through MatIEC/native C locally; physical PLC and Niagara runtime acceptance remain unverified."
   },
   {
     "feature": "FX and Metasys CAF inspection",
@@ -72,7 +77,7 @@
   {
     "feature": "Independent compiled IEC verification",
     "status": "implemented",
-    "scope": "Studio-generated ST passes unchanged through pinned MatIEC to C and a separate native Clang process. All 27 blocks/nine examples, retained state, quality faults, timed events, calendars, macros and float32 overflow differences have independent execution tests. Host-only memory I/O; no PLC runtime certification or controller deployment."
+    "scope": "Studio-generated ST passes unchanged through pinned MatIEC to C and a separate native Clang process. All 30 blocks/nine examples, retained state, quality faults, timed events, calendars, macros and float32 overflow differences have independent execution tests. Host-only memory I/O; no PLC runtime certification or controller deployment."
   },
   {
     "feature": "JCI native hardware definitions",
@@ -92,22 +97,22 @@
   {
     "feature": "Native vendor formats",
     "status": "partial",
-    "scope": "Native Sedona compilation/execution, native Temco Control Basic compiler/interpreter host and 20 Niagara BOG graph-kind mappings are available. New JCI CAF/CAP, ALC equipment and Honeywell Spyder encoders still require verified semantics, compilers/packages and target tests. Native archive inspection, saved CAF simulation-value editing and supported conversion profiles do not establish proprietary controller compilation or deployment."
+    "scope": "Native Sedona compilation/execution, native Temco Control Basic compiler/interpreter host and 23 Niagara BOG graph-kind mappings are available. New JCI CAF/CAP, ALC equipment and Honeywell Spyder encoders still require verified semantics, compilers/packages and target tests. Native archive inspection, saved CAF simulation-value editing and supported conversion profiles do not establish proprietary controller compilation or deployment."
   },
   {
     "feature": "Native Sedona applications",
     "status": "implemented",
-    "scope": "Pinned upstream compiler creates real kits, SAX, SAB and 64-bit simulator SCode. All 27 graph blocks run in a separate native VM, compared with the graph engine. Native online components/wiring persist through revisions and exports. Exported applications scan automatically; calendar/I/O mapping is a destination-runtime responsibility. Experimental local Unix port, not physical-platform certification."
+    "scope": "Pinned upstream compiler creates real kits, SAX, SAB and 64-bit simulator SCode. All 30 graph blocks run in a separate native VM, compared with the graph engine. Native online components/wiring persist through revisions and exports. Exported applications scan automatically; calendar/I/O mapping is a destination-runtime responsibility. Experimental local Unix port, not physical-platform certification."
   },
   {
     "feature": "Native Temco Control Basic",
     "status": "partial",
-    "scope": "All 27 blocks compile into real manufacturer bytecode and execute in the pinned interpreter host, with retained state and visible fixed-point differences. Separate native BACnet slot transfer stops, backs up, replaces, reads back and conditionally resumes an exact pinned device/slot. Real UDP/routed emulator and recovery tests pass; physical execution, flash persistence and scan cadence remain unverified. Transfer refuses unprovisioned calendars and VARs beyond 128."
+    "scope": "All 30 blocks compile into real manufacturer bytecode and execute in the pinned interpreter host, with retained state and visible fixed-point differences. Separate native BACnet slot transfer stops, backs up, replaces, reads back and conditionally resumes an exact pinned device/slot. Real UDP/routed emulator and recovery tests pass; physical execution, flash persistence and scan cadence remain unverified. Transfer refuses unprovisioned calendars and VARs beyond 128."
   },
   {
     "feature": "Native Niagara BOG primitives",
     "status": "partial",
-    "scope": "20 graph kinds map to real bajaObjectGraph ZIP/XML, including Clamp, clamped/extrapolating Scale and absolute-temperature Convert. Supported foreign Reset, explicit temperature-unit converters and primitive components convert with mandatory event/status/priority review. Composite mappings preserve units, bounds and reversed endpoint meaning. Genuine manufacturer module/API metadata verifies native classes, inherited slots, link types, serialized units and palette aliases. Unknown logic/resources/configuration fail conversion; original archive bytes are preserved separately. No licensed Workbench/station execution or full station conversion."
+    "scope": "23 graph kinds map to real bajaObjectGraph ZIP/XML, including Clamp, clamped/extrapolating Scale and absolute-temperature Convert. Supported foreign Reset, explicit temperature-unit converters and primitive components convert with mandatory event/status/priority review. Composite mappings preserve units, bounds and reversed endpoint meaning. Genuine manufacturer module/API metadata verifies native classes, inherited slots, link types, serialized units and palette aliases. Unknown logic/resources/configuration fail conversion; original archive bytes are preserved separately. No licensed Workbench/station execution or full station conversion."
   },
   {
     "feature": "BACnet/IP connection",

@@ -26,6 +26,7 @@ from .calendar_schedule import compile_schedule
 from .engine import Engine, execution_order, output_type, validate
 from .macros import expand_macros
 from .models import Edge, Node, Program, Target
+from .temperature import DELTA_FOR_ABSOLUTE, DELTA_UNITS, TEMPERATURE_BLOCKS, difference_expression
 
 UPSTREAM = "https://github.com/temcocontrols/T3000_Building_Automation_System"
 PIN = "ae9b9d082de93b35ff2ca59eb1d0c06ae04cec9b"
@@ -45,6 +46,9 @@ STATELESS = frozenset(
         "Clamp",
         "Scale",
         "Convert",
+        "TemperatureDifference",
+        "DeltaConvert",
+        "TemperatureOffset",
         "Greater",
         "Less",
         "Equal",
@@ -170,7 +174,12 @@ def export_source(program: Program, *, bindings=None) -> str:
     links = {(edge.target, edge.target_port): edge.source for edge in program.edges}
     names = {node.id: f"T{i + 1}" for i, node in enumerate(program.nodes)}
     lines = ["REM BMS STUDIO CONTROL BASIC PROFILE 2", "REM FIXED POINT 0.001 - LOCAL POINTS ONLY"]
-    if any(node.kind in STATEFUL or node.kind == "Schedule" for node in program.nodes):
+    if any(
+        node.kind in STATEFUL | TEMPERATURE_BLOCKS
+        or node.kind == "Schedule"
+        or node.unit in DELTA_UNITS
+        for node in program.nodes
+    ):
         # Standard REM comments preserve authoring state while the numbered body
         # remains real executable BASIC. Import regenerates and compares the
         # entire body before trusting these annotations. They are excluded from
@@ -293,6 +302,16 @@ def export_source(program: Program, *, bindings=None) -> str:
                 if p["to"] == "K"
                 else celsius
             )
+        elif kind == "TemperatureDifference":
+            expression = f"{a('a')} - {a('b')}"
+        elif kind == "DeltaConvert":
+            expression = difference_expression(a("in"), p["from"], p["to"], real_literals=False)
+        elif kind == "TemperatureOffset":
+            difference = difference_expression(
+                a("difference"), p["difference_unit"], DELTA_FOR_ABSOLUTE[p["unit"]],
+                real_literals=False,
+            )
+            expression = f"{a('base')} + {difference}"
         elif kind == "Switch":
             lines.append(f"IF {a('select')} THEN {name} = {a('on')} ELSE {name} = {a('off')}")
             continue

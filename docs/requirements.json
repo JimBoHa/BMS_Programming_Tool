@@ -384,7 +384,7 @@
     "evidence": "OpenBuildingControl specification/codeGeneration.rst",
     "pdf_pages_or_section": "Code generation",
     "status": "partial",
-    "implementation_or_gap": "Sedona standard-kit subset imports preserve backward-link scan delays; native code generation implements 27 blocks with independent VM comparisons; proprietary adapters pending"
+    "implementation_or_gap": "Sedona standard-kit subset imports preserve backward-link scan delays; native code generation implements 30 blocks with independent VM comparisons; proprietary adapters pending"
   },
   {
     "id": "IO-001",
@@ -429,7 +429,7 @@
     "evidence": "Tridium kitControl guide; Niagara troubleshooting presentations; public pybog source",
     "pdf_pages_or_section": "Native component slots, XML/BOG encoding and protection",
     "status": "partial",
-    "implementation_or_gap": "20 graph kinds map to real BOG ZIP/XML (including composite Clamp and native Scale/Convert); independent pybog fixture converts. Genuine manufacturer descriptors verify types, inherited slots, link types, units and aliases. Unknown logic and malformed status/configuration fail explicitly. Workbench/station runtime acceptance, stateful components and full station services remain unverified"
+    "implementation_or_gap": "23 graph kinds map to real BOG ZIP/XML (including composite Clamp and native Scale/Convert); independent pybog fixture converts. Genuine manufacturer descriptors verify types, inherited slots, link types, units and aliases. Unknown logic and malformed status/configuration fail explicitly. Workbench/station runtime acceptance, stateful components and full station services remain unverified"
   },
   {
     "id": "COMM-004",
@@ -447,7 +447,7 @@
     "evidence": "MatIEC pinned compiler and vendor simulation workflows",
     "pdf_pages_or_section": "Generated IEC source, runtime driver and independent scan tests",
     "status": "implemented",
-    "implementation_or_gap": "Real MatIEC to C to Clang execution for all 27 blocks and nine examples; explicit REAL32 differences, quality faults, calendars, macros, timed events and bounded process cleanup. Host verification only"
+    "implementation_or_gap": "Real MatIEC to C to Clang execution for all 30 blocks and nine examples; explicit REAL32 differences, quality faults, calendars, macros, timed events and bounded process cleanup. Host verification only"
   },
   {
     "id": "FMT-010",
