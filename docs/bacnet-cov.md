@@ -192,7 +192,6 @@ explicit opt-in, source-change reset, saved history reopen, JSON download and
 Field trends/CSV provenance against an actual loopback UDP publisher. These
 virtual downstream devices do not establish physical JCI interoperability.
 
-<<<<<<< HEAD
 ## Native recorder lock files
 
 COV recording uses the shared native safe-file opener for its field-store writer
@@ -207,8 +206,7 @@ Native process contention, crash release, directory/FIFO and available-account
 symlink refusal tests supplement the actual direct/routed recording regressions.
 Physical Windows COV traffic, controllers and Bluetooth remain outside these
 local ownership tests. SQLite retains its existing transaction policy.
-=======
+
 ## Original evidence JSON downloads
 
 Job exports and saved receipt pages retain the original HTTP response bytes. Native integral floats and signed zero survive browser download. Saved pages bind source metadata, requested and returned page boundaries, counters and retention in one local SQLite read snapshot; metadata/counters may change later. See [COV evidence downloads](cov-evidence-downloads.md) for guards, bounds and validation.
->>>>>>> a405d2a (Preserve original COV job and saved page evidence downloads)
