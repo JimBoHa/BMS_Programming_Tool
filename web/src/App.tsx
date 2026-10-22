@@ -97,6 +97,9 @@ const CafComparison = lazy(() =>
 const DeviceHistory = lazy(() =>
   import("./DeviceHistory").then((m) => ({ default: m.DeviceHistory })),
 );
+const ConformancePanel = lazy(() =>
+  import("./ConformancePanel").then((m) => ({ default: m.ConformancePanel })),
+);
 const CafSimulationPanel = lazy(() =>
   import("./CafSimulationPanel").then((m) => ({
     default: m.CafSimulationPanel,
@@ -865,6 +868,7 @@ export function App() {
     { id: "caf", title: "CAF files", icon: FileArchive },
     { id: "caf-compare", title: "CAF compare", icon: FileCheck2 },
     { id: "caf-simulation", title: "CAF simulation", icon: FlaskConical },
+    { id: "conformance", title: "Conformance tests", icon: FlaskConical },
     { id: "bog", title: "BOG files", icon: FileArchive },
     { id: "hardware", title: "JCI hardware", icon: CircuitBoard },
     { id: "connections", title: "Connect", icon: Network },
@@ -1424,6 +1428,8 @@ export function App() {
               <FieldTrends />
             ) : tab === "device-history" ? (
               <DeviceHistory />
+            ) : tab === "conformance" ? (
+              <ConformancePanel program={program} />
             ) : tab === "macros" ? (
               <MacroLibrary
                 program={program}

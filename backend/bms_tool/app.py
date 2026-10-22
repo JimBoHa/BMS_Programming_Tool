@@ -38,6 +38,7 @@ from .caf_graph import CafGraph
 from .caf_hardware import CafHardwareBindings, HardwareExportRequest, HardwareMoveRequest
 from .caf_scenarios import CafInputScenarios, CafScenarioStore
 from .caf_simulation import CafSimulationProfile
+from .conformance import ConformancePlans, conformance_router
 from .connections import Bacnet, modbus_read, ports
 from .conversion_preview import conversion_preview
 from .cov_observations import CovObservations
@@ -431,6 +432,7 @@ class MacroUpdate(MacroReference):
 
 def create_app(state_dir=None):
     store = Store(state_dir or state_directory())
+    conformance = ConformancePlans(store)
     runtime = Runtime(store)
     bacnet = Bacnet(store)
     native = NativeSimulator(store)
@@ -589,6 +591,7 @@ def create_app(state_dir=None):
     app.include_router(truth_table_router(app.state.truth_tables))
     app.include_router(network_plan_router())
     app.include_router(bus_preflight_router())
+    app.include_router(conformance_router(conformance))
 
     @app.middleware("http")
     async def local_requests(request, call_next):
