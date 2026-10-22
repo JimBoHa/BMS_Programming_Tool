@@ -303,5 +303,10 @@
     "feature": "Lifecycle draft recovery",
     "status": "implemented",
     "scope": "Latest ready portable program/macro snapshots flush on pagehide, beforeunload, hidden-page and React unmount while retaining 200 ms validation debounce. Shared ordered serializer protects prior macro recovery on failed primary writes; storage errors remain separate from validation; startup read/parse failure disables automatic recovery writes for that page. Fast reload, apply/discard, ready guards and actual unmount tested in Chromium/WebKit. Browser crashes/forced exits, storage availability and disk durability remain outside the guarantee; project save/export is separate."
+  },
+  {
+    "feature": "Owned local simulation session cleanup",
+    "status": "implemented",
+    "scope": "Exact volatile calculation ownership tokens and immutable creation-operation identities release known sessions on reset/source/scenario replacement and document retirement; verified stale first replies cannot restore state or remove unrelated sessions. Cleanup gates new scans/scenarios and failures require explicit retry. Recorded trends/alarms/events/source lifecycle remain unchanged. Best-effort exit cleanup, missing first receipts and one-hour idle expiry remain explicit; 25-session cap unchanged, no global clear or field operations. See docs/simulation-sessions.md."
   }
 ]

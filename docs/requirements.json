@@ -799,5 +799,14 @@
     "pdf_pages_or_section": "docs/draft-recovery.md; pagehide/beforeunload/visibility/unmount",
     "status": "implemented",
     "implementation_or_gap": "Shared serializer and synchronous latest program/macro refs flush after ready on lifecycle exit while preserving 200ms debounce. Macro enter/apply/discard use ordered writes; startup read/parse failures disable all automatic writes for that page, storage errors are visible and validation continues. Browser crash/forced exit, denied storage and disk durability are not guaranteed; server revision save/export remains separate."
+  },
+  {
+    "id": "SIM-SESSION-001",
+    "feature": "Owned volatile simulation session retirement",
+    "acceptance_criterion": "Release only the exact owned local calculation cache entry on reset/source/document retirement, retain durable history/alarm lifecycle and guard late first replies and new admission during cleanup.",
+    "evidence": "Actual local API and browser session lifecycle; ownership-token/creation-operation checks; authored endurance and failure tests",
+    "pdf_pages_or_section": "docs/simulation-sessions.md; POST /api/simulation/retire; GET /api/simulation/sessions/status",
+    "status": "implemented",
+    "implementation_or_gap": "Exact known handles, source/operation/count validation, late-receipt cleanup, pending/failed cleanup gates and explicit retry, bounded cache status and best-effort lifecycle keepalive. Only volatile engine state is removed; durable observations/alarms/events/sources remain unchanged. Missing/unverifiable first replies and failed document-exit cleanup can retain unknown sessions until one-hour idle expiry; no global clear, cap increase, automatic scan retry or field writes."
   }
 ]
