@@ -8,7 +8,7 @@ export function BacnetCovPanel({
   defaultDevice,
   defaultObject,
   defaultRouter = "",
-  defaultDnet,
+  defaultDnet: suppliedDefaultDnet,
 }: {
   connected: boolean;
   defaultAddress: string;
@@ -17,6 +17,7 @@ export function BacnetCovPanel({
   defaultRouter?: string;
   defaultDnet?: number;
 }) {
+  const defaultDnet = suppliedDefaultDnet ?? undefined;
   const [address, setAddress] = useState(defaultAddress);
   const [mode, setMode] = useState(defaultRouter ? "routed" : "direct");
   const [router, setRouter] = useState(defaultRouter);
