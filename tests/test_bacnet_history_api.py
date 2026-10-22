@@ -124,10 +124,16 @@ async def test_http_corrupt_and_nonregular_capture_files_are_rejected_without_ne
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://testserver"
         ) as client:
-            os.mkfifo(path)
+            if hasattr(os, "mkfifo"):
+                os.mkfifo(path)
+            else:
+                path.mkdir()
             response = await client.get("/api/bacnet/history/captures/" + identifier)
             assert response.status_code == 422 and "regular file" in response.text
-            path.unlink()
+            if path.is_dir():
+                path.rmdir()
+            else:
+                path.unlink()
             path.write_text("[" * 10000 + "0" + "]" * 10000)
             response = await client.get("/api/bacnet/history/captures/" + identifier)
             assert response.status_code == 422 and "nesting profile" in response.text
