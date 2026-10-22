@@ -582,3 +582,26 @@ async def test_program_result_cap_is_explicit_and_does_not_claim_complete(tmp_pa
         client.close()
         close_application(server)
         await asyncio.sleep(0.02)
+
+
+@pytest.mark.asyncio
+async def test_routed_path_preserves_unrelated_direct_reply_without_sadr(routed_details):
+    """A direct NPDU has no SADR; Address.__eq__(None) must never see it."""
+    from bms_tool.bacnet_read import read_property
+
+    objects, client, service, router, _ = routed_details
+    port = next(
+        obj for obj in objects.objectIdentifier.values() if int(obj.objectIdentifier[0]) == 56
+    )
+    endpoint = f"127.0.0.1:{int.from_bytes(port.macAddress[-2:], 'big')}"
+    options = DeviceDetailsRequest(
+        address="3001:7", device="device,4190090", router=router.endpoint, dnet=3001
+    )
+    async with service._path(options):
+        value = await asyncio.wait_for(
+            read_property(client.app, Address(endpoint), "device,4190090", "object-name"), 0.5
+        )
+        assert str(value) == "Independent Device Details"
+    assert "process_npdu" not in client.app.nsap.__dict__
+    assert "indication" not in client.app.nsap.__dict__
+    assert not client.app._requests and not client.app.asap.clientTransactions
