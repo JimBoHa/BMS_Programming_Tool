@@ -907,5 +907,23 @@
     "pdf_pages_or_section": "CCT235-236/247-248; SCT328-329; docs/native-weekly-day-write.md",
     "status": "implemented",
     "implementation_or_gap": "Backend/API only: exact native draft/source and fresh static-tag guards, pinned interface/raw service15 response proof, one unsegmented send/no priority/no retries, bounded durable journal and original sealed receipt bytes, explicit read-only reconciliation. Postdispatch Error/Reject/Abort remain may_have_applied; protocol and readback are separate. Browser Apply integration, physical controller acceptance, Calendar/exception/context/target writes, CAS/rollback, segmentation/BBMD/serial writes and native CAF compilation remain outside this profile."
+  },
+  {
+    "id": "COMM-METER-001",
+    "feature": "Native Accumulator evidence and offline prescale review",
+    "acceptance_criterion": "Explicitly read native metering properties through a verified Device and review declared pulse batches using exact carried integer remainders with bounded export/import and no field writes.",
+    "evidence": "JCI Controller Tool Help18.0 LIT-12011147; pinned BACpypes3 Accumulator/Prescale/Scale datatypes",
+    "pdf_pages_or_section": "1582\u20131585; docs/accumulator-prescale.md",
+    "status": "implemented",
+    "implementation_or_gap": "Opt-in source-pinned direct/routed ReadProperty metadata, raw unknown/partial evidence, exact Unsigned32-string arithmetic and noncommitting limit stop, sealed server JSON/CSV/configuration-only import and stale browser guards. Loopback/native protocol tests; no physical acceptance, debounce/persistence/wrap, graph lowering or native writes."
+  },
+  {
+    "id": "MF-82130dc1f7",
+    "feature": "Counter-input pulse prescaling",
+    "acceptance_criterion": "Represent and validate target-supported accumulator scaling, metering attributes and quality with simulation and deployment appropriate to the controller family.",
+    "evidence": "JCI Controller Tool Help18.0 LIT-12011147",
+    "pdf_pages_or_section": "1582\u20131585",
+    "status": "partial",
+    "implementation_or_gap": "COMM-METER-001 provides explicit native metadata observations and exact offline pulse-batch review. Hardware debounce/persistence/COV/overflow behavior, target package/firmware acceptance and native configuration/transfer remain unimplemented."
   }
 ]
