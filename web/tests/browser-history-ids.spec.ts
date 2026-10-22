@@ -54,8 +54,9 @@ async function observations(page: Page, project: string) {
 test("unsafe and malformed prune IDs refuse without a mutation request", async ({
   page,
   request,
-}, info) => {
-  await deliveries(page, request, info.project.name);
+  browserName,
+}) => {
+  await deliveries(page, request, browserName);
   const requests: string[] = [];
   page.on("request", (r) => {
     if (r.url().endsWith("/api/notifications/prune"))
@@ -96,7 +97,8 @@ test("unsafe and malformed prune IDs refuse without a mutation request", async (
 test("actual SQLite high delivery identities refuse every row action and unsafe cursors cannot query", async ({
   page,
   request,
-}, info) => {
+  browserName,
+}) => {
   const routes = await (await request.get("/api/notifications/routes")).json(),
     high = routes.find((r: any) => r.name === "Identity high");
   const original = await request.get(
@@ -130,9 +132,7 @@ test("actual SQLite high delivery identities refuse every row action and unsafe 
       );
     await route.fulfill({ response, body });
   });
-  const safe = routes.find(
-    (r: any) => r.name === "Identity " + info.project.name,
-  );
+  const safe = routes.find((r: any) => r.name === "Identity " + browserName);
   await page
     .getByLabel("Delivery route filter", { exact: true })
     .selectOption(safe.id);
@@ -148,9 +148,10 @@ test("actual SQLite high delivery identities refuse every row action and unsafe 
 test("normal delivery download retry discard and prune keep exact small IDs", async ({
   page,
   request,
-}, info) => {
-  const start = info.project.name === "chromium" ? 11 : 21;
-  const route = await deliveries(page, request, info.project.name),
+  browserName,
+}) => {
+  const start = browserName === "chromium" ? 11 : 21;
+  const route = await deliveries(page, request, browserName),
     auth = await headers(request);
   const original = await (
     await request.get("/api/notifications/deliveries/" + start)
@@ -228,8 +229,9 @@ test("normal delivery download retry discard and prune keep exact small IDs", as
 test("actual high alarm event and sample identities refuse acknowledgment event selection and paging", async ({
   page,
   request,
-}, info) => {
-  const chooser = await observations(page, info.project.name),
+  browserName,
+}) => {
+  const chooser = await observations(page, browserName),
     targeted: string[] = [];
   page.on("request", (r) => {
     if (
@@ -269,12 +271,13 @@ test("actual high alarm event and sample identities refuse acknowledgment event 
 test("normal alarm acknowledgment and event query keep the selected occurrence ID", async ({
   page,
   request,
-}, info) => {
-  const source = "simulation/identity-normal-" + info.project.name;
+  browserName,
+}) => {
+  const source = "simulation/identity-normal-" + browserName;
   const [alarm] = await (
     await request.get("/api/observations/alarms?source=" + source)
   ).json();
-  await observations(page, info.project.name);
+  await observations(page, browserName);
   const events = page.waitForRequest(
     (r) =>
       new URL(r.url()).pathname === "/api/observations/events" &&
@@ -314,9 +317,10 @@ test("normal alarm acknowledgment and event query keep the selected occurrence I
 test("wrong unsafe download receipt cannot create an exported delivery file", async ({
   page,
   request,
-}, info) => {
-  const start = info.project.name === "chromium" ? 11 : 21;
-  await deliveries(page, request, info.project.name);
+  browserName,
+}) => {
+  const start = browserName === "chromium" ? 11 : 21;
+  await deliveries(page, request, browserName);
   await page.route(
     "**/api/notifications/deliveries/" + start,
     async (route) => {

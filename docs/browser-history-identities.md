@@ -11,3 +11,15 @@ Download, retry, discard, acknowledgment, event selection and paging recheck the
 Tests seed real ephemeral SQLite stores with delivery, alarm, event and trend IDs at and above 9007199254740993. Exact API source is checked independently in Python. Actual browser tests prove that unsupported identities cannot dispatch a wrongly targeted action/query, malformed prune tokens never send a mutation, safe filters recover, and supported download/retry/discard/prune/acknowledgment/event workflows still work. A safe delivery's downloaded bytes match the actual response and retain a nested 9007199254740993 payload ID under independent Python parsing. Test routes stay paused, all endpoints are local, and field interfaces remain closed.
 
 Each browser worker owns a separate seeded server and temporary store; ordinary Playwright runs require no global history clear or private seeding configuration. For installed-package acceptance, `BMS_TEST_INSTALLED_TARGET` selects the child server's sole package search target and a working directory outside the checkout. The harness refuses a package import outside that target, a source-checkout resolution or missing bundled UI/metadata, and prints its resolved package/resource paths. Test and seeding helpers remain separate from the installed product. Installed-package execution is a separate acceptance run; source checks alone do not establish it.
+
+The seeded Chromium/WebKit lane comes from Playwright's actual `browserName` fixture. A project display name can be empty or arbitrary; it is not a seeded route/source identity. The fixture explicitly refuses an unsupported browser type instead of choosing a different lane. This fixes both the repository's unnamed default Chromium project and installed acceptance configurations that name a WebKit project differently.
+
+From `web`, install the desired browser and run the supported lane explicitly:
+
+```sh
+npx playwright install chromium webkit
+npx playwright test tests/browser-history-ids.spec.ts --browser=chromium
+npx playwright test tests/browser-history-ids.spec.ts --browser=webkit
+```
+
+For a custom configuration with a `projects` list, select its declared display name with `--project=<name>` and set that project's `use.browserName` to `chromium` or `webkit`. Do not assume that `--project=webkit` exists in the repository's default configuration: it declares no named projects. An installed-package runner must additionally set `BMS_TEST_INSTALLED_TARGET` in the parent Playwright environment so the isolated history child imports the same installed payload; its main app server must also resolve that payload outside the checkout. Changing only the main server's environment does not bind test-created child servers. Validation runs against an immutable wheel preserve the original installed files and keep test-only adaptations separate.
