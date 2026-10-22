@@ -12,6 +12,7 @@ from bms_tool.event_reception import EventReception
 from bms_tool.scoped_hooks import ScopedAttribute
 from bms_tool.storage import Store
 
+from .test_bacnet_cov import network as network
 from .test_connections import free_udp
 from .test_foreign_bacnet import bvlc, wait_until
 
@@ -502,3 +503,46 @@ def test_explicit_bounded_request_models(changes):
     base = dict(address="127.0.0.1:47809", device="device,42", process_identifier=7, mode="both")
     with pytest.raises(ValidationError):
         EventListenStart(**(base | changes))
+
+
+@pytest.mark.parametrize("events_first", [False, True])
+async def test_actual_cov_and_event_services_compose_and_retire_in_both_orders(
+    network, events_first
+):
+    from bacpypes3.pdu import PDU
+
+    server, analog, client, cov, options = network
+    receiver = EventReception(client, timeout=0.2)
+    event_options = {key: options[key] for key in ("address", "device", "object_id")}
+    event_options.update(process_identifier=7, mode="both", duration_seconds=10)
+    original = client.app.nsap.process_npdu
+    try:
+        if events_first:
+            started = await receiver.start(**event_options)
+        subscribed = await cov.start(**options)
+        if not events_first:
+            started = await receiver.start(**event_options)
+        await wait_until(lambda: cov.detail(subscribed["id"])["received"] >= 1)
+
+        async def emit(invoke):
+            wire = bvlc(10, npdu(notification(invoke=invoke)))
+            await server.nsap.local_adapter.clientPeer.multiplexer.request(
+                PDU(wire, destination=Address(client.config["local_address"]))
+            )
+
+        await emit(40)
+        await wait_until(lambda: receiver.detail(started["id"])["received"] == 1)
+        if events_first:
+            await receiver.stop(started["id"])
+            analog.presentValue = 37.5
+            await wait_until(lambda: cov.detail(subscribed["id"])["received"] >= 2)
+            await cov.stop(subscribed["id"])
+        else:
+            await cov.stop(subscribed["id"])
+            await emit(41)
+            await wait_until(lambda: receiver.detail(started["id"])["received"] == 2)
+            await receiver.stop(started["id"])
+        assert client.app.nsap.process_npdu == original and not receiver.hooks
+        assert not cov._route_hooks and not cov._hooks and not client.commands
+    finally:
+        await receiver.close()

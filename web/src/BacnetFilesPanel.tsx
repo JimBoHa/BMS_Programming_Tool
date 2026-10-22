@@ -52,6 +52,7 @@ type Receipt = Capture & {
   advertised_files?: string[];
 };
 type Profile = {
+  storage?: { durability: string; directory_flush: boolean };
   limits: {
     file_bytes: number;
     configuration_files: number;
@@ -313,6 +314,11 @@ export function BacnetFilesPanel({
             s operation deadline, at least {profile.limits.request_gap_seconds}s
             between requests. Up to {profile.limits.captures} local captures; no
             automatic reads.
+          </p>
+        )}
+        {profile?.storage && (
+          <p className="muted" aria-label="File capture storage durability">
+            Local capture storage: {profile.storage.durability}
           </p>
         )}
         {busy && <p role="status">Working on the requested file operation…</p>}

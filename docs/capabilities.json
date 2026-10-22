@@ -221,8 +221,8 @@
   },
   {
     "feature": "BBMD table writes, FDT deletion and hosting",
-    "status": "pending",
-    "scope": "Remaining scope of MF-7558ea4aa8 / IA-120b496d86: verified Write-BDT, Delete-FDT-entry and BBMD hosting/configuration require separate ownership, backup/readback, failure/recovery and vendor validation profiles. BACnet/SC and IPv6 administration remain outside this read-only implementation."
+    "status": "partial",
+    "scope": "MF-7558ea4aa8 / IA-120b496d86 table changes have a separate reviewed plain-IPv4 profile below. BBMD hosting, BACnet/SC, IPv6 administration and physical vendor acceptance remain pending; foreign-registration/native/custom-management conflicts are deliberately refused for writes."
   },
   {
     "feature": "Offline sensor supply budgeting",
@@ -238,5 +238,25 @@
     "feature": "Finite standard BACnet event-notification reception",
     "status": "implemented",
     "scope": "Explicit already-open plain IPv4 or pinned router/DNET:MAC listeners verify Device and optional object identity before finite Device/process/mode-filtered reception. Known native confirmed/unconfirmed EventNotification fields, raw TimeStamp, unknown enums and opaque unsupported nested choices retain source/receipt clocks and raw APDU evidence. ACKs use the exact pinned adapter/next hop/invoke identity; they mean reception only, never operator AcknowledgeAlarm, human receipt, resolution or delivery guarantee. Bounded callbacks/retention, source/socket loss, native-owner refusal, expiry, joined shutdown and immutable stopped-session snapshots/export are tested with real independently encoded UDP/API/browser peers. No recipient-list/device writes, automatic subscriptions/reconnect/restart, durable live recording, field alarm lifecycle synthesis, BBMD/serial/BTCVT, segmented reception or physical manufacturer acceptance. Broader IA-e35c4d605e / IA-5f71db3ed0 scope remains partial."
+  },
+  {
+    "feature": "BACnet network-number engineering plans",
+    "status": "implemented",
+    "scope": "Offline operator-declared internetwork/domain and physical-network identities; exact attachment/endpoint-port records, shared-network multi-router validation, collision/mismatch/unknown findings and an explicitly selected JCI Release 15 Remote Field Bus profile. Generic 1..65534 numbering is separate from 2000/65000 reservations for new R15 IP/MS/TP assignments. Complete Connect authoring and source-guarded plan JSON reopen/export; sealed full-plan review reports, stale response/download invalidation and strict finite bounds. No inferred topology, globally available-number claim, scans, automatic renumbering, server-side plan persistence or controller writes."
+  },
+  {
+    "feature": "Portable native local storage ownership",
+    "status": "implemented",
+    "scope": "POSIX flock and Windows msvcrt byte-zero ownership with bounded capture waits, final-component safe regular-file handles, reparse/device refusal, non-inheritance, unchanged capture seals and no-overwrite hard-link publication. Native cross-process/crash/contention and capture restart tests; authored Windows boundary tests do not replace runtime acceptance. POSIX directory fsync retained; Windows file-data flush only, namespace/power-loss durability unverified. Native IEC host remains explicitly POSIX-only."
+  },
+  {
+    "feature": "Reviewed IPv4 BBMD table changes",
+    "status": "implemented",
+    "scope": "Explicit fresh source-pinned Write-BDT replacement or exact Delete-FDT with sealed 60-second one-use review, native masks/ports/lease evidence, durable original/preapply/intent and bounded SQLite receipts. Exact BDT or FDT address/TTL membership baseline is rechecked before one mutation; post-state readback is an observation, never proven authorship, atomic CAS or lease-generation identity. Native Results/NACKs stay evidence with bounded counters/reserved NACK retention. No automatic retry/rollback/reconnect; postdispatch loss stays unknown; restart disables all actions and restoring BDT requires a new explicit proposal. Real independent UDP, HTTP/browser, storage-fault/ownership, cancellation/observer/restart tests only. Plain IPv4 refuses foreign/native/custom-management owners; no hosting, SC/IPv6, controller programming or physical BBMD/JCI acceptance."
+  },
+  {
+    "feature": "JCI MS/TP and SA address/topology preflight",
+    "status": "implemented",
+    "scope": "Offline strict physical-bus/device/link plans with explicit Metasys R15 and FX 2024-12-11 source profiles. Bus-scoped duplicate MACs, documented role/reservation checks, explicit legacy DIP128 and refreshed sensor generations, SA one-host/single-segment/no-repeater constraints, ordinary trunk graph branches/cycles/disconnection and FC/SA EOL distinctions. Exact refreshed NS8000/CWCVT service leaf and declared FC repeater bridges are separate graph exceptions. Complete Connect authoring, guarded portable JSON reopen/export, sealed review reports and stale-response/download invalidation. Unknown models, generations, cable construction/power/host-specific capacities remain unresolved. No field operations, measured wiring, electrical certification or native controller programming."
   }
 ]
