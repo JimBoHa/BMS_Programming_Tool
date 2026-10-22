@@ -9,6 +9,7 @@ from .engine import validate
 from .formats import export_program, import_program
 from .macros import expand_macros
 from .models import Program
+from .source_profiles import source_profile
 
 PROFILE = "conversion-preview/1"
 MAX_ARTIFACT_BYTES = 4 * 1024 * 1024
@@ -148,6 +149,8 @@ def conversion_preview(program: Program):
             "native_compilation": "not-run",
             "controller_acceptance": "unverified",
         }
+        if format in ("st", "plcopen"):
+            row["source_generator"] = source_profile()
         try:
             content, mime, extension = export_program(program, format)
             if len(content) > MAX_ARTIFACT_BYTES:
@@ -193,6 +196,7 @@ def conversion_preview(program: Program):
         "controller_acceptance": "unverified",
         "notes": _notes("sedona", calendars),
         "error": None,
+        "source_generator": source_profile(),
     }
     try:
         from .sedona import application_xml, kit_source

@@ -26,6 +26,13 @@ from .executable_numbers import _legacy_source_projection
 from .file_access import file_lock
 from .formats import ConversionError, structured_text_parts
 from .models import Program, canonical
+from .source_profiles import (
+    CURRENT,
+    LEGACY,
+    read_profile_json,
+    source_profile,
+    verify_source_profile,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 _COMPILER_LOCK = threading.RLock()
@@ -112,11 +119,11 @@ def _expression(text):
     return re.sub(r"\b(?:\d+\.\d+(?:[eE][+-]?\d+)?|\d+[eE][+-]?\d+)\b", lambda m: m[0] + "f", text)
 
 
-def kit_source(program):
+def kit_source(program, *, profile=CURRENT):
     """Lower our bounded ST grammar to Sedona; never evaluate imported source."""
     core = program.model_copy(deep=True)
     core.metadata.pop("native_sedona", None)
-    declarations, body = structured_text_parts(core)
+    declarations, body = structured_text_parts(core, profile=profile)
     reflected = {
         name for group in ("inputVars", "outputVars") for name, _, _ in declarations[group]
     }
@@ -127,6 +134,9 @@ def kit_source(program):
         "class Graph extends Component",
         "{",
     ]
+    if profile != LEGACY:
+        info = source_profile(profile)
+        lines.insert(1, "// Source generator: " + info["id"] + " rules " + info["rules_sha256"])
     for group, variables in declarations.items():
         for name, kind, initial in variables:
             prefix = (
@@ -241,12 +251,20 @@ def application_xml(kit, *, auth=None, port=1876, scan_seconds=1.0, native_docum
     return XML.tostring(root, encoding="utf-8", xml_declaration=True)
 
 
+def kit_name(program, *, profile=CURRENT):
+    info = source_profile(profile)
+    data = canonical(program)
+    if profile != LEGACY:
+        data = info["id"].encode() + b"\0" + info["rules_sha256"].encode() + b"\0" + data
+    return "studio" + hashlib.sha256(data).hexdigest()[:10]
+
+
 def compile_program(program, directory, *, auth=None, port=1876):
     source = kit_source(program)
     sdk, java = toolchain()
     directory = Path(directory).resolve()
     directory.mkdir(parents=True, exist_ok=True)
-    name = "studio" + hashlib.sha256(canonical(program)).hexdigest()[:10]
+    name = kit_name(program)
     definition = (
         f'<sedonaKit name="{name}" vendor="studio" includeSource="true" '
         'description="Generated BMS Studio control graph">'
@@ -296,7 +314,7 @@ def compile_program(program, directory, *, auth=None, port=1876):
         if len(files) != 1:
             raise ConversionError("Compiler did not produce exactly one native kit.")
         (directory / "native.kit").write_bytes(files[0].read_bytes())
-    return {"kit": name, "source": source, "sdk": str(sdk)}
+    return {"kit": name, "source": source, "sdk": str(sdk), "source_generator": source_profile()}
 
 
 def export_bundle(program):
@@ -331,7 +349,8 @@ def export_bundle(program):
         files["Sedona-LICENSE.md"] = (Path(build["sdk"]) / "LICENSE.md").read_bytes()
         files["manifest.json"] = json.dumps(
             {
-                "schema": "bms-sedona-bundle/1",
+                "schema": "bms-sedona-bundle/2",
+                "source_generator": build["source_generator"],
                 "kit": build["kit"],
                 "files": {name: hashlib.sha256(data).hexdigest() for name, data in files.items()},
             },
@@ -366,9 +385,18 @@ def import_bundle(content):
             raise ConversionError("Unexpected or duplicate Sedona bundle members.")
         if sum(i.file_size for i in infos) > 32 * 1024 * 1024:
             raise ConversionError("Expanded Sedona bundle exceeds 32 MiB.")
-        manifest = json.loads(archive.read("manifest.json"))
-        if not isinstance(manifest, dict) or manifest.get("schema") != "bms-sedona-bundle/1":
+        manifest = read_profile_json(archive.read("manifest.json"), limit=64 * 1024)
+        if not isinstance(manifest, dict) or manifest.get("schema") not in (
+            "bms-sedona-bundle/1",
+            "bms-sedona-bundle/2",
+        ):
             raise ConversionError("Unknown Sedona bundle schema.")
+        legacy = manifest["schema"] == "bms-sedona-bundle/1"
+        expected_fields = {"schema", "kit", "files"} | (set() if legacy else {"source_generator"})
+        if set(manifest) != expected_fields:
+            raise ConversionError("Unknown or conflicting Sedona source-generator profile markers.")
+        if not legacy:
+            verify_source_profile(manifest["source_generator"])
         if (
             not isinstance(manifest.get("files"), dict)
             or set(manifest["files"]) != expected - {"manifest.json"}
@@ -382,10 +410,14 @@ def import_bundle(content):
             if hashlib.sha256(archive.read(name)).hexdigest() != digest:
                 raise ConversionError("Sedona bundle checksum mismatch.")
         program = Program.model_validate_json(archive.read("program.bms.json"))
-        kit = "studio" + hashlib.sha256(canonical(program)).hexdigest()[:10]
+        profile = LEGACY if legacy else CURRENT
+        kit = kit_name(program, profile=profile)
         if (
             manifest.get("kit") != kit
-            or archive.read("Graph.sedona") != kit_source(_legacy_source_projection(program))
+            or archive.read("Graph.sedona")
+            != kit_source(
+                _legacy_source_projection(program) if legacy else program, profile=profile
+            )
             or archive.read("app.sax")
             != application_xml(
                 kit,

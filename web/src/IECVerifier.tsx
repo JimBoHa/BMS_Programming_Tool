@@ -252,6 +252,12 @@ export function IECVerifier({ program }: { program: Program }) {
               MatIEC revision <code>{status.revision}</code>. {status.calendar}.
               This profile is not a certified PLC runtime.
             </p>
+            {status.source_generator && (
+              <p>
+                Literal profile: <code>{status.source_generator.id}</code> ·
+                rules <code>{status.source_generator.rules_sha256}</code>
+              </p>
+            )}
           </details>
         )}
       </section>
