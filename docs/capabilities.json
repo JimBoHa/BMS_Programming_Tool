@@ -363,5 +363,10 @@
     "feature": "Accumulator metering evidence and exact offline pulse review",
     "status": "implemented",
     "scope": "Opt-in verified direct/routed native Accumulator Prescale/Scale and related properties, typed/raw unknown and partial outcomes, independent exact integer batch/remainder review, explicit noncommitting limit stop, separate native baseline, server-byte sealed JSON/CSV and configuration-only import. Defaults add no native queries. No physical pulse/debounce/persistence/COV/wrap emulator, native configuration write, JCI compilation or hardware acceptance. See docs/accumulator-prescale.md."
+  },
+  {
+    "feature": "Reviewed native weekly-day deployment GUI",
+    "status": "implemented",
+    "scope": "Scoped Connect GUI: explicit operator/rationale and fresh native preview, source/connection/expiry guards, one-use Apply, cancellation, durable local journal reopen, independent may-have-applied/protocol/readback facts and original HTTP-byte exports. Recovered intents remain unknown; reconciliation is explicit read-only. No automatic queries/writes/retry, arbitrary CAF/program upload, Calendar/exception/target/default edits, extra transports or physical manufacturer acceptance. See docs/native-weekly-day-write-ui.md."
   }
 ]
