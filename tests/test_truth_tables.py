@@ -332,6 +332,14 @@ def test_import_seals_and_exact_profile_types_are_not_implicitly_migrated(mutati
         b"[" * 10000 + b"0" + b"]" * 10000,
         b" " * (truth.MAX_SOURCE_BYTES + 1),
     ],
+    ids=[
+        "duplicate-key",
+        "nonfinite-literal",
+        "overflow-number",
+        "invalid-utf8",
+        "deep-nesting",
+        "oversize-source",
+    ],
 )
 def test_strict_raw_parser_refuses_ambiguous_nonfinite_invalid_deep_and_large_json(raw):
     with pytest.raises(ValueError):
