@@ -1,0 +1,149 @@
+.truth-page {
+  padding: 24px;
+  max-width: 1600px;
+  margin: auto;
+}
+.truth-page p {
+  line-height: 1.55;
+}
+.truth-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.truth-heading h1 {
+  margin-bottom: 6px;
+}
+.truth-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin: 18px 0;
+}
+.truth-card h2 {
+  margin-top: 0;
+}
+.truth-page label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+  font-size: 13px;
+}
+.truth-page input:not([type="checkbox"]),
+.truth-page select {
+  max-width: 100%;
+  padding: 8px;
+  min-width: 110px;
+}
+.truth-page code {
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.truth-actions,
+.truth-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.truth-row-actions {
+  max-width: 280px;
+}
+.truth-actions button,
+.truth-upload {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.truth-page .truth-upload {
+  flex-direction: row;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+}
+.truth-upload input {
+  max-width: 210px !important;
+}
+.truth-domains {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 14px;
+}
+.truth-domain {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  margin: 14px 0;
+}
+.truth-state {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.truth-state label {
+  max-width: 200px;
+}
+.truth-small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.truth-scroll {
+  overflow-x: auto;
+  margin: 14px 0;
+}
+.truth-page table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+}
+.truth-page th,
+.truth-page td {
+  border: 1px solid var(--border);
+  padding: 10px;
+  vertical-align: top;
+  text-align: left;
+}
+.truth-page th {
+  background: #f5f8fa;
+}
+.truth-page td > code {
+  display: block;
+  margin-top: 5px;
+}
+.truth-page .truth-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  margin-top: 20px;
+}
+.truth-fallback {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.truth-fallback label {
+  flex: 1;
+}
+.truth-page [role="alert"] {
+  padding: 14px;
+  border: 1px solid #d9a69b;
+  color: #883527;
+  background: #fff5f1;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 700px) {
+  .truth-page {
+    padding: 12px;
+  }
+  .truth-card {
+    padding: 12px;
+  }
+  .truth-domains {
+    display: block;
+  }
+}
