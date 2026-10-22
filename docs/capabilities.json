@@ -343,5 +343,10 @@
     "feature": "Exact supported browser history identities",
     "status": "implemented",
     "scope": "Canonical decimal whole-ID text uses BigInt before Number; received numeric IDs require Number.isSafeInteger and positive bounds, with zero only for cursors. Unsupported pages clear row actions/cursors, safe filters remain usable, and each download/retry/discard/prune/ack/events/paging boundary rechecks IDs. Original delivery Blob downloads preserve nested payload values. Browser profile stops at MAX_SAFE_INTEGER; no full 64-bit browser protocol, backend history/native evidence changes or field traffic. See docs/browser-history-identities.md."
+  },
+  {
+    "feature": "Preserved live numeric input intent",
+    "status": "implemented",
+    "scope": "Validated SourceNumber atoms preserve original live numeric tokens. Accepted response tail values/forces and verified group source paths retain types; structural Program/DTO projection and legacy Number APIs stay unchanged. Receipt-only128MiB/8M/depth64 extraction bound preserves proved session ownership on refusal. Finite binary64 and native precision limits remain explicit; no arbitrary-precision, field-device or native JCI equivalence claim. See docs/live-numeric-intent.md."
   }
 ]

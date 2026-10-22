@@ -2,6 +2,8 @@ import {
   decodeSourceResponse,
   prepareSourceRequest,
   sourceRequestStringify,
+  parseSourceJSON,
+  projectSourceDocument,
 } from "./programSource";
 let token = "";
 export async function initSession() {
@@ -50,6 +52,21 @@ export async function programApi(
 }
 export const sourceApi = (path: string, body?: unknown, method?: string) =>
   programApi(path, body, method, true);
+/** Verified exact response plus its original source tree for explicitly reused live values. */
+export async function sourceJsonDocument(
+  path: string,
+  body?: unknown,
+  project = projectSourceDocument,
+): Promise<JsonDocument & { source: any }> {
+  const response = await request(path, body, undefined, {
+    program: true,
+    sourceResponse: true,
+  });
+  const blob = await response.blob();
+  const envelope = JSON.parse(await blob.text());
+  const data = await decodeSourceResponse(envelope, project);
+  return { data, blob, source: parseSourceJSON(envelope.source_json) };
+}
 export async function programJsonDocument<T = any>(
   path: string,
   body?: unknown,

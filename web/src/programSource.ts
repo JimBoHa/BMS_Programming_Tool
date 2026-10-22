@@ -71,10 +71,24 @@ function checkBudget(depth: number, remaining: { n: number }) {
 }
 /** Strict bounded JSON parser captures numeric tokens before any binary64 conversion. */
 export function parseSourceJSON(text: string): any {
-  if (!text.length || new TextEncoder().encode(text).length > MAX_BYTES)
-    throw new Error("Program source must be between 1 byte and 8 MiB");
+  return readNumericJSON(text, false);
+}
+/** Execution receipts have their own bound; retain only the final committed values/forces. */
+export function parseExecutionHistoryTail(text: string): any {
+  const result = readNumericJSON(text, true);
+  return result?.history?.at(-1) || {};
+}
+function readNumericJSON(text: string, historyTail: boolean): any {
+  const maxBytes = historyTail ? 128 * 1024 * 1024 : MAX_BYTES;
+  if (!text.length || new TextEncoder().encode(text).length > maxBytes)
+    throw new Error(
+      historyTail
+        ? "Execution receipt exceeds its 128 MiB bound"
+        : "Program source must be between 1 byte and 8 MiB",
+    );
   let i = 0;
-  const budget = { n: MAX_ITEMS };
+  const budget = { n: historyTail ? 8_000_000 : MAX_ITEMS };
+  type Mode = "all" | "skip" | "root" | "history" | "row";
   const ws = () => {
     while (/[\x20\t\r\n]/.test(text[i] || "!") && i < text.length) i++;
   };
@@ -100,7 +114,7 @@ export function parseSourceJSON(text: string): any {
     }
     throw new Error("Unterminated JSON string");
   }
-  function value(depth: number): any {
+  function value(depth: number, mode: Mode = "all"): any {
     checkBudget(depth, budget);
     ws();
     if (text[i] === '"') return string();
@@ -123,13 +137,29 @@ export function parseSourceJSON(text: string): any {
           keys.add(key);
           ws();
           if (text[i++] !== ":") throw new Error("Expected JSON colon");
-          Object.defineProperty(result, key, {
-            value: value(depth + 1),
-            enumerable: true,
-            writable: true,
-            configurable: true,
-          });
-        } else result.push(value(depth + 1));
+          const childMode: Mode =
+            mode === "root"
+              ? key === "history"
+                ? "history"
+                : "skip"
+              : mode === "row"
+                ? ["values", "forces"].includes(key)
+                  ? "all"
+                  : "skip"
+                : mode;
+          const child = value(depth + 1, childMode);
+          if (childMode !== "skip")
+            Object.defineProperty(result, key, {
+              value: child,
+              enumerable: true,
+              writable: true,
+              configurable: true,
+            });
+        } else {
+          const child = value(depth + 1, mode === "history" ? "row" : mode);
+          if (mode === "history") result.length = 0;
+          if (mode !== "skip") result.push(child);
+        }
         ws();
         const next = text[i++];
         if (next === (object ? "}" : "]")) return result;
@@ -151,9 +181,9 @@ export function parseSourceJSON(text: string): any {
     );
     if (!match) throw new Error("Expected JSON value");
     i += match[0].length;
-    return new SourceNumber(match[0]);
+    return mode === "skip" ? undefined : new SourceNumber(match[0]);
   }
-  const result = value(0);
+  const result = value(0, historyTail ? "root" : "all");
   ws();
   if (i !== text.length) throw new Error("Unexpected trailing JSON data");
   return result;
@@ -330,7 +360,10 @@ export async function prepareSourceRequest(value: any): Promise<any> {
   }
   return visit(value, 0);
 }
-export async function decodeSourceResponse(envelope: any): Promise<any> {
+export async function decodeSourceResponse(
+  envelope: any,
+  project = projectSourceDocument,
+): Promise<any> {
   if (
     envelope?.format !== "bms.program-source-response/1" ||
     typeof envelope.source_json !== "string"
@@ -347,7 +380,7 @@ export async function decodeSourceResponse(envelope: any): Promise<any> {
     )
       throw new Error("Invalid block source response");
     return raw.map((block: any) => ({
-      ...projectSourceDocument({ ...block, parameters: undefined }),
+      ...project({ ...block, parameters: undefined }),
       parameters: block.parameters,
     }));
   }
@@ -388,7 +421,7 @@ export async function decodeSourceResponse(envelope: any): Promise<any> {
   }
   if (roots.size)
     throw new Error("Program source descriptor coverage mismatch");
-  return projectSourceDocument(raw);
+  return project(raw);
 }
 /** Explicit execution boundary: never round an integer typed by an operator. */
 export function executionNumber(text: string): number {
@@ -422,6 +455,61 @@ export function executionInput(
 ): void {
   try {
     const value = executionNumber(event.currentTarget.value);
+    event.currentTarget.setCustomValidity("");
+    apply(value);
+  } catch (error) {
+    event.currentTarget.setCustomValidity(String(error));
+    event.currentTarget.reportValidity();
+  }
+}
+
+/** Validate execution representability without changing the operator's JSON type/token. */
+export function executionSourceValue(text: string): SourceNumber {
+  executionNumber(text);
+  return sourceNumber(text);
+}
+export type ExecutionValue = SourceNumber | number | boolean;
+/** Preserve each validated numeric token; strings, Booleans and null stay unchanged. */
+export function executionSourceTree(value: any): any {
+  if (isSourceNumber(value)) return executionSourceValue(value.token);
+  if (Array.isArray(value)) return value.map(executionSourceTree);
+  if (value && typeof value === "object")
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [
+        key,
+        executionSourceTree(item),
+      ]),
+    );
+  return value;
+}
+export const parseExecutionSourceJSON = (text: string): any =>
+  executionSourceTree(parseSourceJSON(text));
+/** Accepted graph values/forces are scalar maps, never quality wrappers or arbitrary DTOs. */
+export function executionScalarMap(raw: any): Record<string, ExecutionValue> {
+  if (
+    !raw ||
+    typeof raw !== "object" ||
+    Array.isArray(raw) ||
+    isSourceNumber(raw)
+  )
+    throw new Error("Execution receipt requires a scalar value map");
+  return Object.fromEntries(
+    Object.entries(raw).map(([key, value]) => {
+      if (typeof value === "boolean") return [key, value];
+      if (isSourceNumber(value))
+        return [key, executionSourceValue(value.token)];
+      throw new Error("Execution receipt value must be a number or Boolean");
+    }),
+  );
+}
+
+/** Numeric editors retain tokens only after the existing execution-profile check succeeds. */
+export function executionSourceInput(
+  event: { currentTarget: HTMLInputElement },
+  apply: (value: SourceNumber) => void,
+): void {
+  try {
+    const value = executionSourceValue(event.currentTarget.value);
     event.currentTarget.setCustomValidity("");
     apply(value);
   } catch (error) {
