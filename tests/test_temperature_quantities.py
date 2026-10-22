@@ -9,6 +9,7 @@ from bms_tool.engine import Engine, ScanError, validate
 from bms_tool.formats import export_program, export_st, import_program
 from bms_tool.models import Edge, Node, Program, canonical
 from bms_tool.niagara import SOURCE, NiagaraArchive, export_bog, import_bog
+from bms_tool.source_profiles import LEGACY
 from bms_tool.storage import LEGACY_HASH_FORMAT, Store
 from bms_tool.temco import import_source
 
@@ -209,10 +210,18 @@ def test_legacy_temperature_serialization_export_and_stored_hashes_stay_exact(tm
     )
     # Recorded from unchanged main before introducing quantity blocks.
     assert p.digest() == "959db788104d731f24167958bd4c4cacb1a8473455d8c0bed90654ec85d33911"
+    legacy_source = export_st(p, profile=LEGACY)
     assert (
-        hashlib.sha256(export_st(p)).hexdigest()
+        hashlib.sha256(legacy_source).hexdigest()
         == "6a95c97276096b0bc4499a50723817dbc043c0285b45b4585736fb4a1bd49e7c"
     )
+    # New generation is explicitly versioned; both formats retain the graph.
+    current_source = export_st(p)
+    assert b"BMS_STUDIO_IR_V1 " in legacy_source
+    assert b"BMS_STUDIO_IR_V2 " in current_source
+    assert current_source != legacy_source
+    for source in (legacy_source, current_source):
+        assert canonical(import_program(source, "temperature.st")) == canonical(p)
     original = p.model_dump_json()
     assert (
         hashlib.sha256(original.encode()).hexdigest()
