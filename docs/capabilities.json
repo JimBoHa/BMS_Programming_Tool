@@ -298,5 +298,10 @@
     "feature": "Native state domains and offline enum mapping review",
     "status": "implemented",
     "scope": "Explicit opt-in native binary/multistate labels, polarity, Number_Of_States and bounded indexed State_Text with exact code validation and raw failures. Separate bounded operator-declared namespace/state-ID/code mapping editor reviews missing/duplicate/unknown states, target coverage and explicit many-to-one loss with rationale; probes, strict plan import and sealed exact exports. No label-driven mapping, native/JCI/portable domain binding, executable lowering or controller writes. Broad MF-3fc6a30927 remains partial. docs/native-enum-domains.md"
+  },
+  {
+    "feature": "Executable integer precision guards",
+    "status": "implemented",
+    "scope": "Known graph numeric parameters, expanded macros, live inputs/forces and computed values refuse nonrepresentable integer-to-binary64 coercion before execution/commit. Exact large integers remain valid. ST/PLCopen/Niagara/native IEC/Sedona numeric boundaries guard before conversion/exchange. Existing decimal literal formatting remains a separately documented conversion limitation. Archival Program/canonical hashes and native evidence remain unchanged. Ordinary floating-point and native binary32/fixed-point differences remain explicit; no arbitrary-precision or physical-controller equivalence claim."
   }
 ]

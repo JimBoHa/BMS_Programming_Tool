@@ -23,6 +23,7 @@ from defusedxml.common import DefusedXmlException
 
 from .blocks import BLOCKS
 from .engine import input_type, output_type, validate
+from .executable_numbers import require_number
 from .formats import ConversionError
 from .macros import expand_macros
 from .models import Edge, Node, Program, canonical
@@ -124,6 +125,11 @@ def _scalar(value, boolean=False):
         )
     if type(value) is bool:
         raise ConversionError("Native numeric value cannot be Boolean.")
+    if type(value) is int:
+        try:
+            require_number(value, "Native numeric value")
+        except ValueError as exc:
+            raise ConversionError(str(exc)) from exc
     try:
         number = float(value)
     except (ValueError, TypeError, OverflowError) as exc:
@@ -706,7 +712,16 @@ def import_bog(content: bytes):
     source = SOURCE.search(archive.xml)
     if source:
         program = Program.model_validate_json(base64.b64decode(source[1], validate=True))
-        if niagara_xml(program) != archive.xml:
+        # Compare old emitted source without treating archival import as new
+        # executable admission. Return the untouched embedded graph below.
+        from .executable_numbers import _legacy_source_projection
+
+        expected = niagara_xml(_legacy_source_projection(program))
+        original_comment = (
+            b"<!-- BMS_STUDIO_BOG_V1 " + base64.b64encode(canonical(program)) + b" -->"
+        )
+        expected = SOURCE.sub(lambda _: original_comment, expected, count=1)
+        if expected != archive.xml:
             raise ConversionError(
                 "Native BOG was edited; embedded source no longer matches. Open without its source comment for explicit semantic conversion."
             )
