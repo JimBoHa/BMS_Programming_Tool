@@ -182,3 +182,5 @@ Proprietary JCI/ALC/Honeywell encoders/compilers, full native imports/conversion
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). JCI interoperability dictionaries retain OCT attribution. Vendor names and trademarks identify compatibility targets; this project has no vendor affiliation.
+
+Portable graph editing retains exact numeric source through project, macro, recovery and request workflows; see [Program source](docs/program-source.md) for projection bounds and archival/execution limits.

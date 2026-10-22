@@ -1,3 +1,8 @@
+import {
+  decodeSourceResponse,
+  prepareSourceRequest,
+  sourceRequestStringify,
+} from "./programSource";
 let token = "";
 export async function initSession() {
   const session = await api("/session");
@@ -21,9 +26,55 @@ export async function apiJsonDocument<T = any>(
   const blob = await response.blob();
   return { data: JSON.parse(await blob.text()) as T, blob };
 }
-async function request(path: string, body?: unknown, method?: string) {
+type RequestOptions = {
+  program?: boolean;
+  sourceResponse?: boolean;
+  keepalive?: boolean;
+};
+export async function programApi(
+  path: string,
+  body?: unknown,
+  method?: string,
+  sourceResponse = false,
+): Promise<any> {
+  const response = await request(path, body, method, {
+    program: true,
+    sourceResponse,
+  });
+  const data = await response.json();
+  return sourceResponse ? decodeSourceResponse(data) : data;
+}
+export const sourceApi = (path: string, body?: unknown, method?: string) =>
+  programApi(path, body, method, true);
+export async function programJsonDocument<T = any>(
+  path: string,
+  body?: unknown,
+): Promise<JsonDocument<T>> {
+  const response = await request(path, body, undefined, { program: true });
+  const blob = await response.blob();
+  return { data: JSON.parse(await blob.text()) as T, blob };
+}
+export async function programDownload(
+  path: string,
+  body: unknown,
+  filename: string,
+  shouldSave?: () => boolean,
+) {
+  const response = await request(path, body, undefined, { program: true });
+  const blob = await response.blob();
+  if (shouldSave && !shouldSave()) return false;
+  saveBlob(blob, filename);
+  return true;
+}
+async function request(
+  path: string,
+  body?: unknown,
+  method?: string,
+  options: RequestOptions = {},
+) {
   const headers: Record<string, string> = {};
   if (token) headers["X-Studio-Token"] = token;
+  if (options.sourceResponse) headers["X-Studio-Program-Source"] = "true";
   if (body !== undefined && !(body instanceof FormData))
     headers["Content-Type"] = "application/json";
   const response = await fetch("/api" + path, {
@@ -34,7 +85,10 @@ async function request(path: string, body?: unknown, method?: string) {
         ? undefined
         : body instanceof FormData
           ? body
-          : JSON.stringify(body),
+          : options.program
+            ? sourceRequestStringify(await prepareSourceRequest(body))
+            : JSON.stringify(body),
+    keepalive: options.keepalive,
   });
   if (!response.ok) {
     let message;

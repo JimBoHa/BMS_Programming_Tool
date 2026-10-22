@@ -308,5 +308,10 @@
     "feature": "Lifecycle draft recovery",
     "status": "implemented",
     "scope": "Latest ready portable program/macro snapshots flush on pagehide, beforeunload, hidden-page and React unmount while retaining 200 ms validation debounce. Shared ordered serializer protects prior macro recovery on failed primary writes; storage errors remain separate from validation; startup read/parse failure disables automatic recovery writes for that page. Fast reload, apply/discard, ready guards and actual unmount tested in Chromium/WebKit. Browser crashes/forced exits, storage availability and disk durability remain outside the guarantee; project save/export is separate."
+  },
+  {
+    "feature": "Exact portable Program numeric source",
+    "status": "implemented",
+    "scope": "Opt-in Program-only source envelopes, strict token parser, source-aware clone/editor/recovery/API workflows, exact canonical conformance binding and archival retention. Typed structural projection bounds and executable numeric profile remain explicit; no legacy content migration, reconstruction of previously rounded data, native evidence reinterpretation or controller acceptance. See docs/program-source.md."
   }
 ]

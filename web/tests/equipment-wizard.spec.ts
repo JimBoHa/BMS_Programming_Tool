@@ -1,3 +1,7 @@
+import {
+  sourceFixtureData,
+  resealSourceFixture,
+} from "./sourceTransportFixtures";
 import { test, expect, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
@@ -81,7 +85,7 @@ test("author measured-airflow project, preview actual signals, protect current d
       response.url().endsWith("/api/equipment-wizard/preview") &&
       response.ok()
     )
-      preview = await response.json();
+      preview = sourceFixtureData(await response.json());
   });
   dialog = await review(page);
   await expect(
@@ -257,13 +261,17 @@ for (const mode of [
     const dialog = await params(page);
     await page.route("**/api/equipment-wizard/preview", async (route) => {
       const response = await route.fetch(),
-        value = await response.json();
+        envelope = await response.json(),
+        value = sourceFixtureData(envelope);
       if (mode === "wrong-choice") value.choices.name = "Different source";
       if (mode === "wrong-profile") value.profile_sha256 = "0".repeat(64);
       if (mode === "wrong-profile-body") value.profile.gaps = [];
       await route.fulfill({
         response,
-        json: mode === "wrapper" ? { preview: value } : value,
+        json:
+          mode === "wrapper"
+            ? { preview: "unexpected wrapper" }
+            : resealSourceFixture(envelope, value),
       });
     });
     await dialog

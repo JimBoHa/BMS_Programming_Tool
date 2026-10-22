@@ -1,4 +1,11 @@
 import {
+  parseSourceDocument,
+  sourceStringify,
+  isExactProgram,
+} from "./programSource";
+import { sourceApi } from "./api";
+import { cloneSource } from "./programSource";
+import {
   lazy,
   Suspense,
   useCallback,
@@ -37,7 +44,7 @@ import {
   BellRing,
   TableProperties,
 } from "lucide-react";
-import { api, download, initSession } from "./api";
+import { programApi, programDownload, initSession } from "./api";
 import {
   blankProgram,
   type Block,
@@ -231,6 +238,10 @@ export function App() {
   function setProgram(next: Program | ((current: Program) => Program)) {
     const updated =
       typeof next === "function" ? next(latestProgram.current) : next;
+    if (!isExactProgram(updated))
+      throw new Error(
+        "Program source projection refused; reopen the authoritative source.",
+      );
     if (updated === latestProgram.current) return;
     simulationEpoch.current++;
     latestProgram.current = updated;
@@ -239,12 +250,12 @@ export function App() {
   }
   async function refreshProjects() {
     const epoch = ++projectsEpoch.current;
-    const rows = await api("/projects");
+    const rows = await programApi("/projects");
     if (epoch === projectsEpoch.current) setProjects(rows);
   }
   async function refreshVersions(id: string) {
     const epoch = ++versionsEpoch.current;
-    const rows = await api(`/projects/${id}/versions`);
+    const rows = await programApi(`/projects/${id}/versions`);
     if (epoch === versionsEpoch.current && latestProgram.current.id === id)
       setVersions(rows);
   }
@@ -274,7 +285,7 @@ export function App() {
     if (!ready) return;
     const timer = setTimeout(
       () =>
-        api("/macros/catalog", { program })
+        programApi("/macros/catalog", { program })
           .then((r) => {
             if (live)
               setMacroBlocks(
@@ -295,7 +306,11 @@ export function App() {
     let live = true;
     initSession()
       .then(() =>
-        Promise.all([api("/blocks"), api("/templates"), api("/projects")]),
+        Promise.all([
+          sourceApi("/blocks"),
+          sourceApi("/templates"),
+          programApi("/projects"),
+        ]),
       )
       .then(([b, t, p]) => {
         if (!live) return;
@@ -312,7 +327,7 @@ export function App() {
         try {
           const saved = localStorage.getItem("bms-studio-draft-v1");
           if (saved) {
-            const parsed = JSON.parse(saved);
+            const parsed = parseSourceDocument(saved);
             if (
               parsed.schema_version === 1 &&
               Array.isArray(parsed.nodes) &&
@@ -326,7 +341,7 @@ export function App() {
         }
         try {
           const raw = localStorage.getItem("bms-studio-macro-edit-v1");
-          const draft = JSON.parse(raw || "null");
+          const draft = parseSourceDocument(raw || "null");
           if (
             draft?.parent?.schema_version === 1 &&
             draft?.draft?.schema_version === 1 &&
@@ -371,7 +386,7 @@ export function App() {
     setRecordingError("");
     const timer = setTimeout(() => {
       flushRecovery();
-      api("/validate", program)
+      programApi("/validate", program)
         .then((r) => {
           if (
             live &&
@@ -399,7 +414,7 @@ export function App() {
     };
   }, [program, ready, macroEdit]);
   const remember = useCallback(() => {
-    setUndoStack((s) => [...s.slice(-49), structuredClone(program)]);
+    setUndoStack((s) => [...s.slice(-49), cloneSource(program)]);
     setRedoStack([]);
   }, [program]);
   function change(p: Program, record = true) {
@@ -409,13 +424,13 @@ export function App() {
   }
   function undo() {
     if (!undoStack.length) return;
-    setRedoStack((s) => [...s, structuredClone(program)]);
+    setRedoStack((s) => [...s, cloneSource(program)]);
     setProgram(undoStack.at(-1)!);
     setUndoStack((s) => s.slice(0, -1));
   }
   function redo() {
     if (!redoStack.length) return;
-    setUndoStack((s) => [...s, structuredClone(program)]);
+    setUndoStack((s) => [...s, cloneSource(program)]);
     setProgram(redoStack.at(-1)!);
     setRedoStack((s) => s.slice(0, -1));
   }
@@ -493,12 +508,13 @@ export function App() {
     const epoch = draftEpoch.current,
       navigation = loadEpoch.current;
     try {
-      const native = tab === "native" ? await api("/native/status") : null;
+      const native =
+        tab === "native" ? await sourceApi("/native/status") : null;
       const p = native?.running
-        ? await api("/native/save", {
+        ? await sourceApi("/native/save", {
             expected_revision: native.program.revision,
           })
-        : await api("/projects", {
+        : await sourceApi("/projects", {
             program: snapshot,
             expected_revision: snapshot.revision,
           });
@@ -529,7 +545,7 @@ export function App() {
     if (macroEdit) return;
     const parent = program;
     try {
-      const draft = await api("/macros/definition", {
+      const draft = await sourceApi("/macros/definition", {
         program: parent,
         definition,
       });
@@ -554,7 +570,7 @@ export function App() {
     if (!macroEdit) return;
     const draft = program;
     try {
-      const updated = await api("/macros/update", {
+      const updated = await sourceApi("/macros/update", {
         program: macroEdit.parent,
         definition: macroEdit.definition,
         replacement: draft,
@@ -596,7 +612,7 @@ export function App() {
       const epoch = simulationEpoch.current;
       const operation = crypto.randomUUID().replaceAll("-", "");
       try {
-        const r = await api("/simulation/step", {
+        const r = await programApi("/simulation/step", {
           program,
           inputs,
           forces,
@@ -690,7 +706,7 @@ export function App() {
     const source = program;
     const admittedForces = forces;
     try {
-      const result = await api("/simulation/scenario", {
+      const result = await programApi("/simulation/scenario", {
         program: source,
         events,
         duration,
@@ -811,7 +827,7 @@ export function App() {
       label: b.title,
       x: x ?? 100 + (program.nodes.length % 4) * 240,
       y: y ?? 100 + Math.floor(program.nodes.length / 4) * 180,
-      params: structuredClone(b.parameters),
+      params: cloneSource(b.parameters),
       unit: b.unit || "",
       value_type: b.output === "boolean" ? "boolean" : "number",
     };
@@ -840,7 +856,7 @@ export function App() {
     pasteSelection();
   }
   function copySelection() {
-    clipboard.current = structuredClone({
+    clipboard.current = cloneSource({
       source: program,
       nodes: program.nodes.filter((n) => selection.includes(n.id)),
       edges: program.edges.filter(
@@ -869,11 +885,11 @@ export function App() {
           .map((n) => n.params.definition),
       );
       for (const definition of definitions) {
-        const bundle = await api("/macros/export", {
+        const bundle = await sourceApi("/macros/export", {
           program: clip.source,
           definition,
         });
-        base = await api("/macros/import", { program: base, bundle });
+        base = await sourceApi("/macros/import", { program: base, bundle });
       }
       if (latestProgram.current !== program) {
         setMessage(
@@ -892,7 +908,7 @@ export function App() {
       ]),
     );
     const nodes = clip.nodes.map((n) => ({
-      ...structuredClone(n),
+      ...cloneSource(n),
       id: ids[n.id],
       label: (n.label + " copy").slice(0, 200),
       x: n.x + 50,
@@ -979,7 +995,7 @@ export function App() {
       epoch = draftEpoch.current;
     const snapshot = latestProgram.current;
     try {
-      const loaded = await api(
+      const loaded = await sourceApi(
         `/projects/${id}${revision ? "?revision=" + revision : ""}`,
       );
       if (request !== loadEpoch.current) return;
@@ -1010,7 +1026,7 @@ export function App() {
     try {
       const f = new FormData();
       f.append("file", file);
-      const imported = await api("/import", f);
+      const imported = await sourceApi("/import", f);
       if (request !== loadEpoch.current) return;
       if (epoch !== draftEpoch.current || latestProgram.current !== snapshot) {
         setMessage(
@@ -1230,7 +1246,7 @@ export function App() {
                         );
                         if (p) {
                           change({
-                            ...structuredClone(p),
+                            ...cloneSource(p),
                             id: p.id + "-" + Date.now().toString(36),
                           });
                           setSelected(null);
@@ -1316,7 +1332,7 @@ export function App() {
                     <button
                       onClick={async () => {
                         try {
-                          await download(
+                          await programDownload(
                             "/export",
                             { program, format },
                             program.id +
@@ -1631,7 +1647,7 @@ export function App() {
             onClose={() => setEquipmentWizard(false)}
             onCreate={(generated, sourceKey) => {
               if (
-                JSON.stringify(latestProgram.current) !== sourceKey ||
+                sourceStringify(latestProgram.current) !== sourceKey ||
                 macroEdit ||
                 tab !== "editor"
               )
@@ -1795,9 +1811,7 @@ export function App() {
               {program.metadata?.conversion && (
                 <details open className="conversion-report">
                   <summary>Native conversion report · review required</summary>
-                  <pre>
-                    {JSON.stringify(program.metadata.conversion, null, 2)}
-                  </pre>
+                  <pre>{sourceStringify(program.metadata.conversion, 2)}</pre>
                 </details>
               )}
               {versions.map((v) => (

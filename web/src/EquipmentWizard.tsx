@@ -1,20 +1,12 @@
+import { sourceEqual, sourceStringify } from "./programSource";
+import { sourceApi } from "./api";
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import type { Program } from "./types";
 import "./equipment-wizard.css";
 type Data = Record<string, any>;
 const same = (a: any, b: any): boolean => {
-  const ordered = (v: any): any =>
-    Array.isArray(v)
-      ? v.map(ordered)
-      : v && typeof v === "object"
-        ? Object.fromEntries(
-            Object.keys(v)
-              .sort()
-              .map((k) => [k, ordered(v[k])]),
-          )
-        : v;
-  return JSON.stringify(ordered(a)) === JSON.stringify(ordered(b));
+  return sourceEqual(a, b);
 };
 export function EquipmentWizard({
   source,
@@ -33,7 +25,7 @@ export function EquipmentWizard({
     [error, setError] = useState("");
   const mounted = useRef(false),
     epoch = useRef(0),
-    sourceKey = JSON.stringify(source),
+    sourceKey = sourceStringify(source),
     draftKey = JSON.stringify(draft),
     live = useRef({ sourceKey, draftKey });
   live.current = { sourceKey, draftKey };
@@ -127,7 +119,7 @@ export function EquipmentWizard({
     setError("");
     setPreview(null);
     try {
-      const result = await api("/equipment-wizard/preview", draft);
+      const result = await sourceApi("/equipment-wizard/preview", draft);
       if (!current(gen, base, choices)) return;
       const provenance = result.program?.metadata?.equipment_wizard;
       if (
@@ -527,7 +519,7 @@ export function EquipmentWizard({
                     </p>
                     <p>{preview.profile.source.scope}</p>
                     <pre>
-                      {JSON.stringify(
+                      {sourceStringify(
                         {
                           choices: preview.choices,
                           inactive:
@@ -537,7 +529,6 @@ export function EquipmentWizard({
                           nodes: preview.program.nodes,
                           edges: preview.program.edges,
                         },
-                        null,
                         2,
                       )}
                     </pre>

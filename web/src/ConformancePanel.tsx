@@ -1,8 +1,9 @@
+import { sourceStringify } from "./programSource";
 import { useEffect, useRef, useState } from "react";
 import {
-  api,
-  apiJsonDocument,
-  download,
+  programApi,
+  programJsonDocument,
+  programDownload,
   saveBlob,
   type JsonDocument,
 } from "./api";
@@ -143,7 +144,7 @@ export function ConformancePanel({ program }: { program: Program }) {
     panel = useRef<HTMLElement>(null),
     generation = useRef(0),
     operation = useRef(false);
-  const sourceSignature = JSON.stringify(program),
+  const sourceSignature = sourceStringify(program),
     signature = JSON.stringify(suite);
   const liveSource = useRef(sourceSignature),
     liveSuite = useRef(signature);
@@ -217,7 +218,7 @@ export function ConformancePanel({ program }: { program: Program }) {
     setCatalog(null);
     setBusy(true);
     setError("");
-    api("/conformance/catalog", { program })
+    programApi("/conformance/catalog", { program })
       .then((data) => {
         if (!current(request, source)) return;
         setCatalog(data);
@@ -270,7 +271,7 @@ export function ConformancePanel({ program }: { program: Program }) {
     setCheckId("");
   }
   async function refresh() {
-    const data = await api("/conformance/catalog", { program });
+    const data = await programApi("/conformance/catalog", { program });
     return data.saved;
   }
   function newSuite() {
@@ -284,7 +285,7 @@ export function ConformancePanel({ program }: { program: Program }) {
   async function save() {
     if (!suite) return;
     await perform(async (request, source, draft) => {
-      const result = await api("/conformance/save", {
+      const result = await programApi("/conformance/save", {
         program,
         suite,
         id: identity,
@@ -302,7 +303,9 @@ export function ConformancePanel({ program }: { program: Program }) {
     if (!selection || !discard()) return;
     setReport(null);
     await perform(async (request, source, draft) => {
-      const result = await api(`/conformance/saved/${selection}`, { program });
+      const result = await programApi(`/conformance/saved/${selection}`, {
+        program,
+      });
       if (!current(request, source, draft)) return;
       apply(result.suite, result.id, result.revision, true);
       setMessage(
@@ -315,7 +318,7 @@ export function ConformancePanel({ program }: { program: Program }) {
     const entry = saved.find((row) => row.id === selection);
     if (!entry) return;
     await perform(async (request, source, draft) => {
-      await api(`/conformance/saved/${selection}/delete`, {
+      await programApi(`/conformance/saved/${selection}/delete`, {
         program,
         expected_revision: entry.revision,
       });
@@ -337,7 +340,7 @@ export function ConformancePanel({ program }: { program: Program }) {
     await perform(async (request, source, draft) => {
       if (file.size > 2 * 1024 * 1024)
         throw new Error("Conformance import exceeds2MiB.");
-      const result = await api("/conformance/import", {
+      const result = await programApi("/conformance/import", {
         program,
         text: await file.text(),
       });
@@ -352,7 +355,7 @@ export function ConformancePanel({ program }: { program: Program }) {
   async function exportSuite() {
     if (!suite) return;
     await perform(async (request, source, draft) => {
-      const saved = await download(
+      const saved = await programDownload(
         "/conformance/export",
         { program, suite },
         "graph-conformance-suite.json",
@@ -366,9 +369,12 @@ export function ConformancePanel({ program }: { program: Program }) {
     if (!suite) return;
     setReport(null);
     await perform(async (request, source, draft) => {
-      const validated = await api("/conformance/validate", { program, suite });
+      const validated = await programApi("/conformance/validate", {
+        program,
+        suite,
+      });
       if (!current(request, source, draft)) return;
-      const result = await apiJsonDocument("/conformance/run", {
+      const result = await programJsonDocument("/conformance/run", {
         program,
         suite: validated.suite,
       });

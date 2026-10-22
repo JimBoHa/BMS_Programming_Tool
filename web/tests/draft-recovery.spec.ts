@@ -1,3 +1,4 @@
+import { requestProgram } from "./sourceTransportFixtures";
 import { test, expect, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
@@ -233,7 +234,8 @@ test("storage failure preserves prior copy and is visible while validation still
   const validated = page.waitForResponse(
     (r) =>
       r.url().endsWith("/api/validate") &&
-      r.request().postDataJSON().name === "Current work after storage failure",
+      requestProgram(r.request().postDataJSON()).name ===
+        "Current work after storage failure",
   );
   await page.evaluate(() => (window as any).__runDraftTimers());
   expect((await validated).ok()).toBe(true);
@@ -341,7 +343,7 @@ for (const failure of ["get", "parse"])
     const validated = page.waitForResponse(
       (r) =>
         r.url().endsWith("/api/validate") &&
-        r.request().postDataJSON().name ===
+        requestProgram(r.request().postDataJSON()).name ===
           "Unsaved work while recovery unavailable",
     );
     await page.evaluate(() => (window as any).__runDraftTimers());

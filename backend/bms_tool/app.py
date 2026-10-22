@@ -77,6 +77,7 @@ from .network_number_plan import network_plan_router
 from .niagara import NiagaraArchive
 from .observability import ObservabilityStore
 from .point_status import PointStatus, PointStatusCancel, PointStatusExport, PointStatusRequest
+from .program_source import SourceMode, source_response
 from .resources import public_document, state_directory, web_directory
 from .routed_discovery import (
     ProbeTrunkRequest,
@@ -669,12 +670,12 @@ def create_app(state_dir=None):
         }
 
     @app.get("/api/blocks")
-    def blocks():
-        return catalog()
+    def blocks(source_transport: SourceMode = False):
+        return source_response(catalog(), source_transport, kind="blocks")
 
     @app.get("/api/templates")
-    def templates():
-        return [p.model_dump() for p in all_templates()]
+    def templates(source_transport: SourceMode = False):
+        return source_response([p.model_dump() for p in all_templates()], source_transport)
 
     @app.get("/api/observations/status")
     def observation_status():
@@ -878,62 +879,75 @@ def create_app(state_dir=None):
         return {"definitions": macro_catalog(body.program)}
 
     @app.post("/api/macros/create")
-    def macros_create(body: MacroSelection):
-        return create_definition(body.program, body.selected_ids, body.name)
+    def macros_create(body: MacroSelection, source_transport: SourceMode = False):
+        return source_response(
+            create_definition(body.program, body.selected_ids, body.name), source_transport
+        )
 
     @app.post("/api/macros/instantiate")
-    def macros_instantiate(body: MacroInstance):
-        return instantiate_macro(body.program, body.definition, body.x, body.y)
+    def macros_instantiate(body: MacroInstance, source_transport: SourceMode = False):
+        return source_response(
+            instantiate_macro(body.program, body.definition, body.x, body.y), source_transport
+        )
 
     @app.post("/api/macros/definition")
-    def macros_definition(body: MacroReference):
-        return inspect_macro_definition(body.program, body.definition)
+    def macros_definition(body: MacroReference, source_transport: SourceMode = False):
+        return source_response(
+            inspect_macro_definition(body.program, body.definition), source_transport
+        )
 
     @app.post("/api/macros/delete")
-    def macros_delete(body: MacroReference):
-        return delete_macro_definition(body.program, body.definition)
+    def macros_delete(body: MacroReference, source_transport: SourceMode = False):
+        return source_response(
+            delete_macro_definition(body.program, body.definition), source_transport
+        )
 
     @app.post("/api/macros/export")
-    def macros_export(body: MacroReference):
-        return export_macro_library(body.program, body.definition)
+    def macros_export(body: MacroReference, source_transport: SourceMode = False):
+        return source_response(
+            export_macro_library(body.program, body.definition), source_transport
+        )
 
     @app.post("/api/macros/import")
-    def macros_import(body: MacroImport):
-        return import_macro_library(body.program, body.bundle)
+    def macros_import(body: MacroImport, source_transport: SourceMode = False):
+        return source_response(import_macro_library(body.program, body.bundle), source_transport)
 
     @app.post("/api/macros/update")
-    def macros_update(body: MacroUpdate):
-        return update_macro_definition(body.program, body.definition, body.replacement)
+    def macros_update(body: MacroUpdate, source_transport: SourceMode = False):
+        return source_response(
+            update_macro_definition(body.program, body.definition, body.replacement),
+            source_transport,
+        )
 
     @app.get("/api/groups/demo")
-    def group_demo():
-        return demo_workspace()
+    def group_demo(source_transport: SourceMode = False):
+        return source_response(demo_workspace(), source_transport)
 
     @app.get("/api/groups")
     def group_list():
         return groups.list()
 
     @app.post("/api/groups/start")
-    def group_start(body: GroupStart):
-        return groups.start(body.definition, body.replace)
+    def group_start(body: GroupStart, source_transport: SourceMode = False):
+        return source_response(groups.start(body.definition, body.replace), source_transport)
 
     @app.get("/api/groups/{session}")
-    def group_status(session: str):
-        return groups.status(session)
+    def group_status(session: str, source_transport: SourceMode = False):
+        return source_response(groups.status(session), source_transport)
 
     @app.post("/api/groups/step")
-    def group_step(body: GroupStep):
+    def group_step(body: GroupStep, source_transport: SourceMode = False):
         if body.clock is not None and body.steps != 1:
             raise ValueError("An explicit clock applies to one group cycle.")
         group = groups.get(body.session)
         for _ in range(body.steps):
             group.step(body.inputs, clock=body.clock)
-        return groups.status(body.session)
+        return source_response(groups.status(body.session), source_transport)
 
     @app.post("/api/groups/reset")
-    def group_reset(body: GroupRequest):
+    def group_reset(body: GroupRequest, source_transport: SourceMode = False):
         groups.get(body.session).reset()
-        return groups.status(body.session)
+        return source_response(groups.status(body.session), source_transport)
 
     @app.post("/api/groups/close")
     def group_close(body: GroupRequest):
@@ -945,31 +959,37 @@ def create_app(state_dir=None):
         return Response(groups.export(body.session), media_type="application/json")
 
     @app.post("/api/groups/import")
-    async def group_import(file: Annotated[UploadFile, File()], replace: str | None = None):
+    async def group_import(
+        file: Annotated[UploadFile, File()],
+        replace: str | None = None,
+        source_transport: SourceMode = False,
+    ):
         content = await file.read(8 * 1024 * 1024 + 1)
-        return groups.import_file(content, replace)
+        return source_response(groups.import_file(content, replace), source_transport)
 
     @app.get("/api/projects")
     def projects():
         return store.projects()
 
     @app.post("/api/projects")
-    def save(body: SaveRequest):
-        return store.save(body.program, body.expected_revision)
+    def save(body: SaveRequest, source_transport: SourceMode = False):
+        return source_response(store.save(body.program, body.expected_revision), source_transport)
 
     @app.get("/api/projects/{id}/versions")
     def versions(id: str):
         return store.versions(id)
 
     @app.get("/api/projects/{id}")
-    def project(id: str, revision: int | None = None):
-        return store.load(id, revision)
+    def project(id: str, revision: int | None = None, source_transport: SourceMode = False):
+        return source_response(store.load(id, revision), source_transport)
 
     @app.post("/api/import")
-    async def import_file(file: Annotated[UploadFile, File()]):
+    async def import_file(
+        file: Annotated[UploadFile, File()], source_transport: SourceMode = False
+    ):
         content = await file.read(8 * 1024 * 1024 + 1)
         try:
-            return import_program(content, file.filename or "")
+            return source_response(import_program(content, file.filename or ""), source_transport)
         except (zipfile.BadZipFile, XML.ParseError, KeyError, TypeError) as exc:
             raise ValueError("Malformed interchange file: " + type(exc).__name__) from exc
 
@@ -989,12 +1009,12 @@ def create_app(state_dir=None):
         return conversion_preview(body.program)
 
     @app.get("/api/native/status")
-    def native_status():
-        return native.status()
+    def native_status(source_transport: SourceMode = False):
+        return source_response(native.status(), source_transport)
 
     @app.post("/api/native/start")
-    def native_start(body: NativeStart):
-        return native.start(body.program)
+    def native_start(body: NativeStart, source_transport: SourceMode = False):
+        return source_response(native.start(body.program), source_transport)
 
     @app.post("/api/native/stop")
     def native_stop():
@@ -1010,8 +1030,8 @@ def create_app(state_dir=None):
         return native.inspect()
 
     @app.post("/api/native/save")
-    def native_save(body: NativeSave):
-        return native.save(body.expected_revision)
+    def native_save(body: NativeSave, source_transport: SourceMode = False):
+        return source_response(native.save(body.expected_revision), source_transport)
 
     @app.post("/api/native/export")
     def native_export(body: NativeExport):
