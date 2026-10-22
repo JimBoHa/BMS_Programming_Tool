@@ -65,6 +65,7 @@ from .native_simulator import NativeSimulator
 from .network_number_plan import network_plan_router
 from .niagara import NiagaraArchive
 from .observability import ObservabilityStore
+from .point_status import PointStatus, PointStatusCancel, PointStatusExport, PointStatusRequest
 from .resources import public_document, state_directory, web_directory
 from .routed_discovery import (
     ProbeTrunkRequest,
@@ -452,6 +453,7 @@ def create_app(state_dir=None):
         bbmd_admin_error = "BBMD administration unavailable: " + str(exc)[:1000]
     device_details = DeviceDetails(bacnet, store)
     schedule_inventory = ScheduleInventory(bacnet, store)
+    point_status = PointStatus(bacnet, store)
     event_inventory = EventInventory(bacnet, store)
     event_ack = EventAcknowledgements(bacnet, store, event_inventory)
     files = BacnetFiles(bacnet, store)
@@ -515,7 +517,10 @@ def create_app(state_dir=None):
             await asyncio.gather(*tasks, return_exceptions=True)
             try:
                 try:
-                    await schedule_inventory.close()
+                    try:
+                        await point_status.close()
+                    finally:
+                        await schedule_inventory.close()
                 finally:
                     if bbmd_admin is not None:
                         await bbmd_admin.close()
@@ -571,6 +576,7 @@ def create_app(state_dir=None):
     app.state.bbmd_admin_startup_error = bbmd_admin_error
     app.state.device_details = device_details
     app.state.schedule_inventory = schedule_inventory
+    app.state.point_status = point_status
     app.state.event_inventory = event_inventory
     app.state.event_ack = event_ack
     app.state.bacnet_files = files
@@ -1479,6 +1485,32 @@ def create_app(state_dir=None):
     @app.post("/api/bacnet/device-details")
     async def bacnet_device_details(body: DeviceDetailsRequest):
         return await device_details.read(**body.model_dump())
+
+    @app.get("/api/bacnet/point-status/profile")
+    async def bacnet_point_status_profile():
+        return point_status.status()
+
+    @app.get("/api/bacnet/point-status/reports/{id}")
+    async def bacnet_point_status_detail(id: str):
+        return point_status.detail(id)
+
+    @app.post("/api/bacnet/point-status/read")
+    async def bacnet_point_status_read(body: PointStatusRequest):
+        return await point_status.read(**body.model_dump())
+
+    @app.post("/api/bacnet/point-status/cancel")
+    async def bacnet_point_status_cancel(body: PointStatusCancel):
+        return point_status.cancel(body.operation_id)
+
+    @app.post("/api/bacnet/point-status/export")
+    async def bacnet_point_status_export(body: PointStatusExport):
+        return Response(
+            json.dumps(
+                point_status.detail(body.id), sort_keys=True, separators=(",", ":"), allow_nan=False
+            ),
+            media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="point-status-{body.id}.json"'},
+        )
 
     @app.get("/api/bacnet/schedules/profile")
     async def bacnet_schedules_profile():
