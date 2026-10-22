@@ -63,6 +63,102 @@ async function freePort(): Promise<number> {
     });
   });
 }
+
+for (const profile of Object.keys(profiles) as Profile[]) {
+  test(`${profile} retires a pending capture while the next workspace module is still loading`, async ({
+    page,
+    request,
+  }) => {
+    const server = await peer(profile);
+    let releaseCapture = () => {};
+    let releaseModule = () => {};
+    let headers: Record<string, string> = {};
+    try {
+      let moduleEntered!: () => void;
+      const requestedModule = new Promise<void>((resolve) => {
+        moduleEntered = resolve;
+      });
+      const moduleGate = new Promise<void>((resolve) => {
+        releaseModule = resolve;
+      });
+      await page.route("**/assets/Connections-*.js", async (route) => {
+        const response = await route.fetch();
+        moduleEntered();
+        await moduleGate;
+        await route.fulfill({ response });
+      });
+      headers = await open(page, request, profile, server.port);
+      const report = JSON.parse((await read(page, profile)).toString());
+      const saved = await request.post(`/api/bacnet/${profile}/save`, {
+        headers,
+        data: { id: report.id },
+      });
+      expect(saved.ok()).toBe(true);
+      await page.reload();
+      await page
+        .getByRole("button", { name: "Device history", exact: true })
+        .click();
+      await page
+        .getByLabel(profiles[profile].capture, { exact: true })
+        .selectOption(report.id);
+      let captureEntered!: () => void;
+      const requestedCapture = new Promise<void>((resolve) => {
+        captureEntered = resolve;
+      });
+      const captureGate = new Promise<void>((resolve) => {
+        releaseCapture = resolve;
+      });
+      const captureUrl = `**/api/bacnet/${profile}/captures/${report.id}`;
+      await page.route(captureUrl, async (route) => {
+        const response = await route.fetch();
+        captureEntered();
+        await captureGate;
+        await route.fulfill({ response });
+      });
+      await page
+        .getByRole("button", { name: profiles[profile].load, exact: true })
+        .click();
+      await requestedCapture;
+      await page.getByRole("button", { name: "Connect", exact: true }).click();
+      await requestedModule;
+      await expect(
+        page.getByText("Opening workspace…", { exact: true }),
+      ).toBeVisible();
+      // Complete the actual capture response while the new module remains
+      // suspended. Navigation must retire the old instance even if the user
+      // returns before the new workspace can finish loading.
+      const completedLoad = page.waitForResponse((response) =>
+        response.url().endsWith(`/api/bacnet/${profile}/captures/${report.id}`),
+      );
+      releaseCapture();
+      const response = await completedLoad;
+      expect(response.ok()).toBe(true);
+      await response.finished();
+      await page
+        .getByRole("button", { name: "Device history", exact: true })
+        .click();
+      await expect(
+        page.getByLabel(profiles[profile].capture, { exact: true }),
+      ).toHaveValue("");
+      const exported = page.getByRole("button", {
+        name: profiles[profile].download,
+        exact: true,
+      });
+      if (profile === "history") await expect(exported).toHaveCount(0);
+      else await expect(exported).toBeDisabled();
+      releaseModule();
+      await expect(
+        page.getByRole("heading", { name: "Device history", exact: true }),
+      ).toBeVisible();
+    } finally {
+      releaseCapture();
+      releaseModule();
+      if (Object.keys(headers).length)
+        await request.post("/api/bacnet/disconnect", { headers, data: {} });
+      server.child.kill();
+    }
+  });
+}
 async function peer(
   profile: Profile,
   behavior = "normal",

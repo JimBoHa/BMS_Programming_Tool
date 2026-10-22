@@ -970,6 +970,7 @@ export function App() {
             </div>
           )}
           <Suspense
+            key={tab}
             fallback={<div className="loading">Opening workspace…</div>}
           >
             {tab === "caf" || tab === "caf-simulation" ? null : tab ===
