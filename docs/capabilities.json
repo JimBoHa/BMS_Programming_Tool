@@ -253,5 +253,10 @@
     "feature": "JCI MS/TP and SA address/topology preflight",
     "status": "implemented",
     "scope": "Offline strict physical-bus/device/link plans with explicit Metasys R15 and FX 2024-12-11 source profiles. Bus-scoped duplicate MACs, documented role/reservation checks, explicit legacy DIP128 and refreshed sensor generations, SA one-host/single-segment/no-repeater constraints, ordinary trunk graph branches/cycles/disconnection and FC/SA EOL distinctions. Exact refreshed NS8000/CWCVT service leaf and declared FC repeater bridges are separate graph exceptions. Complete Connect authoring, guarded portable JSON reopen/export, sealed review reports and stale-response/download invalidation. Unknown models, generations, cable construction/power/host-specific capacities remain unresolved. No field operations, measured wiring, electrical certification or native controller programming."
+  },
+  {
+    "feature": "Safe native COV writer file ownership",
+    "status": "implemented",
+    "scope": "Real process contention/crash/symlink/directory/FIFO refusal and direct/routed recording regressions. Uses Win32 safe handles/msvcrt and POSIX O_NOFOLLOW/flock; physical Windows COV and controller acceptance remain separate."
   }
 ]
