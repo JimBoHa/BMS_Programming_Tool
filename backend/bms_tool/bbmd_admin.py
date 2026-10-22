@@ -23,6 +23,7 @@ from pydantic import Field, field_validator, model_validator
 
 from .bbmd_admin_store import MAX_RECORDS, BbmdAdminStore, encoded
 from .bbmd_tables import SEND_GAP, TABLES, _endpoint, _raw, _utc, decode_table
+from .ipv4_ingress import raw_ingress
 from .models import StrictModel
 from .scoped_hooks import ScopedAttribute
 
@@ -204,8 +205,7 @@ class _Session:
             if (
                 not isinstance(packet.pduSource, IPv4Address)
                 or packet.pduSource.addrTuple != self.target.addrTuple
-                or not isinstance(packet.pduDestination, IPv4Address)
-                or packet.pduDestination.addrTuple != self.binding[2]
+                or raw_ingress(self.layer, packet) is None
             ):
                 self.receipt["ignored_peers"] += 1
                 return await unrelated(packet)
@@ -215,7 +215,9 @@ class _Session:
                 if self.pending is not None and not self.pending.done():
                     self.pending.set_result({"state": "ownership_lost", "reason": str(exc)})
                 return await unrelated(packet)
-            evidence = _raw(data, self.receipt["endpoint"])
+            evidence = _raw(data, self.receipt["endpoint"]) | {
+                "receive_provenance": raw_ingress(self.layer, packet)
+            }
             if data[1] == 0:
                 valid = len(data) == 6 and int.from_bytes(data[2:4], "big") == 6
                 code = int.from_bytes(data[4:6], "big") if valid else None

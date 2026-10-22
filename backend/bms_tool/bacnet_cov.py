@@ -334,6 +334,7 @@ class BacnetCov:
                     "next_hop": route.next_hop if route else str(apdu.pduSource),
                     "source": route.remote_source if route else None,
                 },
+                "receive_provenance": route.receive_provenance if route else None,
                 "time_remaining": int(apdu.timeRemaining),
                 "quality": "Not independently assessed; inspect received status-flags/reliability.",
                 "values": [self._decode(job, value) for value in apdu.listOfValues],

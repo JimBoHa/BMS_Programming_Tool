@@ -9,6 +9,11 @@ Delete-FDT-entry have a separate [reviewed administration profile](bbmd-table-ad
 BBMD hosting, BACnet/SC and IPv6 administration remain pending work.
 No site, physical JCI device, MS/TP trunk, or BTCVT adapter was contacted.
 
+The [shared-socket receive provenance profile](ipv4-receive-provenance.md)
+preserves exact peer/socket/raw-frame checks on Windows. The native callback
+does not establish a physical IP destination; malformed management replies
+remain malformed evidence rather than accepted table contents.
+
 ## Operator workflow
 
 1. Open a BACnet/IPv4 interface in **Connect**. A normal IP connection or an

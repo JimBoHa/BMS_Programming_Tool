@@ -8,6 +8,12 @@ BBMD hosting, BACnet/SC, IPv6 administration, controller programming and physica
 vendor acceptance remain outside this profile. Verification used independent
 loopback UDP peers; it contacted no site, physical JCI device or BTCVT adapter.
 
+On the pinned Windows shared IPv4 socket, [owned receive provenance](ipv4-receive-provenance.md)
+pins the actual callback/socket/peer and exact raw management frame. Its physical
+IP destination is unavailable. This preserves malformed/native Result evidence
+and the existing uncertain-authorship rules; it does not strengthen BVLC's
+unversioned read/write semantics.
+
 ## Review and apply
 
 1. Open a normal BACnet/IPv4 interface in **Connect**. Administration refuses
