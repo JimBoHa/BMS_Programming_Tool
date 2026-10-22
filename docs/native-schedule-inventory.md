@@ -10,6 +10,8 @@ Native TimeValue AnyAtomic values preserve primitive datatype, value and tag evi
 
 ## Evidence and limits
 
+On the pinned Windows shared IPv4 socket, the [owned receive provenance profile](ipv4-receive-provenance.md) establishes the bound socket, exact peer and raw BVLC Original-Unicast frame while preserving native broadcast destination metadata. Its physical IP destination is unavailable; this is not a kernel-level unicast-destination claim.
+
 Each operation has a source/configuration snapshot, local UTC start/end and property receipt times, exact response identity checks, per-property tag re-encoding hashes and bounded matching UDP transport candidates. Candidate UDP bytes are original received bytes; property-tag hashes identify BACpypes3 tag re-encoding and are explicitly not packet-capture hashes. A matching transport candidate can still be malformed and is not proof of a valid response. The actual peer, local endpoint and routed NPDU source are pinned independently of mutable route caches. Forwarded/broadcast responses are outside this Original-Unicast profile. Unrelated native packets/observers are preserved.
 
 Reports are sequential live observations. Even a report marked complete means only that its selected fields/page were successfully read; it does **not** establish an atomic device snapshot, consistent backup, frozen schedule or current referenced-device assignment. A native device may change between properties. Physical JCI/other manufacturer and firmware acceptance is unverified.

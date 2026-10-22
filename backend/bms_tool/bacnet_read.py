@@ -13,6 +13,7 @@ from bacpypes3.pdu import Address
 from bacpypes3.primitivedata import Atomic, ObjectIdentifier, PropertyIdentifier, Unsigned
 
 from .bacnet_exchange import confirmed_exchange
+from .ipv4_ingress import close_ipv4_ingress
 
 
 async def read_property(app, address, object_id, property_id, array_index=None):
@@ -83,6 +84,7 @@ async def read_property(app, address, object_id, property_id, array_index=None):
 
 def close_application(app):
     """Retire exchanges owned by this interface before closing its sockets."""
+    close_ipv4_ingress(app)
     service = getattr(app, "asap", None)
     for name in ("clientTransactions", "serverTransactions"):
         for transaction in list(getattr(service, name, ())):

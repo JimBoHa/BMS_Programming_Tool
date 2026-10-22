@@ -32,6 +32,7 @@ from bacpypes3.primitivedata import (
 from .bacnet_exchange import confirmed_exchange
 from .bacnet_values import json_value
 from .device_details import _InterfaceChanged
+from .ipv4_ingress import raw_ingress
 from .scoped_hooks import ScopedAttribute
 
 MAX_VALUE_BYTES = 16 * 1024
@@ -192,7 +193,7 @@ class PropertyEvidence:
                 if (
                     raw[1] != 10
                     or str(packet.pduSource) != expected_peer
-                    or getattr(packet.pduDestination, "addrTuple", None) != local_endpoint
+                    or raw_ingress(layer, packet) is None
                 ):
                     budget.ignored_peers += 1
                     return True
@@ -208,6 +209,7 @@ class PropertyEvidence:
                     udp_payload_sha256=hashlib.sha256(raw).hexdigest(),
                     raw_complete=len(raw) <= 4096,
                     basis="Matching transport candidate; only a validated transaction response is accepted.",
+                    receive_provenance=raw_ingress(layer, packet),
                 )
             except Exception:
                 return False

@@ -13,6 +13,7 @@ from bacpypes3.apdu import APDU
 from bacpypes3.npdu import NPDU
 from bacpypes3.pdu import PCI, PDU, Address, RemoteStation
 
+from .ipv4_ingress import npdu_ingress
 from .routed_discovery import ROUTED_HOP_COUNT
 from .scoped_hooks import ScopedAttribute
 
@@ -27,6 +28,7 @@ class CovRouteEvidence:
     direct_unicast: bool
     segmented: bool
     previous_user_data: object
+    receive_provenance: dict | None = None
 
 
 def remote_source(address):
@@ -100,10 +102,8 @@ class CovRouteHooks:
             if header is None:
                 return await old_receive(adapter, packet)
             source = remote_source(packet.npduSADR)
-            direct = (
-                adapter is self.adapter
-                and getattr(packet.pduDestination, "addrType", None) == Address.localStationAddr
-            )
+            provenance = npdu_ingress(self.adapter.clientPeer, packet)
+            direct = adapter is self.adapter and provenance is not None
             evidence = CovRouteEvidence(
                 self.owner,
                 str(packet.pduSource),
@@ -111,6 +111,7 @@ class CovRouteHooks:
                 direct,
                 bool(getattr(header, "apduSeg", False)),
                 packet.pduUserData,
+                provenance,
             )
             own = next(
                 (
@@ -161,7 +162,7 @@ class CovRouteHooks:
         if (
             not self.enabled
             or adapter is not self.adapter
-            or getattr(packet.pduDestination, "addrType", None) != Address.localStationAddr
+            or npdu_ingress(self.adapter.clientPeer, packet) is None
             or header is None
             or getattr(header, "apduSeg", False)
         ):
