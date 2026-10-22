@@ -11,6 +11,10 @@ export async function api(
 ): Promise<any> {
   return (await request(path, body, method)).json();
 }
+/** Best-effort small lifecycle requests can finish while their document unloads. */
+export async function apiKeepalive(path: string, body: unknown): Promise<any> {
+  return (await request(path, body, undefined, { keepalive: true })).json();
+}
 export type JsonDocument<T = any> = { data: T; blob: Blob };
 /** Keep authoritative JSON bytes when their numeric spelling is evidence. */
 export async function apiJsonDocument<T = any>(
@@ -21,7 +25,12 @@ export async function apiJsonDocument<T = any>(
   const blob = await response.blob();
   return { data: JSON.parse(await blob.text()) as T, blob };
 }
-async function request(path: string, body?: unknown, method?: string) {
+async function request(
+  path: string,
+  body?: unknown,
+  method?: string,
+  options: { keepalive?: boolean } = {},
+) {
   const headers: Record<string, string> = {};
   if (token) headers["X-Studio-Token"] = token;
   if (body !== undefined && !(body instanceof FormData))
@@ -29,6 +38,7 @@ async function request(path: string, body?: unknown, method?: string) {
   const response = await fetch("/api" + path, {
     method: method || (body === undefined ? "GET" : "POST"),
     headers,
+    keepalive: options.keepalive,
     body:
       body === undefined
         ? undefined
