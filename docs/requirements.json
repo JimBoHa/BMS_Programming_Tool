@@ -790,5 +790,14 @@
     "pdf_pages_or_section": "1580-1581 Table1313",
     "status": "partial",
     "implementation_or_gap": "COMM-ENUM-001 preserves standard native domains and reviews explicit operator-declared numeric mappings. CCT Table1313 is named-set evidence only. Verified JCI Enum Set identities/native code bindings, executable native/portable lowering and physical firmware acceptance remain pending."
+  },
+  {
+    "id": "NUM-001",
+    "feature": "Executable integer precision boundaries",
+    "acceptance_criterion": "Reject nonrepresentable integer-to-binary64 coercion before graph execution or target conversion while preserving archival source and transactional failed-scan state.",
+    "evidence": "Studio execution contract and independent numeric boundary audit",
+    "pdf_pages_or_section": "docs/executable-number-guards.md",
+    "status": "implemented",
+    "implementation_or_gap": "executable_numbers.require_number; Engine admission/live/computed values; ST/Niagara/native IEC/Sedona boundaries; actual API and native exchange-admission tests. Float arithmetic and target precision differences remain explicit."
   }
 ]

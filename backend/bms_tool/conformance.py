@@ -16,6 +16,7 @@ from pydantic import AwareDatetime, Field, field_validator
 
 from .blocks import BLOCKS
 from .engine import Engine, ScanError, output_type
+from .executable_numbers import require_number
 from .models import Program, StrictModel
 from .storage import Conflict
 
@@ -174,16 +175,7 @@ def scalar(value, typ, label):
         if type(value) is not bool:
             raise ValueError(f"{label} requires an exact Boolean.")
         return value
-    try:
-        valid = type(value) in (int, float) and math.isfinite(value)
-    except OverflowError:
-        valid = False
-    if not valid:
-        raise ValueError(f"{label} requires a finite numeric value.")
-    number = float(value)
-    if type(value) is int and int(number) != value:
-        raise ValueError(f"{label} requires an exactly representable binary64 integer.")
-    return number
+    return float(require_number(value, label))
 
 
 def validate_suite(program, value):

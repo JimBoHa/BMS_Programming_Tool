@@ -429,17 +429,16 @@ def test_normalized_suite_and_saved_byte_capacity_are_bounded(tmp_path, monkeypa
 
 def test_nonrepresentable_integer_cannot_false_pass_zero_tolerance():
     p = program()
-    p.nodes[1].params["initial"] = 9007199254740993
     value = suite(p)
+    p.nodes[1].params["initial"] = 9007199254740993
     value["cases"][0].update(
         duration=1.0, events=[], checks=[check("precision", 1.0, 9007199254740992.0)]
     )
-    report = c.run_suite(p, value)
-    row = report["cases"][0]["comparisons"][0]
-    assert row["actual"] == 9007199254740993
-    assert report["status"] == "failed" and not row["passed"]
-    assert "binary64" in row["numeric_representation_error"]
-    verify_report(report)
+    # Numeric source admission now refuses this value before an Engine can
+    # coerce it through another block and make a zero-tolerance check pass.
+    with pytest.raises(ValueError, match="binary64"):
+        c.run_suite(p, value)
+    p.nodes[1].params["initial"] = -1.0
     value["cases"][0]["checks"][0]["expected"] = 9007199254740993
     with pytest.raises(ValueError, match="binary64"):
         c.validate_suite(p, value)
