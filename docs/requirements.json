@@ -817,5 +817,14 @@
     "pdf_pages_or_section": "docs/draft-recovery.md; pagehide/beforeunload/visibility/unmount",
     "status": "implemented",
     "implementation_or_gap": "Shared serializer and synchronous latest program/macro refs flush after ready on lifecycle exit while preserving 200ms debounce. Macro enter/apply/discard use ordered writes; startup read/parse failures disable all automatic writes for that page, storage errors are visible and validation continues. Browser crash/forced exit, denied storage and disk durability are not guaranteed; server revision save/export remains separate."
+  },
+  {
+    "id": "UI-SOURCE-001",
+    "feature": "Exact portable Program numeric source",
+    "acceptance_criterion": "Retain opaque numeric type, signed zero and integer values through browser authoring and exact source transport without changing stored/canonical hashes.",
+    "evidence": "Observed no-edit browser numeric/hash audit; authored bounded Program source codec and independent Python/browser checks",
+    "pdf_pages_or_section": "docs/program-source.md; source/request/model and editor workflow audit",
+    "status": "implemented",
+    "implementation_or_gap": "Opt-in Program-only source envelopes, strict token parser, source-aware clone/editor/recovery/API workflows, exact canonical conformance binding and archival retention. Typed structural projection bounds and executable numeric profile remain explicit; no legacy content migration, reconstruction of previously rounded data, native evidence reinterpretation or controller acceptance."
   }
 ]

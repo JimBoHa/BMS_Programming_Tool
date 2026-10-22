@@ -1,5 +1,6 @@
+import { sourceStringify } from "./programSource";
 import { useRef, useState } from "react";
-import { api, saveBlob } from "./api";
+import { programApi, saveBlob } from "./api";
 import type { Program } from "./types";
 import "./conversion-preview.css";
 
@@ -29,7 +30,7 @@ type Report = {
 };
 
 export function ConversionPreview({ program }: { program: Program }) {
-  const signature = JSON.stringify(program);
+  const signature = sourceStringify(program);
   const current = useRef(signature);
   current.current = signature;
   const request = useRef(0);
@@ -50,7 +51,9 @@ export function ConversionPreview({ program }: { program: Program }) {
     setError("");
     setSaved(null);
     try {
-      const result: Report = await api("/conversion/preview", { program });
+      const result: Report = await programApi("/conversion/preview", {
+        program,
+      });
       if (mine === request.current && current.current === source)
         setSaved({ signature: source, report: result });
     } catch (e) {

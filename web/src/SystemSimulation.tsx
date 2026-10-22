@@ -1,3 +1,7 @@
+import { sourceStringify, numericToken } from "./programSource";
+import { executionNumber, executionInput } from "./programSource";
+import { sourceApi } from "./api";
+import { cloneSource } from "./programSource";
 import { useEffect, useRef, useState } from "react";
 import {
   Download,
@@ -10,7 +14,7 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
-import { api, download, saveBlob } from "./api";
+import { programApi, programDownload, saveBlob } from "./api";
 import { showValue, type Program } from "./types";
 
 type Instance = { alias: string; program: Program };
@@ -52,13 +56,13 @@ export function SystemSimulation({ program }: { program: Program }) {
 
   useEffect(() => {
     let live = true;
-    Promise.all([api("/projects"), api("/groups")])
+    Promise.all([programApi("/projects"), programApi("/groups")])
       .then(async ([projects, groups]) => {
         if (!live) return;
         setProjects(projects);
         setSessions(groups);
         if (groups.length) {
-          const recovered = await api("/groups/" + groups[0].session);
+          const recovered = await sourceApi("/groups/" + groups[0].session);
           if (live) adopt(recovered);
         }
       })
@@ -108,12 +112,12 @@ export function SystemSimulation({ program }: { program: Program }) {
       setRunning(false);
       if (status?.session) {
         try {
-          setStatus(await api("/groups/" + status.session));
+          setStatus(await sourceApi("/groups/" + status.session));
         } catch {}
       }
     } finally {
       try {
-        setSessions(await api("/groups"));
+        setSessions(await programApi("/groups"));
       } catch {}
       active.current = false;
       setBusy(false);
@@ -122,7 +126,7 @@ export function SystemSimulation({ program }: { program: Program }) {
   async function step(steps = 1) {
     await action(async () =>
       setStatus(
-        await api("/groups/step", {
+        await sourceApi("/groups/step", {
           session: status.session,
           inputs,
           steps,
@@ -144,7 +148,7 @@ export function SystemSimulation({ program }: { program: Program }) {
       ...definition,
       programs: [
         ...definition.programs,
-        { alias: "p" + index, program: structuredClone(p) },
+        { alias: "p" + index, program: cloneSource(p) },
       ],
     });
   }
@@ -169,7 +173,7 @@ export function SystemSimulation({ program }: { program: Program }) {
         return;
       }
       action(async () => {
-        await download(
+        await programDownload(
           "/groups/export",
           { session: status.session },
           "simulation.bms-workspace.json",
@@ -202,7 +206,7 @@ export function SystemSimulation({ program }: { program: Program }) {
               onClick={() =>
                 action(async () =>
                   adopt(
-                    await api("/groups/start", {
+                    await sourceApi("/groups/start", {
                       definition,
                       replace: status?.session,
                     }),
@@ -216,9 +220,9 @@ export function SystemSimulation({ program }: { program: Program }) {
               disabled={busy}
               onClick={() =>
                 action(async () => {
-                  const demo = await api("/groups/demo");
+                  const demo = await sourceApi("/groups/demo");
                   adopt(
-                    await api("/groups/start", {
+                    await sourceApi("/groups/start", {
                       definition: demo,
                       replace: status?.session,
                     }),
@@ -233,7 +237,9 @@ export function SystemSimulation({ program }: { program: Program }) {
               onClick={() =>
                 action(async () => {
                   adopt(
-                    await api("/groups/reset", { session: status.session }),
+                    await sourceApi("/groups/reset", {
+                      session: status.session,
+                    }),
                   );
                 })
               }
@@ -244,7 +250,7 @@ export function SystemSimulation({ program }: { program: Program }) {
               disabled={busy || !ready}
               onClick={() =>
                 action(async () => {
-                  await download(
+                  await programDownload(
                     "/groups/export",
                     { session: status.session },
                     "simulation.bms-workspace.json",
@@ -258,7 +264,9 @@ export function SystemSimulation({ program }: { program: Program }) {
               disabled={busy || !status}
               onClick={() =>
                 action(async () => {
-                  await api("/groups/close", { session: status.session });
+                  await programApi("/groups/close", {
+                    session: status.session,
+                  });
                   setStatus(null);
                   setDirty(true);
                   setRunning(false);
@@ -274,7 +282,9 @@ export function SystemSimulation({ program }: { program: Program }) {
               onChange={(e) => {
                 const session = e.target.value;
                 if (session)
-                  action(async () => adopt(await api("/groups/" + session)));
+                  action(async () =>
+                    adopt(await sourceApi("/groups/" + session)),
+                  );
               }}
             >
               <option value="">Open session…</option>
@@ -299,7 +309,7 @@ export function SystemSimulation({ program }: { program: Program }) {
                 data.append("file", file);
                 action(async () =>
                   adopt(
-                    await api(
+                    await sourceApi(
                       "/groups/import" +
                         (status?.session
                           ? "?replace=" + encodeURIComponent(status.session)
@@ -348,7 +358,8 @@ export function SystemSimulation({ program }: { program: Program }) {
               disabled={busy || definition.programs.length >= 16}
               onChange={(e) => {
                 const id = e.target.value;
-                if (id) action(async () => add(await api("/projects/" + id)));
+                if (id)
+                  action(async () => add(await sourceApi("/projects/" + id)));
               }}
             >
               <option value="">Add saved project…</option>
@@ -492,12 +503,18 @@ export function SystemSimulation({ program }: { program: Program }) {
                 const s = outputs.find((p) => p.key === source),
                   t = destinations.find((p) => p.key === target);
                 if (!s || !t) return;
-                const value =
-                  initial === "true"
-                    ? true
-                    : initial === "false"
-                      ? false
-                      : Number(initial);
+                let value: number | boolean;
+                try {
+                  value =
+                    initial === "true"
+                      ? true
+                      : initial === "false"
+                        ? false
+                        : executionNumber(initial);
+                } catch (error) {
+                  setError(String(error));
+                  return;
+                }
                 if (typeof value === "number" && !Number.isFinite(value)) {
                   setError(
                     "Enter a finite number, true or false for the initial signal value.",
@@ -614,13 +631,12 @@ export function SystemSimulation({ program }: { program: Program }) {
                                   aria-label={
                                     "Group input " + p.alias + "." + n.id
                                   }
-                                  value={value.value}
+                                  value={numericToken(value.value)}
                                   disabled={!ready}
                                   onChange={(e) =>
-                                    update({
-                                      ...value,
-                                      value: Number(e.target.value),
-                                    })
+                                    executionInput(e, (next) =>
+                                      update({ ...value, value: next }),
+                                    )
                                   }
                                 />
                               )}
@@ -686,14 +702,13 @@ export function SystemSimulation({ program }: { program: Program }) {
                     saveBlob(
                       new Blob(
                         [
-                          JSON.stringify(
+                          sourceStringify(
                             {
                               execution: status.execution,
                               definition: status.definition,
                               trace: rows,
                               failures: status.failures,
                             },
-                            null,
                             2,
                           ),
                         ],

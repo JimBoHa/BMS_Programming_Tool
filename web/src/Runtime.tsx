@@ -1,6 +1,7 @@
+import { sourceStringify } from "./programSource";
 import { useEffect, useRef, useState } from "react";
 import { Cpu, Play, Pause, ShieldCheck, RotateCcw } from "lucide-react";
-import { api } from "./api";
+import { programApi } from "./api";
 import type { Program } from "./types";
 import { showValue } from "./types";
 
@@ -19,7 +20,7 @@ export function RuntimePanel({
     active = useRef(false),
     statusEpoch = useRef(0),
     planEpoch = useRef(0);
-  const key = JSON.stringify({ program, inputs });
+  const key = sourceStringify({ program, inputs });
   const latest = useRef(key);
   latest.current = key;
   const currentPlan =
@@ -29,7 +30,7 @@ export function RuntimePanel({
       : null;
   async function refresh() {
     const epoch = ++statusEpoch.current;
-    const next = await api("/runtime");
+    const next = await programApi("/runtime");
     if (mounted.current && epoch === statusEpoch.current) setStatus(next);
   }
   useEffect(() => {
@@ -75,7 +76,7 @@ export function RuntimePanel({
     const snapshot = key;
     setPlan(null);
     action(async () => {
-      const result = await api("/runtime/plan", { program, inputs });
+      const result = await programApi("/runtime/plan", { program, inputs });
       if (
         !mounted.current ||
         epoch !== planEpoch.current ||
@@ -166,7 +167,9 @@ export function RuntimePanel({
                     action(async () => {
                       if (latest.current !== key) return;
                       setPlan(null);
-                      await api("/runtime/apply", { token: currentPlan.token });
+                      await programApi("/runtime/apply", {
+                        token: currentPlan.token,
+                      });
                     })
                   }
                 >
@@ -183,7 +186,7 @@ export function RuntimePanel({
               disabled={busy || !status?.program}
               onClick={() =>
                 action(() =>
-                  api("/runtime/control", {
+                  programApi("/runtime/control", {
                     running: !status?.control.running,
                     inputs,
                   }),
@@ -250,7 +253,7 @@ export function RuntimePanel({
                       disabled={busy}
                       onClick={() =>
                         action(() =>
-                          api("/runtime/rollback", {
+                          programApi("/runtime/rollback", {
                             backup_id: b.id,
                             expected_generation: status.generation,
                           }),

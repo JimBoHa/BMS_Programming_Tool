@@ -1,3 +1,5 @@
+import { executionNumber } from "./programSource";
+import { parseExecutionJSON } from "./programSource";
 import { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
@@ -6,7 +8,7 @@ import {
   Download,
   FlaskConical,
 } from "lucide-react";
-import { api, saveBlob } from "./api";
+import { programApi, saveBlob } from "./api";
 import { showValue, type Program } from "./types";
 import "./temco-simulator.css";
 
@@ -52,7 +54,7 @@ export function IECVerifier({ program }: { program: Program }) {
 
   useEffect(() => {
     mounted.current = true;
-    api("/iec/status")
+    programApi("/iec/status")
       .then((next) => {
         if (mounted.current) setStatus(next);
       })
@@ -95,7 +97,9 @@ export function IECVerifier({ program }: { program: Program }) {
       graphInputs.map((node) => {
         const item = inputs[node.id];
         const value =
-          node.value_type === "boolean" ? item.value : Number(item.value);
+          node.value_type === "boolean"
+            ? item.value
+            : executionNumber(String(item.value));
         if (
           node.value_type !== "boolean" &&
           (item.value === "" || !Number.isFinite(value))
@@ -128,12 +132,13 @@ export function IECVerifier({ program }: { program: Program }) {
         ...(clock ? { clock: clock + "Z" } : {}),
       };
       let result;
-      if (kind === "compile") result = await api("/iec/compile", { program });
+      if (kind === "compile")
+        result = await programApi("/iec/compile", { program });
       else if (kind === "verify") {
         const count = Number(scans);
         if (!Number.isInteger(count) || count < 1 || count > 1000)
           throw new Error("Enter 1..1000 whole native scans.");
-        result = await api("/iec/verify", {
+        result = await programApi("/iec/verify", {
           ...options,
           scans: count,
           inputs: inputValues(),
@@ -149,10 +154,10 @@ export function IECVerifier({ program }: { program: Program }) {
           throw new Error(
             "Scenario needs a positive duration and at most 1000 native scans.",
           );
-        result = await api("/iec/scenario", {
+        result = await programApi("/iec/scenario", {
           ...options,
           duration: length,
-          events: JSON.parse(events),
+          events: parseExecutionJSON(events),
         });
       }
       if (!mounted.current || requestGeneration !== generation.current) return;

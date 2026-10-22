@@ -1,6 +1,15 @@
 import { SPEEDS } from "./simulationClock";
 import "./simulation-pacing.css";
 import type { useSimulationClock } from "./useSimulationClock";
+import {
+  parseExecutionJSON,
+  executionNumber,
+  isSourceNumber,
+  numericToken,
+  sourceNumber,
+  sourceStringify,
+  parseSourceJSON,
+} from "./programSource";
 import { useEffect, useState } from "react";
 import {
   Play,
@@ -16,7 +25,7 @@ import {
 } from "lucide-react";
 import type { Block, BmsNode, Program, Scan } from "./types";
 import { showValue } from "./types";
-import { api, saveBlob } from "./api";
+import { programApi, saveBlob } from "./api";
 
 export function Inspector({
   node,
@@ -139,29 +148,27 @@ export function Inspector({
               />
             ) : Array.isArray(value) && key === "exceptions" ? (
               <JsonParameter value={value} onChange={(v) => param(key, v)} />
-            ) : Array.isArray(value) ? (
-              <input
-                value={value.join(",")}
-                onChange={(e) =>
-                  param(
-                    key,
-                    e.target.value.split(",").filter(Boolean).map(Number),
-                  )
-                }
+            ) : Array.isArray(value) &&
+              value.every(
+                (item) => typeof item === "number" || isSourceNumber(item),
+              ) ? (
+              <NumericParameter
+                value={value}
+                onChange={(v) => param(key, v)}
+                array
+              />
+            ) : typeof value === "number" || isSourceNumber(value) ? (
+              <NumericParameter value={value} onChange={(v) => param(key, v)} />
+            ) : value === null || typeof value === "object" ? (
+              <JsonParameter
+                value={value}
+                onChange={(v) => param(key, v)}
+                label={key + " parameter JSON"}
               />
             ) : (
               <input
-                type={typeof value === "number" ? "number" : "text"}
-                step="any"
                 value={value}
-                onChange={(e) =>
-                  param(
-                    key,
-                    typeof value === "number"
-                      ? Number(e.target.value)
-                      : e.target.value,
-                  )
-                }
+                onChange={(e) => param(key, e.target.value)}
               />
             )}
           </label>
@@ -189,23 +196,71 @@ export function Inspector({
   );
 }
 
+/** A deliberate valid edit creates a new source token even when Number equality is unchanged. */
+function NumericParameter({
+  value,
+  onChange,
+  array = false,
+}: {
+  value: any;
+  onChange: (v: any) => void;
+  array?: boolean;
+}) {
+  const render = () =>
+    array ? value.map(numericToken).join(",") : numericToken(value);
+  const key = render();
+  const [text, setText] = useState(key),
+    [error, setError] = useState("");
+  useEffect(() => {
+    setText(key);
+    setError("");
+  }, [key]);
+  return (
+    <>
+      <input
+        inputMode="decimal"
+        value={text}
+        onChange={(event) => {
+          const next = event.target.value;
+          setText(next);
+          try {
+            const parsed = array
+              ? next
+                  .split(",")
+                  .filter((part) => part.trim())
+                  .map(sourceNumber)
+              : sourceNumber(next);
+            onChange(parsed);
+            setError("");
+          } catch (e) {
+            setError("Edit not applied: " + String(e));
+          }
+        }}
+      />
+      {error && <span className="inline-error">{error}</span>}
+    </>
+  );
+}
+
 function JsonParameter({
   value,
   onChange,
+  label = "Calendar exception JSON",
 }: {
-  value: unknown[];
-  onChange: (v: unknown[]) => void;
+  value: unknown;
+  onChange: (v: any) => void;
+  label?: string;
 }) {
-  const [text, setText] = useState(JSON.stringify(value, null, 2));
+  const [text, setText] = useState(sourceStringify(value, 2));
   const [error, setError] = useState("");
   useEffect(() => {
-    setText(JSON.stringify(value, null, 2));
+    setText(sourceStringify(value, 2));
     setError("");
-  }, [JSON.stringify(value)]);
+  }, [sourceStringify(value)]);
   return (
     <>
       <textarea
-        aria-label="Calendar exception JSON"
+        aria-label={label}
         rows={7}
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -214,9 +269,9 @@ function JsonParameter({
         type="button"
         onClick={() => {
           try {
-            const parsed = JSON.parse(text);
-            if (!Array.isArray(parsed))
-              throw new Error("Use a JSON array of date exceptions.");
+            const parsed = parseSourceJSON(text);
+            if (Array.isArray(value) && !Array.isArray(parsed))
+              throw new Error("Use a JSON array for this parameter.");
             onChange(parsed);
             setError("");
           } catch (e) {
@@ -224,7 +279,9 @@ function JsonParameter({
           }
         }}
       >
-        Apply calendar exceptions
+        {label === "Calendar exception JSON"
+          ? "Apply calendar exceptions"
+          : "Apply parameter JSON"}
       </button>
       {error && <span className="inline-error">{error}</span>}
     </>
@@ -284,16 +341,13 @@ function ForceEditor({
       </label>
       <button
         onClick={() => {
-          const next = boolean ? value === "true" : Number(value);
-          if (
-            typeof next === "number" &&
-            (!value.trim() || !Number.isFinite(next))
-          ) {
-            setError("Enter a finite force value.");
-            return;
+          try {
+            const next = boolean ? value === "true" : executionNumber(value);
+            setError("");
+            onChange({ ...forces, [node.id]: next });
+          } catch (e) {
+            setError(String(e));
           }
-          setError("");
-          onChange({ ...forces, [node.id]: next });
         }}
       >
         Hold simulation value
@@ -339,7 +393,7 @@ function DependencyView({
     setData(null);
     setError("");
     const timer = setTimeout(() => {
-      api("/dependencies", { program, node })
+      programApi("/dependencies", { program, node })
         .then((result) => {
           if (live) setData(result);
         })
@@ -539,8 +593,8 @@ export function SimulationPanel({
           r.time,
           r.clock,
           ...columns.map((c) => r.values[c]),
-          JSON.stringify(r.forces || {}),
-          JSON.stringify(r.computed || {}),
+          sourceStringify(r.forces || {}),
+          sourceStringify(r.computed || {}),
         ]
           .map(quote)
           .join(","),
@@ -691,9 +745,13 @@ export function SimulationPanel({
             .map((n) => {
               const current = inputs[n.id] ?? n.params.default ?? 0;
               const value =
-                typeof current === "object" ? current.value : current;
+                typeof current === "object" && !isSourceNumber(current)
+                  ? current.value
+                  : current;
               const quality =
-                typeof current === "object" ? current.quality : "good";
+                typeof current === "object" && !isSourceNumber(current)
+                  ? current.quality
+                  : "good";
               const change = (v: any, q = quality) =>
                 setInputs({
                   ...inputs,
@@ -719,8 +777,16 @@ export function SimulationPanel({
                       aria-label={"Simulate " + n.id}
                       type="number"
                       step="any"
-                      value={value}
-                      onChange={(e) => change(Number(e.target.value))}
+                      value={numericToken(value)}
+                      onChange={(e) => {
+                        try {
+                          change(executionNumber(e.target.value));
+                          e.currentTarget.setCustomValidity("");
+                        } catch (error) {
+                          e.currentTarget.setCustomValidity(String(error));
+                          e.currentTarget.reportValidity();
+                        }
+                      }}
                     />
                   )}
                   <select
@@ -774,7 +840,7 @@ export function SimulationPanel({
             disabled={running || simBusy}
             onClick={async () => {
               try {
-                const parsed = JSON.parse(events);
+                const parsed = parseExecutionJSON(events);
                 setScenarioError("");
                 await onRunScenario(parsed, duration);
               } catch (e) {

@@ -6,7 +6,7 @@ import hashlib
 import json
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class StrictModel(BaseModel):
@@ -59,6 +59,13 @@ class Program(StrictModel):
     nodes: list[Node] = Field(default_factory=list, max_length=2000)
     edges: list[Edge] = Field(default_factory=list, max_length=10000)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def exact_editor_source(cls, value):
+        from .program_source import unwrap_program_source
+
+        return unwrap_program_source(value)
 
     def digest(self):
         return hashlib.sha256(canonical(self)).hexdigest()

@@ -11,6 +11,7 @@ from pydantic import Field, model_validator
 
 from .engine import validate
 from .models import Edge, Node, Program, StrictModel, Target
+from .program_source import SourceMode, source_response
 
 Number = Annotated[float, Field(strict=True, ge=0, le=1e12)]
 Temperature = Annotated[float, Field(strict=True, ge=-1000, le=1000)]
@@ -413,8 +414,8 @@ def wizard_router():
         }
 
     @router.post("/preview")
-    def review(body: Choices):
-        return preview(body)
+    def review(body: Choices, source_transport: SourceMode = False):
+        return source_response(preview(body), source_transport)
 
     @router.post("/units")
     def units(body: UnitRequest):
