@@ -68,6 +68,7 @@ async function mockMstp(
     switch (path) {
       case "/api/bacnet/hardware/status":
       case "/api/bacnet/events/profile":
+      case "/api/bacnet/schedules/library/profile":
       case "/api/bacnet/files/status":
       case "/api/bacnet/files/captures":
       case "/api/bacnet/cov/status":
