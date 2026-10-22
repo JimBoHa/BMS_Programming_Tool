@@ -67,9 +67,23 @@ Only POSIX FIFO and unavailable account-level symlink creation may skip.
 Authored Win32 boundary tests additionally cover reparse/directory/device
 attributes, exact handle transfer and failures; those are not a substitute for
 running the unchanged native tests on Windows. No field networking is used.
-Installed-wheel startup, local profile responses and browser assets require the
-separate distribution acceptance run. Physical controllers and external compiler
-availability are outside this storage profile.
+Windows 10 x64 with the official Python 3.13.16 embeddable runtime was also
+checked in a disposable VM: **24 storage tests passed**, with only the
+POSIX FIFO test skipped, and **all five loopback capture API tests passed**.
+The nonregular API case uses a real directory on Windows and retains a FIFO on
+POSIX. Native Windows symlink refusal, cross-process/thread ownership, crash
+release, hard-link publication and capture seal/restart checks executed.
+
+The application wheel from source commit
+`57c511ca214f278cabc7ca37751fd1c7d1388179` had SHA-256
+`452e5349cc4a5cdf7162c3c67407e644d91b6c1b4b04e9cde595bbf602c6be2c`.
+Exact wheel contents and dependency wheels were unpacked into the isolated
+runtime; no system installation was performed. App imports, built assets and
+local profiles, Structured Text export, simulation, project save and packaged
+timezone fallback passed. Field interfaces remained closed during application
+acceptance; capture API peers used loopback only. The VM returned stopped.
+These results do not establish Windows namespace/power-loss durability, native
+IEC execution, external compiler availability or physical controller support.
 
 Primary API references:
 

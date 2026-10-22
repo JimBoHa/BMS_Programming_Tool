@@ -192,6 +192,6 @@
   {
     "feature": "Portable native local storage ownership",
     "status": "implemented",
-    "scope": "POSIX flock and Windows msvcrt byte-zero ownership with bounded capture waits, final-component safe regular-file handles, reparse/device refusal, non-inheritance, unchanged capture seals and no-overwrite hard-link publication. Native cross-process/crash/contention and capture restart tests; authored Windows boundary tests do not replace runtime acceptance. POSIX directory fsync retained; Windows file-data flush only, namespace/power-loss durability unverified. Native IEC host remains explicitly POSIX-only."
+    "scope": "POSIX flock and Windows msvcrt byte-zero ownership with bounded capture waits, final-component safe regular-file handles, reparse/device refusal, non-inheritance, unchanged capture seals and no-overwrite hard-link publication. Native POSIX regressions plus actual Windows 10 x64/Python 3.13.16 acceptance: 24 native storage tests passed with one POSIX FIFO skip, five loopback capture API tests passed, and isolated wheel imports/local app workflows passed. POSIX directory fsync retained; Windows file-data flush only, namespace/power-loss durability unverified. Native IEC host remains explicitly POSIX-only."
   }
 ]

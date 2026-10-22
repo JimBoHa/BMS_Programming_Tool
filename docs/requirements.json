@@ -555,6 +555,6 @@
     "evidence": "IA-55a533399b supplement; Python msvcrt and Microsoft CreateFileW/GetFileInformationByHandle/_open_osfhandle primary APIs",
     "pdf_pages_or_section": "docs/portable-storage.md; native process ownership and safe final-component handles",
     "status": "implemented",
-    "implementation_or_gap": "Native POSIX cross-process/capture regressions and authored Windows failure branches; unchanged suite prepared for actual Windows acceptance. Native Windows file-data fsync with namespace/power-loss durability explicitly unverified; unsupported filesystems fail closed. Native IEC runtime remains POSIX-only."
+    "implementation_or_gap": "Native POSIX regressions and actual disposable Windows 10 x64/Python 3.13.16 acceptance: 24 storage tests passed with one POSIX FIFO skip, all five loopback capture API tests passed, and isolated wheel imports/assets/local workflows passed. Windows file-data fsync with namespace/power-loss durability explicitly unverified; unsupported filesystems fail closed. Native IEC runtime remains POSIX-only."
   }
 ]
