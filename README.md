@@ -29,6 +29,7 @@ To prepare another computer without requiring Node.js on that computer, build an
 
 ## Working features
 
+- Create a separate editable VAV project with the **Equipment wizard**: choose equipment, declared target, logical sensors/setpoints and P/PI position mapping or measured-airflow feedback. Preview points, topology and choice/source hashes; unit changes convert values and inverse-unit gains together. Native CAF allocation and complete ventilation/safety/G36/Title24 sequences remain incomplete. See [wizard scope and verification](docs/equipment-wizard.md).
 - Inspect selected native point values with controller units, reliability, status flags and service state, plus optional read-only priority evidence. No health/scaling/command-ownership inference. See [native point status](docs/native-point-status.md).
 - Read native BACnet Calendar/Schedule properties on an exact Device over direct or explicit routed IPv4; preserve wildcard dates, typed values, references, priorities, failures and raw clock evidence, then export exact JSON. Session-only sequential evidence; native editing/transfer remains pending. See [native schedule inventory](docs/native-schedule-inventory.md).
 - Drag blocks from the palette, connect pins, edit units/properties, and save numbered revisions. Shift-click multiple blocks to move, align, copy, duplicate or delete them together; internal wires follow the copied selection. Undo restores a group operation. Double-click a wire to remove it.

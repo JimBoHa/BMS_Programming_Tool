@@ -94,6 +94,9 @@ const IECVerifier = lazy(() =>
 const CafComparison = lazy(() =>
   import("./CafComparison").then((m) => ({ default: m.CafComparison })),
 );
+const EquipmentWizard = lazy(() =>
+  import("./EquipmentWizard").then((m) => ({ default: m.EquipmentWizard })),
+);
 const DeviceHistory = lazy(() =>
   import("./DeviceHistory").then((m) => ({ default: m.DeviceHistory })),
 );
@@ -145,6 +148,7 @@ export function App() {
     [message, setMessage] = useState(""),
     [ready, setReady] = useState(false),
     [settings, setSettings] = useState(false),
+    [equipmentWizard, setEquipmentWizard] = useState(false),
     [versions, setVersions] = useState<any[]>([]),
     [showIssues, setShowIssues] = useState(false),
     [saving, setSaving] = useState(false),
@@ -1024,6 +1028,12 @@ export function App() {
                     >
                       <Plus size={15} /> New
                     </button>
+                    <button
+                      disabled={!!macroEdit || saving}
+                      onClick={() => setEquipmentWizard(true)}
+                    >
+                      Equipment wizard
+                    </button>
                     <select
                       aria-label="Open saved project"
                       disabled={!!macroEdit}
@@ -1444,6 +1454,30 @@ export function App() {
           </Suspense>
         </main>
       </div>
+      {equipmentWizard && tab === "editor" && !macroEdit && (
+        <Suspense fallback={<div>Opening equipment wizard…</div>}>
+          <EquipmentWizard
+            source={program}
+            onClose={() => setEquipmentWizard(false)}
+            onCreate={(generated, sourceKey) => {
+              if (
+                JSON.stringify(latestProgram.current) !== sourceKey ||
+                macroEdit ||
+                tab !== "editor"
+              )
+                return false;
+              loadEpoch.current++;
+              versionsEpoch.current++;
+              change(generated);
+              setSelected(null);
+              setVersions([]);
+              setInputs({});
+              setTimeout(() => flow.fitView({ padding: 0.2 }), 100);
+              return true;
+            }}
+          />
+        </Suspense>
+      )}
       <footer className="app-footer">
         <span>
           <span className="status-dot on" /> Local storage · configured alarm

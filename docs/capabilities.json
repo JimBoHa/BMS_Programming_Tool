@@ -288,5 +288,10 @@
     "feature": "Operation-qualified JCI tool/release rule review",
     "status": "partial",
     "scope": "Reviewed CCT older-application open/commission, CCT18 exact-mode/default-edit/simulation and same-family upgrade prerequisites, alpha/beta exception, CCT16+ package-security boundary, CCT18 license restrictions, SQL independence, mixed-MS/TP enum caveats and PCT10.3 historical mode switching. Strict bounded optional CAF preflight inputs, manual/page/SHA-qualified catalog, sealed original-source review export and complete UI with stale/source/hidden-workspace guards. Unknown/cross-product/future combinations remain unresolved. No installed-tool detection, model/package/firmware acceptance, native compilation, upgrade or transfer approval."
+  },
+  {
+    "feature": "Equipment and sequence selection wizard",
+    "status": "partial",
+    "scope": "Portable VAV authoring for cooling-only, inline hot-water reheat/no fan and parallel-fan hot-water reheat, with declared target labels, actual logical inputs/outputs, P/PI position mapping or measured-airflow feedback, coupled unit/gain conversion and exact-choice preview before separate editable project creation. Source/choice evidence, stale-response and current-editor guards, revision/save/export/simulation workflows. Native CAF/package/terminal allocation and complete ventilation, safety, G36/Title24 sequences remain incomplete. See docs/equipment-wizard.md."
   }
 ]

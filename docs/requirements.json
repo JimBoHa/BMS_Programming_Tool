@@ -763,5 +763,14 @@
     "pdf_pages_or_section": "Guide11 PDF54; Guide16 PDF53; Help18 PDF37-38,51,79,89-90,121-123,130,259,766; PCT10.3 PDF2,4",
     "status": "partial",
     "implementation_or_gap": "Documented operation-rule catalog/review and full CAF preflight UI implemented with source/hash/type/bounds/stale guards, independent export seal and no field traffic. Exact controller/model/package/firmware compatibility, installed compiler, native upgrade/download execution and vendor/device acceptance remain unverified; original source implementation status is unchanged."
+  },
+  {
+    "id": "MF-fab0cf7208",
+    "feature": "Equipment and sequence selection wizard",
+    "acceptance_criterion": "Generate a starting application from equipment, sensor and control-strategy selections with explicit target/parameter evidence and an editable preview.",
+    "evidence": "Controller Tool Help 18 LIT-12011147; authored portable VAV generator; NIST international foot definition",
+    "pdf_pages_or_section": "PDF 149-151,153-154; docs/equipment-wizard.md",
+    "status": "partial",
+    "implementation_or_gap": "Implemented portable VAV authoring: three equipment configurations, declared targets, fixed/input setpoints, P/PI, position or measured-airflow feedback, coupled unit/gain conversion, source/choice/program hashes, guarded preview/create and existing revision/export/simulation workflows. Native CAF allocation/compiler/package acceptance, physical wiring, complete ventilation/heating/fan-proof/discharge/G36/Title24 sequences remain incomplete."
   }
 ]
