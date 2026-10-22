@@ -105,7 +105,9 @@ RULES = {
 RULES_SHA256 = digest(RULES)
 
 
-def strict_json(raw, limit):
+def strict_json(raw, limit, *, max_values=100000):
+    if type(max_values) is not int or not 1 <= max_values <= 1000000:
+        raise ValueError("Native schedule JSON value bound must be an integer in1..1000000.")
     if len(raw) > limit:
         raise ValueError("Native schedule document exceeds its byte bound.")
 
@@ -142,7 +144,7 @@ def strict_json(raw, limit):
         while pending:
             item, depth = pending.pop()
             count += 1
-            if depth > 64 or count > 100000:
+            if depth > 64 or count > max_values:
                 raise ValueError("Native schedule document exceeds its structure bound.")
             if isinstance(item, dict):
                 for key in item:
