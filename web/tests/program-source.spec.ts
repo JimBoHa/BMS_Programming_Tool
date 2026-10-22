@@ -1,9 +1,10 @@
+import { simulationServerResponseText } from "./simulationFixture";
 import {
   test,
   expect,
   type APIRequestContext,
   type Page,
-} from "@playwright/test";
+} from "./simulationFixture";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -345,7 +346,8 @@ test("large exact live force reaches Python as the declared integer without shor
     .getByRole("button", { name: "Step simulation", exact: true })
     .click();
   const response = await pending;
-  expect(response.ok(), await response.text()).toBeTruthy();
+  const responseText = simulationServerResponseText(response);
+  expect(response.ok(), responseText).toBeTruthy();
   const inspected = JSON.parse(
     py(
       "import json,sys;b=json.loads(sys.stdin.read());assert type(b['forces']['number']) is int;print(json.dumps({'value':str(b['forces']['number'])}))",
@@ -356,10 +358,13 @@ test("large exact live force reaches Python as the declared integer without shor
   const actual = JSON.parse(
     py(
       "import json,sys;b=json.loads(sys.stdin.read());print(json.dumps({'value':str(b['history'][0]['values']['number'])}))",
-      await response.text(),
+      responseText,
     ),
   );
   expect(actual.value).toBe("1152921504606846976");
+  await expect(page.locator(".force-status")).toContainText(
+    "Last completed scan: 1152921504606846976",
+  );
   await page
     .getByLabel("Simulation force value", { exact: true })
     .fill("1152921504606846977");
