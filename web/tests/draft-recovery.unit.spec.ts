@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { persistDraftRecovery } from "../src/draftRecovery";
 import { blankProgram } from "../src/types";
+import { parseSourceDocument, sourceEqual } from "../src/programSource";
 
 test("normal draft is written before stale macro recovery is removed", () => {
   const program = blankProgram(),
@@ -27,7 +28,9 @@ test("normal draft is written before stale macro recovery is removed", () => {
     "write:bms-studio-draft-v1",
     "remove:bms-studio-macro-edit-v1",
   ]);
-  expect(JSON.parse(data.get("bms-studio-draft-v1")!)).toEqual(program);
+  expect(
+    sourceEqual(parseSourceDocument(data.get("bms-studio-draft-v1")!), program),
+  ).toBe(true);
   expect(data.has("bms-studio-macro-edit-v1")).toBe(false);
 });
 test("macro snapshot includes exact parent, definition and current draft without replacing parent recovery", () => {
@@ -42,11 +45,13 @@ test("macro snapshot includes exact parent, definition and current draft without
     {
       setItem: (key, value) => {
         calls.push(key);
-        expect(JSON.parse(value)).toEqual({
-          parent,
-          definition: "limiter",
-          draft,
-        });
+        expect(
+          sourceEqual(parseSourceDocument(value), {
+            parent,
+            definition: "limiter",
+            draft,
+          }),
+        ).toBe(true);
       },
       removeItem: () => {
         throw new Error("must not remove parent");
@@ -114,6 +119,8 @@ test("removal failure retains both independently recoverable copies and is repor
       null,
     ),
   ).toThrow("remove denied");
-  expect(JSON.parse(data.get("bms-studio-draft-v1")!)).toEqual(program);
+  expect(
+    sourceEqual(parseSourceDocument(data.get("bms-studio-draft-v1")!), program),
+  ).toBe(true);
   expect(data.get("bms-studio-macro-edit-v1")).toBe("good macro");
 });
