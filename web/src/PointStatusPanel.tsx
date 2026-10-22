@@ -38,6 +38,8 @@ export function PointStatusPanel({
       pointPattern.test(defaultObject) ? defaultObject : "",
     );
   const [commandable, setCommandable] = useState(false),
+    [enumMetadata, setEnumMetadata] = useState(false),
+    [stateTextLimit, setStateTextLimit] = useState("32"),
     [busy, setBusy] = useState(false),
     [report, setReport] = useState<any>(null),
     [profile, setProfile] = useState<any>(null),
@@ -63,6 +65,8 @@ export function PointStatusPanel({
       dnet,
       objects,
       commandable,
+      enumMetadata,
+      stateTextLimit,
     ]),
     formNow = useRef(formKey);
   formNow.current = formKey;
@@ -130,6 +134,8 @@ export function PointStatusPanel({
           .map((v) => v.trim())
           .filter(Boolean),
         include_commandable: commandable,
+        include_enum_metadata: enumMetadata,
+        state_text_limit: Number(stateTextLimit),
       });
       if (current(ticket, source, draft)) setReport(result);
     } catch (failure) {
@@ -261,6 +267,28 @@ export function PointStatusPanel({
           />
           Read optional priority slots and relinquish defaults
         </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={enumMetadata}
+            disabled={busy}
+            onChange={(e) => setEnumMetadata(e.target.checked)}
+          />
+          Read native binary and multistate domain metadata
+        </label>
+        {enumMetadata && (
+          <label>
+            Maximum indexed state labels per point
+            <input
+              type="number"
+              min={1}
+              max={256}
+              value={stateTextLimit}
+              disabled={busy}
+              onChange={(e) => setStateTextLimit(e.target.value)}
+            />
+          </label>
+        )}
       </div>
       <div className="toolbar">
         <button disabled={!connected || busy} onClick={() => void inspect()}>
@@ -368,10 +396,81 @@ export function PointStatusPanel({
             fields do not imply bad health.
           </p>
           {report.objects.map((obj: any) => (
-            <details key={obj.object}>
-              <summary>Raw point evidence {obj.object}</summary>
-              <pre>{JSON.stringify(obj, null, 2)}</pre>
-            </details>
+            <div key={obj.object}>
+              {obj.enum_domain && (
+                <section aria-label={`Native state domain ${obj.object}`}>
+                  <h3>Native state domain · {obj.object}</h3>
+                  <p>
+                    {obj.enum_domain.status} · {obj.enum_domain.source} ·
+                    Present value validation:{" "}
+                    {obj.enum_domain.value_validation?.status ||
+                      "not applicable"}
+                    {obj.enum_domain.value_validation?.code != null
+                      ? ` (code ${obj.enum_domain.value_validation.code})`
+                      : ""}
+                  </p>
+                  <p>
+                    Native codes and labels are sequential observations,
+                    separate from JCI Enum Set IDs and portable/operator enum
+                    definitions. Polarity does not flip the reported code or
+                    labels. No mapping or controller write is inferred.
+                  </p>
+                  <p>
+                    Number of states:{" "}
+                    {obj.enum_domain.number_of_states ?? "not established"};
+                    state-text count:{" "}
+                    {obj.enum_domain.observed_state_text_count ??
+                      "not applicable"}
+                    ; labels{" "}
+                    {obj.enum_domain.labels_complete
+                      ? "complete"
+                      : "incomplete"}
+                    .
+                    {obj.properties.polarity &&
+                      ` Native polarity: ${show(obj.properties.polarity)}.`}
+                  </p>
+                  {!!obj.enum_domain.states?.length && (
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Native code</th>
+                          <th>Label evidence</th>
+                          <th>Property / index</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {obj.enum_domain.states.map((state: any) => (
+                          <tr key={state.code}>
+                            <td>{state.code}</td>
+                            <td>
+                              {state.label == null
+                                ? "Unknown label"
+                                : JSON.stringify(state.label)}{" "}
+                              · {state.label_status}
+                            </td>
+                            <td>
+                              {state.property}
+                              {state.array_index == null
+                                ? ""
+                                : ` [${state.array_index}]`}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                  {!!obj.enum_domain.findings?.length && (
+                    <pre>
+                      {JSON.stringify(obj.enum_domain.findings, null, 2)}
+                    </pre>
+                  )}
+                </section>
+              )}
+              <details>
+                <summary>Raw point evidence {obj.object}</summary>
+                <pre>{JSON.stringify(obj, null, 2)}</pre>
+              </details>
+            </div>
           ))}
           <details>
             <summary>Complete point report and transport provenance</summary>

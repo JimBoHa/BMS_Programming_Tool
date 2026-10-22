@@ -45,6 +45,13 @@ from .cov_observations import CovObservations
 from .deployment import Runtime
 from .device_details import DeviceDetails, DeviceDetailsRequest
 from .engine import Engine, output_type, run_scenario, validate
+from .enum_mapping import (
+    EnumMappingExport,
+    EnumMappingRequest,
+    export_review,
+    import_plan,
+    review_enum_mapping,
+)
 from .equipment_wizard import wizard_router
 from .event_reception import EventListenAction, EventListenStart, EventReception
 from .field_trends import FieldTrends, FieldTrendStart
@@ -1536,6 +1543,35 @@ def create_app(state_dir=None):
     @app.post("/api/bacnet/device-details")
     async def bacnet_device_details(body: DeviceDetailsRequest):
         return await device_details.read(**body.model_dump())
+
+    @app.post("/api/enum-mapping/review")
+    async def enum_mapping_review(body: EnumMappingRequest):
+        return review_enum_mapping(body)
+
+    @app.post("/api/enum-mapping/export")
+    async def enum_mapping_export(body: EnumMappingExport):
+        return Response(
+            json.dumps(export_review(body), sort_keys=True, separators=(",", ":"), allow_nan=False),
+            media_type="application/json",
+            headers={"Content-Disposition": 'attachment; filename="enum-mapping-review.json"'},
+        )
+
+    @app.post("/api/enum-mapping/plan-export")
+    async def enum_mapping_plan_export(body: EnumMappingExport):
+        return Response(
+            json.dumps(
+                export_review(body)["source_plan"],
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ),
+            media_type="application/json",
+            headers={"Content-Disposition": 'attachment; filename="enum-mapping-plan.json"'},
+        )
+
+    @app.post("/api/enum-mapping/import")
+    async def enum_mapping_import(file: UploadFile):
+        return import_plan(await file.read(2 * 1024 * 1024 + 1))
 
     @app.get("/api/bacnet/point-status/profile")
     async def bacnet_point_status_profile():
