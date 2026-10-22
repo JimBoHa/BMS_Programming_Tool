@@ -727,5 +727,14 @@
     "pdf_pages_or_section": "230-233;239-240;254",
     "status": "partial",
     "implementation_or_gap": "COMM-SCHED-001 reads native schedule/calendar values, target references, priority and raw clock evidence. Vendor-native edits/transfer, cleanup/timezone settings and controller acceptance remain pending. Portable simulation stays separate."
+  },
+  {
+    "id": "MF-8f42fc2004",
+    "feature": "Executable sequence conformance-test definitions",
+    "acceptance_criterion": "Author independent expected values/conditions, run deterministic bounded cases and preserve exact source/result evidence; distinguish checked coverage from whole-sequence acceptance.",
+    "evidence": "Johnson Controls/Yorkland ASHRAE Guideline36 Presentation June2021, SHA256075565f9664a80f9720ae68c1020c84cb08ad12aaaa7aef5d329ad4ac2d9ed3d",
+    "pdf_pages_or_section": "PDF3: functional tests labeled Future; source does not provide executable expected trajectories",
+    "status": "partial",
+    "implementation_or_gap": "Portable Studio source-bound suites implemented: backend/bms_tool/conformance.py, web/src/ConformancePanel.tsx, tests/test_conformance*.py, web/tests/conformance.spec.ts. Native CAF/CCT execution and authoritative Guideline36 trajectories remain unimplemented; operator criteria are not certification. Original external source_implementation_status is unchanged."
   }
 ]
