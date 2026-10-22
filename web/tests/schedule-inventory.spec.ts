@@ -8,6 +8,17 @@ import { spawn, execFileSync } from "node:child_process";
 import { createSocket } from "node:dgram";
 import path from "node:path";
 const root = path.resolve("..");
+test.afterEach(async ({ request }) => {
+  const session = await (await request.get("/api/session")).json();
+  const response = await request.post("/api/bacnet/disconnect", {
+    headers: { "X-Studio-Token": session.token },
+    data: {},
+  });
+  expect(response.ok()).toBe(true);
+  expect(
+    (await (await request.get("/api/bacnet/status")).json()).connected,
+  ).toBe(false);
+});
 async function freePort(): Promise<number> {
   const socket = createSocket("udp4");
   return new Promise((resolve, reject) => {
