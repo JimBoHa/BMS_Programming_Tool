@@ -702,13 +702,22 @@
     "implementation_or_gap": "Direct or explicit routed plain IPv4, owned single-attempt reads/cancel, bounded session reports and browser export. No native edits/transfer, reference crawling, inferred timezone, atomic backup, segmentation, BBMD/direct serial or physical manufacturer acceptance. docs/native-schedule-inventory.md"
   },
   {
+    "id": "COMM-SCHED-002",
+    "feature": "Sealed native schedule library and offline weekly-day drafts",
+    "acceptance_criterion": "Retain exact source/native evidence across restart and import, author one strict typed weekly-day replacement and export an independently reviewable native encoding diff without field traffic.",
+    "evidence": "JCI Controller Tool Help18.0 LIT-12011147 SHA68935362c85cb1879dc033cc701115e8ea7c4ecb26748f21a9ceaf0454f82903; SCT19 LIT-12011964; pinned BACpypes3 0.0.110 datatype/encoding sources",
+    "pdf_pages_or_section": "CCT235-236/247-248; SCT328-329; docs/native-schedule-drafts.md",
+    "status": "implemented",
+    "implementation_or_gap": "Scoped offline foundation:32captures/64MiB immutable source library, strict native context and Default/type agreement, typed ordered day1..7 authoring, exact tag/rounding proof and original-byte exports/imports. No native writes/newobjects/default/target/priority changes, Calendar/exception authoring, runtime evaluation, CAF integration or physical manufacturer acceptance."
+  },
+  {
     "id": "MF-e39fd7dcb6",
     "feature": "Calendar and schedule objects",
     "acceptance_criterion": "Support calendar/schedule engineering described in SCT.",
     "evidence": "SCT System Configuration Tool Help 19.0 LIT-12011964; DOC-a8bd468067d4",
     "pdf_pages_or_section": "328-329",
     "status": "partial",
-    "implementation_or_gap": "COMM-SCHED-001 inventories standard native objects only. Reviewed native editing/transfer, SCT archive integration and physical acceptance remain pending."
+    "implementation_or_gap": "COMM-SCHED-001 inventories standard native objects; COMM-SCHED-002 retains sealed original captures and reviews strict offline weekly-day drafts. Native editing/transfer, SCT archive integration and physical acceptance remain pending."
   },
   {
     "id": "MF-3964cbd0c0",
@@ -717,7 +726,7 @@
     "evidence": "FX Workbench User Guide 14.15 LIT-12012256; DOC-207c83d8260b",
     "pdf_pages_or_section": "218-220",
     "status": "partial",
-    "implementation_or_gap": "COMM-SCHED-001 preserves native BACnet exception/calendar references without crawling. Niagara CalendarSchedule authoring/editing/deployment and cross-format semantic equivalence remain pending."
+    "implementation_or_gap": "COMM-SCHED-001/002 preserve native BACnet exception/calendar references and sealed evidence without crawling. Strict weekly-day drafts remain offline. Niagara CalendarSchedule authoring/editing/deployment and cross-format semantic equivalence remain pending."
   },
   {
     "id": "MF-9030e4190e",
@@ -726,7 +735,7 @@
     "evidence": "Controller Tool Help 18.0 LIT-12011147; DOC-68935362c85c",
     "pdf_pages_or_section": "230-233;239-240;254",
     "status": "partial",
-    "implementation_or_gap": "COMM-SCHED-001 reads native schedule/calendar values, target references, priority and raw clock evidence. Vendor-native edits/transfer, cleanup/timezone settings and controller acceptance remain pending. Portable simulation stays separate."
+    "implementation_or_gap": "COMM-SCHED-001 reads native values, references, priority and raw clocks; COMM-SCHED-002 preserves original evidence and authors typed offline weekly-day encoding reviews. Native transfer, Calendar/exception authoring, cleanup/timezone settings and controller acceptance remain pending. Portable simulation stays separate."
   },
   {
     "id": "MF-8f42fc2004",
