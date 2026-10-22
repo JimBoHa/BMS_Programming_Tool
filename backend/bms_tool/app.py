@@ -78,6 +78,16 @@ from .native_schedule_library import (
     NativeScheduleLibrary,
     WeeklyDayDraft,
 )
+from .native_schedule_write import (
+    NativeWeeklyDayWrites,
+    WeeklyWriteApply,
+    WeeklyWriteCancel,
+    WeeklyWritePreview,
+    WeeklyWriteReconcile,
+)
+from .native_schedule_write import (
+    encoded as native_write_json,
+)
 from .native_simulator import NativeSimulator
 from .network_number_plan import network_plan_router
 from .niagara import NiagaraArchive
@@ -481,6 +491,7 @@ def create_app(state_dir=None):
     device_details = DeviceDetails(bacnet, store)
     schedule_inventory = ScheduleInventory(bacnet, store)
     schedule_library = NativeScheduleLibrary(store.directory, schedule_inventory)
+    schedule_writes = NativeWeeklyDayWrites(bacnet, store, schedule_library)
     point_status = PointStatus(bacnet, store)
     event_inventory = EventInventory(bacnet, store)
     event_ack = EventAcknowledgements(bacnet, store, event_inventory)
@@ -544,6 +555,7 @@ def create_app(state_dir=None):
             for task in tasks:
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
+            await schedule_writes.close()
             try:
                 try:
                     try:
@@ -612,6 +624,7 @@ def create_app(state_dir=None):
     app.state.point_status = point_status
     app.state.event_inventory = event_inventory
     app.state.event_ack = event_ack
+    app.state.schedule_writes = schedule_writes
     app.state.event_reception = event_reception
     app.state.bacnet_files = files
     app.state.hardware_workbench = hardware_workbench
@@ -1765,6 +1778,43 @@ def create_app(state_dir=None):
             schedule_library.import_review, await file.read(256 * 1024 + 1)
         )
 
+    @app.get("/api/bacnet/schedules/writes/profile")
+    def bacnet_schedule_write_profile():
+        return schedule_writes.status()
+
+    @app.post("/api/bacnet/schedules/writes/preview")
+    async def bacnet_schedule_write_preview(body: WeeklyWritePreview):
+        return Response(
+            native_write_json(await schedule_writes.preview(**body.model_dump())),
+            media_type="application/json",
+        )
+
+    @app.post("/api/bacnet/schedules/writes/apply")
+    async def bacnet_schedule_write_apply(body: WeeklyWriteApply):
+        return Response(
+            await schedule_writes.apply(**body.model_dump()), media_type="application/json"
+        )
+
+    @app.post("/api/bacnet/schedules/writes/cancel")
+    async def bacnet_schedule_write_cancel(body: WeeklyWriteCancel):
+        return schedule_writes.cancel(body.operation_id)
+
+    @app.get("/api/bacnet/schedules/writes/receipts/{id}")
+    def bacnet_schedule_write_receipt(id: str):
+        return Response(
+            schedule_writes.journal.receipt(id),
+            media_type="application/json",
+            headers={
+                "Content-Disposition": f'attachment; filename="native-weekly-write-{id}.json"'
+            },
+        )
+
+    @app.post("/api/bacnet/schedules/writes/reconcile")
+    async def bacnet_schedule_write_reconcile(body: WeeklyWriteReconcile):
+        return Response(
+            await schedule_writes.reconcile(**body.model_dump()), media_type="application/json"
+        )
+
     @app.get("/api/bacnet/events/profile")
     def bacnet_events_profile():
         return event_inventory.status()
@@ -1908,6 +1958,7 @@ def create_app(state_dir=None):
 
     @app.post("/api/bacnet/connect")
     async def bacnet_connect(body: BacnetConnect):
+        await schedule_writes.close()
         await event_ack.close()
         await event_inventory.close()
         await event_log.close()
@@ -1971,6 +2022,7 @@ def create_app(state_dir=None):
 
     @app.post("/api/bacnet/connect-mstp")
     async def bacnet_connect_mstp(body: BacnetMstp):
+        await schedule_writes.close()
         await event_ack.close()
         await event_inventory.close()
         await event_log.close()
@@ -1979,6 +2031,7 @@ def create_app(state_dir=None):
 
     @app.post("/api/bacnet/disconnect")
     async def bacnet_disconnect():
+        await schedule_writes.close()
         await event_ack.close()
         await event_inventory.close()
         await event_log.close()
