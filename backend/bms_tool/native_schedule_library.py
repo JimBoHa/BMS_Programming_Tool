@@ -45,6 +45,7 @@ CAPTURE_PROFILE = "native-calendar-schedule-capture/1"
 DRAFT_PROFILE = "native-schedule-weekly-day-draft/1"
 MAX_ARCHIVE_BYTES = 4 * 1024 * 1024
 MAX_CAPTURES, MAX_STORAGE, MAX_REVIEWS = 32, 64 * 1024 * 1024, 16
+MAX_NAMESPACE_ENTRIES = 128
 CONTEXT = (
     "present-value",
     "effective-period",
@@ -419,17 +420,37 @@ class NativeScheduleLibrary:
         self.review_lock = threading.RLock()
 
     def _files(self):
-        paths, total = [], 0
+        if self._storage_bytes() > MAX_STORAGE:
+            raise ValueError("Native schedule capture storage exceeds its bounded profile.")
+        paths = []
         for path in self.directory.glob("capture-*.json"):
             info = path.lstat()
             identifier(path.stem.removeprefix("capture-"))
             if not regular_file(info):
                 raise ValueError("Native schedule library contains a nonregular capture file.")
-            total += info.st_size
             paths.append(path)
-            if len(paths) > MAX_CAPTURES or total > MAX_STORAGE:
+            if len(paths) > MAX_CAPTURES:
                 raise ValueError("Native schedule capture storage exceeds its bounded profile.")
         return sorted(paths)
+
+    def _storage_bytes(self):
+        # Count abandoned temporary files too: a crash must not bypass quota.
+        # Unexpected entries are never deleted or followed to reclaim capacity.
+        total = 0
+        with os.scandir(self.directory) as entries:
+            for count, entry in enumerate(entries, 1):
+                if count > MAX_NAMESPACE_ENTRIES:
+                    raise ValueError("Native schedule storage exceeds its namespace entry bound.")
+                try:
+                    information = entry.stat(follow_symlinks=False)
+                except FileNotFoundError:
+                    continue  # another completed writer retired a temporary name
+                if not regular_file(information):
+                    raise ValueError(
+                        "Native schedule storage contains a nonregular namespace entry."
+                    )
+                total += information.st_size
+        return total
 
     @staticmethod
     def _archive(raw):
@@ -513,10 +534,7 @@ class NativeScheduleLibrary:
                     )
                 return self.detail(id)
             paths = self._files()
-            if (
-                len(paths) >= MAX_CAPTURES
-                or sum(p.stat().st_size for p in paths) + len(raw) > MAX_STORAGE
-            ):
+            if len(paths) >= MAX_CAPTURES or self._storage_bytes() + len(raw) > MAX_STORAGE:
                 raise ValueError(
                     "Native schedule capture capacity reached; no evidence was overwritten."
                 )
@@ -766,8 +784,13 @@ class NativeScheduleLibrary:
                 "archive_bytes": MAX_ARCHIVE_BYTES,
                 "transitions": 32,
                 "reviews": MAX_REVIEWS,
+                "namespace_entries": MAX_NAMESPACE_ENTRIES,
             },
-            "storage": storage_profile(),
+            "storage": {
+                **storage_profile(),
+                "used_bytes": self._storage_bytes(),
+                "pressure_policy": "All namespace files, including abandoned temporary files, count. No automatic deletion/overwrite/eviction.",
+            },
             "draft_policy": {
                 "primitives": list(PRIMITIVES),
                 "default": "Supported non-Null Schedule_Default determines the exact native datatype; every captured weekly/exception/present value must match or be Null.",

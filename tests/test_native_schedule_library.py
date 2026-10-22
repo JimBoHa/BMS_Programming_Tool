@@ -521,6 +521,29 @@ def test_nonregular_capture_and_failed_publication_preserve_evidence(
     assert list(other.directory.iterdir()) == [other.directory / ".capture.lock"]
 
 
+def test_crash_abandoned_temporary_data_counts_against_storage_without_deletion(
+    tmp_path, source_bytes
+):
+    library = NativeScheduleLibrary(tmp_path)
+    abandoned = library.directory / ".abandoned.tmp"
+    with abandoned.open("wb") as stream:
+        stream.truncate(module.MAX_STORAGE)
+    with pytest.raises(ValueError, match="capacity"):
+        library._store(source_bytes, "session")
+    assert abandoned.stat().st_size == module.MAX_STORAGE
+    assert not list(library.directory.glob("capture-*"))
+
+
+def test_namespace_entry_pressure_is_bounded_without_deletion(tmp_path, source_bytes):
+    library = NativeScheduleLibrary(tmp_path)
+    for number in range(module.MAX_NAMESPACE_ENTRIES):
+        (library.directory / f".abandoned-{number}.tmp").touch()
+    with pytest.raises(ValueError, match="namespace entry"):
+        library._store(source_bytes, "session")  # lock file is one additional entry
+    assert len(list(library.directory.glob(".abandoned-*"))) == module.MAX_NAMESPACE_ENTRIES
+    assert not list(library.directory.glob("capture-*"))
+
+
 def test_actual_capture_writer_ownership_is_bounded(tmp_path, source_bytes, held_process):  # noqa: F811
     library = NativeScheduleLibrary(tmp_path)
     process = held_process(library.directory / ".capture.lock")
