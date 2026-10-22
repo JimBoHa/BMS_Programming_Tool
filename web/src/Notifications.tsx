@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { BellRing, Download, Pause, Play, RefreshCw } from "lucide-react";
-import { api, saveBlob } from "./api";
+import { api, apiJsonDocument, saveBlob } from "./api";
+import {
+  parseHistoryId,
+  requireHistoryId,
+  showHistoryId,
+} from "./browserHistoryIds";
 
 const EVENTS = ["activated", "returned", "acknowledged", "source-ended"];
 const STATES = [
@@ -35,18 +40,19 @@ export function Notifications() {
     [pruneThrough, setPruneThrough] = useState(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
+    [pageError, setPageError] = useState(""),
     [message, setMessage] = useState("");
   const mounted = useRef(false),
     epoch = useRef(0),
     busyRef = useRef(false);
-  const query = new URLSearchParams({
-    after: String(after),
-    limit: "100",
-    ...(routeFilter ? { route_id: routeFilter } : {}),
-    ...(stateFilter ? { state: stateFilter } : {}),
-  });
   async function refresh() {
     const current = ++epoch.current;
+    const query = new URLSearchParams({
+      after: String(requireHistoryId(after, "Delivery page cursor", true)),
+      limit: "100",
+      ...(routeFilter ? { route_id: routeFilter } : {}),
+      ...(stateFilter ? { state: stateFilter } : {}),
+    });
     const [health, targets, rows] = await Promise.all([
       api("/notifications/status"),
       api("/notifications/routes"),
@@ -55,9 +61,28 @@ export function Notifications() {
     if (!mounted.current || current !== epoch.current) return;
     setStatus(health);
     setRoutes(targets);
-    setDeliveries(rows.rows);
     setTotal(rows.total);
-    setNextAfter(rows.next_after);
+    // Refuse the whole current page instead of keeping actions on a rounded ID.
+    setDeliveries([]);
+    setNextAfter(null);
+    let next: number | null;
+    try {
+      for (const row of rows.rows) {
+        requireHistoryId(row.id, "Delivery ID");
+        if (row.event_sequence !== null && row.event_sequence !== undefined)
+          requireHistoryId(row.event_sequence, "Delivery event sequence", true);
+      }
+      next =
+        rows.next_after === null
+          ? null
+          : requireHistoryId(rows.next_after, "Next delivery page cursor");
+    } catch (e) {
+      setPageError(String(e));
+      return;
+    }
+    setPageError("");
+    setDeliveries(rows.rows);
+    setNextAfter(next);
   }
   useEffect(() => {
     mounted.current = true;
@@ -119,12 +144,16 @@ export function Notifications() {
     }
   }
   async function download(id: number) {
-    const value = await api("/notifications/deliveries/" + id);
-    if (!mounted.current) return;
-    saveBlob(
-      new Blob([JSON.stringify(value, null, 2)], { type: "application/json" }),
-      `alarm-delivery-${id}.json`,
+    id = requireHistoryId(id, "Delivery download ID");
+    const { data: value, blob } = await apiJsonDocument(
+      "/notifications/deliveries/" + id,
     );
+    if (requireHistoryId(value.id, "Downloaded delivery ID") !== id)
+      throw new Error(
+        "Downloaded delivery identity does not match the selected record.",
+      );
+    if (!mounted.current) return;
+    saveBlob(blob, `alarm-delivery-${id}.json`);
   }
   return (
     <div className="workspace-page">
@@ -151,13 +180,19 @@ export function Notifications() {
           {error}
         </div>
       )}
+      {pageError && (
+        <div className="inline-error" role="alert">
+          {pageError}
+        </div>
+      )}
       {message && <p role="status">{message}</p>}
       {status && (
         <section className="card" aria-label="Alarm delivery status">
           <div className="card-body">
             <p>
               {status.active_routes} active routes · {total} matching delivery
-              records · latest alarm event {status.latest_alarm_event_sequence}
+              records · latest alarm event{" "}
+              {showHistoryId(status.latest_alarm_event_sequence, true)}
             </p>
             {status.worker_error && (
               <p className="inline-error">
@@ -329,7 +364,7 @@ export function Notifications() {
                 </small>
                 {" · "}
                 <small className="mono">
-                  Route {route.id} · cursor {route.cursor}
+                  Route {route.id} · cursor {showHistoryId(route.cursor, true)}
                 </small>
                 {route.error && <p className="inline-error">{route.error}</p>}
               </div>
@@ -458,7 +493,10 @@ export function Notifications() {
                           onClick={() =>
                             action(async () => {
                               await api("/notifications/retry", {
-                                id: row.id,
+                                id: requireHistoryId(
+                                  row.id,
+                                  "Delivery retry ID",
+                                ),
                                 actor: actor.trim(),
                                 note: note.trim(),
                               });
@@ -479,7 +517,10 @@ export function Notifications() {
                           onClick={() =>
                             action(async () => {
                               await api("/notifications/discard", {
-                                id: row.id,
+                                id: requireHistoryId(
+                                  row.id,
+                                  "Delivery discard ID",
+                                ),
                                 actor: actor.trim(),
                                 note: note.trim(),
                               });
@@ -495,7 +536,7 @@ export function Notifications() {
               </tbody>
             </table>
           </div>
-          {!deliveries.length && (
+          {!deliveries.length && !pageError && (
             <p>No delivery records match these filters.</p>
           )}
           <div className="button-row">
@@ -505,7 +546,15 @@ export function Notifications() {
             <span>{total} matching records</span>
             <button
               disabled={busy || nextAfter === null}
-              onClick={() => setAfter(nextAfter!)}
+              onClick={() => {
+                try {
+                  setAfter(
+                    requireHistoryId(nextAfter, "Next delivery page cursor"),
+                  );
+                } catch (e) {
+                  setError(String(e));
+                }
+              }}
             >
               Next delivery page
             </button>
@@ -522,8 +571,8 @@ export function Notifications() {
               Completed history through ID
               <input
                 aria-label="Completed delivery history through ID"
-                type="number"
-                min={1}
+                type="text"
+                inputMode="numeric"
                 disabled={busy}
                 value={pruneThrough}
                 onChange={(e) => setPruneThrough(e.target.value)}
@@ -533,9 +582,10 @@ export function Notifications() {
               disabled={busy || !pruneThrough}
               onClick={() =>
                 action(async () => {
-                  const id = Number(pruneThrough);
-                  if (!Number.isInteger(id) || id < 1)
-                    throw new Error("Enter a positive completed delivery ID.");
+                  const id = parseHistoryId(
+                    pruneThrough,
+                    "Completed delivery history through ID",
+                  );
                   const result = await api("/notifications/prune", {
                     through_id: id,
                     limit: 1000,

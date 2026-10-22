@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Bell, Download, RefreshCw } from "lucide-react";
 import { api, saveBlob } from "./api";
 import { showValue } from "./types";
+import { requireHistoryId } from "./browserHistoryIds";
 
 export function Observations() {
   const [status, setStatus] = useState<any>(null),
@@ -26,6 +27,11 @@ export function Observations() {
     setBusy(true);
     try {
       const common: Record<string, string> = source ? { source } : {};
+      const cursor = requireHistoryId(after, "Trend page cursor", true),
+        alarmId =
+          selectedAlarm === null
+            ? null
+            : requireHistoryId(selectedAlarm, "Selected alarm ID");
       const query = (values: Record<string, string>) =>
         "?" + new URLSearchParams(values);
       const [s, streams, t, a, e] = await Promise.all([
@@ -36,7 +42,7 @@ export function Observations() {
             query({
               ...common,
               ...(signal ? { signal } : {}),
-              after: String(after),
+              after: String(cursor),
               limit: "100",
             }),
         ),
@@ -56,7 +62,7 @@ export function Observations() {
           "/observations/events" +
             query({
               ...common,
-              ...(selectedAlarm ? { alarm_id: String(selectedAlarm) } : {}),
+              ...(alarmId === null ? {} : { alarm_id: String(alarmId) }),
               limit: "100",
             }),
         ),
@@ -64,12 +70,24 @@ export function Observations() {
       if (request !== requestNumber.current) return;
       setStatus(s);
       setSources(streams);
+      for (const sample of t)
+        requireHistoryId(sample.sequence, "Trend sample sequence");
+      for (const alarm of a) requireHistoryId(alarm.id, "Alarm occurrence ID");
+      for (const event of e) {
+        requireHistoryId(event.sequence, "Alarm event sequence");
+        requireHistoryId(event.alarm_id, "Alarm event occurrence ID");
+      }
       setSamples(t);
       setAlarms(a);
       setEvents(e);
       setError("");
     } catch (e) {
-      if (request === requestNumber.current) setError(String(e));
+      if (request === requestNumber.current) {
+        setSamples([]);
+        setAlarms([]);
+        setEvents([]);
+        setError(String(e));
+      }
     } finally {
       if (request === requestNumber.current) setBusy(false);
     }
@@ -156,7 +174,11 @@ export function Observations() {
           <RefreshCw size={15} /> Refresh
         </button>
       </div>
-      {error && <div className="inline-error">{error}</div>}
+      {error && (
+        <div className="inline-error" role="alert">
+          {error}
+        </div>
+      )}
       {auditWarning && <div className="inline-error">{auditWarning}</div>}
       {status && (
         <p className="observation-counts">
@@ -219,13 +241,20 @@ export function Observations() {
             <AlarmOccurrence
               key={a.id}
               alarm={a}
+              disabled={busy}
               onChanged={refresh}
-              onEvents={() => setSelectedAlarm(a.id)}
+              onEvents={() => {
+                try {
+                  setSelectedAlarm(requireHistoryId(a.id, "Selected alarm ID"));
+                } catch (e) {
+                  setError(String(e));
+                }
+              }}
             />
           ))
-        ) : (
+        ) : !error ? (
           <p>No matching alarm occurrences.</p>
-        )}
+        ) : null}
       </div>
       <h3>
         Alarm events{" "}
@@ -312,8 +341,18 @@ export function Observations() {
         <button
           disabled={!pages.length || busy}
           onClick={() => {
-            setAfter(pages.at(-1)!);
-            setPages(pages.slice(0, -1));
+            try {
+              setAfter(
+                requireHistoryId(
+                  pages.at(-1),
+                  "Previous trend page cursor",
+                  true,
+                ),
+              );
+              setPages(pages.slice(0, -1));
+            } catch (e) {
+              setError(String(e));
+            }
           }}
         >
           Previous samples
@@ -324,8 +363,17 @@ export function Observations() {
         <button
           disabled={samples.length !== 100 || busy}
           onClick={() => {
-            setPages([...pages, after]);
-            setAfter(samples.at(-1).sequence);
+            try {
+              const next = requireHistoryId(
+                samples.at(-1).sequence,
+                "Next trend page cursor",
+              );
+              requireHistoryId(after, "Current trend page cursor", true);
+              setPages([...pages, after]);
+              setAfter(next);
+            } catch (e) {
+              setError(String(e));
+            }
           }}
         >
           Next samples
@@ -388,10 +436,12 @@ export function Observations() {
 
 function AlarmOccurrence({
   alarm,
+  disabled,
   onChanged,
   onEvents,
 }: {
   alarm: any;
+  disabled: boolean;
   onChanged: () => Promise<void>;
   onEvents: () => void;
 }) {
@@ -403,7 +453,7 @@ function AlarmOccurrence({
     setBusy(true);
     try {
       const result = await api("/observations/acknowledge", {
-        alarm_id: alarm.id,
+        alarm_id: requireHistoryId(alarm.id, "Alarm acknowledgement ID"),
         note,
         actor,
       });
@@ -459,14 +509,16 @@ function AlarmOccurrence({
             />
           </label>
           <button
-            disabled={!note.trim() || !actor.trim() || busy}
+            disabled={!note.trim() || !actor.trim() || busy || disabled}
             onClick={acknowledge}
           >
             Acknowledge alarm {alarm.id}
           </button>
         </div>
       )}
-      <button onClick={onEvents}>Events for alarm {alarm.id}</button>
+      <button disabled={busy || disabled} onClick={onEvents}>
+        Events for alarm {alarm.id}
+      </button>
       {error && <p className="inline-error">{error}</p>}
     </article>
   );
