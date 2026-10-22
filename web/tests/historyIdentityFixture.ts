@@ -23,7 +23,11 @@ async function freePort(): Promise<number> {
 /** Each worker owns its seeded SQLite server; no shared API history is cleared. */
 export const test = base.extend<{}, { historyIdentityServer: string }>({
   historyIdentityServer: [
-    async ({}, use) => {
+    async ({ browserName }, use) => {
+      if (browserName !== "chromium" && browserName !== "webkit")
+        throw new Error(
+          "History identity fixture supports Chromium and WebKit lanes only.",
+        );
       const root = path.resolve(".."),
         port = await freePort(),
         directory = mkdtempSync(path.join(tmpdir(), "bms-history-id-fixture-")),
