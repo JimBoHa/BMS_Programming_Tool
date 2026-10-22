@@ -1,3 +1,4 @@
+import { simulationServerResponseJSON } from "./simulationFixture";
 import { test, expect } from "./simulationFixture";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -131,7 +132,7 @@ test("persist simulation trends and acknowledge returned alarms across reloads",
       .click();
     const response = await pending;
     expect(response.ok()).toBe(true);
-    const receipt = await response.json();
+    const receipt = simulationServerResponseJSON(response);
     expect(receipt.operation_id).toBe(
       response.request().postDataJSON().operation_id,
     );
