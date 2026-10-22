@@ -47,7 +47,7 @@ test("CAF target preflight compares inventory, hardware provenance and Bluetooth
   page,
 }) => {
   const { panel, original } = await open(page);
-  await expect(panel).toContainText("Application version: 10.2");
+  await expect(panel).toContainText("Appl SW Version: 10.2");
   await expect(panel).toContainText("Recorded firmware: 6.2");
   await panel
     .getByLabel("Target controller model", { exact: true })

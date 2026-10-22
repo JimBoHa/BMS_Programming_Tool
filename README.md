@@ -149,6 +149,10 @@ The reviewed vendor restrictions are tracked as desired improvements with eviden
 
 The **Conformance tests** workspace authors named input/quality cases and independent expected block values for portable graphs. Exact source/revision/profile guards, deterministic clocks, tolerances, transactional fault checks, restart-safe suite storage and sealed original-byte report downloads keep acceptance criteria reviewable. Reports distinguish asserted outputs and untested conditions. Native CAF execution and full-sequence/Title24/Guideline36 certification remain outside this profile. See [conformance workflow and limits](docs/graph-conformance.md).
 
+## JCI tool/release rule review
+
+The CAF **Target readiness** panel now reviews operation-specific documented CCT/PCT release-mode and package conditions with exact manual/page/hash evidence. Unknown source versions, cross-product combinations, model/firmware/package acceptance and installed native tooling remain unresolved. No upgrade or transfer is performed. See [documented release rules](docs/jci-release-rules.md).
+
 ## Verify
 
 ```sh

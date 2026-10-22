@@ -62,3 +62,8 @@
   color: #146b47;
   font-weight: 600;
 }
+
+.jci-preflight input[type="checkbox"] {
+  width: auto;
+  align-self: flex-start;
+}
