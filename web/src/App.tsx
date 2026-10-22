@@ -47,6 +47,7 @@ import {
 } from "./types";
 import { Canvas } from "./Canvas";
 import { Inspector, SimulationPanel } from "./Panels";
+import { useSimulationClock } from "./useSimulationClock";
 import { SelectionPanel } from "./SelectionPanel";
 import { ConversionPreview } from "./ConversionPreview";
 
@@ -140,7 +141,8 @@ export function App() {
     [history, setHistory] = useState<Scan[]>([]),
     [inputs, setInputs] = useState<Record<string, any>>({}),
     [forces, setForces] = useState<Record<string, number | boolean>>({}),
-    [running, setRunning] = useState(false),
+    [simBusy, setSimBusy] = useState(false),
+    [simUncertain, setSimUncertain] = useState(false),
     [simError, setSimError] = useState(""),
     [recordHistory, setRecordHistory] = useState(false),
     [recordingError, setRecordingError] = useState(""),
@@ -160,18 +162,28 @@ export function App() {
     [undoStack, setUndoStack] = useState<Program[]>([]),
     [redoStack, setRedoStack] = useState<Program[]>([]);
   const latestProgram = useRef(program);
+  const latestForces = useRef(forces);
+  latestForces.current = forces;
+  const simulationEpoch = useRef(0);
   const draftEpoch = useRef(0),
     loadEpoch = useRef(0),
     validationEpoch = useRef(0),
     versionsEpoch = useRef(0),
     projectsEpoch = useRef(0),
     saveActive = useRef(false);
+  useEffect(
+    () => () => {
+      simulationEpoch.current++;
+    },
+    [],
+  );
   const renderedDraftEpoch = draftEpoch.current;
   const renderedNavigationEpoch = loadEpoch.current;
   function setProgram(next: Program | ((current: Program) => Program)) {
     const updated =
       typeof next === "function" ? next(latestProgram.current) : next;
     if (updated === latestProgram.current) return;
+    simulationEpoch.current++;
     latestProgram.current = updated;
     draftEpoch.current++;
     setProgramState(updated);
@@ -286,8 +298,8 @@ export function App() {
     let live = true;
     setIssues([]);
     setValidationStatus("pending");
-    setRunning(false);
     session.current = null;
+    setSimUncertain(false);
     setHistory([]);
     setForces({});
     setSimError("");
@@ -520,37 +532,142 @@ export function App() {
     localStorage.removeItem("bms-studio-macro-edit-v1");
     setMessage("Definition edits discarded.");
   }
-  const step = useCallback(async () => {
-    if (busy.current) return;
+  const step = useCallback(
+    async (steps = 1) => {
+      if (busy.current || simUncertain) return;
+      busy.current = true;
+      setSimBusy(true);
+      const epoch = simulationEpoch.current;
+      const operation = crypto.randomUUID().replaceAll("-", "");
+      try {
+        const r = await api("/simulation/step", {
+          program,
+          inputs,
+          forces,
+          steps,
+          session: session.current,
+          record: recordHistory,
+          operation_id: operation,
+          clock: nextClock
+            ? new Date(nextClock + "Z").toISOString()
+            : undefined,
+        });
+        if (
+          latestProgram.current !== program ||
+          simulationEpoch.current !== epoch
+        )
+          return;
+        if (
+          r.operation_id !== operation ||
+          r.requested_steps !== steps ||
+          r.program_id !== program.id ||
+          r.program_revision !== program.revision ||
+          r.applied_dt !== program.scan_seconds ||
+          (r.scan_error !== null && typeof r.scan_error !== "string") ||
+          (r.recording_error !== null &&
+            typeof r.recording_error !== "string") ||
+          !Number.isInteger(r.completed_steps) ||
+          r.completed_steps < 0 ||
+          r.completed_steps > steps ||
+          (r.completed_steps === 0
+            ? !r.scan_error ||
+              r.last !== null ||
+              (session.current === null
+                ? r.session !== null
+                : typeof r.session !== "string")
+            : typeof r.session !== "string" || !r.last) ||
+          !Array.isArray(r.history) ||
+          r.history.length > 300 ||
+          !r.history.every(
+            (row: Scan) =>
+              row &&
+              Number.isFinite(row.time) &&
+              typeof row.clock === "string" &&
+              row.values &&
+              row.outputs,
+          ) ||
+          (r.completed_steps < steps && !r.scan_error) ||
+          !r.snapshot ||
+          (session.current && session.current !== r.session)
+        )
+          throw new Error(
+            "Simulation batch receipt does not match its exact request. Reset before running again.",
+          );
+        session.current = r.session;
+        setHistory(r.history);
+        setSimError(r.scan_error || "");
+        setRecordingError(r.recording_error || "");
+        if (r.completed_steps > 0) setNextClock("");
+        return r;
+      } catch (e) {
+        if (
+          latestProgram.current !== program ||
+          simulationEpoch.current !== epoch
+        )
+          return;
+        setSimUncertain(true);
+        setSimError(
+          String(e) +
+            " An admitted request may have committed scans. Reset is required; no automatic retry.",
+        );
+        throw e;
+      } finally {
+        busy.current = false;
+        setSimBusy(false);
+      }
+    },
+    [program, inputs, forces, recordHistory, nextClock, simUncertain],
+  );
+  const pacing = useSimulationClock({
+    source: program,
+    active: tab === "editor",
+    scanSeconds: program.scan_seconds,
+    blocked: simBusy || simUncertain || !!nextClock,
+    batch: step,
+  });
+  async function runSimulationScenario(events: unknown, duration: number) {
+    if (busy.current || simUncertain) return;
     busy.current = true;
+    setSimBusy(true);
+    pacing.retire();
+    const epoch = ++simulationEpoch.current;
+    const source = program;
+    const admittedForces = forces;
     try {
-      const r = await api("/simulation/step", {
-        program,
-        inputs,
+      const result = await api("/simulation/scenario", {
+        program: source,
+        events,
+        duration,
         forces,
-        session: session.current,
-        record: recordHistory,
-        clock: nextClock ? new Date(nextClock + "Z").toISOString() : undefined,
       });
-      if (latestProgram.current !== program) return;
-      session.current = r.session;
-      setHistory(r.history);
-      setSimError(r.scan_error || "");
-      if (r.scan_error) setRunning(false);
-      setRecordingError(r.recording_error || "");
-      setNextClock("");
-    } catch (e) {
-      setSimError(String(e));
-      setRunning(false);
+      if (simulationEpoch.current !== epoch || latestProgram.current !== source)
+        return;
+      if (!Array.isArray(result.history))
+        throw new Error("Scenario response has no valid bounded history.");
+      session.current = null;
+      setHistory(result.history);
+      if (latestForces.current === admittedForces)
+        setForces(result.history.at(-1)?.forces || {});
+      setSimError("");
+      setRecordingError("");
+    } catch (error) {
+      if (simulationEpoch.current === epoch && latestProgram.current === source)
+        setSimError(String(error));
     } finally {
       busy.current = false;
+      setSimBusy(false);
     }
-  }, [program, inputs, forces, recordHistory, nextClock]);
-  useEffect(() => {
-    if (!running) return;
-    const timer = setInterval(step, 500);
-    return () => clearInterval(timer);
-  }, [running, step]);
+  }
+  function resetSimulation() {
+    simulationEpoch.current++;
+    pacing.retire();
+    setSimUncertain(false);
+    session.current = null;
+    setHistory([]);
+    setSimError("");
+    setRecordingError("");
+    setForces({});
+  }
   useEffect(() => {
     function keyboard(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
@@ -1282,21 +1399,18 @@ export function App() {
                       setInputs={setInputs}
                       forces={forces}
                       onReleaseForces={() => setForces({})}
-                      running={running}
-                      setRunning={setRunning}
-                      onStep={step}
-                      onReset={() => {
-                        session.current = null;
-                        setHistory([]);
-                        setRunning(false);
-                        setSimError("");
-                        setForces({});
+                      running={pacing.running}
+                      setRunning={(value) =>
+                        value ? pacing.run() : pacing.pause()
+                      }
+                      pacing={pacing}
+                      simBusy={simBusy || simUncertain}
+                      onStep={() => {
+                        pacing.retire();
+                        void step().catch(() => {});
                       }}
-                      onScenario={(h) => {
-                        session.current = null;
-                        setHistory(h);
-                        setForces(h.at(-1)?.forces || {});
-                      }}
+                      onReset={resetSimulation}
+                      onRunScenario={runSimulationScenario}
                       error={simError}
                       recordHistory={recordHistory}
                       setRecordHistory={setRecordHistory}
