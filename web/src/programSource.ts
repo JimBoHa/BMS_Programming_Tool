@@ -216,9 +216,9 @@ export function sourceStringify(
     throw new Error("Program source exceeds its encoded byte bound");
   return result;
 }
-/** Bounded envelope escaping overhead; each embedded source still has its own 8 MiB bound. */
+/** Respect the existing global 9 MiB request cap, including source-envelope escaping. */
 export const sourceRequestStringify = (value: any) =>
-  sourceStringify(value, 0, 2 * MAX_BYTES + 65536);
+  sourceStringify(value, 0, 9 * 1024 * 1024);
 function numberProjection(value: any, integer: boolean, field: string): number {
   const token = numericToken(value),
     n = Number(token);

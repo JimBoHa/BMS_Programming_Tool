@@ -4,6 +4,7 @@ import {
   SourceNumber,
   parseSourceJSON,
   sourceStringify,
+  sourceRequestStringify,
   parseSourceDocument,
   cloneSource,
   prepareSourceRequest,
@@ -143,9 +144,25 @@ test("unicode scalar values and numeric token bounds are explicit", () => {
 });
 
 test("ordinary projected integral Numbers serialize their exact represented integer", () => {
-  const value=executionNumber("1152921504606846976");
-  assert.equal(sourceStringify({value}),'{"value":1152921504606846976}');
-  assert.equal(sourceStringify(2**53),"9007199254740992");
-  assert.equal(sourceStringify(2**100),"1267650600228229401496703205376");
-  assert.equal(sourceStringify(-0),"-0.0");
+  const value = executionNumber("1152921504606846976");
+  assert.equal(sourceStringify({ value }), '{"value":1152921504606846976}');
+  assert.equal(sourceStringify(2 ** 53), "9007199254740992");
+  assert.equal(sourceStringify(2 ** 100), "1267650600228229401496703205376");
+  assert.equal(sourceStringify(-0), "-0.0");
+});
+
+test("encoded requests respect the existing 9 MiB transport cap including escapes", () => {
+  const inside = { x: "a".repeat(9 * 1024 * 1024 - 8) };
+  assert.equal(
+    Buffer.byteLength(sourceRequestStringify(inside)),
+    9 * 1024 * 1024,
+  );
+  assert.throws(
+    () => sourceRequestStringify({ x: inside.x + "a" }),
+    /byte bound/,
+  );
+  assert.throws(
+    () => sourceRequestStringify({ source_json: "\\".repeat(5 * 1024 * 1024) }),
+    /byte bound/,
+  );
 });
