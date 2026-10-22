@@ -29,7 +29,7 @@ Program requests replace each independently edited Program with a `bms.program-s
 
 These hashes bind bytes and declared identity. They do not authenticate a sender or grant authorization. Session checks, native device restrictions and existing operation guards remain applicable. Original native and conformance report downloads retain authoritative HTTP bytes; the editor does not reseal or migrate them.
 
-The supported source profile is at most 8 MiB UTF-8, 200000 values, 64 nesting levels and 4096 characters per numeric token. Duplicate keys, nonfinite floats, invalid Unicode and unsupported values are refused. Large bounded integer tokens can remain archival source without conversion to JavaScript Number. The full encoded request additionally allows bounded envelope escaping overhead (16 MiB plus 64 KiB). Recovery uses the same source serializer through the existing lifecycle/write-failure guard.
+The supported source profile is at most 8 MiB UTF-8, 200000 values, 64 nesting levels and 4096 characters per numeric token. Duplicate keys, nonfinite floats, invalid Unicode and unsupported values are refused. Large bounded integer tokens can remain archival source without conversion to JavaScript Number. The full encoded request, including envelope escaping, must also fit the unchanged global 9 MiB request cap. Escaping overhead can reduce usable source below its separate 8 MiB limit; such a request is explicitly refused rather than normalized or truncated. Recovery uses the same source serializer through the existing lifecycle/write-failure guard.
 
 ## Audited workflows
 

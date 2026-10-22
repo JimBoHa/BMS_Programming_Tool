@@ -270,3 +270,15 @@ def test_opt_in_load_does_not_rewrite_legacy_revision_bytes_or_hash(tmp_path):
 def test_source_unicode_and_numeric_token_profile(source):
     with pytest.raises(ValueError):
         strict_source_json(source)
+
+
+def test_source_opt_in_keeps_global_request_length_refusal(tmp_path):
+    with TestClient(create_app(tmp_path)) as client:
+        headers = {
+            "X-Studio-Token": client.get("/api/session").json()["token"],
+            "Content-Type": "application/json",
+            "X-Studio-Program-Source": "true",
+            "Content-Length": str(9 * 1024 * 1024 + 1),
+        }
+        response = client.post("/api/validate", headers=headers, content=b"{}")
+        assert response.status_code == 413
