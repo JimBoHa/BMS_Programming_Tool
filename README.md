@@ -142,6 +142,10 @@ Generated ST supplies `StudioScanSeconds`, `StudioDayOfWeek` (Monday = 0), `Stud
 
 The reviewed vendor restrictions are tracked as desired improvements with evidence. Product lock-in and avoidable workflow limits become requirements. Physical I/O limits, data types, incompatible execution models and permissions become explicit adapter constraints; silently discarding them would produce incorrect controller programs.
 
+## JCI tool/release rule review
+
+The CAF **Target readiness** panel now reviews operation-specific documented CCT/PCT release-mode and package conditions with exact manual/page/hash evidence. Unknown source versions, cross-product combinations, model/firmware/package acceptance and installed native tooling remain unresolved. No upgrade or transfer is performed. See [documented release rules](docs/jci-release-rules.md).
+
 ## Verify
 
 ```sh

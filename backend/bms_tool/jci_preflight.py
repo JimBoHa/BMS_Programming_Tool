@@ -16,6 +16,8 @@ from typing import Annotated, Literal
 from pydantic import Field, StrictBool, field_validator
 
 from .caf import BY_CLASS, CafArchive, Q
+from .jci_release_rules import ReleaseReview
+from .jci_release_rules import review as review_release
 from .models import StrictModel
 
 Text = Annotated[str, Field(max_length=256)]
@@ -73,6 +75,7 @@ class InventoryManifest(StrictModel):
 
 
 class PreflightRequest(StrictModel):
+    release_review: ReleaseReview | None = None
     target_model: Text = ""
     target_firmware: Text = ""
     application_object_ref: Text = ""
@@ -305,7 +308,7 @@ def preflight(caf: CafArchive, request: PreflightRequest, hardware=None):
     add(
         "caf.application-version",
         "CAF identity",
-        "CAF application/release version",
+        "CAF Appl SW Version",
         "match" if observed["application_version"] else "unknown",
         (
             "CAF property 12: "
@@ -345,7 +348,7 @@ def preflight(caf: CafArchive, request: PreflightRequest, hardware=None):
         ("model", "Declared tool model support", request.target_model, tool.supported_models),
         (
             "application",
-            "Declared CAF release support",
+            "Declared CAF Appl SW Version support",
             observed["application_version"],
             tool.supported_application_versions,
         ),
@@ -524,6 +527,26 @@ def preflight(caf: CafArchive, request: PreflightRequest, hardware=None):
         "unknown",
         "Vendor reopen/validation, application-only bench transfer, readback, restart persistence, and restore evidence remain required.",
     )
+    release_report = None
+    if request.release_review is not None:
+        release_report = review_release(
+            request.release_review,
+            tool,
+            manifest.packages,
+            caf_sha256=caf.hash,
+            application_version=observed["application_version"],
+        )
+        for finding in release_report["findings"]:
+            add(
+                "release." + finding["rule_id"],
+                "Documented release rules",
+                finding["rule_id"],
+                {"condition-met": "match", "conflict": "blocked", "unknown": "unknown"}[
+                    finding["status"]
+                ],
+                finding["detail"],
+                finding["sources"],
+            )
     counts = dict(Counter(row["status"] for row in checks))
     return {
         "schema_version": 1,
@@ -551,6 +574,7 @@ def preflight(caf: CafArchive, request: PreflightRequest, hardware=None):
         },
         "application_candidates": candidates,
         "selected_application": selected,
+        "release_review": release_report,
         "checks": checks,
         "counts": counts,
     }

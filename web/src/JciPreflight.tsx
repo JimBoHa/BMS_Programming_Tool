@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { api, download, saveBlob } from "./api";
 import "./jci-preflight.css";
+import { JciReleaseRulesForm, JciReleaseRuleResults } from "./JciReleaseRules";
 
 type Draft = {
+  release_review: Record<string, any> | null;
   target_model: string;
   target_firmware: string;
   application_object_ref: string;
@@ -12,6 +14,7 @@ type Draft = {
 };
 
 const initial: Draft = {
+  release_review: null,
   target_model: "",
   target_firmware: "",
   application_object_ref: "",
@@ -20,6 +23,85 @@ const initial: Draft = {
   hardware_sha256: null,
 };
 
+function same(left: any, right: any): boolean {
+  const ordered = (value: any): any =>
+    Array.isArray(value)
+      ? value.map(ordered)
+      : value && typeof value === "object"
+        ? Object.fromEntries(
+            Object.keys(value)
+              .sort()
+              .map((key) => [key, ordered(value[key])]),
+          )
+        : value;
+  return JSON.stringify(ordered(left)) === JSON.stringify(ordered(right));
+}
+function matches(next: any, id: string, draft: Draft, catalog: any) {
+  if (
+    next?.source?.caf_sha256 !== id ||
+    next.source.inventory_text !== draft.inventory_text ||
+    next.target?.model !== draft.target_model ||
+    next.target?.firmware !== draft.target_firmware ||
+    next.target?.transport !== draft.transport ||
+    (draft.hardware_sha256
+      ? next.source.hardware?.sha256 !== draft.hardware_sha256
+      : next.source.hardware !== null) ||
+    !Array.isArray(next.checks) ||
+    !next.counts ||
+    next.can_deploy !== false ||
+    (draft.application_object_ref &&
+      next.selected_application?.object_ref !== draft.application_object_ref)
+  )
+    return false;
+  if (!draft.release_review) return next.release_review === null;
+  const report = next.release_review;
+  if (
+    !report ||
+    report.format !== "bms.jci-release-review" ||
+    report.version !== 1 ||
+    report.ruleset_sha256 !== catalog?.ruleset_sha256 ||
+    !/^[a-f0-9]{64}$/.test(report.content_sha256) ||
+    report.source?.caf_sha256 !== id ||
+    !same(report.source.declarations, draft.release_review) ||
+    !same(report.source.destination_tool, next.source.inventory?.toolchain) ||
+    !same(
+      report.source.required_package_declarations,
+      next.source.inventory?.packages?.filter((row: any) => row.required),
+    ) ||
+    report.source.observed_appl_sw_version !==
+      (next.selected_application?.application_version ?? "") ||
+    report.can_execute_native !== false ||
+    report.can_deploy !== false ||
+    report.manufacturer_tool_executed !== false ||
+    !Array.isArray(report.findings) ||
+    !Array.isArray(report.unverified) ||
+    report.unverified.some((item: unknown) => typeof item !== "string") ||
+    typeof report.scope !== "string" ||
+    ![
+      "documented-conflict",
+      "needs-evidence",
+      "documented-conditions-only",
+    ].includes(report.status)
+  )
+    return false;
+  return (
+    new Set(report.findings.map((row: any) => row?.rule_id)).size ===
+      report.findings.length &&
+    report.findings.every((row: any) => {
+      const rule = catalog.ruleset.rules.find(
+        (rule: any) => rule.id === row?.rule_id,
+      );
+      return (
+        typeof row?.detail === "string" &&
+        ["condition-met", "conflict", "unknown"].includes(row.status) &&
+        (rule
+          ? rule.operations.includes(draft.release_review!.operation) &&
+            same(row.sources, rule.sources)
+          : row.rule_id === "uncovered-operation" && same(row.sources, []))
+      );
+    })
+  );
+}
 export function JciPreflight({
   id,
   disabled = false,
@@ -28,6 +110,7 @@ export function JciPreflight({
   disabled?: boolean;
 }) {
   const [draft, setDraft] = useState<Draft>(initial);
+  const [ruleCatalog, setRuleCatalog] = useState<any>(null);
   const [report, setReport] = useState<any>(null);
   const [reportKey, setReportKey] = useState("");
   const [busy, setBusy] = useState(false);
@@ -36,6 +119,8 @@ export function JciPreflight({
   const inventoryInput = useRef<HTMLInputElement>(null);
   const hardwareInput = useRef<HTMLInputElement>(null);
   const request = useRef(0);
+  const activePanel = useRef(!disabled);
+  activePanel.current = !disabled;
   const currentDraft = useRef(draft);
   currentDraft.current = draft;
   const current = JSON.stringify(draft);
@@ -44,11 +129,27 @@ export function JciPreflight({
   useEffect(() => {
     let active = true;
     const generation = ++request.current;
+    if (disabled) {
+      setBusy(false);
+      return;
+    }
     setBusy(true);
-    api(`/caf/${id}/preflight`)
-      .then((value) => {
+    Promise.all([
+      api(`/caf/${id}/preflight`),
+      api("/jci/preflight/release-rules"),
+    ])
+      .then(([value, catalog]) => {
         if (!active || request.current !== generation) return;
+        if (
+          catalog?.format !== "bms.jci-release-rule-catalog" ||
+          !Array.isArray(catalog.ruleset?.rules) ||
+          !Array.isArray(catalog.operations)
+        )
+          throw new Error("Invalid release-rule catalog.");
+        if (!matches(value, id, initial, catalog))
+          throw new Error("Preflight source does not match this CAF.");
         setReport(value);
+        setRuleCatalog(catalog);
         setReportKey(JSON.stringify(initial));
       })
       .catch((failure) => {
@@ -61,7 +162,7 @@ export function JciPreflight({
       active = false;
       request.current++;
     };
-  }, [id]);
+  }, [id, disabled]);
 
   function change<K extends keyof Draft>(key: K, value: Draft[K]) {
     setDraft((previous) => ({ ...previous, [key]: value }));
@@ -82,11 +183,21 @@ export function JciPreflight({
           "jci-target-readiness.json",
           () =>
             generation === request.current &&
+            activePanel.current &&
             JSON.stringify(currentDraft.current) === JSON.stringify(snapshot),
         );
       } else {
+        setReport(null);
         const next = await api(`/caf/${id}/preflight`, snapshot);
-        if (generation !== request.current) return;
+        if (
+          generation !== request.current ||
+          !same(currentDraft.current, snapshot)
+        )
+          return;
+        if (!matches(next, id, snapshot, ruleCatalog))
+          throw new Error(
+            "Preflight operation/rules/source evidence does not match this exact request.",
+          );
         setReport(next);
         setReportKey(JSON.stringify(snapshot));
       }
@@ -111,7 +222,7 @@ export function JciPreflight({
         fatal: true,
         ignoreBOM: true,
       }).decode(await file.arrayBuffer());
-      if (generation !== request.current) return;
+      if (generation !== request.current || !activePanel.current) return;
       change("inventory_text", text);
     } catch {
       if (generation === request.current)
@@ -134,7 +245,7 @@ export function JciPreflight({
       const form = new FormData();
       form.append("file", file);
       const value = await api("/jci/hardware/open", form);
-      if (generation !== request.current) return;
+      if (generation !== request.current || !activePanel.current) return;
       change("hardware_sha256", value.sha256);
       setHardwareName(file.name);
     } catch (failure) {
@@ -151,7 +262,7 @@ export function JciPreflight({
     setError("");
     try {
       const value = await api("/jci/preflight/template");
-      if (generation !== request.current) return;
+      if (generation !== request.current || !activePanel.current) return;
       saveBlob(
         new Blob([JSON.stringify(value, null, 2)], {
           type: "application/json",
@@ -177,8 +288,9 @@ export function JciPreflight({
         computer or VM.
       </p>
       <p>
-        CAF release/application version, controller firmware, and tool version
-        are checked separately. A matching report does not authorize deployment.
+        CAF Appl SW Version, separately declared release mode, controller
+        firmware, and tool version are checked separately. A matching report
+        does not authorize deployment.
       </p>
       <fieldset disabled={disabled || busy}>
         <legend>Intended target</legend>
@@ -294,6 +406,7 @@ export function JciPreflight({
           <label>
             Inventory JSON text
             <textarea
+              aria-label="Inventory JSON text"
               spellCheck={false}
               rows={14}
               value={draft.inventory_text}
@@ -302,6 +415,12 @@ export function JciPreflight({
           </label>
         </details>
       </fieldset>
+      <JciReleaseRulesForm
+        value={draft.release_review}
+        catalog={ruleCatalog}
+        disabled={disabled || busy}
+        onChange={(value) => change("release_review", value)}
+      />
       <div className="jci-preflight-actions">
         <button
           className="primary"
@@ -339,10 +458,13 @@ export function JciPreflight({
             Native compilation, transfer integration, and controller acceptance
             remain unverified.
           </p>
+          {report.release_review && (
+            <JciReleaseRuleResults report={report.release_review} />
+          )}
           {report.selected_application && (
             <p>
               CAF model: <b>{report.selected_application.model || "Unknown"}</b>{" "}
-              · Application version:
+              · Appl SW Version:
               <b>
                 {" "}
                 {report.selected_application.application_version || "Unknown"}
