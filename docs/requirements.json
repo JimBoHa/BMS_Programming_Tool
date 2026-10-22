@@ -871,5 +871,14 @@
     "pdf_pages_or_section": "docs/canvas-measurements.md; canvas lifecycle and ownership tests",
     "status": "implemented",
     "implementation_or_gap": "Canvas-local current-DOM geometry cache with Canvas/project/node/port-shape ownership, removal pruning and targeted handle refresh. Raw exported Program/digest remains unchanged by measurement; no global fit, timing retry, source-schema or field-device behavior changes."
+  },
+  {
+    "id": "UI-HISTORY-ID-001",
+    "feature": "Exact supported browser history identities",
+    "acceptance_criterion": "Reject malformed or unsafe operator IDs before numeric coercion, refuse unsupported received row identities/cursors before any action/query, and retain ordinary small-ID notification/observation workflows and original delivery-download bytes.",
+    "evidence": "Observed pruneThrough pre-API rounding; real ephemeral SQLite/API 64-bit fixtures; authored Chromium/WebKit requests and independent Python exact payload checks",
+    "pdf_pages_or_section": "docs/browser-history-identities.md; Alarm delivery and Trends & alarms",
+    "status": "implemented",
+    "implementation_or_gap": "Canonical decimal whole-ID text uses BigInt before Number; received numeric IDs require Number.isSafeInteger and positive bounds, with zero only for cursors. Unsupported pages clear row actions/cursors, safe filters remain usable, and each download/retry/discard/prune/ack/events/paging boundary rechecks IDs. Original delivery Blob downloads preserve nested payload values. Browser profile stops at MAX_SAFE_INTEGER; no full 64-bit browser protocol, backend history/native evidence changes or field traffic."
   }
 ]
