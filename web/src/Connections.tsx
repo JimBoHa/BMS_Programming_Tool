@@ -20,6 +20,7 @@ import { BbmdAdminPanel } from "./BbmdAdminPanel";
 import { ControllerProbePanel } from "./ControllerProbePanel";
 import { HardwareSurveyPanel } from "./HardwareSurveyPanel";
 import { PointStatusPanel } from "./PointStatusPanel";
+import { EnumMappingPanel } from "./EnumMappingPanel";
 import { ScheduleInventoryPanel } from "./ScheduleInventoryPanel";
 import { BacnetCovPanel } from "./BacnetCovPanel";
 import { BacnetEventsPanel } from "./BacnetEventsPanel";
@@ -736,6 +737,7 @@ export function Connections() {
           selectedRoute?.dnet ?? (/^\d+:/.test(target) ? probeDnet : null)
         }
       />
+      <EnumMappingPanel />
       <ScheduleInventoryPanel
         connected={
           !!status.connected &&
