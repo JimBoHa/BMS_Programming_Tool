@@ -9,6 +9,19 @@ export async function api(
   body?: unknown,
   method?: string,
 ): Promise<any> {
+  return (await request(path, body, method)).json();
+}
+export type JsonDocument<T = any> = { data: T; blob: Blob };
+/** Keep authoritative JSON bytes when their numeric spelling is evidence. */
+export async function apiJsonDocument<T = any>(
+  path: string,
+  body?: unknown,
+): Promise<JsonDocument<T>> {
+  const response = await request(path, body);
+  const blob = await response.blob();
+  return { data: JSON.parse(await blob.text()) as T, blob };
+}
+async function request(path: string, body?: unknown, method?: string) {
   const headers: Record<string, string> = {};
   if (token) headers["X-Studio-Token"] = token;
   if (body !== undefined && !(body instanceof FormData))
@@ -34,7 +47,7 @@ export async function api(
     }
     throw new Error(message);
   }
-  return response.json();
+  return response;
 }
 export async function download(
   path: string,

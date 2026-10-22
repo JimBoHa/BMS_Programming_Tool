@@ -7,7 +7,7 @@
   {
     "feature": "Standard BACnet Trend Log Multiple history",
     "status": "implemented",
-    "scope": "Explicit bounded native multi-channel ReadRange over direct or pinned routed IPv4 verifies Device/log identity and current references, preserves native choices/clock/quality uncertainty, and saves sealed captures with JSON/CSV and restart integrity. Current reference coherence never proves historical assignments. Exact-device support, physical JCI acceptance, proprietary historians, native application backup and unsolicited subscriptions remain unverified or outside this profile."
+    "scope": "Explicit bounded native multi-channel ReadRange over direct or pinned routed IPv4 verifies Device/log identity and current references, preserves native choices/clock/quality uncertainty, and saves sealed captures with JSON/CSV and restart integrity. Current reference coherence never proves historical assignments. Exact-device support, physical JCI acceptance, proprietary historians, native application backup and unsolicited subscriptions remain unverified or outside this profile. JSON downloads retain the exact original read/load HTTP response bytes, preserving native integral floats, signed zero, exponent notation and the original evidence/capture hashes; display and CSV formatting are separate."
   },
   {
     "feature": "Graphical drag-and-drop programming",
@@ -37,7 +37,7 @@
   {
     "feature": "Existing BACnet Trend Log history",
     "status": "implemented",
-    "scope": "Explicit bounded forward ReadRange through the connected interface; standard single-value Trend Log only. Device timezone/fold, original local clocks, unresolved UTC, all 11 datum alternatives, quality, sequence gaps/wrap and partial failures stay visible. Immutable sealed captures and JSON/CSV retain provenance. No auto-connect, background polling, device writes, physical-device validation or proprietary history import."
+    "scope": "Explicit bounded forward ReadRange through the connected interface; standard single-value Trend Log only. Device timezone/fold, original local clocks, unresolved UTC, all 11 datum alternatives, quality, sequence gaps/wrap and partial failures stay visible. Immutable sealed captures and JSON/CSV retain provenance. No auto-connect, background polling, device writes, physical-device validation or proprietary history import. JSON downloads retain the exact original read/load HTTP response bytes, preserving native integral floats, signed zero, exponent notation and the original evidence/capture hashes; display and CSV formatting are separate."
   },
   {
     "feature": "Program and input/output simulation",
@@ -197,6 +197,6 @@
   {
     "feature": "Standard BACnet Event Log history",
     "status": "implemented",
-    "scope": "Explicit bounded read-only standard type25 Event Log ReadRange over connected direct/routed IPv4. Exact Device/log identities, native notification parameters/enums/TimeStamp choices, logger/read/event clocks, status and clock changes remain distinct; unsupported native record encodings retain bounded opaque itemData evidence without guessed notifications. Sealed separate captures/restart and JSON/CSV browser export are tested with local UDP/routed peers. Physical support on any exact JCI device/firmware remains unknown. No unsolicited alarm subscriptions, device writes, synthesized human receipt/ack lifecycle or proprietary JCI historian access."
+    "scope": "Explicit bounded read-only standard type25 Event Log ReadRange over connected direct/routed IPv4. Exact Device/log identities, native notification parameters/enums/TimeStamp choices, logger/read/event clocks, status and clock changes remain distinct; unsupported native record encodings retain bounded opaque itemData evidence without guessed notifications. Sealed separate captures/restart and JSON/CSV browser export are tested with local UDP/routed peers. Physical support on any exact JCI device/firmware remains unknown. No unsolicited alarm subscriptions, device writes, synthesized human receipt/ack lifecycle or proprietary JCI historian access. JSON downloads retain the exact original read/load HTTP response bytes, preserving native integral floats, signed zero, exponent notation and the original evidence/capture hashes; display and CSV formatting are separate."
   }
 ]

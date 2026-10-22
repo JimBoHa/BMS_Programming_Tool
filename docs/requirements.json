@@ -312,7 +312,7 @@
     "evidence": "ASHRAE 135-2001 Addendum b; BACpypes3 0.0.110 primary datatypes/APDU definitions",
     "pdf_pages_or_section": "Trend Log and ReadRange sections",
     "status": "implemented",
-    "implementation_or_gap": "Real UDP/routed local services, all 11 LogRecord alternatives, DST/sequence wrap/gaps, timeouts/cancellation, sealed captures, browser JSON/CSV provenance and restart tested. Physical devices, Trend Log Multiple and proprietary histories remain outside profile"
+    "implementation_or_gap": "Real UDP/routed local services, all 11 LogRecord alternatives, DST/sequence wrap/gaps, timeouts/cancellation, sealed captures, browser JSON/CSV provenance and restart tested. Physical devices, Trend Log Multiple and proprietary histories remain outside profile JSON downloads retain the exact original read/load HTTP response bytes, preserving native integral floats, signed zero, exponent notation and the original evidence/capture hashes; display and CSV formatting are separate."
   },
   {
     "id": "PKG-002",
@@ -555,7 +555,7 @@
     "evidence": "ANSI/ASHRAE 135-2004 Addendum b, section135-2004b-3; pinned BACpypes3 native datatypes",
     "pdf_pages_or_section": "Printed pages13-25; current metadata is not proven historical mapping",
     "status": "implemented",
-    "implementation_or_gap": "Read-only standard type27 profile; real UDP/routed/API/browser tests. No physical target acceptance, proprietary historian, device writes or native program backup."
+    "implementation_or_gap": "Read-only standard type27 profile; real UDP/routed/API/browser tests. No physical target acceptance, proprietary historian, device writes or native program backup. JSON downloads retain the exact original read/load HTTP response bytes, preserving native integral floats, signed zero, exponent notation and the original evidence/capture hashes; display and CSV formatting are separate."
   },
   {
     "id": "HIST-EVENT-001",
@@ -564,6 +564,6 @@
     "evidence": "ANSI/ASHRAE 135-2004 Addendum b, section135-2004b-1; pinned BACpypes3 EventLogRecord/EventLogObject/APDU definitions",
     "pdf_pages_or_section": "Printed pages1-11; native record acquisition does not establish human receipt or historical configuration",
     "status": "implemented",
-    "implementation_or_gap": "Read-only standard type25 profile tested via real direct/routed UDP, API and browser. Unknown NotificationParameters choices are deferred with native tags; physical support, unsolicited alarm subscriptions and proprietary JCI historian remain unverified/outside profile."
+    "implementation_or_gap": "Read-only standard type25 profile tested via real direct/routed UDP, API and browser. Unknown NotificationParameters choices are deferred with native tags; physical support, unsolicited alarm subscriptions and proprietary JCI historian remain unverified/outside profile. JSON downloads retain the exact original read/load HTTP response bytes, preserving native integral floats, signed zero, exponent notation and the original evidence/capture hashes; display and CSV formatting are separate."
   }
 ]
