@@ -323,5 +323,10 @@
     "feature": "Owned local simulation session cleanup",
     "status": "implemented",
     "scope": "Exact volatile calculation ownership tokens and immutable creation-operation identities release known sessions on reset/source/scenario replacement and document retirement; verified stale first replies cannot restore state or remove unrelated sessions. Cleanup gates new scans/scenarios and failures require explicit retry. Recorded trends/alarms/events/source lifecycle remain unchanged. Best-effort exit cleanup, missing first receipts and one-hour idle expiry remain explicit; 25-session cap unchanged, no global clear or field operations. See docs/simulation-sessions.md."
+  },
+  {
+    "feature": "Exact operator BACnet command preview intent",
+    "status": "implemented",
+    "scope": "Bounded parser reuses executionNumber/parseExecutionJSON, retains original numeric atoms for the narrow write-plan request, pairs original HTTP response text with the opaque receipt and verifies exact requested integer/type/float sign plus target/object/priority. Pending navigation/source changes cannot restore an Apply token. Bare enum and quoted strings/booleans retain semantics; explicit decimal/exponent tokens use finite binary64, Real32 rounding stays visible. No automatic apply/retry, arbitrary decimal precision, native application programming or field-write validation. See docs/bacnet-command-intent.md."
   }
 ]
