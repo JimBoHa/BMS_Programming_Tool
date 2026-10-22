@@ -73,6 +73,32 @@ export async function download(
   saveBlob(blob, filename);
   return true;
 }
+export async function downloadGet(
+  path: string,
+  filename: string,
+  shouldSave?: () => boolean,
+) {
+  const response = await fetch("/api" + path, {
+    headers: { "X-Studio-Token": token },
+  });
+  if (!response.ok) {
+    let message = response.statusText;
+    try {
+      const data = await response.json();
+      message =
+        typeof data.detail === "string"
+          ? data.detail
+          : JSON.stringify(data.detail);
+    } catch {
+      /* Keep the HTTP failure if its body is not JSON. */
+    }
+    throw new Error(message);
+  }
+  const blob = await response.blob();
+  if (shouldSave && !shouldSave()) return false;
+  saveBlob(blob, filename);
+  return true;
+}
 export function saveBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

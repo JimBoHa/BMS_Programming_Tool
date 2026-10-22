@@ -44,6 +44,7 @@ from .cov_observations import CovObservations
 from .deployment import Runtime
 from .device_details import DeviceDetails, DeviceDetailsRequest
 from .engine import Engine, output_type, run_scenario, validate
+from .event_reception import EventListenAction, EventListenStart, EventReception
 from .field_trends import FieldTrends, FieldTrendStart
 from .formats import export_program, import_program
 from .hardware_workbench import HardwareWorkbench, hardware_router
@@ -447,6 +448,7 @@ def create_app(state_dir=None):
     device_details = DeviceDetails(bacnet, store)
     event_inventory = EventInventory(bacnet, store)
     event_ack = EventAcknowledgements(bacnet, store, event_inventory)
+    event_reception = EventReception(bacnet, store)
     files = BacnetFiles(bacnet, store)
     hardware_workbench = HardwareWorkbench(bacnet, store, files)
     supply_plans = SupplyPlans(store, hardware_workbench)
@@ -524,7 +526,10 @@ def create_app(state_dir=None):
                                 await hardware_workbench.close()
                             finally:
                                 try:
-                                    await cov.close()
+                                    try:
+                                        await event_reception.close()
+                                    finally:
+                                        await cov.close()
                                 finally:
                                     try:
                                         await event_ack.close()
@@ -562,6 +567,7 @@ def create_app(state_dir=None):
     app.state.device_details = device_details
     app.state.event_inventory = event_inventory
     app.state.event_ack = event_ack
+    app.state.event_reception = event_reception
     app.state.bacnet_files = files
     app.state.hardware_workbench = hardware_workbench
     app.state.notifications = None
@@ -1424,6 +1430,34 @@ def create_app(state_dir=None):
     @app.get("/api/bacnet/cov/status")
     async def cov_status():
         return cov.status()
+
+    @app.get("/api/bacnet/event-reception/status")
+    async def event_listen_status():
+        return event_reception.status()
+
+    @app.get("/api/bacnet/event-reception/sessions/{id}")
+    async def event_listen_detail(id: str):
+        return event_reception.detail(id)
+
+    @app.post("/api/bacnet/event-reception/start")
+    async def event_listen_start(body: EventListenStart):
+        return await event_reception.start(**body.model_dump())
+
+    @app.post("/api/bacnet/event-reception/stop")
+    async def event_listen_stop(body: EventListenAction):
+        return await event_reception.stop(body.id)
+
+    @app.post("/api/bacnet/event-reception/save")
+    async def event_listen_save(body: EventListenAction):
+        return await event_reception.save(body.id)
+
+    @app.get("/api/bacnet/event-reception/snapshots")
+    def event_listen_snapshots():
+        return event_reception.snapshots()
+
+    @app.get("/api/bacnet/event-reception/snapshots/{id}")
+    def event_listen_snapshot(id: str):
+        return event_reception.saved(id)
 
     @app.get("/api/bacnet/cov/jobs/{id}")
     async def cov_detail(id: str):

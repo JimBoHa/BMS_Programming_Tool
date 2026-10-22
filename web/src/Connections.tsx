@@ -21,6 +21,7 @@ import { ControllerProbePanel } from "./ControllerProbePanel";
 import { HardwareSurveyPanel } from "./HardwareSurveyPanel";
 import { BacnetCovPanel } from "./BacnetCovPanel";
 import { BacnetEventsPanel } from "./BacnetEventsPanel";
+import { EventReceptionPanel } from "./EventReceptionPanel";
 import { NetworkNumberPlanPanel } from "./NetworkNumberPlanPanel";
 import { BusPreflightPanel } from "./BusPreflightPanel";
 
@@ -715,6 +716,22 @@ export function Connections() {
         defaultObject={object}
         defaultRouter={selectedRoute?.router || status.config?.router || ""}
         defaultDnet={selectedRoute?.dnet || status.config?.dnet}
+      />
+      <EventReceptionPanel
+        connected={
+          !!status.connected &&
+          !busy &&
+          status.config?.transport !== "mstp" &&
+          !status.config?.bbmd_address
+        }
+        defaultAddress={target}
+        defaultDevice={object.trim().startsWith("device,") ? object : ""}
+        defaultRouter={
+          selectedRoute?.router || (/^\d+:/.test(target) ? config.router : "")
+        }
+        defaultDnet={
+          selectedRoute?.dnet ?? (/^\d+:/.test(target) ? probeDnet : null)
+        }
       />
       <BacnetEventsPanel
         connected={
