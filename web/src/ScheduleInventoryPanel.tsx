@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, download } from "./api";
+import { ScheduleLibraryPanel } from "./ScheduleLibraryPanel";
 type Props = {
   connected: boolean;
   defaultAddress: string;
@@ -399,6 +400,7 @@ export function ScheduleInventoryPanel({
           </details>
         </div>
       )}
+      <ScheduleLibraryPanel sessionReportId={report?.id || null} />
     </section>
   );
 }
