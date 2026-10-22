@@ -29,6 +29,7 @@ To prepare another computer without requiring Node.js on that computer, build an
 
 ## Working features
 
+- Recover the latest ordinary or macro editor draft across fast reloads through guarded lifecycle flushes, while validation remains debounced. Storage failures stay visible and preserve previous recovery data when a write fails. See [browser draft recovery and limits](docs/draft-recovery.md).
 - Create a separate editable VAV project with the **Equipment wizard**: choose equipment, declared target, logical sensors/setpoints and P/PI position mapping or measured-airflow feedback. Preview points, topology and choice/source hashes; unit changes convert values and inverse-unit gains together. Native CAF allocation and complete ventilation/safety/G36/Title24 sequences remain incomplete. See [wizard scope and verification](docs/equipment-wizard.md).
 - Inspect selected native point values with controller units, reliability, status flags and service state, plus optional read-only priority evidence. No health/scaling/command-ownership inference. See [native point status](docs/native-point-status.md).
 - Read opt-in native binary/multistate code and label evidence, then review separate operator-declared enum maps for missing states and information loss. No inferred code binding or executable conversion. See [state domains and mapping review](docs/native-enum-domains.md).
