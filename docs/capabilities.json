@@ -57,7 +57,7 @@
   {
     "feature": "Shared-signal system simulation",
     "status": "implemented",
-    "scope": "2\u201316 graph instances with a common clock and typed/unit-checked previous-cycle links. All programs commit together; a failed cycle holds every state/output. Bounded sessions/history, quality fault records and portable workspace save/reopen. No field interfaces or equipment/firmware emulation."
+    "scope": "2–16 graph instances with a common clock and typed/unit-checked previous-cycle links. All programs commit together; a failed cycle holds every state/output. Bounded sessions/history, quality fault records and portable workspace save/reopen. No field interfaces or equipment/firmware emulation."
   },
   {
     "feature": "Internal simulation holds and releases",
@@ -343,5 +343,10 @@
     "feature": "Exact supported browser history identities",
     "status": "implemented",
     "scope": "Canonical decimal whole-ID text uses BigInt before Number; received numeric IDs require Number.isSafeInteger and positive bounds, with zero only for cursors. Unsupported pages clear row actions/cursors, safe filters remain usable, and each download/retry/discard/prune/ack/events/paging boundary rechecks IDs. Original delivery Blob downloads preserve nested payload values. Browser profile stops at MAX_SAFE_INTEGER; no full 64-bit browser protocol, backend history/native evidence changes or field traffic. See docs/browser-history-identities.md."
+  },
+  {
+    "feature": "Durable native schedule evidence and offline day drafts",
+    "status": "implemented",
+    "scope": "Exact original native Calendar/Schedule report bytes and seals, bounded immutable local capture library, offline reopen/import/export and strict existing weekly-day typed draft with exact old/new native encoding/rounding proof. Complete default/type/context guards and source/rule hashes; unsupported context retained but deferred. No queries on library/draft operations, native writes, calendar/exception authoring, schedule evaluation, native CAF, vendor provisioning or physical acceptance. See docs/native-schedule-drafts.md."
   }
 ]
