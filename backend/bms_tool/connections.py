@@ -486,6 +486,9 @@ class Bacnet:
                 raise ValueError(
                     "Analog command must be a finite integer or float; no strings or booleans."
                 )
+            from .executable_numbers import require_number
+
+            require_number(value, "Analog command")
             try:
                 # Double derives from Real; check it first. Persist exactly the
                 # number that survives BACnet's native IEEE wire encoding, so

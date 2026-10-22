@@ -16,6 +16,7 @@ from datetime import timedelta
 
 from .blocks import BLOCKS
 from .engine import Engine, output_type
+from .executable_numbers import require_number
 from .native_document import NativeDocument
 from .sedona import compile_program, sox_request, toolchain
 
@@ -38,8 +39,7 @@ def _value(text):
 def _text(value):
     if type(value) is bool:
         return "true" if value else "false"
-    if type(value) not in (float, int) or not math.isfinite(value):
-        raise ValueError("Native input must be a finite number or boolean.")
+    require_number(value, "Native input")
     return str(value)
 
 

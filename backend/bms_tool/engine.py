@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 
 from .blocks import BLOCKS
 from .calendar_schedule import compile_schedule, validate_schedule_params
+from .executable_numbers import require_number
 from .models import Diagnostic, Program
 from .temperature import (
     DELTA_FOR_ABSOLUTE,
@@ -110,8 +111,7 @@ def validate(program: Program) -> list[Diagnostic]:
             if n.value_type == "boolean" and n.kind in ("Input", "Constant", "Delay"):
                 numeric.difference_update({"value", "default", "initial"})
             for key in numeric:
-                if type(p[key]) not in (int, float) or not math.isfinite(p[key]):
-                    raise ValueError(f"{key} must be a finite number")
+                require_number(p[key], key)
             for key, v in defaults.items():
                 if isinstance(v, bool) and type(p[key]) is not bool:
                     raise ValueError(f"{key} must be boolean")
@@ -284,9 +284,10 @@ class Engine:
                 valid = type(value) is bool
             else:
                 try:
-                    valid = type(value) in (int, float) and math.isfinite(value)
-                except OverflowError:
-                    valid = False
+                    require_number(value, f"{identifier}: force")
+                except ValueError as exc:
+                    raise ScanError(str(exc)) from exc
+                valid = True
             if not valid:
                 raise ScanError(f"{identifier}: force requires a finite {typ} value.")
         dt = self.program.scan_seconds if dt is None else dt
@@ -409,8 +410,11 @@ class Engine:
                 expected = output_type(n)
                 if expected == "boolean" and type(v) is not bool:
                     raise ScanError(f"{node_id}: expected boolean")
-                if expected == "number" and (type(v) not in (int, float) or not math.isfinite(v)):
-                    raise ScanError(f"{node_id}: expected finite number")
+                if expected == "number":
+                    try:
+                        require_number(v, node_id)
+                    except ValueError as exc:
+                        raise ScanError(str(exc)) from exc
                 if node_id in held:
                     computed[node_id] = v
                     v = held[node_id]

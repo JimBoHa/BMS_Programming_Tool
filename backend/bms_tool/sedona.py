@@ -22,6 +22,7 @@ from xml.etree import ElementTree as XML
 
 from defusedxml import ElementTree as SafeXML
 
+from .executable_numbers import _legacy_source_projection
 from .file_access import file_lock
 from .formats import ConversionError, structured_text_parts
 from .models import Program, canonical
@@ -40,7 +41,8 @@ def _tool_lock(sdk):
             yield
             return
         with file_lock(
-            sdk / ".bms-toolchain.lock", timeout=45,
+            sdk / ".bms-toolchain.lock",
+            timeout=45,
             busy="The Sedona SDK is busy rebuilding or compiling.",
         ):
             _ACTIVE_TOOL_LOCK.sdk = str(sdk)
@@ -240,11 +242,11 @@ def application_xml(kit, *, auth=None, port=1876, scan_seconds=1.0, native_docum
 
 
 def compile_program(program, directory, *, auth=None, port=1876):
+    source = kit_source(program)
     sdk, java = toolchain()
     directory = Path(directory).resolve()
     directory.mkdir(parents=True, exist_ok=True)
     name = "studio" + hashlib.sha256(canonical(program)).hexdigest()[:10]
-    source = kit_source(program)
     definition = (
         f'<sedonaKit name="{name}" vendor="studio" includeSource="true" '
         'description="Generated BMS Studio control graph">'
@@ -383,7 +385,7 @@ def import_bundle(content):
         kit = "studio" + hashlib.sha256(canonical(program)).hexdigest()[:10]
         if (
             manifest.get("kit") != kit
-            or archive.read("Graph.sedona") != kit_source(program)
+            or archive.read("Graph.sedona") != kit_source(_legacy_source_projection(program))
             or archive.read("app.sax")
             != application_xml(
                 kit,
