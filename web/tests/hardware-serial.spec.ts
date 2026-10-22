@@ -158,6 +158,7 @@ async function setup(page: Page) {
       (path === "/api/bacnet/ip-scan-profile" ||
         path === "/api/bacnet/cov/status" ||
         path === "/api/bacnet/events/profile" ||
+        path === "/api/bacnet/schedules/library/profile" ||
         path === "/api/bacnet/events/ack/profile" ||
         path.startsWith("/api/bacnet/files/"))
     )
