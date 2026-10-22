@@ -20,6 +20,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import AwareDatetime, Field
 
+from .accumulator_prescale import PrescaleReviews, prescale_router
 from .analysis import dependencies
 from .bacnet_cov import BacnetCov, CovAction, CovStart
 from .bacnet_event_ack import EventAckApply, EventAcknowledgements, EventAckPreview
@@ -610,6 +611,8 @@ def create_app(state_dir=None):
     app.state.schedule_inventory = schedule_inventory
     app.state.schedule_library = schedule_library
     app.state.point_status = point_status
+    app.state.prescale_reviews = PrescaleReviews(point_status)
+    app.include_router(prescale_router(app.state.prescale_reviews))
     app.state.event_inventory = event_inventory
     app.state.event_ack = event_ack
     app.state.event_reception = event_reception
