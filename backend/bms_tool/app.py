@@ -111,6 +111,7 @@ class SimulationRequest(StrictModel):
     clock: AwareDatetime | None = None
     forces: dict[str, Any] | None = None
     record: bool = False
+    operation_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
 
 
 class NativeStart(StrictModel):
@@ -1038,6 +1039,9 @@ def create_app(state_dir=None):
 
     @app.post("/api/simulation/step")
     async def step(body: SimulationRequest):
+        if body.clock is not None and body.steps != 1:
+            raise ValueError("An explicit clock applies to one scan; use single-step mode.")
+        created = not body.session
         now = time.monotonic()
         for id in [k for k, v in simulations.items() if now - v["touched"] > 3600]:
             del simulations[id]
@@ -1060,8 +1064,6 @@ def create_app(state_dir=None):
             simulations[id] = record
         engine = record["engine"]
         record["touched"] = now
-        if body.clock is not None and body.steps != 1:
-            raise ValueError("An explicit clock applies to one scan; use single-step mode.")
         rows = []
         scan_error = None
         recording_errors = []
@@ -1071,7 +1073,11 @@ def create_app(state_dir=None):
                 row = engine.step(body.inputs, body.dt, body.clock, forces=body.forces)
             except ValueError as exc:
                 if not rows:
-                    raise
+                    # No scan or observation committed for this new, undisclosed session.
+                    if created:
+                        simulations.pop(id, None)
+                    if body.operation_id is None:
+                        raise
                 scan_error = str(exc)
                 break
             rows.append(row)
@@ -1096,14 +1102,19 @@ def create_app(state_dir=None):
                     # never imply an executed scan was rolled back by a disk error.
                     recording_errors.append(str(exc))
         return {
-            "session": id,
-            "last": rows[-1],
+            "session": None if created and not rows else id,
+            "last": rows[-1] if rows else None,
             "history": engine.history[-300:],
             "snapshot": engine.snapshot(),
-            "recording_source": source if body.record else None,
+            "recording_source": source if body.record and not (created and not rows) else None,
             "recording_error": "; ".join(recording_errors) or None,
             "scan_error": scan_error,
             "completed_steps": len(rows),
+            "requested_steps": body.steps,
+            "operation_id": body.operation_id,
+            "applied_dt": engine.program.scan_seconds if body.dt is None else body.dt,
+            "program_id": engine.program.id,
+            "program_revision": engine.program.revision,
         }
 
     @app.post("/api/simulation/scenario")

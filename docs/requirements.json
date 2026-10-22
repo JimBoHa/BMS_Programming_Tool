@@ -141,7 +141,7 @@
     "evidence": "ALC Eikon 3.02 User Guide",
     "pdf_pages_or_section": "54-55",
     "status": "implemented",
-    "implementation_or_gap": "2\u201316 graph instances, typed/unit-checked previous-cycle links, atomic group cycles, common clock, quality faults and portable workspace files"
+    "implementation_or_gap": "2–16 graph instances, typed/unit-checked previous-cycle links, atomic group cycles, common clock, quality faults and portable workspace files"
   },
   {
     "id": "UI-003",
@@ -616,7 +616,7 @@
     "feature": "Unique BACnet network-number plan validation",
     "acceptance_criterion": "Diagnose conflicts only across explicitly declared domains and physical networks; preserve unknowns, engine/router matches, R15 scope and source-hashed portable review evidence.",
     "evidence": "JCI LIT-12011034 R15; ASHRAE 135-1995 errata; NISTIR 6392",
-    "pdf_pages_or_section": "JCI PDF 10, 12\u201313; errata 6.2.2.1; NIST 6.1, 6.4, 6.6.2",
+    "pdf_pages_or_section": "JCI PDF 10, 12–13; errata 6.2.2.1; NIST 6.1, 6.4, 6.6.2",
     "status": "implemented",
     "implementation_or_gap": "Offline strict plan/review API and Connect authoring/import/export; 1..65534 assignable range, explicit R15 new-assignment restrictions, domain/physical/endpoint conflict checks, report seals and stale-response guards. Operator assertions only; no scans, global availability, auto-renumbering or device writes."
   },
@@ -688,7 +688,7 @@
     "feature": "Finite truth-table completeness and explicit-priority review",
     "acceptance_criterion": "Author finite Boolean/Enum tables; exhaustively classify missing and all overlapping combinations, preserve explicit priority/shadow/fallback evidence, evaluate only declared exact typed states and export authoritative sealed source/review bytes.",
     "evidence": "JCI Controller Tool Help18.0 LIT-12011147; verified PDF SHA68935362c85cb1879dc033cc701115e8ea7c4ecb26748f21a9ceaf0454f82903",
-    "pdf_pages_or_section": "PDF167\u2013168 and1690\u20131691; docs/truth-table-review.md",
+    "pdf_pages_or_section": "PDF167–168 and1690–1691; docs/truth-table-review.md",
     "status": "implemented",
     "implementation_or_gap": "Scoped offline profile:12inputs/32states/128rows/4096cases; reject-overlap default, optional explicit first-match with all shadowed identities, constant fallback rationale and strict type/source/profile seals. Native hold-last/reliability, CAF interpretation, portable graph lowering, JCI compilation/download and physical acceptance are not implemented by this feature."
   },
@@ -790,5 +790,32 @@
     "pdf_pages_or_section": "1580-1581 Table1313",
     "status": "partial",
     "implementation_or_gap": "COMM-ENUM-001 preserves standard native domains and reviews explicit operator-declared numeric mappings. CCT Table1313 is named-set evidence only. Verified JCI Enum Set identities/native code bindings, executable native/portable lowering and physical firmware acceptance remain pending."
+  },
+  {
+    "id": "MF-e1cb1f8a09",
+    "feature": "Accelerated simulation clock",
+    "acceptance_criterion": "Select a bounded simulation speed relative to real time while preserving fixed graph scan durations and exposing requested versus achieved rate.",
+    "evidence": "Controller Tool Help 18 LIT-12011147 SHA68935362c85c; authored monotonic pacing controller and production scan API",
+    "pdf_pages_or_section": "PDF 266-271; docs/simulation-clock.md",
+    "status": "partial",
+    "implementation_or_gap": "Implemented portable-graph paced 1-100x runs, fixed scan duration, finite scan/time budgets, actual achieved rate/lag, serialized bounded batches, exact receipt/source/reset guards, explicit pause/resume/step and fault recovery. Native CCT/PCT CAF execution and firmware timing equivalence remain unverified."
+  },
+  {
+    "id": "MF-aa0ea57614",
+    "feature": "Control simulation pause policy",
+    "acceptance_criterion": "Make run/pause/step, editing, dialogs, navigation and pending-request clock effects explicit.",
+    "evidence": "Controller Tool Help 18 LIT-12011147 SHA68935362c85c; portable graph simulation lifecycle",
+    "pdf_pages_or_section": "PDF 266-269; docs/simulation-clock.md",
+    "status": "partial",
+    "implementation_or_gap": "Portable run pauses explicitly on operator request, navigation/visibility, budgets or faults; drains admitted results, discards paused-time credit, retires reset/source replies, retains known committed state and requires explicit recovery. Dialogs alone do not pause; graph edits reset. Native CAF pause semantics and break-condition authoring remain incomplete."
+  },
+  {
+    "id": "UI-DRAFT-001",
+    "feature": "Latest editor draft recovery on lifecycle exit",
+    "acceptance_criterion": "Recover the latest ready ordinary or macro editor snapshot during fast reload/lifecycle exit without coupling storage failure to graph validation or deleting a prior macro copy before a successful parent write.",
+    "evidence": "Observed packaged WebKit fast-reload race; authored serializer and deterministic held-debounce Chromium/WebKit tests",
+    "pdf_pages_or_section": "docs/draft-recovery.md; pagehide/beforeunload/visibility/unmount",
+    "status": "implemented",
+    "implementation_or_gap": "Shared serializer and synchronous latest program/macro refs flush after ready on lifecycle exit while preserving 200ms debounce. Macro enter/apply/discard use ordered writes; startup read/parse failures disable all automatic writes for that page, storage errors are visible and validation continues. Browser crash/forced exit, denied storage and disk durability are not guaranteed; server revision save/export remains separate."
   }
 ]
