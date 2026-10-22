@@ -121,13 +121,20 @@ def strict_json(raw, limit):
 
     def floating(text):
         value = float(text)
-        if not math.isfinite(value) or (Decimal(text) != 0 and value == 0):
+        try:
+            requested = Decimal(text)
+        except InvalidOperation:
+            invalid(text)
+        if not math.isfinite(value) or (requested != 0 and value == 0):
             invalid(text)
         return value
 
     try:
         value = json.loads(
-            raw, object_pairs_hook=pairs, parse_constant=invalid, parse_float=floating
+            raw.decode("utf-8", errors="strict"),
+            object_pairs_hook=pairs,
+            parse_constant=invalid,
+            parse_float=floating,
         )
         pending = [(value, 0)]
         count = 0

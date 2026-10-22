@@ -365,6 +365,18 @@ async def test_native_context_mismatches_preserved_but_draft_deferred(tmp_path, 
         library.review(**request(detail))
 
 
+async def test_opaque_native_timevalue_is_retained_without_edit_interpretation(tmp_path):
+    report, _, _ = await acquire(tmp_path / "peer", behavior="unknown_any")
+    source = encoded(report)
+    library, detail = saved(tmp_path / "library", source)
+    assert not detail["objects"][0]["eligible"]
+    assert library.source(detail["id"]) == source
+    assert library.detail(detail["id"])["report"] == report
+    with pytest.raises(ValueError):
+        library.review(**request(detail))
+    assert not library.reviews
+
+
 def test_decoded_value_source_tags_index_and_context_cannot_be_reinterpreted(
     tmp_path, source_bytes
 ):
@@ -394,11 +406,23 @@ def test_decoded_value_source_tags_index_and_context_cannot_be_reinterpreted(
         b'{"x":NaN}',
         b'{"x":1e999}',
         b'{"x":1e-9999}',
+        b'{"x":1e-9999999999999999999999999999999999999999}',
         b'{"\\ud800":1}',
         b'{"x":"\\ud800"}',
+        '{"x":1}'.encode("utf-16"),
         b"[" * 66 + b"0" + b"]" * 66,
     ],
-    ids=["duplicate", "nan", "overflow", "underflow", "keyunicode", "valueunicode", "depth"],
+    ids=[
+        "duplicate",
+        "nan",
+        "overflow",
+        "underflow",
+        "exponentoverflow",
+        "keyunicode",
+        "valueunicode",
+        "nonutf8",
+        "depth",
+    ],
 )
 def test_strict_json_refuses_lossy_or_unbounded_inputs(raw):
     with pytest.raises(ValueError):
