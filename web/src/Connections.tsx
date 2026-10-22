@@ -19,6 +19,7 @@ import { BbmdTablesPanel } from "./BbmdTablesPanel";
 import { BbmdAdminPanel } from "./BbmdAdminPanel";
 import { ControllerProbePanel } from "./ControllerProbePanel";
 import { HardwareSurveyPanel } from "./HardwareSurveyPanel";
+import { ScheduleInventoryPanel } from "./ScheduleInventoryPanel";
 import { BacnetCovPanel } from "./BacnetCovPanel";
 import { BacnetEventsPanel } from "./BacnetEventsPanel";
 import { EventReceptionPanel } from "./EventReceptionPanel";
@@ -718,6 +719,22 @@ export function Connections() {
         defaultDnet={selectedRoute?.dnet || status.config?.dnet}
       />
       <EventReceptionPanel
+        connected={
+          !!status.connected &&
+          !busy &&
+          status.config?.transport !== "mstp" &&
+          !status.config?.bbmd_address
+        }
+        defaultAddress={target}
+        defaultDevice={object.trim().startsWith("device,") ? object : ""}
+        defaultRouter={
+          selectedRoute?.router || (/^\d+:/.test(target) ? config.router : "")
+        }
+        defaultDnet={
+          selectedRoute?.dnet ?? (/^\d+:/.test(target) ? probeDnet : null)
+        }
+      />
+      <ScheduleInventoryPanel
         connected={
           !!status.connected &&
           !busy &&

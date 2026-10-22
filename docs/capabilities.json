@@ -268,5 +268,10 @@
     "feature": "Finite truth-table authoring and completeness review",
     "status": "implemented",
     "scope": "Offline Boolean/explicit signed32-bit Enum domains, stable identities, 4096-case exhaustive coverage, wildcard rules, all overlaps, default overlap rejection and explicit first-match priority with shadow/unreachable-row evidence. Optional constant fallback requires rationale. Browser authoring/import and server-authoritative sealed source/full-review JSON exports preserve source/profile/content hashes and stale-response guards. Bounded stateless selected-case evaluation only; no implicit hold-last, native reliability, CAF encoding, executable graph lowering, proprietary compilation or field writes."
+  },
+  {
+    "feature": "Native BACnet Calendar/Schedule inventory",
+    "status": "implemented",
+    "scope": "Explicit bounded read-only standard Calendar6/Schedule17 properties over direct or pinned routed plain IPv4, verified Device/object identities, indexed weekly/exception arrays, native AnyAtomic/date/reference/priority evidence, raw clocks and per-property failures. Exact HTTP-byte JSON exports preserve float spelling and evidence hashes; session-only reports, owned cancellation/teardown and stale-source browser guards. No coherent backup, native editing/transfer, reference crawling, timezone inference, segmented values, BBMD/direct serial or physical JCI/manufacturer acceptance. Broader MF-e39fd7dcb6/MF-3964cbd0c0/MF-9030e4190e remain partial."
   }
 ]

@@ -691,5 +691,41 @@
     "pdf_pages_or_section": "PDF167\u2013168 and1690\u20131691; docs/truth-table-review.md",
     "status": "implemented",
     "implementation_or_gap": "Scoped offline profile:12inputs/32states/128rows/4096cases; reject-overlap default, optional explicit first-match with all shadowed identities, constant fallback rationale and strict type/source/profile seals. Native hold-last/reliability, CAF interpretation, portable graph lowering, JCI compilation/download and physical acceptance are not implemented by this feature."
+  },
+  {
+    "id": "COMM-SCHED-001",
+    "feature": "Native BACnet Calendar/Schedule inventory",
+    "acceptance_criterion": "Explicit finite read-only Device and Calendar/Schedule identity verification, indexed native arrays, typed/wildcard/opaque evidence, source guards and exact JSON export.",
+    "evidence": "BACpypes3 0.0.110 primary datatype/source contracts; JCI LIT-12011147 18.0; LIT-12011964 19.0; LIT-12012256 14.15",
+    "pdf_pages_or_section": "CCT 230-233/239-240/254; SCT 328-329; FX 218-220",
+    "status": "implemented",
+    "implementation_or_gap": "Direct or explicit routed plain IPv4, owned single-attempt reads/cancel, bounded session reports and browser export. No native edits/transfer, reference crawling, inferred timezone, atomic backup, segmentation, BBMD/direct serial or physical manufacturer acceptance. docs/native-schedule-inventory.md"
+  },
+  {
+    "id": "MF-e39fd7dcb6",
+    "feature": "Calendar and schedule objects",
+    "acceptance_criterion": "Support calendar/schedule engineering described in SCT.",
+    "evidence": "SCT System Configuration Tool Help 19.0 LIT-12011964; DOC-a8bd468067d4",
+    "pdf_pages_or_section": "328-329",
+    "status": "partial",
+    "implementation_or_gap": "COMM-SCHED-001 inventories standard native objects only. Reviewed native editing/transfer, SCT archive integration and physical acceptance remain pending."
+  },
+  {
+    "id": "MF-3964cbd0c0",
+    "feature": "Calendar-based schedule exceptions",
+    "acceptance_criterion": "Support reusable calendar-based schedule exceptions described in FX Workbench.",
+    "evidence": "FX Workbench User Guide 14.15 LIT-12012256; DOC-207c83d8260b",
+    "pdf_pages_or_section": "218-220",
+    "status": "partial",
+    "implementation_or_gap": "COMM-SCHED-001 preserves native BACnet exception/calendar references without crawling. Niagara CalendarSchedule authoring/editing/deployment and cross-format semantic equivalence remain pending."
+  },
+  {
+    "id": "MF-9030e4190e",
+    "feature": "Controller schedules",
+    "acceptance_criterion": "Support controller schedule engineering described in Controller Tool Help.",
+    "evidence": "Controller Tool Help 18.0 LIT-12011147; DOC-68935362c85c",
+    "pdf_pages_or_section": "230-233;239-240;254",
+    "status": "partial",
+    "implementation_or_gap": "COMM-SCHED-001 reads native schedule/calendar values, target references, priority and raw clock evidence. Vendor-native edits/transfer, cleanup/timezone settings and controller acceptance remain pending. Portable simulation stays separate."
   }
 ]
