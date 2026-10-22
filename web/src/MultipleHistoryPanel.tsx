@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { api, saveBlob } from "./api";
+import { api, saveBlob, type JsonDocument } from "./api";
+import { historyEvidence, historyVisible } from "./historyEvidence";
 
 function cell(value: unknown) {
   let text =
@@ -57,7 +58,8 @@ export function MultipleHistoryPanel({
     page_size: "25",
     fold: "",
   });
-  const [report, setReport] = useState<any>(null);
+  const [document, setDocument] = useState<JsonDocument | null>(null);
+  const report = document?.data ?? null;
   const [capture, setCapture] = useState("");
   const [offset, setOffset] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -67,6 +69,7 @@ export function MultipleHistoryPanel({
   const mounted = useRef(false);
   const epoch = useRef(0);
   const statusRequest = useRef(0);
+  const panel = useRef<HTMLElement>(null);
   function cancelDetached() {
     if (operation.current)
       void api(endpoint + "/cancel", {
@@ -94,7 +97,7 @@ export function MultipleHistoryPanel({
     if (busy) return;
     epoch.current++;
     setFields((old) => ({ ...old, [key]: value }));
-    setReport(null);
+    setDocument(null);
     setOffset(0);
     setError("");
     setMessage("");
@@ -107,7 +110,7 @@ export function MultipleHistoryPanel({
     setBusy(true);
     setError("");
     setMessage("");
-    setReport(null);
+    setDocument(null);
     setOffset(0);
     try {
       if (!fields.address.trim() || !fields.device.trim())
@@ -137,8 +140,12 @@ export function MultipleHistoryPanel({
         delete payload.reference_time;
         Object.assign(payload, report.next_cursor);
       }
-      const result = await api(endpoint + "/read", payload);
-      if (mounted.current && generation === epoch.current) setReport(result);
+      const result = await historyEvidence(
+        endpoint + "/read",
+        eventLog ? "event-log" : "trend-log-multiple",
+        payload,
+      );
+      if (mounted.current && generation === epoch.current) setDocument(result);
     } catch (failure) {
       if (mounted.current && generation === epoch.current)
         setError(String(failure));
@@ -149,6 +156,7 @@ export function MultipleHistoryPanel({
   }
   async function localAction(kind: "refresh" | "save" | "load") {
     if (busy) return;
+    const generation = epoch.current;
     setBusy(true);
     setError("");
     setMessage("");
@@ -161,9 +169,16 @@ export function MultipleHistoryPanel({
           ),
         );
       } else if (kind === "load") {
-        const saved = await api(endpoint + "/captures/" + capture);
-        if (mounted.current) {
-          setReport(saved);
+        setDocument(null);
+        const original = await historyEvidence(
+          endpoint + "/captures/" + capture,
+          eventLog ? "event-log" : "trend-log-multiple",
+          undefined,
+          capture,
+        );
+        const saved = original.data;
+        if (mounted.current && generation === epoch.current) {
+          setDocument(original);
           setOffset(0);
           const source = saved.request;
           setFields({
@@ -192,13 +207,8 @@ export function MultipleHistoryPanel({
     }
   }
   function exportJson() {
-    if (report)
-      saveBlob(
-        new Blob([JSON.stringify(report, null, 2)], {
-          type: "application/json",
-        }),
-        `${filePrefix}-${report.id}.json`,
-      );
+    if (document && !busy && mounted.current && historyVisible(panel.current))
+      saveBlob(document.blob, `${filePrefix}-${document.data.id}.json`);
   }
   function exportEventCsv() {
     const common = {
@@ -436,6 +446,7 @@ export function MultipleHistoryPanel({
     <section
       className="temco-card"
       aria-label={label("BACnet Trend Log Multiple history")}
+      ref={panel}
     >
       <h2>{label("Multiple-channel device history")}</h2>
       {eventLog ? (
@@ -582,7 +593,13 @@ export function MultipleHistoryPanel({
             aria-label={label("Saved multiple-history capture")}
             disabled={busy}
             value={capture}
-            onChange={(event) => setCapture(event.target.value)}
+            onChange={(event) => {
+              epoch.current++;
+              setDocument(null);
+              setError("");
+              setMessage("");
+              setCapture(event.target.value);
+            }}
           >
             <option value="">Choose a sealed local capture</option>
             {status?.captures.map((item: any) => (
@@ -608,6 +625,13 @@ export function MultipleHistoryPanel({
       )}
       {error && <p role="alert">{error}</p>}
       {message && <p role="status">{message}</p>}
+      {report && (
+        <p className="temco-muted">
+          JSON preserves the original server response bytes, native numeric
+          values and evidence seal. Browser display and CSV use formatted
+          values.
+        </p>
+      )}
       {report && (
         <section aria-label={label("Multiple history evidence")}>
           <p role="status">
