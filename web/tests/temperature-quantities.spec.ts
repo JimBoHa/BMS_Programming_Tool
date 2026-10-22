@@ -1,4 +1,4 @@
-import { test, expect, type Page, type Locator } from "@playwright/test";
+import { test, expect, type Page, type Locator } from "./simulationFixture";
 import { readFileSync } from "node:fs";
 
 async function add(page: Page, title: string) {
