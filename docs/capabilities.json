@@ -348,5 +348,10 @@
     "feature": "Preserved live numeric input intent",
     "status": "implemented",
     "scope": "Validated SourceNumber atoms preserve original live numeric tokens. Accepted response tail values/forces and verified group source paths retain types; structural Program/DTO projection and legacy Number APIs stay unchanged. Receipt-only128MiB/8M/depth64 extraction bound preserves proved session ownership on refusal. Finite binary64 and native precision limits remain explicit; no arbitrary-precision, field-device or native JCI equivalence claim. See docs/live-numeric-intent.md."
+  },
+  {
+    "feature": "Durable native schedule evidence and offline day drafts",
+    "status": "implemented",
+    "scope": "Exact original native Calendar/Schedule report bytes and seals, bounded immutable local capture library, offline reopen/import/export and strict existing weekly-day typed draft with exact old/new native encoding/rounding proof. Complete default/type/context guards and source/rule hashes; unsupported context retained but deferred. No queries on library/draft operations, native writes, calendar/exception authoring, schedule evaluation, native CAF, vendor provisioning or physical acceptance. See docs/native-schedule-drafts.md."
   }
 ]
