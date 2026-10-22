@@ -14,6 +14,8 @@ Every property/index retains its own outcome and native evidence. Native unknown
 
 ## Bounds and export
 
+The [owned shared-socket receive profile](ipv4-receive-provenance.md) handles the pinned Windows stack's broadcast destination metadata without rewriting it. Raw BVLC Original-Unicast, actual socket and peer stay validated; the physical IP destination remains unavailable.
+
 This profile uses the shared source-pinned `PropertyEvidence` reader extracted from the tested Calendar/Schedule inventory. It sends only owned, unsegmented, single-attempt ReadProperty requests. Direct/routed receive validation pins the original IPv4 peer, local interface/socket identity and NPDU source rather than trusting a mutable route cache. Other native services/observers remain independent. No point writes, priority commands, relinquishing, out-of-service changes, polling, reconnect or retries are added.
 
 There is one active inspection, a 15-second whole-operation deadline including lock acquisition, a 1-second property deadline and 20 ms pacing, 512 requests, 16 points, at most 16 priority slots, 16 KiB encoded values, 4,096 native tags/items and 16 levels, a 64 KiB property-record bound and 2 MiB report budget. Large or segmented values remain unavailable/incomplete. Cancellation, source/interface/configuration change and shutdown retire owned transactions/hooks, retaining completed properties and partially read priority arrays. Cancel-before-admission is bounded and explicit.

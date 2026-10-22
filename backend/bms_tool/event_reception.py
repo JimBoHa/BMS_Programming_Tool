@@ -21,7 +21,7 @@ from typing import Literal
 from bacpypes3.apdu import APDU, ConfirmedEventNotificationRequest
 from bacpypes3.constructeddata import Any, Sequence
 from bacpypes3.npdu import NPDU
-from bacpypes3.pdu import PDU, Address, IPv4Address
+from bacpypes3.pdu import PDU, Address
 from bacpypes3.primitivedata import ObjectIdentifier, Tag, TagList
 from pydantic import Field, field_validator, model_validator
 
@@ -30,6 +30,7 @@ from .bacnet_read import read_property
 from .bacnet_values import json_value
 from .cov_route import remote_source
 from .device_details import DeviceDetails, DeviceDetailsRequest
+from .ipv4_ingress import npdu_ingress
 from .models import StrictModel
 from .scoped_hooks import ScopedAttribute
 
@@ -308,11 +309,8 @@ class EventReception:
         config = job["config"]
         try:
             self._guard(job)
-            direct = (
-                adapter is job["adapter"]
-                and isinstance(packet.pduDestination, IPv4Address)
-                and packet.pduDestination.addrTuple == job["local_endpoint"]
-            )
+            provenance = npdu_ingress(job["adapter"].clientPeer, packet)
+            direct = adapter is job["adapter"] and provenance is not None
             source = remote_source(packet.npduSADR)
             expected_peer = config.router or config.address
             if (
@@ -347,6 +345,7 @@ class EventReception:
                 "router": config.router,
                 "dnet": config.dnet,
                 "local_endpoint": list(job["local_endpoint"]),
+                "receive_provenance": provenance,
                 "npdu_source": source,
                 "network_priority": int(packet.pduNetworkPriority),
                 "process_identifier": int(value.processIdentifier),
