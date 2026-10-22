@@ -673,5 +673,14 @@
     "pdf_pages_or_section": "docs/bacnet-cov.md and docs/portable-storage.md",
     "status": "implemented",
     "implementation_or_gap": "Real process contention/crash/symlink/directory/FIFO refusal and direct/routed recording regressions. Uses Win32 safe handles/msvcrt and POSIX O_NOFOLLOW/flock; physical Windows COV and controller acceptance remain separate."
+  },
+  {
+    "id": "COMM-EVENT-RX-001",
+    "feature": "Finite explicit standard event reception",
+    "acceptance_criterion": "Receive bounded source-pinned confirmed/unconfirmed EventNotification with native timestamp/value evidence and exact routed protocol ACK; explicitly save stopped-session receipts without synthesized alarm lifecycle.",
+    "evidence": "IA-e35c4d605e; IA-5f71db3ed0 partial scope; pinned BACpypes3 APDU/basetypes/NPDU source",
+    "pdf_pages_or_section": "Confirmed EventNotification 0x02; Unconfirmed EventNotification 0x03; SimpleACK reception only",
+    "status": "implemented",
+    "implementation_or_gap": "Real independently authored direct/routed UDP and API/browser checks cover source/process/mode, opaque choices, native-handler conflicts, spoof/malformed traffic, cache-independent ACKs, callback/ring bounds, expiry/stop/shutdown and exact-float snapshot export/restart. No recipient-list writes, auto subscriptions, durable live recorder, human receipt/operator acknowledgment inference, BBMD/serial/BTCVT or physical manufacturer acceptance."
   }
 ]
