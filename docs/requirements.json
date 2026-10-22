@@ -682,5 +682,14 @@
     "pdf_pages_or_section": "Confirmed EventNotification 0x02; Unconfirmed EventNotification 0x03; SimpleACK reception only",
     "status": "implemented",
     "implementation_or_gap": "Real independently authored direct/routed UDP and API/browser checks cover source/process/mode, opaque choices, native-handler conflicts, spoof/malformed traffic, cache-independent ACKs, callback/ring bounds, expiry/stop/shutdown and exact-float snapshot export/restart. No recipient-list writes, auto subscriptions, durable live recorder, human receipt/operator acknowledgment inference, BBMD/serial/BTCVT or physical manufacturer acceptance."
+  },
+  {
+    "id": "MF-125b7579b6",
+    "feature": "Finite truth-table completeness and explicit-priority review",
+    "acceptance_criterion": "Author finite Boolean/Enum tables; exhaustively classify missing and all overlapping combinations, preserve explicit priority/shadow/fallback evidence, evaluate only declared exact typed states and export authoritative sealed source/review bytes.",
+    "evidence": "JCI Controller Tool Help18.0 LIT-12011147; verified PDF SHA68935362c85cb1879dc033cc701115e8ea7c4ecb26748f21a9ceaf0454f82903",
+    "pdf_pages_or_section": "PDF167\u2013168 and1690\u20131691; docs/truth-table-review.md",
+    "status": "implemented",
+    "implementation_or_gap": "Scoped offline profile:12inputs/32states/128rows/4096cases; reject-overlap default, optional explicit first-match with all shadowed identities, constant fallback rationale and strict type/source/profile seals. Native hold-last/reliability, CAF interpretation, portable graph lowering, JCI compilation/download and physical acceptance are not implemented by this feature."
   }
 ]
