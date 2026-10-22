@@ -191,3 +191,18 @@ Subscribe, retention and restart unknown-tail recovery. Browser tests exercise
 explicit opt-in, source-change reset, saved history reopen, JSON download and
 Field trends/CSV provenance against an actual loopback UDP publisher. These
 virtual downstream devices do not establish physical JCI interoperability.
+
+## Native recorder lock files
+
+COV recording uses the shared native safe-file opener for its field-store writer
+lock. POSIX retains final-component O_NOFOLLOW and flock; Windows uses Win32
+OPEN_REPARSE_POINT with same-handle checks before msvcrt byte-range ownership.
+A failed competitor does not write a sentinel byte before acquiring the lock.
+Final-component links, devices and unsupported ownership operations fail closed.
+Closing the descriptor or process exit releases ownership; no thread-only fallback
+is used. Ancestor directories must remain user-controlled.
+
+Native process contention, crash release, directory/FIFO and available-account
+symlink refusal tests supplement the actual direct/routed recording regressions.
+Physical Windows COV traffic, controllers and Bluetooth remain outside these
+local ownership tests. SQLite retains its existing transaction policy.
