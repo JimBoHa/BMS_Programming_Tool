@@ -74,6 +74,12 @@ from .routed_discovery import (
     RouterNetworksRequest,
     RouterProbeRequest,
 )
+from .schedule_inventory import (
+    ScheduleAction,
+    ScheduleExport,
+    ScheduleInventory,
+    ScheduleReadRequest,
+)
 from .sensor_supply import SupplyPlans, supply_router
 from .simulation_group import SimulationGroups, SimulationWorkspace, demo_workspace
 from .storage import Conflict, Store
@@ -445,6 +451,7 @@ def create_app(state_dir=None):
         bbmd_admin = None
         bbmd_admin_error = "BBMD administration unavailable: " + str(exc)[:1000]
     device_details = DeviceDetails(bacnet, store)
+    schedule_inventory = ScheduleInventory(bacnet, store)
     event_inventory = EventInventory(bacnet, store)
     event_ack = EventAcknowledgements(bacnet, store, event_inventory)
     files = BacnetFiles(bacnet, store)
@@ -507,8 +514,11 @@ def create_app(state_dir=None):
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
             try:
-                if bbmd_admin is not None:
-                    await bbmd_admin.close()
+                try:
+                    await schedule_inventory.close()
+                finally:
+                    if bbmd_admin is not None:
+                        await bbmd_admin.close()
             finally:
                 try:
                     await bbmd_tables.close()
@@ -560,6 +570,7 @@ def create_app(state_dir=None):
     app.state.bbmd_admin = bbmd_admin
     app.state.bbmd_admin_startup_error = bbmd_admin_error
     app.state.device_details = device_details
+    app.state.schedule_inventory = schedule_inventory
     app.state.event_inventory = event_inventory
     app.state.event_ack = event_ack
     app.state.bacnet_files = files
@@ -1468,6 +1479,35 @@ def create_app(state_dir=None):
     @app.post("/api/bacnet/device-details")
     async def bacnet_device_details(body: DeviceDetailsRequest):
         return await device_details.read(**body.model_dump())
+
+    @app.get("/api/bacnet/schedules/profile")
+    async def bacnet_schedules_profile():
+        return schedule_inventory.status()
+
+    @app.get("/api/bacnet/schedules/reports/{id}")
+    async def bacnet_schedule_detail(id: str):
+        return schedule_inventory.detail(id)
+
+    @app.post("/api/bacnet/schedules/read")
+    async def bacnet_schedules_read(body: ScheduleReadRequest):
+        return await schedule_inventory.read(**body.model_dump())
+
+    @app.post("/api/bacnet/schedules/cancel")
+    async def bacnet_schedules_cancel(body: ScheduleAction):
+        return schedule_inventory.cancel(body.operation_id)
+
+    @app.post("/api/bacnet/schedules/export")
+    async def bacnet_schedules_export(body: ScheduleExport):
+        report = schedule_inventory.detail(body.id)
+        # Export exact server JSON. Client parse/stringify would lose -0.0 and
+        # integral float spelling, invalidating the evidence-body hash.
+        return Response(
+            json.dumps(report, sort_keys=True, separators=(",", ":"), allow_nan=False),
+            media_type="application/json",
+            headers={
+                "Content-Disposition": f'attachment; filename="bacnet-schedules-{body.id}.json"'
+            },
+        )
 
     @app.get("/api/bacnet/events/profile")
     def bacnet_events_profile():
