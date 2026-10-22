@@ -142,6 +142,10 @@ Generated ST supplies `StudioScanSeconds`, `StudioDayOfWeek` (Monday = 0), `Stud
 
 The reviewed vendor restrictions are tracked as desired improvements with evidence. Product lock-in and avoidable workflow limits become requirements. Physical I/O limits, data types, incompatible execution models and permissions become explicit adapter constraints; silently discarding them would produce incorrect controller programs.
 
+## Portable conformance tests
+
+The **Conformance tests** workspace authors named input/quality cases and independent expected block values for portable graphs. Exact source/revision/profile guards, deterministic clocks, tolerances, transactional fault checks, restart-safe suite storage and sealed original-byte report downloads keep acceptance criteria reviewable. Reports distinguish asserted outputs and untested conditions. Native CAF execution and full-sequence/Title24/Guideline36 certification remain outside this profile. See [conformance workflow and limits](docs/graph-conformance.md).
+
 ## Verify
 
 ```sh
