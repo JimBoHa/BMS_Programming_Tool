@@ -13,15 +13,19 @@ The CAF workbench includes a **Target readiness** panel for FX/Metasys configura
 
 ## Evidence and comparisons
 
-CAF evidence includes the archive and XML SHA-256 hashes, selected object reference/class, and original scalar properties 70 (model), 12 (application software/release version), and 44 (firmware), where those properties are mapped for the class. Missing, structured, or ambiguous values stay unknown. CAF firmware is stored metadata, not proof of current device firmware.
+CAF evidence includes the archive and XML SHA-256 hashes, selected object reference/class, and original scalar properties 70 (model), 12 (Appl SW Version), and 44 (firmware), where those properties are mapped for the class. Missing, structured, or ambiguous values stay unknown. CAF firmware is stored metadata, not proof of current device firmware.
 
 Identity values with unknown attributes or more than 256 characters stay unknown. Oversized scalar evidence is represented by its text hash and character count; the archive remains unchanged. Reports accept at most 256 application-target candidates with references of at most 256 characters.
 
-Application/release version, controller firmware, and CCT/PCT product version are independent. For example, a CAF application version of `10.2` must not be treated as firmware `10.2` or compared numerically with the installed tool version. See the release-mode evidence in [the native investigation](jci-native-research-2026-10-19.md).
+Appl SW Version, separately declared CAF release mode, controller firmware, source-tool release and destination CCT/PCT product release are independent. For example, a CAF application version of `10.2` must not be treated as firmware `10.2` or compared numerically with the installed tool version. See the release-mode evidence in [the native investigation](jci-native-research-2026-10-19.md).
 
 The inventory declares installation availability, tool/package licenses, Windows/SQL availability, and exact supported model/application/firmware identifiers. Support comparisons require an explicit evidence description. Matching is case-insensitive after trimming outer whitespace; model families, wildcards, aliases, and numeric version ranges are not expanded. Tool version does not automatically establish support for older or newer targets. Package version/hash declarations remain declarations; this feature does not scan package files or validate license activation. Optional packages do not satisfy required-package checks. An empty package list does not establish that no package is needed.
 
 The report retains the exact submitted inventory text and its UTF-8 SHA-256, as well as the parsed/defaulted manifest. For uploaded UTF-8 JSON, the browser retains a BOM if present. After editing text, the hash identifies the submitted text rather than the original disk file. Reports may contain local inventory details; save/share them accordingly. No private programs, host paths, or installation inventories are embedded in this repository.
+
+## Documented operation rules
+
+Enable **Documented tool/release compatibility** to review a planned operation against the source-qualified rule catalog. Rules cover earlier CCT open/commission, CCT18 mode-sensitive edits/simulation/upgrades, package security/licensing, SQL portability, mixed-firmware enum caveats and historical PCT10.3 mode switching. They do not replace exact support lists or native acceptance. See [rules, source hashes and coverage limits](jci-release-rules.md).
 
 ## Release-specific transport checks
 
@@ -31,12 +35,13 @@ BACnet/IP discovery/property access and direct serial access likewise do not est
 
 ## API
 
+- `GET /api/jci/preflight/release-rules`: bounded operation catalog, primary sources and unknown-valued review template.
 - `GET /api/jci/preflight/template`: unknown-valued inventory template.
 - `GET /api/caf/{sha256}/preflight`: inspect CAF candidates and report missing prerequisites.
 - `POST /api/caf/{sha256}/preflight`: evaluate a request against the open CAF and optional open hardware definition.
 - `POST /api/caf/{sha256}/preflight/export`: download the same result as JSON.
 
-POST requests require the Studio session token and the strict `PreflightRequest` schema: `target_model`, `target_firmware`, `application_object_ref`, `transport`, `inventory_text`, and optional `hardware_sha256`. Inventory JSON is bounded to 256 KiB of text by the API and 256 KiB of uploaded bytes by the browser. Duplicate JSON keys, duplicate package name/version pairs, unknown schema fields, nonfinite numbers, and coerced Boolean strings are rejected. Hardware XML continues through the existing bounded/DTD-safe native hardware importer. These routes never mutate the CAF, execute installation commands, or open the BACnet interface.
+POST requests require the Studio session token and the strict `PreflightRequest` schema: `target_model`, `target_firmware`, `application_object_ref`, `transport`, `inventory_text`, and optional `hardware_sha256` and `release_review`. Inventory JSON is bounded to 256 KiB of text by the API and 256 KiB of uploaded bytes by the browser. Duplicate JSON keys, duplicate package name/version pairs, unknown schema fields, nonfinite numbers, and coerced Boolean strings are rejected. Hardware XML continues through the existing bounded/DTD-safe native hardware importer. These routes never mutate the CAF, execute installation commands, or open the BACnet interface.
 
 ## Validation boundary
 

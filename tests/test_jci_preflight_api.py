@@ -77,3 +77,77 @@ def test_preflight_api_rejects_invalid_manifest_missing_archive_and_missing_hard
         )
         assert oversized.status_code == 422
         assert client.get("/api/session").json()["field_network_open"] is False
+
+
+def test_operation_rules_catalog_source_bound_api_and_independent_export_seal(tmp_path):
+    from tests.test_jci_release_rules import verify_seal
+
+    with TestClient(create_app(tmp_path)) as client:
+        headers = {"X-Studio-Token": client.get("/api/session").json()["token"]}
+        catalog = client.get("/api/jci/preflight/release-rules").json()
+        assert catalog["format"] == "bms.jci-release-rule-catalog"
+        assert "simulate" in catalog["operations"]
+        caf = application()
+        identifier = client.post(
+            "/api/caf", files={"file": ("authored.caf", caf.original)}, headers=headers
+        ).json()["sha256"]
+        manifest = inventory()
+        manifest["toolchain"]["version"] = "18.0"
+        declarations = catalog["template"] | {
+            "operation": "simulate",
+            "source_tool_product": "CCT",
+            "source_tool_release": "10.2",
+            "caf_release_mode": "10.2",
+            "active_release_mode": "10.4",
+        }
+        body = {"inventory_text": json.dumps(manifest), "release_review": declarations}
+        assert client.post(f"/api/caf/{identifier}/preflight", json=body).status_code == 403
+        response = client.post(f"/api/caf/{identifier}/preflight", json=body, headers=headers)
+        assert response.status_code == 200, response.text
+        report = response.json()
+        review = report["release_review"]
+        assert review["source"]["caf_sha256"] == hashlib.sha256(caf.original).hexdigest()
+        assert review["source"]["declarations"] == declarations
+        assert review["source"]["observed_appl_sw_version"] == "10.2"
+        assert review["ruleset_sha256"] == catalog["ruleset_sha256"]
+        assert review["status"] == "documented-conflict" and report["status"] == "blocked"
+        verify_seal(review)
+        exported = client.post(
+            f"/api/caf/{identifier}/preflight/export", json=body, headers=headers
+        )
+        assert exported.json() == report
+        verify_seal(json.loads(exported.content)["release_review"])
+        assert client.get("/api/session").json()["field_network_open"] is False
+        assert (
+            client.post(
+                f"/api/caf/{identifier}/export", json={"changes": []}, headers=headers
+            ).content
+            == caf.original
+        )
+
+
+def test_release_rule_api_strict_fields_channel_bounds_and_unknown_origin(tmp_path):
+    with TestClient(create_app(tmp_path)) as client:
+        headers = {"X-Studio-Token": client.get("/api/session").json()["token"]}
+        identifier = client.post(
+            "/api/caf", files={"file": ("authored.caf", application().original)}, headers=headers
+        ).json()["sha256"]
+        for invalid in (
+            {"operation": "download-and-approve"},
+            {"source_tool_release": "x" * 81},
+            {"mixed_firmware_on_mstp": "true"},
+            {"source_channel": "production-beta"},
+            {"inferred_firmware_mode": "6.2"},
+        ):
+            response = client.post(
+                f"/api/caf/{identifier}/preflight",
+                json={"release_review": invalid},
+                headers=headers,
+            )
+            assert response.status_code == 422
+        result = client.post(
+            f"/api/caf/{identifier}/preflight", json={"release_review": {}}, headers=headers
+        ).json()
+        assert result["release_review"]["status"] == "needs-evidence"
+        assert result["release_review"]["source"]["declarations"]["caf_release_mode"] == ""
+        assert not result["can_deploy"]
