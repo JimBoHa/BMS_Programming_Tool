@@ -34,6 +34,44 @@ test("pause drains admitted commits, freezes clock, resumes without paused-time 
   expect(c.reserve(100099)).toBeNull();
   expect(c.reserve(100100)!.steps).toBe(1);
 });
+for (const reason of [
+  "Paused because this browser page is hidden.",
+  "Paused on workspace navigation.",
+  "Paused by operator.",
+])
+  test(`successful admitted completion retains its explicit pause cause: ${reason}`, () => {
+    const c = new SimulationClock(1, 10, 10);
+    c.resume(0);
+    const ticket = c.reserve(100)!;
+    c.pause(110, reason);
+    expect(c.snapshot().status).toBe("pausing");
+    expect(c.snapshot().reason).toContain(reason);
+    expect(c.snapshot().reason).toContain("Waiting for the admitted batch");
+    c.finish(ticket, 1, 150);
+    expect(c.snapshot()).toMatchObject({
+      status: "paused",
+      completedScans: 1,
+      pendingScans: 0,
+    });
+    expect(c.snapshot().reason).toContain(reason);
+    expect(c.snapshot().reason).not.toContain("Waiting");
+    expect(c.snapshot().reason).toContain("final admitted batch is displayed");
+    c.resume(200);
+    expect(c.snapshot().reason).not.toContain(reason);
+  });
+for (const outcome of ["fault", "complete"] as const)
+  test(`pending pause retains ${outcome} precedence over its pause cause`, () => {
+    const c = new SimulationClock(1, 10, outcome === "complete" ? 1 : 10);
+    c.resume(0);
+    const ticket = c.reserve(100)!;
+    c.pause(110, "Paused because this browser page is hidden.");
+    c.finish(ticket, 1, 150, outcome === "fault" ? "native scan failed" : "");
+    expect(c.snapshot().status).toBe(outcome);
+    expect(c.snapshot().reason).toContain(
+      outcome === "fault" ? "native scan failed" : "Run budget reached",
+    );
+    expect(c.snapshot().reason).not.toContain("hidden");
+  });
 test("batches and total scan budget remain bounded at100x", () => {
   const c = new SimulationClock(0.001, 100, 201);
   c.resume(0);

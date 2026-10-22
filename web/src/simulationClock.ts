@@ -19,6 +19,7 @@ export class SimulationClock {
   private last = 0;
   private baselineSeconds = 0;
   private baselineScans = 0;
+  private pauseCause = "";
   private ticket = 0;
   private pending: Ticket | null = null;
   constructor(
@@ -61,6 +62,7 @@ export class SimulationClock {
     this.baselineSeconds = this.activeSeconds;
     this.baselineScans = this.completed;
     this.status = "running";
+    this.pauseCause = "";
     this.reason =
       "Running. Inputs/holds apply to the next admitted batch; dialogs do not pause the clock.";
   }
@@ -70,6 +72,7 @@ export class SimulationClock {
   ) {
     this.advance(now);
     if (this.status !== "running" && this.status !== "pausing") return;
+    this.pauseCause = reason;
     this.status = this.pending ? "pausing" : "paused";
     this.reason = this.pending
       ? reason +
@@ -130,7 +133,8 @@ export class SimulationClock {
     } else if (this.status === "pausing") {
       this.status = "paused";
       this.reason =
-        "Paused. The final admitted batch is displayed; resume retains scan state without paused-time catch-up.";
+        this.pauseCause +
+        " The final admitted batch is displayed; resume retains scan state without paused-time catch-up.";
     }
   }
   snapshot() {
