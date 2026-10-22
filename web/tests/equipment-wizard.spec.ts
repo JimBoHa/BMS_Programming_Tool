@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./simulationFixture";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 const root = path.resolve(".."),
