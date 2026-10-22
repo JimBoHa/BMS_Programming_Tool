@@ -8,7 +8,11 @@ import {
   Search,
   PlugZap,
 } from "lucide-react";
-import { api, saveBlob } from "./api";
+import { api, programJsonDocument, saveBlob } from "./api";
+import {
+  parseBacnetCommandIntent,
+  verifyBacnetCommandPlan,
+} from "./commandIntent";
 import {
   RoutedDiscoveryPanel,
   type RoutedScanResult,
@@ -59,7 +63,7 @@ export function Connections() {
     [busy, setBusy] = useState(false),
     [command, setCommand] = useState("50"),
     [priority, setPriority] = useState(16),
-    [plan, setPlan] = useState<any>(null),
+    [plan, setPlan] = useState<{ receipt: any; text: string } | null>(null),
     [serialPorts, setSerialPorts] = useState<any[]>([]),
     [mstp, setMstp] = useState({
       port: "",
@@ -83,6 +87,8 @@ export function Connections() {
     [modbusResult, setModbusResult] = useState<any>(null);
   const mounted = useRef(false),
     statusEpoch = useRef(0),
+    previewEpoch = useRef(0),
+    previewSource = useRef(""),
     ipDirty = useRef(false);
   const routerKey = (address?: string) =>
     address?.trim()
@@ -96,6 +102,14 @@ export function Connections() {
       routerKey(status.config?.router) === routerKey(selectedRoute.router) &&
       Number(status.config?.dnet) === selectedRoute.dnet);
   const pointReady = status.connected && selectedRouteReady;
+  previewSource.current = JSON.stringify({
+    target,
+    object,
+    command,
+    priority,
+    ready: pointReady,
+    config: status.config,
+  });
   const probeNetwork = Number(config.dnet);
   const probeDnet =
     Number.isInteger(probeNetwork) && probeNetwork >= 1 && probeNetwork <= 65534
@@ -205,6 +219,7 @@ export function Connections() {
     return () => {
       mounted.current = false;
       statusEpoch.current++;
+      previewEpoch.current++;
     };
   }, []);
   useEffect(() => {
@@ -910,6 +925,13 @@ export function Connections() {
             physical input. Preview checks an unused priority slot; relinquish
             clears the command owned by this session.
           </p>
+          <p className="help-text">
+            Integer tokens must be exactly representable in binary64. Decimal
+            and exponent tokens use finite binary64 semantics. Preview shows
+            requested_value separately from value, the native BACnet wire value;
+            Real32 rounding can differ. Use quoted strings or bare enum labels
+            such as active and inactive, or JSON true and false.
+          </p>
           <div className="form-grid">
             <label>
               Command value
@@ -942,20 +964,29 @@ export function Connections() {
               disabled={busy || !pointReady}
               onClick={() =>
                 action(async () => {
-                  let v: any;
-                  try {
-                    v = JSON.parse(command);
-                  } catch {
-                    v = command;
-                  }
-                  setPlan(
-                    await api("/bacnet/write-plan", {
+                  setPlan(null);
+                  const value = parseBacnetCommandIntent(command),
+                    request = {
                       address: target,
                       object_id: object,
-                      value: v,
+                      value,
                       priority,
-                    }),
-                  );
+                    },
+                    epoch = ++previewEpoch.current,
+                    source = previewSource.current,
+                    result = await programJsonDocument(
+                      "/bacnet/write-plan",
+                      request,
+                    ),
+                    text = await result.blob.text();
+                  if (
+                    !mounted.current ||
+                    epoch !== previewEpoch.current ||
+                    source !== previewSource.current
+                  )
+                    return;
+                  verifyBacnetCommandPlan(request, result.data, text);
+                  setPlan({ receipt: result.data, text });
                 })
               }
             >
@@ -968,7 +999,9 @@ export function Connections() {
                 onClick={() =>
                   action(async () => {
                     setValue(
-                      await api("/bacnet/write-apply", { token: plan.token }),
+                      await api("/bacnet/write-apply", {
+                        token: plan.receipt.token,
+                      }),
                     );
                     setPlan(null);
                   })
@@ -979,7 +1012,9 @@ export function Connections() {
             )}
           </div>
           {plan && (
-            <pre className="result">{JSON.stringify(plan, null, 2)}</pre>
+            <pre className="result" aria-label="BACnet command preview">
+              {plan.text}
+            </pre>
           )}
           {status.commands.map((c: any) => (
             <div className="owned-command" key={c.id}>
