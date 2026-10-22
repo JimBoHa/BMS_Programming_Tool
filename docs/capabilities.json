@@ -293,5 +293,10 @@
     "feature": "Equipment and sequence selection wizard",
     "status": "partial",
     "scope": "Portable VAV authoring for cooling-only, inline hot-water reheat/no fan and parallel-fan hot-water reheat, with declared target labels, actual logical inputs/outputs, P/PI position mapping or measured-airflow feedback, coupled unit/gain conversion and exact-choice preview before separate editable project creation. Source/choice evidence, stale-response and current-editor guards, revision/save/export/simulation workflows. Native CAF/package/terminal allocation and complete ventilation, safety, G36/Title24 sequences remain incomplete. See docs/equipment-wizard.md."
+  },
+  {
+    "feature": "Paced portable-graph simulation clock",
+    "status": "implemented",
+    "scope": "Explicit requested 1-100x versus achieved rate, unchanged scan timestep, at most 100 scans/batch and one admitted request, finite scan/simulated-time/active-wall budgets, lag pause, explicit run/pause/step and navigation/visibility policy. Exact-source/reset/correlation guards retain confirmed partial commits and distinguish known zero-commit faults from uncertain HTTP outcomes requiring reset. Production API/browser/independent CSV and authored monotonic arithmetic tests; no native CAF/firmware timing, hard real-time or field-I/O claims. See docs/simulation-clock.md."
   }
 ]

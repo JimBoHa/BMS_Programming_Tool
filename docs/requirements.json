@@ -772,5 +772,23 @@
     "pdf_pages_or_section": "PDF 149-151,153-154; docs/equipment-wizard.md",
     "status": "partial",
     "implementation_or_gap": "Implemented portable VAV authoring: three equipment configurations, declared targets, fixed/input setpoints, P/PI, position or measured-airflow feedback, coupled unit/gain conversion, source/choice/program hashes, guarded preview/create and existing revision/export/simulation workflows. Native CAF allocation/compiler/package acceptance, physical wiring, complete ventilation/heating/fan-proof/discharge/G36/Title24 sequences remain incomplete."
+  },
+  {
+    "id": "MF-e1cb1f8a09",
+    "feature": "Accelerated simulation clock",
+    "acceptance_criterion": "Select a bounded simulation speed relative to real time while preserving fixed graph scan durations and exposing requested versus achieved rate.",
+    "evidence": "Controller Tool Help 18 LIT-12011147 SHA68935362c85c; authored monotonic pacing controller and production scan API",
+    "pdf_pages_or_section": "PDF 266-271; docs/simulation-clock.md",
+    "status": "partial",
+    "implementation_or_gap": "Implemented portable-graph paced 1-100x runs, fixed scan duration, finite scan/time budgets, actual achieved rate/lag, serialized bounded batches, exact receipt/source/reset guards, explicit pause/resume/step and fault recovery. Native CCT/PCT CAF execution and firmware timing equivalence remain unverified."
+  },
+  {
+    "id": "MF-aa0ea57614",
+    "feature": "Control simulation pause policy",
+    "acceptance_criterion": "Make run/pause/step, editing, dialogs, navigation and pending-request clock effects explicit.",
+    "evidence": "Controller Tool Help 18 LIT-12011147 SHA68935362c85c; portable graph simulation lifecycle",
+    "pdf_pages_or_section": "PDF 266-269; docs/simulation-clock.md",
+    "status": "partial",
+    "implementation_or_gap": "Portable run pauses explicitly on operator request, navigation/visibility, budgets or faults; drains admitted results, discards paused-time credit, retires reset/source replies, retains known committed state and requires explicit recovery. Dialogs alone do not pause; graph edits reset. Native CAF pause semantics and break-condition authoring remain incomplete."
   }
 ]
