@@ -844,5 +844,14 @@
     "pdf_pages_or_section": "docs/simulation-sessions.md; POST /api/simulation/retire; GET /api/simulation/sessions/status",
     "status": "implemented",
     "implementation_or_gap": "Exact known handles, source/operation/count validation, late-receipt cleanup, pending/failed cleanup gates and explicit retry, bounded cache status and best-effort lifecycle keepalive. Only volatile engine state is removed; durable observations/alarms/events/sources remain unchanged. Missing/unverifiable first replies and failed document-exit cleanup can retain unknown sessions until one-hour idle expiry; no global clear, cap increase, automatic scan retry or field writes."
+  },
+  {
+    "id": "UI-CANVAS-001",
+    "feature": "Owned wiresheet measurement lifecycle",
+    "acceptance_criterion": "Keep current blocks visible and interactive through parent renders, Undo/Redo and source replacement while refusing stale or foreign geometry and keeping UI measurements out of Program source.",
+    "evidence": "Pinned React Flow controlled-node/observer source; deterministic native ResizeObserver hold and original PR48 before/after reproduction",
+    "pdf_pages_or_section": "docs/canvas-measurements.md; canvas lifecycle and ownership tests",
+    "status": "implemented",
+    "implementation_or_gap": "Canvas-local current-DOM geometry cache with Canvas/project/node/port-shape ownership, removal pruning and targeted handle refresh. Raw exported Program/digest remains unchanged by measurement; no global fit, timing retry, source-schema or field-device behavior changes."
   }
 ]
