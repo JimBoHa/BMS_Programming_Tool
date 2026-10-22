@@ -253,5 +253,10 @@
     "feature": "JCI MS/TP and SA address/topology preflight",
     "status": "implemented",
     "scope": "Offline strict physical-bus/device/link plans with explicit Metasys R15 and FX 2024-12-11 source profiles. Bus-scoped duplicate MACs, documented role/reservation checks, explicit legacy DIP128 and refreshed sensor generations, SA one-host/single-segment/no-repeater constraints, ordinary trunk graph branches/cycles/disconnection and FC/SA EOL distinctions. Exact refreshed NS8000/CWCVT service leaf and declared FC repeater bridges are separate graph exceptions. Complete Connect authoring, guarded portable JSON reopen/export, sealed review reports and stale-response/download invalidation. Unknown models, generations, cable construction/power/host-specific capacities remain unresolved. No field operations, measured wiring, electrical certification or native controller programming."
+  },
+  {
+    "feature": "Native BACnet Calendar/Schedule inventory",
+    "status": "implemented",
+    "scope": "Explicit bounded read-only standard Calendar6/Schedule17 properties over direct or pinned routed plain IPv4, verified Device/object identities, indexed weekly/exception arrays, native AnyAtomic/date/reference/priority evidence, raw clocks and per-property failures. Exact HTTP-byte JSON exports preserve float spelling and evidence hashes; session-only reports, owned cancellation/teardown and stale-source browser guards. No coherent backup, native editing/transfer, reference crawling, timezone inference, segmented values, BBMD/direct serial or physical JCI/manufacturer acceptance. Broader MF-e39fd7dcb6/MF-3964cbd0c0/MF-9030e4190e remain partial."
   }
 ]

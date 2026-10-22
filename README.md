@@ -29,6 +29,7 @@ To prepare another computer without requiring Node.js on that computer, build an
 
 ## Working features
 
+- Read native BACnet Calendar/Schedule properties on an exact Device over direct or explicit routed IPv4; preserve wildcard dates, typed values, references, priorities, failures and raw clock evidence, then export exact JSON. Session-only sequential evidence; native editing/transfer remains pending. See [native schedule inventory](docs/native-schedule-inventory.md).
 - Drag blocks from the palette, connect pins, edit units/properties, and save numbered revisions. Shift-click multiple blocks to move, align, copy, duplicate or delete them together; internal wires follow the copied selection. Undo restores a group operation. Double-click a wire to remove it.
 - Extract a one-output internal selection into a typed reusable macro. Nest definitions, instantiate independent control state, inspect dependencies and edit a definition graphically with apply/discard. Draft recovery retains the parent project after a browser reload. Export/import portable macro libraries with their dependencies; conflicts and deletion of used definitions are rejected. Root I/O stays outside definitions. Compilation expands bounded, deterministic ordinary blocks while source exports retain the editable hierarchy.
 - Simulate numeric/boolean I/O, PI control with conditional anti-windup, math, logic, hysteresis, scan delays, on-delay timers, rate limits, alarms, and weekly schedules. Inject open-circuit/stale/missing input quality. Run timed scenarios and export traces.
