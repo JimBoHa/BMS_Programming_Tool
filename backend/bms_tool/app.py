@@ -50,6 +50,7 @@ from .hardware_workbench import HardwareWorkbench, hardware_router
 from .ip_discovery import IpDiscovery, IpScanRequest
 from .jci_hardware import JciHardwareDefinition, plan_hardware_migration
 from .jci_preflight import PreflightRequest, inventory_template, preflight
+from .jci_release_rules import catalog as release_rule_catalog
 from .macros import (
     create_definition,
     delete_macro_definition,
@@ -1087,6 +1088,10 @@ def create_app(state_dir=None):
         if id not in caf_files:
             raise ValueError("Open the CAF file first.")
         return caf_files[id]
+
+    @app.get("/api/jci/preflight/release-rules")
+    def preflight_release_rules():
+        return release_rule_catalog()
 
     @app.get("/api/jci/preflight/template")
     def preflight_template():
