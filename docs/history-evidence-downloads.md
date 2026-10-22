@@ -45,6 +45,20 @@ bytes, evidence seals and saved-capture summary hashes. API tests check restart
 and offline reopen. Browser tests cover partial cancellation, malformed/error
 responses, wrong capture identity, query/capture invalidation and navigation.
 
+The ordinary workspace Suspense boundary is keyed by the selected tab. Leaving
+Device history therefore retires its component immediately, including when the
+next workspace's JavaScript module is still loading. Without that key, React can
+hide and retain the previous workspace; returning before the next module loads
+can revive a pending capture and its download. The intentionally retained CAF
+and CAF simulation workspaces use their separate existing boundaries.
+
+Three deterministic regressions hold both an actual capture response and the
+next workspace module, finish the capture while the loading fallback is visible,
+then return before releasing the module. Each history profile must start without
+the previous capture or export. These pass on Chromium and WebKit with pinned
+React 19.1.1. This follows React's documented
+[Suspense boundary reset on navigation](https://react.dev/reference/react/Suspense#resetting-suspense-boundaries-on-navigation).
+
 These checks establish local serialization and capture integrity. Physical
 controller support, native JCI application transfer and proprietary historian
 formats retain their existing limitations.
