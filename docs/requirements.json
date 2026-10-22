@@ -853,5 +853,14 @@
     "pdf_pages_or_section": "docs/source-literal-profiles.md",
     "status": "implemented",
     "implementation_or_gap": "ST IR_V2, PLCopen profile attributes, Sedona schema2/profile-bound kit IDs; legacy import-only regeneration retained. Source/native/UI provenance and local native midpoint verification; physical acceptance remains separate."
+  },
+  {
+    "id": "COMM-CMD-INTENT-001",
+    "feature": "Exact operator BACnet command intent and preview evidence",
+    "acceptance_criterion": "Refuse nonrepresentable integer tokens and malformed/nonfinite/nonscalar command forms before preview, preserve admitted numeric/string/Boolean intent and original response evidence, and invalidate stale or mismatched previews.",
+    "evidence": "Shared exact source-token codec; BACpypes3 native scalar encoders; authored actual HTTP/UDP browser tests and independent Python integer/type/IEEE32/sign checks",
+    "pdf_pages_or_section": "docs/bacnet-command-intent.md; Connections command preview and relinquish",
+    "status": "implemented",
+    "implementation_or_gap": "Bounded parser reuses executionNumber/parseExecutionJSON, retains original numeric atoms for the narrow write-plan request, pairs original HTTP response text with the opaque receipt and verifies exact requested integer/type/float sign plus target/object/priority. Pending navigation/source changes cannot restore an Apply token. Bare enum and quoted strings/booleans retain semantics; explicit decimal/exponent tokens use finite binary64, Real32 rounding stays visible. No automatic apply/retry, arbitrary decimal precision, native application programming or field-write validation."
   }
 ]

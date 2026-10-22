@@ -103,7 +103,14 @@ async function mockMstp(
         });
         break;
       case "/api/bacnet/write-plan":
-        await route.fulfill({ json: { ...body, token: "mock-preview-only" } });
+        await route.fulfill({
+          json: {
+            ...body,
+            object: body.object_id,
+            requested_value: body.value,
+            token: "mock-preview-only",
+          },
+        });
         break;
       case "/api/bacnet/write-apply":
         mock.applied.push(body);
