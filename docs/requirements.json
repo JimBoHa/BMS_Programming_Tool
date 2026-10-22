@@ -141,7 +141,7 @@
     "evidence": "ALC Eikon 3.02 User Guide",
     "pdf_pages_or_section": "54-55",
     "status": "implemented",
-    "implementation_or_gap": "2–16 graph instances, typed/unit-checked previous-cycle links, atomic group cycles, common clock, quality faults and portable workspace files"
+    "implementation_or_gap": "2\u201316 graph instances, typed/unit-checked previous-cycle links, atomic group cycles, common clock, quality faults and portable workspace files"
   },
   {
     "id": "UI-003",
@@ -616,7 +616,7 @@
     "feature": "Unique BACnet network-number plan validation",
     "acceptance_criterion": "Diagnose conflicts only across explicitly declared domains and physical networks; preserve unknowns, engine/router matches, R15 scope and source-hashed portable review evidence.",
     "evidence": "JCI LIT-12011034 R15; ASHRAE 135-1995 errata; NISTIR 6392",
-    "pdf_pages_or_section": "JCI PDF 10, 12–13; errata 6.2.2.1; NIST 6.1, 6.4, 6.6.2",
+    "pdf_pages_or_section": "JCI PDF 10, 12\u201313; errata 6.2.2.1; NIST 6.1, 6.4, 6.6.2",
     "status": "implemented",
     "implementation_or_gap": "Offline strict plan/review API and Connect authoring/import/export; 1..65534 assignable range, explicit R15 new-assignment restrictions, domain/physical/endpoint conflict checks, report seals and stale-response guards. Operator assertions only; no scans, global availability, auto-renumbering or device writes."
   },
@@ -688,7 +688,7 @@
     "feature": "Finite truth-table completeness and explicit-priority review",
     "acceptance_criterion": "Author finite Boolean/Enum tables; exhaustively classify missing and all overlapping combinations, preserve explicit priority/shadow/fallback evidence, evaluate only declared exact typed states and export authoritative sealed source/review bytes.",
     "evidence": "JCI Controller Tool Help18.0 LIT-12011147; verified PDF SHA68935362c85cb1879dc033cc701115e8ea7c4ecb26748f21a9ceaf0454f82903",
-    "pdf_pages_or_section": "PDF167–168 and1690–1691; docs/truth-table-review.md",
+    "pdf_pages_or_section": "PDF167\u2013168 and1690\u20131691; docs/truth-table-review.md",
     "status": "implemented",
     "implementation_or_gap": "Scoped offline profile:12inputs/32states/128rows/4096cases; reject-overlap default, optional explicit first-match with all shadowed identities, constant fallback rationale and strict type/source/profile seals. Native hold-last/reliability, CAF interpretation, portable graph lowering, JCI compilation/download and physical acceptance are not implemented by this feature."
   },
@@ -844,5 +844,14 @@
     "pdf_pages_or_section": "docs/simulation-sessions.md; POST /api/simulation/retire; GET /api/simulation/sessions/status",
     "status": "implemented",
     "implementation_or_gap": "Exact known handles, source/operation/count validation, late-receipt cleanup, pending/failed cleanup gates and explicit retry, bounded cache status and best-effort lifecycle keepalive. Only volatile engine state is removed; durable observations/alarms/events/sources remain unchanged. Missing/unverifiable first replies and failed document-exit cleanup can retain unknown sessions until one-hour idle expiry; no global clear, cap increase, automatic scan retry or field writes."
+  },
+  {
+    "id": "GEN-001",
+    "feature": "Versioned numeric literal source profiles",
+    "acceptance_criterion": "Generate roundtrip literal text with explicit immutable profile/rules identity while preserving exact legacy source regeneration and rejecting ambiguous/unknown profiles.",
+    "evidence": "Studio source-regeneration contract and independent native midpoint experiment",
+    "pdf_pages_or_section": "docs/source-literal-profiles.md",
+    "status": "implemented",
+    "implementation_or_gap": "ST IR_V2, PLCopen profile attributes, Sedona schema2/profile-bound kit IDs; legacy import-only regeneration retained. Source/native/UI provenance and local native midpoint verification; physical acceptance remains separate."
   }
 ]

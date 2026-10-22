@@ -20,6 +20,7 @@ type Target = {
   native_compilation: string;
   controller_acceptance: string;
   notes: Note[];
+  source_generator?: { id: string; rules_sha256: string };
 };
 type Report = {
   profile: string;
@@ -130,6 +131,12 @@ export function ConversionPreview({ program }: { program: Program }) {
                         <td>{target.name}</td>
                         <td>
                           {target.status}
+                          {target.source_generator && (
+                            <div>
+                              Literal profile:{" "}
+                              <code>{target.source_generator.id}</code>
+                            </div>
+                          )}
                           {target.artifact && (
                             <div>
                               {target.artifact.bytes.toLocaleString()} bytes
@@ -156,6 +163,14 @@ export function ConversionPreview({ program }: { program: Program }) {
                               {target.controller_acceptance}.
                             </p>
                             <ul>
+                              {target.source_generator && (
+                                <li>
+                                  Literal rules SHA-256:{" "}
+                                  <code>
+                                    {target.source_generator.rules_sha256}
+                                  </code>
+                                </li>
+                              )}
                               {target.notes.map((note) => (
                                 <li key={note.code}>
                                   <strong>{note.severity}:</strong>{" "}

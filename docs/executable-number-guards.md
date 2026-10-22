@@ -12,13 +12,13 @@ This is not arbitrary-precision execution or a claim that floating-point arithme
 
 ## Literal formatting
 
-The existing ST formatter uses 15 significant digits. That can change an otherwise valid binary64 value before the target's declared binary32 conversion. This guard does not repair that separate literal-formatting limitation or claim lossless native conversion. Changing the formatter also changes exact source regeneration used by existing ST/PLCopen/Sedona archive importers; it requires a separate versioned source-generator profile with explicit legacy regeneration. The existing formatter and original canonical hash rules remain unchanged here.
+The integer guard preserves the legacy 15-significant-digit formatter for archive regeneration. That formatter can change an otherwise valid binary64 value before the target's declared binary32 conversion. The separate [versioned source-generator feature](source-literal-profiles.md) now uses roundtrip literal text for new ST/PLCopen/Sedona artifacts and retains the original formatter for old imports. Original canonical hash rules remain unchanged. Neither feature claims lossless native arithmetic.
 
 The IEC host's 17-digit request format roundtrips binary64 inputs; its nine-digit native response format reflects binary32 execution. No source formatter using six significant digits was found in the audited backend.
 
 ## Validation scope
 
-Tests exercise real HTTP step/scenario/runtime/export requests, archival save/reopen/hash preservation, finite and overflowing integers, exact large integers, nested macros, atomic rejected scans, and native input/build refusal before external exchange. Literal-format precision remains a separately documented source-profile limitation. These checks do not establish physical controller behavior, native JCI compilation, arbitrary native-source conversion, or universal numeric equivalence across manufacturers.
+Tests exercise real HTTP step/scenario/runtime/export requests, archival save/reopen/hash preservation, finite and overflowing integers, exact large integers, nested macros, atomic rejected scans, and native input/build refusal before external exchange. Literal generation has separate source-profile tests. These checks do not establish physical controller behavior, native JCI compilation, arbitrary native-source conversion, or universal numeric equivalence across manufacturers.
 
 ## Legacy archival imports
 

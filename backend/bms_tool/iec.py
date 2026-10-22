@@ -30,6 +30,7 @@ from .file_access import file_lock
 from .formats import ConversionError, export_st, structured_text_parts
 from .macros import expand_macros
 from .models import Program
+from .source_profiles import source_profile
 
 ROOT = Path(__file__).resolve().parents[2]
 PIN = "3a41303bcb4e50403417bc39c63f88981d7d961e"
@@ -122,6 +123,7 @@ def profile():
         "controller_download": False,
         "certified": False,
         "provenance": manifest,
+        "source_generator": source_profile(),
     }
 
 
@@ -446,6 +448,7 @@ class NativeIEC:
                 self.reference.history = []
             row = {
                 **native,
+                "source_generator": source_profile(),
                 "time": self.reference.time,
                 "clock": current_clock.isoformat(),
                 "reference_outputs": baseline,
@@ -466,6 +469,7 @@ class NativeIEC:
             "program_sha256": self.program.digest(),
             "profile": profile(),
             "warnings": self.warnings,
+            "source_generator": source_profile(),
         }
 
     def close(self):

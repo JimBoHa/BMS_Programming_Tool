@@ -57,7 +57,7 @@
   {
     "feature": "Shared-signal system simulation",
     "status": "implemented",
-    "scope": "2–16 graph instances with a common clock and typed/unit-checked previous-cycle links. All programs commit together; a failed cycle holds every state/output. Bounded sessions/history, quality fault records and portable workspace save/reopen. No field interfaces or equipment/firmware emulation."
+    "scope": "2\u201316 graph instances with a common clock and typed/unit-checked previous-cycle links. All programs commit together; a failed cycle holds every state/output. Bounded sessions/history, quality fault records and portable workspace save/reopen. No field interfaces or equipment/firmware emulation."
   },
   {
     "feature": "Internal simulation holds and releases",
@@ -317,11 +317,16 @@
   {
     "feature": "Executable integer precision guards",
     "status": "implemented",
-    "scope": "Known graph numeric parameters, expanded macros, live inputs/forces and computed values refuse nonrepresentable integer-to-binary64 coercion before execution/commit. Exact large integers remain valid. ST/PLCopen/Niagara/native IEC/Sedona numeric boundaries guard before conversion/exchange. Existing decimal literal formatting remains a separately documented conversion limitation. Archival Program/canonical hashes and native evidence remain unchanged. Ordinary floating-point and native binary32/fixed-point differences remain explicit; no arbitrary-precision or physical-controller equivalence claim."
+    "scope": "Known graph numeric parameters, expanded macros, live inputs/forces and computed values refuse nonrepresentable integer-to-binary64 coercion before execution/commit. Exact large integers remain valid. ST/PLCopen/Niagara/native IEC/Sedona numeric boundaries guard before conversion/exchange. New decimal literal generation is separately versioned; legacy source regeneration remains available. Archival Program/canonical hashes and native evidence remain unchanged. Ordinary floating-point and native binary32/fixed-point differences remain explicit; no arbitrary-precision or physical-controller equivalence claim."
   },
   {
     "feature": "Owned local simulation session cleanup",
     "status": "implemented",
     "scope": "Exact volatile calculation ownership tokens and immutable creation-operation identities release known sessions on reset/source/scenario replacement and document retirement; verified stale first replies cannot restore state or remove unrelated sessions. Cleanup gates new scans/scenarios and failures require explicit retry. Recorded trends/alarms/events/source lifecycle remain unchanged. Best-effort exit cleanup, missing first receipts and one-hour idle expiry remain explicit; 25-session cap unchanged, no global clear or field operations. See docs/simulation-sessions.md."
+  },
+  {
+    "feature": "Versioned numeric literal source profiles",
+    "status": "implemented",
+    "scope": "New ST/PLCopen/Sedona source preserves original integer and roundtrip binary64 literal text before declared native binary32 conversion. Explicit profile/rules bindings, profile-bound generated Sedona kit identity, strict unknown/duplicate/tamper rejection and byte-exact legacy regeneration preserve old Program hashes and archives. Native MatIEC/Sedona midpoint behavior is tested locally; reports/UI expose provenance. GraphML/BOG/canonical formats unchanged. No arbitrary-precision, physical-controller or native JCI acceptance claim."
   }
 ]
