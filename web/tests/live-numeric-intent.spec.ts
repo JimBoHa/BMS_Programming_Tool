@@ -1,3 +1,4 @@
+import { fetchSimulationResponse } from "./simulationFixture";
 import { test, expect, type Page } from "./simulationFixture";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
@@ -288,7 +289,7 @@ test("deep receipt refusal preserves the proved owned handle so Reset retires it
   await load(page);
   let owned = "";
   await page.route("**/api/simulation/step", async (route) => {
-    const response = await route.fetch(),
+    const response = await fetchSimulationResponse(route),
       receipt = await response.json();
     owned = receipt.session;
     await route.fulfill({ response, json: deepEarlier(receipt) });
@@ -315,7 +316,7 @@ test("a held first receipt after Reset retires its verified handle before irrele
     captured = new Promise<void>((r) => (admitted = r));
   let owned = "";
   await page.route("**/api/simulation/step", async (route) => {
-    const response = await route.fetch(),
+    const response = await fetchSimulationResponse(route),
       receipt = await response.json();
     owned = receipt.session;
     admitted();
