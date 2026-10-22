@@ -35,6 +35,7 @@ import {
   Code2,
   FileCheck2,
   BellRing,
+  TableProperties,
 } from "lucide-react";
 import { api, download, initSession } from "./api";
 import {
@@ -100,6 +101,9 @@ const CafSimulationPanel = lazy(() =>
   import("./CafSimulationPanel").then((m) => ({
     default: m.CafSimulationPanel,
   })),
+);
+const TruthTableReview = lazy(() =>
+  import("./TruthTableReview").then((m) => ({ default: m.TruthTableReview })),
 );
 const Notifications = lazy(() =>
   import("./Notifications").then((m) => ({ default: m.Notifications })),
@@ -395,6 +399,10 @@ export function App() {
     return outcome;
   }
   async function save() {
+    if (tab === "truth-tables") {
+      setMessage("Use Export table in the truth-table workspace.");
+      return;
+    }
     if (macroEdit) {
       await applyMacroEdit();
       return;
@@ -853,6 +861,7 @@ export function App() {
     );
   const tabs = [
     { id: "editor", title: "Program", icon: Workflow },
+    { id: "truth-tables", title: "Truth tables", icon: TableProperties },
     { id: "caf", title: "CAF files", icon: FileArchive },
     { id: "caf-compare", title: "CAF compare", icon: FileCheck2 },
     { id: "caf-simulation", title: "CAF simulation", icon: FlaskConical },
@@ -899,6 +908,7 @@ export function App() {
         <div className="project-title">
           <input
             aria-label="Program name"
+            disabled={tab === "truth-tables"}
             value={program.name}
             onChange={(e) => change({ ...program, name: e.target.value })}
           />
@@ -907,7 +917,12 @@ export function App() {
         <button
           className="save-button primary"
           onClick={save}
-          disabled={saving}
+          disabled={saving || tab === "truth-tables"}
+          title={
+            tab === "truth-tables"
+              ? "Use Export table in the truth-table workspace."
+              : undefined
+          }
         >
           <Save size={15} />{" "}
           {macroEdit
@@ -1372,6 +1387,8 @@ export function App() {
               <CafComparison />
             ) : tab === "bog" ? (
               <NiagaraInspector />
+            ) : tab === "truth-tables" ? (
+              <TruthTableReview />
             ) : tab === "hardware" ? (
               <HardwareDefinitions />
             ) : tab === "connections" ? (

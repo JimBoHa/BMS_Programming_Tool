@@ -79,6 +79,7 @@ from .simulation_group import SimulationGroups, SimulationWorkspace, demo_worksp
 from .storage import Conflict, Store
 from .temco_transfer import TemcoTransfer
 from .templates import all_templates
+from .truth_tables import TruthTables, truth_table_router
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -567,6 +568,8 @@ def create_app(state_dir=None):
     app.state.notifications = None
     app.include_router(hardware_router(hardware_workbench))
     app.include_router(supply_router(supply_plans))
+    app.state.truth_tables = TruthTables()
+    app.include_router(truth_table_router(app.state.truth_tables))
     app.include_router(network_plan_router())
     app.include_router(bus_preflight_router())
 
