@@ -328,5 +328,10 @@
     "feature": "Versioned numeric literal source profiles",
     "status": "implemented",
     "scope": "New ST/PLCopen/Sedona source preserves original integer and roundtrip binary64 literal text before declared native binary32 conversion. Explicit profile/rules bindings, profile-bound generated Sedona kit identity, strict unknown/duplicate/tamper rejection and byte-exact legacy regeneration preserve old Program hashes and archives. Native MatIEC/Sedona midpoint behavior is tested locally; reports/UI expose provenance. GraphML/BOG/canonical formats unchanged. No arbitrary-precision, physical-controller or native JCI acceptance claim."
+  },
+  {
+    "feature": "Exact operator BACnet command preview intent",
+    "status": "implemented",
+    "scope": "Bounded parser reuses executionNumber/parseExecutionJSON, retains original numeric atoms for the narrow write-plan request, pairs original HTTP response text with the opaque receipt and verifies exact requested integer/type/float sign plus target/object/priority. Pending navigation/source changes cannot restore an Apply token. Bare enum and quoted strings/booleans retain semantics; explicit decimal/exponent tokens use finite binary64, Real32 rounding stays visible. No automatic apply/retry, arbitrary decimal precision, native application programming or field-write validation. See docs/bacnet-command-intent.md."
   }
 ]
