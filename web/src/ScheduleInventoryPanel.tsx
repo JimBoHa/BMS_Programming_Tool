@@ -400,7 +400,17 @@ export function ScheduleInventoryPanel({
           </details>
         </div>
       )}
-      <ScheduleLibraryPanel sessionReportId={report?.id || null} />
+      <ScheduleLibraryPanel
+        sessionReportId={report?.id || null}
+        connected={connected}
+        connectionKey={JSON.stringify([
+          defaultsKey,
+          address,
+          device,
+          router,
+          dnet,
+        ])}
+      />
     </section>
   );
 }

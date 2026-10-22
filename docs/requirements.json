@@ -906,7 +906,7 @@
     "evidence": "Controller Tool Help18.0 LIT-12011147 SHA68935362c85c; SCT19 LIT-12011964; pinned BACpypes3 0.0.110 APDU/ClientSSM source; independent literal direct/routed UDP peers",
     "pdf_pages_or_section": "CCT235-236/247-248; SCT328-329; docs/native-weekly-day-write.md",
     "status": "implemented",
-    "implementation_or_gap": "Backend/API only: exact native draft/source and fresh static-tag guards, pinned interface/raw service15 response proof, one unsegmented send/no priority/no retries, bounded durable journal and original sealed receipt bytes, explicit read-only reconciliation. Postdispatch Error/Reject/Abort remain may_have_applied; protocol and readback are separate. Browser Apply integration, physical controller acceptance, Calendar/exception/context/target writes, CAS/rollback, segmentation/BBMD/serial writes and native CAF compilation remain outside this profile."
+    "implementation_or_gap": "Backend/API only: exact native draft/source and fresh static-tag guards, pinned interface/raw service15 response proof, one unsegmented send/no priority/no retries, bounded durable journal and original sealed receipt bytes, explicit read-only reconciliation. Postdispatch Error/Reject/Abort remain may_have_applied; protocol and readback are separate. Browser Apply integration is supplied by COMM-SCHED-004. Physical controller acceptance, Calendar/exception/context/target writes, CAS/rollback, segmentation/BBMD/serial writes and native CAF compilation remain outside this profile."
   },
   {
     "id": "COMM-METER-001",
@@ -925,5 +925,14 @@
     "pdf_pages_or_section": "1582\u20131585",
     "status": "partial",
     "implementation_or_gap": "COMM-METER-001 provides explicit native metadata observations and exact offline pulse-batch review. Hardware debounce/persistence/COV/overflow behavior, target package/firmware acceptance and native configuration/transfer remain unimplemented."
+  },
+  {
+    "id": "COMM-SCHED-004",
+    "feature": "Reviewed native weekly-day deployment GUI",
+    "acceptance_criterion": "Offer explicit source/connection-qualified fresh preview and one-use Apply for an existing native Schedule day, exact original receipts/local history, unknown intent recovery and separate explicit read-only reconciliation.",
+    "evidence": "COMM-SCHED-003 guarded API; Controller Tool Help18.0 LIT-12011147 SHA68935362c85c; SCT19 LIT-12011964; actual independent direct/routed UDP GUI tests",
+    "pdf_pages_or_section": "CCT235-236/247-248; SCT328-329; docs/native-weekly-day-write-ui.md",
+    "status": "implemented",
+    "implementation_or_gap": "Scoped Connect GUI: explicit operator/rationale and fresh native preview, source/connection/expiry guards, one-use Apply, cancellation, durable local journal reopen, independent may-have-applied/protocol/readback facts and original HTTP-byte exports. Recovered intents remain unknown; reconciliation is explicit read-only. No automatic queries/writes/retry, arbitrary CAF/program upload, Calendar/exception/target/default edits, extra transports or physical manufacturer acceptance."
   }
 ]

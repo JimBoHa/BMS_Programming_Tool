@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, apiJsonDocument, saveBlob } from "./api";
+import { NativeScheduleWritePanel } from "./NativeScheduleWritePanel";
 
 const BASE = "/bacnet/schedules/library";
 const CAPTURE = "native-calendar-schedule-capture/1";
@@ -204,8 +205,12 @@ function reviewResult(value: any) {
 
 export function ScheduleLibraryPanel({
   sessionReportId,
+  connected = false,
+  connectionKey = "",
 }: {
   sessionReportId: string | null;
+  connected?: boolean;
+  connectionKey?: string;
 }) {
   const [profile, setProfile] = useState<any>(null),
     [capture, setCapture] = useState<Capture | null>(null),
@@ -978,6 +983,11 @@ export function ScheduleLibraryPanel({
           )}
         </div>
       )}
+      <NativeScheduleWritePanel
+        draft={review}
+        connected={connected}
+        connectionKey={connectionKey}
+      />
     </section>
   );
 }
