@@ -29,6 +29,7 @@ To prepare another computer without requiring Node.js on that computer, build an
 
 ## Working features
 
+- Refuse unsupported or malformed browser history IDs before pruning, retrying, discarding, downloading, acknowledging or paging local records. Safe delivery downloads keep original server bytes. See [history identity bounds](docs/browser-history-identities.md).
 - Release only owned local calculation sessions on reset/source replacement and document exit, with verified late-reply cleanup and explicit retry after cleanup failures. Recorded history and alarm lifecycle stay intact; unknown sessions retain bounded expiry. See [simulation session ownership](docs/simulation-sessions.md).
 - Recover the latest ordinary or macro editor draft across fast reloads through guarded lifecycle flushes, while validation remains debounced. Storage failures stay visible and preserve previous recovery data when a write fails. See [browser draft recovery and limits](docs/draft-recovery.md).
 - Create a separate editable VAV project with the **Equipment wizard**: choose equipment, declared target, logical sensors/setpoints and P/PI position mapping or measured-airflow feedback. Preview points, topology and choice/source hashes; unit changes convert values and inverse-unit gains together. Native CAF allocation and complete ventilation/safety/G36/Title24 sequences remain incomplete. See [wizard scope and verification](docs/equipment-wizard.md).

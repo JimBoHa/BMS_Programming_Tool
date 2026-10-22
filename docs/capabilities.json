@@ -323,5 +323,10 @@
     "feature": "Owned local simulation session cleanup",
     "status": "implemented",
     "scope": "Exact volatile calculation ownership tokens and immutable creation-operation identities release known sessions on reset/source/scenario replacement and document retirement; verified stale first replies cannot restore state or remove unrelated sessions. Cleanup gates new scans/scenarios and failures require explicit retry. Recorded trends/alarms/events/source lifecycle remain unchanged. Best-effort exit cleanup, missing first receipts and one-hour idle expiry remain explicit; 25-session cap unchanged, no global clear or field operations. See docs/simulation-sessions.md."
+  },
+  {
+    "feature": "Exact supported browser history identities",
+    "status": "implemented",
+    "scope": "Canonical decimal whole-ID text uses BigInt before Number; received numeric IDs require Number.isSafeInteger and positive bounds, with zero only for cursors. Unsupported pages clear row actions/cursors, safe filters remain usable, and each download/retry/discard/prune/ack/events/paging boundary rechecks IDs. Original delivery Blob downloads preserve nested payload values. Browser profile stops at MAX_SAFE_INTEGER; no full 64-bit browser protocol, backend history/native evidence changes or field traffic. See docs/browser-history-identities.md."
   }
 ]
