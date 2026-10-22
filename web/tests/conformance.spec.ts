@@ -2,6 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { projectedSourceFixture } from "./sourceTransportFixtures";
 const root = path.resolve(".."),
   python = path.join(root, ".venv/bin/python");
 async function open(
@@ -30,7 +31,7 @@ async function open(
     page.getByLabel("Conformance suite name", { exact: true }),
   ).toBeEnabled();
   return {
-    program: response.request().postDataJSON().program,
+    program: projectedSourceFixture(response.request().postDataJSON().program),
     catalog: await response.json(),
   };
 }

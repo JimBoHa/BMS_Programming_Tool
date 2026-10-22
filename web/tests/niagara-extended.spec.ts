@@ -2,6 +2,7 @@ import { test, expect } from "./simulationFixture";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { projectedSourceFixture } from "./sourceTransportFixtures";
 
 const root = path.resolve("..");
 const python = path.join(root, ".venv/bin/python");
@@ -120,7 +121,7 @@ print(json.dumps({'types':types,'foreign':re.sub(rb'<!-- BMS_STUDIO_BOG_V1 [A-Za
     mimeType: "application/xml",
     buffer: Buffer.from(inspected.foreign),
   });
-  const foreign = await (await importing).json();
+  const foreign = projectedSourceFixture(await (await importing).json());
   expect(foreign.metadata.conversion.review_required).toBe(true);
   expect(
     foreign.nodes.filter((node: any) => node.kind === "Convert"),
