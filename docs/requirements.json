@@ -555,7 +555,7 @@
     "evidence": "BACpypes3 0.0.110 primary COV/APDU/datatype/application source; feature audit IA-c6c0348b91",
     "pdf_pages_or_section": "SubscribeCOV and confirmed/unconfirmed COV notifications",
     "status": "implemented",
-    "implementation_or_gap": "Direct BACnet/IPv4 and explicit IPv4-router/DNET:MAC. Real UDP/HTTP/browser evidence; exact IPv4 next-hop/NPDU source/Device/object/process/mode checks and task-scoped pinned ACK routing, native indexes/priority/opaque values, owned transaction retirement and lifecycle bounds. Routed segmented notifications, BBMD/direct serial/BTCVT, physical JCI acceptance remain outside profile."
+    "implementation_or_gap": "Direct BACnet/IPv4 and explicit IPv4-router/DNET:MAC. Real UDP/HTTP/browser evidence; exact IPv4 next-hop/NPDU source/Device/object/process/mode checks and task-scoped pinned ACK routing, native indexes/priority/opaque values, owned transaction retirement and lifecycle bounds. Routed segmented notifications, BBMD/direct serial/BTCVT, physical JCI acceptance remain outside profile. Job and saved-page JSON downloads retain original HTTP response bytes, preserving native integral floats and signed zero. Saved pages atomically bind recording/source metadata, cursor/count, receipt bodies and retention boundaries; changing selections or navigation rejects stale downloads. No client re-sealing or recorder/protocol changes."
   },
   {
     "id": "COMM-COV-002",
@@ -564,7 +564,7 @@
     "evidence": "BACpypes3 0.0.110 COV/APDU/datatype source; shared field observation retention and provenance criteria",
     "pdf_pages_or_section": "Accepted COV callback recording into local field observation SQLite",
     "status": "implemented",
-    "implementation_or_gap": "Real direct/routed UDP, storage failure/overflow/ownership/retention/restart/HTTP/browser tests. Local history paging and JSON/CSV export. Windows lock branch authored but actual Windows execution and physical JCI/MS/TP/BTCVT remain unverified."
+    "implementation_or_gap": "Real direct/routed UDP, storage failure/overflow/ownership/retention/restart/HTTP/browser tests. Local history paging and JSON/CSV export. Windows lock branch authored but actual Windows execution and physical JCI/MS/TP/BTCVT remain unverified. Job and saved-page JSON downloads retain original HTTP response bytes, preserving native integral floats and signed zero. Saved pages atomically bind recording/source metadata, cursor/count, receipt bodies and retention boundaries; changing selections or navigation rejects stale downloads. No client re-sealing or recorder/protocol changes."
   },
   {
     "id": "HIST-MULTI-001",

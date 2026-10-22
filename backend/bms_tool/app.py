@@ -1471,6 +1471,10 @@ def create_app(state_dir=None):
     def cov_saved_events(id: str, after: int = 0, limit: int = 100):
         return cov_recordings.events(id, after=after, limit=limit)
 
+    @app.get("/api/bacnet/cov/recordings/{id}/page")
+    def cov_saved_page(id: str, after: int = 0, limit: int = 100):
+        return cov_recordings.page(id, after=after, limit=limit)
+
     @app.post("/api/bacnet/cov/start")
     async def cov_start(body: CovStart):
         return await cov.start(**body.model_dump())

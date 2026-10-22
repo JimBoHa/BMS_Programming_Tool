@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, saveBlob } from "./api";
 import { BacnetCovRecordings } from "./BacnetCovRecordings";
+import { covJob, covJobKey, covVisible } from "./covEvidence";
 
 export function BacnetCovPanel({
   connected,
@@ -39,6 +40,27 @@ export function BacnetCovPanel({
   const [error, setError] = useState("");
   const mounted = useRef(false);
   const operation = useRef(false);
+  const panel = useRef<HTMLElement>(null);
+  const liveSelection = useRef("");
+  liveSelection.current = JSON.stringify([
+    defaultAddress,
+    defaultDevice,
+    defaultObject,
+    defaultRouter,
+    defaultDnet,
+    address,
+    mode,
+    router,
+    dnet,
+    mac,
+    device,
+    object,
+    lifetime,
+    confirmed,
+    record,
+  ]);
+  const liveStatus = useRef(status);
+  liveStatus.current = status;
   useEffect(() => {
     selection.current++;
     setAddress(
@@ -98,16 +120,24 @@ export function BacnetCovPanel({
     setBusy(true);
     setError("");
     const generation = selection.current;
+    const originalSelection = liveSelection.current;
     try {
       if (action === "export") {
-        const result = await api(`/bacnet/cov/jobs/${id}`);
-        if (mounted.current)
-          saveBlob(
-            new Blob([JSON.stringify(result, null, 2)], {
-              type: "application/json",
-            }),
-            `${id}-cov-evidence.json`,
-          );
+        const source = status?.jobs.find((job: any) => job.id === id);
+        if (!id || !source)
+          throw new Error("Select an available COV job before exporting.");
+        const sourceKey = covJobKey(source);
+        const result = await covJob(id, sourceKey);
+        if (
+          mounted.current &&
+          generation === selection.current &&
+          originalSelection === liveSelection.current &&
+          covJobKey(
+            liveStatus.current?.jobs.find((job: any) => job.id === id),
+          ) === sourceKey &&
+          covVisible(panel.current)
+        )
+          saveBlob(result.blob, `${id}-cov-evidence.json`);
       } else {
         const body =
           action === "start"
@@ -139,14 +169,25 @@ export function BacnetCovPanel({
         if (mounted.current) setStatus(result);
       }
     } catch (e) {
-      if (mounted.current) setError(String(e));
+      if (
+        mounted.current &&
+        (action !== "export" ||
+          (generation === selection.current &&
+            originalSelection === liveSelection.current))
+      )
+        setError(String(e));
     } finally {
       operation.current = false;
       if (mounted.current) setBusy(false);
     }
   }
   return (
-    <section className="card" role="region" aria-label="BACnet COV monitoring">
+    <section
+      className="card"
+      role="region"
+      aria-label="BACnet COV monitoring"
+      ref={panel}
+    >
       <div className="card-header">
         <h3>Change-of-value monitoring</h3>
       </div>
