@@ -862,5 +862,14 @@
     "pdf_pages_or_section": "docs/bacnet-command-intent.md; Connections command preview and relinquish",
     "status": "implemented",
     "implementation_or_gap": "Bounded parser reuses executionNumber/parseExecutionJSON, retains original numeric atoms for the narrow write-plan request, pairs original HTTP response text with the opaque receipt and verifies exact requested integer/type/float sign plus target/object/priority. Pending navigation/source changes cannot restore an Apply token. Bare enum and quoted strings/booleans retain semantics; explicit decimal/exponent tokens use finite binary64, Real32 rounding stays visible. No automatic apply/retry, arbitrary decimal precision, native application programming or field-write validation."
+  },
+  {
+    "id": "UI-CANVAS-001",
+    "feature": "Owned wiresheet measurement lifecycle",
+    "acceptance_criterion": "Keep current blocks visible and interactive through parent renders, Undo/Redo and source replacement while refusing stale or foreign geometry and keeping UI measurements out of Program source.",
+    "evidence": "Pinned React Flow controlled-node/observer source; deterministic native ResizeObserver hold and original PR48 before/after reproduction",
+    "pdf_pages_or_section": "docs/canvas-measurements.md; canvas lifecycle and ownership tests",
+    "status": "implemented",
+    "implementation_or_gap": "Canvas-local current-DOM geometry cache with Canvas/project/node/port-shape ownership, removal pruning and targeted handle refresh. Raw exported Program/digest remains unchanged by measurement; no global fit, timing retry, source-schema or field-device behavior changes."
   }
 ]

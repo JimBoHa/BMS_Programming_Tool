@@ -333,5 +333,10 @@
     "feature": "Exact operator BACnet command preview intent",
     "status": "implemented",
     "scope": "Bounded parser reuses executionNumber/parseExecutionJSON, retains original numeric atoms for the narrow write-plan request, pairs original HTTP response text with the opaque receipt and verifies exact requested integer/type/float sign plus target/object/priority. Pending navigation/source changes cannot restore an Apply token. Bare enum and quoted strings/booleans retain semantics; explicit decimal/exponent tokens use finite binary64, Real32 rounding stays visible. No automatic apply/retry, arbitrary decimal precision, native application programming or field-write validation. See docs/bacnet-command-intent.md."
+  },
+  {
+    "feature": "Owned wiresheet measurement lifecycle",
+    "status": "implemented",
+    "scope": "Canvas-local current-DOM geometry cache with Canvas/project/node/port-shape ownership, removal pruning and targeted handle refresh. Raw exported Program/digest remains unchanged by measurement; no global fit, timing retry, source-schema or field-device behavior changes. See docs/canvas-measurements.md."
   }
 ]
