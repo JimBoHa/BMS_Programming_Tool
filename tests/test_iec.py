@@ -319,15 +319,16 @@ def test_scenario_quality_fault_is_recorded_and_recovery_resumes_retained_native
 
 
 def test_compiler_lock_wait_has_a_deadline_and_releases_thread_ownership(monkeypatch, tmp_path):
+    import bms_tool.file_access as access
     import bms_tool.iec as iec
 
-    times = iter((0, 46))
+    times = iter((0, 46, 46, 92))
     monkeypatch.setattr(iec.time, "monotonic", lambda: next(times))
 
     def busy(*args):
         raise BlockingIOError("held by another process")
 
-    monkeypatch.setattr(iec.fcntl, "flock", busy)
+    monkeypatch.setattr(access, "try_lock", busy)
     with pytest.raises(ConversionError, match="busy rebuilding"):
         with _tool_lock(tmp_path):
             pytest.fail("Entered compiler critical section while already locked")

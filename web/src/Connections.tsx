@@ -16,11 +16,14 @@ import {
 import { DeviceScanPanel, type ScanTarget } from "./DeviceScanPanel";
 import { BacnetFilesPanel } from "./BacnetFilesPanel";
 import { BbmdTablesPanel } from "./BbmdTablesPanel";
+import { BbmdAdminPanel } from "./BbmdAdminPanel";
 import { ControllerProbePanel } from "./ControllerProbePanel";
 import { HardwareSurveyPanel } from "./HardwareSurveyPanel";
 import { BacnetCovPanel } from "./BacnetCovPanel";
 import { BacnetEventsPanel } from "./BacnetEventsPanel";
 import { EventReceptionPanel } from "./EventReceptionPanel";
+import { NetworkNumberPlanPanel } from "./NetworkNumberPlanPanel";
+import { BusPreflightPanel } from "./BusPreflightPanel";
 
 export function Connections() {
   const [config, setConfig] = useState({
@@ -675,6 +678,8 @@ export function Connections() {
           </div>
         </section>
       </div>
+      <NetworkNumberPlanPanel />
+      <BusPreflightPanel />
       <DeviceScanPanel
         connected={
           status.connected && !busy && status.config?.transport !== "mstp"
@@ -744,6 +749,19 @@ export function Connections() {
       <BbmdTablesPanel
         connected={
           !!status.connected && !busy && status.config?.transport !== "mstp"
+        }
+        defaultEndpoint={
+          status.config?.bbmd_address ||
+          selectedRoute?.router ||
+          (target.includes(".") ? target : "")
+        }
+      />
+      <BbmdAdminPanel
+        connected={
+          !!status.connected &&
+          !busy &&
+          status.config?.transport !== "mstp" &&
+          !status.config?.bbmd_address
         }
         defaultEndpoint={
           status.config?.bbmd_address ||
