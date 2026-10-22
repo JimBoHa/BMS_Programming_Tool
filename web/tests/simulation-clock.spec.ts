@@ -323,6 +323,69 @@ test("visibility-change handling pauses without automatic hidden-time catch-up",
   await expect(status(page)).toContainText("hidden");
 });
 
+test("hidden pause cause survives delivery of an already committed held batch", async ({
+  page,
+}) => {
+  await configure(page, "5", "100");
+  let seen!: () => void,
+    release!: () => void,
+    done!: () => void,
+    held = false,
+    calls = 0;
+  const requested = new Promise<void>((r) => (seen = r)),
+    gate = new Promise<void>((r) => (release = r)),
+    delivered = new Promise<void>((r) => (done = r));
+  await page.route("**/api/simulation/step", async (route) => {
+    calls++;
+    const response = await fetchSimulationResponse(route);
+    held = true;
+    seen();
+    await gate;
+    try {
+      await route.fulfill({ response, body: await response.body() });
+    } finally {
+      done();
+    }
+  });
+  try {
+    await page.getByTitle("Run simulation", { exact: true }).click();
+    await requested;
+    await page.evaluate(() => {
+      Object.defineProperty(document, "hidden", {
+        configurable: true,
+        value: true,
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await expect(status(page)).toContainText("pausing:");
+    await expect(status(page)).toContainText("hidden");
+    await expect(status(page)).toContainText("Waiting for the admitted batch");
+    release();
+    await delivered;
+    await expect(status(page)).toContainText("paused:");
+    await expect(page.locator(".elapsed")).toHaveText("0.3 s");
+    await expect(status(page)).toContainText("hidden");
+    await expect(status(page)).not.toContainText("Waiting");
+    await expect(status(page)).toContainText(
+      "final admitted batch is displayed",
+    );
+    await page.evaluate(() => {
+      Object.defineProperty(document, "hidden", {
+        configurable: true,
+        value: false,
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await page.waitForTimeout(150);
+    await expect(page.locator(".elapsed")).toHaveText("0.3 s");
+    await expect(status(page)).toContainText("hidden");
+    expect(calls).toBe(1);
+  } finally {
+    release();
+    if (held) await delivered;
+  }
+});
+
 for (const action of ["none", "reset", "source", "failure"])
   test(`scenario admission shares scan gate and retires delayed ${action} response`, async ({
     page,
