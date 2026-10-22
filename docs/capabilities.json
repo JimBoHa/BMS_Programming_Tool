@@ -263,5 +263,10 @@
     "feature": "Native point reliability and service-state inspection",
     "status": "implemented",
     "scope": "Explicit selected standard analog/binary/multistate/Accumulator point inventory on one exact Device over direct or pinned routed plain IPv4. Raw native types/units/reliability/status flags/out-of-service, optional priority slots/relinquish values, source/identity evidence, per-property native failures and exact JSON export. Malformed quality encodings remain unknown; optional-property absence is separate from health. Finite owned reads/cancel/shutdown and session-only16reports. No discovery/polling/writes, engineering scaling, healthy-I/O/winning-priority inference, proprietary state mapping, BBMD/direct serial or physical acceptance. Broad MF-b3e8f374e9 remains partial."
+  },
+  {
+    "feature": "Native state domains and offline enum mapping review",
+    "status": "implemented",
+    "scope": "Explicit opt-in native binary/multistate labels, polarity, Number_Of_States and bounded indexed State_Text with exact code validation and raw failures. Separate bounded operator-declared namespace/state-ID/code mapping editor reviews missing/duplicate/unknown states, target coverage and explicit many-to-one loss with rationale; probes, strict plan import and sealed exact exports. No label-driven mapping, native/JCI/portable domain binding, executable lowering or controller writes. Broad MF-3fc6a30927 remains partial. docs/native-enum-domains.md"
   }
 ]

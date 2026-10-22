@@ -16,6 +16,7 @@ from pydantic import Field, field_validator
 
 from .device_details import DeviceDetails, DeviceDetailsRequest, _InterfaceChanged
 from .models import StrictModel
+from .native_enum_domain import inspect_native_domain
 from .property_evidence import PropertyEvidence, ReadBudget, _encoded, _utc
 
 PROFILE = "native-point-status/1"
@@ -60,6 +61,8 @@ class PointStatusRequest(DeviceDetailsRequest):
         min_length=1, max_length=16
     )
     include_commandable: bool = Field(default=False, strict=True)
+    include_enum_metadata: bool = Field(default=False, strict=True)
+    state_text_limit: int = Field(default=32, ge=1, le=256, strict=True)
 
     @field_validator("object_ids")
     @classmethod
@@ -136,6 +139,9 @@ class PointStatus:
                 "report_bytes": MAX_BYTES,
                 "requests": 512,
                 "priority_slots": 16,
+                "state_text_entries_default": 32,
+                "state_text_entries_max": 256,
+                "enum_label_json_bytes": 256,
                 "encoded_property_bytes": 16 * 1024,
                 "property_record_bytes": 64 * 1024,
                 "native_depth": 16,
@@ -268,7 +274,10 @@ class PointStatus:
             raise ValueError(
                 "Point-status inspection requires plain IPv4 without BBMD or direct serial."
             )
-        budget = ReadBudget(max_requests=512, max_bytes=MAX_BYTES - 128 * 1024)
+        budget = ReadBudget(
+            max_requests=512,
+            max_bytes=MAX_BYTES - (384 if options.include_enum_metadata else 128) * 1024,
+        )
         report = {
             "id": secrets.token_hex(16),
             "profile": PROFILE,
@@ -326,13 +335,35 @@ class PointStatus:
                             continue
                         item["identity_verified"] = True
                         cls = POINT_CLASSES[int(ObjectIdentifier(obj)[0])]
+                        present_value = None
                         for prop in PROPERTIES:
                             if cls.get_property_type(prop) is None:
                                 item["properties"][prop] = self._not_applicable(obj, prop)
                             else:
-                                _, item["properties"][prop] = await self._read(
+                                observed, item["properties"][prop] = await self._read(
                                     session, budget, obj, prop
                                 )
+                                if prop == "present-value":
+                                    present_value = (
+                                        observed
+                                        if item["properties"][prop]["status"] == "ok"
+                                        else None
+                                    )
+                        if options.include_enum_metadata:
+                            domain = {}
+                            item["enum_domain"] = domain
+
+                            async def read_domain(prop, index=None, *, selected_obj=obj):
+                                return await self._read(session, budget, selected_obj, prop, index)
+
+                            await inspect_native_domain(
+                                obj,
+                                item["properties"],
+                                present_value,
+                                domain,
+                                read_domain,
+                                limit=options.state_text_limit,
+                            )
                         if options.include_commandable:
                             for prop in ("priority-array", "relinquish-default"):
                                 if cls.get_property_type(prop) is None:
@@ -371,7 +402,9 @@ class PointStatus:
                                 else:
                                     array["status"] = row["status"]
                                 array["read_in_progress"] = False
-                        item["complete"] = all(
+                        item["complete"] = item.get("enum_domain", {}).get(
+                            "complete", True
+                        ) and all(
                             r["status"] in ("ok", "not_applicable") and r.get("complete", True)
                             for r in item["properties"].values()
                         )
@@ -399,6 +432,10 @@ class PointStatus:
         finally:
             self.active = None
         for item in report["objects"]:
+            if item.get("enum_domain", {}).get("read_in_progress"):
+                item["enum_domain"].update(
+                    read_in_progress=False, status=report["status"], complete=False
+                )
             for row in item["properties"].values():
                 if row.get("read_in_progress"):
                     row.update(read_in_progress=False, status=report["status"])

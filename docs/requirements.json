@@ -718,5 +718,23 @@
     "pdf_pages_or_section": "FX PDF7/9/11/13; FEC PDF9/10/12/13",
     "status": "partial",
     "implementation_or_gap": "COMM-POINT-001 provides explicit grouped native evidence for supported standard points. Existing generic reads/trend summaries remain separate; attaching raw quality to all engineering/test results, proprietary model-specific states, other transports and physical input acceptance remain pending."
+  },
+  {
+    "id": "COMM-ENUM-001",
+    "feature": "Native state domains and offline enum mapping review",
+    "acceptance_criterion": "Opt-in identity-verified binary/multistate label, polarity and numeric-domain evidence; bounded explicit operator mapping review with strict codes, missing/duplicate states, unknown values and declared information loss.",
+    "evidence": "Controller Tool Help 18.0 LIT-12011147 DOC-68935362c85c; BACpypes3 0.0.110 primary datatype source",
+    "pdf_pages_or_section": "1580-1581 Table1313; BinaryPV/Polarity/multistate object contracts",
+    "status": "implemented",
+    "implementation_or_gap": "Native direct/pinned routed plain IPv4 metadata extends point status; separate offline operator domain/row/policy editor, probes, strict import and sealed exact exports. No inferred native/JCI/portable enum binding, label equivalence, executable conversion, writes or physical acceptance. docs/native-enum-domains.md"
+  },
+  {
+    "id": "MF-3fc6a30927",
+    "feature": "Binary and multistate enum mapping validation",
+    "acceptance_criterion": "Check supported binary labels against corresponding multistate mapping without inventing numeric codes or silent information loss.",
+    "evidence": "Controller Tool Help 18.0 LIT-12011147; DOC-68935362c85c",
+    "pdf_pages_or_section": "1580-1581 Table1313",
+    "status": "partial",
+    "implementation_or_gap": "COMM-ENUM-001 preserves standard native domains and reviews explicit operator-declared numeric mappings. CCT Table1313 is named-set evidence only. Verified JCI Enum Set identities/native code bindings, executable native/portable lowering and physical firmware acceptance remain pending."
   }
 ]
