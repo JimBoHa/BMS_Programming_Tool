@@ -72,6 +72,12 @@ from .macros import (
     update_macro_definition,
 )
 from .models import Program, StrictModel
+from .native_schedule_library import (
+    MAX_ARCHIVE_BYTES,
+    CaptureAction,
+    NativeScheduleLibrary,
+    WeeklyDayDraft,
+)
 from .native_simulator import NativeSimulator
 from .network_number_plan import network_plan_router
 from .niagara import NiagaraArchive
@@ -474,6 +480,7 @@ def create_app(state_dir=None):
         bbmd_admin_error = "BBMD administration unavailable: " + str(exc)[:1000]
     device_details = DeviceDetails(bacnet, store)
     schedule_inventory = ScheduleInventory(bacnet, store)
+    schedule_library = NativeScheduleLibrary(store.directory, schedule_inventory)
     point_status = PointStatus(bacnet, store)
     event_inventory = EventInventory(bacnet, store)
     event_ack = EventAcknowledgements(bacnet, store, event_inventory)
@@ -601,6 +608,7 @@ def create_app(state_dir=None):
     app.state.bbmd_admin_startup_error = bbmd_admin_error
     app.state.device_details = device_details
     app.state.schedule_inventory = schedule_inventory
+    app.state.schedule_library = schedule_library
     app.state.point_status = point_status
     app.state.event_inventory = event_inventory
     app.state.event_ack = event_ack
@@ -1697,6 +1705,64 @@ def create_app(state_dir=None):
             headers={
                 "Content-Disposition": f'attachment; filename="bacnet-schedules-{body.id}.json"'
             },
+        )
+
+    @app.get("/api/bacnet/schedules/library/profile")
+    def bacnet_schedule_library_profile():
+        return schedule_library.status()
+
+    @app.get("/api/bacnet/schedules/library/captures/{id}")
+    def bacnet_schedule_capture(id: str):
+        return schedule_library.detail(id)
+
+    @app.post("/api/bacnet/schedules/library/save")
+    def bacnet_schedule_capture_save(body: ScheduleExport):
+        return schedule_library.save(body.id)
+
+    @app.post("/api/bacnet/schedules/library/import")
+    async def bacnet_schedule_capture_import(file: UploadFile):
+        return await asyncio.to_thread(
+            schedule_library.import_capture, await file.read(MAX_ARCHIVE_BYTES + 1)
+        )
+
+    @app.post("/api/bacnet/schedules/library/export")
+    def bacnet_schedule_capture_export(body: CaptureAction):
+        return Response(
+            schedule_library.archive(body.id),
+            media_type="application/json",
+            headers={
+                "Content-Disposition": f'attachment; filename="native-schedule-capture-{body.id}.json"'
+            },
+        )
+
+    @app.post("/api/bacnet/schedules/library/source-export")
+    def bacnet_schedule_source_export(body: CaptureAction):
+        return Response(
+            schedule_library.source(body.id),
+            media_type="application/json",
+            headers={
+                "Content-Disposition": f'attachment; filename="native-schedule-source-{body.id}.json"'
+            },
+        )
+
+    @app.post("/api/bacnet/schedules/library/drafts/review")
+    def bacnet_schedule_draft_review(body: WeeklyDayDraft):
+        return schedule_library.review(**body.model_dump())
+
+    @app.post("/api/bacnet/schedules/library/drafts/export")
+    def bacnet_schedule_draft_export(body: CaptureAction):
+        return Response(
+            schedule_library.export_review(body.id),
+            media_type="application/json",
+            headers={
+                "Content-Disposition": f'attachment; filename="native-schedule-day-draft-{body.id}.json"'
+            },
+        )
+
+    @app.post("/api/bacnet/schedules/library/drafts/import")
+    async def bacnet_schedule_draft_import(file: UploadFile):
+        return await asyncio.to_thread(
+            schedule_library.import_review, await file.read(256 * 1024 + 1)
         )
 
     @app.get("/api/bacnet/events/profile")
