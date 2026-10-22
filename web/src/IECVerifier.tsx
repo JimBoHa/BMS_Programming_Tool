@@ -1,5 +1,5 @@
-import { executionNumber } from "./programSource";
-import { parseExecutionJSON } from "./programSource";
+import { executionSourceValue } from "./programSource";
+import { parseExecutionSourceJSON } from "./programSource";
 import { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
@@ -99,11 +99,8 @@ export function IECVerifier({ program }: { program: Program }) {
         const value =
           node.value_type === "boolean"
             ? item.value
-            : executionNumber(String(item.value));
-        if (
-          node.value_type !== "boolean" &&
-          (item.value === "" || !Number.isFinite(value))
-        )
+            : executionSourceValue(String(item.value));
+        if (node.value_type !== "boolean" && item.value === "")
           throw new Error(
             `${node.label || node.id}: enter a finite input value.`,
           );
@@ -157,7 +154,7 @@ export function IECVerifier({ program }: { program: Program }) {
         result = await programApi("/iec/scenario", {
           ...options,
           duration: length,
-          events: parseExecutionJSON(events),
+          events: parseExecutionSourceJSON(events),
         });
       }
       if (!mounted.current || requestGeneration !== generation.current) return;

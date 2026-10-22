@@ -2,6 +2,9 @@ import {
   parseSourceDocument,
   sourceStringify,
   isExactProgram,
+  parseExecutionHistoryTail,
+  executionScalarMap,
+  type ExecutionValue,
 } from "./programSource";
 import { sourceApi } from "./api";
 import { cloneSource } from "./programSource";
@@ -44,7 +47,12 @@ import {
   BellRing,
   TableProperties,
 } from "lucide-react";
-import { programApi, programDownload, initSession } from "./api";
+import {
+  programApi,
+  programJsonDocument,
+  programDownload,
+  initSession,
+} from "./api";
 import {
   blankProgram,
   type Block,
@@ -152,8 +160,11 @@ export function App() {
     [search, setSearch] = useState(""),
     [format, setFormat] = useState("json"),
     [history, setHistory] = useState<Scan[]>([]),
+    [executionValues, setExecutionValues] = useState<
+      Record<string, ExecutionValue>
+    >({}),
     [inputs, setInputs] = useState<Record<string, any>>({}),
-    [forces, setForces] = useState<Record<string, number | boolean>>({}),
+    [forces, setForces] = useState<Record<string, ExecutionValue>>({}),
     [simBusy, setSimBusy] = useState(false),
     [simUncertain, setSimUncertain] = useState(false),
     [simError, setSimError] = useState(""),
@@ -491,6 +502,7 @@ export function App() {
     detachSimulationSession();
     setSimUncertain(false);
     setHistory([]);
+    setExecutionValues({});
     setForces({});
     setSimError("");
     setRecordingError("");
@@ -722,8 +734,9 @@ export function App() {
       const epoch = simulationEpoch.current;
       const operation = crypto.randomUUID().replaceAll("-", "");
       const expectedSession = session.current;
+      let provedReceipt = false;
       try {
-        const r = await programApi("/simulation/step", {
+        const document = await programJsonDocument("/simulation/step", {
           program,
           inputs,
           forces,
@@ -735,6 +748,7 @@ export function App() {
             ? new Date(nextClock + "Z").toISOString()
             : undefined,
         });
+        const r = document.data;
         if (
           r.operation_id !== operation ||
           r.requested_steps !== steps ||
@@ -772,6 +786,7 @@ export function App() {
             "Simulation batch receipt does not match its exact request. Reset before running again.",
           );
         const owned = sessionFromReceipt(r, operation, expectedSession);
+        provedReceipt = true;
         if (
           latestProgram.current !== program ||
           simulationEpoch.current !== epoch
@@ -780,13 +795,23 @@ export function App() {
           return;
         }
         session.current = owned;
+        const tail = parseExecutionHistoryTail(await document.blob.text());
+        const exactValues = executionScalarMap(tail.values || {});
+        if (
+          latestProgram.current !== program ||
+          simulationEpoch.current !== epoch
+        ) {
+          if (owned) void retireOwnedSimulation(owned);
+          return;
+        }
         setHistory(r.history);
+        setExecutionValues(exactValues);
         setSimError(r.scan_error || "");
         setRecordingError(r.recording_error || "");
         if (r.completed_steps > 0) setNextClock("");
         return r;
       } catch (e) {
-        if (!expectedSession) noteUnknownSession();
+        if (!expectedSession && !provedReceipt) noteUnknownSession();
         if (
           latestProgram.current !== program ||
           simulationEpoch.current !== epoch
@@ -826,20 +851,24 @@ export function App() {
     const source = program;
     const admittedForces = forces;
     try {
-      const result = await programApi("/simulation/scenario", {
+      const document = await programJsonDocument("/simulation/scenario", {
         program: source,
         events,
         duration,
         forces,
       });
+      const result = document.data;
+      const tail = parseExecutionHistoryTail(await document.blob.text());
+      const retainedForces = executionScalarMap(tail.forces || {});
+      const exactValues = executionScalarMap(tail.values || {});
       if (simulationEpoch.current !== epoch || latestProgram.current !== source)
         return;
       if (!Array.isArray(result.history))
         throw new Error("Scenario response has no valid bounded history.");
       detachSimulationSession();
       setHistory(result.history);
-      if (latestForces.current === admittedForces)
-        setForces(result.history.at(-1)?.forces || {});
+      setExecutionValues(exactValues);
+      if (latestForces.current === admittedForces) setForces(retainedForces);
       setSimError("");
       setRecordingError("");
     } catch (error) {
@@ -856,6 +885,7 @@ export function App() {
     setSimUncertain(false);
     detachSimulationSession();
     setHistory([]);
+    setExecutionValues({});
     setSimError("");
     setRecordingError("");
     setForces({});
@@ -1651,6 +1681,7 @@ export function App() {
                       onSelect={setSelected}
                       forces={forces}
                       onForceChange={setForces}
+                      executionValues={executionValues}
                       last={history.at(-1)}
                     />
                   )}

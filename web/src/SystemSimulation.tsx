@@ -1,6 +1,12 @@
 import { sourceStringify, numericToken } from "./programSource";
-import { executionNumber, executionInput } from "./programSource";
+import {
+  executionSourceValue,
+  executionSourceInput,
+  isSourceNumber,
+  type ExecutionValue,
+} from "./programSource";
 import { sourceApi } from "./api";
+import { groupSourceApi } from "./executionValues";
 import { cloneSource } from "./programSource";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -23,7 +29,7 @@ type Link = {
   source_output: string;
   target_program: string;
   target_input: string;
-  initial: number | boolean;
+  initial: ExecutionValue;
 };
 type Definition = {
   format: "bms-simulation-workspace/1";
@@ -62,7 +68,9 @@ export function SystemSimulation({ program }: { program: Program }) {
         setProjects(projects);
         setSessions(groups);
         if (groups.length) {
-          const recovered = await sourceApi("/groups/" + groups[0].session);
+          const recovered = await groupSourceApi(
+            "/groups/" + groups[0].session,
+          );
           if (live) adopt(recovered);
         }
       })
@@ -88,7 +96,9 @@ export function SystemSimulation({ program }: { program: Program }) {
         Object.fromEntries(
           Object.entries(values as Record<string, any>).map(([id, value]) => [
             id,
-            value !== null && typeof value === "object"
+            value !== null &&
+            typeof value === "object" &&
+            !isSourceNumber(value)
               ? value
               : { value, quality: "good" },
           ]),
@@ -112,7 +122,7 @@ export function SystemSimulation({ program }: { program: Program }) {
       setRunning(false);
       if (status?.session) {
         try {
-          setStatus(await sourceApi("/groups/" + status.session));
+          setStatus(await groupSourceApi("/groups/" + status.session));
         } catch {}
       }
     } finally {
@@ -126,7 +136,7 @@ export function SystemSimulation({ program }: { program: Program }) {
   async function step(steps = 1) {
     await action(async () =>
       setStatus(
-        await sourceApi("/groups/step", {
+        await groupSourceApi("/groups/step", {
           session: status.session,
           inputs,
           steps,
@@ -206,7 +216,7 @@ export function SystemSimulation({ program }: { program: Program }) {
               onClick={() =>
                 action(async () =>
                   adopt(
-                    await sourceApi("/groups/start", {
+                    await groupSourceApi("/groups/start", {
                       definition,
                       replace: status?.session,
                     }),
@@ -220,9 +230,9 @@ export function SystemSimulation({ program }: { program: Program }) {
               disabled={busy}
               onClick={() =>
                 action(async () => {
-                  const demo = await sourceApi("/groups/demo");
+                  const demo = await groupSourceApi("/groups/demo");
                   adopt(
-                    await sourceApi("/groups/start", {
+                    await groupSourceApi("/groups/start", {
                       definition: demo,
                       replace: status?.session,
                     }),
@@ -237,7 +247,7 @@ export function SystemSimulation({ program }: { program: Program }) {
               onClick={() =>
                 action(async () => {
                   adopt(
-                    await sourceApi("/groups/reset", {
+                    await groupSourceApi("/groups/reset", {
                       session: status.session,
                     }),
                   );
@@ -283,7 +293,7 @@ export function SystemSimulation({ program }: { program: Program }) {
                 const session = e.target.value;
                 if (session)
                   action(async () =>
-                    adopt(await sourceApi("/groups/" + session)),
+                    adopt(await groupSourceApi("/groups/" + session)),
                   );
               }}
             >
@@ -309,7 +319,7 @@ export function SystemSimulation({ program }: { program: Program }) {
                 data.append("file", file);
                 action(async () =>
                   adopt(
-                    await sourceApi(
+                    await groupSourceApi(
                       "/groups/import" +
                         (status?.session
                           ? "?replace=" + encodeURIComponent(status.session)
@@ -503,14 +513,14 @@ export function SystemSimulation({ program }: { program: Program }) {
                 const s = outputs.find((p) => p.key === source),
                   t = destinations.find((p) => p.key === target);
                 if (!s || !t) return;
-                let value: number | boolean;
+                let value: ExecutionValue;
                 try {
                   value =
                     initial === "true"
                       ? true
                       : initial === "false"
                         ? false
-                        : executionNumber(initial);
+                        : executionSourceValue(initial);
                 } catch (error) {
                   setError(String(error));
                   return;
@@ -634,7 +644,7 @@ export function SystemSimulation({ program }: { program: Program }) {
                                   value={numericToken(value.value)}
                                   disabled={!ready}
                                   onChange={(e) =>
-                                    executionInput(e, (next) =>
+                                    executionSourceInput(e, (next) =>
                                       update({ ...value, value: next }),
                                     )
                                   }

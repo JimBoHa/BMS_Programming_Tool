@@ -1,4 +1,4 @@
-import { executionNumber } from "./programSource";
+import { executionSourceValue } from "./programSource";
 import { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
@@ -140,11 +140,8 @@ export function TemcoSimulator({ program }: { program: Program }) {
         const value =
           node.value_type === "boolean"
             ? item.value
-            : executionNumber(String(item.value));
-        if (
-          node.value_type !== "boolean" &&
-          (item.value === "" || !Number.isFinite(value))
-        )
+            : executionSourceValue(String(item.value));
+        if (node.value_type !== "boolean" && item.value === "")
           throw new Error(
             `${node.label || node.id}: enter a finite input value.`,
           );
