@@ -298,5 +298,10 @@
     "feature": "Paced portable-graph simulation clock",
     "status": "implemented",
     "scope": "Explicit requested 1-100x versus achieved rate, unchanged scan timestep, at most 100 scans/batch and one admitted request, finite scan/simulated-time/active-wall budgets, lag pause, explicit run/pause/step and navigation/visibility policy. Exact-source/reset/correlation guards retain confirmed partial commits and distinguish known zero-commit faults from uncertain HTTP outcomes requiring reset. Production API/browser/independent CSV and authored monotonic arithmetic tests; no native CAF/firmware timing, hard real-time or field-I/O claims. See docs/simulation-clock.md."
+  },
+  {
+    "feature": "Lifecycle draft recovery",
+    "status": "implemented",
+    "scope": "Latest ready portable program/macro snapshots flush on pagehide, beforeunload, hidden-page and React unmount while retaining 200 ms validation debounce. Shared ordered serializer protects prior macro recovery on failed primary writes; storage errors remain separate from validation; startup read/parse failure disables automatic recovery writes for that page. Fast reload, apply/discard, ready guards and actual unmount tested in Chromium/WebKit. Browser crashes/forced exits, storage availability and disk durability remain outside the guarantee; project save/export is separate."
   }
 ]

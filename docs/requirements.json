@@ -790,5 +790,14 @@
     "pdf_pages_or_section": "PDF 266-269; docs/simulation-clock.md",
     "status": "partial",
     "implementation_or_gap": "Portable run pauses explicitly on operator request, navigation/visibility, budgets or faults; drains admitted results, discards paused-time credit, retires reset/source replies, retains known committed state and requires explicit recovery. Dialogs alone do not pause; graph edits reset. Native CAF pause semantics and break-condition authoring remain incomplete."
+  },
+  {
+    "id": "UI-DRAFT-001",
+    "feature": "Latest editor draft recovery on lifecycle exit",
+    "acceptance_criterion": "Recover the latest ready ordinary or macro editor snapshot during fast reload/lifecycle exit without coupling storage failure to graph validation or deleting a prior macro copy before a successful parent write.",
+    "evidence": "Observed packaged WebKit fast-reload race; authored serializer and deterministic held-debounce Chromium/WebKit tests",
+    "pdf_pages_or_section": "docs/draft-recovery.md; pagehide/beforeunload/visibility/unmount",
+    "status": "implemented",
+    "implementation_or_gap": "Shared serializer and synchronous latest program/macro refs flush after ready on lifecycle exit while preserving 200ms debounce. Macro enter/apply/discard use ordered writes; startup read/parse failures disable all automatic writes for that page, storage errors are visible and validation continues. Browser crash/forced exit, denied storage and disk durability are not guaranteed; server revision save/export remains separate."
   }
 ]
