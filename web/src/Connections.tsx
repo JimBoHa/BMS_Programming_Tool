@@ -305,16 +305,22 @@ export function Connections() {
         type={type}
         disabled={busy}
         value={config[name]}
+        onFocus={() => {
+          // Claim the draft before text selection/typing: late status hydration
+          // must not replace a focused value or move its insertion point.
+          ipDirty.current = true;
+        }}
         onChange={(e) => {
           setPlan(null);
           ipDirty.current = true;
-          setConfig({
-            ...config,
-            [name]:
-              type === "number" && name !== "dnet"
-                ? Number(e.target.value)
-                : e.target.value,
-          });
+          const value =
+            type === "number" && name !== "dnet"
+              ? Number(e.target.value)
+              : e.target.value;
+          setConfig((current) => ({
+            ...current,
+            [name]: value,
+          }));
         }}
       />
     </label>
