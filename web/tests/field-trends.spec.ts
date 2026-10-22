@@ -102,9 +102,21 @@ test("field sampling persists actual loopback BACnet values and CSV with verifie
       .fill("analog-value,1");
     await page.getByLabel("Field unit 1", { exact: true }).fill("degF");
     await page.getByLabel("Field sampling interval", { exact: true }).fill("5");
+    const started = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/field-trends/start") &&
+        response.request().method() === "POST",
+    );
     await page
       .getByRole("button", { name: "Start field sampling", exact: true })
       .click();
+    const response = await started;
+    expect(response.ok()).toBeTruthy();
+    const job = await response.json();
+    jobId = job.id;
+    await page
+      .getByLabel("Field trend source", { exact: true })
+      .selectOption(job.source);
     const samples = page.getByRole("region", {
       name: "Saved field trend samples",
     });
@@ -113,11 +125,6 @@ test("field sampling persists actual loopback BACnet values and CSV with verifie
     await expect(samples).toContainText("12.5");
     await expect(samples).toContainText("good");
     await expect(samples).toContainText("degF");
-    const status = await (await request.get("/api/field-trends/status")).json();
-    const job = status.jobs.find(
-      (j: any) => j.name === "Browser loopback temperature",
-    );
-    jobId = job.id;
     const event = page.waitForEvent("download");
     await page
       .getByRole("button", { name: "Export field page CSV", exact: true })
@@ -137,6 +144,14 @@ test("field sampling persists actual loopback BACnet values and CSV with verifie
     await page
       .getByRole("button", { name: "Field trends", exact: true })
       .click();
+    // Reentry starts with the bounded All-sources page, which can contain only
+    // older COV receipts. Select this job's persisted polling source explicitly.
+    await page
+      .getByLabel("Field trend source", { exact: true })
+      .selectOption(job.source);
+    await expect(
+      page.getByLabel("Field trend source", { exact: true }),
+    ).toHaveValue(job.source);
     await expect(samples).toContainText("zone_temperature");
     await expect(samples).toContainText("12.5");
     await samples
