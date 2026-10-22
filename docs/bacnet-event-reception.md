@@ -56,7 +56,10 @@ restart opens no listener or field interface.
 
 Owned traffic must match the configured Device and process, optional object,
 confirmation mode and finite listen window. It must arrive on the original
-adapter and socket, addressed to the actual local unicast endpoint. Routed
+adapter and socket with matching local endpoint provenance. On the pinned
+Windows shared socket, this requires owned raw BVLC Original-Unicast evidence;
+the physical IP destination is unavailable. See the exact
+[receive provenance profile and limits](ipv4-receive-provenance.md). Routed
 events must carry the exact configured NPDU source network/MAC and arrive from
 the exact configured IPv4 next hop and UDP port. The supported final-hop incoming
 NPDU has no remaining destination address; broadcasts, transit traffic and

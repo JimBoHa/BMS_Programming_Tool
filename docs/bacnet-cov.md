@@ -17,6 +17,11 @@ those services. The tests use real isolated UDP peers, not physical JCI devices.
 Native application compilation, transfer, controller programming and sensor
 quality verification remain separate capabilities.
 
+The pinned Windows shared IPv4 socket reports broadcast destination metadata for
+unicast notifications. The [owned receive provenance profile](ipv4-receive-provenance.md)
+validates the actual socket, UDP peer and raw Original-Unicast frame without
+rewriting that metadata or claiming an observed physical IP destination.
+
 ## Lease and lifecycle
 
 Each subscription has a requested finite lifetime of 5–3,600 seconds. **Renew

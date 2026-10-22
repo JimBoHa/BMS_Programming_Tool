@@ -18,6 +18,7 @@ from bacpypes3.pdu import IPv4Address
 from pydantic import Field, field_validator
 
 from .ip_discovery import _bound_network, _ip
+from .ipv4_ingress import raw_ingress
 from .models import StrictModel
 from .scoped_hooks import ScopedAttribute
 
@@ -280,7 +281,6 @@ class BbmdTables:
             await asyncio.wait_for(self.bacnet.lock.acquire(), LOCK_WAIT)
             locked = True
             self._guard(app, config, layer, binding)
-            own = layer.server.local_transport.get_extra_info("sockname")
             original = layer.multiplexer.confirmation
 
             async def observe(packet):
@@ -291,8 +291,8 @@ class BbmdTables:
                 if not isinstance(peer, IPv4Address) or peer.addrTuple != target.addrTuple:
                     job["ignored_peers"] += 1
                     return await original(packet)
-                destination = packet.pduDestination
-                if not isinstance(destination, IPv4Address) or destination.addrTuple != own:
+                provenance = raw_ingress(layer, packet)
+                if provenance is None:
                     job["ignored_peers"] += 1
                     return await original(packet)
                 if current is None or pending is None or pending.done():
@@ -306,7 +306,7 @@ class BbmdTables:
                     return await original(packet)
                 request, acknowledgement, nack = TABLES[current]
                 if data[1] == 0:
-                    evidence = _raw(data, options.endpoint)
+                    evidence = _raw(data, options.endpoint) | {"receive_provenance": provenance}
                     valid = len(data) == 6 and int.from_bytes(data[2:4], "big") == 6
                     code = int.from_bytes(data[4:6], "big") if valid else None
                     if valid and code == nack:
@@ -342,7 +342,13 @@ class BbmdTables:
                     result = {"state": "bounds_exceeded", "reason": str(exc), "rows": []}
                 except ValueError as exc:
                     result = {"state": "malformed", "reason": str(exc), "rows": []}
-                pending.set_result(result | {"response": _raw(data, options.endpoint)})
+                pending.set_result(
+                    result
+                    | {
+                        "response": _raw(data, options.endpoint)
+                        | {"receive_provenance": provenance}
+                    }
+                )
 
             hook = ScopedAttribute(layer.multiplexer, "confirmation", observe)
             job["state"] = "reading"
