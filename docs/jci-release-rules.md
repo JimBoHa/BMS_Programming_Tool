@@ -43,6 +43,14 @@ assert that every numeric release exists or authenticate the declaration.
 | Open CAF across SQL versions | CCT CAF portability is independent of Microsoft SQL Server version. | SQL/Windows runtime and supported installation versions remain separate prerequisites. |
 | Earlier FX-PCT CAF modes | FX-PCT 10.3 documents switching among historical 10.x modes; matching declared modes clears this condition. | Earlier than 10.0 requires the documented clean-installation workflow. PCT/CCT consolidation instructions do not establish arbitrary cross-product CAF compatibility. |
 
+Mode-sensitive CCT 18 reviews separately check reference coverage. The reviewed
+Help 18 references explicitly name modes 10.0/10.1 (PDF 122–123), 10.2 (PDF 51/130),
+10.3/10.4/10.5 (PDF 51/121–123), 10.6 (PDF 259) and 10.7 (PDF 766).
+This is a non-exhaustive set of cited identifiers, not a complete installed-mode
+or controller-support table. Either CAF or active mode outside that set produces
+an unknown coverage finding, even when both labels are equal or an upgrade's
+numeric ordering matches. No mode ceiling is inferred from tool release 18.0.
+
 Missing operation facts produce unknown findings. Mode equality does not resolve
 an unknown or unreviewed application origin. No device family is inferred from a
 model prefix, network firmware value or brand name. Package security generation
@@ -59,7 +67,7 @@ Proprietary PDFs and installation artifacts are not included in the code.
 | --- | --- | --- |
 | Metasys System Configuration Guide 11.0, LIT-12011832, 2022-02-07 | 54 | `cd4ec7ba7d8012a1dbfa8ced59ae6d14cf025a08f99614473be41af889543a73` |
 | Metasys System Configuration Guide 16.0, LIT-12011832, 2026-06-17 | 53 | `0c12f1988f5be8c46cc9d779d782139fe2b41994d98afc54d7dfc91e234d20d4` |
-| Controller Tool Help 18.0, LIT-12011147, copyright 2025 | 37–38,51,79,89–90,121–123,130 | `68935362c85cb1879dc033cc701115e8ea7c4ecb26748f21a9ceaf0454f82903` |
+| Controller Tool Help 18.0, LIT-12011147, copyright 2025 | 37–38,51,79,89–90,121–123,130,259,766 | `68935362c85cb1879dc033cc701115e8ea7c4ecb26748f21a9ceaf0454f82903` |
 | FX-PCT Installation Instructions 10.3, LIT-12011673, March 2019 | 2,4 | `46aeeb12517462f3eae28e177dff57bd38ea319cd98dcb7a067eb2aed9006248` |
 
 The guides' general statements do not replace exact controller/package release

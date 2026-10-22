@@ -346,3 +346,62 @@ def test_future_source_tool_does_not_pass_matching_mode_only_review():
     assert findings(result)["cct18.mode-operation"]["status"] == "condition-met"
     assert findings(result)["application.origin-unknown"]["status"] == "unknown"
     assert result["status"] == "needs-evidence"
+
+
+@pytest.mark.parametrize("operation", ["simulate", "edit-logic", "edit-defaults"])
+@pytest.mark.parametrize(
+    "caf_mode,active_mode",
+    [("99.0", "99.0"), ("10.99", "10.99"), ("18.0", "18.0"), ("99.0", "10.2"), ("10.2", "10.99")],
+)
+def test_mode_reference_coverage_is_independent_of_equality_tool_release_and_order(
+    operation, caf_mode, active_mode
+):
+    result = evaluate(operation, caf_release_mode=caf_mode, active_release_mode=active_mode)
+    rows = findings(result)
+    assert rows["cct18.mode-reference-coverage"]["status"] == "unknown"
+    if caf_mode == active_mode:
+        assert rows["cct18.mode-operation"]["status"] == "condition-met"
+        assert result["status"] == "needs-evidence"
+    assert result["status"] != "documented-conditions-only"
+    assert result["source"]["declarations"]["caf_release_mode"] == caf_mode
+    assert result["source"]["declarations"]["active_release_mode"] == active_mode
+    assert not result["can_execute_native"] and not result["can_deploy"]
+    verify_seal(result)
+
+
+def test_future_upgrade_destination_does_not_pass_other_matching_prerequisites():
+    result = evaluate(
+        "upgrade-caf",
+        source_channel="production",
+        caf_release_mode="10.2",
+        active_release_mode="99.0",
+        caf_device_family="same",
+        active_device_family="same",
+        package_generation="updated-16-plus",
+        package_generation_evidence="Authored generation evidence",
+    )
+    rows = findings(result)
+    assert rows["cct18.upgrade-mode-family"]["status"] == "condition-met"
+    assert rows["cct16.package-security"]["status"] == "condition-met"
+    assert rows["cct.prerelease-upgrade"]["status"] == "condition-met"
+    assert rows["cct18.mode-reference-coverage"]["status"] == "unknown"
+    assert result["status"] == "needs-evidence"
+
+
+def test_explicit_mode_references_are_not_an_installed_or_complete_support_list():
+    from bms_tool.jci_release_rules import CCT18_MODE_REFERENCES
+
+    assert set(CCT18_MODE_REFERENCES) == {f"10.{i}" for i in range(8)}
+    assert CCT18_MODE_REFERENCES["10.6"][0]["pdf_pages"] == [259]
+    assert CCT18_MODE_REFERENCES["10.7"][0]["pdf_pages"] == [766]
+    assert all(
+        source["sha256"] == "68935362c85cb1879dc033cc701115e8ea7c4ecb26748f21a9ceaf0454f82903"
+        for sources in CCT18_MODE_REFERENCES.values()
+        for source in sources
+    )
+    assert "Non-exhaustive" in catalog()["ruleset"]["mode_reference_scope"]
+    for mode in CCT18_MODE_REFERENCES:
+        result = evaluate("simulate", caf_release_mode=mode, active_release_mode=mode)
+        assert findings(result)["cct18.mode-reference-coverage"]["status"] == "condition-met"
+        assert "exact controller model/package/firmware compatibility" in result["unverified"]
+        assert not result["can_execute_native"]

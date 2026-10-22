@@ -209,6 +209,15 @@ export function JciReleaseRulesForm({
           <p>
             Ruleset SHA256 <code>{catalog.ruleset_sha256}</code>
           </p>
+          <p>
+            Reviewed CCT 18 mode references (non-exhaustive):{" "}
+            {Object.keys(catalog.ruleset.reviewed_cct18_mode_references).join(
+              ", ",
+            )}
+            . These are cited references, not installed or controller-compatible
+            modes. Other identifiers remain unknown even when their labels
+            match.
+          </p>
           {catalog.ruleset.rules.map((rule: Data) => (
             <section key={rule.id}>
               <h4>{rule.id}</h4>
