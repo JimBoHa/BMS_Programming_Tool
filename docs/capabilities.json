@@ -253,5 +253,10 @@
     "feature": "JCI MS/TP and SA address/topology preflight",
     "status": "implemented",
     "scope": "Offline strict physical-bus/device/link plans with explicit Metasys R15 and FX 2024-12-11 source profiles. Bus-scoped duplicate MACs, documented role/reservation checks, explicit legacy DIP128 and refreshed sensor generations, SA one-host/single-segment/no-repeater constraints, ordinary trunk graph branches/cycles/disconnection and FC/SA EOL distinctions. Exact refreshed NS8000/CWCVT service leaf and declared FC repeater bridges are separate graph exceptions. Complete Connect authoring, guarded portable JSON reopen/export, sealed review reports and stale-response/download invalidation. Unknown models, generations, cable construction/power/host-specific capacities remain unresolved. No field operations, measured wiring, electrical certification or native controller programming."
+  },
+  {
+    "feature": "Source-bound portable graph conformance suites",
+    "status": "implemented",
+    "scope": "Operator-authored named cases with explicit value/quality stimuli, exact signal/type/unit checks, finite numeric tolerances and final transactional faults. Fresh deterministic engines and UTC clocks, bounded scans/work/report/storage, exact program/revision/execution-profile guards, optimistic SQLite restart/reopen and complete author/run/import/export UI. Sealed reports retain authoritative server bytes and explicit asserted/unasserted coverage. No generated expectations, arbitrary native CAF execution, field writes or complete-sequence/Title24/Guideline36 certification."
   }
 ]

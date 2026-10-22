@@ -664,5 +664,14 @@
     "pdf_pages_or_section": "Address tables; FC/SA rules; connection and service-port sections",
     "status": "implemented",
     "implementation_or_gap": "Offline strict plan/review API and full Connect authoring/import/export with source hashes, review seals and stale-response guards. Operator-declared physical graph only; unknown hardware/generation, cable/power/host capacities remain unresolved. No scans, device writes or measured wiring approval."
+  },
+  {
+    "id": "MF-8f42fc2004",
+    "feature": "Executable sequence conformance-test definitions",
+    "acceptance_criterion": "Author independent expected values/conditions, run deterministic bounded cases and preserve exact source/result evidence; distinguish checked coverage from whole-sequence acceptance.",
+    "evidence": "Johnson Controls/Yorkland ASHRAE Guideline36 Presentation June2021, SHA256075565f9664a80f9720ae68c1020c84cb08ad12aaaa7aef5d329ad4ac2d9ed3d",
+    "pdf_pages_or_section": "PDF3: functional tests labeled Future; source does not provide executable expected trajectories",
+    "status": "partial",
+    "implementation_or_gap": "Portable Studio source-bound suites implemented: backend/bms_tool/conformance.py, web/src/ConformancePanel.tsx, tests/test_conformance*.py, web/tests/conformance.spec.ts. Native CAF/CCT execution and authoritative Guideline36 trajectories remain unimplemented; operator criteria are not certification. Original external source_implementation_status is unchanged."
   }
 ]
