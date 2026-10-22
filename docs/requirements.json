@@ -664,5 +664,14 @@
     "pdf_pages_or_section": "Address tables; FC/SA rules; connection and service-port sections",
     "status": "implemented",
     "implementation_or_gap": "Offline strict plan/review API and full Connect authoring/import/export with source hashes, review seals and stale-response guards. Operator-declared physical graph only; unknown hardware/generation, cable/power/host capacities remain unresolved. No scans, device writes or measured wiring approval."
+  },
+  {
+    "id": "MF-fab0cf7208",
+    "feature": "Equipment and sequence selection wizard",
+    "acceptance_criterion": "Generate a starting application from equipment, sensor and control-strategy selections with explicit target/parameter evidence and an editable preview.",
+    "evidence": "Controller Tool Help 18 LIT-12011147; authored portable VAV generator; NIST international foot definition",
+    "pdf_pages_or_section": "PDF 149-151,153-154; docs/equipment-wizard.md",
+    "status": "partial",
+    "implementation_or_gap": "Implemented portable VAV authoring: three equipment configurations, declared targets, fixed/input setpoints, P/PI, position or measured-airflow feedback, coupled unit/gain conversion, source/choice/program hashes, guarded preview/create and existing revision/export/simulation workflows. Native CAF allocation/compiler/package acceptance, physical wiring, complete ventilation/heating/fan-proof/discharge/G36/Title24 sequences remain incomplete."
   }
 ]

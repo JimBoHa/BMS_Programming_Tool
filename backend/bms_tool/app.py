@@ -44,6 +44,7 @@ from .cov_observations import CovObservations
 from .deployment import Runtime
 from .device_details import DeviceDetails, DeviceDetailsRequest
 from .engine import Engine, output_type, run_scenario, validate
+from .equipment_wizard import wizard_router
 from .field_trends import FieldTrends, FieldTrendStart
 from .formats import export_program, import_program
 from .hardware_workbench import HardwareWorkbench, hardware_router
@@ -569,6 +570,7 @@ def create_app(state_dir=None):
     app.include_router(supply_router(supply_plans))
     app.include_router(network_plan_router())
     app.include_router(bus_preflight_router())
+    app.include_router(wizard_router())
 
     @app.middleware("http")
     async def local_requests(request, call_next):
