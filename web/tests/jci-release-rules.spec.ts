@@ -14,13 +14,11 @@ async function open(page: Page, product = "CCT", version = "18.0") {
     ],
     { cwd: root },
   );
-  await page
-    .locator('input[type=file][accept=".caf"]')
-    .setInputFiles({
-      name: "authored.caf",
-      mimeType: "application/octet-stream",
-      buffer,
-    });
+  await page.locator('input[type=file][accept=".caf"]').setInputFiles({
+    name: "authored.caf",
+    mimeType: "application/octet-stream",
+    buffer,
+  });
   const panel = page.getByRole("region", {
     name: "JCI target readiness",
     exact: true,
@@ -300,3 +298,48 @@ test("hidden CAF workspace retires delayed review and cannot revive it on return
     }),
   ).toBeDisabled();
 });
+
+for (const mode of ["99.0", "10.99", "18.0"]) {
+  test(`matching unreviewed mode ${mode} stays unknown in UI and independently sealed export`, async ({
+    page,
+  }) => {
+    const { panel } = await open(page);
+    await panel
+      .getByLabel("Planned native operation", { exact: true })
+      .selectOption("simulate");
+    await panel.getByLabel("CAF release mode", { exact: true }).fill(mode);
+    await panel
+      .getByLabel("Active tool release mode", { exact: true })
+      .fill(mode);
+    const result = await run(page);
+    await expect(result.getByRole("heading", { level: 3 })).toContainText(
+      "needs-evidence",
+    );
+    await expect(
+      result.locator("article").filter({ hasText: "cct18.mode-operation" }),
+    ).toContainText("condition-met");
+    await expect(
+      result
+        .locator("article")
+        .filter({ hasText: "cct18.mode-reference-coverage" }),
+    ).toContainText("unknown");
+    const pending = page.waitForEvent("download");
+    await panel
+      .getByRole("button", {
+        name: "Export target readiness report",
+        exact: true,
+      })
+      .click();
+    const filename = (await (await pending).path())!;
+    execFileSync(
+      python,
+      [
+        "-c",
+        "import json,sys;from tests.test_jci_release_rules import verify_seal;r=json.load(open(sys.argv[1]));v=r['release_review'];verify_seal(v);assert v['source']['declarations']['caf_release_mode']==sys.argv[2];assert v['source']['declarations']['active_release_mode']==sys.argv[2];assert v['source']['declarations']['operation']=='simulate';assert v['source']['destination_tool']['version']=='18.0';assert v['source']['observed_appl_sw_version']=='10.2';assert v['status']=='needs-evidence';assert v['source']['caf_sha256']==r['source']['caf_sha256'];assert {f['rule_id']:f['status'] for f in v['findings']}['cct18.mode-reference-coverage']=='unknown';assert not v['can_deploy'] and not v['can_execute_native']",
+        filename,
+        mode,
+      ],
+      { cwd: root },
+    );
+  });
+}

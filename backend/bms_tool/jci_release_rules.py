@@ -96,7 +96,26 @@ def evidence(key, *pages):
     return SOURCES[key] | {"pdf_pages": list(pages)}
 
 
+# Explicit references reviewed in Help18, not a complete installed/support list.
+CCT18_MODE_REFERENCES = {
+    "10.0": [evidence("help18", 122, 123)],
+    "10.1": [evidence("help18", 123)],
+    "10.2": [evidence("help18", 51, 130)],
+    "10.3": [evidence("help18", 122)],
+    "10.4": [evidence("help18", 51, 121, 122)],
+    "10.5": [evidence("help18", 122)],
+    "10.6": [evidence("help18", 259)],
+    "10.7": [evidence("help18", 766)],
+}
+
 RULES = [
+    {
+        "id": "cct18.mode-reference-coverage",
+        "kind": "review-coverage-policy",
+        "operations": ["edit-defaults", "edit-logic", "simulate", "upgrade-caf"],
+        "criterion": "Mode-sensitive CCT 18 reviews require both separately declared CAF and active mode identifiers to occur in the explicitly reviewed Help18 references. This non-exhaustive reference set does not prove installed availability, controller/package compatibility or a complete mode list. Mode equality and tool-release numbers do not establish coverage.",
+        "sources": [evidence("help18", 51, 121, 122, 123, 130, 259, 766)],
+    },
     {
         "id": "application.origin-unknown",
         "operations": [
@@ -186,6 +205,8 @@ RULES = [
 RULESET = {
     "profile": "jci-reviewed-release-conditions/1",
     "rules": RULES,
+    "reviewed_cct18_mode_references": CCT18_MODE_REFERENCES,
+    "mode_reference_scope": "Non-exhaustive explicit Help18 references only; not installed or model-compatible mode inventory.",
     "namespaces": [
         "tool release",
         "source tool release",
@@ -244,6 +265,18 @@ def review(value: ReleaseReview, tool, packages, *, caf_sha256, application_vers
                 "condition-met",
                 "The declared earlier-CCT open/commission condition is documented. This does not establish full attribute display, editing, simulation, device/package support or native operation acceptance.",
             )
+    if cct18 and op in ("edit-defaults", "edit-logic", "simulate", "upgrade-caf"):
+        covered = (
+            value.caf_release_mode in CCT18_MODE_REFERENCES
+            and value.active_release_mode in CCT18_MODE_REFERENCES
+        )
+        add(
+            "cct18.mode-reference-coverage",
+            "condition-met" if covered else "unknown",
+            "Both declared mode identifiers occur in the reviewed non-exhaustive Help18 references; installed modes and exact model/package support remain unverified."
+            if covered
+            else "The CAF or active mode identifier is absent from this review's explicit Help18 reference set. Equal labels, numeric ordering and CCT tool release do not establish mode coverage. This is unknown coverage, not a claim that the mode is invalid or unavailable.",
+        )
     if op in ("edit-defaults", "edit-logic", "simulate") and tool.product == "CCT":
         if not cct18 or caf_mode is None or active_mode is None:
             add(

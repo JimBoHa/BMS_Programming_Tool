@@ -670,7 +670,7 @@
     "feature": "Source-qualified JCI tool and release compatibility rules",
     "acceptance_criterion": "Evaluate operation-specific documented release/mode/package rules with exact primary-source evidence while preserving unknown origin, model, firmware, installed tool and native acceptance gaps.",
     "evidence": "JCI LIT-12011832 guides11.0/16.0; LIT-12011147 Help18.0; LIT-12011673 PCT10.3; exact reviewed PDF hashes in docs/jci-release-rules.md",
-    "pdf_pages_or_section": "Guide11 PDF54; Guide16 PDF53; Help18 PDF37-38,51,79,89-90,121-123,130; PCT10.3 PDF2,4",
+    "pdf_pages_or_section": "Guide11 PDF54; Guide16 PDF53; Help18 PDF37-38,51,79,89-90,121-123,130,259,766; PCT10.3 PDF2,4",
     "status": "partial",
     "implementation_or_gap": "Documented operation-rule catalog/review and full CAF preflight UI implemented with source/hash/type/bounds/stale guards, independent export seal and no field traffic. Exact controller/model/package/firmware compatibility, installed compiler, native upgrade/download execution and vendor/device acceptance remain unverified; original source implementation status is unchanged."
   }
