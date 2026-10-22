@@ -234,6 +234,10 @@ class DeviceDetails:
                     and packet.npduSADR == target
                     and packet.pduSource != router
                     and not (preserve_packet and preserve_packet(incoming_adapter, packet))
+                    and not (
+                        getattr(nsap, "_bms_event_receiver", None)
+                        and nsap._bms_event_receiver(incoming_adapter, packet)
+                    )
                 ):
                     session["ignored_router_packets"] += 1
                     return

@@ -233,5 +233,10 @@
     "feature": "Standard BACnet Event Log history",
     "status": "implemented",
     "scope": "Explicit bounded read-only standard type25 Event Log ReadRange over connected direct/routed IPv4. Exact Device/log identities, native notification parameters/enums/TimeStamp choices, logger/read/event clocks, status and clock changes remain distinct; unsupported native record encodings retain bounded opaque itemData evidence without guessed notifications. Sealed separate captures/restart and JSON/CSV browser export are tested with local UDP/routed peers. Physical support on any exact JCI device/firmware remains unknown. No unsolicited alarm subscriptions, device writes, synthesized human receipt/ack lifecycle or proprietary JCI historian access."
+  },
+  {
+    "feature": "Finite standard BACnet event-notification reception",
+    "status": "implemented",
+    "scope": "Explicit already-open plain IPv4 or pinned router/DNET:MAC listeners verify Device and optional object identity before finite Device/process/mode-filtered reception. Known native confirmed/unconfirmed EventNotification fields, raw TimeStamp, unknown enums and opaque unsupported nested choices retain source/receipt clocks and raw APDU evidence. ACKs use the exact pinned adapter/next hop/invoke identity; they mean reception only, never operator AcknowledgeAlarm, human receipt, resolution or delivery guarantee. Bounded callbacks/retention, source/socket loss, native-owner refusal, expiry, joined shutdown and immutable stopped-session snapshots/export are tested with real independently encoded UDP/API/browser peers. No recipient-list/device writes, automatic subscriptions/reconnect/restart, durable live recording, field alarm lifecycle synthesis, BBMD/serial/BTCVT, segmented reception or physical manufacturer acceptance. Broader IA-e35c4d605e / IA-5f71db3ed0 scope remains partial."
   }
 ]
