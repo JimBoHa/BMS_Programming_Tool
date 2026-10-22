@@ -358,5 +358,10 @@
     "feature": "Guarded existing native weekly-day write backend",
     "status": "implemented",
     "scope": "Backend/API preview/apply for one existing Schedule weekly index1..7, exact source/native/static-tag and socket/path guards, one service15 send/no retries, durable bounded intent/result journal, original sealed bytes and explicit read-only reconciliation. Postdispatch native rejection/timeout/cancellation remain may_have_applied; protocol acknowledgement and observed readback are separate. Browser Apply integration is separate. No CAS/rollback, Calendar/exception/context writes, native CAF generation, BBMD/serial writes or physical manufacturer acceptance. See docs/native-weekly-day-write.md."
+  },
+  {
+    "feature": "Accumulator metering evidence and exact offline pulse review",
+    "status": "implemented",
+    "scope": "Opt-in verified direct/routed native Accumulator Prescale/Scale and related properties, typed/raw unknown and partial outcomes, independent exact integer batch/remainder review, explicit noncommitting limit stop, separate native baseline, server-byte sealed JSON/CSV and configuration-only import. Defaults add no native queries. No physical pulse/debounce/persistence/COV/wrap emulator, native configuration write, JCI compilation or hardware acceptance. See docs/accumulator-prescale.md."
   }
 ]
