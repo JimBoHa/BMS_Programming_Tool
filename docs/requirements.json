@@ -844,5 +844,14 @@
     "pdf_pages_or_section": "docs/simulation-sessions.md; POST /api/simulation/retire; GET /api/simulation/sessions/status",
     "status": "implemented",
     "implementation_or_gap": "Exact known handles, source/operation/count validation, late-receipt cleanup, pending/failed cleanup gates and explicit retry, bounded cache status and best-effort lifecycle keepalive. Only volatile engine state is removed; durable observations/alarms/events/sources remain unchanged. Missing/unverifiable first replies and failed document-exit cleanup can retain unknown sessions until one-hour idle expiry; no global clear, cap increase, automatic scan retry or field writes."
+  },
+  {
+    "id": "UI-HISTORY-ID-001",
+    "feature": "Exact supported browser history identities",
+    "acceptance_criterion": "Reject malformed or unsafe operator IDs before numeric coercion, refuse unsupported received row identities/cursors before any action/query, and retain ordinary small-ID notification/observation workflows and original delivery-download bytes.",
+    "evidence": "Observed pruneThrough pre-API rounding; real ephemeral SQLite/API 64-bit fixtures; authored Chromium/WebKit requests and independent Python exact payload checks",
+    "pdf_pages_or_section": "docs/browser-history-identities.md; Alarm delivery and Trends & alarms",
+    "status": "implemented",
+    "implementation_or_gap": "Canonical decimal whole-ID text uses BigInt before Number; received numeric IDs require Number.isSafeInteger and positive bounds, with zero only for cursors. Unsupported pages clear row actions/cursors, safe filters remain usable, and each download/retry/discard/prune/ack/events/paging boundary rechecks IDs. Original delivery Blob downloads preserve nested payload values. Browser profile stops at MAX_SAFE_INTEGER; no full 64-bit browser protocol, backend history/native evidence changes or field traffic."
   }
 ]
