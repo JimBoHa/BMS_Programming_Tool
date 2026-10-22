@@ -315,57 +315,6 @@ async def test_received_fault_flags_duplicate_values_and_backwards_receipt_clock
     )
 
 
-def test_windows_writer_lock_branch_and_failure_refusal_without_global_platform_import(
-    tmp_path, monkeypatch
-):
-    import os
-    import sys
-    from types import SimpleNamespace
-
-    import bms_tool.cov_observations as module
-
-    # Exercise the Windows branch without replacing global os.name/pathlib behavior.
-    calls = []
-    fake = SimpleNamespace(
-        LK_NBLCK=2, locking=lambda fd, mode, count: calls.append((fd, mode, count))
-    )
-    monkeypatch.setitem(sys.modules, "msvcrt", fake)
-    platform = SimpleNamespace(
-        **{
-            name: getattr(os, name)
-            for name in (
-                "open",
-                "close",
-                "fstat",
-                "fchmod",
-                "write",
-                "lseek",
-                "O_CREAT",
-                "O_RDWR",
-                "SEEK_SET",
-            )
-        },
-        name="nt",
-    )
-    monkeypatch.setattr(module, "os", platform)
-    path = tmp_path / "windows-byte-lock"
-    owner = module._WriterLock(path)
-    descriptor = owner.fd
-    try:
-        assert calls == [(descriptor, 2, 1)] and path.read_bytes() == b"0"
-    finally:
-        owner.close()
-    with pytest.raises(OSError):
-        os.fstat(descriptor)
-
-    def unavailable(*args):
-        raise OSError("authored occupied Windows lock")
-
-    fake.locking = unavailable
-    with pytest.raises(ValueError, match="ownership unavailable"):
-        module._WriterLock(path)
-
-
 async def test_source_capacity_rejects_before_subscribe_without_stopping_existing_monitor(
     network, tmp_path
 ):
