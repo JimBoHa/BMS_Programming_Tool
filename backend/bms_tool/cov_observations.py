@@ -14,10 +14,10 @@ import json
 import math
 import os
 import sqlite3
-import stat
 from contextlib import contextmanager
 from datetime import UTC, datetime
 
+from .file_access import open_regular, try_lock
 from .observability import ObservabilityStore, _integer, _text
 
 
@@ -31,30 +31,10 @@ class _WriterLock:
     def __init__(self, path):
         self.fd = None
         try:
-            self.fd = os.open(
-                path,
-                os.O_CREAT
-                | os.O_RDWR
-                | getattr(os, "O_NOFOLLOW", 0)
-                | getattr(os, "O_CLOEXEC", 0)
-                | getattr(os, "O_NONBLOCK", 0),
-                0o600,
-            )
-            if not stat.S_ISREG(os.fstat(self.fd).st_mode):
-                raise ValueError("COV writer lock must be a regular file.")
+            self.fd = open_regular(path, writable=True, create=True)
             if hasattr(os, "fchmod"):
                 os.fchmod(self.fd, 0o600)
-            if os.name == "nt":
-                import msvcrt
-
-                if os.fstat(self.fd).st_size == 0:
-                    os.write(self.fd, b"0")
-                os.lseek(self.fd, 0, os.SEEK_SET)
-                msvcrt.locking(self.fd, msvcrt.LK_NBLCK, 1)
-            else:
-                import fcntl
-
-                fcntl.flock(self.fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            try_lock(self.fd)
         except (OSError, ValueError) as exc:
             self.close()
             raise ValueError(
