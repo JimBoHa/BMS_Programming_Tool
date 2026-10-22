@@ -48,6 +48,7 @@ import {
 import { Canvas } from "./Canvas";
 import { Inspector, SimulationPanel } from "./Panels";
 import { useSimulationClock } from "./useSimulationClock";
+import { persistDraftRecovery } from "./draftRecovery";
 import { SelectionPanel } from "./SelectionPanel";
 import { ConversionPreview } from "./ConversionPreview";
 
@@ -123,7 +124,7 @@ export function App() {
     [program, setProgramState] = useState<Program>(blankProgram),
     [blocks, setBlocks] = useState<Block[]>([]),
     [macroBlocks, setMacroBlocks] = useState<Block[]>([]),
-    [macroEdit, setMacroEdit] = useState<{
+    [macroEdit, setMacroEditState] = useState<{
       parent: Program;
       definition: string;
       undo: Program[];
@@ -151,6 +152,7 @@ export function App() {
     [ready, setReady] = useState(false),
     [settings, setSettings] = useState(false),
     [equipmentWizard, setEquipmentWizard] = useState(false),
+    [recoveryError, setRecoveryError] = useState(""),
     [versions, setVersions] = useState<any[]>([]),
     [showIssues, setShowIssues] = useState(false),
     [saving, setSaving] = useState(false),
@@ -162,6 +164,53 @@ export function App() {
     [undoStack, setUndoStack] = useState<Program[]>([]),
     [redoStack, setRedoStack] = useState<Program[]>([]);
   const latestProgram = useRef(program);
+  const latestMacroEdit = useRef(macroEdit);
+  const recoveryReady = useRef(false);
+  const recoveryReadBlocked = useRef(false);
+  const recoveryMounted = useRef(false);
+  function setMacroEdit(
+    next: typeof macroEdit | ((current: typeof macroEdit) => typeof macroEdit),
+  ) {
+    const value =
+      typeof next === "function" ? next(latestMacroEdit.current) : next;
+    latestMacroEdit.current = value;
+    setMacroEditState(value);
+  }
+  function persistRecovery(
+    program: Program,
+    macro: { parent: Program; definition: string } | null,
+  ) {
+    if (recoveryReadBlocked.current) return;
+    try {
+      persistDraftRecovery(localStorage, program, macro);
+      if (recoveryMounted.current) setRecoveryError("");
+    } catch (error) {
+      if (recoveryMounted.current)
+        setRecoveryError(
+          `Browser draft recovery failed: ${String(error)}. Previous recovery data is retained when a write fails. Save or export current work before closing.`,
+        );
+    }
+  }
+  function flushRecovery() {
+    if (recoveryReady.current)
+      persistRecovery(latestProgram.current, latestMacroEdit.current);
+  }
+  useEffect(() => {
+    recoveryMounted.current = true;
+    const hidden = () => {
+      if (document.visibilityState === "hidden") flushRecovery();
+    };
+    window.addEventListener("pagehide", flushRecovery);
+    window.addEventListener("beforeunload", flushRecovery);
+    document.addEventListener("visibilitychange", hidden);
+    return () => {
+      flushRecovery();
+      recoveryMounted.current = false;
+      window.removeEventListener("pagehide", flushRecovery);
+      window.removeEventListener("beforeunload", flushRecovery);
+      document.removeEventListener("visibilitychange", hidden);
+    };
+  }, []);
   const latestForces = useRef(forces);
   latestForces.current = forces;
   const simulationEpoch = useRef(0);
@@ -254,6 +303,12 @@ export function App() {
         setTemplates(t);
         setProjects(p);
         let initial = t[0];
+        const blockUnreadRecovery = () => {
+          recoveryReadBlocked.current = true;
+          setRecoveryError(
+            "Browser draft recovery unavailable. Automatic recovery writes are paused for this page to preserve existing data. Saved revisions, import and export remain available; reload to retry.",
+          );
+        };
         try {
           const saved = localStorage.getItem("bms-studio-draft-v1");
           if (saved) {
@@ -264,15 +319,21 @@ export function App() {
               Array.isArray(parsed.edges)
             )
               initial = parsed;
+            else throw new Error("Unsupported browser draft recovery.");
           }
-        } catch {}
+        } catch {
+          blockUnreadRecovery();
+        }
         try {
-          const draft = JSON.parse(
-            localStorage.getItem("bms-studio-macro-edit-v1") || "null",
-          );
+          const raw = localStorage.getItem("bms-studio-macro-edit-v1");
+          const draft = JSON.parse(raw || "null");
           if (
             draft?.parent?.schema_version === 1 &&
             draft?.draft?.schema_version === 1 &&
+            Array.isArray(draft.parent.nodes) &&
+            Array.isArray(draft.parent.edges) &&
+            Array.isArray(draft.draft.nodes) &&
+            Array.isArray(draft.draft.edges) &&
             typeof draft.definition === "string"
           ) {
             setMacroEdit({
@@ -282,9 +343,13 @@ export function App() {
               redo: [],
             });
             initial = draft.draft;
-          }
-        } catch {}
+          } else if (raw && draft !== null)
+            throw new Error("Unsupported macro draft recovery.");
+        } catch {
+          blockUnreadRecovery();
+        }
         setProgram(initial);
+        recoveryReady.current = true;
         setReady(true);
       })
       .catch((e) => setMessage(e.message));
@@ -305,16 +370,7 @@ export function App() {
     setSimError("");
     setRecordingError("");
     const timer = setTimeout(() => {
-      if (macroEdit)
-        localStorage.setItem(
-          "bms-studio-macro-edit-v1",
-          JSON.stringify({
-            parent: macroEdit.parent,
-            definition: macroEdit.definition,
-            draft: program,
-          }),
-        );
-      else localStorage.setItem("bms-studio-draft-v1", JSON.stringify(program));
+      flushRecovery();
       api("/validate", program)
         .then((r) => {
           if (
@@ -483,7 +539,7 @@ export function App() {
         );
         return;
       }
-      localStorage.setItem("bms-studio-draft-v1", JSON.stringify(parent));
+      persistRecovery(parent, null);
       setMacroEdit({ parent, definition, undo: undoStack, redo: redoStack });
       setProgram(draft);
       setUndoStack([]);
@@ -514,7 +570,7 @@ export function App() {
       setRedoStack([]);
       setMacroEdit(null);
       setSelected(null);
-      localStorage.removeItem("bms-studio-macro-edit-v1");
+      flushRecovery();
       setMessage(
         "Definition updated in all instances. Save a revision to retain the project.",
       );
@@ -529,7 +585,7 @@ export function App() {
     setRedoStack(macroEdit.redo);
     setMacroEdit(null);
     setSelected(null);
-    localStorage.removeItem("bms-studio-macro-edit-v1");
+    flushRecovery();
     setMessage("Definition edits discarded.");
   }
   const step = useCallback(
@@ -1591,6 +1647,11 @@ export function App() {
             }}
           />
         </Suspense>
+      )}
+      {recoveryError && (
+        <div className="draft-recovery-error" role="alert">
+          {recoveryError}
+        </div>
       )}
       <footer className="app-footer">
         <span>
