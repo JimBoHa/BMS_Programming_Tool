@@ -1,4 +1,4 @@
-import { numericToken, executionInput } from "./programSource";
+import { numericToken, executionSourceInput } from "./programSource";
 import { sourceApi, programApi } from "./api";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -437,7 +437,7 @@ export function NativeSimulator({
                             inputs[n.id] ?? n.params.default ?? 0,
                           )}
                           onChange={(e) =>
-                            executionInput(e, (value) =>
+                            executionSourceInput(e, (value) =>
                               setInputs({ ...inputs, [n.id]: value }),
                             )
                           }

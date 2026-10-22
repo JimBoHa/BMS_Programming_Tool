@@ -2,13 +2,14 @@ import { SPEEDS } from "./simulationClock";
 import "./simulation-pacing.css";
 import type { useSimulationClock } from "./useSimulationClock";
 import {
-  parseExecutionJSON,
-  executionNumber,
+  parseExecutionSourceJSON,
+  executionSourceValue,
   isSourceNumber,
   numericToken,
   sourceNumber,
   sourceStringify,
   parseSourceJSON,
+  type ExecutionValue,
 } from "./programSource";
 import { useEffect, useState } from "react";
 import {
@@ -38,6 +39,7 @@ export function Inspector({
   forces,
   onForceChange,
   last,
+  executionValues,
 }: {
   node?: BmsNode;
   block?: Block;
@@ -46,8 +48,9 @@ export function Inspector({
   onDuplicate: () => void;
   program: Program;
   onSelect: (id: string) => void;
-  forces: Record<string, number | boolean>;
-  onForceChange: (forces: Record<string, number | boolean>) => void;
+  forces: Record<string, ExecutionValue>;
+  onForceChange: (forces: Record<string, ExecutionValue>) => void;
+  executionValues: Record<string, ExecutionValue>;
   last?: Scan;
 }) {
   if (!node || !block)
@@ -189,6 +192,7 @@ export function Inspector({
           forces={forces}
           onChange={onForceChange}
           last={last}
+          executionValues={executionValues}
         />
         <DependencyView program={program} node={node.id} onSelect={onSelect} />
       </div>
@@ -294,11 +298,13 @@ function ForceEditor({
   forces,
   onChange,
   last,
+  executionValues,
 }: {
   node: BmsNode;
   block: Block;
-  forces: Record<string, number | boolean>;
-  onChange: (forces: Record<string, number | boolean>) => void;
+  forces: Record<string, ExecutionValue>;
+  onChange: (forces: Record<string, ExecutionValue>) => void;
+  executionValues: Record<string, ExecutionValue>;
   last?: Scan;
 }) {
   const boolean =
@@ -307,11 +313,11 @@ function ForceEditor({
       : block.output === "boolean";
   const initial =
     forces[node.id] ??
-    last?.values[node.id] ??
+    executionValues[node.id] ??
     node.params.value ??
     node.params.default ??
     (boolean ? false : 0);
-  const [value, setValue] = useState(String(initial));
+  const [value, setValue] = useState(numericToken(initial));
   const [error, setError] = useState("");
   const requested = Object.hasOwn(forces, node.id);
   const applied = !!last?.forces && Object.hasOwn(last.forces, node.id);
@@ -342,7 +348,9 @@ function ForceEditor({
       <button
         onClick={() => {
           try {
-            const next = boolean ? value === "true" : executionNumber(value);
+            const next = boolean
+              ? value === "true"
+              : executionSourceValue(value);
             setError("");
             onChange({ ...forces, [node.id]: next });
           } catch (e) {
@@ -577,7 +585,7 @@ export function SimulationPanel({
   onReset: () => void;
   onRunScenario: (events: unknown, duration: number) => Promise<void>;
   error: string;
-  forces: Record<string, number | boolean>;
+  forces: Record<string, ExecutionValue>;
   onReleaseForces: () => void;
   recordHistory: boolean;
   setRecordHistory: (v: boolean) => void;
@@ -817,7 +825,7 @@ export function SimulationPanel({
                       value={numericToken(value)}
                       onChange={(e) => {
                         try {
-                          change(executionNumber(e.target.value));
+                          change(executionSourceValue(e.target.value));
                           e.currentTarget.setCustomValidity("");
                         } catch (error) {
                           e.currentTarget.setCustomValidity(String(error));
@@ -877,7 +885,7 @@ export function SimulationPanel({
             disabled={running || simBusy}
             onClick={async () => {
               try {
-                const parsed = parseExecutionJSON(events);
+                const parsed = parseExecutionSourceJSON(events);
                 setScenarioError("");
                 await onRunScenario(parsed, duration);
               } catch (e) {
