@@ -16,6 +16,10 @@ export async function api(
 ): Promise<any> {
   return (await request(path, body, method)).json();
 }
+/** Best-effort small lifecycle requests can finish while their document unloads. */
+export async function apiKeepalive(path: string, body: unknown): Promise<any> {
+  return (await request(path, body, undefined, { keepalive: true })).json();
+}
 export type JsonDocument<T = any> = { data: T; blob: Blob };
 /** Keep authoritative JSON bytes when their numeric spelling is evidence. */
 export async function apiJsonDocument<T = any>(
@@ -80,6 +84,7 @@ async function request(
   const response = await fetch("/api" + path, {
     method: method || (body === undefined ? "GET" : "POST"),
     headers,
+    keepalive: options.keepalive,
     body:
       body === undefined
         ? undefined
@@ -88,7 +93,6 @@ async function request(
           : options.program
             ? sourceRequestStringify(await prepareSourceRequest(body))
             : JSON.stringify(body),
-    keepalive: options.keepalive,
   });
   if (!response.ok) {
     let message;

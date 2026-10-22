@@ -12,6 +12,7 @@ from defusedxml import ElementTree as SafeXML
 
 from .blocks import BLOCKS
 from .engine import execution_order, output_type, validate
+from .executable_numbers import require_number
 from .models import Program, canonical
 from .temperature import DELTA_FOR_ABSOLUTE, difference_expression
 
@@ -37,8 +38,10 @@ def _check(program):
 def _literal(v):
     if type(v) is bool:
         return "TRUE" if v else "FALSE"
-    if type(v) not in (int, float):
-        raise ConversionError("Cannot export nonnumeric/nonboolean literal.")
+    try:
+        require_number(v, "Literal")
+    except ValueError as exc:
+        raise ConversionError(str(exc)) from exc
     try:
         encoded = struct.unpack(">f", struct.pack(">f", v))[0]
     except (OverflowError, struct.error) as exc:
@@ -454,7 +457,7 @@ def import_program(content, filename):
                 "ST import currently supports BMS Studio generated files, not arbitrary IEC source."
             )
         program = Program.model_validate_json(base64.b64decode(match.group(1), validate=True))
-        if export_st(program) != content:
+        if _archival_st(program) != content:
             raise ConversionError(
                 "ST source was edited outside Studio. Embedded graph no longer matches; import refused."
             )
@@ -468,7 +471,7 @@ def import_program(content, filename):
                     "PLCopen import currently supports Studio-generated projects with graph metadata. Arbitrary vendor PLCopen requires a schema/semantic adapter."
                 )
             program = Program.model_validate_json(base64.b64decode(ir.text or "", validate=True))
-            if export_plcopen(program) != content:
+            if _archival_plcopen(program) != content:
                 raise ConversionError(
                     "PLCopen source or metadata differs from the embedded graph; import refused."
                 )
@@ -483,7 +486,7 @@ def import_program(content, filename):
             if ir is None:
                 raise ConversionError("GraphML lacks BMS graph metadata.")
             program = Program.model_validate_json(ir.text or "")
-            if export_graphml(program) != content:
+            if _archival_graphml(program) != content:
                 raise ConversionError(
                     "GraphML structure differs from embedded graph; import refused."
                 )
@@ -491,3 +494,39 @@ def import_program(content, filename):
     raise ConversionError(
         "Unrecognized import format. CAF inspection uses the separate loss-preserving CAF adapter."
     )
+
+
+def _archival_st(program):
+    """Pure legacy-source comparison; never export a projected graph to a user."""
+    from .executable_numbers import _legacy_source_projection
+
+    projected = _legacy_source_projection(program)
+    return export_st(projected, embedded=False) + (
+        b"(* BMS_STUDIO_IR_V1 " + base64.b64encode(canonical(program)) + b" *)\n"
+    )
+
+
+def _archival_plcopen(program):
+    from .executable_numbers import _legacy_source_projection
+
+    root = XML.fromstring(export_plcopen(_legacy_source_projection(program)))
+    embedded = root.find(".//{" + BMS + "}program")
+    embedded.text = base64.b64encode(canonical(program)).decode()
+    embedded.set("sha256", hashlib.sha256(canonical(program)).hexdigest())
+    return XML.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+def _archival_graphml(program):
+    from xml.sax.saxutils import escape
+
+    from .executable_numbers import _legacy_source_projection
+
+    projected = _legacy_source_projection(program)
+    generated = export_graphml(projected)
+    before, after = (
+        escape(canonical(projected).decode()).encode(),
+        escape(canonical(program).decode()).encode(),
+    )
+    if generated.count(before) != 1:
+        raise ConversionError("GraphML archival source comparison is ambiguous.")
+    return generated.replace(before, after, 1)

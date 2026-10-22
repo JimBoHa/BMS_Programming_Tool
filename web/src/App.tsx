@@ -56,6 +56,11 @@ import { Canvas } from "./Canvas";
 import { Inspector, SimulationPanel } from "./Panels";
 import { useSimulationClock } from "./useSimulationClock";
 import { persistDraftRecovery } from "./draftRecovery";
+import {
+  sessionFromReceipt,
+  retireSimulationSession,
+  type SimulationSession,
+} from "./simulationSessions";
 import { SelectionPanel } from "./SelectionPanel";
 import { ConversionPreview } from "./ConversionPreview";
 
@@ -244,6 +249,7 @@ export function App() {
       );
     if (updated === latestProgram.current) return;
     simulationEpoch.current++;
+    detachSimulationSession();
     latestProgram.current = updated;
     draftEpoch.current++;
     setProgramState(updated);
@@ -259,9 +265,113 @@ export function App() {
     if (epoch === versionsEpoch.current && latestProgram.current.id === id)
       setVersions(rows);
   }
-  const session = useRef<string | null>(null),
+  const session = useRef<SimulationSession | null>(null),
     busy = useRef(false),
     importInput = useRef<HTMLInputElement>(null);
+  const retirePending = useRef(new Map<string, Promise<void>>());
+  const retireFailed = useRef(
+    new Map<string, { handle: SimulationSession; error: string }>(),
+  );
+  const retired = useRef(new Set<string>());
+  const simulationMounted = useRef(false);
+  const [cleanupStatus, setCleanupStatus] = useState({
+    pending: 0,
+    failed: 0,
+    error: "",
+  });
+  const [unknownSession, setUnknownSession] = useState(false);
+  const [cacheStatus, setCacheStatus] = useState("");
+  function publishCleanup() {
+    if (simulationMounted.current)
+      setCleanupStatus({
+        pending: retirePending.current.size,
+        failed: retireFailed.current.size,
+        error: [...retireFailed.current.values()]
+          .map((row) => row.error)
+          .join("; ")
+          .slice(0, 1500),
+      });
+  }
+  function cleanupBlocked() {
+    return retirePending.current.size > 0 || retireFailed.current.size > 0;
+  }
+  function retireOwnedSimulation(
+    handle: SimulationSession,
+    explicitRetry = false,
+  ): Promise<void> {
+    if (retired.current.has(handle.session)) return Promise.resolve();
+    const existing = retirePending.current.get(handle.session);
+    if (existing) return existing;
+    if (retireFailed.current.has(handle.session) && !explicitRetry)
+      return Promise.resolve();
+    retireFailed.current.delete(handle.session);
+    const pending = (async () => {
+      try {
+        await retireSimulationSession(handle);
+        retired.current.add(handle.session);
+        if (retired.current.size > 128)
+          retired.current.delete(retired.current.values().next().value!);
+        retireFailed.current.delete(handle.session);
+      } catch (error) {
+        retireFailed.current.set(handle.session, {
+          handle,
+          error: String(error).slice(0, 1000),
+        });
+      } finally {
+        retirePending.current.delete(handle.session);
+        publishCleanup();
+      }
+    })();
+    retirePending.current.set(handle.session, pending);
+    publishCleanup();
+    return pending;
+  }
+  function detachSimulationSession() {
+    const known = session.current;
+    session.current = null;
+    if (known) void retireOwnedSimulation(known);
+  }
+  function noteUnknownSession() {
+    if (simulationMounted.current) setUnknownSession(true);
+  }
+  function retrySimulationCleanup() {
+    for (const { handle } of [...retireFailed.current.values()])
+      void retireOwnedSimulation(handle, true);
+  }
+  async function checkSimulationCache() {
+    try {
+      const value = await programApi("/simulation/sessions/status");
+      if (
+        !Number.isInteger(value.cached_sessions) ||
+        value.cached_sessions < 0 ||
+        value.cached_sessions > value.limit ||
+        value.limit !== 25 ||
+        value.idle_expiry_seconds !== 3600
+      )
+        throw new Error("Invalid local session cache status.");
+      if (simulationMounted.current)
+        setCacheStatus(
+          `Local cache snapshot: ${value.cached_sessions}/${value.limit} calculation sessions; unknown idle sessions expire after ${value.idle_expiry_seconds} seconds.`,
+        );
+    } catch (error) {
+      if (simulationMounted.current) setCacheStatus(String(error));
+    }
+  }
+  useEffect(() => {
+    simulationMounted.current = true;
+    const pagehide = (event: PageTransitionEvent) => {
+      if (event.persisted) return;
+      simulationEpoch.current++;
+      detachSimulationSession();
+    };
+    window.addEventListener("pagehide", pagehide);
+    return () => {
+      simulationMounted.current = false;
+      simulationEpoch.current++;
+      detachSimulationSession();
+      window.removeEventListener("pagehide", pagehide);
+    };
+  }, []);
   const flow = useReactFlow();
   const specs = [...blocks, ...macroBlocks];
   const specKey = (b: Block) =>
@@ -378,7 +488,7 @@ export function App() {
     let live = true;
     setIssues([]);
     setValidationStatus("pending");
-    session.current = null;
+    detachSimulationSession();
     setSimUncertain(false);
     setHistory([]);
     setForces({});
@@ -606,29 +716,25 @@ export function App() {
   }
   const step = useCallback(
     async (steps = 1) => {
-      if (busy.current || simUncertain) return;
+      if (busy.current || simUncertain || cleanupBlocked()) return;
       busy.current = true;
       setSimBusy(true);
       const epoch = simulationEpoch.current;
       const operation = crypto.randomUUID().replaceAll("-", "");
+      const expectedSession = session.current;
       try {
         const r = await programApi("/simulation/step", {
           program,
           inputs,
           forces,
           steps,
-          session: session.current,
+          session: expectedSession?.session || null,
           record: recordHistory,
           operation_id: operation,
           clock: nextClock
             ? new Date(nextClock + "Z").toISOString()
             : undefined,
         });
-        if (
-          latestProgram.current !== program ||
-          simulationEpoch.current !== epoch
-        )
-          return;
         if (
           r.operation_id !== operation ||
           r.requested_steps !== steps ||
@@ -644,7 +750,7 @@ export function App() {
           (r.completed_steps === 0
             ? !r.scan_error ||
               r.last !== null ||
-              (session.current === null
+              (expectedSession === null
                 ? r.session !== null
                 : typeof r.session !== "string")
             : typeof r.session !== "string" || !r.last) ||
@@ -660,18 +766,27 @@ export function App() {
           ) ||
           (r.completed_steps < steps && !r.scan_error) ||
           !r.snapshot ||
-          (session.current && session.current !== r.session)
+          (expectedSession && expectedSession.session !== r.session)
         )
           throw new Error(
             "Simulation batch receipt does not match its exact request. Reset before running again.",
           );
-        session.current = r.session;
+        const owned = sessionFromReceipt(r, operation, expectedSession);
+        if (
+          latestProgram.current !== program ||
+          simulationEpoch.current !== epoch
+        ) {
+          if (owned) void retireOwnedSimulation(owned);
+          return;
+        }
+        session.current = owned;
         setHistory(r.history);
         setSimError(r.scan_error || "");
         setRecordingError(r.recording_error || "");
         if (r.completed_steps > 0) setNextClock("");
         return r;
       } catch (e) {
+        if (!expectedSession) noteUnknownSession();
         if (
           latestProgram.current !== program ||
           simulationEpoch.current !== epoch
@@ -694,11 +809,16 @@ export function App() {
     source: program,
     active: tab === "editor",
     scanSeconds: program.scan_seconds,
-    blocked: simBusy || simUncertain || !!nextClock,
+    blocked:
+      simBusy ||
+      simUncertain ||
+      cleanupStatus.pending > 0 ||
+      cleanupStatus.failed > 0 ||
+      !!nextClock,
     batch: step,
   });
   async function runSimulationScenario(events: unknown, duration: number) {
-    if (busy.current || simUncertain) return;
+    if (busy.current || simUncertain || cleanupBlocked()) return;
     busy.current = true;
     setSimBusy(true);
     pacing.retire();
@@ -716,7 +836,7 @@ export function App() {
         return;
       if (!Array.isArray(result.history))
         throw new Error("Scenario response has no valid bounded history.");
-      session.current = null;
+      detachSimulationSession();
       setHistory(result.history);
       if (latestForces.current === admittedForces)
         setForces(result.history.at(-1)?.forces || {});
@@ -734,7 +854,7 @@ export function App() {
     simulationEpoch.current++;
     pacing.retire();
     setSimUncertain(false);
-    session.current = null;
+    detachSimulationSession();
     setHistory([]);
     setSimError("");
     setRecordingError("");
@@ -1476,7 +1596,19 @@ export function App() {
                         value ? pacing.run() : pacing.pause()
                       }
                       pacing={pacing}
-                      simBusy={simBusy || simUncertain}
+                      simBusy={
+                        simBusy ||
+                        simUncertain ||
+                        cleanupStatus.pending > 0 ||
+                        cleanupStatus.failed > 0
+                      }
+                      cleanup={{
+                        ...cleanupStatus,
+                        unknown: unknownSession,
+                        cache: cacheStatus,
+                        retry: retrySimulationCleanup,
+                        check: checkSimulationCache,
+                      }}
                       onStep={() => {
                         pacing.retire();
                         void step().catch(() => {});

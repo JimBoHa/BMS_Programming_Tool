@@ -543,6 +543,7 @@ export function SimulationPanel({
   setRunning,
   pacing,
   simBusy,
+  cleanup,
   onStep,
   onReset,
   onRunScenario,
@@ -563,6 +564,15 @@ export function SimulationPanel({
   setRunning: (v: boolean) => void;
   pacing: ReturnType<typeof useSimulationClock>;
   simBusy: boolean;
+  cleanup: {
+    pending: number;
+    failed: number;
+    error: string;
+    unknown: boolean;
+    cache: string;
+    retry: () => void;
+    check: () => void;
+  };
   onStep: () => void;
   onReset: () => void;
   onRunScenario: (events: unknown, duration: number) => Promise<void>;
@@ -719,6 +729,33 @@ export function SimulationPanel({
           <small>
             Apply the explicit UTC clock with Step before running. Monotonic
             pacing time does not set simulation UTC.
+          </small>
+        )}
+      </div>
+      <div
+        className="simulation-pacing"
+        aria-label="Local simulation session cleanup"
+      >
+        <output aria-label="Simulation cleanup status" aria-live="polite">
+          {cleanup.pending
+            ? `Releasing ${cleanup.pending} owned local calculation session(s). Run, Step and scenarios wait for cleanup.`
+            : cleanup.failed
+              ? `${cleanup.failed} local session cleanup request(s) unconfirmed: ${cleanup.error}`
+              : "Known calculation sessions are released on reset/source replacement, scenario completion and document exit. Recorded history and alarms are unchanged."}
+        </output>
+        {cleanup.failed > 0 && (
+          <button onClick={cleanup.retry} disabled={cleanup.pending > 0}>
+            Retry session cleanup
+          </button>
+        )}
+        <button onClick={cleanup.check}>Check local session cache</button>
+        {cleanup.cache && <small>{cleanup.cache}</small>}
+        {cleanup.unknown && (
+          <small>
+            Some first replies could not be verified. Unknown session IDs cannot
+            be safely removed and may remain until the one-hour idle expiry.
+            There is a 25-session local cache limit; no automatic scan retry
+            occurs.
           </small>
         )}
       </div>

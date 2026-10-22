@@ -25,6 +25,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from .engine import Engine, output_type
+from .executable_numbers import require_number
 from .file_access import file_lock
 from .formats import ConversionError, export_st, structured_text_parts
 from .macros import expand_macros
@@ -84,7 +85,8 @@ def _tool_lock(home):
     try:
         try:
             with file_lock(
-                home / ".build.lock", timeout=max(0, deadline - time.monotonic()),
+                home / ".build.lock",
+                timeout=max(0, deadline - time.monotonic()),
                 busy="The IEC toolchain is busy rebuilding or compiling.",
             ):
                 yield
@@ -287,6 +289,9 @@ class NativeIEC:
         if self.attempts >= 1000:
             raise ConversionError("IEC verification session scan limit reached (1000).")
         values = [bindings[name] for name, _, _ in self.declarations["inputVars"]]
+        for value in values:
+            if type(value) is not bool:
+                require_number(value, "IEC binding")
         request = (
             " ".join(
                 str(int(value)) if type(value) is bool else format(value, ".17g")
@@ -369,6 +374,7 @@ class NativeIEC:
                     if type(value) is not bool:
                         raise ValueError("IEC Boolean input type mismatch: " + identifier)
                 else:
+                    require_number(value, f"IEC numeric input {identifier}")
                     if (
                         type(value) not in (int, float)
                         or not -3.0e38 <= value <= 3.0e38
