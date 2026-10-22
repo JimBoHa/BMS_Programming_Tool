@@ -231,6 +231,7 @@ class DeviceDetails:
                 if (
                     observing
                     and incoming_adapter is adapter
+                    and packet.npduSADR is not None
                     and packet.npduSADR == target
                     and packet.pduSource != router
                     and not (preserve_packet and preserve_packet(incoming_adapter, packet))
