@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./simulationFixture";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 const root = path.resolve(".."),
@@ -392,6 +392,9 @@ test("pending batch uses admitted inputs/recording snapshot and next step uses c
   page,
   request,
 }) => {
+  const recordedBefore = (
+    await (await request.get("/api/observations/status")).json()
+  ).samples;
   await configure(page, "5", "100");
   let seen!: () => void,
     release!: () => void,
@@ -422,7 +425,7 @@ test("pending batch uses admitted inputs/recording snapshot and next step uses c
   expect(receipt.last.values.enable).toBe(true);
   expect(
     (await (await request.get("/api/observations/status")).json()).samples,
-  ).toBe(0);
+  ).toBe(recordedBefore);
   await page.unroute("**/api/simulation/step");
   const event = page.waitForRequest("**/api/simulation/step");
   await page.getByLabel("Step simulation", { exact: true }).click();
@@ -434,7 +437,7 @@ test("pending batch uses admitted inputs/recording snapshot and next step uses c
       async () =>
         (await (await request.get("/api/observations/status")).json()).samples,
     )
-    .toBe(3);
+    .toBe(recordedBefore + 3);
 });
 
 test("scenario completion preserves a newer operator force release for the next scan", async ({
