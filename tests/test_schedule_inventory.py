@@ -560,9 +560,9 @@ async def test_report_retention_budget_and_socket_identity_change(link, monkeypa
     session = {
         "app": client.app,
         "config": client.config,
-        "schedule_adapter": client.app.nsap.local_adapter,
-        "schedule_layer": layer,
-        "schedule_socket": object(),
+        "evidence_adapter": client.app.nsap.local_adapter,
+        "evidence_layer": layer,
+        "evidence_socket": object(),
     }
     with pytest.raises(ValueError, match="socket identity"):
         service._guard(session)

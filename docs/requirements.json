@@ -736,5 +736,23 @@
     "pdf_pages_or_section": "PDF3: functional tests labeled Future; source does not provide executable expected trajectories",
     "status": "partial",
     "implementation_or_gap": "Portable Studio source-bound suites implemented: backend/bms_tool/conformance.py, web/src/ConformancePanel.tsx, tests/test_conformance*.py, web/tests/conformance.spec.ts. Native CAF/CCT execution and authoritative Guideline36 trajectories remain unimplemented; operator criteria are not certification. Original external source_implementation_status is unchanged."
+  },
+  {
+    "id": "COMM-POINT-001",
+    "feature": "Native point status inspection",
+    "acceptance_criterion": "Explicit identity-verified selected point values with native units, reliability, status flags, out-of-service and optional read-only priority/relinquish evidence; preserve unknown/native failure states and exact exports.",
+    "evidence": "FX-PC PICS LIT-12011658 2019-03-22; FEC PICS LIT-12011100 2017-12-01; BACpypes3 0.0.110 primary datatype source",
+    "pdf_pages_or_section": "FX PDF7/9/11/13; FEC PDF9/10/12/13",
+    "status": "implemented",
+    "implementation_or_gap": "Selected standard analog/binary/multistate/Accumulator direct or pinned routed plain IPv4 inspection; shared strict native property evidence, finite cancel/retention, full Connect UI and exact exports. No discovery, polling, writes, scaling/health/command-ownership inference, BBMD/direct serial or physical acceptance. docs/native-point-status.md"
+  },
+  {
+    "id": "MF-b3e8f374e9",
+    "feature": "Native point reliability and service-state visibility",
+    "acceptance_criterion": "Retain native reliability, status flags and service state alongside point values; finite numbers alone do not establish healthy or physically in-service I/O.",
+    "evidence": "FX-PC PICS LIT-12011658 2019-03-22 DOC-2819078f7b2d; FEC PICS LIT-12011100 2017-12-01 DOC-8b108370fd38",
+    "pdf_pages_or_section": "FX PDF7/9/11/13; FEC PDF9/10/12/13",
+    "status": "partial",
+    "implementation_or_gap": "COMM-POINT-001 provides explicit grouped native evidence for supported standard points. Existing generic reads/trend summaries remain separate; attaching raw quality to all engineering/test results, proprietary model-specific states, other transports and physical input acceptance remain pending."
   }
 ]

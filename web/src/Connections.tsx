@@ -20,6 +20,7 @@ import { BbmdAdminPanel } from "./BbmdAdminPanel";
 import { ControllerProbePanel } from "./ControllerProbePanel";
 import { HardwareSurveyPanel } from "./HardwareSurveyPanel";
 import { ScheduleInventoryPanel } from "./ScheduleInventoryPanel";
+import { PointStatusPanel } from "./PointStatusPanel";
 import { BacnetCovPanel } from "./BacnetCovPanel";
 import { BacnetEventsPanel } from "./BacnetEventsPanel";
 import { EventReceptionPanel } from "./EventReceptionPanel";
@@ -727,6 +728,24 @@ export function Connections() {
         }
         defaultAddress={target}
         defaultDevice={object.trim().startsWith("device,") ? object : ""}
+        defaultRouter={
+          selectedRoute?.router || (/^\d+:/.test(target) ? config.router : "")
+        }
+        defaultDnet={
+          selectedRoute?.dnet ?? (/^\d+:/.test(target) ? probeDnet : null)
+        }
+      />
+      <PointStatusPanel
+        connected={
+          !!status.connected &&
+          !busy &&
+          status.config?.transport !== "mstp" &&
+          !status.config?.bbmd_address
+        }
+        interfaceIdentity={JSON.stringify(status.config ?? null)}
+        defaultAddress={target}
+        defaultDevice={object.trim().startsWith("device,") ? object : ""}
+        defaultObject={object}
         defaultRouter={
           selectedRoute?.router || (/^\d+:/.test(target) ? config.router : "")
         }
