@@ -107,6 +107,12 @@ class SimulationRequest(StrictModel):
     operation_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
 
 
+class SimulationRetire(StrictModel):
+    session: str = Field(strict=True, pattern=r"^[A-Za-z0-9_-]{20,64}$")
+    retirement_token: str = Field(strict=True, pattern=r"^[A-Za-z0-9_-]{32,64}$")
+    creation_operation_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
+
+
 class NativeStart(StrictModel):
     program: Program
 
@@ -1030,14 +1036,41 @@ def create_app(state_dir=None):
     def native_rollback(body: RuntimeRollback):
         return native.rollback(body.backup_id, body.expected_generation)
 
+    def expire_simulation_sessions():
+        now = time.monotonic()
+        for id in [k for k, v in simulations.items() if now - v["touched"] > 3600]:
+            del simulations[id]
+        return now
+
+    @app.get("/api/simulation/sessions/status")
+    async def simulation_session_status():
+        expire_simulation_sessions()
+        return {"cached_sessions": len(simulations), "limit": 25, "idle_expiry_seconds": 3600}
+
+    @app.post("/api/simulation/retire")
+    async def retire_simulation(body: SimulationRetire):
+        expire_simulation_sessions()
+        record = simulations.get(body.session)
+        if record is not None:
+            if (
+                not secrets.compare_digest(record["retirement_token"], body.retirement_token)
+                or record["creation_operation_id"] != body.creation_operation_id
+            ):
+                raise ValueError("Simulation retirement ownership does not match this session.")
+            del simulations[body.session]
+        return {
+            "session": body.session,
+            "retired": record is not None,
+            "recorded_evidence_unchanged": True,
+            "scope": "Only the volatile calculation session is removed. Recorded history and alarm lifecycle are unchanged; admitted scans are not rolled back.",
+        }
+
     @app.post("/api/simulation/step")
     async def step(body: SimulationRequest):
         if body.clock is not None and body.steps != 1:
             raise ValueError("An explicit clock applies to one scan; use single-step mode.")
         created = not body.session
-        now = time.monotonic()
-        for id in [k for k, v in simulations.items() if now - v["touched"] > 3600]:
-            del simulations[id]
+        now = expire_simulation_sessions()
         if body.session:
             record = simulations.get(body.session)
             if record is None:
@@ -1053,7 +1086,12 @@ def create_app(state_dir=None):
                     "Simulation session limit reached. Wait for expiration or restart the app."
                 )
             id = secrets.token_urlsafe(16)
-            record = {"engine": Engine(body.program), "touched": now}
+            record = {
+                "engine": Engine(body.program),
+                "touched": now,
+                "retirement_token": secrets.token_urlsafe(24),
+                "creation_operation_id": body.operation_id,
+            }
             simulations[id] = record
         engine = record["engine"]
         record["touched"] = now
@@ -1096,6 +1134,8 @@ def create_app(state_dir=None):
                     recording_errors.append(str(exc))
         return {
             "session": None if created and not rows else id,
+            "retirement_token": None if created and not rows else record["retirement_token"],
+            "session_creation_operation_id": record["creation_operation_id"],
             "last": rows[-1] if rows else None,
             "history": engine.history[-300:],
             "snapshot": engine.snapshot(),
