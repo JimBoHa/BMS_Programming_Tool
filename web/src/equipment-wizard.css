@@ -1,0 +1,59 @@
+.equipment-wizard-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: #0b1928aa;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+}
+.equipment-wizard {
+  background: var(--surface, #fff);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  width: min(1100px, 95vw);
+  max-height: 92vh;
+  overflow: auto;
+  box-shadow: 0 1rem 3rem #0004;
+}
+.equipment-wizard .wizard-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+.equipment-wizard label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.equipment-wizard input,
+.equipment-wizard select {
+  padding: 0.45rem;
+  min-width: 0;
+}
+.equipment-wizard fieldset {
+  border: 0;
+  padding: 0;
+}
+.equipment-wizard table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.equipment-wizard th,
+.equipment-wizard td {
+  text-align: left;
+  padding: 0.5rem;
+  border-bottom: 1px solid #ccd4df;
+}
+.equipment-wizard pre {
+  max-height: 25rem;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+.equipment-wizard code {
+  overflow-wrap: anywhere;
+}
+.equipment-wizard [role="alert"] {
+  color: #a21b31;
+}
