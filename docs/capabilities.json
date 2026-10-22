@@ -358,5 +358,10 @@
     "feature": "Guarded existing native weekly-day write backend",
     "status": "implemented",
     "scope": "Backend/API preview/apply for one existing Schedule weekly index1..7, exact source/native/static-tag and socket/path guards, one service15 send/no retries, durable bounded intent/result journal, original sealed bytes and explicit read-only reconciliation. Postdispatch native rejection/timeout/cancellation remain may_have_applied; protocol acknowledgement and observed readback are separate. Browser Apply integration is separate. No CAS/rollback, Calendar/exception/context writes, native CAF generation, BBMD/serial writes or physical manufacturer acceptance. See docs/native-weekly-day-write.md."
+  },
+  {
+    "feature": "Reviewed native weekly-day deployment GUI",
+    "status": "implemented",
+    "scope": "Scoped Connect GUI: explicit operator/rationale and fresh native preview, source/connection/expiry guards, one-use Apply, cancellation, durable local journal reopen, independent may-have-applied/protocol/readback facts and original HTTP-byte exports. Recovered intents remain unknown; reconciliation is explicit read-only. No automatic queries/writes/retry, arbitrary CAF/program upload, Calendar/exception/target/default edits, extra transports or physical manufacturer acceptance. See docs/native-weekly-day-write-ui.md."
   }
 ]
