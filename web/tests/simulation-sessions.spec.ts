@@ -1,9 +1,11 @@
+import { simulationServerResponseJSON } from "./simulationFixture";
+import { fetchSimulationResponse } from "./simulationFixture";
 import {
   test,
   expect,
   type Page,
   type APIRequestContext,
-} from "@playwright/test";
+} from "./simulationFixture";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
@@ -76,7 +78,7 @@ async function step(page: Page) {
   await page.getByLabel("Step simulation", { exact: true }).click();
   const response = await event;
   expect(response.ok()).toBe(true);
-  const value = await response.json();
+  const value = simulationServerResponseJSON(response);
   await expect(page.locator(".elapsed")).toHaveText(
     value.last.time.toFixed(1) + " s",
   );
@@ -162,18 +164,18 @@ for (const action of ["reset", "source", "pagehide", "unmount"])
       retiring = new Promise<void>((r) => (retireSeen = r)),
       retireGate = new Promise<void>((r) => (retireRelease = r));
     await page.route("**/api/simulation/step", async (route) => {
-      const response = await route.fetch();
+      const response = await fetchSimulationResponse(route);
       receipt = await response.json();
       seen();
       await gate;
-      await route.fulfill({ response });
+      await route.fulfill({ response, body: await response.body() });
     });
     await page.route("**/api/simulation/retire", async (route) => {
       const response = await route.fetch();
       expect(route.request().postDataJSON().session).toBe(receipt.session);
       retireSeen();
       await retireGate;
-      await route.fulfill({ response });
+      await route.fulfill({ response, body: await response.body() });
     });
     try {
       await page.getByLabel("Step simulation", { exact: true }).click();
@@ -234,7 +236,7 @@ for (const mode of ["other-session", "wrong-creation"])
         nominations.push(r.postDataJSON().session);
     });
     await page.route("**/api/simulation/step", async (route) => {
-      const response = await route.fetch(),
+      const response = await fetchSimulationResponse(route),
         value = await response.json();
       actual = structuredClone(value);
       if (mode === "other-session") {

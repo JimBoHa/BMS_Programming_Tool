@@ -1,3 +1,4 @@
+import { fetchSimulationResponse } from "./simulationFixture";
 import { test, expect, type Page } from "./simulationFixture";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
@@ -134,11 +135,11 @@ for (const action of ["pause", "reset", "source"])
     await page.route("**/api/simulation/step", async (route) => {
       count++;
       body = route.request().postDataJSON();
-      const response = await route.fetch();
+      const response = await fetchSimulationResponse(route);
       receipt = await response.json();
       seen();
       await gate;
-      await route.fulfill({ response });
+      await route.fulfill({ response, body: await response.body() });
       done();
     });
     await page.getByTitle("Run simulation", { exact: true }).click();
@@ -181,7 +182,7 @@ for (const mode of ["wrong-operation", "wrong-count", "http-error"])
     let count = 0;
     await page.route("**/api/simulation/step", async (route) => {
       count++;
-      const response = await route.fetch(),
+      const response = await fetchSimulationResponse(route),
         value = await response.json();
       if (mode === "wrong-operation") value.operation_id = "0".repeat(32);
       if (mode === "wrong-count") value.completed_steps = 1001;
@@ -339,13 +340,13 @@ for (const action of ["none", "reset", "source", "failure"])
       gate = new Promise<void>((r) => (release = r)),
       completed = new Promise<void>((r) => (done = r));
     await page.route("**/api/simulation/scenario", async (route) => {
-      const response = await route.fetch();
+      const response = await fetchSimulationResponse(route);
       seen();
       await gate;
       await route.fulfill(
         action === "failure"
           ? { status: 503, json: { detail: "Scenario result unavailable" } }
-          : { response },
+          : { response, body: await response.body() },
       );
       done();
     });
@@ -406,11 +407,11 @@ test("pending batch uses admitted inputs/recording snapshot and next step uses c
     completed = new Promise<void>((r) => (done = r));
   await page.route("**/api/simulation/step", async (route) => {
     body = route.request().postDataJSON();
-    const response = await route.fetch();
+    const response = await fetchSimulationResponse(route);
     receipt = await response.json();
     seen();
     await gate;
-    await route.fulfill({ response });
+    await route.fulfill({ response, body: await response.body() });
     done();
   });
   await page.getByTitle("Run simulation", { exact: true }).click();
@@ -461,10 +462,10 @@ test("scenario completion preserves a newer operator force release for the next 
     gate = new Promise<void>((r) => (release = r)),
     completed = new Promise<void>((r) => (done = r));
   await page.route("**/api/simulation/scenario", async (route) => {
-    const response = await route.fetch();
+    const response = await fetchSimulationResponse(route);
     seen();
     await gate;
-    await route.fulfill({ response });
+    await route.fulfill({ response, body: await response.body() });
     done();
   });
   await page.getByRole("button", { name: "Run scenario", exact: true }).click();
