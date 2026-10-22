@@ -43,6 +43,16 @@ SCOPE = (
     "effective command ownership or field signal/actuator acceptance. No discovery, polling or writes. "
     "Unsegmented single-attempt profile; BBMD/direct serial outside this profile; physical manufacturer acceptance unverified."
 )
+ACCUMULATOR_PROPERTIES = (
+    "prescale",
+    "scale",
+    "max-pres-value",
+    "pulse-rate",
+    "limit-monitoring-interval",
+    "value-change-time",
+    "value-before-change",
+)
+
 PROPERTIES = (
     "object-name",
     "description",
@@ -60,6 +70,7 @@ class PointStatusRequest(DeviceDetailsRequest):
     object_ids: list[Annotated[str, Field(min_length=1, max_length=80)]] = Field(
         min_length=1, max_length=16
     )
+    include_accumulator_metadata: bool = Field(default=False, strict=True)
     include_commandable: bool = Field(default=False, strict=True)
     include_enum_metadata: bool = Field(default=False, strict=True)
     state_text_limit: int = Field(default=32, ge=1, le=256, strict=True)
@@ -139,6 +150,7 @@ class PointStatus:
                 "report_bytes": MAX_BYTES,
                 "requests": 512,
                 "priority_slots": 16,
+                "optional_accumulator_properties": list(ACCUMULATOR_PROPERTIES),
                 "state_text_entries_default": 32,
                 "state_text_entries_max": 256,
                 "enum_label_json_bytes": 256,
@@ -349,6 +361,38 @@ class PointStatus:
                                         if item["properties"][prop]["status"] == "ok"
                                         else None
                                     )
+                        if options.include_accumulator_metadata:
+                            if int(ObjectIdentifier(obj)[0]) == 23:
+                                for prop in ACCUMULATOR_PROPERTIES:
+                                    _, item["properties"][prop] = await self._read(
+                                        session, budget, obj, prop
+                                    )
+                                prescale = item["properties"]["prescale"]
+                                raw = prescale.get("value")
+                                valid = (
+                                    prescale["status"] == "ok"
+                                    and type(raw) is dict
+                                    and set(raw) == {"multiplier", "moduloDivide"}
+                                    and all(
+                                        type(v) is int and 0 <= v <= 2**32 - 1 for v in raw.values()
+                                    )
+                                    and raw["moduloDivide"] > 0
+                                )
+                                item["accumulator_metering"] = {
+                                    "status": "observed_prescale"
+                                    if valid
+                                    else "prescale_unresolved",
+                                    "prescale_usable_for_offline_review": valid,
+                                    "raw_pulse_count": None,
+                                    "numerator_remainder": None,
+                                    "meaning": "Prescale/Scale/PV are separate native observations; no raw pulses, remainder, applied engineering scaling, coherent snapshot or physical overflow behavior inferred.",
+                                }
+                            else:
+                                item["accumulator_metering"] = {
+                                    "status": "not_applicable",
+                                    "prescale_usable_for_offline_review": False,
+                                    "meaning": "Selected point is not a standard Accumulator; no metering properties queried.",
+                                }
                         if options.include_enum_metadata:
                             domain = {}
                             item["enum_domain"] = domain

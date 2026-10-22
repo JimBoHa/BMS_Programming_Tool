@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, download } from "./api";
+import { AccumulatorPrescalePanel } from "./AccumulatorPrescalePanel";
 type Props = {
   connected: boolean;
   interfaceIdentity: string;
@@ -39,6 +40,7 @@ export function PointStatusPanel({
     );
   const [commandable, setCommandable] = useState(false),
     [enumMetadata, setEnumMetadata] = useState(false),
+    [accumulatorMetadata, setAccumulatorMetadata] = useState(false),
     [stateTextLimit, setStateTextLimit] = useState("32"),
     [busy, setBusy] = useState(false),
     [report, setReport] = useState<any>(null),
@@ -66,6 +68,7 @@ export function PointStatusPanel({
       objects,
       commandable,
       enumMetadata,
+      accumulatorMetadata,
       stateTextLimit,
     ]),
     formNow = useRef(formKey);
@@ -135,6 +138,7 @@ export function PointStatusPanel({
           .filter(Boolean),
         include_commandable: commandable,
         include_enum_metadata: enumMetadata,
+        include_accumulator_metadata: accumulatorMetadata,
         state_text_limit: Number(stateTextLimit),
       });
       if (current(ticket, source, draft)) setReport(result);
@@ -276,6 +280,15 @@ export function PointStatusPanel({
           />
           Read native binary and multistate domain metadata
         </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={accumulatorMetadata}
+            disabled={busy}
+            onChange={(e) => setAccumulatorMetadata(e.target.checked)}
+          />
+          Read native Accumulator prescale and metering metadata
+        </label>
         {enumMetadata && (
           <label>
             Maximum indexed state labels per point
@@ -397,6 +410,34 @@ export function PointStatusPanel({
           </p>
           {report.objects.map((obj: any) => (
             <div key={obj.object}>
+              {obj.accumulator_metering && (
+                <section aria-label={`Native metering ${obj.object}`}>
+                  <h3>Accumulator metering · {obj.object}</h3>
+                  <p>
+                    {obj.accumulator_metering.status} ·{" "}
+                    {obj.accumulator_metering.meaning}
+                  </p>
+                  <pre>
+                    {JSON.stringify(
+                      Object.fromEntries(
+                        Object.entries(obj.properties).filter(([key]) =>
+                          [
+                            "prescale",
+                            "scale",
+                            "max-pres-value",
+                            "pulse-rate",
+                            "limit-monitoring-interval",
+                            "value-change-time",
+                            "value-before-change",
+                          ].includes(key),
+                        ),
+                      ),
+                      null,
+                      2,
+                    )}
+                  </pre>
+                </section>
+              )}
               {obj.enum_domain && (
                 <section aria-label={`Native state domain ${obj.object}`}>
                   <h3>Native state domain · {obj.object}</h3>
@@ -478,6 +519,7 @@ export function PointStatusPanel({
           </details>
         </div>
       )}
+      <AccumulatorPrescalePanel nativeReport={report} />
     </section>
   );
 }
