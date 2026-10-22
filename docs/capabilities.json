@@ -308,5 +308,10 @@
     "feature": "Lifecycle draft recovery",
     "status": "implemented",
     "scope": "Latest ready portable program/macro snapshots flush on pagehide, beforeunload, hidden-page and React unmount while retaining 200 ms validation debounce. Shared ordered serializer protects prior macro recovery on failed primary writes; storage errors remain separate from validation; startup read/parse failure disables automatic recovery writes for that page. Fast reload, apply/discard, ready guards and actual unmount tested in Chromium/WebKit. Browser crashes/forced exits, storage availability and disk durability remain outside the guarantee; project save/export is separate."
+  },
+  {
+    "feature": "Executable integer precision guards",
+    "status": "implemented",
+    "scope": "Known graph numeric parameters, expanded macros, live inputs/forces and computed values refuse nonrepresentable integer-to-binary64 coercion before execution/commit. Exact large integers remain valid. ST/PLCopen/Niagara/native IEC/Sedona numeric boundaries guard before conversion/exchange. Existing decimal literal formatting remains a separately documented conversion limitation. Archival Program/canonical hashes and native evidence remain unchanged. Ordinary floating-point and native binary32/fixed-point differences remain explicit; no arbitrary-precision or physical-controller equivalence claim."
   }
 ]

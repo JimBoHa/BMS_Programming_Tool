@@ -1,0 +1,12 @@
+{
+  "generator_source_commit": "1c73e381a0f94e038753d12863e9b8a33e40a91c",
+  "program_sha256": "f6f307aa4fba3cf8d3dfb1691b0841ebaa20f2497cfa3610e2ae5211c49d98a4",
+  "fixture_sha256": {
+    "legacy.st": "ecb0e87c29f7f6b543d57fadd915a9546d895b976336c74d6da2c8b598df0dbb",
+    "legacy.xml": "d4bbfbda5113418f97b54089e3394d66a48384e91aa2dc11c6d70dc67608aa1f",
+    "legacy.graphml": "9ef79b22359f99b358dd79b5520b568104e01cf9ec1640af038ae68ee97b96c6",
+    "legacy.sedona.zip": "84c2f1392eb099410d19e84ac56287b29e57402555891bbfb4fce468812abb49",
+    "legacy.bog": "e0885e9013ce3194234056798debfd6370d85bb58f262d35bff9782bb3f7bd2f"
+  },
+  "scope": "Synthetic public source fixtures generated with the exact published legacy backend. Sedona binary members are opaque authored placeholders, never compiled, loaded or executed; this tests archival source/hash checks only."
+}

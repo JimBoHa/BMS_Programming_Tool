@@ -817,5 +817,14 @@
     "pdf_pages_or_section": "docs/draft-recovery.md; pagehide/beforeunload/visibility/unmount",
     "status": "implemented",
     "implementation_or_gap": "Shared serializer and synchronous latest program/macro refs flush after ready on lifecycle exit while preserving 200ms debounce. Macro enter/apply/discard use ordered writes; startup read/parse failures disable all automatic writes for that page, storage errors are visible and validation continues. Browser crash/forced exit, denied storage and disk durability are not guaranteed; server revision save/export remains separate."
+  },
+  {
+    "id": "NUM-001",
+    "feature": "Executable integer precision boundaries",
+    "acceptance_criterion": "Reject nonrepresentable integer-to-binary64 coercion before graph execution or target conversion while preserving archival source and transactional failed-scan state.",
+    "evidence": "Studio execution contract and independent numeric boundary audit",
+    "pdf_pages_or_section": "docs/executable-number-guards.md",
+    "status": "implemented",
+    "implementation_or_gap": "executable_numbers.require_number; Engine admission/live/computed values; ST/Niagara/native IEC/Sedona boundaries; actual API and native exchange-admission tests. Float arithmetic and target precision differences remain explicit."
   }
 ]
