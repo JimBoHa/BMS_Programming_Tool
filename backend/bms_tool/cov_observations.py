@@ -545,3 +545,64 @@ class CovObservations:
             }
             for row in rows
         ]
+
+    def page(self, monitor, *, after=0, limit=100):
+        """One bounded read snapshot; no subscription, worker or writer changes."""
+        monitor = _text(monitor, "monitor", 80)
+        _integer(after, "after", 0, 2**63 - 1)
+        _integer(limit, "limit", 1, 1000)
+        with self._connect() as db:
+            db.execute("BEGIN")
+            recording = db.execute(
+                "SELECT r.*,(SELECT COUNT(*) FROM cov_sample_links l JOIN cov_receipts e ON e.sequence=l.receipt WHERE e.source=r.source AND l.sample IS NULL) AS samples_evicted FROM cov_recordings r WHERE monitor=?",
+                (monitor,),
+            ).fetchone()
+            if recording is None:
+                raise ValueError("Saved COV recording is unavailable.")
+            boundary = db.execute(
+                "SELECT MIN(sequence) AS first,MAX(sequence) AS last,COUNT(*) AS count FROM cov_receipts WHERE source=?",
+                (recording["source"],),
+            ).fetchone()
+            rows = db.execute(
+                "SELECT * FROM cov_receipts WHERE source=? AND sequence>? ORDER BY sequence LIMIT ?",
+                (recording["source"], after, limit),
+            ).fetchall()
+        events = [
+            dict(row)
+            | {
+                "evidence": json.loads(row["evidence"]),
+                "acquisition_kind": "bacnet-cov",
+                "clock_basis": "receipt",
+                "source_clock": None,
+            }
+            for row in rows
+        ]
+        return {
+            "format": "bms.cov-saved-page",
+            "version": 1,
+            "recording": dict(recording)
+            | {
+                "metadata": json.loads(recording["metadata"]),
+                "auto_resume": False,
+                "events_retained": boundary["count"],
+            },
+            "page": {
+                "after": after,
+                "limit": limit,
+                "count": len(events),
+                "first_sequence": events[0]["sequence"] if events else None,
+                "last_sequence": events[-1]["sequence"] if events else None,
+            },
+            "retention": {
+                "first_retained_sequence": boundary["first"],
+                "last_retained_sequence": boundary["last"],
+                "events_retained": boundary["count"],
+                "events_evicted": recording["events_evicted"],
+                "cursor_before_first_retained": boundary["first"] is not None
+                and after < boundary["first"],
+                "sequence_scope": "Receipt sequence is global across recordings; gaps alone do not establish lost notifications.",
+            },
+            "snapshot_at": _utc(),
+            "scope": "Local saved receipt snapshot only. Active recording counters and retention may change after this response; native receipt bodies are not recomputed or re-sealed. No controller clock or current liveness is inferred.",
+            "events": events,
+        }

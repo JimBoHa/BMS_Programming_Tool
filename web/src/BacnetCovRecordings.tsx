@@ -1,16 +1,24 @@
 import { useEffect, useRef, useState } from "react";
 import { api, saveBlob } from "./api";
+import {
+  covPage,
+  covRecordingKey,
+  covVisible,
+  type CovDocument,
+} from "./covEvidence";
 
 /** Saved local evidence: opening history never starts a field subscription. */
 export function BacnetCovRecordings() {
   const [recordings, setRecordings] = useState<any[] | null>(null);
   const [monitor, setMonitor] = useState("");
   const [events, setEvents] = useState<any[]>([]);
+  const [document, setDocument] = useState<CovDocument | null>(null);
   const [after, setAfter] = useState(0);
   const [pages, setPages] = useState<number[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const generation = useRef(0);
+  const panel = useRef<HTMLElement>(null);
   useEffect(
     () => () => {
       generation.current++;
@@ -20,23 +28,35 @@ export function BacnetCovRecordings() {
 
   async function load(selected: string, cursor = 0, prior: number[] = []) {
     const request = ++generation.current;
+    const expectedKey = covRecordingKey(
+      recordings?.find((item) => item.monitor === selected),
+    );
+    setMonitor(selected);
+    setEvents([]);
+    setDocument(null);
+    setAfter(cursor);
+    setPages(prior);
     setBusy(true);
     setError("");
     try {
-      const [sources, rows] = await Promise.all([
+      const [sources, snapshot] = await Promise.all([
         api("/bacnet/cov/recordings"),
         selected
-          ? api(
-              `/bacnet/cov/recordings/${encodeURIComponent(selected)}/events?after=${cursor}&limit=100`,
-            )
-          : Promise.resolve([]),
+          ? covPage(selected, cursor, 100, expectedKey)
+          : Promise.resolve(null),
       ]);
       if (request !== generation.current) return;
-      setRecordings(sources);
-      setMonitor(selected);
-      setEvents(rows);
-      setAfter(cursor);
-      setPages(prior);
+      if (!Array.isArray(sources))
+        throw new Error("Saved COV recording list is invalid.");
+      setRecordings(
+        snapshot
+          ? sources.map((item: any) =>
+              item.monitor === selected ? snapshot.data.recording : item,
+            )
+          : sources,
+      );
+      setEvents(snapshot?.data.events ?? []);
+      setDocument(snapshot);
     } catch (e) {
       if (request === generation.current) setError(String(e));
     } finally {
@@ -45,27 +65,18 @@ export function BacnetCovRecordings() {
   }
 
   function download() {
-    saveBlob(
-      new Blob(
-        [
-          JSON.stringify(
-            {
-              recording: recordings?.find((item) => item.monitor === monitor),
-              page: { after, limit: 100, count: events.length },
-              events,
-            },
-            null,
-            2,
-          ),
-        ],
-        { type: "application/json" },
-      ),
-      `${monitor}-saved-cov-page.json`,
-    );
+    if (
+      document &&
+      !busy &&
+      document.data.recording.monitor === monitor &&
+      document.data.page.after === after &&
+      covVisible(panel.current)
+    )
+      saveBlob(document.blob, `${monitor}-saved-cov-page.json`);
   }
   const selected = recordings?.find((item) => item.monitor === monitor);
   return (
-    <section aria-label="Saved COV observations">
+    <section aria-label="Saved COV observations" ref={panel}>
       <h4>Saved COV receipts and trends</h4>
       <p className="help-text">
         Explicit recording only. Saved notification receipts remain after
@@ -104,6 +115,21 @@ export function BacnetCovRecordings() {
       )}
       {selected && (
         <>
+          {document && (
+            <p className="help-text">
+              Page snapshot {document.data.snapshot_at}; page after{" "}
+              {document.data.page.after}, limit {document.data.page.limit},
+              returned {document.data.page.count} receipts (
+              {document.data.page.first_sequence ?? "none"} through{" "}
+              {document.data.page.last_sequence ?? "none"}); retained receipt
+              sequences{" "}
+              {document.data.retention.first_retained_sequence ?? "none"}{" "}
+              through {document.data.retention.last_retained_sequence ?? "none"}
+              . Counters and retention can change after this snapshot. Sequence
+              gaps alone do not prove loss. JSON downloads preserve this
+              response's original native numbers.
+            </p>
+          )}
           <p>
             {selected.source} · {selected.state} · Recorded: {selected.recorded}{" "}
             · Queue/storage omissions: {selected.dropped} · Rejected packets:{" "}

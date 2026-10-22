@@ -191,3 +191,7 @@ Subscribe, retention and restart unknown-tail recovery. Browser tests exercise
 explicit opt-in, source-change reset, saved history reopen, JSON download and
 Field trends/CSV provenance against an actual loopback UDP publisher. These
 virtual downstream devices do not establish physical JCI interoperability.
+
+## Original evidence JSON downloads
+
+Job exports and saved receipt pages retain the original HTTP response bytes. Native integral floats and signed zero survive browser download. Saved pages bind source metadata, requested and returned page boundaries, counters and retention in one local SQLite read snapshot; metadata/counters may change later. See [COV evidence downloads](cov-evidence-downloads.md) for guards, bounds and validation.
