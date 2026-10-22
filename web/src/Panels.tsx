@@ -1,3 +1,6 @@
+import { SPEEDS } from "./simulationClock";
+import "./simulation-pacing.css";
+import type { useSimulationClock } from "./useSimulationClock";
 import { useEffect, useState } from "react";
 import {
   Play,
@@ -484,9 +487,11 @@ export function SimulationPanel({
   setInputs,
   running,
   setRunning,
+  pacing,
+  simBusy,
   onStep,
   onReset,
-  onScenario,
+  onRunScenario,
   error,
   forces,
   onReleaseForces,
@@ -502,9 +507,11 @@ export function SimulationPanel({
   setInputs: (v: Record<string, any>) => void;
   running: boolean;
   setRunning: (v: boolean) => void;
+  pacing: ReturnType<typeof useSimulationClock>;
+  simBusy: boolean;
   onStep: () => void;
   onReset: () => void;
-  onScenario: (h: Scan[]) => void;
+  onRunScenario: (events: unknown, duration: number) => Promise<void>;
   error: string;
   forces: Record<string, number | boolean>;
   onReleaseForces: () => void;
@@ -566,6 +573,13 @@ export function SimulationPanel({
             {history.at(-1)?.time.toFixed(1) || "0.0"} s
           </span>
           <button
+            disabled={
+              !running &&
+              (simBusy ||
+                !!nextClock ||
+                pacing.report?.status === "pausing" ||
+                pacing.report?.status === "fault")
+            }
             onClick={() => setRunning(!running)}
             className={running ? "" : "primary"}
             title={running ? "Pause simulation" : "Run simulation"}
@@ -575,6 +589,7 @@ export function SimulationPanel({
           </button>
           <button
             onClick={onStep}
+            disabled={simBusy || running}
             title="Step simulation"
             aria-label="Step simulation"
           >
@@ -600,6 +615,59 @@ export function SimulationPanel({
           )}
         </div>
       </div>
+      <div
+        className="simulation-pacing"
+        aria-label="Simulation pacing controls"
+      >
+        <label>
+          Requested speed
+          <select
+            aria-label="Requested simulation speed"
+            value={pacing.speed}
+            disabled={running || simBusy || pacing.report?.status === "pausing"}
+            onChange={(e) => {
+              pacing.retire();
+              pacing.setSpeed(Number(e.target.value));
+            }}
+          >
+            {SPEEDS.map((speed) => (
+              <option value={speed} key={speed}>
+                {speed}× real time
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Maximum scans per run
+          <input
+            aria-label="Maximum scans per run"
+            type="number"
+            min="1"
+            max="10000"
+            value={pacing.limit}
+            disabled={running || simBusy || pacing.report?.status === "pausing"}
+            onChange={(e) => {
+              pacing.retire();
+              pacing.setLimit(Number(e.target.value));
+            }}
+          />
+        </label>
+        <span>
+          Fixed scan: {program.scan_seconds} s · at most 100 scans/batch, 86400
+          simulated seconds/run and one active wall hour.
+        </span>
+        <output aria-label="Simulation pacing status" aria-live="polite">
+          {pacing.report
+            ? `${pacing.report.status}: ${pacing.report.completedScans} confirmed committed scans, ${pacing.report.remainingScans} remaining; requested ${pacing.report.requestedSpeed}×, achieved ${pacing.report.achievedSpeed.toFixed(2)}×; lag ${pacing.report.lagSeconds.toFixed(2)} simulated s; ${pacing.report.pendingScans} admitted pending. ${pacing.report.reason}`
+            : "Idle. Run starts a bounded pacing window; Step executes one fixed scan. No hidden-page or workspace-navigation catch-up."}
+        </output>
+        {nextClock && (
+          <small>
+            Apply the explicit UTC clock with Step before running. Monotonic
+            pacing time does not set simulation UTC.
+          </small>
+        )}
+      </div>
       {recordingError && (
         <div className="inline-error">
           Scan completed; history recording failed: {recordingError}
@@ -611,6 +679,7 @@ export function SimulationPanel({
           type="datetime-local"
           aria-label="Next scan UTC clock"
           value={nextClock}
+          disabled={running || simBusy}
           onChange={(e) => setNextClock(e.target.value)}
           step="1"
         />
@@ -702,17 +771,12 @@ export function SimulationPanel({
             />
           </label>
           <button
+            disabled={running || simBusy}
             onClick={async () => {
               try {
-                setRunning(false);
-                const r = await api("/simulation/scenario", {
-                  program,
-                  events: JSON.parse(events),
-                  duration,
-                  forces,
-                });
-                onScenario(r.history);
+                const parsed = JSON.parse(events);
                 setScenarioError("");
+                await onRunScenario(parsed, duration);
               } catch (e) {
                 setScenarioError(String(e));
               }

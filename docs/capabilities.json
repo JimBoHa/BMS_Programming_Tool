@@ -298,5 +298,10 @@
     "feature": "Native state domains and offline enum mapping review",
     "status": "implemented",
     "scope": "Explicit opt-in native binary/multistate labels, polarity, Number_Of_States and bounded indexed State_Text with exact code validation and raw failures. Separate bounded operator-declared namespace/state-ID/code mapping editor reviews missing/duplicate/unknown states, target coverage and explicit many-to-one loss with rationale; probes, strict plan import and sealed exact exports. No label-driven mapping, native/JCI/portable domain binding, executable lowering or controller writes. Broad MF-3fc6a30927 remains partial. docs/native-enum-domains.md"
+  },
+  {
+    "feature": "Paced portable-graph simulation clock",
+    "status": "implemented",
+    "scope": "Explicit requested 1-100x versus achieved rate, unchanged scan timestep, at most 100 scans/batch and one admitted request, finite scan/simulated-time/active-wall budgets, lag pause, explicit run/pause/step and navigation/visibility policy. Exact-source/reset/correlation guards retain confirmed partial commits and distinguish known zero-commit faults from uncertain HTTP outcomes requiring reset. Production API/browser/independent CSV and authored monotonic arithmetic tests; no native CAF/firmware timing, hard real-time or field-I/O claims. See docs/simulation-clock.md."
   }
 ]
