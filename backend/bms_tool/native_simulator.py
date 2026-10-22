@@ -94,6 +94,7 @@ class NativeSimulator:
         self.lock = threading.RLock()
         self.process = None
         self.reference = None
+        self.source_generator = None
         self.password = None
         self.port = None
         self.log = None
@@ -123,6 +124,7 @@ class NativeSimulator:
                 "history": self.history[-200:],
                 "backups": [{"id": b["id"], "generation": b["generation"]} for b in self.backups],
                 "target": "Owned loopback simulation process; no physical I/O",
+                "source_generator": self.source_generator,
             }
 
     def stop(self):
@@ -158,7 +160,7 @@ class NativeSimulator:
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as reserve:
                 reserve.bind(("127.0.0.1", 0))
                 port = reserve.getsockname()[1]
-            compile_program(program, folder, auth=("sim", password), port=port)
+            build = compile_program(program, folder, auth=("sim", password), port=port)
             self.stop()
             self.folder = folder.resolve()
             self.log = (self.folder / "svm.log").open("w")
@@ -169,6 +171,7 @@ class NativeSimulator:
                 stderr=subprocess.STDOUT,
             )
             self.password, self.port, self.reference = password, port, candidate
+            self.source_generator = build["source_generator"]
             self.history = []
             self.generation += 1
             try:
@@ -182,7 +185,11 @@ class NativeSimulator:
             if record:
                 self.store.record(
                     "native.simulator.start",
-                    {"program": program.digest(), "transport": "sox-loopback"},
+                    {
+                        "program": program.digest(),
+                        "transport": "sox-loopback",
+                        "source_generator": self.source_generator,
+                    },
                 )
             return self.status()
 
@@ -306,6 +313,7 @@ class NativeSimulator:
                 "successful_scans": values["successfulScans"],
                 "matches_reference": bool(matches),
                 "execution": "compiled Sedona SCode via native SVM",
+                "source_generator": self.source_generator,
             }
             self.history.append(row)
             self.history = self.history[-1000:]

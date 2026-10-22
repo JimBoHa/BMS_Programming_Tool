@@ -318,6 +318,17 @@ export function NativeSimulator({
               <small>
                 {status.running ? status.address : "Simulator stopped"}
               </small>
+              {status.source_generator && (
+                <>
+                  <small>
+                    Literal profile: <code>{status.source_generator.id}</code>
+                  </small>
+                  <details>
+                    <summary>Literal rules SHA-256</summary>
+                    <code>{status.source_generator.rules_sha256}</code>
+                  </details>
+                </>
+              )}
             </div>
             <button
               className="primary"

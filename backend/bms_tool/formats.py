@@ -14,6 +14,14 @@ from .blocks import BLOCKS
 from .engine import execution_order, output_type, validate
 from .executable_numbers import require_number
 from .models import Program, canonical
+from .source_profiles import (
+    CURRENT,
+    LEGACY,
+    read_source_document,
+    source_document,
+    source_profile,
+    verify_source_profile,
+)
 from .temperature import DELTA_FOR_ABSOLUTE, difference_expression
 
 PLC = "http://www.plcopen.org/xml/tc6_0201"
@@ -35,7 +43,8 @@ def _check(program):
         raise ConversionError("; ".join(errors))
 
 
-def _literal(v):
+def _literal(v, *, profile=CURRENT):
+    source_profile(profile)
     if type(v) is bool:
         return "TRUE" if v else "FALSE"
     try:
@@ -48,7 +57,7 @@ def _literal(v):
         raise ConversionError("Literal exceeds the IEC REAL 32-bit range.") from exc
     if v != 0 and encoded == 0:
         raise ConversionError("Literal underflows the IEC REAL 32-bit range.")
-    s = format(v, ".15g")
+    s = format(v, ".15g") if profile == LEGACY else repr(v) if type(v) is float else str(v)
     # IEC real literals require a fractional part, including in scientific
     # notation. Python's 1e+30 is rejected by independent IEC compilers.
     mantissa, separator, exponent = s.lower().partition("e")
@@ -57,11 +66,16 @@ def _literal(v):
     return mantissa + ("E" + exponent if separator else "")
 
 
-def structured_text_parts(program):
+def structured_text_parts(program, *, profile=CURRENT):
     from .macros import expand_macros
 
     program = expand_macros(program)
     _check(program)
+    source_profile(profile)
+
+    def literal(value):
+        return _literal(value, profile=profile)
+
     nodes = {n.id: n for n in program.nodes}
     links = {(e.target, e.target_port): e.source for e in program.edges}
     # Prefix every name; preserve a reversible map without colliding with IEC keywords.
@@ -70,7 +84,7 @@ def structured_text_parts(program):
         raise ConversionError("Node identifiers collide under case-insensitive IEC naming.")
     declarations = {"inputVars": [], "outputVars": [], "localVars": []}
     declarations["inputVars"] += [
-        ("StudioScanSeconds", "REAL", _literal(program.scan_seconds)),
+        ("StudioScanSeconds", "REAL", literal(program.scan_seconds)),
         ("StudioDayOfWeek", "INT", "0"),
         ("StudioMinuteOfDay", "INT", "0"),
     ]
@@ -84,7 +98,7 @@ def structured_text_parts(program):
             else "localVars"
         )
         initial = (
-            _literal(n.params.get("default", False if output_type(n) == "boolean" else 0))
+            literal(n.params.get("default", False if output_type(n) == "boolean" else 0))
             if n.kind == "Input"
             else None
         )
@@ -144,7 +158,7 @@ def structured_text_parts(program):
             return names[links[(current_node, port)]]
 
         def lit(key, parameters=p):
-            return _literal(parameters[key])
+            return literal(parameters[key])
 
         expression = None
         if k == "Input":
@@ -299,8 +313,8 @@ def structured_text_parts(program):
     return declarations, "\n".join(lines)
 
 
-def export_st(program, embedded=True):
-    declarations, body = structured_text_parts(program)
+def export_st(program, embedded=True, *, profile=CURRENT):
+    declarations, body = structured_text_parts(program, profile=profile)
     text = "PROGRAM MAIN\n"
     for category, keyword in [
         ("inputVars", "VAR_INPUT"),
@@ -313,12 +327,15 @@ def export_st(program, embedded=True):
         text += "END_VAR\n"
     text += body + "\nEND_PROGRAM\n"
     if embedded:
-        text += "(* BMS_STUDIO_IR_V1 " + base64.b64encode(canonical(program)).decode() + " *)\n"
+        marker, document = (
+            ("V1", canonical(program)) if profile == LEGACY else ("V2", source_document(program))
+        )
+        text += "(* BMS_STUDIO_IR_" + marker + " " + base64.b64encode(document).decode() + " *)\n"
     return text.encode()
 
 
-def export_plcopen(program):
-    declarations, body = structured_text_parts(program)
+def export_plcopen(program, *, profile=CURRENT):
+    declarations, body = structured_text_parts(program, profile=profile)
     XML.register_namespace("", PLC)
     XML.register_namespace("xhtml", XHTML)
     XML.register_namespace("bms", BMS)
@@ -363,6 +380,10 @@ def export_plcopen(program):
         {"sha256": hashlib.sha256(canonical(program)).hexdigest()},
     )
     ir.text = base64.b64encode(canonical(program)).decode()
+    if profile != LEGACY:
+        info = source_profile(profile)
+        ir.set("sourceProfile", info["id"])
+        ir.set("sourceProfileRules", info["rules_sha256"])
     return XML.tostring(root, encoding="utf-8", xml_declaration=True)
 
 
@@ -451,13 +472,22 @@ def import_program(content, filename):
     if name.endswith(".json"):
         return Program.model_validate_json(content)
     if name.endswith(".st"):
-        match = re.search(rb"\(\* BMS_STUDIO_IR_V1 ([A-Za-z0-9+/=]+) \*\)", content)
-        if not match:
+        markers = re.findall(rb"\(\* BMS_STUDIO_IR_V([A-Za-z0-9]+) ([A-Za-z0-9+/=]+) \*\)", content)
+        if len(markers) != 1:
             raise ConversionError(
-                "ST import currently supports BMS Studio generated files, not arbitrary IEC source."
+                "ST import requires one supported Studio source-profile marker, not arbitrary IEC source."
             )
-        program = Program.model_validate_json(base64.b64decode(match.group(1), validate=True))
-        if _archival_st(program) != content:
+        version, encoded = markers[0]
+        raw = base64.b64decode(encoded, validate=True)
+        if version == b"1":
+            program = Program.model_validate_json(raw)
+            expected = _archival_st(program)
+        elif version == b"2":
+            program = read_source_document(raw)
+            expected = export_st(program)
+        else:
+            raise ConversionError("Unknown ST source-generator profile marker.")
+        if expected != content:
             raise ConversionError(
                 "ST source was edited outside Studio. Embedded graph no longer matches; import refused."
             )
@@ -471,7 +501,18 @@ def import_program(content, filename):
                     "PLCopen import currently supports Studio-generated projects with graph metadata. Arbitrary vendor PLCopen requires a schema/semantic adapter."
                 )
             program = Program.model_validate_json(base64.b64decode(ir.text or "", validate=True))
-            if _archival_plcopen(program) != content:
+            if set(ir.attrib) == {"sha256"}:
+                expected = _archival_plcopen(program)
+            elif set(ir.attrib) == {"sha256", "sourceProfile", "sourceProfileRules"}:
+                verify_source_profile(
+                    {"id": ir.get("sourceProfile"), "rules_sha256": ir.get("sourceProfileRules")}
+                )
+                expected = export_plcopen(program)
+            else:
+                raise ConversionError(
+                    "Unknown or conflicting PLCopen source-generator profile markers."
+                )
+            if expected != content:
                 raise ConversionError(
                     "PLCopen source or metadata differs from the embedded graph; import refused."
                 )
@@ -501,7 +542,7 @@ def _archival_st(program):
     from .executable_numbers import _legacy_source_projection
 
     projected = _legacy_source_projection(program)
-    return export_st(projected, embedded=False) + (
+    return export_st(projected, embedded=False, profile=LEGACY) + (
         b"(* BMS_STUDIO_IR_V1 " + base64.b64encode(canonical(program)) + b" *)\n"
     )
 
@@ -509,7 +550,7 @@ def _archival_st(program):
 def _archival_plcopen(program):
     from .executable_numbers import _legacy_source_projection
 
-    root = XML.fromstring(export_plcopen(_legacy_source_projection(program)))
+    root = XML.fromstring(export_plcopen(_legacy_source_projection(program), profile=LEGACY))
     embedded = root.find(".//{" + BMS + "}program")
     embedded.text = base64.b64encode(canonical(program)).decode()
     embedded.set("sha256", hashlib.sha256(canonical(program)).hexdigest())

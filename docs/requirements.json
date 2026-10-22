@@ -799,5 +799,14 @@
     "pdf_pages_or_section": "docs/executable-number-guards.md",
     "status": "implemented",
     "implementation_or_gap": "executable_numbers.require_number; Engine admission/live/computed values; ST/Niagara/native IEC/Sedona boundaries; actual API and native exchange-admission tests. Float arithmetic and target precision differences remain explicit."
+  },
+  {
+    "id": "GEN-001",
+    "feature": "Versioned numeric literal source profiles",
+    "acceptance_criterion": "Generate roundtrip literal text with explicit immutable profile/rules identity while preserving exact legacy source regeneration and rejecting ambiguous/unknown profiles.",
+    "evidence": "Studio source-regeneration contract and independent native midpoint experiment",
+    "pdf_pages_or_section": "docs/source-literal-profiles.md",
+    "status": "implemented",
+    "implementation_or_gap": "ST IR_V2, PLCopen profile attributes, Sedona schema2/profile-bound kit IDs; legacy import-only regeneration retained. Source/native/UI provenance and local native midpoint verification; physical acceptance remains separate."
   }
 ]

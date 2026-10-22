@@ -1,0 +1,10 @@
+{
+  "generator_source_commit": "1c73e381a0f94e038753d12863e9b8a33e40a91c",
+  "program_sha256": "d30eda80b4f3e6a3af6b04cbbccc790fff52f5a19eac7cf2281d39de7d1179d4",
+  "fixture_sha256": {
+    "legacy.st": "00266287d6e1ff0a61826d75a0b154388b45973ea29030a4fafc1997cc41131e",
+    "legacy.xml": "38a71c86554230a32c87e1d3733988b2f7a68dbd0fe51792d98326200e2ccd5c",
+    "legacy.sedona.zip": "ec348ad190b0c5db6150318d0e902733087b17c4cea2f15e39b140e6283000ac"
+  },
+  "scope": "Synthetic legacy safe float source generated with exact published backend. Sedona binary members are authored opaque placeholders; never compiled, loaded or executed."
+}
