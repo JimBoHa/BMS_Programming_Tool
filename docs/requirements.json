@@ -717,7 +717,7 @@
     "evidence": "SCT System Configuration Tool Help 19.0 LIT-12011964; DOC-a8bd468067d4",
     "pdf_pages_or_section": "328-329",
     "status": "partial",
-    "implementation_or_gap": "COMM-SCHED-001 inventories standard native objects; COMM-SCHED-002 retains sealed original captures and reviews strict offline weekly-day drafts. Native editing/transfer, SCT archive integration and physical acceptance remain pending."
+    "implementation_or_gap": "COMM-SCHED-001 inventories standard native objects; COMM-SCHED-002 retains sealed source and strict offline weekly-day drafts; COMM-SCHED-003 adds a guarded existing-day write backend with durable uncertainty/readback evidence. Browser Apply integration, broader native edits, SCT archive integration and physical acceptance remain pending."
   },
   {
     "id": "MF-3964cbd0c0",
@@ -735,7 +735,7 @@
     "evidence": "Controller Tool Help 18.0 LIT-12011147; DOC-68935362c85c",
     "pdf_pages_or_section": "230-233;239-240;254",
     "status": "partial",
-    "implementation_or_gap": "COMM-SCHED-001 reads native values, references, priority and raw clocks; COMM-SCHED-002 preserves original evidence and authors typed offline weekly-day encoding reviews. Native transfer, Calendar/exception authoring, cleanup/timezone settings and controller acceptance remain pending. Portable simulation stays separate."
+    "implementation_or_gap": "COMM-SCHED-001 reads native values/references/priority/clocks; COMM-SCHED-002 preserves source and typed offline weekly-day proof; COMM-SCHED-003 adds a single-attempt existing-day write backend and explicit read-only reconciliation. Browser Apply integration, Calendar/exception/context authoring, cleanup/timezone settings, native CAF integration and controller acceptance remain pending. Portable simulation stays separate."
   },
   {
     "id": "MF-8f42fc2004",
@@ -889,5 +889,14 @@
     "pdf_pages_or_section": "docs/browser-history-identities.md; Alarm delivery and Trends & alarms",
     "status": "implemented",
     "implementation_or_gap": "Canonical decimal whole-ID text uses BigInt before Number; received numeric IDs require Number.isSafeInteger and positive bounds, with zero only for cursors. Unsupported pages clear row actions/cursors, safe filters remain usable, and each download/retry/discard/prune/ack/events/paging boundary rechecks IDs. Original delivery Blob downloads preserve nested payload values. Browser profile stops at MAX_SAFE_INTEGER; no full 64-bit browser protocol, backend history/native evidence changes or field traffic."
+  },
+  {
+    "id": "COMM-SCHED-003",
+    "feature": "Guarded native weekly-day write backend",
+    "acceptance_criterion": "Replace one existing native Schedule weekly day through an exact source-qualified one-use preview, single-attempt guarded dispatch, durable intent and independent bounded readback/reconciliation.",
+    "evidence": "Controller Tool Help18.0 LIT-12011147 SHA68935362c85c; SCT19 LIT-12011964; pinned BACpypes3 0.0.110 APDU/ClientSSM source; independent literal direct/routed UDP peers",
+    "pdf_pages_or_section": "CCT235-236/247-248; SCT328-329; docs/native-weekly-day-write.md",
+    "status": "implemented",
+    "implementation_or_gap": "Backend/API only: exact native draft/source and fresh static-tag guards, pinned interface/raw service15 response proof, one unsegmented send/no priority/no retries, bounded durable journal and original sealed receipt bytes, explicit read-only reconciliation. Postdispatch Error/Reject/Abort remain may_have_applied; protocol and readback are separate. Browser Apply integration, physical controller acceptance, Calendar/exception/context/target writes, CAS/rollback, segmentation/BBMD/serial writes and native CAF compilation remain outside this profile."
   }
 ]
