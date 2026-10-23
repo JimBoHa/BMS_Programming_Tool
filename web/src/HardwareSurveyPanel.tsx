@@ -3,6 +3,7 @@ import { Download, FileSearch, RefreshCw, Search, Upload } from "lucide-react";
 import { api, saveBlob } from "./api";
 import "./hardware-survey.css";
 import { SensorSupplyPanel } from "./SensorSupplyPanel";
+import { PhysicalCapacityPanel } from "./PhysicalCapacityPanel";
 
 type RecordValue = Record<string, any>;
 type Target = {
@@ -1850,6 +1851,38 @@ export function HardwareSurveyPanel({
             </details>
           </section>
         )}
+        <PhysicalCapacityPanel
+          survey={
+            report?.content_sha256
+              ? {
+                  id: report.id,
+                  content_sha256: report.content_sha256,
+                  models: [
+                    ...(typeof report.identity?.model === "string"
+                      ? [
+                          {
+                            host: "base" as const,
+                            model: report.identity.model,
+                          },
+                        ]
+                      : []),
+                    ...(report.modules || [])
+                      .filter(
+                        (module) =>
+                          module.host === "sa" &&
+                          Number.isInteger(module.sa_mac) &&
+                          typeof module.configured_model === "string",
+                      )
+                      .map((module) => ({
+                        host: "sa" as const,
+                        sa_mac: module.sa_mac,
+                        model: module.configured_model,
+                      })),
+                  ],
+                }
+              : null
+          }
+        />
         <details className="hardware-supply-planner">
           <summary>Sensor power supply budget</summary>
           <SensorSupplyPanel
