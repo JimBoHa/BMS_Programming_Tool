@@ -36,6 +36,10 @@ from .hardware_survey import (
     validate_report,
 )
 from .hardware_target import HardwareTargetRequest, serial_identity
+from .model_transport import ModelQualification, ModelReviewRequest
+from .model_transport import catalog as model_transport_catalog
+from .model_transport import observe as observe_model_transport
+from .model_transport import review as review_model_transport
 from .models import StrictModel
 
 MAX_DOCUMENT = 8 * 1024 * 1024
@@ -104,6 +108,10 @@ class CaptureArchiveRequest(StrictModel):
 class ReadArchiveRequest(StrictModel):
     report_id: str
     file_object: str | None = Field(default=None, max_length=80)
+
+
+class WorkbenchSurveyRequest(HardwareSurveyRequest):
+    model_qualification: ModelQualification | None = None
 
 
 class RelocationRequest(StrictModel):
@@ -381,8 +389,12 @@ class HardwareWorkbench:
             raise ValueError("A hardware read is already active. Finish or cancel it first.")
         if len(self.jobs) >= MAX_JOBS:
             raise ValueError("Hardware read history is full; remove a finished job first.")
+        model_admission = None
         if kind == "survey":
-            options = HardwareSurveyRequest.model_validate(body)
+            qualified = WorkbenchSurveyRequest.model_validate(body)
+            options = HardwareSurveyRequest.model_validate(
+                qualified.model_dump(exclude={"model_qualification"})
+            )
             if options.transport == "direct-mstp":
                 serial_identity(self.bacnet.config, options)
             elif (self.bacnet.config or {}).get("transport") == "mstp":
@@ -390,6 +402,21 @@ class HardwareWorkbench:
                     "Select direct-mstp explicitly for a hardware survey over the open serial interface."
                 )
             body = options.model_dump()
+            if qualified.model_qualification is not None:
+                model_admission = review_model_transport(
+                    qualified.model_qualification,
+                    {
+                        key: body[key]
+                        for key in ("transport", "address", "device", "router", "dnet")
+                    },
+                    self.bacnet.config,
+                    connected=True,  # require() above admitted the existing local interface.
+                )
+                if not model_admission["dispatch_admitted"]:
+                    raise ValueError(
+                        "Model-qualified target is not admitted: "
+                        + ", ".join(item["code"] for item in model_admission["findings"])
+                    )
         elif kind == "archive-read":
             report = self.report(body["report_id"])
             target = HardwareTargetRequest.model_validate(report["target"])
@@ -420,6 +447,8 @@ class HardwareWorkbench:
             if kind == "survey"
             else copy.deepcopy(report["target"]),
         }
+        if model_admission is not None:
+            job["model_transport_admission"] = model_admission
         self._write("job", key, job)
         self.jobs[key] = job
         self.tasks[key] = asyncio.create_task(self._run(key, kind, body))
@@ -431,6 +460,10 @@ class HardwareWorkbench:
 
         def progress(report):
             job["report"] = copy.deepcopy(report)
+            if "model_transport_admission" in job:
+                job["model_transport_observation"] = observe_model_transport(
+                    job["model_transport_admission"], report
+                )
             inventory = report.get("inventory", {})
             job["progress"] = {
                 "objects_read": inventory.get("read", 0),
@@ -440,9 +473,24 @@ class HardwareWorkbench:
 
         try:
             if kind == "survey":
+                admission = job.get("model_transport_admission")
+                if admission is not None:
+                    self.bacnet.require()
+                    current = review_model_transport(
+                        admission["declaration"],
+                        admission["target"],
+                        self.bacnet.config,
+                        connected=True,
+                    )
+                    if current != admission:
+                        raise ValueError(
+                            "Model-qualified target/interface changed before the read; review a fresh target explicitly."
+                        )
                 result = await self.surveys.survey(
                     body, progress=progress, expected_config=job["connector_config"]
                 )
+                if admission is not None:
+                    job["model_transport_observation"] = observe_model_transport(admission, result)
                 saved = self.save_report(result, origin="live-read")
                 job.update(
                     report=saved,
@@ -878,8 +926,21 @@ def hardware_router(workbench):
         return workbench.status()
 
     @router.post("/survey")
-    async def survey(body: HardwareSurveyRequest):
+    async def survey(body: WorkbenchSurveyRequest):
         return workbench.start("survey", body.model_dump())
+
+    @router.get("/model-transport/profile")
+    async def model_transport_profile():
+        return model_transport_catalog()
+
+    @router.post("/model-transport/review")
+    async def model_transport_review(body: ModelReviewRequest):
+        return review_model_transport(
+            body.qualification,
+            body.target,
+            workbench.bacnet.config,
+            connected=workbench.bacnet.status()["connected"],
+        )
 
     @router.get("/jobs/{key}")
     async def job(key: str):

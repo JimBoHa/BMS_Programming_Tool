@@ -4,6 +4,11 @@ import { api, saveBlob } from "./api";
 import "./hardware-survey.css";
 import { SensorSupplyPanel } from "./SensorSupplyPanel";
 import { PhysicalCapacityPanel } from "./PhysicalCapacityPanel";
+import {
+  ModelTransportJobEvidence,
+  ModelTransportPanel,
+} from "./ModelTransportPanel";
+import type { Qualification } from "./modelTransportContract";
 
 type RecordValue = Record<string, any>;
 type Target = {
@@ -235,6 +240,10 @@ export function HardwareSurveyPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [outcome, setOutcome] = useState("");
+  const [qualifyModel, setQualifyModel] = useState(false);
+  const [qualification, setQualification] = useState<Qualification | null>(
+    null,
+  );
   const mounted = useRef(false);
   const epoch = useRef(0);
   const refreshEpoch = useRef(0);
@@ -258,6 +267,11 @@ export function HardwareSurveyPanel({
   useEffect(() => {
     invalidate();
   }, [connected]);
+  // Retire optional admission while preserving historical generic reports and
+  // their existing archive/interface mismatch evidence.
+  useEffect(() => {
+    setQualification(null);
+  }, [JSON.stringify(interfaceConfig ?? null)]);
   useEffect(() => {
     invalidate();
     setTransport(defaultTransport);
@@ -310,6 +324,7 @@ export function HardwareSurveyPanel({
     setError("");
     setOutcome("");
     setHost("all");
+    setQualification(null);
   }
   function edit(change: () => void) {
     invalidate();
@@ -406,6 +421,7 @@ export function HardwareSurveyPanel({
   }
   async function survey() {
     if (busy || polling || !connected) return;
+    if (qualifyModel && !qualification) return;
     const generation = ++epoch.current;
     setBusy(true);
     setError("");
@@ -462,6 +478,7 @@ export function HardwareSurveyPanel({
         max_inputs: integer(inputLimit, "Input limit", 1, 1024),
         timeout_seconds: integer(deadline, "Survey deadline", 1, 180),
         property_timeout: 1.5,
+        ...(qualifyModel ? { model_qualification: qualification } : {}),
       });
       await observe(next, generation);
     } catch (e) {
@@ -918,6 +935,30 @@ export function HardwareSurveyPanel({
             />
           </label>
         </div>
+        <label className="hardware-checkbox">
+          <input
+            type="checkbox"
+            checked={qualifyModel}
+            onChange={(e) => edit(() => setQualifyModel(e.target.checked))}
+          />
+          Qualify this hardware read by exact model and protocol
+        </label>
+        {qualifyModel && (
+          <ModelTransportPanel
+            context={{
+              connected,
+              config: interfaceConfig ?? null,
+              target: {
+                transport,
+                address: address.trim(),
+                device: device.trim(),
+                router: router.trim() || null,
+                dnet: dnet.trim() ? Number(dnet) : null,
+              },
+            }}
+            onAdmit={setQualification}
+          />
+        )}
         <details>
           <summary>Survey read limits</summary>
           <div className="form-grid hardware-limit-grid">
@@ -963,7 +1004,9 @@ export function HardwareSurveyPanel({
         <div className="button-row">
           <button
             className="primary"
-            disabled={!connected || disabled}
+            disabled={
+              !connected || disabled || (qualifyModel && !qualification)
+            }
             onClick={survey}
           >
             <Search size={14} /> Survey controller inputs
@@ -986,6 +1029,7 @@ export function HardwareSurveyPanel({
               <p>{sourceLabel(job.target, job.connector_config)}</p>
             )}
             {job.progress != null && <pre>{text(job.progress)}</pre>}
+            <ModelTransportJobEvidence job={job} />
             <button disabled={busy} onClick={refreshJobProgress}>
               Refresh hardware job progress
             </button>
