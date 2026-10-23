@@ -448,5 +448,10 @@
     "feature": "Versioned private IEC compiler symbol allocation",
     "status": "implemented",
     "scope": "IEC-SYMBOL-001 allocates deterministic typed private value/quality/stage/state/calendar roles and shares them with the native host while preserving original graph identifiers and source identity. New ST V3 and symbol-qualified PLCopen coexist with strict exact legacy V1/V2/numeric/Sedona regeneration. Web conversion and native verifier show separate symbol provenance; read-only mapping and original compilation/trace response downloads retain complete evidence. No identifier-schema widening, arbitrary vendor IEC import, native JCI compilation/download or physical deployment. See docs/iec-symbol-namespace.md."
+  },
+  {
+    "feature": "Authored occupied Unit Ventilator Cycle III composer",
+    "status": "implemented",
+    "scope": "UV-C3-001 creates an editable ordinary graph for an occupied single-speed fan, separate proportional hydronic zone coils and cold-outdoor mixed-air damper action. Explicit condensate policy, stable proof/bounded startup/latch reset, independent zone and MAT PI loops with a zone-limited damper floor;13 logical inputs/29 outputs. Source-bound preview/import/export, coupled temperature values/differences/gains, simulation/revisions and typed signed-zero request/source preservation. Bad quality retains the whole prior transaction; good invalid values inhibit commands. No native v51 equivalence, actual airflow/physical protection/ventilation, other UV cycles, native JCI allocation/CAF/compiler/transfer or compliance acceptance. Broad MF-069429184f remains partial. See docs/unit-ventilator-cycle3-wizard.md."
   }
 ]
