@@ -373,5 +373,10 @@
     "feature": "Native property dispatch diagnostics",
     "status": "implemented",
     "scope": "Shared source-pinned read receipts retain guarded native handoff and completion timing, existing budget, receive-candidate and source-filter rejection facts. No added traffic, retries, timer policy change, socket transmit proof or inferred device processing latency. Incomplete context stays ineligible. See docs/property-dispatch-diagnostics.md."
+  },
+  {
+    "feature": "Source-bound distributed plant signal engineering",
+    "status": "implemented",
+    "scope": "Offline explicit host/subsystem/role/terminal declarations and exact immutable portable Program sources, bounded I/O/network review with type/unit/single-writer/fanout/collision diagnostics, original server JSON/CSV and durable sealed capture import/reopen. No inferred label matching, terminal capacity/aliases/native allocation, controller identity, supervisory deployment, simulation, field traffic or JCI/G36 physical acceptance. Broad MF-3aba872151 remains partial. See docs/distributed-plant-signals.md."
   }
 ]
