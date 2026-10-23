@@ -26,6 +26,7 @@ from pydantic import Field
 
 from .blocks import BLOCKS
 from .models import Edge, Node, Program, StrictModel, Target
+from .models import canonical as canonical_program
 
 _MAX_DEFINITIONS = 64
 _MAX_DEFINITION_NODES = 4000
@@ -619,7 +620,10 @@ def import_macro_library(program: Program, bundle: dict) -> Program:
     definitions = _load_library(program)
     _validate_definitions(definitions)
     for identifier, item in imported.items():
-        if identifier in definitions and definitions[identifier] != item:
+        if identifier in definitions and (
+            definitions[identifier].name != item.name
+            or canonical_program(definitions[identifier].program) != canonical_program(item.program)
+        ):
             raise ValueError(
                 f"Macro definition identifier conflict: {identifier}; existing definitions were retained"
             )
