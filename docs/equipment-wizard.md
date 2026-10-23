@@ -4,6 +4,8 @@ The editor's **Equipment wizard** creates a separate, uniquely identified portab
 
 Choose cooling only, inline modulating hot-water reheat without a fan, parallel-fan hot-water reheat, the separately profiled [portable dual-duct option](dual-duct-wizard.md), or the [portable fan-coil foundation](fan-coil-wizard.md). Select a declared portable/FX/Metasys target and optional model, firmware and CAF release-mode labels. These labels do not establish native compatibility, installed packages, physical terminals or controller capacity.
 
+The same authoring dialog also provides separately profiled [single-compressor heat-pump sequencing](heat-pump-wizard.md) and [weekly zone-group occupancy composition](zone-group-schedules.md). Their choices, timing/calendar assumptions and remaining native deployment gaps are documented in those profiles.
+
 ## Strategies and parameters
 
 - **Damper-position demand mapping:** zone P/PI cooling demand maps to declared minimum/maximum damper position percentages. Those percentages are not measured airflow or design ventilation. No airflow sensor or flow loop is generated. The older static template's misleading `Minimum airflow` label is now `Damper position mapping`; existing saved projects and its numeric behavior are unchanged.
