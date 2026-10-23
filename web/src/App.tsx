@@ -67,6 +67,9 @@ import { persistDraftRecovery } from "./draftRecovery";
 import {
   sessionFromReceipt,
   retireSimulationSession,
+  pendingSimulationCleanup,
+  rememberSimulationCleanup,
+  finishSimulationCleanup,
   type SimulationSession,
 } from "./simulationSessions";
 import { SelectionPanel } from "./SelectionPanel";
@@ -284,6 +287,7 @@ export function App() {
     new Map<string, { handle: SimulationSession; error: string }>(),
   );
   const retired = useRef(new Set<string>());
+  const cleanupRestored = useRef(false);
   const simulationMounted = useRef(false);
   const [cleanupStatus, setCleanupStatus] = useState({
     pending: 0,
@@ -304,7 +308,19 @@ export function App() {
       });
   }
   function cleanupBlocked() {
-    return retirePending.current.size > 0 || retireFailed.current.size > 0;
+    return (
+      !cleanupRestored.current ||
+      retirePending.current.size > 0 ||
+      retireFailed.current.size > 0
+    );
+  }
+  function cleanupStorageFailure(error: unknown) {
+    if (simulationMounted.current)
+      setCacheStatus(
+        "Local cleanup recovery could not be retained or verified: " +
+          String(error).slice(0, 500) +
+          ". Known cleanup is still attempted; unknown sessions are never guessed or removed.",
+      );
   }
   function retireOwnedSimulation(
     handle: SimulationSession,
@@ -316,9 +332,21 @@ export function App() {
     if (retireFailed.current.has(handle.session) && !explicitRetry)
       return Promise.resolve();
     retireFailed.current.delete(handle.session);
+    // Persist the already-requested deletion before its first asynchronous
+    // handoff. A document can disappear before keepalive receives its reply.
+    try {
+      rememberSimulationCleanup(handle);
+    } catch (error) {
+      cleanupStorageFailure(error);
+    }
     const pending = (async () => {
       try {
         await retireSimulationSession(handle);
+        try {
+          finishSimulationCleanup(handle);
+        } catch (error) {
+          cleanupStorageFailure(error);
+        }
         retired.current.add(handle.session);
         if (retired.current.size > 128)
           retired.current.delete(retired.current.values().next().value!);
@@ -383,6 +411,19 @@ export function App() {
       window.removeEventListener("pagehide", pagehide);
     };
   }, []);
+  useEffect(() => {
+    if (!ready || cleanupRestored.current) return;
+    cleanupRestored.current = true;
+    try {
+      // One local idempotent retirement attempt per saved deletion intent on
+      // this authenticated document. Failure still requires explicit Retry.
+      for (const handle of pendingSimulationCleanup())
+        void retireOwnedSimulation(handle);
+    } catch (error) {
+      cleanupStorageFailure(error);
+    }
+    publishCleanup();
+  }, [ready]);
   const flow = useReactFlow();
   const specs = [...blocks, ...macroBlocks];
   const specKey = (b: Block) =>
@@ -835,6 +876,7 @@ export function App() {
     active: tab === "editor",
     scanSeconds: program.scan_seconds,
     blocked:
+      !cleanupRestored.current ||
       simBusy ||
       simUncertain ||
       cleanupStatus.pending > 0 ||
@@ -1627,6 +1669,7 @@ export function App() {
                       }
                       pacing={pacing}
                       simBusy={
+                        !cleanupRestored.current ||
                         simBusy ||
                         simUncertain ||
                         cleanupStatus.pending > 0 ||
