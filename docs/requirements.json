@@ -1006,5 +1006,23 @@
     "pdf_pages_or_section": "479\u2013483",
     "status": "partial",
     "implementation_or_gap": "FC-001 implements an explicit portable separate-modulating-coil foundation with logical occupied/enable/holdoff/condensate policies and independently tested host execution. Common two-pipe changeover, staged/incremental/three-speed devices, native adaptive tuning, fan proof/physical interlocks, unoccupied setbacks/frost protection, native CAF generation/transfer and manufacturer/hardware acceptance remain unimplemented."
+  },
+  {
+    "id": "SCHED-COORD-001",
+    "feature": "Explicit portable weekly zone-group occupancy composition",
+    "acceptance_criterion": "Generate and inspect original occupied and end-preserving earlier unions per explicit weekly Zone Group, aggregate AHU original occupancy, and preserve source/profile evidence through guarded authoring and simulation.",
+    "evidence": "JCI Guideline36 Sample Archive Application Note15 LIT-12014121 SHA6ba1a3963dc71de99a7a5192a7c1aa61487e0150d3902e34fc5a5bc34dd7e422; authored Studio weekly foundation",
+    "pdf_pages_or_section": "28\u201330; actual schedule table/checklist30; docs/zone-group-schedules.md",
+    "status": "implemented",
+    "implementation_or_gap": "Strict explicit groups/zones/modes, occupied end retained while start expands, cyclic-week union and full-day/empty handling using existing Schedule/Or nodes, separate pre-only and AHU original-occupancy outputs, bounded UTC evaluation, exact profile/choice/Program hashes and server-byte review export. Graph/API/browser and actual host-calendar IEC verification. No exception/countdown/warmup logic, native MV/Global Data associations, CAF/SCT archive generation, physical deployment or complete G36/Title24 acceptance."
+  },
+  {
+    "id": "MF-43cb984ef4",
+    "feature": "G36 schedule integration",
+    "acceptance_criterion": "Associate supported occupancy schedules, supervisory and terminal-unit requests with qualified target/release behavior and verified deployment.",
+    "evidence": "JCI Guideline36 Sample Archive Application Note15 LIT-12014121",
+    "pdf_pages_or_section": "28\u201330",
+    "status": "partial",
+    "implementation_or_gap": "SCHED-COORD-001 implements a separately profiled portable weekly occupancy/pre-start/AHU composition with explicit authored local-wall-clock end-preserving unions. Native Schedule/MV/Global Data mapping, warmup/cooldown/countdown modes, exception policies, SCT archive generation/transfer and manufacturer/physical acceptance remain unimplemented."
   }
 ]
