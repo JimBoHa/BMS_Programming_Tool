@@ -106,6 +106,7 @@ from .routed_discovery import (
     RouterNetworksRequest,
     RouterProbeRequest,
 )
+from .schedule_coordination import schedule_coordination_router
 from .schedule_inventory import (
     ScheduleAction,
     ScheduleExport,
@@ -645,6 +646,7 @@ def create_app(state_dir=None):
     app.include_router(bus_preflight_router())
     app.include_router(conformance_router(conformance))
     app.include_router(wizard_router())
+    app.include_router(schedule_coordination_router())
 
     @app.middleware("http")
     async def local_requests(request, call_next):
