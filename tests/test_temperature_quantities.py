@@ -218,7 +218,7 @@ def test_legacy_temperature_serialization_export_and_stored_hashes_stay_exact(tm
     # New generation is explicitly versioned; both formats retain the graph.
     current_source = export_st(p)
     assert b"BMS_STUDIO_IR_V1 " in legacy_source
-    assert b"BMS_STUDIO_IR_V2 " in current_source
+    assert b"BMS_STUDIO_IR_V3 " in current_source
     assert current_source != legacy_source
     for source in (legacy_source, current_source):
         assert canonical(import_program(source, "temperature.st")) == canonical(p)
