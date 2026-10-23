@@ -77,7 +77,7 @@ test("profile review and actual ST/XML downloads retain source identity", async 
       .toString()
       .trim();
     expect(digest).toBe(sourceHash);
-    if (format === "st") expect(bytes.toString()).toContain("BMS_STUDIO_IR_V2");
+    if (format === "st") expect(bytes.toString()).toContain("BMS_STUDIO_IR_V3");
     else expect(bytes.toString()).toContain(`sourceProfile="${profile}"`);
   }
   await page.screenshot({

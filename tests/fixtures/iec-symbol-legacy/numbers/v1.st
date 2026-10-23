@@ -1,0 +1,41 @@
+PROGRAM MAIN
+VAR_INPUT
+  StudioScanSeconds : REAL := 1.0;
+  StudioDayOfWeek : INT := 0;
+  StudioMinuteOfDay : INT := 0;
+  n_source : REAL := 1.00000005960464;
+  n_source_valid : BOOL := TRUE;
+END_VAR
+VAR_OUTPUT
+  StudioFault : BOOL := FALSE;
+  n_output_value : REAL;
+  n_output_zero : REAL;
+  n_output_large : REAL;
+END_VAR
+VAR
+  n_negative_zero : REAL;
+  n_large_even_integer : REAL;
+  n_output_value_stage : REAL;
+  n_output_zero_stage : REAL;
+  n_output_large_stage : REAL;
+END_VAR
+(* BMS Studio scan. Inputs and clock are supplied by the target runtime. *)
+StudioFault := FALSE;
+IF (StudioScanSeconds <= 0.0) OR (StudioScanSeconds > 60.0) THEN StudioFault := TRUE; RETURN; END_IF;
+IF NOT n_source_valid OR (n_source <> n_source) OR (ABS(n_source) > 3.0E+38) THEN StudioFault := TRUE; RETURN; END_IF;
+n_large_even_integer := 1.15292150460685E+18;
+IF (n_large_even_integer <> n_large_even_integer) OR (ABS(n_large_even_integer) > 3.0E+38) THEN StudioFault := TRUE; RETURN; END_IF;
+n_negative_zero := -0.0;
+IF (n_negative_zero <> n_negative_zero) OR (ABS(n_negative_zero) > 3.0E+38) THEN StudioFault := TRUE; RETURN; END_IF;
+n_output_large_stage := n_large_even_integer;
+IF (n_output_large_stage <> n_output_large_stage) OR (ABS(n_output_large_stage) > 3.0E+38) THEN StudioFault := TRUE; RETURN; END_IF;
+n_output_value_stage := n_source;
+IF (n_output_value_stage <> n_output_value_stage) OR (ABS(n_output_value_stage) > 3.0E+38) THEN StudioFault := TRUE; RETURN; END_IF;
+n_output_zero_stage := n_negative_zero;
+IF (n_output_zero_stage <> n_output_zero_stage) OR (ABS(n_output_zero_stage) > 3.0E+38) THEN StudioFault := TRUE; RETURN; END_IF;
+(* Commit state and outputs only after every block succeeds. *)
+n_output_large := n_output_large_stage;
+n_output_value := n_output_value_stage;
+n_output_zero := n_output_zero_stage;
+END_PROGRAM
+(* BMS_STUDIO_IR_V1 ewogICJkZXNjcmlwdGlvbiI6ICIiLAogICJlZGdlcyI6IFsKICAgIHsKICAgICAgImlkIjogImVkZ2UwIiwKICAgICAgInNvdXJjZSI6ICJzb3VyY2UiLAogICAgICAic291cmNlX3BvcnQiOiAib3V0IiwKICAgICAgInRhcmdldCI6ICJvdXRwdXRfdmFsdWUiLAogICAgICAidGFyZ2V0X3BvcnQiOiAiaW4iCiAgICB9LAogICAgewogICAgICAiaWQiOiAiZWRnZTEiLAogICAgICAic291cmNlIjogIm5lZ2F0aXZlX3plcm8iLAogICAgICAic291cmNlX3BvcnQiOiAib3V0IiwKICAgICAgInRhcmdldCI6ICJvdXRwdXRfemVybyIsCiAgICAgICJ0YXJnZXRfcG9ydCI6ICJpbiIKICAgIH0sCiAgICB7CiAgICAgICJpZCI6ICJlZGdlMiIsCiAgICAgICJzb3VyY2UiOiAibGFyZ2VfZXZlbl9pbnRlZ2VyIiwKICAgICAgInNvdXJjZV9wb3J0IjogIm91dCIsCiAgICAgICJ0YXJnZXQiOiAib3V0cHV0X2xhcmdlIiwKICAgICAgInRhcmdldF9wb3J0IjogImluIgogICAgfQogIF0sCiAgImlkIjogIm51bWJlcnMiLAogICJtZXRhZGF0YSI6IHsKICAgICJvcGFxdWUiOiB7CiAgICAgICJzaWduZWRfemVybyI6IC0wLjAsCiAgICAgICJ2ZW5kb3JfbnVtYmVyIjogMWUrMzAKICAgIH0KICB9LAogICJuYW1lIjogIm51bWJlcnMiLAogICJub2RlcyI6IFsKICAgIHsKICAgICAgImlkIjogInNvdXJjZSIsCiAgICAgICJraW5kIjogIklucHV0IiwKICAgICAgImxhYmVsIjogIiIsCiAgICAgICJwYXJhbXMiOiB7CiAgICAgICAgImRlZmF1bHQiOiAxLjAwMDAwMDA1OTYwNDY0NQogICAgICB9LAogICAgICAidW5pdCI6ICIiLAogICAgICAidmFsdWVfdHlwZSI6ICJudW1iZXIiLAogICAgICAieCI6IDAuMCwKICAgICAgInkiOiAwLjAKICAgIH0sCiAgICB7CiAgICAgICJpZCI6ICJuZWdhdGl2ZV96ZXJvIiwKICAgICAgImtpbmQiOiAiQ29uc3RhbnQiLAogICAgICAibGFiZWwiOiAiIiwKICAgICAgInBhcmFtcyI6IHsKICAgICAgICAidmFsdWUiOiAtMC4wCiAgICAgIH0sCiAgICAgICJ1bml0IjogIiIsCiAgICAgICJ2YWx1ZV90eXBlIjogIm51bWJlciIsCiAgICAgICJ4IjogMC4wLAogICAgICAieSI6IDAuMAogICAgfSwKICAgIHsKICAgICAgImlkIjogImxhcmdlX2V2ZW5faW50ZWdlciIsCiAgICAgICJraW5kIjogIkNvbnN0YW50IiwKICAgICAgImxhYmVsIjogIiIsCiAgICAgICJwYXJhbXMiOiB7CiAgICAgICAgInZhbHVlIjogMTE1MjkyMTUwNDYwNjg0Njk3NgogICAgICB9LAogICAgICAidW5pdCI6ICIiLAogICAgICAidmFsdWVfdHlwZSI6ICJudW1iZXIiLAogICAgICAieCI6IDAuMCwKICAgICAgInkiOiAwLjAKICAgIH0sCiAgICB7CiAgICAgICJpZCI6ICJvdXRwdXRfdmFsdWUiLAogICAgICAia2luZCI6ICJPdXRwdXQiLAogICAgICAibGFiZWwiOiAiIiwKICAgICAgInBhcmFtcyI6IHt9LAogICAgICAidW5pdCI6ICIiLAogICAgICAidmFsdWVfdHlwZSI6ICJudW1iZXIiLAogICAgICAieCI6IDAuMCwKICAgICAgInkiOiAwLjAKICAgIH0sCiAgICB7CiAgICAgICJpZCI6ICJvdXRwdXRfemVybyIsCiAgICAgICJraW5kIjogIk91dHB1dCIsCiAgICAgICJsYWJlbCI6ICIiLAogICAgICAicGFyYW1zIjoge30sCiAgICAgICJ1bml0IjogIiIsCiAgICAgICJ2YWx1ZV90eXBlIjogIm51bWJlciIsCiAgICAgICJ4IjogMC4wLAogICAgICAieSI6IDAuMAogICAgfSwKICAgIHsKICAgICAgImlkIjogIm91dHB1dF9sYXJnZSIsCiAgICAgICJraW5kIjogIk91dHB1dCIsCiAgICAgICJsYWJlbCI6ICIiLAogICAgICAicGFyYW1zIjoge30sCiAgICAgICJ1bml0IjogIiIsCiAgICAgICJ2YWx1ZV90eXBlIjogIm51bWJlciIsCiAgICAgICJ4IjogMC4wLAogICAgICAieSI6IDAuMAogICAgfQogIF0sCiAgInJldmlzaW9uIjogMCwKICAic2Nhbl9zZWNvbmRzIjogMS4wLAogICJzY2hlbWFfdmVyc2lvbiI6IDEsCiAgInRhcmdldCI6IHsKICAgICJmYW1pbHkiOiAidW5pdmVyc2FsLXJ1bnRpbWUiLAogICAgImZpcm13YXJlIjogIiIsCiAgICAibWF4X25vZGVzIjogMjAwMCwKICAgICJtb2RlbCI6ICIiLAogICAgInBoeXNpY2FsX2lucHV0cyI6IG51bGwsCiAgICAicGh5c2ljYWxfb3V0cHV0cyI6IG51bGwsCiAgICAicmVsZWFzZV9tb2RlIjogIiIKICB9Cn0= *)

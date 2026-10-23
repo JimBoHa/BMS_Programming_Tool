@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 from bms_tool.formats import BMS, PLC, XML, _literal, export_plcopen, export_st, import_program
+from bms_tool.iec_symbols import SymbolTable
 from bms_tool.models import canonical
 from bms_tool.sedona import application_xml, import_bundle, kit_name, kit_source
 from bms_tool.source_profiles import CURRENT, LEGACY, source_profile
@@ -132,15 +133,16 @@ def test_frozen_published_safe_legacy_source_reopens_original_midpoint_without_c
 def test_new_st_has_exact_profile_binding_and_edited_source_cannot_fall_back():
     p = passthrough(value=0.12345678901234566, kind="Constant")
     raw = export_st(p)
-    assert b"BMS_STUDIO_IR_V2" in raw and b"BMS_STUDIO_IR_V1" not in raw
+    assert b"BMS_STUDIO_IR_V3" in raw and b"BMS_STUDIO_IR_V2" not in raw
     assert b"0.12345678901234566" in raw
     assert import_program(raw, "new.st").digest() == p.digest()
+    name = SymbolTable(p).role("source").encode()
+    original = name + b" := 0.12345678901234566;"
+    assert raw.count(original) == 1
     with pytest.raises(ValueError, match="edited"):
-        import_program(
-            raw.replace(b"n_source := 0.12345678901234566;", b"n_source := 0.2;"), "edited.st"
-        )
+        import_program(raw.replace(original, name + b" := 0.2;"), "edited.st")
     with pytest.raises(ValueError, match="one supported|Unknown"):
-        import_program(raw.replace(b"BMS_STUDIO_IR_V2", b"BMS_STUDIO_IR_V99"), "unknown.st")
+        import_program(raw.replace(b"BMS_STUDIO_IR_V3", b"BMS_STUDIO_IR_V99"), "unknown.st")
     with pytest.raises(ValueError, match="one supported"):
         import_program(raw + (FIXTURES / "legacy.st").read_bytes(), "duplicate.st")
 
@@ -150,7 +152,7 @@ def test_st_profile_metadata_cannot_be_confused_with_another_generator(change):
     raw = export_st(passthrough(value=1.0, kind="Constant"))
     import re
 
-    encoded = re.search(rb"BMS_STUDIO_IR_V2 ([A-Za-z0-9+/=]+)", raw)[1]
+    encoded = re.search(rb"BMS_STUDIO_IR_V3 ([A-Za-z0-9+/=]+)", raw)[1]
     doc = json.loads(base64.b64decode(encoded))
     if change == "unknown-id":
         doc["source_generator"]["id"] = "unknown/99"
@@ -169,7 +171,7 @@ def test_duplicate_st_profile_document_fields_are_refused_before_program_admissi
     raw = export_st(passthrough(value=1.0, kind="Constant"))
     import re
 
-    encoded = re.search(rb"BMS_STUDIO_IR_V2 ([A-Za-z0-9+/=]+)", raw)[1]
+    encoded = re.search(rb"BMS_STUDIO_IR_V3 ([A-Za-z0-9+/=]+)", raw)[1]
     doc = base64.b64decode(encoded)
     duplicate = b'{"source_generator":{},' + doc[1:]
     with pytest.raises(ValueError, match="Duplicate"):

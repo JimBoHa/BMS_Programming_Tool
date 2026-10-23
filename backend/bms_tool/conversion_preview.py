@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 
 from .engine import validate
 from .formats import export_program, import_program
+from .iec_symbols import symbol_profile
 from .macros import expand_macros
 from .models import Program
 from .source_profiles import source_profile
@@ -151,6 +152,7 @@ def conversion_preview(program: Program):
         }
         if format in ("st", "plcopen"):
             row["source_generator"] = source_profile()
+            row["symbol_generator"] = symbol_profile()
         try:
             content, mime, extension = export_program(program, format)
             if len(content) > MAX_ARTIFACT_BYTES:

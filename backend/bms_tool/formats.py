@@ -13,6 +13,12 @@ from defusedxml import ElementTree as SafeXML
 from .blocks import BLOCKS
 from .engine import execution_order, output_type, validate
 from .executable_numbers import require_number
+from .iec_symbols import CURRENT as SYMBOLS_CURRENT
+from .iec_symbols import LEGACY as SYMBOLS_LEGACY
+from .iec_symbols import SymbolTable, verify_symbol_profile
+from .iec_symbols import read_source_document as read_iec_source_document
+from .iec_symbols import source_document as iec_source_document
+from .iec_symbols import symbol_profile as iec_symbol_profile
 from .models import Program, canonical
 from .source_profiles import (
     CURRENT,
@@ -313,7 +319,7 @@ def structured_text_parts(program, *, profile=CURRENT):
     return declarations, "\n".join(lines)
 
 
-def export_st(program, embedded=True, *, profile=CURRENT):
+def _legacy_export_st(program, embedded=True, *, profile=CURRENT):
     declarations, body = structured_text_parts(program, profile=profile)
     text = "PROGRAM MAIN\n"
     for category, keyword in [
@@ -334,7 +340,7 @@ def export_st(program, embedded=True, *, profile=CURRENT):
     return text.encode()
 
 
-def export_plcopen(program, *, profile=CURRENT):
+def _legacy_export_plcopen(program, *, profile=CURRENT):
     declarations, body = structured_text_parts(program, profile=profile)
     XML.register_namespace("", PLC)
     XML.register_namespace("xhtml", XHTML)
@@ -384,6 +390,72 @@ def export_plcopen(program, *, profile=CURRENT):
         info = source_profile(profile)
         ir.set("sourceProfile", info["id"])
         ir.set("sourceProfileRules", info["rules_sha256"])
+    return XML.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+def iec_source_parts(program):
+    """New IEC policy only; preserve the old expression emitter and Sedona path."""
+    from .macros import expand_macros
+
+    expanded = expand_macros(program)
+    _check(expanded)
+    symbols = SymbolTable(expanded)
+    lowered = symbols.lowered()
+    declarations, body = structured_text_parts(lowered)
+    symbols.verify_declarations(declarations)
+    return declarations, body, symbols
+
+
+def _symbol_policy(profile, symbols):
+    source_profile(profile)
+    selected = (
+        (SYMBOLS_LEGACY if profile == LEGACY else SYMBOLS_CURRENT) if symbols is None else symbols
+    )
+    if selected not in (SYMBOLS_CURRENT, SYMBOLS_LEGACY):
+        raise ConversionError("Unknown IEC symbol-generator profile.")
+    if selected == SYMBOLS_CURRENT and profile != CURRENT:
+        raise ConversionError("Current IEC symbols require the current numeric literal profile.")
+    return selected
+
+
+def export_st(program, embedded=True, *, profile=CURRENT, symbols=None):
+    if _symbol_policy(profile, symbols) == SYMBOLS_LEGACY:
+        return _legacy_export_st(program, embedded=embedded, profile=profile)
+    declarations, body, _ = iec_source_parts(program)
+    text = "PROGRAM MAIN\n"
+    for category, keyword in [
+        ("inputVars", "VAR_INPUT"),
+        ("outputVars", "VAR_OUTPUT"),
+        ("localVars", "VAR"),
+    ]:
+        text += keyword + "\n"
+        for name, kind, initial in declarations[category]:
+            text += f"  {name} : {kind}" + (" := " + initial if initial is not None else "") + ";\n"
+        text += "END_VAR\n"
+    text += body + "\nEND_PROGRAM\n"
+    if embedded:
+        text += (
+            "(* BMS_STUDIO_IR_V3 "
+            + base64.b64encode(iec_source_document(program)).decode()
+            + " *)\n"
+        )
+    return text.encode()
+
+
+def export_plcopen(program, *, profile=CURRENT, symbols=None):
+    if _symbol_policy(profile, symbols) == SYMBOLS_LEGACY:
+        return _legacy_export_plcopen(program, profile=profile)
+    # The original writer emits unchanged control expressions over a private
+    # copy. Only the original graph may be embedded or returned to an editor.
+    _, _, allocation = iec_source_parts(program)
+    root = XML.fromstring(_legacy_export_plcopen(allocation.lowered()))
+    ir = root.find(".//{" + BMS + "}program")
+    raw = canonical(program)
+    ir.text = base64.b64encode(raw).decode()
+    ir.set("sha256", hashlib.sha256(raw).hexdigest())
+    info = iec_symbol_profile()
+    ir.set("iecSymbols", info["id"])
+    ir.set("iecSymbolsRules", info["rules_sha256"])
     return XML.tostring(root, encoding="utf-8", xml_declaration=True)
 
 
@@ -484,6 +556,9 @@ def import_program(content, filename):
             expected = _archival_st(program)
         elif version == b"2":
             program = read_source_document(raw)
+            expected = export_st(program, symbols=SYMBOLS_LEGACY)
+        elif version == b"3":
+            program = read_iec_source_document(raw)
             expected = export_st(program)
         else:
             raise ConversionError("Unknown ST source-generator profile marker.")
@@ -506,6 +581,20 @@ def import_program(content, filename):
             elif set(ir.attrib) == {"sha256", "sourceProfile", "sourceProfileRules"}:
                 verify_source_profile(
                     {"id": ir.get("sourceProfile"), "rules_sha256": ir.get("sourceProfileRules")}
+                )
+                expected = export_plcopen(program, symbols=SYMBOLS_LEGACY)
+            elif set(ir.attrib) == {
+                "sha256",
+                "sourceProfile",
+                "sourceProfileRules",
+                "iecSymbols",
+                "iecSymbolsRules",
+            }:
+                verify_source_profile(
+                    {"id": ir.get("sourceProfile"), "rules_sha256": ir.get("sourceProfileRules")}
+                )
+                verify_symbol_profile(
+                    {"id": ir.get("iecSymbols"), "rules_sha256": ir.get("iecSymbolsRules")}
                 )
                 expected = export_plcopen(program)
             else:
@@ -542,7 +631,7 @@ def _archival_st(program):
     from .executable_numbers import _legacy_source_projection
 
     projected = _legacy_source_projection(program)
-    return export_st(projected, embedded=False, profile=LEGACY) + (
+    return _legacy_export_st(projected, embedded=False, profile=LEGACY) + (
         b"(* BMS_STUDIO_IR_V1 " + base64.b64encode(canonical(program)) + b" *)\n"
     )
 
@@ -550,7 +639,9 @@ def _archival_st(program):
 def _archival_plcopen(program):
     from .executable_numbers import _legacy_source_projection
 
-    root = XML.fromstring(export_plcopen(_legacy_source_projection(program), profile=LEGACY))
+    root = XML.fromstring(
+        _legacy_export_plcopen(_legacy_source_projection(program), profile=LEGACY)
+    )
     embedded = root.find(".//{" + BMS + "}program")
     embedded.text = base64.b64encode(canonical(program)).decode()
     embedded.set("sha256", hashlib.sha256(canonical(program)).hexdigest())

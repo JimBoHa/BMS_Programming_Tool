@@ -1,0 +1,114 @@
+{
+  "description": "",
+  "edges": [
+    {
+      "id": "edge0",
+      "source": "source",
+      "source_port": "out",
+      "target": "output_value",
+      "target_port": "in"
+    },
+    {
+      "id": "edge1",
+      "source": "negative_zero",
+      "source_port": "out",
+      "target": "output_zero",
+      "target_port": "in"
+    },
+    {
+      "id": "edge2",
+      "source": "large_even_integer",
+      "source_port": "out",
+      "target": "output_large",
+      "target_port": "in"
+    }
+  ],
+  "id": "numbers",
+  "metadata": {
+    "opaque": {
+      "signed_zero": -0.0,
+      "vendor_number": 1e+30
+    }
+  },
+  "name": "numbers",
+  "nodes": [
+    {
+      "id": "source",
+      "kind": "Input",
+      "label": "",
+      "params": {
+        "default": 1.000000059604645
+      },
+      "unit": "",
+      "value_type": "number",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": "negative_zero",
+      "kind": "Constant",
+      "label": "",
+      "params": {
+        "value": -0.0
+      },
+      "unit": "",
+      "value_type": "number",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": "large_even_integer",
+      "kind": "Constant",
+      "label": "",
+      "params": {
+        "value": 1152921504606846976
+      },
+      "unit": "",
+      "value_type": "number",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": "output_value",
+      "kind": "Output",
+      "label": "",
+      "params": {},
+      "unit": "",
+      "value_type": "number",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": "output_zero",
+      "kind": "Output",
+      "label": "",
+      "params": {},
+      "unit": "",
+      "value_type": "number",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": "output_large",
+      "kind": "Output",
+      "label": "",
+      "params": {},
+      "unit": "",
+      "value_type": "number",
+      "x": 0.0,
+      "y": 0.0
+    }
+  ],
+  "revision": 0,
+  "scan_seconds": 1.0,
+  "schema_version": 1,
+  "target": {
+    "family": "universal-runtime",
+    "firmware": "",
+    "max_nodes": 2000,
+    "model": "",
+    "physical_inputs": null,
+    "physical_outputs": null,
+    "release_mode": ""
+  }
+}

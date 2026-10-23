@@ -438,5 +438,10 @@
     "feature": "Optional exact-model controller transport admission",
     "status": "implemented",
     "scope": "Three source-qualified exact FAC parts separate documented capability, operator-declared current protocol, available adapter and observed identity. Optional HardwareWorkbench qualification recomputes existing path/interface/serial guards before queueing, retains source/config/target and raw match/mismatch/unresolved job evidence, and preserves original surveys/seals/export bytes. Explicit pure review makes no native call; unknown/incompatible/SC/N2 modes remain nonadmitted. All unqualified generic and routed paths retain existing rules; one-octet routed MS/TP is the bounded qualified path. No automatic connect/discovery/protocol change, native program deployment, BACnet/SC/N2 driver or physical/manufacturer authentication. Broad MF-be5f1e078a partial. See docs/model-transport-admission.md."
+  },
+  {
+    "feature": "Versioned private IEC compiler symbol allocation",
+    "status": "implemented",
+    "scope": "IEC-SYMBOL-001 allocates deterministic typed private value/quality/stage/state/calendar roles and shares them with the native host while preserving original graph identifiers and source identity. New ST V3 and symbol-qualified PLCopen coexist with strict exact legacy V1/V2/numeric/Sedona regeneration. Web conversion and native verifier show separate symbol provenance; read-only mapping and original compilation/trace response downloads retain complete evidence. No identifier-schema widening, arbitrary vendor IEC import, native JCI compilation/download or physical deployment. See docs/iec-symbol-namespace.md."
   }
 ]

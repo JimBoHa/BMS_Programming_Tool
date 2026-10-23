@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from bms_tool.caf import NS, CafArchive
 from bms_tool.formats import ConversionError, export_program, export_st, import_program
+from bms_tool.iec_symbols import SymbolTable
 from bms_tool.templates import all_templates
 
 
@@ -20,7 +21,11 @@ def test_interchange_keeps_graph_and_metadata(program, format):
 
 def test_outside_edits_are_not_ignored_in_embedded_graph_import():
     p = all_templates()[0]
-    text = export_st(p).replace(b"n_zone : REAL := 74.0;", b"n_zone : REAL := 99.0;")
+    name = SymbolTable(p).role("zone").encode()
+    raw = export_st(p)
+    declaration = name + b" : REAL := 74.0;"
+    assert raw.count(declaration) == 1
+    text = raw.replace(declaration, name + b" : REAL := 99.0;")
     with pytest.raises(ConversionError, match="edited"):
         import_program(text, "program.st")
 

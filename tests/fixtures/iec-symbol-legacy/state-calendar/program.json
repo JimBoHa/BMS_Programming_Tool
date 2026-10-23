@@ -1,0 +1,337 @@
+{
+  "description": "",
+  "edges": [
+    {
+      "id": "edge0",
+      "source": "setpoint",
+      "source_port": "out",
+      "target": "controller",
+      "target_port": "setpoint"
+    },
+    {
+      "id": "edge1",
+      "source": "value",
+      "source_port": "out",
+      "target": "controller",
+      "target_port": "measured"
+    },
+    {
+      "id": "edge2",
+      "source": "value",
+      "source_port": "out",
+      "target": "memory",
+      "target_port": "in"
+    },
+    {
+      "id": "edge3",
+      "source": "middle",
+      "source_port": "out",
+      "target": "hysteresis",
+      "target_port": "in"
+    },
+    {
+      "id": "edge4",
+      "source": "request",
+      "source_port": "out",
+      "target": "timer",
+      "target_port": "in"
+    },
+    {
+      "id": "edge5",
+      "source": "value",
+      "source_port": "out",
+      "target": "alarm",
+      "target_port": "in"
+    },
+    {
+      "id": "edge6",
+      "source": "setpoint",
+      "source_port": "out",
+      "target": "ramp",
+      "target_port": "in"
+    },
+    {
+      "id": "edge7",
+      "source": "controller",
+      "source_port": "out",
+      "target": "controller_out",
+      "target_port": "in"
+    },
+    {
+      "id": "edge8",
+      "source": "memory",
+      "source_port": "out",
+      "target": "memory_out",
+      "target_port": "in"
+    },
+    {
+      "id": "edge9",
+      "source": "hysteresis",
+      "source_port": "out",
+      "target": "hysteresis_out",
+      "target_port": "in"
+    },
+    {
+      "id": "edge10",
+      "source": "timer",
+      "source_port": "out",
+      "target": "timer_out",
+      "target_port": "in"
+    },
+    {
+      "id": "edge11",
+      "source": "alarm",
+      "source_port": "out",
+      "target": "alarm_out",
+      "target_port": "in"
+    },
+    {
+      "id": "edge12",
+      "source": "ramp",
+      "source_port": "out",
+      "target": "ramp_out",
+      "target_port": "in"
+    },
+    {
+      "id": "edge13",
+      "source": "calendar",
+      "source_port": "out",
+      "target": "calendar_out",
+      "target_port": "in"
+    }
+  ],
+  "id": "state-calendar",
+  "metadata": {},
+  "name": "state-calendar",
+  "nodes": [
+    {
+      "id": "value",
+      "kind": "Input",
+      "label": "",
+      "params": {
+        "default": 2
+      },
+      "unit": "",
+      "value_type": "number",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": "request",
+      "kind": "Input",
+      "label": "",
+      "params": {
+        "default": true
+      },
+      "unit": "",
+      "value_type": "boolean",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": "setpoint",
+      "kind": "Constant",
+      "label": "",
+      "params": {
+        "value": 5
+      },
+      "unit": "",
+      "value_type": "number",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": "middle",
+      "kind": "Constant",
+      "label": "",
+      "params": {
+        "value": 0.5
+      },
+      "unit": "",
+      "value_type": "number",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": "controller",
+      "kind": "PI",
+      "label": "",
+      "params": {
+        "ki": 0.5,
+        "kp": 2,
+        "max": 100,
+        "min": -100
+      },
+      "unit": "",
+      "value_type": "number",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": "memory",
+      "kind": "Delay",
+      "label": "",
+      "params": {
+        "initial": 7.25
+      },
+      "unit": "",
+      "value_type": "number",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": "hysteresis",
+      "kind": "Deadband",
+      "label": "",
+      "params": {
+        "initial": true,
+        "off": 0,
+        "on": 1
+      },
+      "unit": "",
+      "value_type": "boolean",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": "timer",
+      "kind": "TimerOn",
+      "label": "",
+      "params": {
+        "seconds": 2
+      },
+      "unit": "",
+      "value_type": "boolean",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": "alarm",
+      "kind": "Alarm",
+      "label": "",
+      "params": {
+        "delay": 2,
+        "limit": 4
+      },
+      "unit": "",
+      "value_type": "boolean",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": "ramp",
+      "kind": "Slew",
+      "label": "",
+      "params": {
+        "initial": 3,
+        "rate": 1
+      },
+      "unit": "",
+      "value_type": "number",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": "calendar",
+      "kind": "Schedule",
+      "label": "",
+      "params": {
+        "exceptions": [
+          {
+            "date": "2026-01-05",
+            "enabled": true,
+            "end": "23:59",
+            "start": "00:00"
+          }
+        ],
+        "timezone": "America/Los_Angeles"
+      },
+      "unit": "",
+      "value_type": "boolean",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": "controller_out",
+      "kind": "Output",
+      "label": "",
+      "params": {},
+      "unit": "",
+      "value_type": "number",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": "memory_out",
+      "kind": "Output",
+      "label": "",
+      "params": {},
+      "unit": "",
+      "value_type": "number",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": "hysteresis_out",
+      "kind": "Output",
+      "label": "",
+      "params": {},
+      "unit": "",
+      "value_type": "boolean",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": "timer_out",
+      "kind": "Output",
+      "label": "",
+      "params": {},
+      "unit": "",
+      "value_type": "boolean",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": "alarm_out",
+      "kind": "Output",
+      "label": "",
+      "params": {},
+      "unit": "",
+      "value_type": "boolean",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": "ramp_out",
+      "kind": "Output",
+      "label": "",
+      "params": {},
+      "unit": "",
+      "value_type": "number",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": "calendar_out",
+      "kind": "Output",
+      "label": "",
+      "params": {},
+      "unit": "",
+      "value_type": "boolean",
+      "x": 0.0,
+      "y": 0.0
+    }
+  ],
+  "revision": 0,
+  "scan_seconds": 1.0,
+  "schema_version": 1,
+  "target": {
+    "family": "universal-runtime",
+    "firmware": "",
+    "max_nodes": 2000,
+    "model": "",
+    "physical_inputs": null,
+    "physical_outputs": null,
+    "release_mode": ""
+  }
+}

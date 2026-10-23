@@ -1159,5 +1159,14 @@
     "pdf_pages_or_section": "2-4,16,22-24; docs/model-transport-admission.md",
     "status": "partial",
     "implementation_or_gap": "COMM-MODEL-001 provides three-part optional hardware-read admission. Additional models/verified native model aliases, BACnet/SC and N2 clients, routed-IP/proxy profiles, model-specific firmware/engineering-package compatibility, protocol switching, electrical accessory/BTCVT acceptance, native JCI compiler/CAF/transfer and physical commissioning remain incomplete."
+  },
+  {
+    "id": "IEC-SYMBOL-001",
+    "feature": "Versioned collision-free private IEC symbol allocation",
+    "acceptance_criterion": "Compile and interchange admitted portable graphs without collisions between original IDs and generated validity/staging/state/calendar names; preserve original graph identity and exact accepted legacy source/kit bytes while binding every native host role to one deterministic typed symbol table.",
+    "evidence": "Actual feature90 duplicate generated declaration atSTline29; frozen source32V1/V2goldens; authored studio-iec-symbols/1; unchanged pinned MatIEC/Clang host",
+    "pdf_pages_or_section": "docs/iec-symbol-namespace.md; docs/iec-native.md",
+    "status": "implemented",
+    "implementation_or_gap": "Separate private expanded-copy allocation and shared native input/quality/calendar/output/state roles; strict newSTV3/PLCopen symbol markers; original Program/source/digest IDs preserved; legacyV1/V2numeric and Sedona contracts frozen. Local source/API and actual formerly colliding host programs tested with ordinary flags/limits/tolerances. No broader IR identifier-schema widening, Sedona slot redesign, arbitrary vendor IEC import, physical controller/JCI allocation/transfer or deployment acceptance."
   }
 ]

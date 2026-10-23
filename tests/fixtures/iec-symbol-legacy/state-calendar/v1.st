@@ -1,0 +1,109 @@
+PROGRAM MAIN
+VAR_INPUT
+  StudioScanSeconds : REAL := 1.0;
+  StudioDayOfWeek : INT := 0;
+  StudioMinuteOfDay : INT := 0;
+  n_value : REAL := 2.0;
+  n_value_valid : BOOL := TRUE;
+  n_request : BOOL := TRUE;
+  n_request_valid : BOOL := TRUE;
+  n_calendar_calendar : BOOL := FALSE;
+  n_calendar_calendar_valid : BOOL := FALSE;
+END_VAR
+VAR_OUTPUT
+  StudioFault : BOOL := FALSE;
+  n_controller_out : REAL;
+  n_memory_out : REAL;
+  n_hysteresis_out : BOOL;
+  n_timer_out : BOOL;
+  n_alarm_out : BOOL;
+  n_ramp_out : REAL;
+  n_calendar_out : BOOL;
+END_VAR
+VAR
+  n_setpoint : REAL;
+  n_middle : REAL;
+  n_controller : REAL;
+  n_memory : REAL;
+  n_hysteresis : BOOL;
+  n_timer : BOOL;
+  n_alarm : BOOL;
+  n_ramp : REAL;
+  n_calendar : BOOL;
+  n_controller_out_stage : REAL;
+  n_memory_out_stage : REAL;
+  n_hysteresis_out_stage : BOOL;
+  n_timer_out_stage : BOOL;
+  n_alarm_out_stage : BOOL;
+  n_ramp_out_stage : REAL;
+  n_calendar_out_stage : BOOL;
+  n_memory_memory : REAL := 7.25;
+  n_alarm_elapsed : REAL := 0.0;
+  n_alarm_next : REAL := 0.0;
+  n_controller_integral : REAL := 0.0;
+  n_controller_candidate : REAL := 0.0;
+  n_controller_error : REAL := 0.0;
+  n_controller_raw : REAL := 0.0;
+  n_hysteresis_memory : BOOL := TRUE;
+  n_ramp_memory : REAL := 3.0;
+  n_timer_elapsed : REAL := 0.0;
+  n_timer_next : REAL := 0.0;
+END_VAR
+(* BMS Studio scan. Inputs and clock are supplied by the target runtime. *)
+StudioFault := FALSE;
+IF (StudioScanSeconds <= 0.0) OR (StudioScanSeconds > 60.0) THEN StudioFault := TRUE; RETURN; END_IF;
+IF NOT n_value_valid OR (n_value <> n_value) OR (ABS(n_value) > 3.0E+38) THEN StudioFault := TRUE; RETURN; END_IF;
+IF NOT n_request_valid THEN StudioFault := TRUE; RETURN; END_IF;
+IF NOT n_calendar_calendar_valid THEN StudioFault := TRUE; RETURN; END_IF;
+(* Host evaluates the project's IANA timezone and dated exceptions; mark valid only for the current scan. *)
+n_calendar := n_calendar_calendar;
+n_memory := n_memory_memory;
+IF (n_memory <> n_memory) OR (ABS(n_memory) > 3.0E+38) THEN StudioFault := TRUE; RETURN; END_IF;
+n_middle := 0.5;
+IF (n_middle <> n_middle) OR (ABS(n_middle) > 3.0E+38) THEN StudioFault := TRUE; RETURN; END_IF;
+n_setpoint := 5.0;
+IF (n_setpoint <> n_setpoint) OR (ABS(n_setpoint) > 3.0E+38) THEN StudioFault := TRUE; RETURN; END_IF;
+IF n_value > 4.0 THEN n_alarm_next := n_alarm_elapsed + StudioScanSeconds; ELSE n_alarm_next := 0.0; END_IF;
+n_alarm := (n_value > 4.0) AND (n_alarm_next >= 2.0);
+n_calendar_out_stage := n_calendar;
+n_controller_error := (n_setpoint - n_value) * 1.0;
+n_controller_candidate := n_controller_integral + 0.5 * n_controller_error * StudioScanSeconds;
+n_controller_raw := 2.0 * n_controller_error + n_controller_candidate;
+IF ((n_controller_raw >= -100.0) AND (n_controller_raw <= 100.0)) OR ((n_controller_raw > 100.0) AND (n_controller_error * 0.5 < 0.0)) OR ((n_controller_raw < -100.0) AND (n_controller_error * 0.5 > 0.0)) THEN
+  n_controller := MAX(-100.0, MIN(100.0, 2.0 * n_controller_error + n_controller_candidate));
+ELSE
+  n_controller_candidate := n_controller_integral;
+  n_controller := MAX(-100.0, MIN(100.0, 2.0 * n_controller_error + n_controller_integral));
+END_IF;
+IF (n_controller <> n_controller) OR (ABS(n_controller) > 3.0E+38) THEN StudioFault := TRUE; RETURN; END_IF;
+n_hysteresis := n_hysteresis_memory;
+IF n_middle >= 1.0 THEN n_hysteresis := TRUE; ELSIF n_middle <= 0.0 THEN n_hysteresis := FALSE; END_IF;
+n_memory_out_stage := n_memory;
+IF (n_memory_out_stage <> n_memory_out_stage) OR (ABS(n_memory_out_stage) > 3.0E+38) THEN StudioFault := TRUE; RETURN; END_IF;
+n_ramp := n_ramp_memory + MAX(-(1.0 * StudioScanSeconds), MIN(1.0 * StudioScanSeconds, n_setpoint - n_ramp_memory));
+IF (n_ramp <> n_ramp) OR (ABS(n_ramp) > 3.0E+38) THEN StudioFault := TRUE; RETURN; END_IF;
+IF n_request THEN n_timer_next := n_timer_elapsed + StudioScanSeconds; ELSE n_timer_next := 0.0; END_IF;
+n_timer := (n_request) AND (n_timer_next >= 2.0);
+n_alarm_out_stage := n_alarm;
+n_controller_out_stage := n_controller;
+IF (n_controller_out_stage <> n_controller_out_stage) OR (ABS(n_controller_out_stage) > 3.0E+38) THEN StudioFault := TRUE; RETURN; END_IF;
+n_hysteresis_out_stage := n_hysteresis;
+n_ramp_out_stage := n_ramp;
+IF (n_ramp_out_stage <> n_ramp_out_stage) OR (ABS(n_ramp_out_stage) > 3.0E+38) THEN StudioFault := TRUE; RETURN; END_IF;
+n_timer_out_stage := n_timer;
+(* Commit state and outputs only after every block succeeds. *)
+n_memory_memory := n_value;
+n_alarm_elapsed := n_alarm_next;
+n_controller_integral := n_controller_candidate;
+n_hysteresis_memory := n_hysteresis;
+n_ramp_memory := n_ramp;
+n_timer_elapsed := n_timer_next;
+n_calendar_out := n_calendar_out_stage;
+n_memory_out := n_memory_out_stage;
+n_alarm_out := n_alarm_out_stage;
+n_controller_out := n_controller_out_stage;
+n_hysteresis_out := n_hysteresis_out_stage;
+n_ramp_out := n_ramp_out_stage;
+n_timer_out := n_timer_out_stage;
+END_PROGRAM
+(* BMS_STUDIO_IR_V1 ewogICJkZXNjcmlwdGlvbiI6ICIiLAogICJlZGdlcyI6IFsKICAgIHsKICAgICAgImlkIjogImVkZ2UwIiwKICAgICAgInNvdXJjZSI6ICJzZXRwb2ludCIsCiAgICAgICJzb3VyY2VfcG9ydCI6ICJvdXQiLAogICAgICAidGFyZ2V0IjogImNvbnRyb2xsZXIiLAogICAgICAidGFyZ2V0X3BvcnQiOiAic2V0cG9pbnQiCiAgICB9LAogICAgewogICAgICAiaWQiOiAiZWRnZTEiLAogICAgICAic291cmNlIjogInZhbHVlIiwKICAgICAgInNvdXJjZV9wb3J0IjogIm91dCIsCiAgICAgICJ0YXJnZXQiOiAiY29udHJvbGxlciIsCiAgICAgICJ0YXJnZXRfcG9ydCI6ICJtZWFzdXJlZCIKICAgIH0sCiAgICB7CiAgICAgICJpZCI6ICJlZGdlMiIsCiAgICAgICJzb3VyY2UiOiAidmFsdWUiLAogICAgICAic291cmNlX3BvcnQiOiAib3V0IiwKICAgICAgInRhcmdldCI6ICJtZW1vcnkiLAogICAgICAidGFyZ2V0X3BvcnQiOiAiaW4iCiAgICB9LAogICAgewogICAgICAiaWQiOiAiZWRnZTMiLAogICAgICAic291cmNlIjogIm1pZGRsZSIsCiAgICAgICJzb3VyY2VfcG9ydCI6ICJvdXQiLAogICAgICAidGFyZ2V0IjogImh5c3RlcmVzaXMiLAogICAgICAidGFyZ2V0X3BvcnQiOiAiaW4iCiAgICB9LAogICAgewogICAgICAiaWQiOiAiZWRnZTQiLAogICAgICAic291cmNlIjogInJlcXVlc3QiLAogICAgICAic291cmNlX3BvcnQiOiAib3V0IiwKICAgICAgInRhcmdldCI6ICJ0aW1lciIsCiAgICAgICJ0YXJnZXRfcG9ydCI6ICJpbiIKICAgIH0sCiAgICB7CiAgICAgICJpZCI6ICJlZGdlNSIsCiAgICAgICJzb3VyY2UiOiAidmFsdWUiLAogICAgICAic291cmNlX3BvcnQiOiAib3V0IiwKICAgICAgInRhcmdldCI6ICJhbGFybSIsCiAgICAgICJ0YXJnZXRfcG9ydCI6ICJpbiIKICAgIH0sCiAgICB7CiAgICAgICJpZCI6ICJlZGdlNiIsCiAgICAgICJzb3VyY2UiOiAic2V0cG9pbnQiLAogICAgICAic291cmNlX3BvcnQiOiAib3V0IiwKICAgICAgInRhcmdldCI6ICJyYW1wIiwKICAgICAgInRhcmdldF9wb3J0IjogImluIgogICAgfSwKICAgIHsKICAgICAgImlkIjogImVkZ2U3IiwKICAgICAgInNvdXJjZSI6ICJjb250cm9sbGVyIiwKICAgICAgInNvdXJjZV9wb3J0IjogIm91dCIsCiAgICAgICJ0YXJnZXQiOiAiY29udHJvbGxlcl9vdXQiLAogICAgICAidGFyZ2V0X3BvcnQiOiAiaW4iCiAgICB9LAogICAgewogICAgICAiaWQiOiAiZWRnZTgiLAogICAgICAic291cmNlIjogIm1lbW9yeSIsCiAgICAgICJzb3VyY2VfcG9ydCI6ICJvdXQiLAogICAgICAidGFyZ2V0IjogIm1lbW9yeV9vdXQiLAogICAgICAidGFyZ2V0X3BvcnQiOiAiaW4iCiAgICB9LAogICAgewogICAgICAiaWQiOiAiZWRnZTkiLAogICAgICAic291cmNlIjogImh5c3RlcmVzaXMiLAogICAgICAic291cmNlX3BvcnQiOiAib3V0IiwKICAgICAgInRhcmdldCI6ICJoeXN0ZXJlc2lzX291dCIsCiAgICAgICJ0YXJnZXRfcG9ydCI6ICJpbiIKICAgIH0sCiAgICB7CiAgICAgICJpZCI6ICJlZGdlMTAiLAogICAgICAic291cmNlIjogInRpbWVyIiwKICAgICAgInNvdXJjZV9wb3J0IjogIm91dCIsCiAgICAgICJ0YXJnZXQiOiAidGltZXJfb3V0IiwKICAgICAgInRhcmdldF9wb3J0IjogImluIgogICAgfSwKICAgIHsKICAgICAgImlkIjogImVkZ2UxMSIsCiAgICAgICJzb3VyY2UiOiAiYWxhcm0iLAogICAgICAic291cmNlX3BvcnQiOiAib3V0IiwKICAgICAgInRhcmdldCI6ICJhbGFybV9vdXQiLAogICAgICAidGFyZ2V0X3BvcnQiOiAiaW4iCiAgICB9LAogICAgewogICAgICAiaWQiOiAiZWRnZTEyIiwKICAgICAgInNvdXJjZSI6ICJyYW1wIiwKICAgICAgInNvdXJjZV9wb3J0IjogIm91dCIsCiAgICAgICJ0YXJnZXQiOiAicmFtcF9vdXQiLAogICAgICAidGFyZ2V0X3BvcnQiOiAiaW4iCiAgICB9LAogICAgewogICAgICAiaWQiOiAiZWRnZTEzIiwKICAgICAgInNvdXJjZSI6ICJjYWxlbmRhciIsCiAgICAgICJzb3VyY2VfcG9ydCI6ICJvdXQiLAogICAgICAidGFyZ2V0IjogImNhbGVuZGFyX291dCIsCiAgICAgICJ0YXJnZXRfcG9ydCI6ICJpbiIKICAgIH0KICBdLAogICJpZCI6ICJzdGF0ZS1jYWxlbmRhciIsCiAgIm1ldGFkYXRhIjoge30sCiAgIm5hbWUiOiAic3RhdGUtY2FsZW5kYXIiLAogICJub2RlcyI6IFsKICAgIHsKICAgICAgImlkIjogInZhbHVlIiwKICAgICAgImtpbmQiOiAiSW5wdXQiLAogICAgICAibGFiZWwiOiAiIiwKICAgICAgInBhcmFtcyI6IHsKICAgICAgICAiZGVmYXVsdCI6IDIKICAgICAgfSwKICAgICAgInVuaXQiOiAiIiwKICAgICAgInZhbHVlX3R5cGUiOiAibnVtYmVyIiwKICAgICAgIngiOiAwLjAsCiAgICAgICJ5IjogMC4wCiAgICB9LAogICAgewogICAgICAiaWQiOiAicmVxdWVzdCIsCiAgICAgICJraW5kIjogIklucHV0IiwKICAgICAgImxhYmVsIjogIiIsCiAgICAgICJwYXJhbXMiOiB7CiAgICAgICAgImRlZmF1bHQiOiB0cnVlCiAgICAgIH0sCiAgICAgICJ1bml0IjogIiIsCiAgICAgICJ2YWx1ZV90eXBlIjogImJvb2xlYW4iLAogICAgICAieCI6IDAuMCwKICAgICAgInkiOiAwLjAKICAgIH0sCiAgICB7CiAgICAgICJpZCI6ICJzZXRwb2ludCIsCiAgICAgICJraW5kIjogIkNvbnN0YW50IiwKICAgICAgImxhYmVsIjogIiIsCiAgICAgICJwYXJhbXMiOiB7CiAgICAgICAgInZhbHVlIjogNQogICAgICB9LAogICAgICAidW5pdCI6ICIiLAogICAgICAidmFsdWVfdHlwZSI6ICJudW1iZXIiLAogICAgICAieCI6IDAuMCwKICAgICAgInkiOiAwLjAKICAgIH0sCiAgICB7CiAgICAgICJpZCI6ICJtaWRkbGUiLAogICAgICAia2luZCI6ICJDb25zdGFudCIsCiAgICAgICJsYWJlbCI6ICIiLAogICAgICAicGFyYW1zIjogewogICAgICAgICJ2YWx1ZSI6IDAuNQogICAgICB9LAogICAgICAidW5pdCI6ICIiLAogICAgICAidmFsdWVfdHlwZSI6ICJudW1iZXIiLAogICAgICAieCI6IDAuMCwKICAgICAgInkiOiAwLjAKICAgIH0sCiAgICB7CiAgICAgICJpZCI6ICJjb250cm9sbGVyIiwKICAgICAgImtpbmQiOiAiUEkiLAogICAgICAibGFiZWwiOiAiIiwKICAgICAgInBhcmFtcyI6IHsKICAgICAgICAia2kiOiAwLjUsCiAgICAgICAgImtwIjogMiwKICAgICAgICAibWF4IjogMTAwLAogICAgICAgICJtaW4iOiAtMTAwCiAgICAgIH0sCiAgICAgICJ1bml0IjogIiIsCiAgICAgICJ2YWx1ZV90eXBlIjogIm51bWJlciIsCiAgICAgICJ4IjogMC4wLAogICAgICAieSI6IDAuMAogICAgfSwKICAgIHsKICAgICAgImlkIjogIm1lbW9yeSIsCiAgICAgICJraW5kIjogIkRlbGF5IiwKICAgICAgImxhYmVsIjogIiIsCiAgICAgICJwYXJhbXMiOiB7CiAgICAgICAgImluaXRpYWwiOiA3LjI1CiAgICAgIH0sCiAgICAgICJ1bml0IjogIiIsCiAgICAgICJ2YWx1ZV90eXBlIjogIm51bWJlciIsCiAgICAgICJ4IjogMC4wLAogICAgICAieSI6IDAuMAogICAgfSwKICAgIHsKICAgICAgImlkIjogImh5c3RlcmVzaXMiLAogICAgICAia2luZCI6ICJEZWFkYmFuZCIsCiAgICAgICJsYWJlbCI6ICIiLAogICAgICAicGFyYW1zIjogewogICAgICAgICJpbml0aWFsIjogdHJ1ZSwKICAgICAgICAib2ZmIjogMCwKICAgICAgICAib24iOiAxCiAgICAgIH0sCiAgICAgICJ1bml0IjogIiIsCiAgICAgICJ2YWx1ZV90eXBlIjogImJvb2xlYW4iLAogICAgICAieCI6IDAuMCwKICAgICAgInkiOiAwLjAKICAgIH0sCiAgICB7CiAgICAgICJpZCI6ICJ0aW1lciIsCiAgICAgICJraW5kIjogIlRpbWVyT24iLAogICAgICAibGFiZWwiOiAiIiwKICAgICAgInBhcmFtcyI6IHsKICAgICAgICAic2Vjb25kcyI6IDIKICAgICAgfSwKICAgICAgInVuaXQiOiAiIiwKICAgICAgInZhbHVlX3R5cGUiOiAiYm9vbGVhbiIsCiAgICAgICJ4IjogMC4wLAogICAgICAieSI6IDAuMAogICAgfSwKICAgIHsKICAgICAgImlkIjogImFsYXJtIiwKICAgICAgImtpbmQiOiAiQWxhcm0iLAogICAgICAibGFiZWwiOiAiIiwKICAgICAgInBhcmFtcyI6IHsKICAgICAgICAiZGVsYXkiOiAyLAogICAgICAgICJsaW1pdCI6IDQKICAgICAgfSwKICAgICAgInVuaXQiOiAiIiwKICAgICAgInZhbHVlX3R5cGUiOiAiYm9vbGVhbiIsCiAgICAgICJ4IjogMC4wLAogICAgICAieSI6IDAuMAogICAgfSwKICAgIHsKICAgICAgImlkIjogInJhbXAiLAogICAgICAia2luZCI6ICJTbGV3IiwKICAgICAgImxhYmVsIjogIiIsCiAgICAgICJwYXJhbXMiOiB7CiAgICAgICAgImluaXRpYWwiOiAzLAogICAgICAgICJyYXRlIjogMQogICAgICB9LAogICAgICAidW5pdCI6ICIiLAogICAgICAidmFsdWVfdHlwZSI6ICJudW1iZXIiLAogICAgICAieCI6IDAuMCwKICAgICAgInkiOiAwLjAKICAgIH0sCiAgICB7CiAgICAgICJpZCI6ICJjYWxlbmRhciIsCiAgICAgICJraW5kIjogIlNjaGVkdWxlIiwKICAgICAgImxhYmVsIjogIiIsCiAgICAgICJwYXJhbXMiOiB7CiAgICAgICAgImV4Y2VwdGlvbnMiOiBbCiAgICAgICAgICB7CiAgICAgICAgICAgICJkYXRlIjogIjIwMjYtMDEtMDUiLAogICAgICAgICAgICAiZW5hYmxlZCI6IHRydWUsCiAgICAgICAgICAgICJlbmQiOiAiMjM6NTkiLAogICAgICAgICAgICAic3RhcnQiOiAiMDA6MDAiCiAgICAgICAgICB9CiAgICAgICAgXSwKICAgICAgICAidGltZXpvbmUiOiAiQW1lcmljYS9Mb3NfQW5nZWxlcyIKICAgICAgfSwKICAgICAgInVuaXQiOiAiIiwKICAgICAgInZhbHVlX3R5cGUiOiAiYm9vbGVhbiIsCiAgICAgICJ4IjogMC4wLAogICAgICAieSI6IDAuMAogICAgfSwKICAgIHsKICAgICAgImlkIjogImNvbnRyb2xsZXJfb3V0IiwKICAgICAgImtpbmQiOiAiT3V0cHV0IiwKICAgICAgImxhYmVsIjogIiIsCiAgICAgICJwYXJhbXMiOiB7fSwKICAgICAgInVuaXQiOiAiIiwKICAgICAgInZhbHVlX3R5cGUiOiAibnVtYmVyIiwKICAgICAgIngiOiAwLjAsCiAgICAgICJ5IjogMC4wCiAgICB9LAogICAgewogICAgICAiaWQiOiAibWVtb3J5X291dCIsCiAgICAgICJraW5kIjogIk91dHB1dCIsCiAgICAgICJsYWJlbCI6ICIiLAogICAgICAicGFyYW1zIjoge30sCiAgICAgICJ1bml0IjogIiIsCiAgICAgICJ2YWx1ZV90eXBlIjogIm51bWJlciIsCiAgICAgICJ4IjogMC4wLAogICAgICAieSI6IDAuMAogICAgfSwKICAgIHsKICAgICAgImlkIjogImh5c3RlcmVzaXNfb3V0IiwKICAgICAgImtpbmQiOiAiT3V0cHV0IiwKICAgICAgImxhYmVsIjogIiIsCiAgICAgICJwYXJhbXMiOiB7fSwKICAgICAgInVuaXQiOiAiIiwKICAgICAgInZhbHVlX3R5cGUiOiAiYm9vbGVhbiIsCiAgICAgICJ4IjogMC4wLAogICAgICAieSI6IDAuMAogICAgfSwKICAgIHsKICAgICAgImlkIjogInRpbWVyX291dCIsCiAgICAgICJraW5kIjogIk91dHB1dCIsCiAgICAgICJsYWJlbCI6ICIiLAogICAgICAicGFyYW1zIjoge30sCiAgICAgICJ1bml0IjogIiIsCiAgICAgICJ2YWx1ZV90eXBlIjogImJvb2xlYW4iLAogICAgICAieCI6IDAuMCwKICAgICAgInkiOiAwLjAKICAgIH0sCiAgICB7CiAgICAgICJpZCI6ICJhbGFybV9vdXQiLAogICAgICAia2luZCI6ICJPdXRwdXQiLAogICAgICAibGFiZWwiOiAiIiwKICAgICAgInBhcmFtcyI6IHt9LAogICAgICAidW5pdCI6ICIiLAogICAgICAidmFsdWVfdHlwZSI6ICJib29sZWFuIiwKICAgICAgIngiOiAwLjAsCiAgICAgICJ5IjogMC4wCiAgICB9LAogICAgewogICAgICAiaWQiOiAicmFtcF9vdXQiLAogICAgICAia2luZCI6ICJPdXRwdXQiLAogICAgICAibGFiZWwiOiAiIiwKICAgICAgInBhcmFtcyI6IHt9LAogICAgICAidW5pdCI6ICIiLAogICAgICAidmFsdWVfdHlwZSI6ICJudW1iZXIiLAogICAgICAieCI6IDAuMCwKICAgICAgInkiOiAwLjAKICAgIH0sCiAgICB7CiAgICAgICJpZCI6ICJjYWxlbmRhcl9vdXQiLAogICAgICAia2luZCI6ICJPdXRwdXQiLAogICAgICAibGFiZWwiOiAiIiwKICAgICAgInBhcmFtcyI6IHt9LAogICAgICAidW5pdCI6ICIiLAogICAgICAidmFsdWVfdHlwZSI6ICJib29sZWFuIiwKICAgICAgIngiOiAwLjAsCiAgICAgICJ5IjogMC4wCiAgICB9CiAgXSwKICAicmV2aXNpb24iOiAwLAogICJzY2FuX3NlY29uZHMiOiAxLjAsCiAgInNjaGVtYV92ZXJzaW9uIjogMSwKICAidGFyZ2V0IjogewogICAgImZhbWlseSI6ICJ1bml2ZXJzYWwtcnVudGltZSIsCiAgICAiZmlybXdhcmUiOiAiIiwKICAgICJtYXhfbm9kZXMiOiAyMDAwLAogICAgIm1vZGVsIjogIiIsCiAgICAicGh5c2ljYWxfaW5wdXRzIjogbnVsbCwKICAgICJwaHlzaWNhbF9vdXRwdXRzIjogbnVsbCwKICAgICJyZWxlYXNlX21vZGUiOiAiIgogIH0KfQ== *)
