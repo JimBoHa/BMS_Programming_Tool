@@ -418,5 +418,10 @@
     "feature": "Authored mixed-air single-duct AHU wizard",
     "status": "implemented",
     "scope": "Actual editable ordinary-core SAT heat/cool, common position-only OA/economizer and single constant/variable supply fan with Pa feedback. Independent proof/start/recovery/reset state, held active PI at setpoint, command-based saturation/release, explicit drybulb OA/RA dependencies, coupled F/C deltas/inverse gains and original source-bound preview/create/simulate/revise/export. Existing wizards/Engine unchanged. Position is not measured outdoor airflow/ventilation. No native JCI CAF/compiler/transfer, physical protection or G36/Title24 acceptance. Broad MF-ec17b3073c partial. See docs/masd-ahu-wizard.md."
+  },
+  {
+    "feature": "Authored AHU-only independent hot/cold deck wizard",
+    "status": "implemented",
+    "scope": "Editable ordinary-core single-speed supply fan, independent hot/cold temperature targets and simultaneous coil demands, common position-only OA and cold economizer staging, explicit proof/deadlines/reset and held PI. Original source/profile choices across preview/create/simulate/revision/interchange. Invalid runtime setpoints inhibit commands; bad quality rolls back scans. Finite-precision F/C trajectories can diverge at PI boundaries. No zone generation, native JCI CAF/compiler/transfer, measured ventilation or physical/code acceptance. Broad MF-9c85cb8feb partial. See docs/madd-mz-ahu-wizard.md."
   }
 ]
