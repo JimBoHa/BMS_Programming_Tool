@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 
 from bms_tool.engine import Engine, validate
 from bms_tool.formats import export_program, import_program
+from bms_tool.iec_symbols import SymbolTable
 from bms_tool.models import Edge, Node, Program
 
 
@@ -37,11 +38,12 @@ def test_engine_calendar_timezone_exception_and_copy_keep_source_intact():
 
 def test_calendar_validation_and_exports_require_host_calendar_binding():
     p = calendar_program()
+    symbols = SymbolTable(p)
     assert not [d for d in validate(p) if d.level == "error"]
     for fmt, suffix in (("st", "st"), ("plcopen", "xml")):
         data, _, _ = export_program(p, fmt)
-        assert b"n_occupied_calendar_valid" in data
-        assert b"n_occupied_calendar" in data
+        assert symbols.role("occupied", "calendar_valid").encode() in data
+        assert symbols.role("occupied", "calendar").encode() in data
         assert import_program(data, "calendar." + suffix) == p
     p.nodes[0].params["timezone"] = "Unknown/Zone"
     assert any(d.code == "parameter" and "timezone" in d.message for d in validate(p))
