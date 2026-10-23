@@ -21,6 +21,7 @@ type Target = {
   controller_acceptance: string;
   notes: Note[];
   source_generator?: { id: string; rules_sha256: string };
+  symbol_generator?: { id: string; rules_sha256: string };
 };
 type Report = {
   profile: string;
@@ -137,6 +138,12 @@ export function ConversionPreview({ program }: { program: Program }) {
                               <code>{target.source_generator.id}</code>
                             </div>
                           )}
+                          {target.symbol_generator && (
+                            <div>
+                              Symbol profile:{" "}
+                              <code>{target.symbol_generator.id}</code>
+                            </div>
+                          )}
                           {target.artifact && (
                             <div>
                               {target.artifact.bytes.toLocaleString()} bytes
@@ -168,6 +175,14 @@ export function ConversionPreview({ program }: { program: Program }) {
                                   Literal rules SHA-256:{" "}
                                   <code>
                                     {target.source_generator.rules_sha256}
+                                  </code>
+                                </li>
+                              )}
+                              {target.symbol_generator && (
+                                <li>
+                                  Symbol rules SHA-256:{" "}
+                                  <code>
+                                    {target.symbol_generator.rules_sha256}
                                   </code>
                                 </li>
                               )}
