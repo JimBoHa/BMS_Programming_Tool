@@ -3,6 +3,7 @@
 import asyncio
 import socket
 import struct
+from uuid import uuid4
 
 import pytest
 from bacpypes3.apdu import APDU
@@ -22,8 +23,10 @@ from .test_connections import free_udp, point
 
 
 def routed_pair(instance=4190012):
-    name = "routed-cov-" + str(free_udp())
-    VirtualNetwork(name)
+    # VirtualNetwork names live in a process-wide registry, independently of
+    # UDP port lifetime. A released ephemeral port is not a fixture identity.
+    name = "routed-cov-" + uuid4().hex
+    network = VirtualNetwork(name)
     port = free_udp()
     router = Application.from_object_list(
         [
@@ -47,6 +50,7 @@ def routed_pair(instance=4190012):
             ),
         ]
     )
+    router._routed_cov_network = network
     analog = point()
     analog.covIncrement = 0.1
     field = Application.from_object_list(
@@ -90,6 +94,28 @@ def routed_pair(instance=4190012):
     return router, field, analog, config, frames
 
 
+def close_routed_pair(router, field):
+    network = router._routed_cov_network
+    nodes = [
+        layer.node
+        for application in (field, router)
+        for layer in application.link_layers.values()
+        if hasattr(layer, "node") and layer.node.lan is network
+    ]
+    for detection in list(field._cov_detections.values()):
+        for subscription in list(detection.cov_subscriptions):
+            field.cancel_subscription(subscription)
+    close_application(field)
+    close_application(router)
+    # Pinned VirtualLinkLayer.close() does not detach its nodes or unregister
+    # its network. Retire only this pair's nodes and exact empty mapping.
+    for node in nodes:
+        if node.lan is network and node in network.nodes:
+            network.remove_node(node)
+    if not network.nodes and VirtualNetwork._networks.get(network.name) is network:
+        del VirtualNetwork._networks[network.name]
+
+
 @pytest.fixture
 async def routed_cov(tmp_path):
     router, field, analog, config, frames = routed_pair()
@@ -100,12 +126,8 @@ async def routed_cov(tmp_path):
         yield router, field, analog, client, service, config, frames
     finally:
         await service.close()
-        for detection in list(field._cov_detections.values()):
-            for subscription in list(detection.cov_subscriptions):
-                field.cancel_subscription(subscription)
         client.close()
-        close_application(field)
-        close_application(router)
+        close_routed_pair(router, field)
         await asyncio.sleep(0.02)
 
 
@@ -186,11 +208,7 @@ async def test_same_dnet_mac_on_another_router_survives_scoped_read_filter_and_a
         assert any(frame[0] == 100 and frame[3][0] == 0x20 for frame in frames2)
         await service.stop(second["id"])
     finally:
-        for detection in list(field2._cov_detections.values()):
-            for subscription in list(detection.cov_subscriptions):
-                field2.cancel_subscription(subscription)
-        close_application(field2)
-        close_application(router2)
+        close_routed_pair(router2, field2)
 
 
 def routed_frame(job, *, dnet=2001, mac=4, **changes):
