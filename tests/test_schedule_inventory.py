@@ -43,6 +43,7 @@ class SchedulePeer(asyncio.DatagramProtocol):
         self.requests, self.errors, self.tasks = [], [], set()
         self.entered, self.release = asyncio.Event(), asyncio.Event()
         self.hold_property = None
+        self.drop_reference = None
         self.corrupt_property = None
         self.rogue = None
         self.rogue_kind = None
@@ -143,6 +144,8 @@ class SchedulePeer(asyncio.DatagramProtocol):
                 request.propertyArrayIndex,
             )
             self.requests.append((str(obj), prop, index))
+            if (str(obj), prop, index) == self.drop_reference:
+                return
             if self.behavior == "hold" or prop == self.hold_property:
                 self.entered.set()
                 await self.release.wait()
