@@ -1,6 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { api, apiJsonDocument, saveBlob } from "./api";
 import { NativeScheduleWritePanel } from "./NativeScheduleWritePanel";
+import {
+  STRING_DRAFT,
+  STRING_DRAFT_RULES,
+  STRING_EDITOR_LENGTH,
+  nativeString,
+  parseStringEditor,
+  stringDraftCapability,
+  stringDraftReview,
+} from "./nativeScheduleStrings";
 
 const BASE = "/bacnet/schedules/library";
 const CAPTURE = "native-calendar-schedule-capture/1";
@@ -25,6 +34,7 @@ type Row = {
   time: string[];
   native_type: string;
   value_text: string;
+  string_json?: string;
 };
 type Day = {
   day: number;
@@ -38,6 +48,8 @@ type Schedule = {
   native_type?: string;
   issues: string[];
   days?: Day[];
+  draft_profile?: string;
+  rules_sha256?: string;
 };
 type Capture = {
   id: string;
@@ -56,9 +68,23 @@ type Capture = {
   scope?: string;
   ingest?: unknown;
   import_provenance?: unknown;
+  string_draft?: unknown;
 };
 function text(value: unknown, maximum = 4096): value is string {
   return typeof value === "string" && value.length <= maximum;
+}
+function supportedSchedule(item: any, capability: any) {
+  return item?.native_type === "CharacterString"
+    ? stringDraftCapability(capability) &&
+        item.draft_profile === STRING_DRAFT &&
+        item.rules_sha256 === STRING_DRAFT_RULES
+    : TYPES.includes(item?.native_type);
+}
+function optionalStringCapability(value: any) {
+  return (
+    value?.string_draft === undefined ||
+    stringDraftCapability(value.string_draft)
+  );
 }
 function captureSummary(value: any): boolean {
   return (
@@ -66,6 +92,7 @@ function captureSummary(value: any): boolean {
     ID.test(value.id) &&
     value.profile === CAPTURE &&
     value.draft_profile === DRAFT &&
+    optionalStringCapability(value) &&
     value.source_sha256 === value.id &&
     text(value.source_report_id, 32) &&
     /^[a-f0-9]{32}$/.test(value.source_report_id) &&
@@ -90,7 +117,7 @@ function captureSummary(value: any): boolean {
         Array.isArray(item.issues) &&
         item.issues.length <= 64 &&
         item.issues.every((issue: unknown) => text(issue)) &&
-        (!item.eligible || TYPES.includes(item.native_type)),
+        (!item.eligible || supportedSchedule(item, value.string_draft)),
     )
   );
 }
@@ -98,6 +125,7 @@ function libraryProfile(value: any) {
   if (
     value?.profile !== CAPTURE ||
     value.draft_profile !== DRAFT ||
+    !optionalStringCapability(value) ||
     !Array.isArray(value.captures) ||
     value.captures.length > 32 ||
     value.captures.some((item: any) => !captureSummary(item)) ||
@@ -114,6 +142,7 @@ function captureResult(value: any, expected?: string): Capture {
     !ID.test(value?.id || "") ||
     (expected && value.id !== expected) ||
     value.profile !== CAPTURE ||
+    !optionalStringCapability(value) ||
     value.source_sha256 !== value.id ||
     !Array.isArray(value.objects) ||
     typeof value.target?.device !== "string" ||
@@ -129,7 +158,7 @@ function captureResult(value: any, expected?: string): Capture {
       throw new Error("Capture object evidence is malformed.");
     if (
       item.eligible &&
-      (!TYPES.includes(item.native_type) ||
+      (!supportedSchedule(item, value.string_draft) ||
         !Array.isArray(item.days) ||
         item.days.length !== 7 ||
         item.days.some(
@@ -138,7 +167,10 @@ function captureResult(value: any, expected?: string): Capture {
             !ID.test(day.sha256) ||
             !Array.isArray(day.transitions) ||
             day.transitions.length > 32 ||
-            day.transitions.some((row: any) => !validTransition(row)),
+            day.transitions.some(
+              (row: any) =>
+                !validTransition(row, item.native_type === "CharacterString"),
+            ),
         ))
     )
       throw new Error(
@@ -147,7 +179,7 @@ function captureResult(value: any, expected?: string): Capture {
   }
   return value;
 }
-function validTransition(row: any) {
+function validTransition(row: any, strings = false) {
   return (
     Array.isArray(row?.time) &&
     row.time.length === 4 &&
@@ -157,9 +189,13 @@ function validTransition(row: any) {
         value >= 0 &&
         value <= [23, 59, 59, 99][index],
     ) &&
-    TYPES.includes(row.native_type) &&
+    (strings
+      ? ["CharacterString", "Null"].includes(row.native_type)
+      : TYPES.includes(row.native_type)) &&
     typeof row.value_text === "string" &&
-    row.value_text.length <= 256
+    (row.native_type === "CharacterString"
+      ? nativeString(row.value_text)
+      : row.value_text.length <= 256)
   );
 }
 function sameTransitions(a: Transition[], b: Transition[]) {
@@ -175,14 +211,21 @@ function sameTransitions(a: Transition[], b: Transition[]) {
   );
 }
 function reviewResult(value: any) {
+  const strings = value?.source?.observed_native_type === "CharacterString";
+  const expected = strings ? STRING_DRAFT : DRAFT;
   if (
     !ID.test(value?.id || "") ||
-    value.profile !== DRAFT ||
-    value.format !== DRAFT ||
+    value.profile !== expected ||
+    value.format !== expected ||
+    (strings
+      ? !stringDraftReview(value)
+      : value.request?.draft_profile !== undefined) ||
     !ID.test(value.request?.capture_id || "") ||
     !Array.isArray(value.request?.transitions) ||
     value.request.transitions.length > 32 ||
-    value.request.transitions.some((row: any) => !validTransition(row)) ||
+    value.request.transitions.some(
+      (row: any) => !validTransition(row, strings),
+    ) ||
     !Number.isInteger(value.request.day) ||
     value.request.day < 1 ||
     value.request.day > 7 ||
@@ -435,8 +478,16 @@ export function ScheduleLibraryPanel({
           return Number(text);
         }),
         native_type: row.native_type,
-        value_text: row.value_text,
+        value_text:
+          row.native_type === "CharacterString"
+            ? parseStringEditor(
+                row.string_json ?? JSON.stringify(row.value_text),
+              )
+            : row.value_text,
       })),
+      ...(selected.native_type === "CharacterString"
+        ? { draft_profile: STRING_DRAFT }
+        : {}),
     };
   }
   async function prepare() {
@@ -826,6 +877,7 @@ export function ScheduleLibraryPanel({
                                   ? {
                                       ...item,
                                       native_type: event.target.value,
+                                      string_json: undefined,
                                       value_text:
                                         event.target.value === "Null"
                                           ? "null"
@@ -845,21 +897,55 @@ export function ScheduleLibraryPanel({
                         </select>
                       </td>
                       <td>
-                        <input
-                          aria-label={`Transition ${index + 1} exact value text`}
-                          value={row.value_text}
-                          maxLength={256}
-                          readOnly={row.native_type === "Null"}
-                          onChange={(event) =>
-                            changed(
-                              rows.map((item) =>
-                                item.key === row.key
-                                  ? { ...item, value_text: event.target.value }
-                                  : item,
-                              ),
-                            )
-                          }
-                        />
+                        {row.native_type === "CharacterString" ? (
+                          <>
+                            <textarea
+                              aria-label={`Transition ${index + 1} CharacterString JSON literal`}
+                              value={
+                                row.string_json ??
+                                JSON.stringify(row.value_text)
+                              }
+                              maxLength={STRING_EDITOR_LENGTH}
+                              rows={2}
+                              onChange={(event) =>
+                                changed(
+                                  rows.map((item) =>
+                                    item.key === row.key
+                                      ? {
+                                          ...item,
+                                          string_json: event.target.value,
+                                        }
+                                      : item,
+                                  ),
+                                )
+                              }
+                            />
+                            <small>
+                              Quoted JSON string; empty is {`""`}. Escapes
+                              preserve CR, LF and NUL. Maximum 256 UTF-8 bytes;
+                              no trimming or Unicode normalization.
+                            </small>
+                          </>
+                        ) : (
+                          <input
+                            aria-label={`Transition ${index + 1} exact value text`}
+                            value={row.value_text}
+                            maxLength={256}
+                            readOnly={row.native_type === "Null"}
+                            onChange={(event) =>
+                              changed(
+                                rows.map((item) =>
+                                  item.key === row.key
+                                    ? {
+                                        ...item,
+                                        value_text: event.target.value,
+                                      }
+                                    : item,
+                                ),
+                              )
+                            }
+                          />
+                        )}
                       </td>
                       <td>
                         <button
@@ -950,13 +1036,23 @@ export function ScheduleLibraryPanel({
                           <tr key={index}>
                             <td>{item.time.join(":")}</td>
                             <td>{item.native_type}</td>
-                            <td>{item.value_text}</td>
-                            <td>{item.wire_value_text}</td>
                             <td>
-                              {item.decimal_text_changed ||
-                              item.binary64_to_wire_changed
-                                ? "Inspect rounding"
-                                : "No reported numeric change"}
+                              {item.native_type === "CharacterString"
+                                ? JSON.stringify(item.value_text)
+                                : item.value_text}
+                            </td>
+                            <td>
+                              {item.native_type === "CharacterString"
+                                ? JSON.stringify(item.wire_value_text)
+                                : item.wire_value_text}
+                            </td>
+                            <td>
+                              {item.native_type === "CharacterString"
+                                ? "Exact UTF-8 text"
+                                : item.decimal_text_changed ||
+                                    item.binary64_to_wire_changed
+                                  ? "Inspect rounding"
+                                  : "No reported numeric change"}
                             </td>
                           </tr>
                         ),
