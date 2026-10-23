@@ -256,12 +256,32 @@ class PropertyEvidence:
         )
         if index is not None:
             request.propertyArrayIndex = index
+        loop = asyncio.get_running_loop()
+        started = loop.time()
+        rejected_before = budget.ignored_peers
+        timing = row["request_diagnostics"] = {
+            "basis": "Local monotonic elapsed times at the owned native dispatch handoff; not socket transmit times or device processing latency.",
+            "request_timeout_seconds": timeout,
+            "timeout_basis": "Existing exchange wrapper includes native preparation; no timeout or retry policy changed.",
+            "dispatch_handoff_at": None,
+            "dispatch_handoff_elapsed_ms": None,
+        }
+
+        def before_send(packet):
+            self.guard(session)
+            timing.update(
+                dispatch_handoff_at=_utc(),
+                dispatch_handoff_elapsed_ms=round((loop.time() - started) * 1000, 6),
+            )
+
         native = None
         try:
             async with self.wire(session, budget, request) as wire:
                 try:
                     reply = await asyncio.wait_for(
-                        confirmed_exchange(session["app"], request, single_attempt=True),
+                        confirmed_exchange(
+                            session["app"], request, single_attempt=True, before_send=before_send
+                        ),
                         timeout,
                     )
                 finally:
@@ -359,6 +379,13 @@ class PropertyEvidence:
                 error=str(exc)[:1000] or type(exc).__name__,
             )
             native = None
+        finally:
+            timing.update(
+                finished_at=_utc(),
+                elapsed_ms=round((loop.time() - started) * 1000, 6),
+                matching_transport_candidate=bool(row.get("transport_evidence")),
+                source_filter_rejections=budget.ignored_peers - rejected_before,
+            )
         row["invoke_id"] = request.apduInvokeID
         if len(_encoded(row)) > 64 * 1024:
             row.pop("value", None)

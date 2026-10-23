@@ -934,5 +934,14 @@
     "pdf_pages_or_section": "CCT235-236/247-248; SCT328-329; docs/native-weekly-day-write-ui.md",
     "status": "implemented",
     "implementation_or_gap": "Scoped Connect GUI: explicit operator/rationale and fresh native preview, source/connection/expiry guards, one-use Apply, cancellation, durable local journal reopen, independent may-have-applied/protocol/readback facts and original HTTP-byte exports. Recovered intents remain unknown; reconciliation is explicit read-only. No automatic queries/writes/retry, arbitrary CAF/program upload, Calendar/exception/target/default edits, extra transports or physical manufacturer acceptance."
+  },
+  {
+    "id": "COMM-DIAG-001",
+    "feature": "Owned native property dispatch and reply diagnostics",
+    "acceptance_criterion": "Retain bounded per-property local handoff/deadline/receive evidence without changing native read timeout, retry or query policy; incomplete context remains ineligible.",
+    "evidence": "Owned BACpypes3 0.0.110 dispatch/source contracts and preserved frozen15 missing-exception capture; synthetic direct/routed UDP regression.",
+    "pdf_pages_or_section": "docs/property-dispatch-diagnostics.md",
+    "status": "implemented",
+    "implementation_or_gap": "Local monotonic handoff/completion timing, existing request budget, matching receive-candidate flag and source-filter rejection count in sealed read receipts; pre-handoff interface pin guard. No physical socket send proof, inferred device latency, automatic recovery, root-cause claim for original missing reply or physical controller acceptance."
   }
 ]
