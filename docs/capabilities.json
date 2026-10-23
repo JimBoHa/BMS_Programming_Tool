@@ -423,5 +423,10 @@
     "feature": "Authored AHU-only independent hot/cold deck wizard",
     "status": "implemented",
     "scope": "Editable ordinary-core single-speed supply fan, independent hot/cold temperature targets and simultaneous coil demands, common position-only OA and cold economizer staging, explicit proof/deadlines/reset and held PI. Original source/profile choices across preview/create/simulate/revision/interchange. Invalid runtime setpoints inhibit commands; bad quality rolls back scans. Finite-precision F/C trajectories can diverge at PI boundaries. No zone generation, native JCI CAF/compiler/transfer, measured ventilation or physical/code acceptance. Broad MF-9c85cb8feb partial. See docs/madd-mz-ahu-wizard.md."
+  },
+  {
+    "feature": "Authored occupied, population and window zone setpoint composer",
+    "status": "implemented",
+    "scope": "Editable flat ordinary-core occupied/unoccupied absolute target pairs; optional continuous-entry/release population deadband offset and higher-priority absolute window pair. Timers continue behind window with distinct latent/applied diagnostics, aligned scan choices and original source/profile/choice/manifest bindings. Constructor range/order and inactive-branch checks, existing quality rollback and explicit startup numeric/precision limits. No whole-unit enable/operation, native occupancy/MV/sensor allocation, demand/local-adjustment hierarchy, airflow/ventilation, native JCI CAF/compiler/transfer or physical/code acceptance. Broad MF-b04d70f58e partial. See docs/zone-setpoint-wizard.md."
   }
 ]
