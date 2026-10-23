@@ -408,5 +408,10 @@
     "feature": "Strict UTF8 native Schedule strings",
     "status": "implemented",
     "scope": "Separate observed-String draft/write authority with preserved app-tag7 UTF8/encoding0/256byte payload qualification acrossdefault/present/allweek/exceptions and byte-exact captured property-tag evidence. The SDK may normalize original UDP headers; their canonicality is not proved. Empty/control/NUL/untrimmed strings, quotedJSON browser entry, original response exports and existing single-day native preview/one-attemptApply/readback/cancellation. Original seven-domain rules/seals/passive receipts unchanged. No SDK fallback/legacy conversion, larger APDU/tag/property bounds, automatic retry, Niagara station/facet serialization, JCI String target or physical acceptance. BroadMF-f9b827580e partial. See docs/native-schedule-strings.md."
+  },
+  {
+    "feature": "Chilled-water hydraulic I/O and declared subset capacity planner",
+    "status": "implemented",
+    "scope": "Four parallel-chiller primary-only/primary-secondary times headered/dedicated variable-primary layouts; shared measurement-role derivation and explicit monitoring/prove-on choices. Exact sealed PLANT source/interface/link bindings, explicit controller/module electrical modes and per-host HW-CAP witnesses; original JSON/CSV browser workflow. Count fit covers only declared hydraulic subset; other application occupancy remains unknown. No generated Program, spare terminal/native allocation, plant sequence/hydraulic simulation, field deployment or G36/Title24/physical acceptance. Broad MF-8e7eecb866 partial. See docs/hydronic-io-planner.md."
   }
 ]

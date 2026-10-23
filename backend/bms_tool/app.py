@@ -59,6 +59,7 @@ from .field_trends import FieldTrends, FieldTrendStart
 from .formats import export_program, import_program
 from .hardware_workbench import HardwareWorkbench, hardware_router
 from .heat_pump import heat_pump_router
+from .hydronic_io import HydronicPlanner, hydronic_router
 from .ip_discovery import IpDiscovery, IpScanRequest
 from .jci_hardware import JciHardwareDefinition, plan_hardware_migration
 from .jci_preflight import PreflightRequest, inventory_template, preflight
@@ -633,6 +634,8 @@ def create_app(state_dir=None):
     app.state.point_status = point_status
     app.state.plant_signals = PlantSignals(store)
     app.include_router(plant_signal_router(app.state.plant_signals))
+    app.state.hydronic_io = HydronicPlanner(app.state.plant_signals, hardware_workbench)
+    app.include_router(hydronic_router(app.state.hydronic_io))
     app.state.prescale_reviews = PrescaleReviews(point_status)
     app.include_router(prescale_router(app.state.prescale_reviews))
     app.state.event_inventory = event_inventory
