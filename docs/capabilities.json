@@ -393,5 +393,10 @@
     "feature": "Portable fan-coil wizard foundation",
     "status": "implemented",
     "scope": "Explicit separate proportional coils; single/variable-speed fan; occupied continuous or positive-demand cycling; unit-enable/holdoff/ordered-setpoint gates; distinct condensate cooling inhibit/shutdown; held inactive PI integrals and coupled temperature/gain conversion. Exact source/profile/choice hashes, editable browser workflow, independent Engine and actual host IEC tests; prior VAV profiles/digests unchanged. No native CAF/compiler/transfer, physical allocation/protection, native adaptive tuning, setbacks/frost/restart or G36/Title24/physical acceptance. Broad MF-2e7fda5bcf partial. See docs/fan-coil-wizard.md."
+  },
+  {
+    "feature": "Portable weekly zone-group occupancy composition",
+    "status": "implemented",
+    "scope": "Explicit named-zone weekly window/all-day/disabled groups, end-preserving earlier pre-or-occupied union, separate aggregate pre-only and AHU original-occupancy outputs using existing Schedule/Or blocks. Bounded UTC preview, profile/source/choice/Program hashes, guarded browser creation and authoritative review JSON. DST elapsed-lead differences, hosted native calendar bindings and previous-cycle system links remain explicit. No exceptions/countdown/warmup, native MV/Global Data mapping, CAF/SCT archive/transfer or G36/Title24/physical acceptance. Broad MF-43cb984ef4 partial. See docs/zone-group-schedules.md."
   }
 ]
