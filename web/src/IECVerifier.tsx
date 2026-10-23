@@ -8,7 +8,12 @@ import {
   Download,
   FlaskConical,
 } from "lucide-react";
-import { programApi, saveBlob } from "./api";
+import {
+  programApi,
+  programJsonDocument,
+  saveBlob,
+  type JsonDocument,
+} from "./api";
 import { showValue, type Program } from "./types";
 import "./temco-simulator.css";
 
@@ -44,7 +49,9 @@ export function IECVerifier({ program }: { program: Program }) {
   const [events, setEvents] = useState("[]");
   const [duration, setDuration] = useState("10");
   const [compiled, setCompiled] = useState<Compilation | null>(null);
-  const [verification, setVerification] = useState<Verification | null>(null);
+  const [verificationDocument, setVerificationDocument] =
+    useState<JsonDocument<Verification> | null>(null);
+  const verification = verificationDocument?.data;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const mounted = useRef(false);
@@ -84,12 +91,12 @@ export function IECVerifier({ program }: { program: Program }) {
     );
     setDt(String(program.scan_seconds));
     setCompiled(null);
-    setVerification(null);
+    setVerificationDocument(null);
     setError("");
   }, [program]);
   function invalidate() {
     generation.current++;
-    setVerification(null);
+    setVerificationDocument(null);
     setError("");
   }
   function inputValues() {
@@ -117,7 +124,7 @@ export function IECVerifier({ program }: { program: Program }) {
     const requestGeneration = generation.current;
     setBusy(true);
     setError("");
-    setVerification(null);
+    setVerificationDocument(null);
     if (kind === "compile") setCompiled(null);
     try {
       const step = Number(dt);
@@ -135,7 +142,7 @@ export function IECVerifier({ program }: { program: Program }) {
         const count = Number(scans);
         if (!Number.isInteger(count) || count < 1 || count > 1000)
           throw new Error("Enter 1..1000 whole native scans.");
-        result = await programApi("/iec/verify", {
+        result = await programJsonDocument<Verification>("/iec/verify", {
           ...options,
           scans: count,
           inputs: inputValues(),
@@ -151,7 +158,7 @@ export function IECVerifier({ program }: { program: Program }) {
           throw new Error(
             "Scenario needs a positive duration and at most 1000 native scans.",
           );
-        result = await programApi("/iec/scenario", {
+        result = await programJsonDocument<Verification>("/iec/scenario", {
           ...options,
           duration: length,
           events: parseExecutionSourceJSON(events),
@@ -159,7 +166,7 @@ export function IECVerifier({ program }: { program: Program }) {
       }
       if (!mounted.current || requestGeneration !== generation.current) return;
       if (kind === "compile") setCompiled(result);
-      else setVerification(result);
+      else setVerificationDocument(result);
     } catch (e) {
       if (mounted.current && requestGeneration === generation.current)
         setError(String(e));
@@ -464,7 +471,7 @@ export function IECVerifier({ program }: { program: Program }) {
           later. The input table above applies to fixed-input verification only.
         </p>
       </section>
-      {verification && (
+      {verification && verificationDocument && (
         <section
           className="temco-card temco-verification"
           aria-label="IEC verification results"
@@ -496,10 +503,9 @@ export function IECVerifier({ program }: { program: Program }) {
           </p>
           <button
             onClick={() =>
-              save(
-                JSON.stringify(verification, null, 2),
-                ".iec-trace.json",
-                "application/json",
+              saveBlob(
+                verificationDocument.blob,
+                program.id + ".iec-trace.json",
               )
             }
           >
