@@ -1,11 +1,13 @@
 """Owned virtual COV links must not derive persistent names from UDP ports."""
 
 import asyncio
+import inspect
 import socket
 from uuid import uuid4
 
 from bacpypes3.pdu import LocalStation
 from bacpypes3.vlan import VirtualNetwork, VirtualNode
+from bms_tool.bacnet_cov import BacnetCov
 from bms_tool.connections import Bacnet
 from bms_tool.storage import Store
 
@@ -99,3 +101,38 @@ async def test_pair_cleanup_never_removes_a_replacement_registry_owner():
         if VirtualNetwork._networks.get(network.name) is replacement:
             del VirtualNetwork._networks[network.name]
         discard_owned_network(replacement)
+
+
+async def test_router_owns_its_udp_address_before_client_port_selection(tmp_path, monkeypatch):
+    candidate = free_udp()
+
+    def prefer_candidate_while_unbound():
+        # Deterministically offer the same released ephemeral port until its
+        # real owner has bound it. This models a legitimate OS allocation.
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            try:
+                probe.bind(("127.0.0.1", candidate))
+            except OSError:
+                return free_udp()
+        return candidate
+
+    monkeypatch.setattr(routed, "free_udp", prefer_candidate_while_unbound)
+    pair = routed.routed_pair()
+    # The regression also runs against the earlier synchronous fixture.
+    if inspect.isawaitable(pair):
+        pair = await pair
+    router, field, _, config, _ = pair
+    client = Bacnet(Store(tmp_path))
+    service = BacnetCov(client, timeout=0.3)
+    try:
+        local = f"127.0.0.1:{routed.free_udp()}"
+        await client.connect(local)
+        result = await service.start(**config)
+        assert result["active"]
+        assert local != config["router"]
+        assert (await service.stop(result["id"]))["remote_outcome"] == "Cancellation acknowledged."
+    finally:
+        await service.close()
+        client.close()
+        routed.close_routed_pair(router, field)
+        await asyncio.sleep(0.02)
