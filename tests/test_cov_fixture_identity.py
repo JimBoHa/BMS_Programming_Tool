@@ -5,6 +5,7 @@ import inspect
 import socket
 from uuid import uuid4
 
+import pytest
 from bacpypes3.pdu import LocalStation
 from bacpypes3.vlan import VirtualNetwork, VirtualNode
 from bms_tool.bacnet_cov import BacnetCov
@@ -37,7 +38,7 @@ async def test_closed_pairs_reuse_the_same_udp_port_without_reusing_virtual_iden
     owned, names = [], []
     try:
         for index in range(2):
-            router, field, _, config, _ = routed.routed_pair(4190012 + index * 10)
+            router, field, _, config, _ = await routed.routed_pair(4190012 + index * 10)
             network = network_of(field)
             owned.append(network)
             names.append(network.name)
@@ -66,7 +67,7 @@ async def test_closed_pairs_reuse_the_same_udp_port_without_reusing_virtual_iden
 
 
 async def test_pair_cleanup_keeps_foreign_nodes_and_is_idempotent():
-    router, field, _, _, _ = routed.routed_pair()
+    router, field, _, _, _ = await routed.routed_pair()
     network = network_of(field)
     foreign = VirtualNode(LocalStation(9), network.name)
     try:
@@ -85,7 +86,7 @@ async def test_pair_cleanup_keeps_foreign_nodes_and_is_idempotent():
 
 
 async def test_pair_cleanup_never_removes_a_replacement_registry_owner():
-    router, field, _, _, _ = routed.routed_pair()
+    router, field, _, _, _ = await routed.routed_pair()
     network = network_of(field)
     replacement = VirtualNetwork("cov-replacement-" + uuid4().hex)
     try:
@@ -136,3 +137,57 @@ async def test_router_owns_its_udp_address_before_client_port_selection(tmp_path
         client.close()
         routed.close_routed_pair(router, field)
         await asyncio.sleep(0.02)
+
+
+@pytest.mark.parametrize("outcome", ["timeout", "cancel"])
+async def test_failed_router_setup_retires_only_its_pending_bind(monkeypatch, caplog, outcome):
+    from bacpypes3.ipv4 import IPv4DatagramServer
+
+    entered, release, unrelated_release = asyncio.Event(), asyncio.Event(), asyncio.Event()
+    workers, applications, later_binds, observed = [], [], [], []
+    original = IPv4DatagramServer.retrying_create_datagram_endpoint
+
+    async def held(server, *args, **kwargs):
+        worker = asyncio.current_task()
+        workers.append(worker)
+        worker.add_done_callback(lambda done: observed.append(done.cancelled()))
+        entered.set()
+        await release.wait()
+        later_binds.append(server.local_address)
+        return await original(server, *args, **kwargs)
+
+    original_close = routed.close_routed_pair
+
+    def remember_close(router, field):
+        applications.append((router, field))
+        original_close(router, field)
+
+    monkeypatch.setattr(IPv4DatagramServer, "retrying_create_datagram_endpoint", held)
+    monkeypatch.setattr(routed, "close_routed_pair", remember_close)
+    before = dict(VirtualNetwork._networks)
+    unrelated = asyncio.create_task(unrelated_release.wait())
+    setting_up = asyncio.create_task(routed.routed_pair())
+    try:
+        await asyncio.wait_for(entered.wait(), 1)
+        if outcome == "cancel":
+            setting_up.cancel()
+        with pytest.raises(asyncio.CancelledError if outcome == "cancel" else TimeoutError):
+            await setting_up
+        assert workers and all(worker.done() and worker.cancelled() for worker in workers)
+        release.set()
+        await asyncio.sleep(0.02)
+        assert not later_binds
+        assert observed and all(observed)
+        assert not unrelated.done()
+        assert dict(VirtualNetwork._networks) == before
+        assert "Exception in callback" not in caplog.text
+    finally:
+        if not setting_up.done():
+            setting_up.cancel()
+        await asyncio.gather(setting_up, return_exceptions=True)
+        for router, field in applications:
+            await routed.retire_pending_fixture_endpoints(router)
+            original_close(router, field)
+        release.set()
+        unrelated.cancel()
+        await asyncio.gather(unrelated, return_exceptions=True)
