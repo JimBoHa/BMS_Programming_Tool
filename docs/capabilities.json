@@ -403,5 +403,10 @@
     "feature": "Portable single-compressor heat-pump wizard",
     "status": "implemented",
     "scope": "Explicit reversing polarity/initial mode, fixed demand hysteresis, single-speed fan, distinct compressor minon/off and valve off/settle timers, logical airflow/occupied/enable/holdoff/condensate gates, whole-second aligned timing and coupled temperature/difference conversion. Exact profile/choice/source evidence, guarded browser creation/revision/interchange and actual host IEC tests. Off-state valve commands may change per scan; quality faults retain prior outputs. No native JCI allocation/CAF/compiler/transfer, physical protections, adaptive MSC, second compressor/economizer/supplemental heat, durable restart or G36/Title24 acceptance. Broad MF-724ea67583 partial. See docs/heat-pump-wizard.md."
+  },
+  {
+    "feature": "Strict UTF8 native Schedule strings",
+    "status": "implemented",
+    "scope": "Separate observed-String draft/write authority with preserved app-tag7 UTF8/encoding0/256byte payload qualification acrossdefault/present/allweek/exceptions and byte-exact captured property-tag evidence. The SDK may normalize original UDP headers; their canonicality is not proved. Empty/control/NUL/untrimmed strings, quotedJSON browser entry, original response exports and existing single-day native preview/one-attemptApply/readback/cancellation. Original seven-domain rules/seals/passive receipts unchanged. No SDK fallback/legacy conversion, larger APDU/tag/property bounds, automatic retry, Niagara station/facet serialization, JCI String target or physical acceptance. BroadMF-f9b827580e partial. See docs/native-schedule-strings.md."
   }
 ]
