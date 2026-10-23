@@ -31,6 +31,8 @@ from .device_details import DeviceDetails, DeviceDetailsRequest
 from .models import StrictModel
 from .native_schedule_library import (
     CONTEXT,
+    STRING_DRAFT_PROFILE,
+    STRING_RULES_SHA256,
     NativeScheduleLibrary,
     WeeklyDayDraft,
     decoded_row,
@@ -48,6 +50,7 @@ from .property_evidence import PropertyEvidence, ReadBudget
 from .schedule_inventory import CLOCK
 
 PROFILE = "native-schedule-reviewed-weekly-day-write/1"
+STRING_PROFILE = "native-schedule-reviewed-utf8-weekly-day-write/1"
 SCOPE = (
     "One existing Schedule weekly-schedule index1..7 over an already-open plain IPv4 "
     "interface or explicitly pinned router/DNET:MAC. Fresh sequential native-tag checks, "
@@ -79,6 +82,31 @@ RULES = {
     },
 }
 RULES_SHA256 = digest(RULES)
+
+STRING_RULES = {
+    **RULES,
+    "profile": STRING_PROFILE,
+    "draft_rules_sha256": STRING_RULES_SHA256,
+    "utf8": "Explicit String draft authority; all observed original String application tags require encoding0/strictUTF8/exactbytes before library interpretation. Same480-byte encoded APDU and all original routing/identity/context/uncertainty guards.",
+}
+STRING_WRITE_RULES_SHA256 = digest(STRING_RULES)
+
+
+def authority(review):
+    """Select active authority by observed domain and its explicit sealed rules."""
+    if review.get("source", {}).get("observed_native_type") == "CharacterString":
+        if (
+            review.get("profile") != STRING_DRAFT_PROFILE
+            or review.get("rules_sha256") != STRING_RULES_SHA256
+        ):
+            raise ValueError("String Schedule requires explicit UTF8 draft authority.")
+        return STRING_PROFILE, STRING_WRITE_RULES_SHA256
+    if (
+        review.get("profile") != "native-schedule-weekly-day-draft/1"
+        or review.get("rules_sha256") != DRAFT_RULES_SHA256
+    ):
+        raise ValueError("Numeric Schedule draft authority is unknown or changed.")
+    return PROFILE, RULES_SHA256
 
 
 def utc():
@@ -209,11 +237,19 @@ class WeeklyWriteJournal:
         if (
             type(body) is not dict
             or body.get("id") != id
-            or body.get("profile") != PROFILE
+            or body.get("profile") not in (PROFILE, STRING_PROFILE)
             or body.get("evidence_sha256")
             != digest({k: v for k, v in body.items() if k != "evidence_sha256"})
         ):
             raise ValueError("Weekly-write journal seal failed.")
+        review = body.get("review")
+        native_draft = review.get("native_draft") if isinstance(review, dict) else None
+        source = native_draft.get("source") if isinstance(native_draft, dict) else None
+        observed_string = (
+            isinstance(source, dict) and source.get("observed_native_type") == "CharacterString"
+        )
+        if (body.get("profile") == STRING_PROFILE) != observed_string:
+            raise ValueError("Weekly-write receipt profile conflicts with its captured datatype.")
         return body
 
     def receipt(self, id):
@@ -327,6 +363,13 @@ class NativeWeeklyDayWrites:
             "rules": RULES,
             "rules_sha256": RULES_SHA256,
             "scope": SCOPE,
+            "string_profile": {
+                "profile": STRING_PROFILE,
+                "rules_sha256": STRING_WRITE_RULES_SHA256,
+                "rules": STRING_RULES,
+                "draft_profile": STRING_DRAFT_PROFILE,
+                "draft_rules_sha256": STRING_RULES_SHA256,
+            },
             "active_operation": self.active["id"] if self.active else None,
             "automatic_retries": False,
             "limits": {
@@ -564,10 +607,11 @@ class NativeWeeklyDayWrites:
     async def preview(self, **arguments):
         options = WeeklyWritePreview(**arguments)
         review, captured, target = self._reference(options.draft_id)
+        profile, rules = authority(review)
         body = {
             "id": secrets.token_hex(16),
-            "profile": PROFILE,
-            "rules_sha256": RULES_SHA256,
+            "profile": profile,
+            "rules_sha256": rules,
             "scope": SCOPE,
             "operation_id": options.operation_id,
             "draft_id": options.draft_id,
@@ -709,10 +753,13 @@ class NativeWeeklyDayWrites:
         review, _, target = self._reference(body["draft_id"])
         if review != body["native_draft"]:
             raise ValueError("Reviewed draft changed; no write sent.")
+        profile, rules = authority(review)
+        if (body.get("profile"), body.get("rules_sha256")) != (profile, rules):
+            raise ValueError("Weekly-write plan profile changed; preview again.")
         receipt = {
             "id": secrets.token_hex(16),
-            "profile": PROFILE,
-            "rules_sha256": RULES_SHA256,
+            "profile": profile,
+            "rules_sha256": rules,
             "scope": SCOPE,
             "operation_id": options.operation_id,
             "target": target.model_dump(),
@@ -899,8 +946,14 @@ class NativeWeeklyDayWrites:
             or receipt.get("day") != review["source"]["day"]
         ):
             raise ValueError("Receipt target/day differs from its reviewed source.")
+        profile, rules = authority(review)
+        if (receipt.get("profile"), receipt.get("rules_sha256")) != (profile, rules):
+            raise ValueError(
+                "Receipt active profile differs from its reviewed draft; passive evidence remains unchanged."
+            )
         body = {
-            "profile": PROFILE,
+            "profile": profile,
+            **({"rules_sha256": rules} if profile == STRING_PROFILE else {}),
             "scope": SCOPE,
             "operation_id": options.operation_id,
             "receipt_id": options.receipt_id,

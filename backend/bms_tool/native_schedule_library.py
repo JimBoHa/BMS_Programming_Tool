@@ -22,6 +22,7 @@ from bacpypes3.object import DeviceObject, ScheduleObject
 from bacpypes3.pdu import PDU
 from bacpypes3.primitivedata import (
     Boolean,
+    CharacterString,
     Double,
     Enumerated,
     Integer,
@@ -33,7 +34,7 @@ from bacpypes3.primitivedata import (
     Time,
     Unsigned,
 )
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from .file_access import file_lock, open_regular, regular_file, storage_profile, sync_directory
 from .models import StrictModel
@@ -43,6 +44,8 @@ from .schedule_inventory import PROFILE as INVENTORY_PROFILE
 
 CAPTURE_PROFILE = "native-calendar-schedule-capture/1"
 DRAFT_PROFILE = "native-schedule-weekly-day-draft/1"
+STRING_DRAFT_PROFILE = "native-schedule-utf8-weekly-day-draft/1"
+MAX_STRING_BYTES = 256
 MAX_ARCHIVE_BYTES = 4 * 1024 * 1024
 MAX_CAPTURES, MAX_STORAGE, MAX_REVIEWS = 32, 64 * 1024 * 1024, 16
 MAX_NAMESPACE_ENTRIES = 128
@@ -103,6 +106,56 @@ RULES = {
     },
 }
 RULES_SHA256 = digest(RULES)
+
+# Existing numeric rules and their hashes remain unchanged. The new domain
+# carries separate authority rather than broadening old sealed reviews.
+STRING_RULES = {
+    **RULES,
+    "id": STRING_DRAFT_PROFILE,
+    "datatype": "Observed non-Null CharacterString Schedule_Default; every captured present/weekly/exception atom is matching strict UTF8 CharacterString or explicit Null.",
+    "utf8": "Captured encoded_value property-tag evidence must re-encode byte-identically before library interpretation. This field is SDK tag re-encoding, not original UDP headers. Every preserved application-tag7 payload requires encoding0, strict UTF8, at most256 text bytes and exact primitive re-encoding before library get_value. No fallback/legacy conversion, trimming or Unicode normalization. Empty/control/NUL text is preserved.",
+    "wire_headers": "The reader may normalize original UDP tag headers before encoded_value. Valid UTF8 payloads can therefore qualify after harmless wire-header normalization. Raw UDP evidence is retained separately where available; this profile does not prove or require original UDP header canonicality.",
+    "request": "Explicit draft_profile marker is required for String, including all-Null replacement days. Old numeric requests and seals retain their original shape.",
+    "reviewed_sources": {
+        **RULES["reviewed_sources"],
+        "FXWorkbench14.15/PDF220-222": "207c83d8260bb22223f6ab0b93dbd47c93f056e28b754cb4b165fc73d18d9fbd",
+    },
+    "manufacturer_scope": "Standard observed BACnet Schedule encoding only; FX HTML5 StringSchedule documentation is not proof of Niagara ORD/facet serialization or JCI target support.",
+}
+STRING_RULES_SHA256 = digest(STRING_RULES)
+ALL_PRIMITIVES = {**PRIMITIVES, "CharacterString": CharacterString}
+
+
+def strict_character_strings(tags):
+    """Inspect captured primitive payloads before library string fallback can run."""
+    for tag in tags:
+        if tag.tag_class != 0 or tag.tag_number != 7:
+            continue
+        data = bytes(tag.tag_data)
+        if not data or data[0] != 0:
+            raise ValueError(
+                "String Schedule requires original UTF8 encoding0 tags; legacy/unknown encoding is preserved but ineligible."
+            )
+        if len(data) - 1 > MAX_STRING_BYTES:
+            raise ValueError("String Schedule text exceeds256 UTF8 wire bytes.")
+        try:
+            text = data[1:].decode("utf-8", "strict")
+        except UnicodeDecodeError as exc:
+            raise ValueError(
+                "String Schedule contains invalid original UTF8 bytes; SDK fallback is not accepted."
+            ) from exc
+        original = bytes(TagList([tag]).encode().pduData)
+        if bytes(CharacterString(text).encode().encode().pduData) != original:
+            raise ValueError("String Schedule primitive bytes require unsupported normalization.")
+
+
+def string_profile():
+    return {
+        "profile": STRING_DRAFT_PROFILE,
+        "rules_sha256": STRING_RULES_SHA256,
+        "rules": copy.deepcopy(STRING_RULES),
+        "utf8_bytes": MAX_STRING_BYTES,
+    }
 
 
 def strict_json(raw, limit, *, max_values=100000):
@@ -253,6 +306,12 @@ def _decoded_row(row, obj, prop, index):
         tags[-1].tag_number,
     ) != (2, 3, 3, 3):
         raise ValueError("Native schedule property context3 envelope is invalid.")
+    if any(tag.tag_class == 0 and tag.tag_number == 7 for tag in tags):
+        if bytes(tags.encode().pduData) != raw:
+            raise ValueError(
+                "Captured String property-tag evidence requires unsupported header normalization."
+            )
+        strict_character_strings(tags)
     object_type = int(ObjectIdentifier(obj)[0])
     cls = DeviceObject if object_type == 8 else ScheduleObject
     datatype = cls.get_property_type(prop)
@@ -275,8 +334,16 @@ class CaptureAction(StrictModel):
 
 class NativeTransition(StrictModel):
     time: list[int] = Field(min_length=4, max_length=4)
-    native_type: Literal["Null", "Boolean", "Unsigned", "Integer", "Enumerated", "Real", "Double"]
-    value_text: str = Field(min_length=1, max_length=256)
+    native_type: Literal[
+        "Null", "Boolean", "Unsigned", "Integer", "Enumerated", "Real", "Double", "CharacterString"
+    ]
+    value_text: str = Field(max_length=256)
+
+    @model_validator(mode="after")
+    def nonempty_legacy_value(self):
+        if self.native_type != "CharacterString" and not self.value_text:
+            raise ValueError("Non-String native values require nonempty text.")
+        return self
 
     @field_validator("time", mode="before")
     @classmethod
@@ -294,6 +361,9 @@ class NativeTransition(StrictModel):
 
 
 class WeeklyDayDraft(StrictModel):
+    draft_profile: Literal[STRING_DRAFT_PROFILE] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     capture_id: str = Field(pattern=r"^[0-9a-f]{64}$")
     object_id: str = Field(min_length=1, max_length=80)
     day: int = Field(ge=1, le=7, strict=True)
@@ -326,6 +396,16 @@ def primitive(row):
         if not low <= number <= high:
             raise ValueError("Native integer value exceeds this explicit32-bit draft profile.")
         value = PRIMITIVES[kind](number)
+    elif kind == "CharacterString":
+        try:
+            raw = text.encode("utf-8", "strict")
+        except UnicodeEncodeError as exc:
+            raise ValueError(
+                "String Schedule text must be valid Unicode without unpaired surrogates."
+            ) from exc
+        if len(raw) > MAX_STRING_BYTES:
+            raise ValueError("String Schedule text exceeds256 UTF8 wire bytes.")
+        value = CharacterString(text)
     else:
         if not re.fullmatch(r"-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?", text):
             raise ValueError("Native floating value requires finite JSON-number text.")
@@ -351,6 +431,8 @@ def primitive(row):
 def native_text(value):
     """Lossless operator seed for the supported, decoded primitive profile."""
     name = type(value).__name__
+    if name == "CharacterString":
+        return str(value)
     if name == "Null":
         return "null"
     if name == "Boolean":
@@ -655,7 +737,7 @@ class NativeScheduleLibrary:
                 previous = tuple(clock)
         default = context["schedule-default"].get_value()
         observed = type(default).__name__
-        if observed not in PRIMITIVES or observed == "Null":
+        if observed not in ALL_PRIMITIVES or observed == "Null":
             raise ValueError(
                 "A supported non-Null Schedule_Default is required; Null/default-release interpretation is deferred."
             )
@@ -665,7 +747,7 @@ class NativeScheduleLibrary:
             *(entry.value.get_value() for sequence in sequences for entry in sequence),
         ]:
             name = type(value).__name__
-            if name not in PRIMITIVES:
+            if name not in ALL_PRIMITIVES:
                 raise ValueError(
                     "Captured schedule uses an unsupported/opaque native primitive type."
                 )
@@ -721,6 +803,14 @@ class NativeScheduleLibrary:
                         "object": name,
                         "eligible": True,
                         "native_type": observed,
+                        **(
+                            {
+                                "draft_profile": STRING_DRAFT_PROFILE,
+                                "rules_sha256": STRING_RULES_SHA256,
+                            }
+                            if observed == "CharacterString"
+                            else {}
+                        ),
                         "issues": [],
                         "days": seeds,
                     }
@@ -751,6 +841,7 @@ class NativeScheduleLibrary:
             "profile": CAPTURE_PROFILE,
             "draft_profile": DRAFT_PROFILE,
             "rules_sha256": RULES_SHA256,
+            "string_draft": string_profile(),
             "report": report,
             "scope": SCOPE,
             "integrity": "Self-seal integrity verified; imported/source claims are not authenticated manufacturer provenance.",
@@ -774,6 +865,7 @@ class NativeScheduleLibrary:
             "profile": CAPTURE_PROFILE,
             "draft_profile": DRAFT_PROFILE,
             "rules_sha256": RULES_SHA256,
+            "string_draft": string_profile(),
             "rules": copy.deepcopy(RULES),
             "scope": SCOPE,
             "read_only": True,
@@ -810,6 +902,15 @@ class NativeScheduleLibrary:
     def _review(self, request, *, retain):
         report = source_report(self.source(request.capture_id))
         props, days, observed = self._weekly_context(report, request.object_id)
+        is_string = observed == "CharacterString"
+        if is_string and request.draft_profile != STRING_DRAFT_PROFILE:
+            raise ValueError(
+                "String drafts require their explicit UTF8 profile marker; v1 numeric authority is not sufficient."
+            )
+        if not is_string and request.draft_profile is not None:
+            raise ValueError("UTF8 String profile cannot authorize a non-String schedule.")
+        profile = STRING_DRAFT_PROFILE if is_string else DRAFT_PROFILE
+        rules = STRING_RULES_SHA256 if is_string else RULES_SHA256
         previous = None
         transitions, projections = [], []
         for row in request.transitions:
@@ -827,7 +928,7 @@ class NativeScheduleLibrary:
             tv = TimeValue(time=Time(clock), value=value)
             transitions.append(tv)
             tags = value.encode()
-            wire = PRIMITIVES[row.native_type].decode(TagList(list(tags)))
+            wire = ALL_PRIMITIVES[row.native_type].decode(TagList(list(tags)))
             floating = row.native_type in ("Real", "Double")
             projections.append(
                 {
@@ -844,7 +945,9 @@ class NativeScheduleLibrary:
                     "binary64_to_wire_changed": float(row.value_text).hex() != float(wire).hex()
                     if floating
                     else False,
-                    "precision": "Floating text parses to binary64 then declared wire type; inspect requested text and wire value. Native arithmetic/release behavior is unverified.",
+                    "precision": "Literal strict UTF8 text; no trimming, normalization or decoder fallback. Native evaluation/release behavior is unverified."
+                    if row.native_type == "CharacterString"
+                    else "Floating text parses to binary64 then declared wire type; inspect requested text and wire value. Native arithmetic/release behavior is unverified.",
                 }
             )
         daily = DailySchedule(daySchedule=transitions)
@@ -864,9 +967,9 @@ class NativeScheduleLibrary:
         if bytes(old.encode().encode().pduData) != old_raw:
             raise ValueError("Captured daily tags require unsupported encoding normalization.")
         review = {
-            "format": DRAFT_PROFILE,
-            "profile": DRAFT_PROFILE,
-            "rules_sha256": RULES_SHA256,
+            "format": profile,
+            "profile": profile,
+            "rules_sha256": rules,
             "scope": SCOPE,
             "request": request.model_dump(),
             "source": {
@@ -933,8 +1036,8 @@ class NativeScheduleLibrary:
         body = strict_json(raw, 256 * 1024)
         if (
             type(body) is not dict
-            or body.get("format") != DRAFT_PROFILE
-            or body.get("profile") != DRAFT_PROFILE
+            or body.get("format") not in (DRAFT_PROFILE, STRING_DRAFT_PROFILE)
+            or body.get("profile") != body.get("format")
             or type(body.get("request")) is not dict
             or body.get("id") != digest({k: v for k, v in body.items() if k != "id"})
         ):
