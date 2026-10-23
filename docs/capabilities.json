@@ -372,7 +372,7 @@
   {
     "feature": "Native property dispatch diagnostics",
     "status": "implemented",
-    "scope": "Shared source-pinned read receipts retain guarded native handoff and completion timing, existing budget, receive-candidate and source-filter rejection facts. No added traffic, retries, timer policy change, socket transmit proof or inferred device processing latency. Incomplete context stays ineligible. See docs/property-dispatch-diagnostics.md."
+    "scope": "Shared source-pinned read receipts retain guarded handoff/completion timing and existing candidate/filter facts. Opt-in PointStatus phase traces pair separately bounded handoff/multiplexer/callback/retirement observations with exact original core-export bytes and Blob downloads; diagnostics never consume native property/query budgets, change eligibility, add controller requests/retries or persist a recorder. No all-UDP/socket-transmit/device-latency proof; original missing-reply causes remain unresolved. See docs/property-dispatch-diagnostics.md."
   },
   {
     "feature": "Source-bound distributed plant signal engineering",
