@@ -383,5 +383,10 @@
     "feature": "Portable dual-duct VAV wizard",
     "status": "implemented",
     "scope": "Explicit two-deck position or hot/cold, hot-total, cold-total calibrated-flow declarations, inspectable raw third-flow arithmetic and independent fixed-gain P/PI deck loops. Authored invalid-flow/setpoint zero-command/integral-hold policy, coupled unit/gain conversion and exact source/profile/choice hashes across preview/create/simulation/save/interchange UI. Legacy single-duct profiles/digests unchanged. No adaptive tuning, total-only control, native actuator allocation/calibration/CAF deployment or G36/Title24/physical acceptance. Broad MF-173d9ae6c9 partial. See docs/dual-duct-wizard.md."
+  },
+  {
+    "feature": "Exact JCI physical capacity matrix",
+    "status": "implemented",
+    "scope": "32 exact scoped products; bounded integral pool-count matching, explicit original-survey/hash/host binding, offline Connect matrix and authoritative sealed exports. Unknown suffixes and conflicting ratings remain unresolved. No field/power/wiring approval, spare-terminal claim, CAF allocation or expansion of existing native profiles."
   }
 ]
