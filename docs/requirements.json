@@ -979,5 +979,14 @@
     "pdf_pages_or_section": "594\u2013596",
     "status": "partial",
     "implementation_or_gap": "VAV-DD-001 implements explicit source-qualified portable hot/cold-deck authoring and simulation. Native integrated/proportional/incremental allocation, adaptive tuning, calibration/balancing, total-only/G36 mixing, exhaust/supplemental/smoke sequences, CAF generation/transfer and physical manufacturer acceptance remain unimplemented."
+  },
+  {
+    "id": "HW-CAP-001",
+    "feature": "Exact JCI physical capacity matrix",
+    "acceptance_criterion": "Review exact documented model variants, shared physical input/output pools, signal-family demand and source conflicts without inferring terminal identities or native allocation.",
+    "evidence": "HW-MAN-223; JCI LIT-12011657 2024-03-07; LIT-12011042 13.0; 24-10143-357 H; 24-10143-217 K; PCX installation G",
+    "pdf_pages_or_section": "Reviewed primary sections and artifact SHA-256 values in docs/jci-physical-capacity.md",
+    "status": "implemented",
+    "implementation_or_gap": "32 exact scoped products; bounded integral pool-count matching, explicit original-survey/hash/host binding, offline Connect matrix and authoritative sealed exports. Unknown suffixes and conflicting ratings remain unresolved. No field/power/wiring approval, spare-terminal claim, CAF allocation or expansion of existing native profiles."
   }
 ]

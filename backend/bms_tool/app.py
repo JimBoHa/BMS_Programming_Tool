@@ -93,6 +93,7 @@ from .native_simulator import NativeSimulator
 from .network_number_plan import network_plan_router
 from .niagara import NiagaraArchive
 from .observability import ObservabilityStore
+from .physical_capacity import capacity_router
 from .plant_signals import PlantSignals, plant_signal_router
 from .point_status import PointStatus, PointStatusCancel, PointStatusExport, PointStatusRequest
 from .program_source import SourceMode, source_response
@@ -636,6 +637,7 @@ def create_app(state_dir=None):
     app.state.hardware_workbench = hardware_workbench
     app.state.notifications = None
     app.include_router(hardware_router(hardware_workbench))
+    app.include_router(capacity_router(hardware_workbench))
     app.include_router(supply_router(supply_plans))
     app.state.truth_tables = TruthTables()
     app.include_router(truth_table_router(app.state.truth_tables))
