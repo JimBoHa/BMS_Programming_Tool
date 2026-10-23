@@ -92,7 +92,7 @@
   {
     "feature": "JCI native hardware definitions",
     "status": "implemented",
-    "scope": "Offline inspection of observed manufacturer Interface XML: point types, imperial/metric ranges, BACnet identities, aliases and presets. Validated selections and source-hashed migration reports distinguish rebinding/parameter/interface changes. Exact XML export preserves unknown metadata. This does not allocate CAF objects or compile/download a controller program."
+    "scope": "Offline inspection of observed manufacturer Interface XML: point types, imperial/metric ranges, BACnet identities, aliases and presets. Validated selections and source-hashed migration reports distinguish rebinding/parameter/interface changes. Exact XML export preserves unknown metadata. This does not allocate CAF objects or compile/download a controller program. Engineering JSON exports retain original response bytes. XML exports verify the selected original source hash; source/unit/selection and mounted-operation guards retire stale reports and downloads. Source hashes do not authenticate manufacturer origin."
   },
   {
     "feature": "CAF application editing",
