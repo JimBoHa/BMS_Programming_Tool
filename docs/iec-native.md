@@ -17,8 +17,15 @@ Studio graph → Python reference ← compare ← native Clang executable
 
 MatIEC receives the same ST downloaded by the portable exporter, with one small
 configuration/resource/task declaration appended to instantiate `PROGRAM MAIN`.
-The host driver calls MatIEC's generated `MAIN_init__` and `MAIN_body__`
-functions. Host bindings provide elapsed scan seconds, day/minute and inputs;
+The host driver zero-initializes all `MAIN_data__` storage before calling
+MatIEC's generated `MAIN_init__`, then calls `MAIN_body__` for each scan.
+The native profile identifies this policy as `studio-iec-zero-initialized-main/1`.
+Zero initialization clears runtime control flags; `MAIN_init__` subsequently
+applies declared nonzero/Boolean initial values. This fixes an earlier host
+bug where indeterminate automatic-storage FORCE flags could silently prevent
+assignments. Program canonical hashes, exported ST/PLCopen source profiles and
+MatIEC-generated C stay unchanged; the pinned external runtime is not patched.
+Host bindings provide elapsed scan seconds, day/minute and inputs;
 the compiled program produces its own outputs, retained state and fault flag.
 
 ## Install the optional compiler
