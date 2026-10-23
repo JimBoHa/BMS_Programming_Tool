@@ -373,5 +373,10 @@
     "feature": "Native property dispatch diagnostics",
     "status": "implemented",
     "scope": "Shared source-pinned read receipts retain guarded native handoff and completion timing, existing budget, receive-candidate and source-filter rejection facts. No added traffic, retries, timer policy change, socket transmit proof or inferred device processing latency. Incomplete context stays ineligible. See docs/property-dispatch-diagnostics.md."
+  },
+  {
+    "feature": "Exact JCI physical capacity matrix",
+    "status": "implemented",
+    "scope": "32 exact scoped products; bounded integral pool-count matching, explicit original-survey/hash/host binding, offline Connect matrix and authoritative sealed exports. Unknown suffixes and conflicting ratings remain unresolved. No field/power/wiring approval, spare-terminal claim, CAF allocation or expansion of existing native profiles."
   }
 ]
