@@ -199,3 +199,5 @@ Portable graph editing retains exact numeric source through project, macro, reco
 Admitted App-managed Temco transfers hold a bounded advisory [idle-sleep request](docs/operation-power.md) through recovery and cleanup. The Connect status view is explicit-refresh only; expiry or OS refusal never cancels, retries or authorizes an operation.
 
 The [eight-input sum macro template](docs/sum8-macro-template.md) provides a source-qualified ordinary-block definition through the existing macro library, with explicit units, arithmetic order and original portable artifacts.
+
+The [cancelable-pulse macro template](docs/cancelable-pulse-template.md) adds an editable fixed-duration Boolean pulse with explicit parent-clock alignment, cancellation and source-bound import guards. Native timer and physical deployment acceptance remain separate.
