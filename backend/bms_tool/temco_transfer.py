@@ -16,6 +16,7 @@ import re
 import secrets
 import struct
 import time
+from contextlib import nullcontext
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -89,7 +90,7 @@ def metadata(raw: bytes) -> dict:
 
 
 class TemcoTransfer:
-    def __init__(self, bacnet, store_or_directory=None, *, timeout=1.0):
+    def __init__(self, bacnet, store_or_directory=None, *, timeout=1.0, operation_power=None):
         if not 0.05 <= timeout <= 2.0:
             raise ValueError("Private-transfer timeout must be 0.05..2 seconds.")
         self.bacnet = bacnet
@@ -98,6 +99,7 @@ class TemcoTransfer:
         self.directory = Path(directory or self.store.directory) / "temco-program-transfers"
         self.directory.mkdir(mode=0o700, parents=True, exist_ok=True)
         self.timeout = timeout
+        self.operation_power = operation_power
         self.plans = {}
         self.journal = self.directory / "operations.json"
         self.operations = json.loads(self.journal.read_text()) if self.journal.exists() else {}
@@ -571,99 +573,107 @@ class TemcoTransfer:
                 raise ValueError("Temco plan expired, consumed or unknown; create a fresh plan.")
             if self.bacnet.require() is not plan["app"] or self.bacnet.config != plan["config"]:
                 raise ValueError("BACnet connection changed; create a fresh Temco plan.")
-            public = plan["public"]
-            target = public["target"]
-            address, slot = target["address"], target["slot"]
-            operation = secrets.token_hex(16)
-            await self._identity(
-                address, target["device_instance"], target["model"], target["firmware"]
+            power_scope = (
+                self.operation_power.operation("temco-native-apply")
+                if self.operation_power is not None
+                else nullcontext()
             )
-            current = await self._snapshot(address, slot)
-            if current["generation"] != public["generation"]:
-                raise ValueError(
-                    "Temco generation/hash changed; create a fresh plan before writing."
+            async with power_scope:
+                public = plan["public"]
+                target = public["target"]
+                address, slot = target["address"], target["slot"]
+                operation = secrets.token_hex(16)
+                await self._identity(
+                    address, target["device_instance"], target["model"], target["firmware"]
                 )
-            await self._budget(address, slot, public["compiled_bytes"])
-            # Backup and intent reach fsync before the first stop/write request.
-            self.backup(public["backup_id"])
-            self._record(
-                operation,
-                "intent",
-                target=target,
-                backup_id=public["backup_id"],
-                before_sha256=public["before_sha256"],
-                after_sha256=public["after_sha256"],
-            )
-            original = current["image"]
-            descriptor = current["descriptor"]
-            try:
-                await self._run_state(address, slot, False, descriptor)
-                self._record(operation, "stopped")
-                await self._write_image(address, slot, plan["image"], original, descriptor)
-                self._record(operation, "verified")
-                await self._run_state(address, slot, public["final_running"], descriptor)
-                self._record(operation, "complete")
-                return {
-                    "ok": True,
-                    "operation": operation,
-                    "backup_id": public["backup_id"],
-                    "target": target,
-                    "image_sha256": public["after_sha256"],
-                    "readback_verified": True,
-                    "scope": SCOPE,
-                    "running": public["final_running"],
-                    "power_cycle_persistence_verified": False,
-                }
-            except (Exception, asyncio.CancelledError) as error:
-                journal_error = None
+                current = await self._snapshot(address, slot)
+                if current["generation"] != public["generation"]:
+                    raise ValueError(
+                        "Temco generation/hash changed; create a fresh plan before writing."
+                    )
+                await self._budget(address, slot, public["compiled_bytes"])
+                # Backup and intent reach fsync before the first stop/write request.
+                self.backup(public["backup_id"])
+                self._record(
+                    operation,
+                    "intent",
+                    target=target,
+                    backup_id=public["backup_id"],
+                    before_sha256=public["before_sha256"],
+                    after_sha256=public["after_sha256"],
+                )
+                original = current["image"]
+                descriptor = current["descriptor"]
                 try:
-                    self._record(operation, "uncertain", error=str(error) or type(error).__name__)
-                except Exception as logging_error:
-                    journal_error = str(logging_error)
-                # Cancellation must not abandon a half-written slot. Recovery has
-                # its own bounded requests, then reports a durable outcome.
-                recovery = asyncio.create_task(self._recover(plan, operation))
-                outer_cancelled = isinstance(error, asyncio.CancelledError)
-                while True:
+                    await self._run_state(address, slot, False, descriptor)
+                    self._record(operation, "stopped")
+                    await self._write_image(address, slot, plan["image"], original, descriptor)
+                    self._record(operation, "verified")
+                    await self._run_state(address, slot, public["final_running"], descriptor)
+                    self._record(operation, "complete")
+                    return {
+                        "ok": True,
+                        "operation": operation,
+                        "backup_id": public["backup_id"],
+                        "target": target,
+                        "image_sha256": public["after_sha256"],
+                        "readback_verified": True,
+                        "scope": SCOPE,
+                        "running": public["final_running"],
+                        "power_cycle_persistence_verified": False,
+                    }
+                except (Exception, asyncio.CancelledError) as error:
+                    journal_error = None
                     try:
-                        recovered = await asyncio.shield(recovery)
-                        break
-                    except asyncio.CancelledError:
-                        outer_cancelled |= bool(asyncio.current_task().cancelling())
-                        if recovery.done():
-                            if recovery.cancelled():
-                                recovered = self._recovery_failure(
-                                    operation,
-                                    "Recovery task cancelled before original-image verification.",
-                                )
-                            else:
-                                try:
-                                    recovered = recovery.result()
-                                except Exception as recovery_error:
-                                    recovered = self._recovery_failure(
-                                        operation, str(recovery_error)
-                                    )
+                        self._record(
+                            operation, "uncertain", error=str(error) or type(error).__name__
+                        )
+                    except Exception as logging_error:
+                        journal_error = str(logging_error)
+                    # Cancellation must not abandon a half-written slot. Recovery has
+                    # its own bounded requests, then reports a durable outcome.
+                    recovery = asyncio.create_task(self._recover(plan, operation))
+                    outer_cancelled = isinstance(error, asyncio.CancelledError)
+                    while True:
+                        try:
+                            recovered = await asyncio.shield(recovery)
                             break
-                        # Keep the connection lock until bounded recovery ends,
-                        # including repeated client/HTTP cancellation.
-                        continue
-                    except Exception as recovery_error:
-                        recovered = self._recovery_failure(operation, str(recovery_error))
-                        break
-                result = {
-                    "ok": False,
-                    "operation": operation,
-                    "backup_id": public["backup_id"],
-                    "target": target,
-                    "error": str(error) or type(error).__name__,
-                    "recovery": recovered,
-                    "scope": SCOPE,
-                }
-                if journal_error:
-                    result["journal_error"] = journal_error
-                if outer_cancelled:
-                    raise asyncio.CancelledError from error
-                return result
+                        except asyncio.CancelledError:
+                            outer_cancelled |= bool(asyncio.current_task().cancelling())
+                            if recovery.done():
+                                if recovery.cancelled():
+                                    recovered = self._recovery_failure(
+                                        operation,
+                                        "Recovery task cancelled before original-image verification.",
+                                    )
+                                else:
+                                    try:
+                                        recovered = recovery.result()
+                                    except Exception as recovery_error:
+                                        recovered = self._recovery_failure(
+                                            operation, str(recovery_error)
+                                        )
+                                break
+                            # Keep the connection lock until bounded recovery ends,
+                            # including repeated client/HTTP cancellation.
+                            continue
+                        except Exception as recovery_error:
+                            recovered = self._recovery_failure(operation, str(recovery_error))
+                            break
+                    result = {
+                        "ok": False,
+                        "operation": operation,
+                        "backup_id": public["backup_id"],
+                        "target": target,
+                        "error": str(error) or type(error).__name__,
+                        "recovery": recovered,
+                        "scope": SCOPE,
+                    }
+                    if journal_error:
+                        result["journal_error"] = journal_error
+                    if outer_cancelled:
+                        raise asyncio.CancelledError from error
+                    return result
 
     def _recovery_failure(self, operation, message):
         result = {"restored": False, "manual_recovery_required": True, "error": message}
