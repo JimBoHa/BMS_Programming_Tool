@@ -80,10 +80,15 @@ export async function sourceJsonDocument(
 export async function programJsonDocument<T = any>(
   path: string,
   body?: unknown,
+  includeHeaders = false,
 ): Promise<JsonDocument<T>> {
   const response = await request(path, body, undefined, { program: true });
   const blob = await response.blob();
-  return { data: JSON.parse(await blob.text()) as T, blob };
+  return {
+    data: JSON.parse(await blob.text()) as T,
+    blob,
+    ...(includeHeaders ? { headers: response.headers } : {}),
+  };
 }
 export async function programDownload(
   path: string,

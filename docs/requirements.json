@@ -1186,5 +1186,23 @@
     "pdf_pages_or_section": "docs/iec-symbol-namespace.md; docs/iec-native.md",
     "status": "implemented",
     "implementation_or_gap": "Separate private expanded-copy allocation and shared native input/quality/calendar/output/state roles; strict newSTV3/PLCopen symbol markers; original Program/source/digest IDs preserved; legacyV1/V2numeric and Sedona contracts frozen. Local source/API and actual formerly colliding host programs tested with ordinary flags/limits/tolerances. No broader IR identifier-schema widening, Sedona slot redesign, arbitrary vendor IEC import, physical controller/JCI allocation/transfer or deployment acceptance."
+  },
+  {
+    "id": "UV-C3-001",
+    "feature": "Occupied Unit Ventilator Cycle III authored foundation",
+    "acceptance_criterion": "Create source-qualified ordinary graphs for occupied single-speed/separate hydronic coils, explicit condensate policy, external zone targets, MAT and zone-limited damper commands; validate units/retention/quality, original exports and portable execution.",
+    "evidence": "Controller Tool Help18.0 LIT-12011147 SHA68935362c85c; actual core/API and pinned host IEC execution with independent lifecycle/REAL controls and original artifacts.",
+    "pdf_pages_or_section": "PDF490\u2013494,1112\u20131114,1273\u20131276; docs/unit-ventilator-cycle3-wizard.md",
+    "status": "implemented",
+    "implementation_or_gap": "Authored197-198-node graph with13requiredinputs/29outputs, strict flat choices/explicit condensate policy, stable-proof/deadline/latch reset, direct zone coil P/PI, MAT mapping, selected previous heating saturation and latent zone limiter, minimum100, transactional rollback, source/profile/choice/Program manifests and original export/save paths. Native JCI status/FSCS/tracking/tuning/CAF/allocation/transfer, other UV cycles/equipment, unoccupied protection, physical/ventilation/compliance acceptance remain outside this foundation."
+  },
+  {
+    "id": "MF-069429184f",
+    "feature": "Unit-ventilator template",
+    "acceptance_criterion": "Configure source-supported unit-ventilator fan, coil, ventilation-cycle and occupancy behavior with exact target/version and commissioning acceptance.",
+    "evidence": "Controller Tool Help18.0 LIT-12011147; scoped first authored foundation UV-C3-001.",
+    "pdf_pages_or_section": "PDF489\u2013494,1112\u20131114,1273\u20131276",
+    "status": "partial",
+    "implementation_or_gap": "UV-C3-001 supplies an authored occupied single-speed CycleIII cold-outdoor/separate proportional hydronic foundation. Full native UV applications, other cycles/fan/coil arrangements, occupancy recovery/freeze protection, physical allocation, native packages/CAF compilation/transfer, firmware and controller/compliance acceptance remain unimplemented."
   }
 ]
