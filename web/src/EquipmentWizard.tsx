@@ -68,7 +68,30 @@ export function EquipmentWizard({
   function patch(key: string, value: any) {
     if (!draft) return;
     epoch.current++;
-    setDraft({ ...draft, [key]: value });
+    if (key.startsWith("dual_duct.")) {
+      setDraft({
+        ...draft,
+        dual_duct: { ...draft.dual_duct, [key.slice(10)]: value },
+      });
+    } else if (key === "equipment") {
+      const rest = { ...draft };
+      delete rest.dual_duct;
+      setDraft(
+        value === "dual-duct"
+          ? {
+              ...rest,
+              equipment: value,
+              dual_duct: { ...catalog?.dual_duct?.defaults },
+            }
+          : { ...rest, equipment: value },
+      );
+    } else if (key === "control" && draft.equipment === "dual-duct") {
+      setDraft({
+        ...draft,
+        control: value,
+        dual_duct: { ...draft.dual_duct, layout: "" },
+      });
+    } else setDraft({ ...draft, [key]: value });
     setPreview(null);
     setError("");
   }
@@ -96,7 +119,7 @@ export function EquipmentWizard({
       });
       if (!current(gen, base, choices)) return;
       if (
-        result.profile_sha256 !== catalog?.profile_sha256 ||
+        result.profile_sha256 !== selectedCatalog?.profile_sha256 ||
         !same(result.source_choices, draft) ||
         result.choices?.project_id !== draft.project_id ||
         result.choices?.temperature_unit !== temperature_unit ||
@@ -125,7 +148,7 @@ export function EquipmentWizard({
       if (
         result.format !== "bms.equipment-wizard-preview" ||
         result.version !== 1 ||
-        result.profile_sha256 !== catalog?.profile_sha256 ||
+        result.profile_sha256 !== selectedCatalog?.profile_sha256 ||
         !same(result.choices, draft) ||
         result.program?.id !== draft.project_id ||
         result.program.name !== draft.name ||
@@ -148,7 +171,7 @@ export function EquipmentWizard({
         result.native_compile !== false ||
         result.controller_writes !== false ||
         !result.topology ||
-        !same(result.profile, catalog?.profile) ||
+        !same(result.profile, selectedCatalog?.profile) ||
         !Array.isArray(result.profile?.gaps) ||
         !result.points.every(
           (row: Data) =>
@@ -203,6 +226,9 @@ export function EquipmentWizard({
     }
   }
   function number(key: string, label: string, help?: string) {
+    const value = key.startsWith("dual_duct.")
+      ? draft?.dual_duct?.[key.slice(10)]
+      : draft?.[key];
     return (
       <label>
         {label}
@@ -210,7 +236,7 @@ export function EquipmentWizard({
           type="number"
           step="any"
           aria-label={label}
-          value={Number.isNaN(draft?.[key]) ? "" : (draft?.[key] ?? "")}
+          value={Number.isNaN(value) ? "" : (value ?? "")}
           onChange={(e) =>
             patch(key, e.target.value === "" ? NaN : Number(e.target.value))
           }
@@ -233,12 +259,15 @@ export function EquipmentWizard({
     );
   }
   function choice(key: string, label: string, options: [string, string][]) {
+    const value = key.startsWith("dual_duct.")
+      ? draft?.dual_duct?.[key.slice(10)]
+      : draft?.[key];
     return (
       <label>
         {label}
         <select
           aria-label={label}
-          value={draft?.[key] ?? ""}
+          value={value ?? ""}
           onChange={(e) => {
             if (key === "temperature_loop" || key === "flow_loop") {
               const field =
@@ -263,6 +292,8 @@ export function EquipmentWizard({
       </label>
     );
   }
+  const dual = draft?.equipment === "dual-duct";
+  const selectedCatalog = dual ? catalog?.dual_duct : catalog;
   return (
     <div className="equipment-wizard-backdrop">
       <section
@@ -295,6 +326,7 @@ export function EquipmentWizard({
                   ["cooling-only", "Cooling only"],
                   ["inline-reheat", "Inline hot-water reheat, no fan"],
                   ["parallel-fan-reheat", "Parallel fan with hot-water reheat"],
+                  ["dual-duct", "Dual duct: declared hot and cold decks"],
                 ])}
                 {choice("family", "Declared controller family", [
                   ["universal-runtime", "Portable runtime"],
@@ -308,7 +340,9 @@ export function EquipmentWizard({
                   Model names do not select native terminal mappings or prove
                   package/firmware support. Inline reheat has no fan; parallel
                   fan control is illustrative demand hysteresis without fan
-                  proof.
+                  proof. Dual duct creates separate logical hot/cold percentage
+                  commands; integrated, proportional and incremental hardware
+                  are not allocated.
                 </p>
               </div>
             )}
@@ -325,6 +359,22 @@ export function EquipmentWizard({
                       "Measured-airflow feedback with a separate flow loop",
                     ],
                   ])}
+                  {dual &&
+                    choice(
+                      "dual_duct.layout",
+                      "Dual-duct airflow pickup layout",
+                      draft.control === "position"
+                        ? [
+                            ["", "Choose explicit layout…"],
+                            ["none", "No airflow pickups: positions only"],
+                          ]
+                        : [
+                            ["", "Choose explicit layout…"],
+                            ["hot-cold", "Measured hot and cold deck flow"],
+                            ["hot-total", "Measured hot deck and total flow"],
+                            ["cold-total", "Measured cold deck and total flow"],
+                          ],
+                    )}
                   {choice("setpoints", "Setpoint sources", [
                     ["fixed", "Fixed declared setpoints"],
                     [
@@ -375,8 +425,28 @@ export function EquipmentWizard({
                 </div>
                 {draft.control === "position" ? (
                   <div className="wizard-fields">
-                    {number("damper_min", "Minimum damper position (%)")}
-                    {number("damper_max", "Maximum damper position (%)")}
+                    {number(
+                      "damper_min",
+                      dual
+                        ? "Cold-deck minimum damper position (%)"
+                        : "Minimum damper position (%)",
+                    )}
+                    {number(
+                      "damper_max",
+                      dual
+                        ? "Cold-deck maximum damper position (%)"
+                        : "Maximum damper position (%)",
+                    )}
+                    {dual &&
+                      number(
+                        "dual_duct.hot_damper_min",
+                        "Hot-deck minimum damper position (%)",
+                      )}
+                    {dual &&
+                      number(
+                        "dual_duct.hot_damper_max",
+                        "Hot-deck maximum damper position (%)",
+                      )}
                     <p>
                       Position percentages are neither measured airflow nor
                       design ventilation. No airflow sensor or flow loop is
@@ -400,15 +470,40 @@ export function EquipmentWizard({
                     </label>
                     {number(
                       "flow_min",
-                      `Minimum declared airflow (${draft.flow_unit})`,
+                      `${dual ? "Cold-deck minimum" : "Minimum"} declared airflow (${draft.flow_unit})`,
                     )}
                     {number(
                       "flow_max",
-                      `Maximum declared airflow (${draft.flow_unit})`,
+                      `${dual ? "Cold-deck maximum" : "Maximum"} declared airflow (${draft.flow_unit})`,
                     )}
-                    {number(
-                      "flow_default",
-                      `Measured-airflow input default (${draft.flow_unit})`,
+                    {(!dual || draft.dual_duct?.layout !== "hot-total") &&
+                      number(
+                        "flow_default",
+                        `${dual ? "Measured cold-deck airflow" : "Measured-airflow"} input default (${draft.flow_unit})`,
+                      )}
+                    {dual && (
+                      <>
+                        {number(
+                          "dual_duct.hot_flow_min",
+                          `Hot-deck minimum declared airflow (${draft.flow_unit})`,
+                        )}
+                        {number(
+                          "dual_duct.hot_flow_max",
+                          `Hot-deck maximum declared airflow (${draft.flow_unit})`,
+                        )}
+                        {draft.dual_duct?.layout !== "cold-total" &&
+                          number(
+                            "dual_duct.hot_flow_default",
+                            `Measured hot-deck airflow input default (${draft.flow_unit})`,
+                          )}
+                        {["hot-total", "cold-total"].includes(
+                          draft.dual_duct?.layout,
+                        ) &&
+                          number(
+                            "dual_duct.total_flow_default",
+                            `Measured total airflow input default (${draft.flow_unit})`,
+                          )}
+                      </>
                     )}
                     {choice("flow_loop", "Airflow loop strategy", [
                       ["P", "Proportional only"],
@@ -429,8 +524,23 @@ export function EquipmentWizard({
                       must already represent calibrated airflow. Increasing
                       damper command is assumed to increase airflow; physical
                       direction/wiring remain unverified.
+                      {dual &&
+                        " The declared flow-loop gains apply to both independent deck loops. Two selected calibrated inputs derive the third flow by sum/difference; raw derived values are preserved. Total-only pickup control is unsupported."}
                     </p>
                   </div>
+                )}
+                {dual && (
+                  <p>
+                    Hot/cold deck minima are independent explicit declarations
+                    and can permit simultaneous minimum flow. This establishes
+                    no ventilation, energy, Guideline 36 or Title 24 compliance.
+                    The authored portable guard gives both commands zero if
+                    setpoints cross or measured/derived deck flow becomes
+                    negative; PI integrals hold through zero error. Inactive
+                    temperature demand is zero while its integral is retained.
+                    This is neither vendor adaptive tuning nor a physical safety
+                    interlock.
+                  </p>
                 )}
                 {draft.equipment === "parallel-fan-reheat" && (
                   <div className="wizard-fields">
