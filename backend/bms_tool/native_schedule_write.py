@@ -811,14 +811,12 @@ class NativeWeeklyDayWrites:
                     async with self.wire.receive(session, request) as proof:
                         receipt["transport_candidates"] = proof
                         try:
-                            reply = await asyncio.wait_for(
-                                confirmed_exchange(
-                                    session["app"],
-                                    request,
-                                    single_attempt=True,
-                                    before_send=before_send,
-                                ),
-                                self.timeout,
+                            reply = await confirmed_exchange(
+                                session["app"],
+                                request,
+                                single_attempt=True,
+                                before_send=before_send,
+                                response_timeout=self.timeout,
                             )
                         except ErrorRejectAbortNack as exc:
                             reply = exc
