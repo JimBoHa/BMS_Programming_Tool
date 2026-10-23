@@ -69,3 +69,5 @@ Operation IDs contain8..80 ASCII letters/digits/underscore/hyphen. Draft IDs are
 - `tests/test_native_write_deadline.py`: independent literal ACKs with delayed synchronous durable intent isolate both caller and native APDU timers, plus strict budget admission, elapsed pre-send deadline refusal, unchanged post-send timeout and one-packet checks. Original Windows acceptance failures remain retained separately; passing host regressions do not establish a Windows or physical-device acceptance result.
 
 Physical JCI/other manufacturer acceptance, scheduling execution, output effects, native CAF/CCT compilation/download, Calendar/exception/context edits, object provisioning, proprietary global calendars/timezones, serial/BTCVT/BBMD writes and unrestricted cross-brand conversion remain unverified or outside this profile.
+
+The separately qualified [UTF8 String Schedule extension](native-schedule-strings.md) adds explicit String draft/write profiles. Existing seven-domain rules and passive evidence remain unchanged.

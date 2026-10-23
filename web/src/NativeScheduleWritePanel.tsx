@@ -6,6 +6,14 @@ import {
   saveBlob,
   type JsonDocument,
 } from "./api";
+import {
+  STRING_DRAFT,
+  STRING_WRITE,
+  STRING_WRITE_RULES,
+  nativeString,
+  stringDraftReview,
+  stringWriteCapability,
+} from "./nativeScheduleStrings";
 
 const BASE = "/bacnet/schedules/writes";
 const PROFILE = "native-schedule-reviewed-weekly-day-write/1";
@@ -21,12 +29,14 @@ type Target = {
 };
 type Binding = {
   id: string;
+  profile?: string;
   source: {
     source_sha256: string;
     capture_id: string;
     object: string;
     day: number;
     target: Target;
+    observed_native_type?: string;
   };
 };
 type Document = JsonDocument<any>;
@@ -57,10 +67,23 @@ const strings = (value: any, maximum = 64) =>
   Array.isArray(value) &&
   value.length <= maximum &&
   value.every((item: any) => text(item));
+type Domain = { profile: string; rules: string };
+function writeDomain(binding: Binding | null, profile: any): Domain | null {
+  if (!binding || !profile) return null;
+  if (binding.source.observed_native_type === "CharacterString")
+    return stringWriteCapability(profile.string_profile) &&
+      stringDraftReview(binding)
+      ? { profile: STRING_WRITE, rules: STRING_WRITE_RULES }
+      : null;
+  if (binding.profile === STRING_DRAFT) return null;
+  return { profile: PROFILE, rules: profile.rules_sha256 };
+}
 function profileResult(value: any) {
   if (
     value?.profile !== PROFILE ||
     !hex(value.rules_sha256, 64) ||
+    (value.string_profile !== undefined &&
+      !stringWriteCapability(value.string_profile)) ||
     !Array.isArray(value.journal?.records) ||
     value.journal.records.length > 64 ||
     !Number.isSafeInteger(value.journal.used_bytes) ||
@@ -95,12 +118,13 @@ function previewResult(
   operation: string,
   operator: string,
   rationale: string,
-  rules: string,
+  domain: Domain,
 ) {
+  const isString = domain.profile === STRING_WRITE;
   if (
-    value?.profile !== PROFILE ||
+    value?.profile !== domain.profile ||
     value.operation_id !== operation ||
-    value.rules_sha256 !== rules ||
+    value.rules_sha256 !== domain.rules ||
     !hex(value.id, 32) ||
     !sameSource(value, binding) ||
     value.operator_name !== operator ||
@@ -110,6 +134,10 @@ function previewResult(
     !strings(value.reasons) ||
     value.native_draft?.id !== binding.id ||
     value.native_draft?.source?.capture_id !== binding.source.capture_id ||
+    (isString
+      ? !stringDraftReview(value.native_draft)
+      : value.native_draft?.source?.observed_native_type ===
+        "CharacterString") ||
     !Array.isArray(value.native_draft?.new?.transitions) ||
     value.native_draft.new.transitions.length > 32 ||
     value.native_draft.new.transitions.some(
@@ -122,17 +150,22 @@ function previewResult(
             part < 0 ||
             part > [23, 59, 59, 99][index],
         ) ||
-        ![
-          "Null",
-          "Boolean",
-          "Unsigned",
-          "Integer",
-          "Enumerated",
-          "Real",
-          "Double",
-        ].includes(row.native_type) ||
-        !text(row.value_text, 256) ||
-        !text(row.wire_value_text, 256),
+        !(
+          isString
+            ? ["Null", "CharacterString"]
+            : [
+                "Null",
+                "Boolean",
+                "Unsigned",
+                "Integer",
+                "Enumerated",
+                "Real",
+                "Double",
+              ]
+        ).includes(row.native_type) ||
+        (row.native_type === "CharacterString"
+          ? !nativeString(row.value_text) || !nativeString(row.wire_value_text)
+          : !text(row.value_text, 256) || !text(row.wire_value_text, 256)),
     ) ||
     value.automatic_retries !== false
   )
@@ -166,8 +199,14 @@ function previewResult(
 }
 function receiptResult(value: any, id?: string) {
   const unresolved = value?.journal_state === "intent_only";
+  const isString = value?.profile === STRING_WRITE;
   if (
-    value?.profile !== PROFILE ||
+    ![PROFILE, STRING_WRITE].includes(value?.profile) ||
+    (isString
+      ? value.rules_sha256 !== STRING_WRITE_RULES ||
+        !stringDraftReview(value.review?.native_draft)
+      : value.review?.native_draft?.source?.observed_native_type ===
+        "CharacterString") ||
     !hex(value.id, 32) ||
     (id && value.id !== id) ||
     !hex(value.evidence_sha256, 64) ||
@@ -254,6 +293,8 @@ export function NativeScheduleWritePanel({
       connected,
       operator,
       rationale,
+      profile?.rules_sha256 ?? null,
+      profile?.string_profile?.rules_sha256 ?? null,
     ]),
     authorityNow = useRef(authority);
   authorityNow.current = authority;
@@ -318,6 +359,7 @@ export function NativeScheduleWritePanel({
     } catch (failure) {
       if (alive.current && localTicket.current === ticket) {
         setPrepared(null);
+        setProfile(null);
         setError(String(failure));
       }
     }
@@ -367,34 +409,37 @@ export function NativeScheduleWritePanel({
     if (!draft || !connected || !operator.trim() || !rationale.trim()) return;
     const binding = draft,
       name = operator.trim(),
-      why = rationale.trim();
+      why = rationale.trim(),
+      domain = writeDomain(binding, profile);
     setPrepared(null);
+    if (!domain) {
+      setError(
+        "The native write profile does not support this exact draft domain and rules.",
+      );
+      return;
+    }
     await run(
       "preview",
       { draft_id: binding.id, operator_name: name, rationale: why },
       (result, operation) => {
-        previewResult(
-          result.data,
-          binding,
-          operation.id,
-          name,
-          why,
-          profile.rules_sha256,
-        );
+        previewResult(result.data, binding, operation.id, name, why, domain);
         setPrepared({ ...result, authority: operation.key });
       },
     );
   }
   async function apply() {
     const candidate = prepared,
-      binding = draft;
+      binding = draft,
+      domain = writeDomain(binding, profile);
     if (!candidate?.data.can_apply || !binding || !connected || own.current)
       return;
     // A new render can expose new props before passive cleanup has retired the
     // old plan. The captured authority must match here, before any native POST.
     if (
       candidate.authority !== authorityNow.current ||
-      candidate.data.rules_sha256 !== profile?.rules_sha256 ||
+      !domain ||
+      candidate.data.profile !== domain.profile ||
+      candidate.data.rules_sha256 !== domain.rules ||
       !sameSource(candidate.data, binding)
     )
       return;
@@ -463,7 +508,9 @@ export function NativeScheduleWritePanel({
     await run("reconcile", { receipt_id: id }, (result, operation) => {
       const value = result.data;
       if (
-        value?.profile !== PROFILE ||
+        value?.profile !== selected.data.profile ||
+        (selected.data.profile === STRING_WRITE &&
+          value.rules_sha256 !== STRING_WRITE_RULES) ||
         value.operation_id !== operation.id ||
         value.receipt_id !== id ||
         value.receipt_sha256 !== digest ||
@@ -516,11 +563,14 @@ export function NativeScheduleWritePanel({
   function download(document: Document, filename: string) {
     saveBlob(document.blob, filename);
   }
+  const domain = writeDomain(draft, profile);
   const result = receipt?.data,
     recovered = result?.journal_state === "intent_only",
     preparedCurrent =
       prepared?.authority === authority &&
-      prepared?.data.rules_sha256 === profile?.rules_sha256,
+      !!domain &&
+      prepared?.data.profile === domain.profile &&
+      prepared?.data.rules_sha256 === domain.rules,
     expired =
       !!prepared?.data.can_apply &&
       (expiredId === prepared.data.id ||
@@ -578,6 +628,15 @@ export function NativeScheduleWritePanel({
                 day {draft.source.day}
               </p>
               <p className="mono">Draft {draft.id}</p>
+              {profile &&
+                draft.source.observed_native_type === "CharacterString" &&
+                !domain && (
+                  <p role="alert">
+                    The native service has no supported UTF-8 write profile for
+                    this String draft. Offline review and export remain
+                    available.
+                  </p>
+                )}
             </div>
           ) : (
             <p>
@@ -613,6 +672,7 @@ export function NativeScheduleWritePanel({
           <button
             disabled={
               !profile ||
+              !domain ||
               !draft ||
               !connected ||
               !!busy ||
@@ -836,9 +896,9 @@ export function NativeScheduleWritePanel({
           <p>
             Direct unicast IPv4 and explicitly pinned routed IPv4 only. Serial,
             BTCVT, BBMD/foreign writes, Calendar/exception edits and physical
-            manufacturer acceptance are outside this profile. Native numeric
-            evidence downloads retain original server bytes; JSON previews may
-            normalize numeric spelling.
+            manufacturer acceptance are outside this profile. Native evidence
+            downloads retain original server bytes; JSON previews may normalize
+            numeric spelling.
           </p>
         </>
       )}
