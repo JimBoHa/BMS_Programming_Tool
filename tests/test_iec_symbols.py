@@ -282,7 +282,7 @@ def test_original_frozen_v1_v2_st_plcopen_and_sedona_bytes_regenerate_without_ex
             assert raw == path.read_bytes()
             assert (
                 hashlib.sha256(raw).hexdigest()
-                == provenance["files_sha256"][str(path.relative_to(FIXTURES))]
+                == provenance["files_sha256"][path.relative_to(FIXTURES).as_posix()]
             )
             if extension in ("st", "xml"):
                 assert (
