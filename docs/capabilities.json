@@ -433,5 +433,10 @@
     "feature": "Authored occupied, population and window zone setpoint composer",
     "status": "implemented",
     "scope": "Editable flat ordinary-core occupied/unoccupied absolute target pairs; optional continuous-entry/release population deadband offset and higher-priority absolute window pair. Timers continue behind window with distinct latent/applied diagnostics, aligned scan choices and original source/profile/choice/manifest bindings. Constructor range/order and inactive-branch checks, existing quality rollback and explicit startup numeric/precision limits. No whole-unit enable/operation, native occupancy/MV/sensor allocation, demand/local-adjustment hierarchy, airflow/ventilation, native JCI CAF/compiler/transfer or physical/code acceptance. Broad MF-b04d70f58e partial. See docs/zone-setpoint-wizard.md."
+  },
+  {
+    "feature": "Authored occupied single-speed series-fan VAV wizard",
+    "status": "implemented",
+    "scope": "Editable ordinary-core cold-primary VAV with calibrated primary-flow feedback and proportional hot-water reheat. Elapsed close-command phase then fan request, stable independent proof and bounded chatter deadline, latched good-quality proof-loss stop/raw-request-off fresh reset. Cascaded zone-cooling/flow PI, direct heating PI, command-aware hysteresis and held inactive integrals; explicit good-value admission versus complete bad-quality rollback. Coupled temperature/flow/delta/inverse-gain unit conversion and source-bound author/simulate/revision/export. Estimated closure/primary flow is not measured damper closure/total coil flow or ventilation. No unoccupied/purge/variable fan, native JCI allocation/CAF/compiler/transfer or physical/code acceptance. Broad MF-8a75247a85 partial. See docs/series-fan-vav-wizard.md."
   }
 ]
