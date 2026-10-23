@@ -97,6 +97,7 @@ from .native_simulator import NativeSimulator
 from .network_number_plan import network_plan_router
 from .niagara import NiagaraArchive
 from .observability import ObservabilityStore
+from .operation_power import OperationPower
 from .physical_capacity import capacity_router
 from .plant_signals import PlantSignals, plant_signal_router
 from .point_status import PointStatus, PointStatusCancel, PointStatusExport, PointStatusRequest
@@ -476,7 +477,7 @@ class MacroUpdate(MacroReference):
     replacement: Program
 
 
-def create_app(state_dir=None):
+def create_app(state_dir=None, *, operation_power=None):
     store = Store(state_dir or state_directory())
     conformance = ConformancePlans(store)
     runtime = Runtime(store)
@@ -487,7 +488,8 @@ def create_app(state_dir=None):
     field_trends = FieldTrends(bacnet, store.directory, audit_store=store)
     cov_recordings = CovObservations(field_trends.store)
     cov = BacnetCov(bacnet, store, recorder=cov_recordings)
-    temco_transfer = TemcoTransfer(bacnet, store)
+    power = operation_power if operation_power is not None else OperationPower()
+    temco_transfer = TemcoTransfer(bacnet, store, operation_power=power)
     history = BacnetHistory(bacnet, store)
     multiple_history = MultipleHistory(bacnet, store)
     event_log = EventLogHistory(bacnet, store)
@@ -564,6 +566,7 @@ def create_app(state_dir=None):
         try:
             yield
         finally:
+            app.state.power_shutdown = await power.close()
             for task in tasks:
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
@@ -622,6 +625,7 @@ def create_app(state_dir=None):
     app.state.native = native
     app.state.field_trends = field_trends
     app.state.temco_transfer = temco_transfer
+    app.state.operation_power = power
     app.state.bacnet_history = history
     app.state.multiple_history = multiple_history
     app.state.event_log = event_log
@@ -2122,6 +2126,10 @@ def create_app(state_dir=None):
             scans=body.scans,
             clock=body.clock,
         )
+
+    @app.get("/api/operation-power")
+    def operation_power_status():
+        return power.status()
 
     @app.get("/api/temco/transfer/status")
     def temco_transfer_status():
