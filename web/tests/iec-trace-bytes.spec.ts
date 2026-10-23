@@ -35,11 +35,18 @@ for (const mode of ["verify", "scenario"] as const) {
         .fill('[{"time":0,"inputs":{"input":-0.0}}]');
       await page.getByLabel("IEC scenario duration", { exact: true }).fill("2");
     }
-    const receiving = page.waitForResponse(
-      (response) =>
-        response.url().endsWith(`/api/iec/${mode}`) &&
-        response.request().method() === "POST",
-    );
+    // Observe actual upstream bytes before the browser consumes its Blob.
+    // The first installed Chromium capture returned an empty CDP body despite
+    // a nonempty wire body. Forward the original response without reconstruction.
+    let original = "";
+    let upstreamRequests = 0;
+    await page.route(`**/api/iec/${mode}`, async (route) => {
+      upstreamRequests++;
+      const upstream = await route.fetch();
+      expect(upstream.status()).toBe(200);
+      original = await upstream.text();
+      await route.fulfill({ response: upstream });
+    });
     await page
       .getByRole("button", {
         name:
@@ -47,21 +54,19 @@ for (const mode of ["verify", "scenario"] as const) {
         exact: true,
       })
       .click();
-    const response = await receiving;
-    expect(response.status()).toBe(200);
-    const original = await response.text();
-    const authoritative = JSON.parse(original);
-    for (const row of authoritative.rows) {
-      expect(Object.is(row.outputs.output, -0)).toBe(true);
-      expect(Object.is(row.outputs.stored, -0)).toBe(true);
-      expect(Object.is(row.native_state.n_delay_memory, -0)).toBe(true);
-    }
     const result = page.getByRole("region", {
       name: "IEC verification results",
     });
     await expect(result.getByRole("status")).toHaveText(
       "Matched compiled IEC/reference outputs",
     );
+    expect(upstreamRequests).toBe(1);
+    const authoritative = JSON.parse(original);
+    for (const row of authoritative.rows) {
+      expect(Object.is(row.outputs.output, -0)).toBe(true);
+      expect(Object.is(row.outputs.stored, -0)).toBe(true);
+      expect(Object.is(row.native_state.n_delay_memory, -0)).toBe(true);
+    }
     const downloading = page.waitForEvent("download");
     await result
       .getByRole("button", { name: "Download full IEC trace", exact: true })
