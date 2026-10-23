@@ -200,7 +200,15 @@ async def test_real_short_ttl_renewal_stops_after_disconnect_and_restart_does_no
         await client.connect(
             f"127.0.0.1:{free_port()}", bbmd_address=f"127.0.0.1:{bbmd.address[1]}", foreign_ttl=1
         )
-        await wait_until(lambda: bbmd.registrations().count(1) >= 2, 2)
+        # Receipt at the peer precedes its result and the client's processing.
+        # Keep the existing bound, but await both independent wire milestones.
+        await wait_until(
+            lambda: (
+                bbmd.registrations().count(1) >= 2
+                and client.status()["foreign_device"]["acknowledgements"] >= 2
+            ),
+            2,
+        )
         assert client.status()["foreign_device"]["acknowledgements"] >= 2
         await client.disconnect()
         await wait_until(lambda: bbmd.registrations()[-1:] == [0])
