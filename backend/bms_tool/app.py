@@ -98,6 +98,10 @@ from .physical_capacity import capacity_router
 from .plant_signals import PlantSignals, plant_signal_router
 from .point_status import PointStatus, PointStatusCancel, PointStatusExport, PointStatusRequest
 from .program_source import SourceMode, source_response
+from .read_phase_trace import MAX_BYTES as READ_TRACE_MAX_BYTES
+from .read_phase_trace import capture as capture_read_trace
+from .read_phase_trace import freeze as freeze_read_trace
+from .read_phase_trace import unavailable as unavailable_read_trace
 from .resources import public_document, state_directory, web_directory
 from .routed_discovery import (
     ProbeTrunkRequest,
@@ -1688,6 +1692,39 @@ def create_app(state_dir=None):
     @app.post("/api/bacnet/point-status/read")
     async def bacnet_point_status_read(body: PointStatusRequest):
         return await point_status.read(**body.model_dump())
+
+    @app.post("/api/bacnet/point-status/read-diagnostics")
+    async def bacnet_point_status_read_diagnostics(body: PointStatusRequest):
+        # The native operation/cache/limits are unchanged. Diagnostic data never
+        # enters the core report or its evidence seal.
+        with capture_read_trace() as collector:
+            report = await point_status.read(**body.model_dump())
+        core = await bacnet_point_status_export(PointStatusExport(id=report["id"]))
+        try:
+            core_bytes = core.body
+            document = {
+                "format": "bms.native-read-diagnostic-envelope/1",
+                "core_report_id": report["id"],
+                "core_report_json": core_bytes.decode("utf-8"),
+                "core_report_sha256": hashlib.sha256(core_bytes).hexdigest(),
+                "trace_profile": "studio-readproperty-phase-trace/1",
+                "trace": freeze_read_trace(collector),
+            }
+            response = JSONResponse(document)
+            # JSON quoting can double core bytes; this is an independent wrapper
+            # bound, never permission to truncate or re-seal the core report.
+            wrapper_limit = 4 * 1024 * 1024 + READ_TRACE_MAX_BYTES + 4096
+            if len(response.body) > wrapper_limit:
+                document["trace"] = unavailable_read_trace("Diagnostic wrapper capacity reached.")
+                response = JSONResponse(document)
+            if len(response.body) <= wrapper_limit:
+                return response
+        except BaseException:
+            pass
+        # A diagnostic-only failure returns the original core Response. The UI
+        # treats it as core evidence with diagnostics unavailable, never retries.
+        core.headers["X-Studio-Diagnostics"] = "unavailable"
+        return core
 
     @app.post("/api/bacnet/point-status/cancel")
     async def bacnet_point_status_cancel(body: PointStatusCancel):

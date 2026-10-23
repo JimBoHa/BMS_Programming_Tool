@@ -1,6 +1,80 @@
 import { useEffect, useRef, useState } from "react";
-import { api, download } from "./api";
+import {
+  api,
+  apiJsonDocument,
+  download,
+  saveBlob,
+  type JsonDocument,
+} from "./api";
 import { AccumulatorPrescalePanel } from "./AccumulatorPrescalePanel";
+type Diagnostic = {
+  envelope: Blob | null;
+  core: Blob;
+  trace: any | null;
+  ticket: number;
+  source: string;
+  draft: string;
+};
+const traceProfile = "studio-readproperty-phase-trace/1";
+async function sha256(text: string) {
+  return Array.from(
+    new Uint8Array(
+      await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)),
+    ),
+    (byte) => byte.toString(16).padStart(2, "0"),
+  ).join("");
+}
+async function diagnosticDocument(document: JsonDocument, operation: string) {
+  const value = document.data;
+  let core: any,
+    blob: Blob,
+    trace: any = null,
+    envelope: Blob | null = null;
+  if (value?.format === "bms.native-read-diagnostic-envelope/1") {
+    if (
+      document.blob.size > 4 * 1024 * 1024 + 65536 + 4096 ||
+      typeof value.core_report_json !== "string" ||
+      !/^[a-f0-9]{64}$/.test(value.core_report_sha256 || "") ||
+      value.trace_profile !== traceProfile ||
+      value.trace?.profile !== traceProfile ||
+      !["complete", "truncated", "unavailable"].includes(value.trace.state) ||
+      !Array.isArray(value.trace.events) ||
+      value.trace.events.length > 256 ||
+      new TextEncoder().encode(JSON.stringify(value.trace)).length > 65536 ||
+      (await sha256(value.core_report_json)) !== value.core_report_sha256
+    ) {
+      throw new Error(
+        "Diagnostic envelope or exact core-response hash is invalid.",
+      );
+    }
+    core = JSON.parse(value.core_report_json);
+    if (core.id !== value.core_report_id)
+      throw new Error("Diagnostic envelope refers to another core report.");
+    blob = new Blob([value.core_report_json], { type: "application/json" });
+    trace = value.trace;
+    envelope = document.blob;
+  } else {
+    // The server can return the unchanged core response when only diagnostic
+    // rendering is unavailable. It must never trigger another controller read.
+    if (document.headers?.get("X-Studio-Diagnostics") !== "unavailable")
+      throw new Error("Diagnostic fallback lacks its explicit server state.");
+    core = value;
+    blob = document.blob;
+  }
+  if (
+    core?.profile !== "native-point-status/1" ||
+    core.operation_id !== operation ||
+    !/^[a-f0-9]{32}$/.test(core.id || "") ||
+    !/^[a-f0-9]{64}$/.test(core.evidence_sha256 || "") ||
+    !core.target ||
+    !Array.isArray(core.objects) ||
+    core.objects.length > 16
+  ) {
+    throw new Error("Diagnostic core report does not match this inspection.");
+  }
+  return { report: core, envelope, core: blob, trace };
+}
+
 type Props = {
   connected: boolean;
   interfaceIdentity: string;
@@ -42,10 +116,19 @@ export function PointStatusPanel({
     [enumMetadata, setEnumMetadata] = useState(false),
     [accumulatorMetadata, setAccumulatorMetadata] = useState(false),
     [stateTextLimit, setStateTextLimit] = useState("32"),
+    [captureDiagnostics, setCaptureDiagnostics] = useState(false),
     [busy, setBusy] = useState(false),
-    [report, setReport] = useState<any>(null),
+    [record, setRecord] = useState<{
+      report: any;
+      diagnostic: Diagnostic | null;
+    } | null>(null),
     [profile, setProfile] = useState<any>(null),
     [error, setError] = useState("");
+  const report = record?.report;
+  const diagnostic = record?.diagnostic;
+  function setReport(value: any) {
+    setRecord(value ? { report: value, diagnostic: null } : null);
+  }
   const alive = useRef(true),
     selection = useRef(0),
     active = useRef<string | null>(null);
@@ -70,6 +153,7 @@ export function PointStatusPanel({
       enumMetadata,
       accumulatorMetadata,
       stateTextLimit,
+      captureDiagnostics,
     ]),
     formNow = useRef(formKey);
   formNow.current = formKey;
@@ -126,7 +210,7 @@ export function PointStatusPanel({
     setError("");
     setReport(null);
     try {
-      const result = await api("/bacnet/point-status/read", {
+      const body = {
         operation_id: operation,
         address: address.trim(),
         device: device.trim(),
@@ -140,8 +224,30 @@ export function PointStatusPanel({
         include_enum_metadata: enumMetadata,
         include_accumulator_metadata: accumulatorMetadata,
         state_text_limit: Number(stateTextLimit),
-      });
-      if (current(ticket, source, draft)) setReport(result);
+      };
+      if (captureDiagnostics) {
+        const document = await apiJsonDocument(
+          "/bacnet/point-status/read-diagnostics",
+          body,
+          true,
+        );
+        const result = await diagnosticDocument(document, operation);
+        if (current(ticket, source, draft))
+          setRecord({
+            report: result.report,
+            diagnostic: {
+              envelope: result.envelope,
+              core: result.core,
+              trace: result.trace,
+              ticket,
+              source,
+              draft,
+            },
+          });
+      } else {
+        const result = await api("/bacnet/point-status/read", body);
+        if (current(ticket, source, draft)) setReport(result);
+      }
     } catch (failure) {
       if (current(ticket, source, draft)) setError(String(failure));
     } finally {
@@ -181,6 +287,11 @@ export function PointStatusPanel({
   }
   async function exportReport() {
     if (!report) return;
+    if (diagnostic) {
+      if (current(diagnostic.ticket, diagnostic.source, diagnostic.draft))
+        saveBlob(diagnostic.core, `point-status-${report.id}.json`);
+      return;
+    }
     const ticket = selection.current,
       source = defaultsNow.current,
       draft = formNow.current,
@@ -289,6 +400,16 @@ export function PointStatusPanel({
           />
           Read native Accumulator prescale and metering metadata
         </label>
+        <label>
+          <input
+            type="checkbox"
+            aria-label="Include diagnostic trace for this read"
+            checked={captureDiagnostics}
+            disabled={busy}
+            onChange={(e) => setCaptureDiagnostics(e.target.checked)}
+          />
+          Include diagnostic trace for this read
+        </label>
         {enumMetadata && (
           <label>
             Maximum indexed state labels per point
@@ -337,6 +458,51 @@ export function PointStatusPanel({
             </p>
           ))}
         </details>
+      )}
+      {report && diagnostic && (
+        <section aria-label="Read diagnostic trace">
+          <h3>Read phase observations</h3>
+          <p>
+            {diagnostic.trace
+              ? `Diagnostic capture ${diagnostic.trace.state}.`
+              : "Diagnostic capture unavailable; original core evidence retained."}{" "}
+            Native handoff and multiplexer callbacks are observed. Earlier UDP
+            delivery, socket transmission and activity after retirement remain
+            outside this view.
+          </p>
+          {diagnostic.trace?.counts && (
+            <p>
+              {diagnostic.trace.counts.retained_events} retained events ·{" "}
+              {diagnostic.trace.counts.dropped_events} dropped events ·{" "}
+              {diagnostic.trace.counts.dropped_packets} dropped packet prefixes.
+            </p>
+          )}
+          {diagnostic.envelope && (
+            <button
+              onClick={() => {
+                if (
+                  current(
+                    diagnostic.ticket,
+                    diagnostic.source,
+                    diagnostic.draft,
+                  )
+                )
+                  saveBlob(
+                    diagnostic.envelope!,
+                    `point-status-diagnostics-${report.id}.json`,
+                  );
+              }}
+            >
+              Download original diagnostic bundle
+            </button>
+          )}
+          {diagnostic.trace && (
+            <details>
+              <summary>Bounded phase trace and visibility</summary>
+              <pre>{JSON.stringify(diagnostic.trace, null, 2)}</pre>
+            </details>
+          )}
+        </section>
       )}
       {report && (
         <div aria-label="Native point evidence report">

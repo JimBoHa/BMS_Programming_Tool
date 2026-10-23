@@ -22,15 +22,20 @@ export async function api(
 export async function apiKeepalive(path: string, body: unknown): Promise<any> {
   return (await request(path, body, undefined, { keepalive: true })).json();
 }
-export type JsonDocument<T = any> = { data: T; blob: Blob };
+export type JsonDocument<T = any> = { data: T; blob: Blob; headers?: Headers };
 /** Keep authoritative JSON bytes when their numeric spelling is evidence. */
 export async function apiJsonDocument<T = any>(
   path: string,
   body?: unknown,
+  includeHeaders = false,
 ): Promise<JsonDocument<T>> {
   const response = await request(path, body);
   const blob = await response.blob();
-  return { data: JSON.parse(await blob.text()) as T, blob };
+  return {
+    data: JSON.parse(await blob.text()) as T,
+    blob,
+    ...(includeHeaders ? { headers: response.headers } : {}),
+  };
 }
 type RequestOptions = {
   program?: boolean;
