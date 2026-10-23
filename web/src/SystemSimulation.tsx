@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { programApi, programDownload, saveBlob } from "./api";
 import { showValue, type Program } from "./types";
+import { PlantSignalSchedule } from "./PlantSignalSchedule";
 
 type Instance = { alias: string; program: Program };
 type Link = {
@@ -775,6 +776,7 @@ export function SystemSimulation({ program }: { program: Program }) {
         proprietary firmware, physical communication timing or equipment
         dynamics.
       </p>
+      <PlantSignalSchedule program={program} />
     </div>
   );
 }
