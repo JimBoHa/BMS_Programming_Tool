@@ -3,11 +3,13 @@
 import asyncio
 import socket
 import struct
+from functools import partial
 from uuid import uuid4
 
 import pytest
 from bacpypes3.apdu import APDU
 from bacpypes3.app import Application
+from bacpypes3.ipv4 import IPv4DatagramServer
 from bacpypes3.local.device import DeviceObject
 from bacpypes3.local.networkport import NetworkPortObject
 from bacpypes3.pdu import PDU, Address
@@ -22,7 +24,30 @@ from .test_bacnet_cov import notification, wait_for
 from .test_connections import free_udp, point
 
 
-def routed_pair(instance=4190012):
+async def retire_pending_fixture_endpoints(application):
+    tasks = []
+    for layer in application.link_layers.values():
+        server = getattr(layer, "server", None)
+        if not isinstance(server, IPv4DatagramServer):
+            continue
+        for task in server._transport_tasks:
+            if not task.done():
+                # Pinned SDK callbacks call task.result() unconditionally.
+                # Remove only this server's result callbacks before cancelling
+                # its owned pending bind; unrelated observers remain installed.
+                for callback, _ in tuple(task._callbacks or ()):
+                    if isinstance(callback, partial) and callback.func in (
+                        server.set_local_transport_protocol,
+                        server.set_broadcast_transport_protocol,
+                    ):
+                        task.remove_done_callback(callback)
+                task.cancel()
+            tasks.append(task)
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+
+async def routed_pair(instance=4190012):
     # VirtualNetwork names live in a process-wide registry, independently of
     # UDP port lifetime. A released ephemeral port is not a fixture identity.
     name = "routed-cov-" + uuid4().hex
@@ -91,6 +116,22 @@ def routed_pair(instance=4190012):
         await original(adapter, packet)
 
     router.nsap.process_npdu = observe
+    try:
+        servers = [
+            layer.server
+            for layer in router.link_layers.values()
+            if isinstance(getattr(layer, "server", None), IPv4DatagramServer)
+        ]
+        assert len(servers) == 1
+        server = servers[0]
+        # The SDK schedules endpoint creation. Until its callback confirms the
+        # real bind, another free-port probe can select this same UDP address.
+        await asyncio.wait_for(server._local_transport_ready.wait(), 1)
+        assert server.local_transport.get_extra_info("sockname") == ("127.0.0.1", port)
+        assert not server.local_transport.is_closing()
+    except BaseException:
+        close_routed_pair(router, field)
+        raise
     return router, field, analog, config, frames
 
 
@@ -118,7 +159,7 @@ def close_routed_pair(router, field):
 
 @pytest.fixture
 async def routed_cov(tmp_path):
-    router, field, analog, config, frames = routed_pair()
+    router, field, analog, config, frames = await routed_pair()
     client = Bacnet(Store(tmp_path))
     await client.connect(f"127.0.0.1:{free_udp()}")
     service = BacnetCov(client, timeout=0.3)
@@ -182,7 +223,7 @@ async def test_same_dnet_mac_on_another_router_survives_scoped_read_filter_and_a
     routed_cov,
 ):
     _, field1, _, client, service, config1, _ = routed_cov
-    router2, field2, analog2, config2, frames2 = routed_pair(4190022)
+    router2, field2, analog2, config2, frames2 = await routed_pair(4190022)
     try:
         first = await service.start(**config1)
         second = await service.start(**config2)
