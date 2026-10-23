@@ -27,7 +27,8 @@ from pathlib import Path
 from .engine import Engine, output_type
 from .executable_numbers import require_number
 from .file_access import file_lock
-from .formats import ConversionError, export_st, structured_text_parts
+from .formats import ConversionError, export_st, iec_source_parts
+from .iec_symbols import symbol_profile
 from .macros import expand_macros
 from .models import Program
 from .source_profiles import source_profile
@@ -126,6 +127,7 @@ def profile():
         "certified": False,
         "provenance": manifest,
         "source_generator": source_profile(),
+        "symbol_generator": symbol_profile(),
     }
 
 
@@ -142,25 +144,9 @@ def _run(args, *, cwd, timeout=45):
     return result
 
 
-def _name(identifier):
-    return "n_" + re.sub("[^A-Za-z0-9_]", "_", identifier)
-
-
-def _harness(declarations, output_nodes, graph):
+def _harness(declarations, output_nodes, symbols):
     fields = declarations["inputVars"]
-    state_names = {
-        _name(node.id) + suffix
-        for node in graph.nodes
-        for suffix in {
-            "Delay": ("_memory",),
-            "Deadband": ("_memory",),
-            "Slew": ("_memory",),
-            "PI": ("_integral",),
-            "TimerOn": ("_elapsed",),
-            "Alarm": ("_elapsed",),
-        }.get(node.kind, ())
-    }
-    states = [(name, typ) for name, typ, _ in declarations["localVars"] if name in state_names]
+    states = symbols.state_rows()
     lines = [
         "#include <stdio.h>",
         "#include <stdlib.h>",
@@ -199,19 +185,21 @@ def _harness(declarations, output_nodes, graph):
     for index, node in enumerate(output_nodes):
         prefix = ("," if index else "") + json.dumps(node.id) + ":"
         lines.append("  fputs(" + json.dumps(prefix) + ", stdout);")
-        member = "data." + _name(node.id).upper() + ".value"
+        member = "data." + symbols.role(node.id).upper() + ".value"
         lines.append(
             f'  fputs({member}?"true":"false",stdout);'
             if output_type(node) == "boolean"
             else f"  number({member});"
         )
     lines.append('  fputs("},\\"native_state\\":{", stdout);')
-    for index, (name, typ) in enumerate(states):
-        prefix = ("," if index else "") + json.dumps(name) + ":"
+    for index, state in enumerate(states):
+        prefix = ("," if index else "") + json.dumps(state["state_label"]) + ":"
         lines.append("  fputs(" + json.dumps(prefix) + ", stdout);")
-        member = "data." + name.upper() + ".value"
+        member = "data." + state["symbol"].upper() + ".value"
         lines.append(
-            f'  fputs({member}?"true":"false",stdout);' if typ == "BOOL" else f"  number({member});"
+            f'  fputs({member}?"true":"false",stdout);'
+            if state["type"] == "BOOL"
+            else f"  number({member});"
         )
     lines += ['  fputs("}}\\n", stdout); fflush(stdout);', " }", " return 0;", "}"]
     return "\n".join(lines) + "\n"
@@ -224,7 +212,7 @@ class NativeIEC:
         self.program = Program.model_validate(program).model_copy(deep=True)
         self.graph = expand_macros(self.program)
         self.reference = Engine(self.program)
-        self.declarations, _ = structured_text_parts(self.program)
+        self.declarations, _, self.symbols = iec_source_parts(self.program)
         if len(self.graph.nodes) > 2000:
             raise ConversionError("IEC host profile supports at most 2000 expanded nodes.")
         self.home, self.manifest = toolchain()
@@ -253,7 +241,7 @@ class NativeIEC:
                 )
                 self.generated_c = (self.directory / "POUS.c").read_text()
                 (self.directory / "host.c").write_text(
-                    _harness(self.declarations, self.outputs, self.graph)
+                    _harness(self.declarations, self.outputs, self.symbols)
                 )
                 result = _run(
                     [
@@ -392,8 +380,8 @@ class NativeIEC:
                         )
                     if value and struct.unpack("f", struct.pack("f", value))[0] == 0:
                         raise ValueError("IEC numeric input underflows REAL: " + identifier)
-                bindings[_name(identifier)] = value
-                bindings[_name(identifier) + "_valid"] = quality == "good"
+                bindings[self.symbols.role(identifier)] = value
+                bindings[self.symbols.role(identifier, "valid")] = quality == "good"
             host_fault = None
             calendars = {
                 key: calendar
@@ -421,8 +409,8 @@ class NativeIEC:
                             "Calendar host bindings need explicit Boolean value and valid fields."
                         )
                     active, valid = row["value"], row["valid"]
-                bindings[_name(identifier) + "_calendar"] = active
-                bindings[_name(identifier) + "_calendar_valid"] = valid
+                bindings[self.symbols.role(identifier, "calendar")] = active
+                bindings[self.symbols.role(identifier, "calendar_valid")] = valid
                 if not valid:
                     host_fault = "Calendar host validity is false: " + identifier
             candidate = copy.deepcopy(self.reference)
@@ -475,6 +463,7 @@ class NativeIEC:
             "profile": profile(),
             "warnings": self.warnings,
             "source_generator": source_profile(),
+            "symbol_table": self.symbols.evidence(),
         }
 
     def close(self):
@@ -518,6 +507,7 @@ def verify_program(program, inputs=None, *, scans=1, dt=None, clock=None):
             "program_sha256": native.program.digest(),
             "warnings": native.warnings,
             "profile": profile(),
+            "symbol_table": native.symbols.evidence(),
         }
 
 
@@ -574,4 +564,5 @@ def verify_scenario(program, events, duration, dt=None, *, clock=None):
             "program_sha256": native.program.digest(),
             "warnings": native.warnings,
             "profile": profile(),
+            "symbol_table": native.symbols.evidence(),
         }
