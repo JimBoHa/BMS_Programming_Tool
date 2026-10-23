@@ -60,12 +60,18 @@ class RawBBMD(asyncio.DatagramProtocol):
         self.destination = None
         self.malformed_first = False
         self.registration_result_delay = 0.0
+        self.delayed_registration_results = set()
         self.iam_instances = [4190012]
         self.expected_whois = bytes.fromhex("010010080b3fef3c1b3fef3c")
 
     def connection_made(self, transport):
         self.transport = transport
         self.address = transport.get_extra_info("sockname")
+
+    def connection_lost(self, exc):
+        for handle in self.delayed_registration_results:
+            handle.cancel()
+        self.delayed_registration_results.clear()
 
     def datagram_received(self, data, address):
         try:
@@ -93,12 +99,16 @@ class RawBBMD(asyncio.DatagramProtocol):
                             address,
                         )
                     elif self.registration_result_delay:
-                        asyncio.get_running_loop().call_later(
-                            self.registration_result_delay,
-                            self.transport.sendto,
-                            bvlc(0, struct.pack(">H", self.code)),
-                            address,
+                        result = bvlc(0, struct.pack(">H", self.code))
+
+                        def send_result():
+                            self.delayed_registration_results.discard(handle)
+                            self.transport.sendto(result, address)
+
+                        handle = asyncio.get_running_loop().call_later(
+                            self.registration_result_delay, send_result
                         )
+                        self.delayed_registration_results.add(handle)
                     else:
                         self.transport.sendto(bvlc(0, struct.pack(">H", self.code)), address)
             elif data[1] == 9:
