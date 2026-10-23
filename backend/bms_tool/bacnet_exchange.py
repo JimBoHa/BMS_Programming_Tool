@@ -14,6 +14,23 @@ from bacpypes3.basetypes import Segmentation
 from bacpypes3.comm import ApplicationServiceElement
 
 
+class _OwnedResponseFuture(asyncio.Future):
+    """Preserve the first outcome while native completion cleanup is queued.
+
+    The pinned Application.confirmation does not check whether this registered
+    future was cancelled/completed before its scheduled done callback runs.
+    Only our owned exchanges use these idempotent completion setters.
+    """
+
+    def set_result(self, result):
+        if not self.done():
+            super().set_result(result)
+
+    def set_exception(self, exception):
+        if not self.done():
+            super().set_exception(exception)
+
+
 async def confirmed_exchange(
     app, request, *, single_attempt=False, before_send=None, response_timeout=None
 ):
@@ -44,7 +61,7 @@ async def confirmed_exchange(
         raise ValueError("BACnet destination has no available transaction identifiers.")
     serial_layer = getattr(app, "mstp_link", None)
     serial_owner = serial_layer.own_confirmed_request(request) if serial_layer is not None else None
-    future = asyncio.get_running_loop().create_future()
+    future = _OwnedResponseFuture(loop=asyncio.get_running_loop())
     owner = asyncio.current_task()
     retiring = False
 
