@@ -368,5 +368,10 @@
     "feature": "Reviewed native weekly-day deployment GUI",
     "status": "implemented",
     "scope": "Scoped Connect GUI: explicit operator/rationale and fresh native preview, source/connection/expiry guards, one-use Apply, cancellation, durable local journal reopen, independent may-have-applied/protocol/readback facts and original HTTP-byte exports. Recovered intents remain unknown; reconciliation is explicit read-only. No automatic queries/writes/retry, arbitrary CAF/program upload, Calendar/exception/target/default edits, extra transports or physical manufacturer acceptance. See docs/native-weekly-day-write-ui.md."
+  },
+  {
+    "feature": "Native property dispatch diagnostics",
+    "status": "implemented",
+    "scope": "Shared source-pinned read receipts retain guarded native handoff and completion timing, existing budget, receive-candidate and source-filter rejection facts. No added traffic, retries, timer policy change, socket transmit proof or inferred device processing latency. Incomplete context stays ineligible. See docs/property-dispatch-diagnostics.md."
   }
 ]

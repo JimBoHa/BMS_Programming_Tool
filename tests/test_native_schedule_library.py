@@ -233,7 +233,7 @@ async def test_native_consistent_default_domains_are_preserved_and_drafted(
         )
     report, _, _ = await acquire(tmp_path / "peer", overrides=overrides)
     library, detail = saved(tmp_path / "library", encoded(report))
-    assert detail["objects"][0]["eligible"]
+    assert detail["objects"][0]["eligible"], detail["objects"][0].get("issues")
     assert detail["objects"][0]["native_type"] == kind
     result = library.review(
         **request(

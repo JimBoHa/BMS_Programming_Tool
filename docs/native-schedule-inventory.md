@@ -37,3 +37,5 @@ The downloaded manual text reviewed for this feature was:
 These describe calendar/weekly/exception/target/clock functions used to define inventory requirements. Niagara station CalendarSchedule components are not equated to standard BACnet objects. JCI proprietary output behavior, calendar cleanup, archive editing and vendor timezone settings are not inferred. Broad manual features MF-e39fd7dcb6, MF-3964cbd0c0 and MF-9030e4190e remain partial: this PR implements inventory/evidence only.
 
 Validation uses independently authored literal BVLC/NPDU/APDU response bytes over real local UDP, direct and explicit routed paths, HTTP and actual Chromium downloads. It covers wildcards, signed zero, integral floats, unknown AnyAtomic/enums, native errors, malformed/late/rogue responses, finite bounds, cancellation, interface loss, observer composition and restart. It does not contact site equipment or prove physical MS/TP timing, controller support or electrical behavior.
+
+Per-property receipts also retain [owned dispatch and reply diagnostics](property-dispatch-diagnostics.md). Local handoff timing does not establish socket transmission or device processing latency.
