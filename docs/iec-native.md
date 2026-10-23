@@ -114,6 +114,10 @@ an unavailable compiler never silently substitutes the Python engine.
   nonfinite native values still appear as `null`. Values are never reconstructed
   from the reference engine. Numeric comparison tolerances remain unchanged;
   `matches_reference` is not an IEEE sign-equivalence certification.
+  The browser pairs each accepted verification/scenario result with its original
+  HTTP response Blob and downloads those bytes. Input/source changes clear that
+  pair; generation and unmount guards reject stale results. Export does not
+  re-serialize parsed JSON or remove numeric spelling/type information.
 - Numeric inputs must be actual finite numbers within ±`3e38`; numeric strings,
   Boolean numbers, NaN, infinity and nonzero values that underflow float32 are
   rejected. Boolean inputs must be actual Booleans. Unknown input names fail.
