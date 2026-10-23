@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, download, sourceApi } from "./api";
 import { sourceStringify } from "./programSource";
 import type { Program } from "./types";
+import { HydronicIOPlanner } from "./HydronicIOPlanner";
 
 const BASE = "/plant-signals";
 const PROFILE = "distributed-plant-signals/1";
@@ -1406,6 +1407,10 @@ export function PlantSignalSchedule({ program }: { program: Program }) {
                             : ""}
                       </p>
                     ))}
+                    <HydronicIOPlanner
+                      key={review.content_sha256}
+                      plantReview={review}
+                    />
                   </div>
                 )}
                 <h4>Durable local plant captures</h4>
