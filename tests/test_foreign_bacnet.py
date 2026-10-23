@@ -59,6 +59,7 @@ class RawBBMD(asyncio.DatagramProtocol):
         self.rogue = None
         self.destination = None
         self.malformed_first = False
+        self.registration_result_delay = 0.0
         self.iam_instances = [4190012]
         self.expected_whois = bytes.fromhex("010010080b3fef3c1b3fef3c")
 
@@ -87,6 +88,13 @@ class RawBBMD(asyncio.DatagramProtocol):
                         self.rogue.sendto(b"\x81\x00\x00\x06\x00\x00", address)
                         asyncio.get_running_loop().call_later(
                             0.01,
+                            self.transport.sendto,
+                            bvlc(0, struct.pack(">H", self.code)),
+                            address,
+                        )
+                    elif self.registration_result_delay:
+                        asyncio.get_running_loop().call_later(
+                            self.registration_result_delay,
                             self.transport.sendto,
                             bvlc(0, struct.pack(">H", self.code)),
                             address,
@@ -171,25 +179,30 @@ async def test_actual_registration_broadcast_forwarded_discovery_unicast_read_an
         client.close()
 
 
+@pytest.mark.parametrize("registration_result_delay", [0.0, 0.05])
 async def test_real_short_ttl_renewal_stops_after_disconnect_and_restart_does_not_register(
-    peers, tmp_path
+    peers, tmp_path, registration_result_delay
 ):
     bbmd, _, _ = peers
+    bbmd.registration_result_delay = registration_result_delay
     client = Bacnet(Store(tmp_path))
-    await client.connect(
-        f"127.0.0.1:{free_port()}", bbmd_address=f"127.0.0.1:{bbmd.address[1]}", foreign_ttl=1
-    )
-    await wait_until(lambda: bbmd.registrations().count(1) >= 2, 2)
-    assert client.status()["foreign_device"]["acknowledgements"] >= 2
-    await client.disconnect()
-    await wait_until(lambda: bbmd.registrations()[-1:] == [0])
-    before = len(bbmd.frames)
-    await asyncio.sleep(1.1)
-    assert len(bbmd.frames) == before
-    restarted = Bacnet(Store(tmp_path))
-    assert restarted.config["foreign_ttl"] == 1 and restarted.app is None
-    await asyncio.sleep(0.05)
-    assert len(bbmd.frames) == before
+    try:
+        await client.connect(
+            f"127.0.0.1:{free_port()}", bbmd_address=f"127.0.0.1:{bbmd.address[1]}", foreign_ttl=1
+        )
+        await wait_until(lambda: bbmd.registrations().count(1) >= 2, 2)
+        assert client.status()["foreign_device"]["acknowledgements"] >= 2
+        await client.disconnect()
+        await wait_until(lambda: bbmd.registrations()[-1:] == [0])
+        before = len(bbmd.frames)
+        await asyncio.sleep(1.1)
+        assert len(bbmd.frames) == before
+        restarted = Bacnet(Store(tmp_path))
+        assert restarted.config["foreign_ttl"] == 1 and restarted.app is None
+        await asyncio.sleep(0.05)
+        assert len(bbmd.frames) == before
+    finally:
+        client.close()
 
 
 async def test_rejected_initial_registration_fails_without_leaking_socket_or_worker(
