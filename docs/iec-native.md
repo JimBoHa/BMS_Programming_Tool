@@ -106,6 +106,14 @@ an unavailable compiler never silently substitutes the Python engine.
   The portable exporter can represent literals up to float32's maximum, but
   this runtime's existing generated scan guard faults numeric node results
   beyond ±`3e38`; successful export alone does not bypass that runtime bound.
+- The host JSON encoder preserves the actual native negative-zero sign as
+  `-0.0` for numeric outputs and retained state. Earlier `%.9g` output emitted
+  `-0`, which JSON decoding converted to positive integer zero. The profile
+  identifies this transport correction as `studio-iec-json-negative-zero/1`.
+  Positive zero and other finite numbers keep their existing formatting;
+  nonfinite native values still appear as `null`. Values are never reconstructed
+  from the reference engine. Numeric comparison tolerances remain unchanged;
+  `matches_reference` is not an IEEE sign-equivalence certification.
 - Numeric inputs must be actual finite numbers within ±`3e38`; numeric strings,
   Boolean numbers, NaN, infinity and nonzero values that underflow float32 are
   rejected. Boolean inputs must be actual Booleans. Unknown input names fail.
