@@ -123,6 +123,7 @@ from .schedule_inventory import (
     ScheduleReadRequest,
 )
 from .sensor_supply import SupplyPlans, supply_router
+from .series_fan_vav import series_fan_vav_router
 from .simulation_group import SimulationGroups, SimulationWorkspace, demo_workspace
 from .storage import Conflict, Store
 from .temco_transfer import TemcoTransfer
@@ -666,6 +667,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.include_router(masd_ahu_router())
     app.include_router(madd_mz_ahu_router())
     app.include_router(zone_setpoint_router())
+    app.include_router(series_fan_vav_router())
 
     @app.middleware("http")
     async def local_requests(request, call_next):

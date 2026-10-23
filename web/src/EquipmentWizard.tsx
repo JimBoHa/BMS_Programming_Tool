@@ -9,6 +9,7 @@ import { HeatPumpWizard } from "./HeatPumpWizard";
 import { MaddMzAhuWizard } from "./MaddMzAhuWizard";
 import { MasdAhuWizard } from "./MasdAhuWizard";
 import { ZoneSetpointWizard } from "./ZoneSetpointWizard";
+import { SeriesFanVavWizard } from "./SeriesFanVavWizard";
 type Data = Record<string, any>;
 const same = (a: any, b: any): boolean => {
   return sourceEqual(a, b);
@@ -27,6 +28,7 @@ export function EquipmentWizard({
   const [ahuMode, setAhuMode] = useState(false);
   const [maddMzMode, setMaddMzMode] = useState(false);
   const [zoneSetpointMode, setZoneSetpointMode] = useState(false);
+  const [seriesFanMode, setSeriesFanMode] = useState(false);
   const [catalog, setCatalog] = useState<Data | null>(null),
     [draft, setDraft] = useState<Data | null>(null),
     [preview, setPreview] = useState<Data | null>(null),
@@ -319,6 +321,15 @@ export function EquipmentWizard({
     : dual
       ? catalog?.dual_duct
       : catalog;
+  if (seriesFanMode)
+    return (
+      <SeriesFanVavWizard
+        source={source}
+        onCreate={onCreate}
+        onClose={onClose}
+        onBack={() => setSeriesFanMode(false)}
+      />
+    );
   if (zoneSetpointMode)
     return (
       <ZoneSetpointWizard
@@ -427,6 +438,17 @@ export function EquipmentWizard({
           }}
         >
           Zone setpoint wizard
+        </button>
+        <button
+          disabled={busy}
+          onClick={() => {
+            epoch.current++;
+            setPreview(null);
+            setBusy(false);
+            setSeriesFanMode(true);
+          }}
+        >
+          Series-fan VAV wizard
         </button>
         <p>
           Create a separate editable portable VAV or fan-coil project.
