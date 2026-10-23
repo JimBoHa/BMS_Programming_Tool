@@ -1024,5 +1024,23 @@
     "pdf_pages_or_section": "28\u201330",
     "status": "partial",
     "implementation_or_gap": "SCHED-COORD-001 implements a separately profiled portable weekly occupancy/pre-start/AHU composition with explicit authored local-wall-clock end-preserving unions. Native Schedule/MV/Global Data mapping, warmup/cooldown/countdown modes, exception policies, SCT archive generation/transfer and manufacturer/physical acceptance remain unimplemented."
+  },
+  {
+    "id": "HP-001",
+    "feature": "Portable single-compressor heat-pump wizard",
+    "acceptance_criterion": "Generate an editable single-compressor/reversing-valve graph with explicit polarity, hysteresis, distinct minimum-on/off and valve timings, logical airflow/condensate permissions and source-bound authoring evidence; independently simulate supported compositions.",
+    "evidence": "JCI Controller Tool Help18.0 LIT-12011147 SHA68935362c85cb1879dc033cc701115e8ea7c4ecb26748f21a9ceaf0454f82903; authored Studio thermostat/timing profile",
+    "pdf_pages_or_section": "484\u2013489,1383\u20131386; docs/heat-pump-wizard.md",
+    "status": "implemented",
+    "implementation_or_gap": "Existing core Delay/TimerOn/Deadband/Boolean graph; whole-second aligned timings, explicit startup and idle valve hold, ordinary-demand minimum-on hold with hard-permission/reversal priority, fan-before-airflow permission, distinct condensate policies and coupled F/C absolute/difference conversion. Exact profile/choices/Program evidence, API/browser editing/save/interchange and actual MatIEC execution. Off-state valve changes are not rate limited; bad quality retains prior committed outputs. No native CAF/compiler/transfer, physical protection/wiring, adaptive MSC, second compressor, economizer/supplemental heat, restart durability or code/manufacturer certification."
+  },
+  {
+    "id": "MF-724ea67583",
+    "feature": "Heat-pump template",
+    "acceptance_criterion": "Configure supported heat-pump compressor/reversing-valve/fan/options with qualified target/release allocations, sequencing and verified deployment.",
+    "evidence": "JCI Controller Tool Help18.0 LIT-12011147",
+    "pdf_pages_or_section": "484\u2013489,1383\u20131386",
+    "status": "partial",
+    "implementation_or_gap": "HP-001 implements a separately profiled portable one-compressor/single-speed-fan thermostat and timing foundation. Native adaptive PID/MSC/PMAC/EWMA/override behavior, two-compressor staging, economizer/supplemental/water-side options, native CAF/package/allocation/compiler/transfer, physical protection and manufacturer acceptance remain unimplemented."
   }
 ]

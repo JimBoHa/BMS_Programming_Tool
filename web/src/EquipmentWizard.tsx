@@ -5,6 +5,7 @@ import { api } from "./api";
 import type { Program } from "./types";
 import "./equipment-wizard.css";
 import { ZoneGroupScheduleWizard } from "./ZoneGroupScheduleWizard";
+import { HeatPumpWizard } from "./HeatPumpWizard";
 type Data = Record<string, any>;
 const same = (a: any, b: any): boolean => {
   return sourceEqual(a, b);
@@ -19,6 +20,7 @@ export function EquipmentWizard({
   onClose: () => void;
 }) {
   const [scheduleMode, setScheduleMode] = useState(false);
+  const [heatPumpMode, setHeatPumpMode] = useState(false);
   const [catalog, setCatalog] = useState<Data | null>(null),
     [draft, setDraft] = useState<Data | null>(null),
     [preview, setPreview] = useState<Data | null>(null),
@@ -311,6 +313,15 @@ export function EquipmentWizard({
     : dual
       ? catalog?.dual_duct
       : catalog;
+  if (heatPumpMode)
+    return (
+      <HeatPumpWizard
+        source={source}
+        onCreate={onCreate}
+        onClose={onClose}
+        onBack={() => setHeatPumpMode(false)}
+      />
+    );
   if (scheduleMode)
     return (
       <ZoneGroupScheduleWizard
@@ -339,6 +350,17 @@ export function EquipmentWizard({
           }}
         >
           Zone-group schedule wizard
+        </button>
+        <button
+          disabled={busy}
+          onClick={() => {
+            epoch.current++;
+            setPreview(null);
+            setBusy(false);
+            setHeatPumpMode(true);
+          }}
+        >
+          Heat-pump wizard
         </button>
         <p>
           Create a separate editable portable VAV or fan-coil project.

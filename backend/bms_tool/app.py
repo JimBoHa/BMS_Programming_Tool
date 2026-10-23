@@ -58,6 +58,7 @@ from .event_reception import EventListenAction, EventListenStart, EventReception
 from .field_trends import FieldTrends, FieldTrendStart
 from .formats import export_program, import_program
 from .hardware_workbench import HardwareWorkbench, hardware_router
+from .heat_pump import heat_pump_router
 from .ip_discovery import IpDiscovery, IpScanRequest
 from .jci_hardware import JciHardwareDefinition, plan_hardware_migration
 from .jci_preflight import PreflightRequest, inventory_template, preflight
@@ -647,6 +648,7 @@ def create_app(state_dir=None):
     app.include_router(conformance_router(conformance))
     app.include_router(wizard_router())
     app.include_router(schedule_coordination_router())
+    app.include_router(heat_pump_router())
 
     @app.middleware("http")
     async def local_requests(request, call_next):
