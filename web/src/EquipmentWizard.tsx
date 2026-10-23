@@ -6,6 +6,7 @@ import type { Program } from "./types";
 import "./equipment-wizard.css";
 import { ZoneGroupScheduleWizard } from "./ZoneGroupScheduleWizard";
 import { HeatPumpWizard } from "./HeatPumpWizard";
+import { MaddMzAhuWizard } from "./MaddMzAhuWizard";
 import { MasdAhuWizard } from "./MasdAhuWizard";
 type Data = Record<string, any>;
 const same = (a: any, b: any): boolean => {
@@ -23,6 +24,7 @@ export function EquipmentWizard({
   const [scheduleMode, setScheduleMode] = useState(false);
   const [heatPumpMode, setHeatPumpMode] = useState(false);
   const [ahuMode, setAhuMode] = useState(false);
+  const [maddMzMode, setMaddMzMode] = useState(false);
   const [catalog, setCatalog] = useState<Data | null>(null),
     [draft, setDraft] = useState<Data | null>(null),
     [preview, setPreview] = useState<Data | null>(null),
@@ -315,6 +317,15 @@ export function EquipmentWizard({
     : dual
       ? catalog?.dual_duct
       : catalog;
+  if (maddMzMode)
+    return (
+      <MaddMzAhuWizard
+        source={source}
+        onCreate={onCreate}
+        onClose={onClose}
+        onBack={() => setMaddMzMode(false)}
+      />
+    );
   if (ahuMode)
     return (
       <MasdAhuWizard
@@ -383,6 +394,17 @@ export function EquipmentWizard({
           }}
         >
           Mixed-air AHU wizard
+        </button>
+        <button
+          disabled={busy}
+          onClick={() => {
+            epoch.current++;
+            setPreview(null);
+            setBusy(false);
+            setMaddMzMode(true);
+          }}
+        >
+          MADD-MZ AHU wizard
         </button>
         <p>
           Create a separate editable portable VAV or fan-coil project.
