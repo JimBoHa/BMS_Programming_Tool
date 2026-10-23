@@ -979,5 +979,23 @@
     "pdf_pages_or_section": "594\u2013596",
     "status": "partial",
     "implementation_or_gap": "VAV-DD-001 implements explicit source-qualified portable hot/cold-deck authoring and simulation. Native integrated/proportional/incremental allocation, adaptive tuning, calibration/balancing, total-only/G36 mixing, exhaust/supplemental/smoke sequences, CAF generation/transfer and physical manufacturer acceptance remain unimplemented."
+  },
+  {
+    "id": "FC-001",
+    "feature": "Explicit portable separate-coil fan-coil authoring",
+    "acceptance_criterion": "Generate a separately profiled portable fan-coil graph from explicit proportional-coil, fan, occupied/off and condensate selections; verify authored modes, integral hold, units and evidence through the browser workflow.",
+    "evidence": "JCI Controller Tool Help18.0 LIT-12011147 SHA68935362c85cb1879dc033cc701115e8ea7c4ecb26748f21a9ceaf0454f82903; authored Studio fixed-gain foundation",
+    "pdf_pages_or_section": "479\u2013483; docs/fan-coil-wizard.md",
+    "status": "implemented",
+    "implementation_or_gap": "Explicit separate modulating coils, single/variable-speed fan, occupied continuous or positive-demand cycling, distinct condensate cooling-inhibit/unit-shutdown, unit-enable/holdoff/ordered-setpoint gates, held inactive PI integrals, exact unit/gain conversion and source/profile/choice hashes. Engine, actual host IEC, API and guarded browser author/create/simulate/save/interchange workflow. All six legacy single-duct and four dual generation digests unchanged. No native CAF/compiler/transfer, physical allocation/protection, setbacks/frost/restart, adaptive tuning or code/physical acceptance."
+  },
+  {
+    "id": "MF-2e7fda5bcf",
+    "feature": "Fan-coil applications",
+    "acceptance_criterion": "Configure supported fan-coil coil/fan/occupancy/protection options and verified target allocations and deployment appropriate to controller family and release.",
+    "evidence": "JCI Controller Tool Help18.0 LIT-12011147",
+    "pdf_pages_or_section": "479\u2013483",
+    "status": "partial",
+    "implementation_or_gap": "FC-001 implements an explicit portable separate-modulating-coil foundation with logical occupied/enable/holdoff/condensate policies and independently tested host execution. Common two-pipe changeover, staged/incremental/three-speed devices, native adaptive tuning, fan proof/physical interlocks, unoccupied setbacks/frost protection, native CAF generation/transfer and manufacturer/hardware acceptance remain unimplemented."
   }
 ]
