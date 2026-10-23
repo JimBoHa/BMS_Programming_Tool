@@ -1159,5 +1159,23 @@
     "pdf_pages_or_section": "2-4,16,22-24; docs/model-transport-admission.md",
     "status": "partial",
     "implementation_or_gap": "COMM-MODEL-001 provides three-part optional hardware-read admission. Additional models/verified native model aliases, BACnet/SC and N2 clients, routed-IP/proxy profiles, model-specific firmware/engineering-package compatibility, protocol switching, electrical accessory/BTCVT acceptance, native JCI compiler/CAF/transfer and physical commissioning remain incomplete."
+  },
+  {
+    "id": "VAV-SERIES-001",
+    "feature": "Authored occupied single-speed series-fan VAV foundation",
+    "acceptance_criterion": "Generate an editable ordinary-node occupied series-fan graph with estimated close-before-start, stable proof and bounded deadline, immediate latched running proof loss/raw-off reset edge, admitted external setpoint pair, calibrated primary-flow P/PI feedback and proportional hot-water reheat. Preserve explicit bad-quality rollback and original portable source evidence.",
+    "evidence": "JCI Controller Tool Help18.0 LIT-12011147 originalSHA68935362c85cb1879dc033cc701115e8ea7c4ecb26748f21a9ceaf0454f82903; authored Studio sequence",
+    "pdf_pages_or_section": "585-590;837-840;1168-1169; docs/series-fan-vav-wizard.md",
+    "status": "implemented",
+    "implementation_or_gap": "Real167-node single-speed series topology,9logicalinputs/24outputs, calibrated primary-flow regulation and direct hot-water reheat. Source90s/15s timing defaults and authored60s startup bound; exact elapsed scan ordering, command-aware mode release, inverse-gain/unit conversions, local authenticated source export/revisions and actual unchanged host IEC execution. No native JCI compiler/CAF/transfer, physical airflow/protection/calibration or code acceptance."
+  },
+  {
+    "id": "MF-8a75247a85",
+    "feature": "Series fan VAV application configuration and control",
+    "acceptance_criterion": "Create, configure, test and deploy complete source-qualified series-fan VAV applications, including occupied/unoccupied fan/primary-air/reheat coordination, required inputs/protections, balancing and supported native controller semantics.",
+    "evidence": "JCI Controller Tool Help18.0 LIT-12011147; Series Fan Determination and Series Fan Start Delay source conflicts retained",
+    "pdf_pages_or_section": "585-590;837-840;1168-1169; docs/series-fan-vav-wizard.md",
+    "status": "partial",
+    "implementation_or_gap": "VAV-SERIES-001 supplies a bounded authored occupied-only single-speed/calibrated-primary/proportional-hot-water foundation. Unoccupied recovery/purge/standby/bypass, variable fan control/balancing, velocity-pressure calibration, total coil airflow and physical safety, discharge-temperature limits/warm-primary action/adaptive tuning, staged/electric/supplemental heat, measured ventilation/CO2/exhaust, native JCI allocation/compiler/CAF/transfer and complete G36/Title24/physical acceptance remain incomplete."
   }
 ]
