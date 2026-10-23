@@ -23,8 +23,10 @@ The native profile identifies this policy as `studio-iec-zero-initialized-main/1
 Zero initialization clears runtime control flags; `MAIN_init__` subsequently
 applies declared nonzero/Boolean initial values. This fixes an earlier host
 bug where indeterminate automatic-storage FORCE flags could silently prevent
-assignments. Program canonical hashes, exported ST/PLCopen source profiles and
-MatIEC-generated C stay unchanged; the pinned external runtime is not patched.
+assignments. That initialization policy left Program hashes, source profiles and
+generated C unchanged; the pinned external runtime is not patched. Current
+private symbol allocation is separately versioned in the
+[IEC identifier profile](iec-symbol-namespace.md).
 Host bindings provide elapsed scan seconds, day/minute and inputs;
 the compiled program produces its own outputs, retained state and fault flag.
 
@@ -86,7 +88,7 @@ at or after their time. Arbitrary ST/C uploads, output forces and native
 extensions are not accepted by these endpoints. Mutating requests require the
 local session token and pass the application's loopback host/origin checks.
 
-The independent execution tests compile and run all **27 graph block kinds**,
+The independent execution tests compile and run all **30 graph block kinds**,
 all **nine VAV example graphs**, feedback, independent nested macro instances,
 Boolean memory, PI anti-windup, timer/alarm resets, sensor quality faults,
 late-scan divide faults, float overflow, hosted calendars and timed scenarios.

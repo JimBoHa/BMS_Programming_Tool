@@ -18,11 +18,23 @@ import { showValue, type Program } from "./types";
 import "./temco-simulator.css";
 
 type InputValue = { value: string | boolean; quality: string };
+type SymbolTable = {
+  profile: { id: string; rules_sha256: string };
+  sha256: string;
+  nodes: {
+    id: string;
+    roles: Record<
+      string,
+      { symbol: string; type: string; state_label?: string }
+    >;
+  }[];
+};
 type Compilation = {
   source_st: string;
   generated_c: string;
   warnings: { count: number; categories: string[]; detail: string };
   program_sha256: string;
+  symbol_table?: SymbolTable;
 };
 type Row = {
   clock: string;
@@ -38,6 +50,7 @@ type Verification = {
   rows: Row[];
   warnings: { count: number; categories: string[]; detail: string };
   program_sha256: string;
+  symbol_table?: SymbolTable;
 };
 
 export function IECVerifier({ program }: { program: Program }) {
@@ -48,7 +61,9 @@ export function IECVerifier({ program }: { program: Program }) {
   const [clock, setClock] = useState("");
   const [events, setEvents] = useState("[]");
   const [duration, setDuration] = useState("10");
-  const [compiled, setCompiled] = useState<Compilation | null>(null);
+  const [compilationDocument, setCompilationDocument] =
+    useState<JsonDocument<Compilation> | null>(null);
+  const compiled = compilationDocument?.data;
   const [verificationDocument, setVerificationDocument] =
     useState<JsonDocument<Verification> | null>(null);
   const verification = verificationDocument?.data;
@@ -90,7 +105,7 @@ export function IECVerifier({ program }: { program: Program }) {
       ),
     );
     setDt(String(program.scan_seconds));
-    setCompiled(null);
+    setCompilationDocument(null);
     setVerificationDocument(null);
     setError("");
   }, [program]);
@@ -125,7 +140,7 @@ export function IECVerifier({ program }: { program: Program }) {
     setBusy(true);
     setError("");
     setVerificationDocument(null);
-    if (kind === "compile") setCompiled(null);
+    if (kind === "compile") setCompilationDocument(null);
     try {
       const step = Number(dt);
       if (!Number.isFinite(step) || step <= 0 || step > 60)
@@ -135,18 +150,28 @@ export function IECVerifier({ program }: { program: Program }) {
         dt: step,
         ...(clock ? { clock: clock + "Z" } : {}),
       };
-      let result;
+      let result:
+        | { kind: "compile"; document: JsonDocument<Compilation> }
+        | { kind: "verification"; document: JsonDocument<Verification> };
       if (kind === "compile")
-        result = await programApi("/iec/compile", { program });
+        result = {
+          kind: "compile",
+          document: await programJsonDocument<Compilation>("/iec/compile", {
+            program,
+          }),
+        };
       else if (kind === "verify") {
         const count = Number(scans);
         if (!Number.isInteger(count) || count < 1 || count > 1000)
           throw new Error("Enter 1..1000 whole native scans.");
-        result = await programJsonDocument<Verification>("/iec/verify", {
-          ...options,
-          scans: count,
-          inputs: inputValues(),
-        });
+        result = {
+          kind: "verification",
+          document: await programJsonDocument<Verification>("/iec/verify", {
+            ...options,
+            scans: count,
+            inputs: inputValues(),
+          }),
+        };
       } else {
         const length = Number(duration);
         if (
@@ -158,15 +183,18 @@ export function IECVerifier({ program }: { program: Program }) {
           throw new Error(
             "Scenario needs a positive duration and at most 1000 native scans.",
           );
-        result = await programJsonDocument<Verification>("/iec/scenario", {
-          ...options,
-          duration: length,
-          events: parseExecutionSourceJSON(events),
-        });
+        result = {
+          kind: "verification",
+          document: await programJsonDocument<Verification>("/iec/scenario", {
+            ...options,
+            duration: length,
+            events: parseExecutionSourceJSON(events),
+          }),
+        };
       }
       if (!mounted.current || requestGeneration !== generation.current) return;
-      if (kind === "compile") setCompiled(result);
-      else setVerificationDocument(result);
+      if (result.kind === "compile") setCompilationDocument(result.document);
+      else setVerificationDocument(result.document);
     } catch (e) {
       if (mounted.current && requestGeneration === generation.current)
         setError(String(e));
@@ -178,6 +206,15 @@ export function IECVerifier({ program }: { program: Program }) {
     saveBlob(new Blob([value], { type }), program.id + extension);
   }
   const faults = verification?.rows.filter((row) => row.fault).length || 0;
+  const symbols = verification?.symbol_table || compiled?.symbol_table;
+  const symbolRows =
+    symbols?.nodes.flatMap((node) =>
+      Object.entries(node.roles).map(([role, value]) => ({
+        id: node.id,
+        role,
+        ...value,
+      })),
+    ) || [];
 
   return (
     <div className="workspace-page temco-simulator">
@@ -260,6 +297,12 @@ export function IECVerifier({ program }: { program: Program }) {
               <p>
                 Literal profile: <code>{status.source_generator.id}</code> ·
                 rules <code>{status.source_generator.rules_sha256}</code>
+              </p>
+            )}
+            {status.symbol_generator && (
+              <p>
+                Symbol profile: <code>{status.symbol_generator.id}</code> ·
+                rules <code>{status.symbol_generator.rules_sha256}</code>
               </p>
             )}
           </details>
@@ -566,10 +609,69 @@ export function IECVerifier({ program }: { program: Program }) {
           )}
         </section>
       )}
-      {compiled && (
+      {symbols && (
+        <section className="temco-card" aria-label="IEC symbol mapping">
+          <h2>Graph and compiler names</h2>
+          <p>
+            Original graph IDs remain unchanged. These private names bind the
+            generated declarations and native host to each graph value and role.
+          </p>
+          <p>
+            Symbol profile: <code>{symbols.profile.id}</code> · table SHA-256:{" "}
+            <code>{symbols.sha256}</code>
+          </p>
+          <details>
+            <summary>Show allocated compiler names</summary>
+            <div className="temco-table-wrap">
+              <table className="temco-points">
+                <thead>
+                  <tr>
+                    <th>Expanded graph ID</th>
+                    <th>Role</th>
+                    <th>IEC name</th>
+                    <th>IEC type</th>
+                    <th>Retained state label</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {symbolRows.slice(0, 200).map((row) => (
+                    <tr key={row.id + ":" + row.role}>
+                      <td>{row.id}</td>
+                      <td>{row.role}</td>
+                      <td>
+                        <code>{row.symbol}</code>
+                      </td>
+                      <td>{row.type}</td>
+                      <td>{row.state_label || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {symbolRows.length > 200 && (
+              <p>
+                Showing the first 200 of {symbolRows.length} roles. Download
+                compilation evidence or the full IEC trace for every role.
+              </p>
+            )}
+          </details>
+        </section>
+      )}
+      {compiled && compilationDocument && (
         <section className="temco-card" aria-label="Compiled IEC artifacts">
           <h2>Compiled artifacts</h2>
           <div className="button-row">
+            <button
+              onClick={() =>
+                saveBlob(
+                  compilationDocument.blob,
+                  program.id + ".iec-compilation.json",
+                )
+              }
+            >
+              <Download size={15} />
+              Download compilation evidence
+            </button>
             <button onClick={() => save(compiled.source_st, ".st")}>
               <Download size={15} />
               Download Structured Text

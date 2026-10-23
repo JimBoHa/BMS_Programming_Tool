@@ -443,5 +443,10 @@
     "feature": "Authored occupied single-speed series-fan VAV wizard",
     "status": "implemented",
     "scope": "Editable ordinary-core cold-primary VAV with calibrated primary-flow feedback and proportional hot-water reheat. Elapsed close-command phase then fan request, stable independent proof and bounded chatter deadline, latched good-quality proof-loss stop/raw-request-off fresh reset. Cascaded zone-cooling/flow PI, direct heating PI, command-aware hysteresis and held inactive integrals; explicit good-value admission versus complete bad-quality rollback. Coupled temperature/flow/delta/inverse-gain unit conversion and source-bound author/simulate/revision/export. Estimated closure/primary flow is not measured damper closure/total coil flow or ventilation. No unoccupied/purge/variable fan, native JCI allocation/CAF/compiler/transfer or physical/code acceptance. Broad MF-8a75247a85 partial. See docs/series-fan-vav-wizard.md."
+  },
+  {
+    "feature": "Versioned private IEC compiler symbol allocation",
+    "status": "implemented",
+    "scope": "IEC-SYMBOL-001 allocates deterministic typed private value/quality/stage/state/calendar roles and shares them with the native host while preserving original graph identifiers and source identity. New ST V3 and symbol-qualified PLCopen coexist with strict exact legacy V1/V2/numeric/Sedona regeneration. Web conversion and native verifier show separate symbol provenance; read-only mapping and original compilation/trace response downloads retain complete evidence. No identifier-schema widening, arbitrary vendor IEC import, native JCI compilation/download or physical deployment. See docs/iec-symbol-namespace.md."
   }
 ]
