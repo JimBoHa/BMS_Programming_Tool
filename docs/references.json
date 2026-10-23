@@ -93,7 +93,8 @@
     "status": "indexed",
     "local_collection": "jci",
     "local_id": "jci-lit-12011147-18-0-14d1fc",
-    "notes": "CCT/PCT programming and operation"
+    "notes": "CCT/PCT programming and operation",
+    "masd_ahu_review": "PDF 375\u2013378,382\u2013385,389/392/394\u2013397,1078\u20131083,1097\u20131100,1286\u20131287, 1334\u20131336 reviewed for bounded authored single-fan SAT/pressure/economizer generator. Current MASD AHU uses MASD-with-HR v51, not adjacent rooftop-only MASD mapping. Position-only OA, Pa-only pressure and explicit fixed-gain/proof policies; no native algorithm/CAF/physical/code equivalence. See docs/masd-ahu-wizard.md."
   },
   {
     "vendor": "Johnson Controls",
