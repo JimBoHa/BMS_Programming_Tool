@@ -292,7 +292,7 @@
   {
     "feature": "Equipment and sequence selection wizard",
     "status": "partial",
-    "scope": "Portable VAV authoring for cooling-only, inline hot-water reheat/no fan and parallel-fan hot-water reheat, with declared target labels, actual logical inputs/outputs, P/PI position mapping or measured-airflow feedback, coupled unit/gain conversion and exact-choice preview before separate editable project creation. Source/choice evidence, stale-response and current-editor guards, revision/save/export/simulation workflows. Native CAF/package/terminal allocation and complete ventilation, safety, G36/Title24 sequences remain incomplete. See docs/equipment-wizard.md."
+    "scope": "Portable VAV authoring for cooling-only, inline hot-water reheat/no fan and parallel-fan hot-water reheat, plus separately profiled dual-duct hot/cold decks with explicit pickup layouts, authored guard behavior and declared target labels, actual logical inputs/outputs, P/PI position mapping or measured-airflow feedback, coupled unit/gain conversion and exact-choice preview before separate editable project creation. Source/choice evidence, stale-response and current-editor guards, revision/save/export/simulation workflows. Native CAF/package/terminal allocation and complete ventilation, safety, G36/Title24 sequences remain incomplete. See docs/equipment-wizard.md."
   },
   {
     "feature": "Native state domains and offline enum mapping review",
@@ -378,5 +378,10 @@
     "feature": "Source-bound distributed plant signal engineering",
     "status": "implemented",
     "scope": "Offline explicit host/subsystem/role/terminal declarations and exact immutable portable Program sources, bounded I/O/network review with type/unit/single-writer/fanout/collision diagnostics, original server JSON/CSV and durable sealed capture import/reopen. No inferred label matching, terminal capacity/aliases/native allocation, controller identity, supervisory deployment, simulation, field traffic or JCI/G36 physical acceptance. Broad MF-3aba872151 remains partial. See docs/distributed-plant-signals.md."
+  },
+  {
+    "feature": "Portable dual-duct VAV wizard",
+    "status": "implemented",
+    "scope": "Explicit two-deck position or hot/cold, hot-total, cold-total calibrated-flow declarations, inspectable raw third-flow arithmetic and independent fixed-gain P/PI deck loops. Authored invalid-flow/setpoint zero-command/integral-hold policy, coupled unit/gain conversion and exact source/profile/choice hashes across preview/create/simulation/save/interchange UI. Legacy single-duct profiles/digests unchanged. No adaptive tuning, total-only control, native actuator allocation/calibration/CAF deployment or G36/Title24/physical acceptance. Broad MF-173d9ae6c9 partial. See docs/dual-duct-wizard.md."
   }
 ]
