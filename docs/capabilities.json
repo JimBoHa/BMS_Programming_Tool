@@ -413,5 +413,10 @@
     "feature": "Chilled-water hydraulic I/O and declared subset capacity planner",
     "status": "implemented",
     "scope": "Four parallel-chiller primary-only/primary-secondary times headered/dedicated variable-primary layouts; shared measurement-role derivation and explicit monitoring/prove-on choices. Exact sealed PLANT source/interface/link bindings, explicit controller/module electrical modes and per-host HW-CAP witnesses; original JSON/CSV browser workflow. Count fit covers only declared hydraulic subset; other application occupancy remains unknown. No generated Program, spare terminal/native allocation, plant sequence/hydraulic simulation, field deployment or G36/Title24/physical acceptance. Broad MF-8e7eecb866 partial. See docs/hydronic-io-planner.md."
+  },
+  {
+    "feature": "Authored mixed-air single-duct AHU wizard",
+    "status": "implemented",
+    "scope": "Actual editable ordinary-core SAT heat/cool, common position-only OA/economizer and single constant/variable supply fan with Pa feedback. Independent proof/start/recovery/reset state, held active PI at setpoint, command-based saturation/release, explicit drybulb OA/RA dependencies, coupled F/C deltas/inverse gains and original source-bound preview/create/simulate/revise/export. Existing wizards/Engine unchanged. Position is not measured outdoor airflow/ventilation. No native JCI CAF/compiler/transfer, physical protection or G36/Title24 acceptance. Broad MF-ec17b3073c partial. See docs/masd-ahu-wizard.md."
   }
 ]

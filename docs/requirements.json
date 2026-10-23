@@ -1078,5 +1078,23 @@
     "pdf_pages_or_section": "docs/hydronic-io-planner.md",
     "status": "partial",
     "implementation_or_gap": "HYD-IO-001 implements a bounded chilled-water hydraulic role/dependency and explicit source/capacity planner. Native plant applications, control sequences, series/hot-water/condenser/tower/HX/WSE systems, whole-application capacity, multiple pressure loops, physical simulation/commissioning and native transfer remain unimplemented."
+  },
+  {
+    "id": "AHU-MASD-001",
+    "feature": "Authored mixed-air single-duct AHU generator",
+    "acceptance_criterion": "Generate an editable ordinary-core SAT/pressure/economizer AHU graph with explicit single-fan choices, independent logical proof/deadlines, held active PI at setpoint, position-only OA floor, coupled temperature/gain conversion and source-bound creation/simulation/revision/export.",
+    "evidence": "JCI Controller Tool Help 18.0 LIT-12011147 SHA68935362c85cb1879dc033cc701115e8ea7c4ecb26748f21a9ceaf0454f82903; authored Studio fixed-gain state/proof policy",
+    "pdf_pages_or_section": "375\u2013378;382\u2013385;389/392/394\u2013397;1078\u20131083;1097\u20131100;1286\u20131287;1334\u20131336; docs/masd-ahu-wizard.md",
+    "status": "implemented",
+    "implementation_or_gap": "One constant/variable supply fan with Pa pressure feedback, separate SAT heating/cooling valves, common position-only mixing floor, fixed/differential drybulb and staged integrated mechanical cooling. Explicit proof/chatter deadlines/manual-reset edge, command-based release retaining PI at setpoint, coupled F/C absolute/delta/inverse gains, original source/review workflows and actual core/native/API/browser checks. Existing Engine/wizards unchanged. No measured ventilation, native JCI compiler/CAF/transfer, physical protections or G36/Title24 acceptance."
+  },
+  {
+    "id": "MF-ec17b3073c",
+    "feature": "Mixed-air single-duct AHU template",
+    "acceptance_criterion": "Configure, test and deploy supported mixed-air AHU applications and their equipment, sensor, sequence and protection options for target hardware.",
+    "evidence": "JCI Controller Tool Help 18.0 LIT-12011147",
+    "pdf_pages_or_section": "375\u2013404; docs/masd-ahu-wizard.md",
+    "status": "partial",
+    "implementation_or_gap": "AHU-MASD-001 provides a bounded authored single-fan SAT/pressure/economizer ordinary-core generator. Native applications/CAF/compiler/transfer, measured OA-flow/ventilation, enthalpy/CO2/humidity, multiple/return/relief/exhaust fans and sensors, heat recovery, staged/common coils, full native safety/alarm priorities and physical commissioning remain unimplemented."
   }
 ]
