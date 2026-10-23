@@ -109,6 +109,7 @@ def profile():
         "compiler": "MatIEC iec2c then host clang",
         "revision": PIN,
         "execution": "compiled IEC Structured Text via MatIEC/native C",
+        "host_initialization": "studio-iec-zero-initialized-main/1",
         "types": {"number": "IEC REAL / host IEEE float32", "boolean": "IEC BOOL"},
         "limits": {
             "nodes": 2000,
@@ -171,7 +172,7 @@ def _harness(declarations, output_nodes, graph):
         "TIME __CURRENT_TIME;",
         'static void number(double x) { if (isfinite(x)) printf("%.9g", x); else fputs("null", stdout); }',
         "int main(void) {",
-        " MAIN_data__ data; MAIN_init__(&data, 0); unsigned successful = 0, attempts = 0;",
+        " MAIN_data__ data = {0}; MAIN_init__(&data, 0); unsigned successful = 0, attempts = 0;",
         f" char line[{max(1024, len(fields) * 48 + 16)}]; double values[{max(1, len(fields))}];",
         " while (fgets(line, sizeof(line), stdin)) {",
         "  if (++attempts > 1000 || !strchr(line, '\\n')) return 2;",
