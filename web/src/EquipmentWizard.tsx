@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import type { Program } from "./types";
 import "./equipment-wizard.css";
+import { ZoneGroupScheduleWizard } from "./ZoneGroupScheduleWizard";
 type Data = Record<string, any>;
 const same = (a: any, b: any): boolean => {
   return sourceEqual(a, b);
@@ -17,6 +18,7 @@ export function EquipmentWizard({
   onCreate: (program: Program, sourceKey: string) => boolean;
   onClose: () => void;
 }) {
+  const [scheduleMode, setScheduleMode] = useState(false);
   const [catalog, setCatalog] = useState<Data | null>(null),
     [draft, setDraft] = useState<Data | null>(null),
     [preview, setPreview] = useState<Data | null>(null),
@@ -309,6 +311,15 @@ export function EquipmentWizard({
     : dual
       ? catalog?.dual_duct
       : catalog;
+  if (scheduleMode)
+    return (
+      <ZoneGroupScheduleWizard
+        source={source}
+        onCreate={onCreate}
+        onClose={onClose}
+        onBack={() => setScheduleMode(false)}
+      />
+    );
   return (
     <div className="equipment-wizard-backdrop">
       <section
@@ -318,6 +329,17 @@ export function EquipmentWizard({
         className="equipment-wizard"
       >
         <h1>Equipment and sequence wizard</h1>
+        <button
+          disabled={busy}
+          onClick={() => {
+            epoch.current++;
+            setPreview(null);
+            setBusy(false);
+            setScheduleMode(true);
+          }}
+        >
+          Zone-group schedule wizard
+        </button>
         <p>
           Create a separate editable portable VAV or fan-coil project.
           Target/model/firmware/release mode are declarations. Native
