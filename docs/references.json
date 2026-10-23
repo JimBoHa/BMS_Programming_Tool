@@ -381,7 +381,8 @@
     "status": "indexed",
     "local_collection": "jci",
     "local_id": "jci-lit-12014531-1-0-037a21",
-    "notes": "Guideline 36 programming"
+    "notes": "Guideline 36 programming",
+    "hydraulic_planner_review": "PDF5\u20138,34\u201337,49\u201354 Tables28/29/32: four bounded parallel-chiller layouts, flow/pressure/temperature dependencies, equally-sized headered assumption and explicit physical/network point direction. Source-qualified authored hydraulic subset only; native applications/whole-plant safety and physical acceptance unverified. See docs/hydronic-io-planner.md."
   },
   {
     "vendor": "Johnson Controls",
@@ -1413,7 +1414,8 @@
     "status": "indexed",
     "local_collection": "jci",
     "local_id": "jci-lit-12011575-2017-06-01-714767",
-    "notes": "Plant optimization programming"
+    "notes": "Plant optimization programming",
+    "hydraulic_planner_conflict": "2017 PDF13 variable-primary/secondary exclusion remains edition-specific; separate2025 chilled profile permits variable-primary/secondary without converting old applications."
   },
   {
     "vendor": "Johnson Controls",

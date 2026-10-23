@@ -23,6 +23,11 @@ export async function apiKeepalive(path: string, body: unknown): Promise<any> {
   return (await request(path, body, undefined, { keepalive: true })).json();
 }
 export type JsonDocument<T = any> = { data: T; blob: Blob };
+/** Preserve engineering downloads and their independent byte-digest header. */
+export async function apiBlobDocument(path: string, body?: unknown) {
+  const response = await request(path, body);
+  return { blob: await response.blob(), headers: response.headers };
+}
 /** Keep authoritative JSON bytes when their numeric spelling is evidence. */
 export async function apiJsonDocument<T = any>(
   path: string,
