@@ -423,5 +423,10 @@
     "feature": "Authored AHU-only independent hot/cold deck wizard",
     "status": "implemented",
     "scope": "Editable ordinary-core single-speed supply fan, independent hot/cold temperature targets and simultaneous coil demands, common position-only OA and cold economizer staging, explicit proof/deadlines/reset and held PI. Original source/profile choices across preview/create/simulate/revision/interchange. Invalid runtime setpoints inhibit commands; bad quality rolls back scans. Finite-precision F/C trajectories can diverge at PI boundaries. No zone generation, native JCI CAF/compiler/transfer, measured ventilation or physical/code acceptance. Broad MF-9c85cb8feb partial. See docs/madd-mz-ahu-wizard.md."
+  },
+  {
+    "feature": "Advisory operation-owned idle-sleep requests",
+    "status": "implemented",
+    "scope": "App-managed Temco native apply owns a bounded idle-only OS request through validation, write/readback and shielded recovery/cleanup. Owned macOS caffeinate child or same-thread Windows system request; failures/expiry remain visible and never cancel, retry or authorize transfers. Read-only explicit-refresh status with original response export. Linux unavailable/unverified; guest protection does not protect physical host. No global power settings, display request, native JCI transfer integration or explicit Sleep/lid/power-loss guarantee. See docs/operation-power.md."
   }
 ]

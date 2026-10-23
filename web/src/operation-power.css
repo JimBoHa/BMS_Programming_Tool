@@ -1,0 +1,18 @@
+.operation-power .power-table {
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+.operation-power table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.operation-power th,
+.operation-power td {
+  padding: 0.6rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border, #dce2ea);
+}
+.operation-power code {
+  overflow-wrap: anywhere;
+}

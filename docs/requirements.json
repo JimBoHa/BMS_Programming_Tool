@@ -1114,5 +1114,14 @@
     "pdf_pages_or_section": "404\u2013474;1090\u20131094;1100\u20131102;1145\u20131147; docs/madd-mz-ahu-wizard.md",
     "status": "partial",
     "implementation_or_gap": "AHU-MADD-MZ-001 provides a real authored MADD-MZ AHU-only independent-deck foundation distinct from existing dual-duct VAV terminals. Native allocation/compiler/CAF/transfer, zones/terminal requests, unoccupied arbitration, variable/return fans and pressure loops, reset curves, measured ventilation/enthalpy/humidity/heat recovery, staged/common coils, complete priorities/protections, canonical unit-invariant execution and physical commissioning remain incomplete."
+  },
+  {
+    "id": "OPS-PWR-001",
+    "feature": "Bounded advisory idle-sleep lease during App-managed Temco apply",
+    "acceptance_criterion": "Own an idle-only bounded backend-host request from admitted native apply through readback and shielded recovery; release on owner completion/TTL, preserve transfer semantics and report degraded availability/cleanup without creating a session-global awake setting.",
+    "evidence": "Authored Studio improvement; primary local caffeinate(8)/pmset(1), Microsoft SetThreadExecutionState/System Sleep Criteria; JCI MAP Update Tool User Guide1.0.1 LIT-12012979 PDF15 is limited interruption evidence, not a CCT/PCT/Temco resume contract.",
+    "pdf_pages_or_section": "docs/operation-power.md; /api/operation-power; studio-operation-idle-awake/1",
+    "status": "implemented",
+    "implementation_or_gap": "App-managed Temco apply only, including owned recovery; no lease while UI/plan/connection idle. Mac owned idle-only child with TTL/owner PID; Windows dedicated daemon owning-thread acquire/clear. Bounded status, admission/capacity/history, advisory errors and shutdown pending-active report. Real UDP identity/recovery comparisons and short Mac assertion probe; real Windows artifact acceptance separate. Standalone SDK requires explicit manager. Linux, other captures/native-test wrappers and physical VM-host/remote coordination remain unverified. No preferences, protocol retries/deadlines, native JCI loader or interruption-proof guarantee."
   }
 ]
