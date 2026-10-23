@@ -423,5 +423,10 @@
     "feature": "Authored AHU-only independent hot/cold deck wizard",
     "status": "implemented",
     "scope": "Editable ordinary-core single-speed supply fan, independent hot/cold temperature targets and simultaneous coil demands, common position-only OA and cold economizer staging, explicit proof/deadlines/reset and held PI. Original source/profile choices across preview/create/simulate/revision/interchange. Invalid runtime setpoints inhibit commands; bad quality rolls back scans. Finite-precision F/C trajectories can diverge at PI boundaries. No zone generation, native JCI CAF/compiler/transfer, measured ventilation or physical/code acceptance. Broad MF-9c85cb8feb partial. See docs/madd-mz-ahu-wizard.md."
+  },
+  {
+    "feature": "Optional exact-model controller transport admission",
+    "status": "implemented",
+    "scope": "Three source-qualified exact FAC parts separate documented capability, operator-declared current protocol, available adapter and observed identity. Optional HardwareWorkbench qualification recomputes existing path/interface/serial guards before queueing, retains source/config/target and raw match/mismatch/unresolved job evidence, and preserves original surveys/seals/export bytes. Explicit pure review makes no native call; unknown/incompatible/SC/N2 modes remain nonadmitted. All unqualified generic and routed paths retain existing rules; one-octet routed MS/TP is the bounded qualified path. No automatic connect/discovery/protocol change, native program deployment, BACnet/SC/N2 driver or physical/manufacturer authentication. Broad MF-be5f1e078a partial. See docs/model-transport-admission.md."
   }
 ]
