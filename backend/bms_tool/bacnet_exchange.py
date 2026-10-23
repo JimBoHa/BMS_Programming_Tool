@@ -13,6 +13,8 @@ from bacpypes3.appservice import COMPLETED, ClientSSM
 from bacpypes3.basetypes import Segmentation
 from bacpypes3.comm import ApplicationServiceElement
 
+from .read_phase_trace import handoff, observe
+
 
 class _OwnedResponseFuture(asyncio.Future):
     """Preserve the first outcome while native completion cleanup is queued.
@@ -32,7 +34,7 @@ class _OwnedResponseFuture(asyncio.Future):
 
 
 async def confirmed_exchange(
-    app, request, *, single_attempt=False, before_send=None, response_timeout=None
+    app, request, *, single_attempt=False, before_send=None, response_timeout=None, observer=None
 ):
     # This opt-in budget measures the reply interval, not synchronous durable
     # preparation. Its caller must retain a finite overall operation deadline.
@@ -66,6 +68,9 @@ async def confirmed_exchange(
     retiring = False
 
     def done(result):
+        observe(
+            observer, "owned_future_done_callback", cancelled=result.cancelled(), retiring=retiring
+        )
         app._request_done(request, result)
         # Interface shutdown may cancel the application future while dispatch
         # is awaiting a native cache lookup, before it reaches `await future`.
@@ -80,6 +85,7 @@ async def confirmed_exchange(
 
     app._requests.setdefault(target, []).append((request, future))
     future.add_done_callback(done)
+    observe(observer, "exchange_registered", invoke_id=request.apduInvokeID)
     try:
         async with asyncio.timeout(None) as response_clock:
             if single_attempt:
@@ -116,15 +122,30 @@ async def confirmed_exchange(
                                 asyncio.get_running_loop().time() + response_timeout
                             )
                         sent = True
-                    await original_send(packet)
+                        handoff(observer, packet)
+                    observe(observer, "downstream_call_enter")
+                    try:
+                        await original_send(packet)
+                    except BaseException as exc:
+                        observe(observer, "downstream_call_exception", exception=type(exc).__name__)
+                        raise
+                    else:
+                        observe(observer, "downstream_call_return")
 
                 transaction.request = once
                 app.asap.clientTransactions.append(transaction)
                 await transaction.indication(encoded)
             else:
                 await ApplicationServiceElement.request(app, request)
-            return await future
+            observe(observer, "awaiting_owned_future")
+            result = await future
+            observe(observer, "owned_future_await_return")
+            return result
+    except BaseException as exc:
+        observe(observer, "exchange_exception", exception=type(exc).__name__)
+        raise
     finally:
+        observe(observer, "exchange_retirement_enter")
         retiring = True
         if serial_owner is not None:
             serial_layer.retire_confirmed_request(request, serial_owner)
@@ -141,3 +162,4 @@ async def confirmed_exchange(
         app._request_done(request, future)
         if future.done() and not future.cancelled():
             future.exception()
+        observe(observer, "exchange_retirement_return", future_cancelled=future.cancelled())

@@ -942,7 +942,7 @@
     "evidence": "Owned BACpypes3 0.0.110 dispatch/source contracts and preserved frozen15 missing-exception capture; synthetic direct/routed UDP regression.",
     "pdf_pages_or_section": "docs/property-dispatch-diagnostics.md",
     "status": "implemented",
-    "implementation_or_gap": "Local monotonic handoff/completion timing, existing request budget, matching receive-candidate flag and source-filter rejection count in sealed read receipts; pre-handoff interface pin guard. No physical socket send proof, inferred device latency, automatic recovery, root-cause claim for original missing reply or physical controller acceptance."
+    "implementation_or_gap": "Local monotonic handoff/completion timing, existing request budget, matching candidate and narrow source-filter rejection facts in sealed core receipts. Opt-in PointStatus phase traces preserve exact native handoff/multiplexer observations in a separately bounded 64KiB envelope around unchanged original core-export bytes; no persistent diagnostic storage, extra queries, retry/timer changes or native budget/eligibility coupling. Explicit callback/source reasons, immutable retirement, independent prefix/hash limits and authoritative browser exports. Multiplexer visibility excludes earlier UDP callbacks, socket transmission and post-retirement activity. Original frozen15 and later invoke55 missing replies remain unresolved; no physical controller or root-cause claim."
   },
   {
     "id": "COMM-PLANT-001",

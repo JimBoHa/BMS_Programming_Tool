@@ -33,6 +33,7 @@ from .bacnet_exchange import confirmed_exchange
 from .bacnet_values import json_value
 from .device_details import _InterfaceChanged
 from .ipv4_ingress import raw_ingress
+from .read_phase_trace import multiplexer_packet, observe, retire, start_span, wait_started
 from .scoped_hooks import ScopedAttribute
 
 MAX_VALUE_BYTES = 16 * 1024
@@ -160,7 +161,7 @@ class PropertyEvidence:
                 raise _InterfaceChanged("Read-only property interface/socket identity changed.")
 
     @asynccontextmanager
-    async def wire(self, session, budget, request):
+    async def wire(self, session, budget, request, *, observer=None):
         layer = session["app"].nsap.local_adapter.clientPeer
         mux = layer.multiplexer
         original = mux.confirmation
@@ -173,22 +174,39 @@ class PropertyEvidence:
             raw = bytes(packet.pduData)
             try:
                 if len(raw) < 6 or raw[0] != 0x81 or raw[1] not in (4, 10, 11):
+                    observe(
+                        observer,
+                        "candidate_classification",
+                        reason="unsupported_bvlc_or_short_frame",
+                    )
                     return False
                 offset = 10 if raw[1] == 4 else 4
                 npdu = NPDU.decode(PDU(raw[offset:]))
                 if npdu.npduNetMessage is not None:
+                    observe(
+                        observer, "candidate_classification", reason="unrelated_network_message"
+                    )
                     return False
                 header = APDU.decode(PDU(bytes(npdu.pduData)))
                 if (
                     header.apduType not in (3, 5, 6, 7)
                     or header.apduInvokeID != request.apduInvokeID
                 ):
+                    observe(
+                        observer,
+                        "candidate_classification",
+                        reason="unrelated_apdu_type"
+                        if header.apduType not in (3, 5, 6, 7)
+                        else "unrelated_invoke",
+                    )
                     return False
                 if header.apduType in (3, 5) and header.apduService != 12:
+                    observe(observer, "candidate_classification", reason="unrelated_service")
                     return False
                 advertised = IPv4Address(raw[4:10]) if raw[1] == 4 else packet.pduSource
                 source = npdu.npduSADR if npdu.npduSADR is not None else advertised
                 if source != session["target"]:
+                    observe(observer, "candidate_classification", reason="unrelated_source")
                     return False
                 if (
                     raw[1] != 10
@@ -196,6 +214,15 @@ class PropertyEvidence:
                     or raw_ingress(layer, packet) is None
                 ):
                     budget.ignored_peers += 1
+                    observe(
+                        observer,
+                        "candidate_classification",
+                        reason="matching_candidate_wrong_bvlc"
+                        if raw[1] != 10
+                        else "matching_candidate_wrong_next_hop"
+                        if str(packet.pduSource) != expected_peer
+                        else "matching_candidate_missing_ingress",
+                    )
                     return True
                 self.guard(session)
                 evidence.clear()
@@ -211,15 +238,34 @@ class PropertyEvidence:
                     basis="Matching transport candidate; only a validated transaction response is accepted.",
                     receive_provenance=raw_ingress(layer, packet),
                 )
-            except Exception:
+                observe(observer, "candidate_classification", reason="retained_matching_candidate")
+            except Exception as exc:
+                observe(
+                    observer,
+                    "candidate_classification",
+                    reason="inspection_exception",
+                    exception=type(exc).__name__,
+                )
                 return False
             return False
 
         async def receive(packet):
+            if observer is None:
+                if listening and inspect_packet(packet):
+                    return
+                return await original(packet)
+            multiplexer_packet(observer, packet)
             if listening and inspect_packet(packet):
+                observe(observer, "multiplexer_candidate_suppressed")
                 return
-            # Dispatch the original exactly once, even if its handler raises.
-            return await original(packet)
+            observe(observer, "native_handler_enter")
+            try:
+                result = await original(packet)
+            except BaseException as exc:
+                observe(observer, "native_handler_exception", exception=type(exc).__name__)
+                raise
+            observe(observer, "native_handler_return")
+            return result
 
         hook = ScopedAttribute(mux, "confirmation", receive)
         try:
@@ -274,13 +320,19 @@ class PropertyEvidence:
                 dispatch_handoff_elapsed_ms=round((loop.time() - started) * 1000, 6),
             )
 
+        observer = start_span(row["object"], row["property"], index, timeout)
         native = None
         try:
-            async with self.wire(session, budget, request) as wire:
+            async with self.wire(session, budget, request, observer=observer) as wire:
                 try:
+                    wait_started(observer, timeout)
                     reply = await asyncio.wait_for(
                         confirmed_exchange(
-                            session["app"], request, single_attempt=True, before_send=before_send
+                            session["app"],
+                            request,
+                            single_attempt=True,
+                            before_send=before_send,
+                            observer=observer,
                         ),
                         timeout,
                     )
@@ -386,6 +438,7 @@ class PropertyEvidence:
                 matching_transport_candidate=bool(row.get("transport_evidence")),
                 source_filter_rejections=budget.ignored_peers - rejected_before,
             )
+            retire(observer, phase_status=row["status"], invoke_id=request.apduInvokeID)
         row["invoke_id"] = request.apduInvokeID
         if len(_encoded(row)) > 64 * 1024:
             row.pop("value", None)
