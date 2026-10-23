@@ -1,0 +1,61 @@
+# Mixed-air single-duct AHU wizard
+
+Open **Mixed-air AHU wizard** in the equipment wizard to create a fresh editable ordinary-core Program. The separately profiled `studio-masd-ahu/1` foundation controls one supply fan, one common proportional mixing-damper command and separate modulating heating/cooling valves. Supply/discharge temperature downstream of the coils is the thermal process variable. The fan runs continuously during the declared occupied unit permission, including satisfied temperature operation. This is an AHU discharge-temperature/economizer/pressure controller, not the fan-coil zone-temperature or demand-to-speed profile.
+
+Select a constant-speed or variable-speed fan and explicitly select economizer off, fixed dry-bulb or differential dry-bulb. Variable speed requires the separate Pa pressure-feedback settings. Enabled economizers require OA temperature; differential also requires RA temperature. Irrelevant pressure, RA or economizer fields are refused instead of silently retained in inactive logic. Catalog branch defaults are provided in both temperature units; changing a branch restores those defaults rather than inventing values.
+
+The declared family/model/firmware/release is metadata. It does not allocate a native controller, establish hardware compatibility or produce a JCI CAF. Existing single/dual-duct VAV, fan-coil and heat-pump generators, Engine, compiler and protocol handlers remain separate.
+
+## Inputs, outputs and units
+
+Every graph has logical occupied, unit-enable, holdoff, independent fan-proof and fan-reset inputs, plus measured/logical SAT and SAT setpoint. Initial occupied, enable and fan proof default false. A fan command never supplies its own proof. A positive configured temperature band derives distinct heating/cooling setpoints around the SAT center. Variables and explicit Delay boundaries remain visible and editable in the graph.
+
+Variable fan adds duct pressure and setpoint inputs in **Pa**, a fixed-gain pressure P/PI loop and a separate percentage output. Its minimum/startup/maximum commands are explicit declarations, not commissioned motor limits. The pressure loop operates only after readiness. Before readiness/recovery it uses the startup command, allowing a fan to establish proof without a proof/start deadlock. Constant-speed graphs omit the pressure/speed branch.
+
+Fixed dry-bulb suitability uses OA enable/disable temperatures with hysteresis. Differential suitability additionally uses RA-minus-OA on/off differences and the same absolute high limit. That combination is an explicit authored policy, not a recovered native OA-versus-RA module. Suitability initializes false and resets when readiness is lost. Economizer enable is a separate logical permission; no humidity, enthalpy or dew-point qualification is inferred.
+
+The minimum OA setting is a **0–100% damper-command position floor**. It is not an outdoor-air fraction, measured airflow, ventilation calculation or code minimum. Even 100% command does not prove travel, mechanical linkage, actual airflow or delivered ventilation. The first profile does not synthesize an airflow measurement or close a measured-OA minimum-flow loop.
+
+Outputs include logical fan enable/readiness/fault, optional variable-fan percentage, mixing-damper percentage, separate heating/cooling percentages, economizer availability, active-mode flags and an authored thermal-state number: 0 satisfied, 1 heating, 2 economizer, 3 integrated cooling, 4 mechanical cooling. These numbers are not native JCI enumerations. Common mixing output assumes the selected common proportional arrangement; it does not generate independent return/exhaust actuators or a volume-matching return fan.
+
+F/C conversion changes SAT/OA/RA defaults/setpoints, absolute suitability cutoffs, temperature band/entry/release/differential values and inverse-degree thermal gains together. Absolute values use offsets; differences only scale. Kp is percent per input-degree; Ki is percent per input-degree per second. Thermal gains have a canonical Celsius-degree ceiling of 1,800,000, with sufficient raw-unit range for accepted F/C choices to convert. Pressure gains retain their separate bound. Pa, percentage, Boolean and timing values remain unchanged. No inch-water pressure conversion is offered: rounded manual examples do not establish an exact reference-water convention.
+
+## Fan proof, deadlines and reset
+
+Good false occupied/unit permission or true holdoff commands fan, both valves and mixing damper to zero. A latched proof fault also keeps commands zero. It clears only on a rising reset edge while no run request exists; holding reset true cannot continually retry a faulted fan.
+
+A permitted fan starts before proof. Proof must remain true for the selected proof interval, then a full stabilization interval, before OA or coils are released. Startup timeout counts until readiness, so chattering proof cannot defer it indefinitely. If readiness completes on the timeout scan, readiness wins.
+
+After operation, false proof immediately closes OA and both valves. The fan may continue during the explicit recovery deadline, while full proof and stabilization are required again. Recovery timeout also counts until readiness, including chatter; same-scan readiness wins. Expiry latches the fan fault. These are logical software rules, not proof of actual airflow, motor shutdown or hardwired protection.
+
+Scan periods are whole 1–60 seconds. Timing choices are positive whole-second multiples of the declared scan, up to 3600 seconds. Startup/recovery deadlines must exceed proof plus stabilization by at least one scan. Timers start at zero. The first successful scan represents one declared elapsed interval, not an observed wall-clock startup. A new Engine/compiled process starts fresh; no durable power-failure checkpoint/restart is established. Overriding timing or editing the graph changes the profile's assumptions.
+
+## Thermal states and PI memory
+
+Separate bounded fixed-gain heating, economizer and mechanical-cooling P/PI loops use the derived SAT setpoints. Heating error is heating setpoint minus SAT; cooling errors have the opposite sign. The variable-fan PI uses pressure setpoint minus measured Pa. The existing core PI supplies conditional anti-windup.
+
+An active PI **stays active at setpoint while its command remains nonzero**. State release uses a low previous committed command plus a release-temperature condition for the declared dwell. A positive temperature entry threshold admits a new mode. This allows a nonzero integral command to maintain SAT or pressure without an error-only thermostat gate forcing it off at exactly setpoint.
+
+In satisfied operation both valves are zero, the fan continues and the mixing command remains at its position floor. Heating uses its PI with cooling zero and OA at the floor. Economizer-only cooling uses the larger of the floor and economizer SAT demand, with mechanical cooling zero. Warm SAT plus a high previous selected mixing command for the assist dwell admits integrated cooling: OA commands 100% and mechanical PI controls SAT. The high test includes a 100% floor, even if the economizer's own calculated demand is small.
+
+Integrated cooling returns to economizer after low mechanical command plus cool release temperature/dwell. Economizer returns to satisfied after low **economizer demand** plus cool release temperature/dwell; a nonzero minimum position does not prevent that release. Unsuitable economizer conditions select mechanical-only cooling at the OA floor. If suitability returns during mechanical cooling, the authored handoff selects integrated cooling so mechanical control can unload as OA increases. A clear opposite temperature entry changes the heating/cooling branch exclusively. It never selects both valves together.
+
+Transition tests use prior successful commands/state through explicit Delay blocks. They are not measured valve/damper positions or native controller high/low/overridden status. Inactive loops receive their own setpoint as measurement, so error is zero, integral is held and selected command is gated to zero. Later reentry can restore held integral. The graph does not promise native tracking, actuator timing/ramping or bumpless handoff.
+
+## Quality and physical limits
+
+**Bad required-input quality faults the whole transaction and retains previous outputs/state.** It does not implement a physical shutdown. This remains true if the same failed scan also contains false enable, holdoff or lost proof. Failed scans do not advance timers or consume reset edges. A later successful scan evaluates ordinary permissions. This distinction is visible in the profile and simulation behavior.
+
+The first profile provides no physical freeze, smoke, FSCS, high-pressure, coil/pump, damper-travel, motor or electrical protection. It also excludes measured-OA-flow control/tracking, enthalpy/humidity/CO2, return/relief/exhaust/dual fans, dual pressure sensors, volume matching, G36 zone-request optimization, heat recovery, zone/return primary control, cascaded resets, water flush, staged/incremental/common 2-pipe coils, coil pumps, condensate-specific/native alarm strategies and power-failure persistence. Site protections, calibration, wiring, external references and commissioned behavior require independent engineering.
+
+Ordinary native IEC verification uses the existing REAL/float32 profile, so small differences from the Python simulation's numbers remain possible, especially after temperature conversion. Exact physical or cross-runtime numeric equivalence is not claimed. No compiler flags, SDK rules, deadlines or comparison tolerances are relaxed for this generator.
+
+## Source evidence, workflow and checks
+
+The profile/choices and actual generated Program have separate hashes. Preview carries the actual Program plus manifests derived from its original Input/Output nodes. Source-preserving API transport and original review Blobs keep authoritative bytes. Changing current editor source, declarations, units, branches or choices invalidates a pending review/create/export. Creating the program loads normal editable core nodes; ordinary simulation, revisions and supported interchange then apply. A retained generator profile is provenance, not automatic revalidation after arbitrary graph edits.
+
+The API follows the separate wizard pattern: `GET /api/masd-ahu-wizard/catalog` and token-protected `POST /preview`, `/units`, `/export`. Preview supports the existing `X-Studio-Program-Source` header. Coupled unit responses bind source choices/hash and converted choices/hash. Export returns original server JSON with `X-File-SHA256`; normal project APIs save revisions. None opens a field interface or invokes a native JCI compiler/transfer.
+
+Primary reference: [Controller Tool Help 18.0](https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Controller-Tool-Help/18.0), LIT-12011147, original PDF SHA256 `68935362c85cb1879dc033cc701115e8ea7c4ecb26748f21a9ceaf0454f82903`. Reviewed pages 375–378, 382–385, 389/392/394–397, 1078–1083, 1097–1100, 1286–1287 and 1334–1336. Current MASD AHU core names MASD-with-HR v51 on 376; 1097 maps that module to AHUs. The adjacent MASD-only 1094–1096 mapping is rooftop use, not interchangeable native provenance. The apparent copied temperature/unit descriptions in the OA-flow table 1287 are not used as native flow-port truth.
+
+Independent tests cover genuine graph/I/O branches, fan proof/deadline chatter and reset, same-scan readiness, held active/inactive PI, economizer integration/release, position-floor boundaries, temperature/delta/gain conversion, strict choices, supported source interchange, actual local author/simulate/save/restart/export and actual compiled ordinary-core graphs over both fan modes, all three economizer modes, P/PI, F/C and scan 1/2. Deliberate quality faults preserve compiled state/output transactions. Browser tests exercise actual local APIs, original source/export bytes and stale/cancel guards. These software checks do not establish native manufacturer deployment, physical safety or complete Guideline36/Title24 acceptance. AHU-MASD-001 records this bounded feature; broad MF-ec17b3073c remains partial.
