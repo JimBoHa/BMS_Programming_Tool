@@ -452,11 +452,11 @@
   {
     "id": "FMT-010",
     "feature": "Native hardware-definition migration review",
-    "acceptance_criterion": "Inspect native point types, unit profiles, aliases and presets, then identify binding and parameter changes between device-definition revisions without inventing application objects.",
+    "acceptance_criterion": "Inspect native point types, unit profiles, aliases and presets, then identify binding and parameter changes between device-definition revisions without inventing application objects. Preserve original JSON report response bytes and reject stale or mismatched exports after source, point-selection, measurement-system changes or workspace retirement.",
     "evidence": "JCI OCT native NS8000 DynamicHardwareDefinition and CCT hardware workflows",
     "pdf_pages_or_section": "Native Interface XML, Measurement, Enum, Bus and Preset records",
     "status": "implemented",
-    "implementation_or_gap": "Offline typed metadata selection, collision rejection, exact original export and source-hashed migration reports. Sensor metadata does not provide PCV/VMA object allocation, compiler or device writes"
+    "implementation_or_gap": "Offline typed metadata selection, collision rejection, original-byte JSON reports and source-hashed migration review. XML downloads verify original source bytes; pending imports, unit reloads, reports and exports are owned by the mounted source context. Sensor metadata does not provide PCV/VMA object allocation, compiler or device writes."
   },
   {
     "id": "SIM-008",
