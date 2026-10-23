@@ -246,6 +246,188 @@ async function openSaved(panel: ReturnType<Page["getByRole"]>) {
   ).toBeVisible();
 }
 
+for (const releaseAfter of ["address", "complete target"] as const) {
+  test(`late interface readiness preserves locally edited hardware ${releaseAfter}`, async ({
+    page,
+  }) => {
+    let release!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const { panel, requests } = await setup(page, async (route, record) => {
+      if (record.path !== "/api/bacnet/status") return false;
+      await ready;
+      await route.fulfill({
+        json: {
+          connected: true,
+          config: {
+            transport: "ip",
+            local_address: "127.0.0.1:47899",
+            instance: 4190001,
+            router: "",
+            dnet: null,
+          },
+          commands: [],
+        },
+      });
+      return true;
+    });
+    if (releaseAfter === "address") {
+      await panel
+        .getByLabel("Hardware controller address", { exact: true })
+        .fill(target.address);
+    } else {
+      await selectTarget(panel);
+    }
+    await expect(
+      panel.getByRole("button", {
+        name: "Survey controller inputs",
+        exact: true,
+      }),
+    ).toBeDisabled();
+    release();
+    await expect(
+      panel.getByRole("button", {
+        name: "Survey controller inputs",
+        exact: true,
+      }),
+    ).toBeEnabled();
+    await expect(
+      panel.getByLabel("Hardware controller address", { exact: true }),
+    ).toHaveValue(target.address);
+    if (releaseAfter === "address") {
+      await panel
+        .getByLabel("Hardware Device object", { exact: true })
+        .fill(target.device);
+      await panel
+        .getByLabel("Hardware router (optional)", { exact: true })
+        .fill(target.router);
+      await panel
+        .getByLabel("Hardware destination network (optional)", { exact: true })
+        .fill(String(target.dnet));
+    }
+    await expect(
+      panel.getByLabel("Hardware Device object", { exact: true }),
+    ).toHaveValue(target.device);
+    await expect(
+      panel.getByLabel("Hardware router (optional)", { exact: true }),
+    ).toHaveValue(target.router);
+    await expect(
+      panel.getByLabel("Hardware destination network (optional)", {
+        exact: true,
+      }),
+    ).toHaveValue(String(target.dnet));
+    await panel
+      .getByRole("button", { name: "Survey controller inputs", exact: true })
+      .click();
+    await expect
+      .poll(
+        () =>
+          requests.filter((r) => r.path === "/api/bacnet/hardware/survey")
+            .length,
+      )
+      .toBe(1);
+    expect(
+      requests.find((r) => r.path === "/api/bacnet/hardware/survey")!.body,
+    ).toEqual({
+      ...target,
+      transport: "bacnet-ip",
+      max_objects: 512,
+      max_inputs: 256,
+      timeout_seconds: 120,
+      property_timeout: 1.5,
+    });
+  });
+}
+
+test("interface closure retires pending hardware work without replacing the declared target", async ({
+  page,
+}) => {
+  let opened = true;
+  let release!: () => void;
+  const progress = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const { panel, requests } = await setup(page, async (route, record) => {
+    if (record.path === "/api/bacnet/status") {
+      await route.fulfill({
+        json: {
+          connected: opened,
+          config: {
+            transport: "ip",
+            local_address: "127.0.0.1:47899",
+            instance: 4190001,
+            router: "",
+            dnet: null,
+          },
+          commands: [],
+        },
+      });
+      return true;
+    }
+    if (record.path === "/api/bacnet/disconnect") {
+      opened = false;
+      await route.fulfill({ json: { connected: false, commands: [] } });
+      return true;
+    }
+    if (record.path === "/api/bacnet/hardware/jobs/job-fixture") {
+      await progress;
+      await route.fulfill({ json: completed });
+      return true;
+    }
+    if (record.path.endsWith("/cancel")) {
+      await route.fulfill({ json: { id: "job-fixture", status: "cancelled" } });
+      return true;
+    }
+    return false;
+  });
+  await selectTarget(panel);
+  await panel
+    .getByRole("button", { name: "Survey controller inputs", exact: true })
+    .click();
+  await expect
+    .poll(() =>
+      requests.some((r) => r.path === "/api/bacnet/hardware/jobs/job-fixture"),
+    )
+    .toBe(true);
+  await page
+    .getByRole("button", { name: "Close BACnet interface", exact: true })
+    .click();
+  await expect
+    .poll(
+      () =>
+        requests.filter((r) => r.path.endsWith("/job-fixture/cancel")).length,
+    )
+    .toBe(1);
+  await expect(
+    panel.getByRole("button", {
+      name: "Survey controller inputs",
+      exact: true,
+    }),
+  ).toBeDisabled();
+  release();
+  await expect(
+    panel.getByLabel("Hardware controller address", { exact: true }),
+  ).toHaveValue(target.address);
+  await expect(
+    panel.getByLabel("Hardware Device object", { exact: true }),
+  ).toHaveValue(target.device);
+  await expect(
+    panel.getByLabel("Hardware router (optional)", { exact: true }),
+  ).toHaveValue(target.router);
+  await expect(
+    panel.getByLabel("Hardware destination network (optional)", {
+      exact: true,
+    }),
+  ).toHaveValue(String(target.dnet));
+  await expect(
+    panel.getByRole("region", { name: "Hardware survey results", exact: true }),
+  ).toHaveCount(0);
+  expect(
+    requests.filter((r) => r.path === "/api/bacnet/hardware/survey"),
+  ).toHaveLength(1);
+});
+
 test("hardware survey keeps explicit routed source, binary-on-UI occupancy, errors, filters and CSV/JSON exports", async ({
   page,
 }) => {

@@ -253,6 +253,10 @@ export function HardwareSurveyPanel({
       if (timer.current) clearTimeout(timer.current);
     };
   }, []);
+  // Interface readiness retires owned work without replacing local target intent.
+  useEffect(() => {
+    invalidate();
+  }, [connected]);
   useEffect(() => {
     invalidate();
     setTransport(defaultTransport);
@@ -261,7 +265,6 @@ export function HardwareSurveyPanel({
     setRouter(defaultRouter);
     setDnet(defaultDnet == null ? "" : String(defaultDnet));
   }, [
-    connected,
     defaultAddress,
     defaultDevice,
     defaultRouter,
