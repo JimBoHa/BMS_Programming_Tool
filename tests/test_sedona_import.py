@@ -4,6 +4,7 @@ import zipfile
 import pytest
 from bms_tool.engine import Engine
 from bms_tool.formats import ConversionError, export_program, import_program
+from bms_tool.iec_symbols import SymbolTable
 from bms_tool.sedona import compiler, toolchain
 from bms_tool.sedona_import import import_sax
 
@@ -39,7 +40,7 @@ def test_foreign_native_source_converts_without_embedded_studio_metadata():
     assert len(program.metadata["conversion"]["behavior_changes"]) == 4
     # Conversion is semantic: the native source has no Studio graph payload.
     exported = export_program(program, "plcopen")[0]
-    assert b"n_s0" in exported
+    assert SymbolTable(program).role(output, "value").encode() in exported
 
 
 def test_backward_native_link_retains_first_scan_delay():
