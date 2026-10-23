@@ -93,6 +93,7 @@ from .native_simulator import NativeSimulator
 from .network_number_plan import network_plan_router
 from .niagara import NiagaraArchive
 from .observability import ObservabilityStore
+from .plant_signals import PlantSignals, plant_signal_router
 from .point_status import PointStatus, PointStatusCancel, PointStatusExport, PointStatusRequest
 from .program_source import SourceMode, source_response
 from .resources import public_document, state_directory, web_directory
@@ -623,6 +624,8 @@ def create_app(state_dir=None):
     app.state.schedule_inventory = schedule_inventory
     app.state.schedule_library = schedule_library
     app.state.point_status = point_status
+    app.state.plant_signals = PlantSignals(store)
+    app.include_router(plant_signal_router(app.state.plant_signals))
     app.state.prescale_reviews = PrescaleReviews(point_status)
     app.include_router(prescale_router(app.state.prescale_reviews))
     app.state.event_inventory = event_inventory

@@ -925,5 +925,23 @@
     "pdf_pages_or_section": "1582\u20131585",
     "status": "partial",
     "implementation_or_gap": "COMM-METER-001 provides explicit native metadata observations and exact offline pulse-batch review. Hardware debounce/persistence/COV/overflow behavior, target package/firmware acceptance and native configuration/transfer remain unimplemented."
+  },
+  {
+    "id": "COMM-PLANT-001",
+    "feature": "Source-bound distributed plant I/O and network engineering",
+    "acceptance_criterion": "Retain exact portable sources, declare subsystem hosts and physical/network roles explicitly, review typed single-writer links and terminal collisions, and preserve a sealed offline engineering schedule across export/import/restart without field access.",
+    "evidence": "JCI Chilled Water Plant for Guideline36 Application Note1.0 LIT-12014531 SHA87298adc723f40cc5c0ff08d08822dbd7c931698e576b7c51b099f5a59c839d7",
+    "pdf_pages_or_section": "15\u201316;19\u201321;49\u201354; docs/distributed-plant-signals.md",
+    "status": "implemented",
+    "implementation_or_gap": "Strict original Program/source/revision bindings, explicit roles/links, exact known units, direction/type/single-writer/fanout/collision review, bounded immutable local captures and authoritative JSON/CSV browser workflow. No inferred hardware/native allocation, actual controller identity, supervisory deployment, source execution, field queries/writes or physical acceptance."
+  },
+  {
+    "id": "MF-3aba872151",
+    "feature": "Distributed plant sensor and network-signal configuration",
+    "acceptance_criterion": "Configure supported distributed plant applications, shared signals and physical I/O with verified target allocations and deployment appropriate to the controller family.",
+    "evidence": "JCI Chilled Water Plant for Guideline36 Application Note1.0 LIT-12014531",
+    "pdf_pages_or_section": "15\u201316;19\u201321;49\u201354",
+    "status": "partial",
+    "implementation_or_gap": "COMM-PLANT-001 provides exact-source offline engineering declarations, software mapping diagnostics and durable sealed evidence. Native plant CAF generation, target capacity/terminal verification, actual supervisory mapping/field deployment, complete plant sequence simulation and manufacturer/hardware acceptance remain unimplemented."
   }
 ]
