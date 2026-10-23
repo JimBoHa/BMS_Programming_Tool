@@ -1123,5 +1123,23 @@
     "pdf_pages_or_section": "docs/operation-power.md; /api/operation-power; studio-operation-idle-awake/1",
     "status": "implemented",
     "implementation_or_gap": "App-managed Temco apply only, including owned recovery; no lease while UI/plan/connection idle. Mac owned idle-only child with TTL/owner PID; Windows dedicated daemon owning-thread acquire/clear. Bounded status, admission/capacity/history, advisory errors and shutdown pending-active report. Real UDP identity/recovery comparisons and short Mac assertion probe; real Windows artifact acceptance separate. Standalone SDK requires explicit manager. Linux, other captures/native-test wrappers and physical VM-host/remote coordination remain unverified. No preferences, protocol retries/deadlines, native JCI loader or interruption-proof guarantee."
+  },
+  {
+    "id": "ZONE-SP-001",
+    "feature": "Authored editable zone effective-setpoint composition",
+    "acceptance_criterion": "Create a source-bound editable ordinary-core graph with fixed occupied/unoccupied heating/cooling pairs, optional timed unpopulated delta, priority window pair, explicit behind-window timing, coupled absolute/difference units and transactional quality rollback.",
+    "evidence": "JCI Controller Tool Help18.0 LIT-12011147 SHA68935362c85cb1879dc033cc701115e8ea7c4ecb26748f21a9ceaf0454f82903;2021training PDF5 SHA075565f9664a80f9720ae68c1020c84cb08ad12aaaa7aef5d329ad4ac2d9ed3d; authored Studio composition policy",
+    "pdf_pages_or_section": "753\u2013756;854\u2013855;1129\u20131130; docs/zone-setpoint-wizard.md",
+    "status": "implemented",
+    "implementation_or_gap": "Fixed declared pairs, optional300/60 reference dwell and absolute window branch. Timers continue behind window; unoccupied resets population state. Latent readiness and applied-offset outputs are distinct. Strict reachable range/order/branch checks, coupled F/C values, source/original-review and normal editable simulation/revision/interchange workflows. No hidden native module, MV/sensor/allocation/compiler/loader, equipment enable/unoccupied operation, airflow/ventilation or fullG36/Title24 acceptance. Finite-precision conversion/execution invariance remains unclaimed."
+  },
+  {
+    "id": "MF-b04d70f58e",
+    "feature": "Occupancy- and window-dependent thermal setpoints",
+    "acceptance_criterion": "Maintain occupied/unoccupied heating/cooling targets with sensor/window/occupancy/adjustment/demand priorities and complete target/operating integration for supported applications.",
+    "evidence": "2021Yorkland/JCI training PDF5; JCI Controller Tool Help18.0 LIT-12011147",
+    "pdf_pages_or_section": "753\u2013756;854\u2013855;1129\u20131130; docs/zone-setpoint-wizard.md",
+    "status": "partial",
+    "implementation_or_gap": "ZONE-SP-001 implements a useful portable fixed-pair/population/window compositor. Demand-limit stacking/local-adjustment freeze, hardware/network setpoint fallback/arbitration, native occupancy overrides/bypass/temporary occupancy and group operating modes, full unit/unoccupied/flow integration, nativeJCI allocation/compiler/transfer and physical acceptance remain incomplete. Existing equipment occupied-off policy is not changed by supplying these targets."
   }
 ]

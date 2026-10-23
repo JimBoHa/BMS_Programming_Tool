@@ -428,5 +428,10 @@
     "feature": "Advisory operation-owned idle-sleep requests",
     "status": "implemented",
     "scope": "App-managed Temco native apply owns a bounded idle-only OS request through validation, write/readback and shielded recovery/cleanup. Owned macOS caffeinate child or same-thread Windows system request; failures/expiry remain visible and never cancel, retry or authorize transfers. Read-only explicit-refresh status with original response export. Linux unavailable/unverified; guest protection does not protect physical host. No global power settings, display request, native JCI transfer integration or explicit Sleep/lid/power-loss guarantee. See docs/operation-power.md."
+  },
+  {
+    "feature": "Authored occupied, population and window zone setpoint composer",
+    "status": "implemented",
+    "scope": "Editable flat ordinary-core occupied/unoccupied absolute target pairs; optional continuous-entry/release population deadband offset and higher-priority absolute window pair. Timers continue behind window with distinct latent/applied diagnostics, aligned scan choices and original source/profile/choice/manifest bindings. Constructor range/order and inactive-branch checks, existing quality rollback and explicit startup numeric/precision limits. No whole-unit enable/operation, native occupancy/MV/sensor allocation, demand/local-adjustment hierarchy, airflow/ventilation, native JCI CAF/compiler/transfer or physical/code acceptance. Broad MF-b04d70f58e partial. See docs/zone-setpoint-wizard.md."
   }
 ]
