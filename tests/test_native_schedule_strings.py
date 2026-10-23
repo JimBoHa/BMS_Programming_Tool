@@ -79,7 +79,19 @@ def string_source():
 
 
 @pytest.mark.parametrize(
-    "text", ["", "null", "  ", "é", "e\u0301", "🌡", '"\\\x00\r\n\t', "\x00" * 256, "🌡" * 64]
+    "text",
+    ["", "null", "  ", "é", "e\u0301", "🌡", '"\\\x00\r\n\t', "\x00" * 256, "🌡" * 64],
+    ids=[
+        "empty",
+        "literal-null",
+        "spaces",
+        "accent",
+        "combining",
+        "emoji",
+        "controls-quotes",
+        "nul256",
+        "emoji64",
+    ],
 )
 def test_literal_string_encoder_preserves_empty_unicode_controls_and_wire_byte_bound(text):
     value = primitive(
@@ -231,7 +243,11 @@ async def close_parts(parts):
 
 
 @pytest.mark.parametrize("routed", [False, True], ids=["direct", "routed"])
-@pytest.mark.parametrize("text", ["", "null", 'é\x00\r\n"\\', "\x00" * 256])
+@pytest.mark.parametrize(
+    "text",
+    ["", "null", 'é\x00\r\n"\\', "\x00" * 256],
+    ids=["empty", "literal-null", "unicode-controls", "nul256"],
+)
 async def test_actual_native_udp_string_write_exact_tags_receipt_reconcile_and_passive_restart(
     tmp_path, routed, text
 ):
