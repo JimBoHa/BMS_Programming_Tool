@@ -771,7 +771,7 @@
     "evidence": "Controller Tool Help 18 LIT-12011147; authored portable VAV generator; NIST international foot definition",
     "pdf_pages_or_section": "PDF 149-151,153-154; docs/equipment-wizard.md",
     "status": "partial",
-    "implementation_or_gap": "Implemented portable VAV authoring: three equipment configurations, declared targets, fixed/input setpoints, P/PI, position or measured-airflow feedback, coupled unit/gain conversion, source/choice/program hashes, guarded preview/create and existing revision/export/simulation workflows. Native CAF allocation/compiler/package acceptance, physical wiring, complete ventilation/heating/fan-proof/discharge/G36/Title24 sequences remain incomplete."
+    "implementation_or_gap": "Implemented portable VAV authoring: three existing single-duct configurations plus a separately profiled dual-duct option with explicit pickup layouts and authored portable guards, declared targets, fixed/input setpoints, P/PI, position or measured-airflow feedback, coupled unit/gain conversion, source/choice/program hashes, guarded preview/create and existing revision/export/simulation workflows. Native CAF allocation/compiler/package acceptance, physical wiring, complete ventilation/heating/fan-proof/discharge/G36/Title24 sequences remain incomplete."
   },
   {
     "id": "COMM-ENUM-001",
@@ -961,5 +961,23 @@
     "pdf_pages_or_section": "15\u201316;19\u201321;49\u201354",
     "status": "partial",
     "implementation_or_gap": "COMM-PLANT-001 provides exact-source offline engineering declarations, software mapping diagnostics and durable sealed evidence. Native plant CAF generation, target capacity/terminal verification, actual supervisory mapping/field deployment, complete plant sequence simulation and manufacturer/hardware acceptance remain unimplemented."
+  },
+  {
+    "id": "VAV-DD-001",
+    "feature": "Explicit portable dual-duct VAV authoring",
+    "acceptance_criterion": "Generate separately profiled hot/cold-deck graphs from explicit position or two-pickup airflow declarations, simulate independently checked demand/feedback/guard behavior and preserve source evidence through editing, unit conversion and interchange.",
+    "evidence": "JCI Controller Tool Help18.0 LIT-12011147 SHA68935362c85cb1879dc033cc701115e8ea7c4ecb26748f21a9ceaf0454f82903; authored portable fixed-gain sequence",
+    "pdf_pages_or_section": "594\u2013596; docs/dual-duct-wizard.md",
+    "status": "implemented",
+    "implementation_or_gap": "Distinct dual-duct profile, explicit no-pickup or hot/cold/hot-total/cold-total layouts, raw third-flow arithmetic, independent deck minima and P/PI, strict portable zero-command/integral-hold guards, coupled unit/gain conversion, exact hashes and full preview/create/simulation/revision/export UI. Existing single-duct profile and all six frozen generated digests unchanged. No total-only/adaptive tuning, physical allocation/calibration, native CAF/compiler/transfer or code/physical acceptance."
+  },
+  {
+    "id": "MF-173d9ae6c9",
+    "feature": "Dual-duct VAV applications",
+    "acceptance_criterion": "Configure supported dual-duct controller applications, pickup/actuator options, commissioning and deployment appropriate to target hardware and release.",
+    "evidence": "JCI Controller Tool Help18.0 LIT-12011147",
+    "pdf_pages_or_section": "594\u2013596",
+    "status": "partial",
+    "implementation_or_gap": "VAV-DD-001 implements explicit source-qualified portable hot/cold-deck authoring and simulation. Native integrated/proportional/incremental allocation, adaptive tuning, calibration/balancing, total-only/G36 mixing, exhaust/supplemental/smoke sequences, CAF generation/transfer and physical manufacturer acceptance remain unimplemented."
   }
 ]
