@@ -16,6 +16,7 @@ import {
 import { programApi, saveBlob } from "./api";
 import type { Program } from "./types";
 import "./macro-library.css";
+import { Sum8Template } from "./Sum8Template";
 
 type MacroPort = {
   id: string;
@@ -278,6 +279,34 @@ export function MacroLibrary({
     });
   }
 
+  async function importTemplate(
+    bundle: Record<string, any>,
+    sourceKey: string,
+    definition: string,
+    owned: () => boolean,
+  ) {
+    let imported = false;
+    await action(async (source) => {
+      if (!owned() || sourceStringify(source) !== sourceKey)
+        throw new Error(
+          "The current editor changed. Preview the sum template again.",
+        );
+      const next: Program = await sourceApi("/macros/import", {
+        program: source,
+        bundle,
+      });
+      if (!owned()) return;
+      adopt(source, next);
+      setSelected(definition);
+      setTrail([]);
+      setNotice(
+        "Reviewed sum definition added to this editor. Add an instance separately; no project revision was saved.",
+      );
+      imported = true;
+    });
+    return imported;
+  }
+
   const matches = catalog.definitions.filter((item) =>
     (item.name + " " + item.id)
       .toLocaleLowerCase()
@@ -341,6 +370,11 @@ export function MacroLibrary({
 
       <div className="macro-library-layout">
         <aside className="macro-library-sidebar">
+          <Sum8Template
+            program={program}
+            disabled={busy}
+            onImport={importTemplate}
+          />
           <section className="macro-card macro-selection-card">
             <div className="macro-card-heading">
               <Layers size={16} />

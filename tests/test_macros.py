@@ -455,7 +455,11 @@ def test_instantiation_creates_unique_typed_unwired_nodes_without_changing_sourc
         expand_macros(instantiated)
 
 
-@pytest.mark.parametrize("coordinate", [True, float("nan"), float("inf"), "42", 10**1000])
+@pytest.mark.parametrize(
+    "coordinate",
+    [True, float("nan"), float("inf"), "42", 10**1000],
+    ids=["boolean", "nan", "infinity", "numeric-string", "huge-integer"],
+)
 def test_instantiation_rejects_invalid_coordinates(coordinate):
     with pytest.raises(ValueError, match="coordinates must be finite numbers"):
         instantiate_macro(caller(), "adder", coordinate, 0)

@@ -1186,5 +1186,23 @@
     "pdf_pages_or_section": "docs/iec-symbol-namespace.md; docs/iec-native.md",
     "status": "implemented",
     "implementation_or_gap": "Separate private expanded-copy allocation and shared native input/quality/calendar/output/state roles; strict newSTV3/PLCopen symbol markers; original Program/source/digest IDs preserved; legacyV1/V2numeric and Sedona contracts frozen. Local source/API and actual formerly colliding host programs tested with ordinary flags/limits/tolerances. No broader IR identifier-schema widening, Sedona slot redesign, arbitrary vendor IEC import, physical controller/JCI allocation/transfer or deployment acceptance."
+  },
+  {
+    "id": "MACRO-SUM8-001",
+    "feature": "Source-qualified eight-input sum macro template",
+    "acceptance_criterion": "Generate a deterministic sixteen-node eight-port left-fold sum with homogeneous units, source/profile/definition/bundle binding and guarded existing macro import/edit/simulation/revision/interchange, preserving original artifacts.",
+    "evidence": "Controller Tool Help18.0 LIT-12011147 original SHA68935362c85cb1879dc033cc701115e8ea7c4ecb26748f21a9ceaf0454f82903; authored evaluation order and units; actual core/API/hostIEC observations.",
+    "pdf_pages_or_section": "PDF677 tables276-277; docs/sum8-macro-template.md",
+    "status": "implemented",
+    "implementation_or_gap": "Eight required numeric ports, seven unchanged Add blocks and one Output; explicit zero for unused contributions, five authored unit labels, existing macro import/instantiate APIs with canonical Program source-conflict checks (including signed zero and integer/float identity) and binary64/REAL policies. Native JCI Add-8/CAF/package/compiler/transfer, physical capacity and code acceptance excluded."
+  },
+  {
+    "id": "MF-a06ed19e27",
+    "feature": "Add-8",
+    "acceptance_criterion": "Provide a versioned source-qualified eight-input sum with typed ports, explicit reliability/state behavior, simulation and supported target export.",
+    "evidence": "Controller Tool Help18.0 LIT-12011147; scoped MACRO-SUM8-001 portable template.",
+    "pdf_pages_or_section": "PDF677; docs/sum8-macro-template.md",
+    "status": "partial",
+    "implementation_or_gap": "MACRO-SUM8-001 provides the authored ordinary graph/library workflow with original artifacts. Manufacturer evaluation order, native block/reliability/underflow semantics, target package/firmware identity, native CAF compilation/download and physical controller acceptance remain unverified."
   }
 ]

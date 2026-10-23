@@ -126,6 +126,7 @@ from .sensor_supply import SupplyPlans, supply_router
 from .series_fan_vav import series_fan_vav_router
 from .simulation_group import SimulationGroups, SimulationWorkspace, demo_workspace
 from .storage import Conflict, Store
+from .sum8_macro_template import sum8_macro_template_router
 from .temco_transfer import TemcoTransfer
 from .templates import all_templates
 from .truth_tables import TruthTables, truth_table_router
@@ -668,6 +669,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.include_router(madd_mz_ahu_router())
     app.include_router(zone_setpoint_router())
     app.include_router(series_fan_vav_router())
+    app.include_router(sum8_macro_template_router())
 
     @app.middleware("http")
     async def local_requests(request, call_next):

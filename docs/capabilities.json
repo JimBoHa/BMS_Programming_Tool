@@ -448,5 +448,10 @@
     "feature": "Versioned private IEC compiler symbol allocation",
     "status": "implemented",
     "scope": "IEC-SYMBOL-001 allocates deterministic typed private value/quality/stage/state/calendar roles and shares them with the native host while preserving original graph identifiers and source identity. New ST V3 and symbol-qualified PLCopen coexist with strict exact legacy V1/V2/numeric/Sedona regeneration. Web conversion and native verifier show separate symbol provenance; read-only mapping and original compilation/trace response downloads retain complete evidence. No identifier-schema widening, arbitrary vendor IEC import, native JCI compilation/download or physical deployment. See docs/iec-symbol-namespace.md."
+  },
+  {
+    "feature": "Source-qualified eight-input sum macro template",
+    "status": "implemented",
+    "scope": "MACRO-SUM8-001 provides eight required numeric ports, seven ordinary Add blocks and one result using an explicit left fold and five homogeneous authored unit labels. Original profile/choice/definition/Program/bundle seals bind editable macro import, instance wiring, simulation, deliberate revision save and portable interchange. Same-ID generic macro imports compare validated names and canonical Program bytes, preserving signed zero and integer/float distinctions while allowing canonical key reordering; conflicting definitions refuse without replacing the current editor. Native JCI Add-8 identity/reliability/order, CAF/package compilation/download, physical capacity and code acceptance remain gaps under partial MF-a06ed19e27. See docs/sum8-macro-template.md."
   }
 ]
