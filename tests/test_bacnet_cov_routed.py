@@ -130,7 +130,10 @@ async def routed_pair(instance=4190012):
         assert server.local_transport.get_extra_info("sockname") == ("127.0.0.1", port)
         assert not server.local_transport.is_closing()
     except BaseException:
-        close_routed_pair(router, field)
+        try:
+            await retire_pending_fixture_endpoints(router)
+        finally:
+            close_routed_pair(router, field)
         raise
     return router, field, analog, config, frames
 
