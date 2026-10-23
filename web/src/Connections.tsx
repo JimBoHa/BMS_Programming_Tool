@@ -31,6 +31,7 @@ import { BacnetEventsPanel } from "./BacnetEventsPanel";
 import { EventReceptionPanel } from "./EventReceptionPanel";
 import { NetworkNumberPlanPanel } from "./NetworkNumberPlanPanel";
 import { BusPreflightPanel } from "./BusPreflightPanel";
+import { OperationPowerPanel } from "./OperationPowerPanel";
 
 export function Connections() {
   const [config, setConfig] = useState({
@@ -371,6 +372,7 @@ export function Connections() {
           )}
         </div>
       </div>
+      <OperationPowerPanel />
       <div className="two-column">
         <section className="card">
           <div className="card-header">
