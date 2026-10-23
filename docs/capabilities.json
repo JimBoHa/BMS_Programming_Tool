@@ -443,5 +443,10 @@
     "feature": "Authored occupied single-speed series-fan VAV wizard",
     "status": "implemented",
     "scope": "Editable ordinary-core cold-primary VAV with calibrated primary-flow feedback and proportional hot-water reheat. Elapsed close-command phase then fan request, stable independent proof and bounded chatter deadline, latched good-quality proof-loss stop/raw-request-off fresh reset. Cascaded zone-cooling/flow PI, direct heating PI, command-aware hysteresis and held inactive integrals; explicit good-value admission versus complete bad-quality rollback. Coupled temperature/flow/delta/inverse-gain unit conversion and source-bound author/simulate/revision/export. Estimated closure/primary flow is not measured damper closure/total coil flow or ventilation. No unoccupied/purge/variable fan, native JCI allocation/CAF/compiler/transfer or physical/code acceptance. Broad MF-8a75247a85 partial. See docs/series-fan-vav-wizard.md."
+  },
+  {
+    "feature": "Authored occupied Unit Ventilator Cycle III composer",
+    "status": "implemented",
+    "scope": "UV-C3-001 creates an editable ordinary graph for an occupied single-speed fan, separate proportional hydronic zone coils and cold-outdoor mixed-air damper action. Explicit condensate policy, stable proof/bounded startup/latch reset, independent zone and MAT PI loops with a zone-limited damper floor;13 logical inputs/29 outputs. Source-bound preview/import/export, coupled temperature values/differences/gains, simulation/revisions and typed signed-zero request/source preservation. Bad quality retains the whole prior transaction; good invalid values inhibit commands. No native v51 equivalence, actual airflow/physical protection/ventilation, other UV cycles, native JCI allocation/CAF/compiler/transfer or compliance acceptance. Broad MF-069429184f remains partial. See docs/unit-ventilator-cycle3-wizard.md."
   }
 ]

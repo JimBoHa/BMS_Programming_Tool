@@ -129,6 +129,7 @@ from .storage import Conflict, Store
 from .temco_transfer import TemcoTransfer
 from .templates import all_templates
 from .truth_tables import TruthTables, truth_table_router
+from .unit_ventilator_cycle3 import unit_ventilator_cycle3_router
 from .zone_setpoints import zone_setpoint_router
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -668,6 +669,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.include_router(madd_mz_ahu_router())
     app.include_router(zone_setpoint_router())
     app.include_router(series_fan_vav_router())
+    app.include_router(unit_ventilator_cycle3_router())
 
     @app.middleware("http")
     async def local_requests(request, call_next):
