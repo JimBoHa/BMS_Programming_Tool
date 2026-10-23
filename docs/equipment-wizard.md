@@ -2,7 +2,7 @@
 
 The editor's **Equipment wizard** creates a separate, uniquely identified portable VAV project from declared equipment, sensor, strategy and engineering choices. It previews logical inputs/outputs, generated topology, validation findings and exact choice/profile/program hashes before replacing the editor contents. Existing **New** and illustrative templates remain available.
 
-Choose cooling only, inline modulating hot-water reheat without a fan, parallel-fan hot-water reheat, or the separately profiled [portable dual-duct option](dual-duct-wizard.md). Select a declared portable/FX/Metasys target and optional model, firmware and CAF release-mode labels. These labels do not establish native compatibility, installed packages, physical terminals or controller capacity.
+Choose cooling only, inline modulating hot-water reheat without a fan, parallel-fan hot-water reheat, the separately profiled [portable dual-duct option](dual-duct-wizard.md), or the [portable fan-coil foundation](fan-coil-wizard.md). Select a declared portable/FX/Metasys target and optional model, firmware and CAF release-mode labels. These labels do not establish native compatibility, installed packages, physical terminals or controller capacity.
 
 ## Strategies and parameters
 

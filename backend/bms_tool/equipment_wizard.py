@@ -79,20 +79,34 @@ class DualDuctChoices(StrictModel):
     total_flow_default: Number = 600.0
 
 
+class FanCoilChoices(StrictModel):
+    coils: Literal["separate-modulating"]
+    fan: Literal["single-speed", "variable-speed"]
+    fan_policy: Literal["continuous-occupied", "cycle-on-demand"]
+    condensate: Literal["none", "disable-cooling", "shutdown-unit"]
+    fan_min: Annotated[float, Field(strict=True, ge=0, le=100)] = 20.0
+    fan_max: Annotated[float, Field(strict=True, ge=0, le=100)] = 100.0
+    occupied_default: Annotated[bool, Field(strict=True)] = True
+    unit_enable_default: Annotated[bool, Field(strict=True)] = True
+    energy_holdoff_default: Annotated[bool, Field(strict=True)] = False
+    condensate_default: Annotated[bool, Field(strict=True)] = False
+
+
 class Choices(StrictModel):
     project_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,80}$")
     name: str = Field(min_length=1, max_length=200)
-    equipment: Literal["cooling-only", "inline-reheat", "parallel-fan-reheat", "dual-duct"] = (
-        "cooling-only"
-    )
+    equipment: Literal[
+        "cooling-only", "inline-reheat", "parallel-fan-reheat", "dual-duct", "fan-coil"
+    ] = "cooling-only"
     dual_duct: DualDuctChoices | None = Field(default=None, exclude_if=lambda value: value is None)
+    fan_coil: FanCoilChoices | None = Field(default=None, exclude_if=lambda value: value is None)
     family: Literal["universal-runtime", "johnson-fx", "johnson-metasys"] = "universal-runtime"
     model: Text = ""
     firmware: Text = ""
     release_mode: Text = ""
     temperature_unit: Literal["degF", "degC"] = "degF"
     flow_unit: Literal["cfm", "L/s"] = "cfm"
-    control: Literal["position", "flow-feedback"] = "position"
+    control: Literal["position", "flow-feedback", "not-applicable"] = "position"
     setpoints: Literal["fixed", "inputs"] = "fixed"
     temperature_loop: Literal["P", "PI"] = "PI"
     flow_loop: Literal["P", "PI"] = "PI"
@@ -116,6 +130,20 @@ class Choices(StrictModel):
     def coherent(self):
         if not self.name.strip():
             raise ValueError("Project name requires visible text.")
+        if self.equipment == "fan-coil":
+            if self.fan_coil is None or self.control != "not-applicable":
+                raise ValueError(
+                    "Fan coil requires explicit coil/fan choices and no VAV damper-control strategy."
+                )
+            if (
+                self.fan_coil.fan == "variable-speed"
+                and self.fan_coil.fan_min >= self.fan_coil.fan_max
+            ):
+                raise ValueError("Variable fan minimum speed must be below maximum speed.")
+        elif self.fan_coil is not None or self.control == "not-applicable":
+            raise ValueError(
+                "Fan-coil declarations and not-applicable control belong only to fan-coil equipment."
+            )
         if self.equipment == "dual-duct":
             if self.dual_duct is None:
                 raise ValueError(
@@ -224,7 +252,32 @@ DUAL_PROFILE = {
 DUAL_PROFILE_SHA = digest(DUAL_PROFILE)
 
 
+FAN_SOURCE = SOURCE | {
+    "pdf_pages": [479, 480, 481, 482, 483],
+    "scope": "Documented fan/coil, condensate, occupancy and enable selections qualify this portable authoring foundation. Fixed-gain logic and the explicit unoccupied-off policy are authored Studio behavior, not native JCI modules or a complete fan-coil sequence.",
+}
+FAN_GAPS = [
+    "native CAF allocation/compiler/package/firmware acceptance and physical actuator/sensor wiring",
+    "common two-pipe changeover, staged/on-off/incremental coils and three-speed fan outputs",
+    "vendor adaptive tuning, balancing, valve position feedback and water-flush/tuning-reset modes",
+    "fan proof, physical protection/interlocks, ventilation and discharge-temperature limits",
+    "unoccupied setbacks/frost protection, occupancy/reset schedules and power-fail restart",
+    "anti-short-cycle/minimum-run timing and physical minimum fan-speed calibration",
+    "complete Guideline 36/Title 24 sequence or certification",
+]
+FAN_PROFILE = {
+    "profile": "studio-fan-coil-selection/1",
+    "source": FAN_SOURCE,
+    "units": UNITS,
+    "gaps": FAN_GAPS,
+    "semantics": "Separate modulating heating/cooling valves with declared fixed P/PI gains and mutually exclusive temperature modes. Occupied and unit_enable must be true, energy_holdoff false and setpoints ordered. Unoccupied is explicitly off, without setbacks. Condensate can disable cooling alone or shut down the unit. Inhibited loops hold their integral through zero error; bad quality instead faults the scan and retains previous committed outputs. Single-speed fan or variable-speed enable/percentage; continuous-occupied or cycle while a selected valve demand is positive. Variable fan speed maps maximum selected demand to declared limits only while fan enable is true. No physical fan status/protection or manufacturer equivalence inferred.",
+}
+FAN_PROFILE_SHA = digest(FAN_PROFILE)
+
+
 def selected_profile(value):
+    if value.equipment == "fan-coil":
+        return FAN_PROFILE, FAN_PROFILE_SHA
     return (
         (DUAL_PROFILE, DUAL_PROFILE_SHA)
         if value.equipment == "dual-duct"
@@ -260,6 +313,8 @@ def convert_units(value: Choices, temperature_unit, flow_unit):
 
 
 def generate(value: Choices):
+    if value.equipment == "fan-coil":
+        return generate_fan_coil(value)
     if value.equipment == "dual-duct":
         return generate_dual_duct(value)
     nodes, edges = [], []
@@ -772,6 +827,298 @@ def generate_dual_duct(value: Choices):
     )
 
 
+def generate_fan_coil(value: Choices):
+    """Explicitly occupied, separate proportional coils; no native FC semantics."""
+    fan = value.fan_coil
+    nodes, edges = [], []
+
+    def node(id, kind, label, params=None, unit="", typ="number"):
+        index = len(nodes)
+        nodes.append(
+            Node(
+                id=id,
+                kind=kind,
+                label=label,
+                params=params or {},
+                unit=unit,
+                value_type=typ,
+                x=40 + 330 * (index % 6),
+                y=70 + 170 * (index // 6),
+            )
+        )
+        return id
+
+    def wire(source, target, port="in"):
+        edges.append(
+            Edge(id=f"{source}_{target}_{port}", source=source, target=target, target_port=port)
+        )
+
+    def binary(id, kind, label, a, b, unit="", typ="number"):
+        node(id, kind, label, unit=unit, typ=typ)
+        wire(a, id, "a")
+        wire(b, id, "b")
+        return id
+
+    def select(id, label, condition, on, off, unit):
+        node(id, "Switch", label, unit=unit)
+        wire(condition, id, "select")
+        wire(on, id, "on")
+        wire(off, id, "off")
+        return id
+
+    def output(id, label, source, unit="", typ="number"):
+        node(id, "Output", label, unit=unit, typ=typ)
+        wire(source, id)
+
+    node(
+        "zone", "Input", "Zone temperature", {"default": value.zone_default}, value.temperature_unit
+    )
+    for id, label, default in (
+        ("cool_sp", "Cooling setpoint", value.cooling_setpoint),
+        ("heat_sp", "Heating setpoint", value.heating_setpoint),
+    ):
+        node(
+            id,
+            "Constant" if value.setpoints == "fixed" else "Input",
+            label,
+            {"value" if value.setpoints == "fixed" else "default": default},
+            value.temperature_unit,
+        )
+    for id, label, default in (
+        ("occupied", "Logical occupied permission; unoccupied is off", fan.occupied_default),
+        ("unit_enable", "Logical unit enable", fan.unit_enable_default),
+        ("energy_holdoff", "Logical energy hold-off", fan.energy_holdoff_default),
+    ):
+        node(id, "Input", label, {"default": default}, typ="boolean")
+    node("no_holdoff", "Not", "Energy hold-off is inactive", typ="boolean")
+    wire("energy_holdoff", "no_holdoff")
+    ordered = binary(
+        "setpoint_order",
+        "Less",
+        "Heating setpoint below cooling setpoint",
+        "heat_sp",
+        "cool_sp",
+        typ="boolean",
+    )
+    output("setpoints_ordered", "Declared setpoint order valid", ordered, typ="boolean")
+    occupied_enable = binary(
+        "occupied_enable",
+        "And",
+        "Occupied and unit enabled",
+        "occupied",
+        "unit_enable",
+        typ="boolean",
+    )
+    enabled = binary(
+        "enabled_without_holdoff",
+        "And",
+        "Enabled without energy hold-off",
+        occupied_enable,
+        "no_holdoff",
+        typ="boolean",
+    )
+    permitted = binary(
+        "ordered_permission",
+        "And",
+        "Enabled and ordered setpoints",
+        enabled,
+        ordered,
+        typ="boolean",
+    )
+    if fan.condensate != "none":
+        node(
+            "condensate_alarm",
+            "Input",
+            "Logical condensate alarm",
+            {"default": fan.condensate_default},
+            typ="boolean",
+        )
+        node("condensate_clear", "Not", "Condensate alarm is inactive", typ="boolean")
+        wire("condensate_alarm", "condensate_clear")
+        if fan.condensate == "shutdown-unit":
+            permitted = binary(
+                "shutdown_permission",
+                "And",
+                "Unit shutdown on condensate alarm",
+                permitted,
+                "condensate_clear",
+                typ="boolean",
+            )
+        cooling_permission = binary(
+            "cooling_permission",
+            "And",
+            "Cooling not inhibited by condensate",
+            permitted,
+            "condensate_clear",
+            typ="boolean",
+        )
+    else:
+        cooling_permission = permitted
+    output("control_permitted", "Portable occupied unit permission", permitted, typ="boolean")
+    output("cooling_permitted", "Portable cooling permission", cooling_permission, typ="boolean")
+    output("heating_permitted", "Portable heating permission", permitted, typ="boolean")
+    zero = node("zero_command", "Constant", "Zero logical percentage command", {"value": 0}, "%")
+    demands = {}
+    for mode, sp, comparison, permission in (
+        ("cooling", "cool_sp", "Greater", cooling_permission),
+        ("heating", "heat_sp", "Less", permitted),
+    ):
+        mode_requested = binary(
+            mode + "_mode",
+            comparison,
+            mode.title() + " temperature mode requested",
+            "zone",
+            sp,
+            typ="boolean",
+        )
+        active = binary(
+            mode + "_active",
+            "And",
+            "Permitted " + mode + " mode",
+            mode_requested,
+            permission,
+            typ="boolean",
+        )
+        measured = select(
+            mode + "_measurement",
+            "Inactive/inhibited loop receives its own setpoint",
+            active,
+            "zone",
+            sp,
+            value.temperature_unit,
+        )
+        loop = node(
+            mode + "_loop",
+            "PI",
+            "Declared " + mode + " P/PI demand",
+            {
+                "kp": value.temperature_kp,
+                "ki": value.temperature_ki,
+                "min": 0,
+                "max": 100,
+                "reverse": mode == "cooling",
+            },
+            "%",
+        )
+        wire(sp, loop, "setpoint")
+        wire(measured, loop, "measured")
+        demands[mode] = select(
+            mode + "_selected",
+            "Inactive/inhibited " + mode + " demand is zero",
+            active,
+            loop,
+            zero,
+            "%",
+        )
+        output(mode + "_demand", "Selected " + mode + " demand", demands[mode], "%")
+        output(
+            mode + "_valve", mode.title() + " logical modulating valve command", demands[mode], "%"
+        )
+    if fan.fan_policy == "cycle-on-demand":
+        positive = [
+            binary(
+                mode + "_positive",
+                "Greater",
+                mode.title() + " command is positive",
+                demands[mode],
+                zero,
+                typ="boolean",
+            )
+            for mode in ("cooling", "heating")
+        ]
+        fan_run = binary(
+            "positive_demand",
+            "Or",
+            "Run fan while a selected valve demand is positive",
+            *positive,
+            typ="boolean",
+        )
+    else:
+        fan_run = permitted
+    output("fan_enable", "Logical fan enable; no operation proof", fan_run, typ="boolean")
+    if fan.fan == "variable-speed":
+        maximum = binary(
+            "maximum_demand",
+            "Max",
+            "Maximum selected heating/cooling demand",
+            demands["cooling"],
+            demands["heating"],
+            "%",
+        )
+        speed = node(
+            "speed_map",
+            "Scale",
+            "Declared variable fan speed mapping",
+            {
+                "in_min": 0,
+                "in_max": 100,
+                "out_min": fan.fan_min,
+                "out_max": fan.fan_max,
+                "clamp": True,
+            },
+            "%",
+        )
+        wire(maximum, speed)
+        gated = select(
+            "speed_guard",
+            "Stopped logical fan has zero percentage command",
+            fan_run,
+            speed,
+            zero,
+            "%",
+        )
+        output("fan_speed", "Logical variable fan speed command", gated, "%")
+    inactive = [
+        "control",
+        "flow_unit",
+        "flow_min",
+        "flow_max",
+        "flow_default",
+        "flow_kp",
+        "flow_ki",
+        "flow_loop",
+        "damper_min",
+        "damper_max",
+        "fan_on",
+        "fan_off",
+    ]
+    if fan.fan == "single-speed":
+        inactive += ["fan_coil.fan_min", "fan_coil.fan_max"]
+    if fan.condensate == "none":
+        inactive.append("fan_coil.condensate_default")
+    for item in nodes:
+        item.params = portable_numbers(item.params)
+    return Program(
+        id=value.project_id,
+        name=value.name,
+        scan_seconds=value.scan_seconds,
+        description="Illustrative portable fan coil with separate modulating coils and explicit occupied-off policy. Logical fan commands do not prove fan operation or protection. Native allocation, adaptive tuning, setbacks/frost protection, field deployment and complete vendor/G36/Title24 sequences remain unverified.",
+        target=Target(
+            family=value.family,
+            model=value.model,
+            firmware=value.firmware,
+            release_mode=value.release_mode,
+        ),
+        nodes=nodes,
+        edges=edges,
+        metadata={
+            "application": value.equipment,
+            "native_deployment_verified": False,
+            "compliance": "Uncertified illustrative sequence",
+            "equipment_wizard": {
+                "profile_sha256": FAN_PROFILE_SHA,
+                "choices_sha256": digest(choice_document(value)),
+                "choices": choice_document(value),
+                "inactive_choices": inactive,
+                "source": FAN_SOURCE,
+                "units": UNITS,
+                "unimplemented": FAN_GAPS,
+                "target_scope": "Operator declaration only; no native compatibility, physical terminals or package availability inferred.",
+            },
+        },
+    )
+
+
 def preview(value: Choices):
     program = generate(value)
     profile, profile_sha = selected_profile(value)
@@ -829,6 +1176,17 @@ def wizard_router():
                 "profile": DUAL_PROFILE,
                 "profile_sha256": DUAL_PROFILE_SHA,
                 "defaults": DualDuctChoices(layout="none").model_dump() | {"layout": ""},
+            },
+            "fan_coil": {
+                "profile": FAN_PROFILE,
+                "profile_sha256": FAN_PROFILE_SHA,
+                "defaults": FanCoilChoices(
+                    coils="separate-modulating",
+                    fan="single-speed",
+                    fan_policy="continuous-occupied",
+                    condensate="none",
+                ).model_dump()
+                | {"coils": "", "fan": "", "fan_policy": "", "condensate": ""},
             },
         }
 

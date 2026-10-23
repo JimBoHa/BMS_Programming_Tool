@@ -68,22 +68,32 @@ export function EquipmentWizard({
   function patch(key: string, value: any) {
     if (!draft) return;
     epoch.current++;
-    if (key.startsWith("dual_duct.")) {
+    if (key.startsWith("dual_duct.") || key.startsWith("fan_coil.")) {
+      const [section, field] = key.split(".");
       setDraft({
         ...draft,
-        dual_duct: { ...draft.dual_duct, [key.slice(10)]: value },
+        [section]: { ...draft[section], [field]: value },
       });
     } else if (key === "equipment") {
       const rest = { ...draft };
       delete rest.dual_duct;
+      delete rest.fan_coil;
+      if (rest.control === "not-applicable") rest.control = "position";
       setDraft(
-        value === "dual-duct"
+        value === "fan-coil"
           ? {
               ...rest,
               equipment: value,
-              dual_duct: { ...catalog?.dual_duct?.defaults },
+              control: "not-applicable",
+              fan_coil: { ...catalog?.fan_coil?.defaults },
             }
-          : { ...rest, equipment: value },
+          : value === "dual-duct"
+            ? {
+                ...rest,
+                equipment: value,
+                dual_duct: { ...catalog?.dual_duct?.defaults },
+              }
+            : { ...rest, equipment: value },
       );
     } else if (key === "control" && draft.equipment === "dual-duct") {
       setDraft({
@@ -226,8 +236,8 @@ export function EquipmentWizard({
     }
   }
   function number(key: string, label: string, help?: string) {
-    const value = key.startsWith("dual_duct.")
-      ? draft?.dual_duct?.[key.slice(10)]
+    const value = key.includes(".")
+      ? draft?.[key.split(".")[0]]?.[key.split(".")[1]]
       : draft?.[key];
     return (
       <label>
@@ -259,8 +269,8 @@ export function EquipmentWizard({
     );
   }
   function choice(key: string, label: string, options: [string, string][]) {
-    const value = key.startsWith("dual_duct.")
-      ? draft?.dual_duct?.[key.slice(10)]
+    const value = key.includes(".")
+      ? draft?.[key.split(".")[0]]?.[key.split(".")[1]]
       : draft?.[key];
     return (
       <label>
@@ -293,7 +303,12 @@ export function EquipmentWizard({
     );
   }
   const dual = draft?.equipment === "dual-duct";
-  const selectedCatalog = dual ? catalog?.dual_duct : catalog;
+  const fanCoil = draft?.equipment === "fan-coil";
+  const selectedCatalog = fanCoil
+    ? catalog?.fan_coil
+    : dual
+      ? catalog?.dual_duct
+      : catalog;
   return (
     <div className="equipment-wizard-backdrop">
       <section
@@ -304,7 +319,7 @@ export function EquipmentWizard({
       >
         <h1>Equipment and sequence wizard</h1>
         <p>
-          Create a separate editable portable VAV project.
+          Create a separate editable portable VAV or fan-coil project.
           Target/model/firmware/release mode are declarations. Native
           allocation, package compatibility and field deployment are not
           verified.
@@ -327,6 +342,10 @@ export function EquipmentWizard({
                   ["inline-reheat", "Inline hot-water reheat, no fan"],
                   ["parallel-fan-reheat", "Parallel fan with hot-water reheat"],
                   ["dual-duct", "Dual duct: declared hot and cold decks"],
+                  [
+                    "fan-coil",
+                    "Fan coil: separate modulating heating/cooling coils",
+                  ],
                 ])}
                 {choice("family", "Declared controller family", [
                   ["universal-runtime", "Portable runtime"],
@@ -342,23 +361,135 @@ export function EquipmentWizard({
                   fan control is illustrative demand hysteresis without fan
                   proof. Dual duct creates separate logical hot/cold percentage
                   commands; integrated, proportional and incremental hardware
-                  are not allocated.
+                  are not allocated. Fan coil creates separate logical
+                  modulating valve commands and an explicit occupied/off fan
+                  policy; it does not allocate physical valves, fan outputs or
+                  protective interlocks.
                 </p>
               </div>
             )}
             {step === 2 && (
               <>
+                {fanCoil && (
+                  <section aria-label="Fan-coil declarations">
+                    <h2>Explicit fan-coil foundation</h2>
+                    <div className="wizard-fields">
+                      {choice("fan_coil.coils", "Fan-coil coil arrangement", [
+                        ["", "Choose coil arrangement…"],
+                        [
+                          "separate-modulating",
+                          "Separate modulating heating and cooling valves",
+                        ],
+                      ])}
+                      {choice("fan_coil.fan", "Fan-coil fan type", [
+                        ["", "Choose fan type…"],
+                        ["single-speed", "Single-speed logical enable"],
+                        [
+                          "variable-speed",
+                          "Variable-speed logical enable and percentage",
+                        ],
+                      ])}
+                      {choice(
+                        "fan_coil.fan_policy",
+                        "Fan-coil occupied fan policy",
+                        [
+                          ["", "Choose occupied fan policy…"],
+                          [
+                            "continuous-occupied",
+                            "Continuous while occupied and permitted",
+                          ],
+                          [
+                            "cycle-on-demand",
+                            "Cycle only while selected valve demand is positive",
+                          ],
+                        ],
+                      )}
+                      {choice(
+                        "fan_coil.condensate",
+                        "Fan-coil condensate policy",
+                        [
+                          ["", "Choose condensate policy…"],
+                          ["none", "No condensate alarm input in this graph"],
+                          ["disable-cooling", "Alarm disables cooling only"],
+                          [
+                            "shutdown-unit",
+                            "Alarm shuts down both coils and fan",
+                          ],
+                        ],
+                      )}
+                      {draft.fan_coil?.fan === "variable-speed" && (
+                        <>
+                          {number(
+                            "fan_coil.fan_min",
+                            "Minimum logical fan speed (%)",
+                          )}
+                          {number(
+                            "fan_coil.fan_max",
+                            "Maximum logical fan speed (%)",
+                          )}
+                        </>
+                      )}
+                      {[
+                        ["occupied_default", "Fan-coil occupied input default"],
+                        [
+                          "unit_enable_default",
+                          "Fan-coil unit-enable input default",
+                        ],
+                        [
+                          "energy_holdoff_default",
+                          "Fan-coil energy-holdoff input default",
+                        ],
+                        ...(draft.fan_coil?.condensate &&
+                        draft.fan_coil.condensate !== "none"
+                          ? [
+                              [
+                                "condensate_default",
+                                "Fan-coil condensate-alarm input default",
+                              ],
+                            ]
+                          : []),
+                      ].map(([field, label]) => (
+                        <label key={field}>
+                          <input
+                            type="checkbox"
+                            aria-label={label}
+                            checked={draft.fan_coil?.[field] === true}
+                            onChange={(e) =>
+                              patch(`fan_coil.${field}`, e.target.checked)
+                            }
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                    <p>
+                      Unoccupied means off: both valves and fan stop, without
+                      setbacks or frost protection. Unit-enable must be true,
+                      energy-holdoff false and setpoints ordered. Condensate
+                      policy is an explicit software declaration, not a physical
+                      safety interlock.
+                    </p>
+                    <p>
+                      Logical fan enable does not prove fan operation. Variable
+                      fan speed maps the larger selected valve demand to
+                      declared percentage limits only while enabled. No fan
+                      proof, minimum-run timing, native allocation or complete
+                      vendor/Title 24 sequence is provided.
+                    </p>
+                  </section>
+                )}
                 <div className="wizard-fields">
-                  {choice("control", "Damper control strategy", [
-                    [
-                      "position",
-                      "Damper-position demand mapping (no airflow measurement)",
-                    ],
-                    [
-                      "flow-feedback",
-                      "Measured-airflow feedback with a separate flow loop",
-                    ],
-                  ])}
+                  {!fanCoil &&
+                    choice("control", "Damper control strategy", [
+                      [
+                        "position",
+                        "Damper-position demand mapping (no airflow measurement)",
+                      ],
+                      [
+                        "flow-feedback",
+                        "Measured-airflow feedback with a separate flow loop",
+                      ],
+                    ])}
                   {dual &&
                     choice(
                       "dual_duct.layout",
@@ -423,112 +554,113 @@ export function EquipmentWizard({
                     )}
                   {number("scan_seconds", "Scan interval (seconds)")}
                 </div>
-                {draft.control === "position" ? (
-                  <div className="wizard-fields">
-                    {number(
-                      "damper_min",
-                      dual
-                        ? "Cold-deck minimum damper position (%)"
-                        : "Minimum damper position (%)",
-                    )}
-                    {number(
-                      "damper_max",
-                      dual
-                        ? "Cold-deck maximum damper position (%)"
-                        : "Maximum damper position (%)",
-                    )}
-                    {dual &&
-                      number(
-                        "dual_duct.hot_damper_min",
-                        "Hot-deck minimum damper position (%)",
+                {!fanCoil &&
+                  (draft.control === "position" ? (
+                    <div className="wizard-fields">
+                      {number(
+                        "damper_min",
+                        dual
+                          ? "Cold-deck minimum damper position (%)"
+                          : "Minimum damper position (%)",
                       )}
-                    {dual &&
-                      number(
-                        "dual_duct.hot_damper_max",
-                        "Hot-deck maximum damper position (%)",
+                      {number(
+                        "damper_max",
+                        dual
+                          ? "Cold-deck maximum damper position (%)"
+                          : "Maximum damper position (%)",
                       )}
-                    <p>
-                      Position percentages are neither measured airflow nor
-                      design ventilation. No airflow sensor or flow loop is
-                      generated in this option.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="wizard-fields">
-                    <label>
-                      Airflow units
-                      <select
-                        aria-label="Wizard airflow units"
-                        value={draft.flow_unit}
-                        onChange={(e) =>
-                          void units(draft.temperature_unit, e.target.value)
-                        }
-                      >
-                        <option value="cfm">cfm</option>
-                        <option value="L/s">L/s</option>
-                      </select>
-                    </label>
-                    {number(
-                      "flow_min",
-                      `${dual ? "Cold-deck minimum" : "Minimum"} declared airflow (${draft.flow_unit})`,
-                    )}
-                    {number(
-                      "flow_max",
-                      `${dual ? "Cold-deck maximum" : "Maximum"} declared airflow (${draft.flow_unit})`,
-                    )}
-                    {(!dual || draft.dual_duct?.layout !== "hot-total") &&
-                      number(
-                        "flow_default",
-                        `${dual ? "Measured cold-deck airflow" : "Measured-airflow"} input default (${draft.flow_unit})`,
-                      )}
-                    {dual && (
-                      <>
-                        {number(
-                          "dual_duct.hot_flow_min",
-                          `Hot-deck minimum declared airflow (${draft.flow_unit})`,
-                        )}
-                        {number(
-                          "dual_duct.hot_flow_max",
-                          `Hot-deck maximum declared airflow (${draft.flow_unit})`,
-                        )}
-                        {draft.dual_duct?.layout !== "cold-total" &&
-                          number(
-                            "dual_duct.hot_flow_default",
-                            `Measured hot-deck airflow input default (${draft.flow_unit})`,
-                          )}
-                        {["hot-total", "cold-total"].includes(
-                          draft.dual_duct?.layout,
-                        ) &&
-                          number(
-                            "dual_duct.total_flow_default",
-                            `Measured total airflow input default (${draft.flow_unit})`,
-                          )}
-                      </>
-                    )}
-                    {choice("flow_loop", "Airflow loop strategy", [
-                      ["P", "Proportional only"],
-                      ["PI", "Proportional plus integral"],
-                    ])}
-                    {number(
-                      "flow_kp",
-                      `Flow proportional gain (%/${draft.flow_unit})`,
-                    )}
-                    {draft.flow_loop === "PI" &&
-                      number(
-                        "flow_ki",
-                        `Flow integral gain (%/${draft.flow_unit}/s)`,
-                      )}
-                    <p>
-                      This adds a numeric measured-airflow Input,
-                      desired-airflow signal and separate flow PI. Input values
-                      must already represent calibrated airflow. Increasing
-                      damper command is assumed to increase airflow; physical
-                      direction/wiring remain unverified.
                       {dual &&
-                        " The declared flow-loop gains apply to both independent deck loops. Two selected calibrated inputs derive the third flow by sum/difference; raw derived values are preserved. Total-only pickup control is unsupported."}
-                    </p>
-                  </div>
-                )}
+                        number(
+                          "dual_duct.hot_damper_min",
+                          "Hot-deck minimum damper position (%)",
+                        )}
+                      {dual &&
+                        number(
+                          "dual_duct.hot_damper_max",
+                          "Hot-deck maximum damper position (%)",
+                        )}
+                      <p>
+                        Position percentages are neither measured airflow nor
+                        design ventilation. No airflow sensor or flow loop is
+                        generated in this option.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="wizard-fields">
+                      <label>
+                        Airflow units
+                        <select
+                          aria-label="Wizard airflow units"
+                          value={draft.flow_unit}
+                          onChange={(e) =>
+                            void units(draft.temperature_unit, e.target.value)
+                          }
+                        >
+                          <option value="cfm">cfm</option>
+                          <option value="L/s">L/s</option>
+                        </select>
+                      </label>
+                      {number(
+                        "flow_min",
+                        `${dual ? "Cold-deck minimum" : "Minimum"} declared airflow (${draft.flow_unit})`,
+                      )}
+                      {number(
+                        "flow_max",
+                        `${dual ? "Cold-deck maximum" : "Maximum"} declared airflow (${draft.flow_unit})`,
+                      )}
+                      {(!dual || draft.dual_duct?.layout !== "hot-total") &&
+                        number(
+                          "flow_default",
+                          `${dual ? "Measured cold-deck airflow" : "Measured-airflow"} input default (${draft.flow_unit})`,
+                        )}
+                      {dual && (
+                        <>
+                          {number(
+                            "dual_duct.hot_flow_min",
+                            `Hot-deck minimum declared airflow (${draft.flow_unit})`,
+                          )}
+                          {number(
+                            "dual_duct.hot_flow_max",
+                            `Hot-deck maximum declared airflow (${draft.flow_unit})`,
+                          )}
+                          {draft.dual_duct?.layout !== "cold-total" &&
+                            number(
+                              "dual_duct.hot_flow_default",
+                              `Measured hot-deck airflow input default (${draft.flow_unit})`,
+                            )}
+                          {["hot-total", "cold-total"].includes(
+                            draft.dual_duct?.layout,
+                          ) &&
+                            number(
+                              "dual_duct.total_flow_default",
+                              `Measured total airflow input default (${draft.flow_unit})`,
+                            )}
+                        </>
+                      )}
+                      {choice("flow_loop", "Airflow loop strategy", [
+                        ["P", "Proportional only"],
+                        ["PI", "Proportional plus integral"],
+                      ])}
+                      {number(
+                        "flow_kp",
+                        `Flow proportional gain (%/${draft.flow_unit})`,
+                      )}
+                      {draft.flow_loop === "PI" &&
+                        number(
+                          "flow_ki",
+                          `Flow integral gain (%/${draft.flow_unit}/s)`,
+                        )}
+                      <p>
+                        This adds a numeric measured-airflow Input,
+                        desired-airflow signal and separate flow PI. Input
+                        values must already represent calibrated airflow.
+                        Increasing damper command is assumed to increase
+                        airflow; physical direction/wiring remain unverified.
+                        {dual &&
+                          " The declared flow-loop gains apply to both independent deck loops. Two selected calibrated inputs derive the third flow by sum/difference; raw derived values are preserved. Total-only pickup control is unsupported."}
+                      </p>
+                    </div>
+                  ))}
                 {dual && (
                   <p>
                     Hot/cold deck minima are independent explicit declarations
@@ -663,7 +795,7 @@ export function EquipmentWizard({
           )}
           {step === 2 && (
             <button disabled={busy} onClick={() => void review()}>
-              Preview VAV project
+              {fanCoil ? "Preview fan-coil project" : "Preview VAV project"}
             </button>
           )}
           {step === 3 && (
