@@ -65,6 +65,14 @@
   width: 100%;
   max-width: 100%;
 }
+.pulse-template code {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.pulse-template input {
+  width: 100%;
+  max-width: 100%;
+}
 .macro-card-heading {
   display: flex;
   align-items: center;

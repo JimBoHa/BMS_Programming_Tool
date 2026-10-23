@@ -1,4 +1,10 @@
-import { parseSourceDocument, sourceStringify } from "./programSource";
+import {
+  cloneSource,
+  parseSourceDocument,
+  projectSourceDocument,
+  sourceEqual,
+  sourceStringify,
+} from "./programSource";
 import { sourceApi } from "./api";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -17,6 +23,11 @@ import { programApi, saveBlob } from "./api";
 import type { Program } from "./types";
 import "./macro-library.css";
 import { Sum8Template } from "./Sum8Template";
+import { CancelablePulseTemplate } from "./CancelablePulseTemplate";
+import {
+  PULSE_BASE,
+  type PulseImport,
+} from "./cancelablePulseTemplateContract";
 
 type MacroPort = {
   id: string;
@@ -307,6 +318,55 @@ export function MacroLibrary({
     return imported;
   }
 
+  async function importPulseTemplate(
+    request: PulseImport,
+    sourceKey: string,
+    definition: string,
+    expectedDefinition: Record<string, any>,
+    owned: () => boolean,
+  ) {
+    let imported = false;
+    await action(async (source) => {
+      if (
+        !owned() ||
+        sourceStringify(source) !== sourceKey ||
+        source.scan_seconds !== request.choices.scan_seconds
+      )
+        throw new Error(
+          "The current editor or clock changed. Preview the pulse template again.",
+        );
+      const next: Program = await sourceApi(PULSE_BASE + "/import", {
+        program: source,
+        ...request,
+      });
+      if (!owned()) return;
+      const received = next.metadata?.macros?.definitions?.find(
+        (item: any) => item.id === definition,
+      );
+      if (
+        next.id !== source.id ||
+        next.revision !== source.revision ||
+        next.scan_seconds !== source.scan_seconds ||
+        !received ||
+        !sourceEqual(
+          projectSourceDocument(cloneSource(received)),
+          projectSourceDocument(cloneSource(expectedDefinition)),
+        )
+      )
+        throw new Error(
+          "Pulse import response differs from the current parent or reviewed definition.",
+        );
+      adopt(source, next);
+      setSelected(definition);
+      setTrail([]);
+      setNotice(
+        "Reviewed pulse definition added at this editor's declared clock. Add an instance separately; no project revision was saved.",
+      );
+      imported = true;
+    });
+    return imported;
+  }
+
   const matches = catalog.definitions.filter((item) =>
     (item.name + " " + item.id)
       .toLocaleLowerCase()
@@ -374,6 +434,11 @@ export function MacroLibrary({
             program={program}
             disabled={busy}
             onImport={importTemplate}
+          />
+          <CancelablePulseTemplate
+            program={program}
+            disabled={busy}
+            onImport={importPulseTemplate}
           />
           <section className="macro-card macro-selection-card">
             <div className="macro-card-heading">
