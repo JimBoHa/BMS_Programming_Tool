@@ -6,6 +6,7 @@ import type { Program } from "./types";
 import "./equipment-wizard.css";
 import { ZoneGroupScheduleWizard } from "./ZoneGroupScheduleWizard";
 import { HeatPumpWizard } from "./HeatPumpWizard";
+import { MasdAhuWizard } from "./MasdAhuWizard";
 type Data = Record<string, any>;
 const same = (a: any, b: any): boolean => {
   return sourceEqual(a, b);
@@ -21,6 +22,7 @@ export function EquipmentWizard({
 }) {
   const [scheduleMode, setScheduleMode] = useState(false);
   const [heatPumpMode, setHeatPumpMode] = useState(false);
+  const [ahuMode, setAhuMode] = useState(false);
   const [catalog, setCatalog] = useState<Data | null>(null),
     [draft, setDraft] = useState<Data | null>(null),
     [preview, setPreview] = useState<Data | null>(null),
@@ -313,6 +315,15 @@ export function EquipmentWizard({
     : dual
       ? catalog?.dual_duct
       : catalog;
+  if (ahuMode)
+    return (
+      <MasdAhuWizard
+        source={source}
+        onCreate={onCreate}
+        onClose={onClose}
+        onBack={() => setAhuMode(false)}
+      />
+    );
   if (heatPumpMode)
     return (
       <HeatPumpWizard
@@ -361,6 +372,17 @@ export function EquipmentWizard({
           }}
         >
           Heat-pump wizard
+        </button>
+        <button
+          disabled={busy}
+          onClick={() => {
+            epoch.current++;
+            setPreview(null);
+            setBusy(false);
+            setAhuMode(true);
+          }}
+        >
+          Mixed-air AHU wizard
         </button>
         <p>
           Create a separate editable portable VAV or fan-coil project.

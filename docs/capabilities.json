@@ -408,5 +408,10 @@
     "feature": "Strict UTF8 native Schedule strings",
     "status": "implemented",
     "scope": "Separate observed-String draft/write authority with preserved app-tag7 UTF8/encoding0/256byte payload qualification acrossdefault/present/allweek/exceptions and byte-exact captured property-tag evidence. The SDK may normalize original UDP headers; their canonicality is not proved. Empty/control/NUL/untrimmed strings, quotedJSON browser entry, original response exports and existing single-day native preview/one-attemptApply/readback/cancellation. Original seven-domain rules/seals/passive receipts unchanged. No SDK fallback/legacy conversion, larger APDU/tag/property bounds, automatic retry, Niagara station/facet serialization, JCI String target or physical acceptance. BroadMF-f9b827580e partial. See docs/native-schedule-strings.md."
+  },
+  {
+    "feature": "Authored mixed-air single-duct AHU wizard",
+    "status": "implemented",
+    "scope": "Actual editable ordinary-core SAT heat/cool, common position-only OA/economizer and single constant/variable supply fan with Pa feedback. Independent proof/start/recovery/reset state, held active PI at setpoint, command-based saturation/release, explicit drybulb OA/RA dependencies, coupled F/C deltas/inverse gains and original source-bound preview/create/simulate/revise/export. Existing wizards/Engine unchanged. Position is not measured outdoor airflow/ventilation. No native JCI CAF/compiler/transfer, physical protection or G36/Title24 acceptance. Broad MF-ec17b3073c partial. See docs/masd-ahu-wizard.md."
   }
 ]

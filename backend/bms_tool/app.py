@@ -73,6 +73,7 @@ from .macros import (
     macro_catalog,
     update_macro_definition,
 )
+from .masd_ahu import masd_ahu_router
 from .models import Program, StrictModel
 from .native_schedule_library import (
     MAX_ARCHIVE_BYTES,
@@ -653,6 +654,7 @@ def create_app(state_dir=None):
     app.include_router(wizard_router())
     app.include_router(schedule_coordination_router())
     app.include_router(heat_pump_router())
+    app.include_router(masd_ahu_router())
 
     @app.middleware("http")
     async def local_requests(request, call_next):
