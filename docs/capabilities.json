@@ -398,5 +398,10 @@
     "feature": "Portable weekly zone-group occupancy composition",
     "status": "implemented",
     "scope": "Explicit named-zone weekly window/all-day/disabled groups, end-preserving earlier pre-or-occupied union, separate aggregate pre-only and AHU original-occupancy outputs using existing Schedule/Or blocks. Bounded UTC preview, profile/source/choice/Program hashes, guarded browser creation and authoritative review JSON. DST elapsed-lead differences, hosted native calendar bindings and previous-cycle system links remain explicit. No exceptions/countdown/warmup, native MV/Global Data mapping, CAF/SCT archive/transfer or G36/Title24/physical acceptance. Broad MF-43cb984ef4 partial. See docs/zone-group-schedules.md."
+  },
+  {
+    "feature": "Portable single-compressor heat-pump wizard",
+    "status": "implemented",
+    "scope": "Explicit reversing polarity/initial mode, fixed demand hysteresis, single-speed fan, distinct compressor minon/off and valve off/settle timers, logical airflow/occupied/enable/holdoff/condensate gates, whole-second aligned timing and coupled temperature/difference conversion. Exact profile/choice/source evidence, guarded browser creation/revision/interchange and actual host IEC tests. Off-state valve commands may change per scan; quality faults retain prior outputs. No native JCI allocation/CAF/compiler/transfer, physical protections, adaptive MSC, second compressor/economizer/supplemental heat, durable restart or G36/Title24 acceptance. Broad MF-724ea67583 partial. See docs/heat-pump-wizard.md."
   }
 ]
