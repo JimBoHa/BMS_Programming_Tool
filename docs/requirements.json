@@ -1114,5 +1114,23 @@
     "pdf_pages_or_section": "404\u2013474;1090\u20131094;1100\u20131102;1145\u20131147; docs/madd-mz-ahu-wizard.md",
     "status": "partial",
     "implementation_or_gap": "AHU-MADD-MZ-001 provides a real authored MADD-MZ AHU-only independent-deck foundation distinct from existing dual-duct VAV terminals. Native allocation/compiler/CAF/transfer, zones/terminal requests, unoccupied arbitration, variable/return fans and pressure loops, reset curves, measured ventilation/enthalpy/humidity/heat recovery, staged/common coils, complete priorities/protections, canonical unit-invariant execution and physical commissioning remain incomplete."
+  },
+  {
+    "id": "COMM-MODEL-001",
+    "feature": "Optional exact-model controller target transport admission",
+    "acceptance_criterion": "Before an explicitly model-qualified hardware survey, distinguish documented exact-part capability, operator-declared current protocol, implemented adapter and actual direct/routed target interface; refuse unresolved or incompatible declarations before reads, preserving ordinary generic surveys and raw post-read identity evidence.",
+    "evidence": "JCI LIT-12011042 edition13.0 SHA3a65a6ffe84c8e453d814af07470638fd7a1b12965df52e859580a276d2386a3; authored Studio transport-only admission",
+    "pdf_pages_or_section": "2-4,16,22-24; docs/model-transport-admission.md",
+    "status": "implemented",
+    "implementation_or_gap": "Optional HardwareWorkbench API admission for MS-FAC4911-0, MS-FAC2611-0 and MS-FAC3613-0; plain IPv4, direct MS/TP and explicit one-octet routed MS/TP retain original target/configuration guards. Pure review reuses original serial identity checks. Unknown models/current protocols and unavailable SC/N2 adapters do not dispatch. Job-only source/decision/raw identity evidence survives export/restart; original survey schemas/imports/seals and generic paths remain unchanged. No alias promotion, auto-connect/scan/toggle, power lease, write or native deployment acceptance."
+  },
+  {
+    "id": "MF-be5f1e078a",
+    "feature": "Select controller transport by exact model",
+    "acceptance_criterion": "Select native transport and engineering connection paths from complete target identity, preserving unsupported, incompatible and unresolved paths and actual device evidence.",
+    "evidence": "JCI Metasys System Field Equipment Controllers and Related Products Product Bulletin13.0 LIT-12011042",
+    "pdf_pages_or_section": "2-4,16,22-24; docs/model-transport-admission.md",
+    "status": "partial",
+    "implementation_or_gap": "COMM-MODEL-001 provides three-part optional hardware-read admission. Additional models/verified native model aliases, BACnet/SC and N2 clients, routed-IP/proxy profiles, model-specific firmware/engineering-package compatibility, protocol switching, electrical accessory/BTCVT acceptance, native JCI compiler/CAF/transfer and physical commissioning remain incomplete."
   }
 ]
