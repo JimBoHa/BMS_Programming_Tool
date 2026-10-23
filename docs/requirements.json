@@ -1204,5 +1204,23 @@
     "pdf_pages_or_section": "PDF489\u2013494,1112\u20131114,1273\u20131276",
     "status": "partial",
     "implementation_or_gap": "UV-C3-001 supplies an authored occupied single-speed CycleIII cold-outdoor/separate proportional hydronic foundation. Full native UV applications, other cycles/fan/coil arrangements, occupancy recovery/freeze protection, physical allocation, native packages/CAF compilation/transfer, firmware and controller/compliance acceptance remain unimplemented."
+  },
+  {
+    "id": "MACRO-SUM8-001",
+    "feature": "Source-qualified eight-input sum macro template",
+    "acceptance_criterion": "Generate a deterministic sixteen-node eight-port left-fold sum with homogeneous units, source/profile/definition/bundle binding and guarded existing macro import/edit/simulation/revision/interchange, preserving original artifacts.",
+    "evidence": "Controller Tool Help18.0 LIT-12011147 original SHA68935362c85cb1879dc033cc701115e8ea7c4ecb26748f21a9ceaf0454f82903; authored evaluation order and units; actual core/API/hostIEC observations.",
+    "pdf_pages_or_section": "PDF677 tables276-277; docs/sum8-macro-template.md",
+    "status": "implemented",
+    "implementation_or_gap": "Eight required numeric ports, seven unchanged Add blocks and one Output; explicit zero for unused contributions, five authored unit labels, existing macro import/instantiate APIs with canonical Program source-conflict checks (including signed zero and integer/float identity) and binary64/REAL policies. Native JCI Add-8/CAF/package/compiler/transfer, physical capacity and code acceptance excluded."
+  },
+  {
+    "id": "MF-a06ed19e27",
+    "feature": "Add-8",
+    "acceptance_criterion": "Provide a versioned source-qualified eight-input sum with typed ports, explicit reliability/state behavior, simulation and supported target export.",
+    "evidence": "Controller Tool Help18.0 LIT-12011147; scoped MACRO-SUM8-001 portable template.",
+    "pdf_pages_or_section": "PDF677; docs/sum8-macro-template.md",
+    "status": "partial",
+    "implementation_or_gap": "MACRO-SUM8-001 provides the authored ordinary graph/library workflow with original artifacts. Manufacturer evaluation order, native block/reliability/underflow semantics, target package/firmware identity, native CAF compilation/download and physical controller acceptance remain unverified."
   }
 ]

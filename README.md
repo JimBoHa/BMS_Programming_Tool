@@ -197,3 +197,5 @@ Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). JCI interoperability di
 Portable graph editing retains exact numeric source through project, macro, recovery and request workflows; see [Program source](docs/program-source.md) for projection bounds and archival/execution limits.
 
 Admitted App-managed Temco transfers hold a bounded advisory [idle-sleep request](docs/operation-power.md) through recovery and cleanup. The Connect status view is explicit-refresh only; expiry or OS refusal never cancels, retries or authorizes an operation.
+
+The [eight-input sum macro template](docs/sum8-macro-template.md) provides a source-qualified ordinary-block definition through the existing macro library, with explicit units, arithmetic order and original portable artifacts.

@@ -453,5 +453,10 @@
     "feature": "Authored occupied Unit Ventilator Cycle III composer",
     "status": "implemented",
     "scope": "UV-C3-001 creates an editable ordinary graph for an occupied single-speed fan, separate proportional hydronic zone coils and cold-outdoor mixed-air damper action. Explicit condensate policy, stable proof/bounded startup/latch reset, independent zone and MAT PI loops with a zone-limited damper floor;13 logical inputs/29 outputs. Source-bound preview/import/export, coupled temperature values/differences/gains, simulation/revisions and typed signed-zero request/source preservation. Bad quality retains the whole prior transaction; good invalid values inhibit commands. No native v51 equivalence, actual airflow/physical protection/ventilation, other UV cycles, native JCI allocation/CAF/compiler/transfer or compliance acceptance. Broad MF-069429184f remains partial. See docs/unit-ventilator-cycle3-wizard.md."
+  },
+  {
+    "feature": "Source-qualified eight-input sum macro template",
+    "status": "implemented",
+    "scope": "MACRO-SUM8-001 provides eight required numeric ports, seven ordinary Add blocks and one result using an explicit left fold and five homogeneous authored unit labels. Original profile/choice/definition/Program/bundle seals bind editable macro import, instance wiring, simulation, deliberate revision save and portable interchange. Same-ID generic macro imports compare validated names and canonical Program bytes, preserving signed zero and integer/float distinctions while allowing canonical key reordering; conflicting definitions refuse without replacing the current editor. Native JCI Add-8 identity/reliability/order, CAF/package compilation/download, physical capacity and code acceptance remain gaps under partial MF-a06ed19e27. See docs/sum8-macro-template.md."
   }
 ]

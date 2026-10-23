@@ -57,6 +57,14 @@
   background: white;
   box-shadow: 0 2px 5px #233b4704;
 }
+.sum8-template code {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.sum8-template select {
+  width: 100%;
+  max-width: 100%;
+}
 .macro-card-heading {
   display: flex;
   align-items: center;
