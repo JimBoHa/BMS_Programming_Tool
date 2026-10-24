@@ -2,6 +2,8 @@
 
 import asyncio
 import copy
+import hashlib
+import json
 import sqlite3
 
 import pytest
@@ -128,3 +130,72 @@ def test_station_key_canonicalizes_network_mac_and_direct_default_port():
     assert station_key({"address": "127.0.0.1", "router": None, "dnet": None}) == station_key(
         {"address": "127.0.0.1:47808", "router": None, "dnet": None}
     )
+
+
+def test_a_different_pending_station_keeps_its_own_new_intent_bytes_and_alias_guard(tmp_path):
+    store = Store(tmp_path)
+    journal = InstanceJournal(store)
+
+    def attempt(identifier, network, review, request):
+        return {
+            "profile": PROFILE,
+            "id": identifier,
+            "target": {"address": f"{network}:7", "router": "127.0.0.1:50001", "dnet": network},
+            "status": "not_sent",
+            "dispatch_started": False,
+            "may_have_applied": False,
+            "readback": {"status": "not_read"},
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "review_sha256": review,
+            "request_apdu_sha256": hashlib.sha256(request).hexdigest(),
+        }
+
+    first = attempt("a" * 32, 2001, "a" * 64, b"authored first request")
+    second = attempt("b" * 32, 3001, "b" * 64, b"authored different request")
+    journal.intent(first)
+    with store.connect() as db:
+        first_raw = bytes(
+            db.execute(
+                "SELECT intent FROM device_instance_changes WHERE id=?", (first["id"],)
+            ).fetchone()[0]
+        )
+    returned_digest = journal.intent(second)
+    with store.connect() as db:
+        actual_raw = bytes(
+            db.execute(
+                "SELECT intent FROM device_instance_changes WHERE id=?", (second["id"],)
+            ).fetchone()[0]
+        )
+        assert (
+            bytes(
+                db.execute(
+                    "SELECT intent FROM device_instance_changes WHERE id=?", (first["id"],)
+                ).fetchone()[0]
+            )
+            == first_raw
+        )
+    actual = json.loads(actual_raw)
+    assert actual["id"] == second["id"]
+    assert actual["target"] == second["target"]
+    assert actual["review_sha256"] == second["review_sha256"]
+    assert actual["request_apdu_sha256"] == second["request_apdu_sha256"]
+    expected = {
+        **second,
+        "status": "unknown",
+        "may_have_applied": True,
+        "dispatch_started": None,
+        "journal_state": "intent_only",
+    }
+
+    def canonical(value):
+        return json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
+
+    expected_raw = canonical(
+        {**expected, "evidence_sha256": hashlib.sha256(canonical(expected)).hexdigest()}
+    )
+    assert actual_raw == expected_raw
+    assert returned_digest == hashlib.sha256(actual_raw).hexdigest()
+    assert journal.receipt(second["id"])["intent"] == json.loads(expected_raw)
+    alias = {**second, "id": "c" * 32, "target": {**second["target"], "router": "127.0.0.1:50002"}}
+    with pytest.raises(sqlite3.IntegrityError):
+        InstanceJournal(store).intent(alias)

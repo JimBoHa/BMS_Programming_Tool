@@ -160,8 +160,8 @@ class InstanceJournal:
             for previous in db.execute(
                 "SELECT intent,result FROM device_instance_changes WHERE unresolved=1"
             ):
-                raw = previous[1] if previous[1] is not None else previous[0]
-                if station_key(self._checked(raw)["target"]) == key:
+                previous_raw = previous[1] if previous[1] is not None else previous[0]
+                if station_key(self._checked(previous_raw)["target"]) == key:
                     raise sqlite3.IntegrityError(
                         "This BACnet station has an unresolved instance change through another or the same route."
                     )
