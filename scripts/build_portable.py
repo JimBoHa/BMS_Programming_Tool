@@ -94,7 +94,6 @@ def build(destination, *, allow_dirty=False):
                 "pip",
                 "wheel",
                 "--no-deps",
-                "--no-build-isolation",
                 "--wheel-dir",
                 str(destination),
                 str(staged),
