@@ -12,22 +12,31 @@ are outside this UI profile.
 
 1. Open the intended BACnet/IPv4 interface in **Connect**. Stop field polling and
    COV monitors, and release this app's owned point commands.
-2. Discover the controller and choose **Use** on its exact row. When IDs are
-   duplicated, select by router/network/MAC and the live device name. The target
-   fields also accept an explicit direct endpoint or routed station.
-3. In **Change controller instance**, check the controller address, current
+2. In **Routed BACnet discovery**, click **Find local routers**, then choose a
+   **Router**. Its advertised networks load into the **Trunk / BACnet network**
+   dropdown. For a known or remote router, enter its address and click **Read
+   router networks** instead. Local discovery sends one bounded local-subnet
+   Who-Is-Router-To-Network query; it does not search remote networks.
+3. Choose a trunk, click **Scan selected routed network**, choose a **Controller**
+   from that scan, then click **Modify selected controller**. The app fills the
+   exact router, network, MAC address and current Device object and scrolls to
+   the instance-change panel. Verified names from the shared Scan inventory
+   appear when available; duplicate instances remain separate by address/route.
+   Changing the router/trunk or starting another scan clears the old target and
+   review. Direct-IP targets can still be entered manually or chosen in **Scan**.
+4. In **Change controller instance**, check the controller address, current
    `device,instance`, and router/network for routed targets. Enter a new integer
    from **0 through 4194302** that is reserved across the BACnet internetwork.
-4. Choose **Review instance change**. This is read-only. Review the live name,
+5. Choose **Review instance change**. This is read-only. Review the live name,
    model, firmware, old/new instances and physical route. The app queries only
    the new number, for one second, on the selected remote network or bound local
    IPv4 subnet. A response blocks Apply. Silence does not prove uniqueness,
    especially for offline devices or other networks.
-5. Confirm the site-wide allocation and choose **Apply controller instance
+6. Confirm the site-wide allocation and choose **Apply controller instance
    change** within 60 seconds. The app repeats the collision query and identity
    reads before sending one typed `ObjectIdentifier` write to the old Device
    object. There is no priority, array index, retry, reset or application download.
-6. Look for **Result: verified** and **Readback: verified_new** at the same
+7. Look for **Result: verified** and **Readback: verified_new** at the same
    station with the same name/vendor/model/firmware/application version. Download
    the receipt. Refresh discovery, use the new ID, and update any supervisor,
    trend, alarm or project references through their normal commissioning process.
