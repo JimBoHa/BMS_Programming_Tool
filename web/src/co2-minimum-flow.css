@@ -1,0 +1,25 @@
+.co2-flow-template {
+  margin: 18px 0;
+}
+.co2-flow-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(150px, 1fr));
+  gap: 12px;
+}
+.co2-flow-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.co2-flow-retention {
+  border-left: 3px solid #b88c4a;
+  padding-left: 12px;
+}
+.co2-flow-digests {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 750px) {
+  .co2-flow-fields {
+    grid-template-columns: 1fr;
+  }
+}

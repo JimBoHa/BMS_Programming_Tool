@@ -151,6 +151,7 @@ export function Connections({
     [devices, setDevices] = useState<any[]>([]),
     [routedResult, setRoutedResult] = useState<RoutedScanResult | null>(null),
     [scanNames, setScanNames] = useState<NamedScanTarget[]>([]),
+    [interfaceEpoch, setInterfaceEpoch] = useState(0),
     [foreignLow, setForeignLow] = useState("0"),
     [foreignHigh, setForeignHigh] = useState("4194302"),
     [value, setValue] = useState<any>(null),
@@ -205,6 +206,11 @@ export function Connections({
     previewEpoch = useRef(0),
     previewSource = useRef(""),
     ipDirty = useRef(false);
+  const interfaceIdentity = JSON.stringify({
+    connected: status.connected,
+    config: status.config,
+    epoch: interfaceEpoch,
+  });
   const routerKey = (address?: string) =>
     address?.trim()
       ? address.trim().includes(":")
@@ -311,6 +317,7 @@ export function Connections({
         setController((current) =>
           current ? { ...current, interfaceKey: "" } : null,
         );
+        setInterfaceEpoch((value) => value + 1);
         await api("/bacnet/connect", {
           ...status.config,
           router: route,
@@ -633,6 +640,7 @@ export function Connections({
               }
               onClick={() =>
                 action(async () => {
+                  setInterfaceEpoch((value) => value + 1);
                   const result = await api("/bacnet/disconnect", {});
                   if (result.audit_error) setError(result.audit_error);
                   setPlan(null);
@@ -928,6 +936,7 @@ export function Connections({
                             setController((current) =>
                               current ? { ...current, interfaceKey: "" } : null,
                             );
+                            setInterfaceEpoch((value) => value + 1);
                             await api("/bacnet/connect", {
                               ...config,
                               router: config.router || null,
@@ -1274,6 +1283,7 @@ export function Connections({
                 routedResult={routedResult}
                 onSelect={selectScannedDevice}
                 onInventory={mergeScanNames}
+                interfaceIdentity={interfaceIdentity}
               />
             </TaskMount>
             <TaskMount active={showTool("routed")} preserve={true}>
@@ -1288,10 +1298,8 @@ export function Connections({
                 onDiscovered={setRoutedResult}
                 knownDevices={scanNames}
                 onNamesDiscovered={mergeScanNames}
-                interfaceIdentity={JSON.stringify({
-                  connected: status.connected,
-                  config: status.config,
-                })}
+                interfaceIdentity={interfaceIdentity}
+                connectorConfig={status.config ?? null}
                 localDiscoveryAvailable={!status.config?.bbmd_address}
                 onSelectionCleared={() => {
                   previewEpoch.current++;
@@ -1315,7 +1323,7 @@ export function Connections({
                   status.config?.transport !== "mstp" &&
                   !status.config?.bbmd_address
                 }
-                interfaceIdentity={JSON.stringify(status.config ?? null)}
+                interfaceIdentity={interfaceIdentity}
                 defaultAddress={target}
                 defaultDevice={deviceObject}
                 defaultRouter={
@@ -2009,6 +2017,7 @@ export function Connections({
                             setController((current) =>
                               current ? { ...current, interfaceKey: "" } : null,
                             );
+                            setInterfaceEpoch((value) => value + 1);
                             await api("/bacnet/connect-mstp", mstp);
                             setSetupStep("known");
                             setTarget(mstp.mac === 5 ? "6" : "5");
