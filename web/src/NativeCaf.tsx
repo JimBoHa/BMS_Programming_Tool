@@ -10,6 +10,15 @@ import { api, download } from "./api";
 import { CafGraphPanel } from "./CafGraphPanel";
 import { CafHardwarePanel } from "./CafHardwarePanel";
 import { JciPreflight } from "./JciPreflight";
+import type { CafDocument, FileRequest } from "./workflow";
+import { WorkflowToolTabs } from "./WorkflowChrome";
+
+export type CafView =
+  | "objects"
+  | "logic"
+  | "hardware"
+  | "compatibility"
+  | "changes";
 
 function scalarSignature(changes: any[]) {
   return JSON.stringify(
@@ -21,7 +30,32 @@ function scalarSignature(changes: any[]) {
   );
 }
 
-export function NativeCaf({ visible = true }: { visible?: boolean }) {
+export function NativeCaf({
+  embedded = false,
+  visible = true,
+  incomingFile,
+  onDocumentChange,
+  view,
+  onViewChange,
+  saveRequest,
+}: {
+  embedded?: boolean;
+  visible?: boolean;
+  incomingFile?: FileRequest | null;
+  onDocumentChange?: (document: CafDocument) => void;
+  view?: CafView;
+  onViewChange?: (view: CafView) => void;
+  saveRequest?: string;
+}) {
+  const [localView, setLocalView] = useState<CafView>("objects");
+  const currentView = view || localView;
+  const sourceFile = useRef<File | null>(null);
+  const handledFile = useRef("");
+  const handledSave = useRef("");
+  const changeView = (next: string) => {
+    setLocalView(next as CafView);
+    onViewChange?.(next as CafView);
+  };
   const [caf, setCaf] = useState<any>(null),
     [objects, setObjects] = useState<any[]>([]),
     [total, setTotal] = useState(0),
@@ -49,6 +83,39 @@ export function NativeCaf({ visible = true }: { visible?: boolean }) {
   const activeArchive = useRef<string | null>(null);
   const scalarKey = scalarSignature(changes);
   const unsavedScalars = changes.length > 0 && scalarKey !== savedScalarKey;
+  useEffect(() => {
+    if (caf)
+      onDocumentChange?.({
+        name: filename,
+        sha256: caf.sha256,
+        model: caf.model || "Unknown",
+        release: caf.release_mode || "Unknown",
+        changes: changes.length,
+        dirty: unsavedScalars || graphDirty || hardwareDirty,
+        structuralDirty: graphDirty || hardwareDirty,
+        file: sourceFile.current,
+      });
+  }, [
+    caf,
+    filename,
+    scalarKey,
+    unsavedScalars,
+    graphDirty,
+    hardwareDirty,
+    onDocumentChange,
+  ]);
+  useEffect(() => {
+    if (!visible || !incomingFile || handledFile.current === incomingFile.id)
+      return;
+    handledFile.current = incomingFile.id;
+    void upload(incomingFile.file);
+  }, [visible, incomingFile]);
+  useEffect(() => {
+    if (!visible || !saveRequest || !caf || handledSave.current === saveRequest)
+      return;
+    handledSave.current = saveRequest;
+    void exportScalars();
+  }, [visible, saveRequest, caf]);
   useEffect(() => {
     if (!unsavedScalars && !graphDirty && !hardwareDirty) return;
     const warn = (event: BeforeUnloadEvent) => {
@@ -110,6 +177,7 @@ export function NativeCaf({ visible = true }: { visible?: boolean }) {
       const next = await api("/caf", form);
       if (!mounted.current || request !== uploadRequest.current) return;
       activeArchive.current = next.sha256;
+      sourceFile.current = file;
       propertyRequest.current++;
       exportRequest.current++;
       setCaf(next);
@@ -223,15 +291,21 @@ export function NativeCaf({ visible = true }: { visible?: boolean }) {
       <div className="page-intro">
         <div>
           <span className="eyebrow">JOHNSON CONTROLS · NATIVE FILES</span>
-          <h1>CAF workbench</h1>
+          <h1>
+            {filename === "controller.caf" && !caf
+              ? "Open a CAF application"
+              : filename}
+          </h1>
           <p>
             Inspect FX and Metasys files. Preserve unknown objects and export a
             separate edited copy.
           </p>
         </div>
-        <button className="primary" onClick={() => input.current?.click()}>
-          <Upload size={16} /> Open CAF file
-        </button>
+        {!embedded && (
+          <button className="primary" onClick={() => input.current?.click()}>
+            <Upload size={16} /> Open CAF file
+          </button>
+        )}
         <input
           type="file"
           accept=".caf"
@@ -245,6 +319,20 @@ export function NativeCaf({ visible = true }: { visible?: boolean }) {
         />
       </div>
       {opening && <p role="status">Opening CAF archive…</p>}
+      {caf && (
+        <WorkflowToolTabs
+          label="CAF application tasks"
+          value={currentView}
+          onChange={changeView}
+          items={[
+            { id: "objects", label: "Objects & parameters" },
+            { id: "logic", label: "Logic" },
+            { id: "hardware", label: "Hardware mapping" },
+            { id: "compatibility", label: "Compatibility" },
+            ...(!embedded ? [{ id: "changes", label: "CAF changes" }] : []),
+          ]}
+        />
+      )}
       {!caf ? (
         <div
           className="upload-zone"
@@ -262,7 +350,7 @@ export function NativeCaf({ visible = true }: { visible?: boolean }) {
       ) : (
         <>
           <p aria-label="Current CAF archive">{filename}</p>
-          <div className="stat-grid">
+          <div className="stat-grid" hidden={currentView !== "objects"}>
             <div>
               <small>CONTROLLER</small>
               <strong>{caf.model || "Not identified"}</strong>
@@ -280,7 +368,7 @@ export function NativeCaf({ visible = true }: { visible?: boolean }) {
               <strong>{changes.length}</strong>
             </div>
           </div>
-          <div className="notice">
+          <div className="notice" hidden={currentView !== "compatibility"}>
             <FileCheck2 size={20} />
             <div>
               <b>XML/container checks passed</b>
@@ -291,27 +379,33 @@ export function NativeCaf({ visible = true }: { visible?: boolean }) {
               </p>
             </div>
           </div>
-          <JciPreflight
-            key={`preflight:${caf.sha256}:${archiveGeneration}`}
-            id={caf.sha256}
-            disabled={opening || !visible}
-          />
-          <CafHardwarePanel
-            key={`hardware:${caf.sha256}:${archiveGeneration}`}
-            id={caf.sha256}
-            filename={filename}
-            disabled={opening || !visible}
-            onDirtyChange={setHardwareDirty}
-          />
-          <CafGraphPanel
-            key={`${caf.sha256}:${archiveGeneration}`}
-            id={caf.sha256}
-            filename={filename}
-            disabled={opening || !visible}
-            scalarChangeCount={changes.length}
-            onDirtyChange={setGraphDirty}
-          />
-          <div className="caf-layout">
+          <div hidden={currentView !== "compatibility"}>
+            <JciPreflight
+              key={`preflight:${caf.sha256}:${archiveGeneration}`}
+              id={caf.sha256}
+              disabled={opening || !visible || currentView !== "compatibility"}
+            />
+          </div>
+          <div hidden={currentView !== "hardware"}>
+            <CafHardwarePanel
+              key={`hardware:${caf.sha256}:${archiveGeneration}`}
+              id={caf.sha256}
+              filename={filename}
+              disabled={opening || !visible || currentView !== "hardware"}
+              onDirtyChange={setHardwareDirty}
+            />
+          </div>
+          <div hidden={currentView !== "logic"}>
+            <CafGraphPanel
+              key={`${caf.sha256}:${archiveGeneration}`}
+              id={caf.sha256}
+              filename={filename}
+              disabled={opening || !visible || currentView !== "logic"}
+              scalarChangeCount={changes.length}
+              onDirtyChange={setGraphDirty}
+            />
+          </div>
+          <div className="caf-layout" hidden={currentView !== "objects"}>
             <section className="card">
               <div className="card-header">
                 <h3>Controller objects</h3>
@@ -437,7 +531,48 @@ export function NativeCaf({ visible = true }: { visible?: boolean }) {
               )}
             </section>
           </div>
-          <div className="export-strip">
+          {currentView === "changes" && (
+            <section className="card" aria-label="Local CAF change review">
+              <div className="card-header">
+                <h2>Local CAF changes</h2>
+                <span className="pill">OFFLINE FILE</span>
+              </div>
+              <div className="card-body">
+                <p className="help-text">
+                  Saving prepares a local CAF copy. It does not send changes to
+                  the connected controller.
+                </p>
+                {changes.length ? (
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Object</th>
+                        <th>Property</th>
+                        <th>Original value</th>
+                        <th>Proposed value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {changes.map((item) => (
+                        <tr key={item.ref + "/" + item.property}>
+                          <td>{item.ref}</td>
+                          <td>{item.property}</td>
+                          <td>{item.old || "(empty)"}</td>
+                          <td>{item.value || "(empty)"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <p>
+                    No scalar edits to review. An unchanged copy preserves the
+                    original file bytes.
+                  </p>
+                )}
+              </div>
+            </section>
+          )}
+          <div className="export-strip" hidden={currentView !== "changes"}>
             <div>
               <b>{changes.length} proposed scalar changes</b>
               <small>
@@ -472,9 +607,20 @@ export function NativeCaf({ visible = true }: { visible?: boolean }) {
               onClick={exportScalars}
             >
               <Download size={15} />{" "}
-              {exporting ? "Preparing CAF copy…" : "Export CAF copy"}
+              {exporting ? "Preparing CAF copy…" : "Save CAF copy"}
             </button>
           </div>
+          {currentView === "changes" && (graphDirty || hardwareDirty) && (
+            <div className="workflow-capability">
+              Native logic and hardware proposals have their own guarded
+              exports.{" "}
+              <button
+                onClick={() => changeView(graphDirty ? "logic" : "hardware")}
+              >
+                Review {graphDirty ? "logic" : "hardware"} changes
+              </button>
+            </div>
+          )}
           {exported && (
             <p
               className="caf-graph-exported"
