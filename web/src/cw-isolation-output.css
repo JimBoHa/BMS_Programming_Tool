@@ -1,0 +1,25 @@
+.cw-isolation-template {
+  margin: 18px 0;
+}
+.cw-isolation-template .cw-isolation-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(130px, 1fr));
+  gap: 12px;
+}
+.cw-isolation-template .cw-isolation-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cw-isolation-template .cw-isolation-retention {
+  border-left: 3px solid #b88c4a;
+  padding-left: 12px;
+}
+.cw-isolation-template .cw-isolation-digests {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 750px) {
+  .cw-isolation-template .cw-isolation-fields {
+    grid-template-columns: 1fr;
+  }
+}

@@ -7,7 +7,9 @@ import {
   sourceJsonDocument,
 } from "./api";
 import {
+  cloneSource,
   parseSourceDocument,
+  projectSourceDocument,
   sourceEqual,
   sourceStringify,
 } from "./programSource";
@@ -24,6 +26,8 @@ import {
 } from "./activityContracts";
 import type { Program } from "./types";
 import type { ReusableLibraryProps } from "./ReusableLibrary";
+import { CWIsolationOutputTemplate } from "./CWIsolationOutputTemplate";
+import { CW_BASE, type CWImport } from "./cwIsolationOutputContract";
 
 type Promotion = {
   original: File;
@@ -177,6 +181,97 @@ export function ActivityLibrary({
       { selected_ids: selectedIds, name },
       "Reusable activity created from the selection. No revision was saved.",
     );
+  }
+  async function importCWTemplate(
+    request: CWImport,
+    sourceKey: string,
+    definition: string,
+    expectedDefinition: Data,
+    owned: () => boolean,
+  ) {
+    if (!shown || busy) return false;
+    const mine = ++epoch.current,
+      accepted = key,
+      parent = program;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      if (
+        !owned() ||
+        sourceKey !== accepted ||
+        parent.scan_seconds !== request.choices.scan_seconds
+      )
+        throw new Error(
+          "The current activity editor or clock changed. Preview the CW isolation template again.",
+        );
+      const next: Program = await sourceApi(CW_BASE + "/import", {
+        program: parent,
+        ...request,
+      });
+      if (!valid(mine, accepted) || !owned()) return false;
+      activitySource(next);
+      const nextDefinitions: Data[] = next.metadata.macros.definitions,
+        previousDefinitions: Data[] = parent.metadata.macros.definitions,
+        received = nextDefinitions.find((item) => item.id === definition),
+        expectedIds = new Set([
+          ...previousDefinitions.map((item) => item.id),
+          definition,
+        ]);
+      const structuralNodes = (value: Program) =>
+        value.nodes.map((node) => ({
+          id: node.id,
+          kind: node.kind,
+          label: node.label,
+          x: node.x,
+          y: node.y,
+          unit: node.unit,
+          value_type: node.value_type,
+        }));
+      if (
+        next.id !== parent.id ||
+        next.revision !== parent.revision ||
+        next.name !== parent.name ||
+        next.description !== parent.description ||
+        next.scan_seconds !== parent.scan_seconds ||
+        !sourceEqual(next.target, parent.target) ||
+        !sourceEqual(structuralNodes(next), structuralNodes(parent)) ||
+        !sourceEqual(next.edges, parent.edges) ||
+        nextDefinitions.length !== expectedIds.size ||
+        nextDefinitions.some((item) => !expectedIds.has(item.id)) ||
+        previousDefinitions.some(
+          (item) =>
+            !nextDefinitions.some(
+              (nextItem) =>
+                nextItem.id === item.id && nextItem.name === item.name,
+            ),
+        ) ||
+        !received ||
+        !sourceEqual(
+          projectSourceDocument(cloneSource(received)),
+          projectSourceDocument(cloneSource(expectedDefinition)),
+        )
+      )
+        throw new Error(
+          "CW isolation import differs from the reviewed definition or current parent structure.",
+        );
+      // The backend rechecks the exact supplied canonical parent before merging.
+      // Do not Number-project opaque existing atoms to compare Python spellings.
+      if (onAdopt(next)) {
+        setSelected(definition);
+        setInspection(null);
+        setPromotion(null);
+        setNotice(
+          "Reviewed CW isolation definition added at the parent clock. Add and wire an instance separately; no revision was saved.",
+        );
+        return true;
+      }
+    } catch (e) {
+      if (valid(mine, accepted)) setError(String(e));
+    } finally {
+      if (mounted.current && epoch.current === mine) setBusy(false);
+    }
+    return false;
   }
   async function instantiate() {
     const px = Number(x),
@@ -478,6 +573,13 @@ export function ActivityLibrary({
           succeeds.
         </p>
       )}
+      <CWIsolationOutputTemplate
+        program={program}
+        sourceEpoch={sourceEpoch}
+        authorityReady={!!shown}
+        disabled={!shown || busy}
+        onImport={importCWTemplate}
+      />
       {promotion?.key === key && (
         <section
           className="macro-card"

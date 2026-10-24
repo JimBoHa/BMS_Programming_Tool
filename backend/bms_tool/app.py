@@ -45,6 +45,7 @@ from .conformance import ConformancePlans, conformance_router
 from .connections import Bacnet, modbus_read, ports
 from .conversion_preview import conversion_preview
 from .cov_observations import CovObservations
+from .cw_isolation_output_template import cw_isolation_output_template_router
 from .deployment import Runtime
 from .device_details import DeviceDetails, DeviceDetailsRequest
 from .engine import Engine, output_type, run_scenario, validate
@@ -676,6 +677,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.include_router(sum8_macro_template_router())
     app.include_router(cancelable_pulse_template_router())
     app.include_router(activity_router())
+    app.include_router(cw_isolation_output_template_router())
 
     @app.middleware("http")
     async def local_requests(request, call_next):
