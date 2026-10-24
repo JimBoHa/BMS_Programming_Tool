@@ -119,6 +119,7 @@ from .routed_discovery import (
     RouterNetworksRequest,
     RouterProbeRequest,
 )
+from .router_discovery import RouterDiscovery, RouterDiscoveryRequest
 from .schedule_coordination import schedule_coordination_router
 from .schedule_inventory import (
     ScheduleAction,
@@ -502,6 +503,7 @@ def create_app(state_dir=None, *, operation_power=None):
     multiple_history = MultipleHistory(bacnet, store)
     event_log = EventLogHistory(bacnet, store)
     routed = RoutedDiscovery(bacnet, store)
+    routers = RouterDiscovery(bacnet, store)
     ip_discovery = IpDiscovery(bacnet, store)
     bbmd_tables = BbmdTables(bacnet, store)
     bbmd_admin_error = None
@@ -649,6 +651,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.state.multiple_history = multiple_history
     app.state.event_log = event_log
     app.state.routed_discovery = routed
+    app.state.router_discovery = routers
     app.state.ip_discovery = ip_discovery
     app.state.bbmd_tables = bbmd_tables
     app.state.bbmd_admin = bbmd_admin
@@ -1934,6 +1937,10 @@ def create_app(state_dir=None, *, operation_power=None):
     @app.get("/api/bacnet/events/ack/receipts/{identifier}")
     def bacnet_event_ack_receipt(identifier: str):
         return event_ack.receipt(identifier)
+
+    @app.post("/api/bacnet/discover-routers")
+    async def bacnet_discover_routers(body: RouterDiscoveryRequest):
+        return await routers.discover(**body.model_dump())
 
     @app.post("/api/bacnet/router-networks")
     async def bacnet_router_networks(body: RouterNetworksRequest):

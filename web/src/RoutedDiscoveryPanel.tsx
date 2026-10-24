@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Download, Network, Search } from "lucide-react";
 import { api, saveBlob } from "./api";
+import type { NamedScanTarget } from "./DeviceScanPanel";
 import "./routed-discovery.css";
 
 export type RoutedDevice = {
@@ -22,6 +23,14 @@ type WindowReport = {
   scope: string;
 };
 type NetworkReport = WindowReport & { networks: number[] };
+type RouterChoice = { router: string; networks: number[]; truncated?: boolean };
+type RouterReport = {
+  routers: RouterChoice[];
+  complete: boolean;
+  truncated: boolean;
+  warnings: string[];
+  scope: string;
+};
 type BindingReport = WindowReport & {
   device: number;
   networks: number[];
@@ -65,14 +74,26 @@ export function RoutedDiscoveryPanel({
   connected,
   onSelect,
   onDiscovered,
+  knownDevices = [],
+  interfaceIdentity = "",
+  localDiscoveryAvailable = true,
+  onSelectionCleared,
 }: {
   connected: boolean;
   onSelect?: (device: RoutedDevice, router: string, dnet: number) => void;
   onDiscovered?: (result: RoutedScanResult) => void;
+  knownDevices?: NamedScanTarget[];
+  interfaceIdentity?: string;
+  localDiscoveryAvailable?: boolean;
+  onSelectionCleared?: () => void;
 }) {
   const [router, setRouter] = useState("");
   const [dnet, setDnet] = useState("");
   const [routerDevice, setRouterDevice] = useState("");
+  const [routers, setRouters] = useState<RouterChoice[]>([]);
+  const [routerReport, setRouterReport] = useState<RouterReport | null>(null);
+  const [discoveryPort, setDiscoveryPort] = useState("47808");
+  const [controller, setController] = useState("");
   const [low, setLow] = useState("0"),
     [high, setHigh] = useState("4194302");
   const [seconds, setSeconds] = useState("3"),
@@ -90,6 +111,7 @@ export function RoutedDiscoveryPanel({
   currentScan.current = scan;
   const currentBindings = useRef(bindings);
   currentBindings.current = bindings;
+  const previousInterface = useRef(interfaceIdentity);
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -100,14 +122,54 @@ export function RoutedDiscoveryPanel({
   useEffect(() => {
     epoch.current++;
   }, [connected]);
+  useEffect(() => {
+    if (previousInterface.current !== interfaceIdentity) {
+      previousInterface.current = interfaceIdentity;
+      epoch.current++;
+      setRouters([]);
+      setRouterReport(null);
+      setNetworks(null);
+      setBindings(null);
+      setScan(null);
+      setController("");
+    }
+  }, [interfaceIdentity]);
+
+  const endpointKey = (value: string) =>
+    value.trim() &&
+    (value.includes(":") ? value.trim() : value.trim() + ":47808");
+  const routerName = (address: string) =>
+    knownDevices.find(
+      (item) =>
+        item.target.source === "ip" &&
+        endpointKey(item.target.address) === endpointKey(address),
+    )?.name;
+  const controllerName = (device: RoutedDevice, result: RoutedScanResult) =>
+    knownDevices.find(
+      (item) =>
+        item.target.source === "routed" &&
+        endpointKey(item.target.router ?? "") ===
+          endpointKey(result.report.router) &&
+        item.target.dnet === result.report.dnet &&
+        item.target.address === device.address &&
+        item.target.device === device.device,
+    )?.name;
+  const controllerKey = (device: RoutedDevice) =>
+    JSON.stringify([device.address, device.device]);
+  function clearSelection() {
+    setController("");
+    onSelectionCleared?.();
+  }
 
   function edit(change: () => void, all = false) {
-    if (active.current) return;
+    if (active.current || !connected) return;
     epoch.current++;
     setScan(null);
+    clearSelection();
     if (all) {
       setNetworks(null);
       setBindings(null);
+      setDnet("");
     }
     setOutcome("");
     setError("");
@@ -132,17 +194,52 @@ export function RoutedDiscoveryPanel({
   const current = (request: number) =>
     mounted.current && request === epoch.current;
 
-  async function discover() {
+  async function findRouters() {
     await action(async (request) => {
-      if (!router.trim())
-        throw new Error("Enter an explicit router IPv4 address and UDP port.");
+      setRouterReport(null);
       setNetworks(null);
+      setBindings(null);
+      setScan(null);
+      setDnet("");
+      clearSelection();
+      const report = await api("/bacnet/discover-routers", {
+        udp_port: integer(discoveryPort, 1, 65535, "Router discovery UDP port"),
+        timeout_seconds: 2.0,
+        max_routers: 64,
+        max_networks: 128,
+      });
+      if (current(request)) {
+        setRouters(report.routers);
+        setRouterReport(report);
+        setRouter("");
+      }
+    });
+  }
+  async function discover(selectedRouter = router) {
+    await action(async (request) => {
+      if (!selectedRouter.trim())
+        throw new Error("Enter an explicit router IPv4 address and UDP port.");
+      setRouter(selectedRouter);
+      setNetworks(null);
+      setBindings(null);
+      setScan(null);
+      setDnet("");
+      clearSelection();
       const report = await api("/bacnet/router-networks", {
-        router: router.trim(),
+        router: selectedRouter.trim(),
         timeout_seconds: 2,
         max_networks: 64,
       });
-      if (current(request)) setNetworks(report);
+      if (current(request)) {
+        setNetworks(report);
+        setRouter(report.router);
+        setRouters((choices) => [
+          ...choices.filter(
+            (item) => endpointKey(item.router) !== endpointKey(report.router),
+          ),
+          { router: report.router, networks: report.networks },
+        ]);
+      }
     });
   }
   async function scanTrunk() {
@@ -160,6 +257,7 @@ export function RoutedDiscoveryPanel({
       if (payload.low > payload.high)
         throw new Error("Minimum device instance must not exceed maximum.");
       setScan(null);
+      clearSelection();
       const report = await api("/bacnet/scan-trunk", payload);
       if (current(request)) {
         const result = { request: payload, report };
@@ -167,6 +265,17 @@ export function RoutedDiscoveryPanel({
         onDiscovered?.(result);
       }
     });
+  }
+  function selectController(device: RoutedDevice, result: RoutedScanResult) {
+    if (active.current || !connected || currentScan.current !== result) return;
+    setController(controllerKey(device));
+    onSelect?.(device, result.report.router, result.report.dnet);
+    setOutcome(
+      `Selected ${controllerName(device, result) || device.device} at ${device.address} via ${result.report.router}. Commissioning fields are filled below.`,
+    );
+    document
+      .getElementById("controller-instance-commissioning")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
   async function readBindings() {
     await action(async (request) => {
@@ -294,9 +403,9 @@ export function RoutedDiscoveryPanel({
       </div>
       <div className="card-body">
         <p>
-          Ask a selected BACnet/IP router for networks, then send Who-Is only
-          onto one selected destination network. Devices that do not answer
-          during the response window can be absent. Discovery does not upload a
+          Choose a router, select one of its advertised trunks, scan that trunk,
+          then choose a controller to modify. Devices that do not answer during
+          the response window can be absent. Discovery does not upload a
           controller program.
         </p>
         {!connected && (
@@ -304,12 +413,74 @@ export function RoutedDiscoveryPanel({
             Open the intended BACnet interface before issuing a request.
           </p>
         )}
+        <h4>1. Select a router</h4>
+        <div className="form-grid">
+          <label>
+            Router
+            <select
+              aria-label="Commissioning router"
+              disabled={busy || !connected}
+              value={
+                routers.find(
+                  (item) => endpointKey(item.router) === endpointKey(router),
+                )?.router || ""
+              }
+              onChange={(event) => void discover(event.target.value)}
+            >
+              <option value="" disabled>
+                Choose a router
+              </option>
+              {routers.map((item) => (
+                <option key={item.router} value={item.router}>
+                  {routerName(item.router)
+                    ? `${routerName(item.router)} · `
+                    : ""}
+                  {item.router} · networks{" "}
+                  {item.networks.join(", ") || "none advertised"}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="routed-action">
+            <button
+              disabled={busy || !connected || !localDiscoveryAvailable}
+              onClick={() => void findRouters()}
+            >
+              Find local routers
+            </button>
+          </div>
+        </div>
+        {routerReport && (
+          <p role="status">
+            {routerReport.routers.length} router(s) answered.
+            {routerReport.truncated ? " Partial list." : ""}{" "}
+            {routerReport.warnings.join(" ")}
+          </p>
+        )}
+        <p className="help-text">
+          Find local routers searches the open interface’s IPv4 subnet. For a
+          known or remote router, enter its address and read its networks.
+        </p>
+        <details>
+          <summary>Router discovery settings</summary>
+          <label>
+            Router discovery UDP port
+            <input
+              aria-label="Router discovery UDP port"
+              disabled={busy || !connected}
+              value={discoveryPort}
+              onChange={(event) =>
+                edit(() => setDiscoveryPort(event.target.value), true)
+              }
+            />
+          </label>
+        </details>
         <div className="form-grid">
           <label>
             Router IPv4 address / UDP port
             <input
               aria-label="Discovery router address"
-              disabled={busy}
+              disabled={busy || !connected}
               value={router}
               placeholder="192.0.2.10:47808"
               onChange={(event) =>
@@ -320,7 +491,7 @@ export function RoutedDiscoveryPanel({
           <div className="routed-action">
             <button
               disabled={busy || !connected || !router.trim()}
-              onClick={discover}
+              onClick={() => void discover()}
             >
               <Search size={14} /> Read router networks
             </button>
@@ -334,7 +505,7 @@ export function RoutedDiscoveryPanel({
               type="number"
               min={0}
               max={4194302}
-              disabled={busy}
+              disabled={busy || !connected}
               value={routerDevice}
               onChange={(event) =>
                 edit(() => {
@@ -371,7 +542,7 @@ export function RoutedDiscoveryPanel({
               {bindings.networks.map((network) => (
                 <button
                   key={network}
-                  disabled={busy}
+                  disabled={busy || !connected}
                   onClick={() => edit(() => setDnet(String(network)))}
                 >
                   Select cached network {network}
@@ -428,7 +599,7 @@ export function RoutedDiscoveryPanel({
               {networks.networks.map((network) => (
                 <button
                   key={network}
-                  disabled={busy}
+                  disabled={busy || !connected}
                   onClick={() => edit(() => setDnet(String(network)))}
                 >
                   Select network {network}
@@ -440,6 +611,29 @@ export function RoutedDiscoveryPanel({
             )}
           </div>
         )}
+        <h4>2. Select and scan a trunk</h4>
+        <label>
+          Trunk / BACnet network
+          <select
+            aria-label="Commissioning trunk"
+            disabled={busy || !connected || !networks?.networks.length}
+            value={networks?.networks.includes(Number(dnet)) ? dnet : ""}
+            onChange={(event) => edit(() => setDnet(event.target.value))}
+          >
+            <option value="" disabled>
+              Choose an advertised network
+            </option>
+            {networks?.networks.map((network) => (
+              <option key={network} value={String(network)}>
+                Network {network}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="help-text">
+          These are advertised BACnet network numbers. Router advertisements do
+          not supply FC trunk names or verify the bus type.
+        </p>
         <div className="form-grid">
           {(
             [
@@ -457,7 +651,7 @@ export function RoutedDiscoveryPanel({
                 aria-label={label}
                 min={min}
                 max={max}
-                disabled={busy}
+                disabled={busy || !connected}
                 value={value}
                 onChange={(event) => edit(() => setter(event.target.value))}
               />
@@ -475,6 +669,46 @@ export function RoutedDiscoveryPanel({
         </div>
         {scan && (
           <div role="region" aria-label="Routed device response">
+            <h4>3. Select a controller to modify</h4>
+            <div className="form-grid">
+              <label>
+                Controller
+                <select
+                  aria-label="Commissioning controller"
+                  disabled={busy || !connected}
+                  value={controller}
+                  onChange={(event) => setController(event.target.value)}
+                >
+                  <option value="" disabled>
+                    Choose a controller from this scan
+                  </option>
+                  {scan.report.devices.map((device) => (
+                    <option
+                      key={controllerKey(device)}
+                      value={controllerKey(device)}
+                    >
+                      {controllerName(device, scan)
+                        ? `${controllerName(device, scan)} · `
+                        : ""}
+                      {device.device} · {device.address}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="routed-action">
+                <button
+                  disabled={busy || !connected || !controller}
+                  onClick={() => {
+                    const device = scan.report.devices.find(
+                      (item) => controllerKey(item) === controller,
+                    );
+                    if (device) selectController(device, scan);
+                  }}
+                >
+                  Modify selected controller
+                </button>
+              </div>
+            </div>
             {onDiscovered && (
               <p>
                 <a href="#bacnet-device-scan">View named Scan results</a>
@@ -498,7 +732,7 @@ export function RoutedDiscoveryPanel({
               <table>
                 <thead>
                   <tr>
-                    <th>Address</th>
+                    <th>Controller / address</th>
                     <th>Device</th>
                     <th>Vendor</th>
                     <th>Max APDU</th>
@@ -510,7 +744,15 @@ export function RoutedDiscoveryPanel({
                     <tr
                       key={device.address + ":" + device.device + ":" + index}
                     >
-                      <td>{device.address}</td>
+                      <td>
+                        {controllerName(device, scan) && (
+                          <>
+                            <strong>{controllerName(device, scan)}</strong>
+                            <br />
+                          </>
+                        )}
+                        {device.address}
+                      </td>
                       <td>{device.device}</td>
                       <td>{device.vendor}</td>
                       <td>{device.max_apdu}</td>
@@ -520,11 +762,7 @@ export function RoutedDiscoveryPanel({
                             disabled={busy || !connected}
                             onClick={() => {
                               if (!busy && connected)
-                                onSelect(
-                                  device,
-                                  scan.report.router,
-                                  scan.report.dnet,
-                                );
+                                selectController(device, scan);
                             }}
                           >
                             Use routed device {device.address}
@@ -546,9 +784,9 @@ export function RoutedDiscoveryPanel({
             )}
             {onSelect && (
               <p className="help-text">
-                Use a device to fill the connection draft. Review the exact
-                router/network and open that interface explicitly before point
-                reads.
+                Select a controller to fill its exact router, network, MAC and
+                Device instance in the commissioning panel below. Selection
+                sends no writes.
               </p>
             )}
           </div>

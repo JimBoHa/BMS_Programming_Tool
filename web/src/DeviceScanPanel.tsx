@@ -13,6 +13,7 @@ export type ScanTarget = {
   mac_hex?: string;
   mstp_mac?: number | null;
 };
+export type NamedScanTarget = { target: ScanTarget; name: string | null };
 type Status = {
   status: string;
   error: string | null;
@@ -164,11 +165,13 @@ export function DeviceScanPanel({
   localAddress,
   routedResult,
   onSelect,
+  onInventory,
 }: {
   connected: boolean;
   localAddress: string;
   routedResult?: RoutedScanResult | null;
   onSelect: (target: ScanTarget) => void;
+  onInventory?: (devices: NamedScanTarget[]) => void;
 }) {
   const [mode, setMode] = useState("local"),
     [ip, setIp] = useState(""),
@@ -214,6 +217,18 @@ export function DeviceScanPanel({
   const rowsRef = useRef(new Map<string, Row>()),
     reportsRef = useRef<Record<string, ScopeReports>>({}),
     seenRouted = useRef<RoutedScanResult | null>(null);
+  useEffect(() => {
+    onInventory?.(
+      rows.map((row) => ({
+        target: row.target,
+        name:
+          row.details?.identity_verified &&
+          typeof row.details.properties["object-name"] === "string"
+            ? row.details.properties["object-name"]
+            : null,
+      })),
+    );
+  }, [rows, onInventory]);
   function publish() {
     if (mounted.current) setRows(Array.from(rowsRef.current.values()));
   }

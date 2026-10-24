@@ -204,7 +204,11 @@ export function DeviceInstancePanel({
       (value: any) => value.readback.status === "verified_new",
     );
   return (
-    <section className="card" aria-label="Device instance commissioning">
+    <section
+      id="controller-instance-commissioning"
+      className="card"
+      aria-label="Device instance commissioning"
+    >
       <div className="card-header">
         <h2>Change controller instance</h2>
       </div>
