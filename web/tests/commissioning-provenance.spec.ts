@@ -186,7 +186,7 @@ for (const mode of [
         const response = await route.fetch({ maxRedirects: 0, maxRetries: 0 });
         const body = await response.body();
         bodies.push({
-          endpoint: "device-details",
+          endpoint: new URL(route.request().url()).pathname,
           request: route.request().postDataJSON(),
           status: response.status(),
           headers: response.headers(),
@@ -216,6 +216,7 @@ for (const mode of [
         ).ok(),
       ).toBe(true);
       await page.route("**/api/bacnet/device-details", detailsHandler);
+      await page.route("**/api/bacnet/device-name", detailsHandler);
       // Darwin loopback cannot receive the router-list broadcast. Only this list
       // is authored; IP scan, router-networks, routed Who-Is and metadata use UDP.
       await page.route("**/api/bacnet/discover-routers", (route) =>
@@ -250,19 +251,32 @@ for (const mode of [
         void task.catch(() => {}).finally(() => pending.delete(task));
       });
       await page.goto("/");
-      await page.getByRole("button", { name: "Connect", exact: true }).click();
+      await page
+        .getByRole("button", { name: /^Connect to a controller/ })
+        .click();
+      await page
+        .getByRole("button", { name: "2 · Discover & select", exact: true })
+        .click();
+      await page
+        .getByRole("button", { name: "Direct BACnet/IP", exact: true })
+        .click();
       const guide = page.getByRole("region", {
         name: "Routed BACnet discovery",
         exact: true,
+        includeHidden: true,
       });
       const scan = page.getByRole("region", {
         name: "BACnet device scan",
         exact: true,
+        includeHidden: true,
       });
       await scanIp(page, peer.endpoint);
       await expect(
         scan.getByText("Old router name", { exact: true }),
       ).toBeVisible();
+      await page
+        .getByRole("button", { name: "Router & trunk", exact: true })
+        .click();
       await guide
         .getByRole("button", { name: "Find local routers", exact: true })
         .click();
@@ -292,6 +306,9 @@ for (const mode of [
           .filter({ hasText: "Old controller name" }),
       ).toHaveCount(1);
       await peer.phase("Current");
+      await page
+        .getByRole("button", { name: "1 · Connection", exact: true })
+        .click();
       if (mode === "changed bind endpoint") {
         await page
           .getByLabel("Local bind address / UDP port", { exact: true })
@@ -300,6 +317,12 @@ for (const mode of [
       // Open is deliberate even when the submitted config is byte-identical.
       await page
         .getByRole("button", { name: "Open interface", exact: true })
+        .click();
+      await page
+        .getByRole("button", { name: "2 · Discover & select", exact: true })
+        .click();
+      await page
+        .getByRole("button", { name: "Router & trunk", exact: true })
         .click();
       await expect(
         guide.getByRole("button", { name: "Find local routers", exact: true }),
@@ -320,10 +343,10 @@ for (const mode of [
         .click();
       await expect.poll(() => heldCount).toBeGreaterThan(0);
       // Same router/DNET/MAC/instance has a new observation. Historical Scan
-      // rows remain visible, but cannot name current commissioning choices.
+      // rows remain retained in their task, but cannot name current choices.
       await expect(
         scan.getByText("Old router name", { exact: true }),
-      ).toBeVisible();
+      ).toBeAttached();
       await expect(routers).not.toContainText("Old router name");
       await expect(controllers).not.toContainText("Old controller name");
       await info.attach("held-current-choices", {
@@ -337,6 +360,9 @@ for (const mode of [
       hold = false;
       release();
       await expect(controllers).toContainText("Current controller name");
+      await page
+        .getByRole("button", { name: "Direct BACnet/IP", exact: true })
+        .click();
       await scanIp(page, peer.endpoint);
       await expect(routers).toContainText("Current router name");
       await expect(routers).not.toContainText("Old router name");
@@ -354,6 +380,7 @@ for (const mode of [
     }
     try {
       await page.unroute("**/api/bacnet/device-details", detailsHandler);
+      await page.unroute("**/api/bacnet/device-name", detailsHandler);
     } catch (error) {
       cleanup.push(error);
     }

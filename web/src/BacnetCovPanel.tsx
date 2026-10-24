@@ -1,3 +1,4 @@
+import { TargetFields } from "./ControllerWorkspace";
 import { useEffect, useRef, useState } from "react";
 import { api, saveBlob } from "./api";
 import { BacnetCovRecordings } from "./BacnetCovRecordings";
@@ -204,98 +205,110 @@ export function BacnetCovPanel({
           separate verification.
         </p>
         <div className="form-grid">
-          <label>
-            COV source path
-            <select
-              aria-label="COV source path"
-              value={mode}
-              disabled={busy}
-              onChange={(e) => {
-                selection.current++;
-                setMode(e.target.value);
-                setRecord(false);
-                setDevice("");
-                setObject("");
-                setNotice("");
-              }}
-            >
-              <option value="direct">Direct BACnet/IP</option>
-              <option value="routed">Explicit NAE/router to MS/TP</option>
-            </select>
-          </label>
+          <TargetFields>
+            <label>
+              COV source path
+              <select
+                aria-label="COV source path"
+                value={mode}
+                disabled={busy}
+                onChange={(e) => {
+                  selection.current++;
+                  setMode(e.target.value);
+                  setRecord(false);
+                  setDevice("");
+                  setObject("");
+                  setNotice("");
+                }}
+              >
+                <option value="direct">Direct BACnet/IP</option>
+                <option value="routed">Explicit NAE/router to MS/TP</option>
+              </select>
+            </label>
+          </TargetFields>
           {mode === "routed" && (
             <>
-              <label>
-                COV router IP / port
-                <input
-                  aria-label="COV router IP / port"
-                  value={router}
-                  onChange={(e) => {
-                    setRouter(e.target.value);
-                    setRecord(false);
-                  }}
-                  disabled={busy}
-                />
-              </label>
-              <label>
-                COV destination network
-                <input
-                  aria-label="COV destination network"
-                  type="number"
-                  min={1}
-                  max={65534}
-                  value={dnet}
-                  onChange={(e) => {
-                    setDnet(e.target.value);
-                    setRecord(false);
-                  }}
-                  disabled={busy}
-                />
-              </label>
-              <label>
-                COV controller MAC
-                <input
-                  aria-label="COV controller MAC"
-                  type="number"
-                  min={0}
-                  max={254}
-                  value={mac}
-                  onChange={(e) => {
-                    setMac(e.target.value);
-                    setRecord(false);
-                  }}
-                  disabled={busy}
-                />
-              </label>
+              <TargetFields>
+                <label>
+                  COV router IP / port
+                  <input
+                    aria-label="COV router IP / port"
+                    value={router}
+                    onChange={(e) => {
+                      setRouter(e.target.value);
+                      setRecord(false);
+                    }}
+                    disabled={busy}
+                  />
+                </label>
+              </TargetFields>
+              <TargetFields>
+                <label>
+                  COV destination network
+                  <input
+                    aria-label="COV destination network"
+                    type="number"
+                    min={1}
+                    max={65534}
+                    value={dnet}
+                    onChange={(e) => {
+                      setDnet(e.target.value);
+                      setRecord(false);
+                    }}
+                    disabled={busy}
+                  />
+                </label>
+              </TargetFields>
+              <TargetFields>
+                <label>
+                  COV controller MAC
+                  <input
+                    aria-label="COV controller MAC"
+                    type="number"
+                    min={0}
+                    max={254}
+                    value={mac}
+                    onChange={(e) => {
+                      setMac(e.target.value);
+                      setRecord(false);
+                    }}
+                    disabled={busy}
+                  />
+                </label>
+              </TargetFields>
             </>
           )}
           {mode === "direct" && (
+            <TargetFields>
+              <label>
+                COV device IP / port
+                <input
+                  aria-label="COV device IP / port"
+                  value={address}
+                  onChange={(e) => {
+                    setAddress(e.target.value);
+                    setRecord(false);
+                  }}
+                  disabled={busy}
+                />
+              </label>
+            </TargetFields>
+          )}
+          <TargetFields>
             <label>
-              COV device IP / port
+              Expected COV Device
               <input
-                aria-label="COV device IP / port"
-                value={address}
+                aria-label="Expected COV Device"
+                placeholder="device,12345"
+                value={device}
                 onChange={(e) => {
-                  setAddress(e.target.value);
+                  setDevice(e.target.value);
                   setRecord(false);
                 }}
                 disabled={busy}
               />
             </label>
-          )}
-          <label>
-            Expected COV Device
-            <input
-              aria-label="Expected COV Device"
-              placeholder="device,12345"
-              value={device}
-              onChange={(e) => {
-                setDevice(e.target.value);
-                setRecord(false);
-              }}
-              disabled={busy}
-            />
-          </label>
+          </TargetFields>
           <label>
             COV monitored object
             <input

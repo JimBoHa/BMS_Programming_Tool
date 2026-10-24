@@ -20,9 +20,10 @@ from .test_device_instance import METADATA, NEW, OLD, read_reply
 
 
 class GuidedRouter(asyncio.DatagramProtocol):
-    def __init__(self, network=3001):
+    def __init__(self, network=3001, *, stations=(7, 8), names=None):
         self.networks = [network, network + 1]
-        self.instances = {(dnet, mac): OLD for dnet in self.networks for mac in (7, 8)}
+        self.instances = {(dnet, mac): OLD for dnet in self.networks for mac in stations}
+        self.names = names or {}
         self.errors, self.writes = [], []
 
     def connection_made(self, transport):
@@ -84,7 +85,10 @@ class GuidedRouter(asyncio.DatagramProtocol):
             mac = packet[5]
             assert (dnet, mac) in self.instances
             if isinstance(request, ReadPropertyRequest):
-                metadata = {**METADATA, "object-name": f"Authored {dnet} MAC {mac}"}
+                metadata = {
+                    **METADATA,
+                    "object-name": self.names.get((dnet, mac), f"Authored {dnet} MAC {mac}"),
+                }
                 if str(request.propertyIdentifier) in ("object-identifier", *METADATA):
                     reply = read_reply(request, self.instances[dnet, mac], metadata)
                 else:
