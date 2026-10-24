@@ -1,3 +1,4 @@
+import { TargetFields } from "./ControllerWorkspace";
 import { useEffect, useRef, useState } from "react";
 import { api, saveBlob } from "./api";
 import { BacnetEventAckPanel } from "./BacnetEventAckPanel";
@@ -292,38 +293,46 @@ export function BacnetEventsPanel({
       <fieldset disabled={busy || ackBusy}>
         <legend>Exact event source</legend>
         <div className="bacnet-events-fields">
-          <label>
-            Event device address
-            <input
-              value={address}
-              placeholder="IPv4:port or DNET:MAC"
-              onChange={(event) => edit(() => setAddress(event.target.value))}
-            />
-          </label>
-          <label>
-            Event Device object
-            <input
-              value={device}
-              placeholder="device,1234"
-              onChange={(event) => edit(() => setDevice(event.target.value))}
-            />
-          </label>
-          <label>
-            Event router (routed queries)
-            <input
-              value={router}
-              placeholder="Explicit IPv4 next hop"
-              onChange={(event) => edit(() => setRouter(event.target.value))}
-            />
-          </label>
-          <label>
-            Event DNET (routed queries)
-            <input
-              value={dnet}
-              inputMode="numeric"
-              onChange={(event) => edit(() => setDnet(event.target.value))}
-            />
-          </label>
+          <TargetFields>
+            <label>
+              Event device address
+              <input
+                value={address}
+                placeholder="IPv4:port or DNET:MAC"
+                onChange={(event) => edit(() => setAddress(event.target.value))}
+              />
+            </label>
+          </TargetFields>
+          <TargetFields>
+            <label>
+              Event Device object
+              <input
+                value={device}
+                placeholder="device,1234"
+                onChange={(event) => edit(() => setDevice(event.target.value))}
+              />
+            </label>
+          </TargetFields>
+          <TargetFields>
+            <label>
+              Event router (routed queries)
+              <input
+                value={router}
+                placeholder="Explicit IPv4 next hop"
+                onChange={(event) => edit(() => setRouter(event.target.value))}
+              />
+            </label>
+          </TargetFields>
+          <TargetFields>
+            <label>
+              Event DNET (routed queries)
+              <input
+                value={dnet}
+                inputMode="numeric"
+                onChange={(event) => edit(() => setDnet(event.target.value))}
+              />
+            </label>
+          </TargetFields>
           <label>
             Event pages per request
             <input

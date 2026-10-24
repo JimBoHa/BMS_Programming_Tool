@@ -1,3 +1,4 @@
+import { TargetFields } from "./ControllerWorkspace";
 import { useEffect, useRef, useState } from "react";
 import { api, downloadGet } from "./api";
 
@@ -175,24 +176,28 @@ export function EventReceptionPanel({
           running; stop explicitly when finished.
         </p>
         <div className="form-grid">
-          <label>
-            Event source address
-            <input
-              aria-label="Event source address"
-              value={address}
-              disabled={busy}
-              onChange={(e) => setAddress(e.target.value)}
-            />
-          </label>
-          <label>
-            Event source Device
-            <input
-              aria-label="Event source Device"
-              value={device}
-              disabled={busy}
-              onChange={(e) => setDevice(e.target.value)}
-            />
-          </label>
+          <TargetFields>
+            <label>
+              Event source address
+              <input
+                aria-label="Event source address"
+                value={address}
+                disabled={busy}
+                onChange={(e) => setAddress(e.target.value)}
+              />
+            </label>
+          </TargetFields>
+          <TargetFields>
+            <label>
+              Event source Device
+              <input
+                aria-label="Event source Device"
+                value={device}
+                disabled={busy}
+                onChange={(e) => setDevice(e.target.value)}
+              />
+            </label>
+          </TargetFields>
           <label>
             Optional event object filter
             <input
@@ -203,25 +208,29 @@ export function EventReceptionPanel({
               placeholder="Any object from this Device"
             />
           </label>
-          <label>
-            Event router endpoint
-            <input
-              aria-label="Event router endpoint"
-              value={router}
-              disabled={busy}
-              onChange={(e) => setRouter(e.target.value)}
-              placeholder="Blank for direct IPv4"
-            />
-          </label>
-          <label>
-            Event DNET
-            <input
-              aria-label="Event DNET"
-              value={dnet}
-              disabled={busy}
-              onChange={(e) => setDnet(e.target.value)}
-            />
-          </label>
+          <TargetFields>
+            <label>
+              Event router endpoint
+              <input
+                aria-label="Event router endpoint"
+                value={router}
+                disabled={busy}
+                onChange={(e) => setRouter(e.target.value)}
+                placeholder="Blank for direct IPv4"
+              />
+            </label>
+          </TargetFields>
+          <TargetFields>
+            <label>
+              Event DNET
+              <input
+                aria-label="Event DNET"
+                value={dnet}
+                disabled={busy}
+                onChange={(e) => setDnet(e.target.value)}
+              />
+            </label>
+          </TargetFields>
           <label>
             Event process identifier
             <input

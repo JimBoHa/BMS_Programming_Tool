@@ -84,6 +84,24 @@ import {
   type ActivityBindings,
 } from "./activityContracts";
 import "./activity-library.css";
+import {
+  WorkflowNavigation,
+  WorkflowContext,
+  WorkspaceTabs,
+  StartWorkspace,
+  WorkflowToolTabs,
+} from "./WorkflowChrome";
+import {
+  type CafDocument,
+  type ControllerContext,
+  type FileRequest,
+  type WorkspaceArea,
+  type WorkspaceSurface,
+  programTools,
+  simulationTools,
+} from "./workflow";
+import type { CafView } from "./NativeCaf";
+import "./workflow.css";
 
 const NativeCaf = lazy(() =>
   import("./NativeCaf").then((m) => ({ default: m.NativeCaf })),
@@ -151,9 +169,24 @@ const Notifications = lazy(() =>
 );
 
 export function App() {
+  const [surface, setSurface] = useState<WorkspaceSurface>("start");
+  const [area, setArea] = useState<WorkspaceArea>("program");
+  const [mode, setMode] = useState<"edit" | "simulate" | "commission">("edit");
+  const [controller, setController] = useState<ControllerContext | null>(null);
+  const [workflowBusy, setWorkflowBusy] = useState(false);
+  const [cafDocument, setCafDocument] = useState<CafDocument | null>(null);
+  const [incomingCaf, setIncomingCaf] = useState<FileRequest | null>(null);
+  const [cafSaveRequest, setCafSaveRequest] = useState("");
+  const [cafView, setCafView] = useState<CafView>("objects");
+  const [sourceKind, setSourceKind] = useState<"caf" | "graph" | "none">(
+    "none",
+  );
+  const [connectionsVisited, setConnectionsVisited] = useState(false);
+  const [connectionSetup, setConnectionSetup] = useState(false);
+  const cafPicker = useRef<HTMLInputElement>(null);
   const [cafVisited, setCafVisited] = useState(false);
   const [cafSimulationVisited, setCafSimulationVisited] = useState(false);
-  const [tab, setTab] = useState("editor"),
+  const [tab, setTabState] = useState("start"),
     [program, setProgramState] = useState<Program>(blankProgram),
     [blocks, setBlocks] = useState<Block[]>([]),
     [macroBlocks, setMacroBlocks] = useState<Block[]>([]),
@@ -993,7 +1026,7 @@ export function App() {
   );
   const pacing = useSimulationClock({
     source: program,
-    active: tab === "editor",
+    active: tab === "editor" && mode === "simulate" && surface === "workspace",
     scanSeconds: program.scan_seconds,
     blocked:
       !cleanupRestored.current ||
@@ -1430,28 +1463,220 @@ export function App() {
         .toLowerCase()
         .includes(search.toLowerCase()),
     );
-  const tabs = [
-    { id: "editor", title: "Program", icon: Workflow },
-    { id: "truth-tables", title: "Truth tables", icon: TableProperties },
-    { id: "caf", title: "CAF files", icon: FileArchive },
-    { id: "caf-compare", title: "CAF compare", icon: FileCheck2 },
-    { id: "caf-simulation", title: "CAF simulation", icon: FlaskConical },
-    { id: "conformance", title: "Conformance tests", icon: FlaskConical },
-    { id: "bog", title: "BOG files", icon: FileArchive },
-    { id: "hardware", title: "JCI hardware", icon: CircuitBoard },
-    { id: "connections", title: "Connect", icon: Network },
-    { id: "runtime", title: "Runtime", icon: Cpu },
-    { id: "native", title: "Native sim", icon: FlaskConical },
-    { id: "temco", title: "Temco native", icon: Cpu },
-    { id: "iec", title: "IEC native", icon: Code2 },
-    { id: "system", title: "System sim", icon: Layers },
-    { id: "observations", title: "Trends & alarms", icon: Bell },
-    { id: "notifications", title: "Alarm delivery", icon: BellRing },
-    { id: "field-trends", title: "Field trends", icon: Activity },
-    { id: "device-history", title: "Device history", icon: Activity },
-    { id: "macros", title: "Macros", icon: Boxes },
-    { id: "resources", title: "Reference", icon: BookOpen },
-  ];
+  function setTab(view: string) {
+    if (workflowBusy) return;
+    if (macroEdit && view !== "editor") {
+      setMessage("Apply or discard definition edits before leaving Program.");
+      return;
+    }
+    setTabState(view);
+    if (view === "start") {
+      setSurface("start");
+      return;
+    }
+    if (view === "caf") {
+      setCafVisited(true);
+      setSourceKind("caf");
+      setMode("edit");
+      setSurface("workspace");
+      setArea(cafView === "changes" ? "changes" : "program");
+      return;
+    }
+    if (view === "connections") {
+      setConnectionsVisited(true);
+      setSurface("workspace");
+      setMode("commission");
+      return;
+    }
+    if (view === "resources") {
+      setSurface("help");
+      return;
+    }
+    if (view === "macros" || view === "hardware") {
+      setSurface("library");
+      return;
+    }
+    if (view === "notifications" || view === "runtime") {
+      setSurface("settings");
+      return;
+    }
+    if (view === "observations") {
+      setSurface("history");
+      return;
+    }
+    setSurface("workspace");
+    if (view === "field-trends" || view === "device-history") {
+      setArea("monitor");
+      setMode("commission");
+      return;
+    }
+    if (view === "caf-compare" || view === "conformance") {
+      setArea("changes");
+      return;
+    }
+    if (view === "temco-transfer") {
+      setArea("changes");
+      setMode("commission");
+      setSourceKind("graph");
+      return;
+    }
+    setArea("program");
+    if (view === "caf-simulation") {
+      setCafSimulationVisited(true);
+      setSourceKind("caf");
+      setMode("simulate");
+    } else if (["native", "temco", "iec", "system"].includes(view)) {
+      setSourceKind("graph");
+      setMode("simulate");
+    } else {
+      setSourceKind("graph");
+      setMode("edit");
+    }
+  }
+  function beginConnect() {
+    if (workflowBusy) return;
+    if (macroEdit) {
+      setMessage("Apply or discard definition edits before connecting.");
+      return;
+    }
+    setConnectionSetup(true);
+    setArea("overview");
+    setTab("connections");
+  }
+  function chooseArea(next: WorkspaceArea) {
+    if (workflowBusy) return;
+    if (macroEdit && next !== "program") {
+      setMessage("Apply or discard definition edits first.");
+      return;
+    }
+    setSurface("workspace");
+    setArea(next);
+    setConnectionSetup(false);
+    if (next === "changes" && sourceKind === "caf" && mode !== "commission") {
+      setCafView("changes");
+      setTab("caf");
+      setArea("changes");
+      return;
+    }
+    if (next === "changes" && sourceKind === "graph" && !controller) {
+      setTab("conformance");
+      return;
+    }
+    if (next === "program") {
+      if (controller && sourceKind === "none") {
+        setTabState("controller-program");
+        setMode("commission");
+        return;
+      }
+      setTab(sourceKind === "caf" ? "caf" : "editor");
+      setArea("program");
+      if (cafView === "changes") setCafView("objects");
+    } else {
+      setConnectionsVisited(true);
+      setTabState("connections");
+      setMode("commission");
+    }
+  }
+  function navigateSurface(next: WorkspaceSurface) {
+    if (workflowBusy) return;
+    if (macroEdit) {
+      setMessage("Apply or discard definition edits first.");
+      return;
+    }
+    if (next === "start") setTab("start");
+    else if (next === "workspace")
+      chooseArea(controller ? "overview" : "program");
+    else if (next === "library") setTab("macros");
+    else if (next === "history") setTab("observations");
+    else if (next === "settings") {
+      setConnectionsVisited(true);
+      setTabState("connections");
+      setSurface("settings");
+    } else setTab("resources");
+  }
+  function chooseMode(next: "edit" | "simulate" | "commission") {
+    if (workflowBusy) return;
+    if (next === "commission") {
+      if (controller) chooseArea("overview");
+      else beginConnect();
+      return;
+    }
+    if (next === "edit") {
+      setCafView("objects");
+      setTab(sourceKind === "caf" ? "caf" : "editor");
+      return;
+    }
+    setTab(sourceKind === "caf" && cafDocument ? "caf-simulation" : "editor");
+    setMode("simulate");
+  }
+  function openCafPicker() {
+    if (!macroEdit && !workflowBusy) cafPicker.current?.click();
+  }
+  function saveCurrentWork() {
+    if (sourceKind === "caf" && cafDocument) {
+      setCafView("changes");
+      setTab("caf");
+      setArea("changes");
+      if (!cafDocument.structuralDirty) setCafSaveRequest(crypto.randomUUID());
+    } else void save();
+  }
+  const source = surface === "start" ? "none" : sourceKind;
+  const toolItems =
+    surface === "library"
+      ? [
+          { id: "macros", label: "Macros & activities" },
+          { id: "hardware", label: "Hardware definitions" },
+        ]
+      : surface === "history"
+        ? [
+            { id: "observations", label: "Recorded trends & alarms" },
+            { id: "device-history", label: "Controller history" },
+          ]
+        : surface === "settings"
+          ? [
+              { id: "connections", label: "Communications & network" },
+              { id: "runtime", label: "Local runtime" },
+              { id: "notifications", label: "Alarm delivery" },
+            ]
+          : surface === "workspace" && area === "program"
+            ? mode === "simulate"
+              ? simulationTools
+              : programTools
+            : surface === "workspace" && area === "monitor"
+              ? [
+                  { id: "connections", label: "Controller monitoring" },
+                  { id: "field-trends", label: "Field recording" },
+                  { id: "device-history", label: "Controller history" },
+                ]
+              : surface === "workspace" && area === "changes"
+                ? [
+                    { id: "connections", label: "Controller changes" },
+                    { id: "caf", label: "CAF changes" },
+                    { id: "caf-compare", label: "Compare applications" },
+                    { id: "conformance", label: "Validate graph" },
+                    {
+                      id: "temco-transfer",
+                      label: "Temco application transfer",
+                    },
+                  ]
+                : [];
+  function chooseTool(view: string) {
+    if (workflowBusy) return;
+    const previousSurface = surface,
+      previousArea = area,
+      previousMode = mode;
+    if (view === "caf" && previousArea === "changes") setCafView("changes");
+    setTab(view);
+    if (previousSurface === "history" || previousSurface === "settings")
+      setSurface(previousSurface);
+    if (
+      previousSurface === "workspace" &&
+      ["monitor", "changes"].includes(previousArea)
+    )
+      setArea(previousArea);
+    if (previousMode === "simulate" && previousArea === "program")
+      setMode("simulate");
+  }
   if (!ready)
     return (
       <div className="loading">
@@ -1461,628 +1686,778 @@ export function App() {
       </div>
     );
   return (
-    <div className="app">
+    <div className="app workflow-app">
       <header className="app-header">
         <a
           className="brand"
           href="#"
-          onClick={(e) => {
-            e.preventDefault();
-            setTab("editor");
+          onClick={(event) => {
+            event.preventDefault();
+            setTab("start");
           }}
         >
           <CircuitBoard size={27} />
           <span>
             BMS <b>Studio</b>
-            <small>CONTROLLER PROGRAMMING</small>
+            <small>CONTROLLER WORKSPACE</small>
           </span>
         </a>
-        <div className="project-title">
-          <input
-            aria-label="Program name"
-            disabled={tab === "truth-tables"}
-            value={program.name}
-            onChange={(e) => change({ ...program, name: e.target.value })}
-          />
-          <span className="pill">LOCAL WORKSPACE</span>
-        </div>
-        <button
-          className="save-button primary"
-          onClick={save}
-          disabled={saving || tab === "truth-tables"}
-          title={
-            tab === "truth-tables"
-              ? "Use Export table in the truth-table workspace."
-              : undefined
-          }
-        >
-          <Save size={15} />{" "}
-          {macroEdit
-            ? "Apply definition"
-            : tab === "system"
-              ? "Save workspace"
-              : "Save revision"}
-        </button>
+        <span className="workflow-header-note">
+          Local application · field operations require an explicit connection
+        </span>
       </header>
+      <input
+        type="file"
+        accept=".caf"
+        hidden
+        ref={cafPicker}
+        aria-label="Open local CAF application"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (file) {
+            setIncomingCaf({ id: crypto.randomUUID(), file });
+            setCafView("objects");
+            setTab("caf");
+          }
+        }}
+      />
+      {surface !== "start" && (
+        <WorkflowContext
+          controller={controller}
+          document={cafDocument}
+          mode={mode}
+          onMode={chooseMode}
+          onConnect={beginConnect}
+          onOpen={openCafPicker}
+          onSave={saveCurrentWork}
+          saveLabel={
+            sourceKind === "caf"
+              ? cafDocument?.structuralDirty
+                ? "Review CAF changes"
+                : "Save CAF copy"
+              : macroEdit
+                ? "Apply definition"
+                : "Save project"
+          }
+          saveDisabled={
+            saving ||
+            surface !== "workspace" ||
+            source === "none" ||
+            tab === "truth-tables" ||
+            (source === "caf" && !cafDocument)
+          }
+          programName={program.name}
+          onProgramName={(name) => change({ ...program, name })}
+          contextSource={source}
+          busy={workflowBusy}
+        />
+      )}
       <div className="app-body">
-        <nav className="nav-rail" aria-label="Workspaces">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              className={tab === t.id ? "active" : ""}
-              disabled={!!macroEdit && t.id !== "editor"}
-              onClick={() => {
-                if (t.id === "caf") setCafVisited(true);
-                if (t.id === "caf-simulation") setCafSimulationVisited(true);
-                setTab(t.id);
-              }}
-              title={t.title}
-            >
-              <t.icon size={21} />
-              <span>{t.title}</span>
-            </button>
-          ))}
-          <div className="rail-bottom">
-            <span className="status-dot on" />
-            <small>LOCAL</small>
-          </div>
-        </nav>
+        <WorkflowNavigation
+          surface={surface}
+          onNavigate={navigateSurface}
+          disabled={!!macroEdit || workflowBusy}
+        />
         <main>
-          {cafVisited && (
-            <div
-              hidden={tab !== "caf"}
-              style={{ display: tab === "caf" ? undefined : "none" }}
-            >
-              <Suspense
-                fallback={<div className="loading">Opening CAF workspace…</div>}
-              >
-                <NativeCaf visible={tab === "caf"} />
-              </Suspense>
-            </div>
+          {surface === "workspace" && (
+            <WorkspaceTabs
+              area={area}
+              onChange={chooseArea}
+              disabled={!!macroEdit || workflowBusy}
+            />
           )}
-          {cafSimulationVisited && (
-            <div
-              hidden={tab !== "caf-simulation"}
-              style={{ display: tab === "caf-simulation" ? undefined : "none" }}
-            >
-              <Suspense
-                fallback={
-                  <div className="loading">
-                    Opening CAF simulation workspace…
-                  </div>
-                }
-              >
-                <CafSimulationPanel visible={tab === "caf-simulation"} />
-              </Suspense>
-            </div>
+          {toolItems.length > 0 && (
+            <WorkflowToolTabs
+              label={
+                surface === "workspace"
+                  ? "Current task tools"
+                  : `${surface} tools`
+              }
+              items={toolItems}
+              value={tab}
+              onChange={chooseTool}
+              disabled={workflowBusy}
+            />
           )}
-          <Suspense
-            key={tab}
-            fallback={<div className="loading">Opening workspace…</div>}
-          >
-            {tab === "caf" || tab === "caf-simulation" ? null : tab ===
-              "editor" ? (
-              <>
-                {macroEdit && (
-                  <div className="macro-edit-banner">
-                    <strong>Editing definition: {macroEdit.definition}</strong>
-                    <span>
-                      Changes apply to every instance. Keep input identifiers,
-                      types and units unchanged.
-                    </span>
-                    <button className="primary" onClick={applyMacroEdit}>
-                      Apply definition changes
+          {mode === "simulate" &&
+            sourceKind === "caf" &&
+            cafDocument?.dirty && (
+              <div className="workflow-scope-warning">
+                CAF simulation inputs use the original opened archive. Export
+                and reopen a CAF copy to include local application edits.
+              </div>
+            )}
+          <div className="workflow-content">
+            {cafVisited && (
+              <div
+                className="workflow-persistent-view"
+                hidden={tab !== "caf"}
+                style={{ display: tab === "caf" ? undefined : "none" }}
+              >
+                <Suspense
+                  fallback={
+                    <div className="loading">Opening CAF workspace…</div>
+                  }
+                >
+                  <NativeCaf
+                    embedded
+                    visible={tab === "caf"}
+                    incomingFile={incomingCaf}
+                    onDocumentChange={setCafDocument}
+                    view={cafView}
+                    onViewChange={(view) => {
+                      setCafView(view);
+                      setArea(view === "changes" ? "changes" : "program");
+                    }}
+                    saveRequest={cafSaveRequest}
+                  />
+                </Suspense>
+              </div>
+            )}
+            {cafSimulationVisited && (
+              <div
+                className="workflow-persistent-view"
+                hidden={tab !== "caf-simulation"}
+                style={{
+                  display: tab === "caf-simulation" ? undefined : "none",
+                }}
+              >
+                <Suspense
+                  fallback={
+                    <div className="loading">
+                      Opening CAF simulation workspace…
+                    </div>
+                  }
+                >
+                  <CafSimulationPanel
+                    visible={tab === "caf-simulation"}
+                    incomingFile={
+                      cafDocument?.file
+                        ? { id: cafDocument.sha256, file: cafDocument.file }
+                        : null
+                    }
+                  />
+                </Suspense>
+              </div>
+            )}
+            {connectionsVisited && (
+              <div
+                className="workflow-persistent-view"
+                hidden={tab !== "connections"}
+              >
+                <Suspense
+                  fallback={
+                    <div className="loading">Opening controller workspace…</div>
+                  }
+                >
+                  <Connections
+                    visible={tab === "connections"}
+                    view={
+                      surface === "settings"
+                        ? "settings"
+                        : connectionSetup
+                          ? "setup"
+                          : area === "program"
+                            ? "overview"
+                            : area
+                    }
+                    onControllerChange={setController}
+                    onBusyChange={setWorkflowBusy}
+                    onConnectionSetup={beginConnect}
+                    onControllerOpened={() => {
+                      setConnectionSetup(false);
+                      setArea("overview");
+                      setSurface("workspace");
+                      setMode("commission");
+                    }}
+                    onNavigate={(next) => chooseArea(next)}
+                  />
+                </Suspense>
+              </div>
+            )}
+            <Suspense
+              key={tab}
+              fallback={<div className="loading">Opening workspace…</div>}
+            >
+              {tab === "controller-program" ? (
+                <div className="workspace-page">
+                  <section className="workflow-identity">
+                    <span className="eyebrow">CONTROLLER APPLICATION</span>
+                    <h1>Open an application to work on its program</h1>
+                    <p className="workflow-lead">
+                      This generic BACnet connection exposes device metadata and
+                      supported point/settings operations. It does not upload or
+                      compile a JCI controller application.
+                    </p>
+                    <button className="primary" onClick={openCafPicker}>
+                      Open a CAF file
                     </button>
-                    <button onClick={discardMacroEdit}>
-                      Discard definition changes
+                    <button onClick={() => setTab("editor")}>
+                      Open local graph editor
                     </button>
-                  </div>
-                )}
-                <div className="editor-toolbar">
-                  <div className="button-row">
-                    <button
-                      title="New program"
-                      aria-label="New program"
-                      disabled={!!macroEdit}
-                      onClick={() => {
-                        change(blankProgram());
-                        setSelected(null);
-                        setVersions([]);
-                      }}
-                    >
-                      <Plus size={15} /> New
-                    </button>
-                    <button
-                      disabled={!!macroEdit || saving}
-                      onClick={() => setEquipmentWizard(true)}
-                    >
-                      Equipment wizard
-                    </button>
-                    <select
-                      aria-label="Open saved project"
-                      disabled={!!macroEdit}
-                      value=""
-                      onChange={(e) => loadProject(e.target.value)}
-                    >
-                      <option value="">Open project…</option>
-                      {projects.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} · r{p.revision}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      aria-label="Choose VAV template"
-                      disabled={!!macroEdit}
-                      value=""
-                      onChange={(e) => {
-                        const p = templates.find(
-                          (p) => p.id === e.target.value,
-                        );
-                        if (p) {
-                          change({
-                            ...cloneSource(p),
-                            id: p.id + "-" + Date.now().toString(36),
-                          });
+                    <p className="help-text">
+                      A local file remains separate from the live controller
+                      until compatibility and transfer support have been
+                      established.
+                    </p>
+                  </section>
+                </div>
+              ) : tab === "start" ? (
+                <StartWorkspace
+                  onConnect={beginConnect}
+                  onOpen={openCafPicker}
+                  onProgram={() => setTab("editor")}
+                  projects={projects}
+                  onProject={(id) => {
+                    setTab("editor");
+                    void loadProject(id);
+                  }}
+                  onNew={() => {
+                    change(blankProgram());
+                    setTab("editor");
+                  }}
+                />
+              ) : tab === "connections" ||
+                tab === "caf" ||
+                tab === "caf-simulation" ? null : tab === "editor" ? (
+                <>
+                  {macroEdit && (
+                    <div className="macro-edit-banner">
+                      <strong>
+                        Editing definition: {macroEdit.definition}
+                      </strong>
+                      <span>
+                        Changes apply to every instance. Keep input identifiers,
+                        types and units unchanged.
+                      </span>
+                      <button className="primary" onClick={applyMacroEdit}>
+                        Apply definition changes
+                      </button>
+                      <button onClick={discardMacroEdit}>
+                        Discard definition changes
+                      </button>
+                    </div>
+                  )}
+                  <div className="editor-toolbar">
+                    <div className="button-row">
+                      <button
+                        title="New program"
+                        aria-label="New program"
+                        disabled={!!macroEdit}
+                        onClick={() => {
+                          change(blankProgram());
                           setSelected(null);
                           setVersions([]);
-                          setInputs({});
-                          setTimeout(() => flow.fitView({ padding: 0.2 }), 100);
-                        }
-                      }}
-                    >
-                      <option value="">VAV templates…</option>
-                      {templates.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                    <span className="toolbar-divider" />
-                    <button
-                      title="Undo"
-                      disabled={!undoStack.length}
-                      onClick={undo}
-                    >
-                      <Undo2 size={15} />
-                    </button>
-                    <button
-                      title="Redo"
-                      disabled={!redoStack.length}
-                      onClick={redo}
-                    >
-                      <Redo2 size={15} />
-                    </button>
-                    <button
-                      title="Fit view"
-                      onClick={() => flow.fitView({ padding: 0.2 })}
-                    >
-                      <Maximize size={15} />
-                    </button>
-                    <button
-                      title="Program settings"
-                      onClick={() => {
-                        setSettings(true);
-                        refreshVersions(program.id).catch(() => {});
-                      }}
-                    >
-                      <Settings2 size={15} />
-                    </button>
-                  </div>
-                  <div className="button-row">
-                    <button onClick={() => importInput.current?.click()}>
-                      <Upload size={15} /> Import
-                    </button>
-                    <input
-                      hidden
-                      type="file"
-                      accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"
-                      ref={importInput}
-                      onChange={(e) => {
-                        importProgram(e.target.files?.[0]);
-                        e.target.value = "";
-                      }}
-                    />
-                    <select
-                      aria-label="Export format"
-                      value={format}
-                      onChange={(e) => setFormat(e.target.value)}
-                    >
-                      <option value="json">BMS project</option>
-                      <option value="st">Structured Text</option>
-                      <option value="plcopen">PLCopen XML</option>
-                      <option value="graphml">GraphML</option>
-                      <option value="bog">
-                        Niagara BOG (primitive profile)
-                      </option>
-                      <option value="temco-bas">Temco Control Basic</option>
-                      <option value="sedona">Native Sedona bundle</option>
-                      <option value="sedona-sax">
-                        Sedona SAX (kit required)
-                      </option>
-                      <option value="sedona-sab">
-                        Sedona SAB (kit required)
-                      </option>
-                    </select>
-                    <button
-                      onClick={async () => {
-                        try {
-                          await programDownload(
-                            "/export",
-                            { program, format },
-                            program.id +
-                              "." +
-                              {
-                                json: "bms.json",
-                                st: "st",
-                                plcopen: "xml",
-                                graphml: "graphml",
-                                bog: "bog",
-                                "temco-bas": "bas",
-                                sedona: "sedona.zip",
-                                "sedona-sax": "sax",
-                                "sedona-sab": "sab",
-                              }[format],
+                        }}
+                      >
+                        <Plus size={15} /> New
+                      </button>
+                      <button
+                        disabled={!!macroEdit || saving}
+                        onClick={() => setEquipmentWizard(true)}
+                      >
+                        Equipment wizard
+                      </button>
+                      <select
+                        aria-label="Open saved project"
+                        disabled={!!macroEdit}
+                        value=""
+                        onChange={(e) => loadProject(e.target.value)}
+                      >
+                        <option value="">Open project…</option>
+                        {projects.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} · r{p.revision}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        aria-label="Choose VAV template"
+                        disabled={!!macroEdit}
+                        value=""
+                        onChange={(e) => {
+                          const p = templates.find(
+                            (p) => p.id === e.target.value,
                           );
-                          setMessage(
-                            format === "bog"
-                              ? "Exported native Niagara BOG primitives. Review event, status and priority semantics in Niagara; native runtime acceptance is unverified."
-                              : format === "temco-bas"
-                                ? "Exported Control Basic source. Compile, verify with the native interpreter and review a separate controller transfer in Temco native."
-                                : "Exported " +
-                                  format +
-                                  ". Review target compatibility before deployment.",
-                          );
-                        } catch (e) {
-                          setMessage(String(e));
-                        }
-                      }}
-                    >
-                      <Download size={15} /> Export
-                    </button>
-                  </div>
-                </div>
-                <ConversionPreview program={program} />
-                <div className="editor-layout">
-                  <aside className="palette">
-                    <div className="panel-heading">
-                      <Workflow size={16} /> BLOCK LIBRARY{" "}
-                      <span>{specs.length}</span>
+                          if (p) {
+                            change({
+                              ...cloneSource(p),
+                              id: p.id + "-" + Date.now().toString(36),
+                            });
+                            setSelected(null);
+                            setVersions([]);
+                            setInputs({});
+                            setTimeout(
+                              () => flow.fitView({ padding: 0.2 }),
+                              100,
+                            );
+                          }
+                        }}
+                      >
+                        <option value="">VAV templates…</option>
+                        {templates.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="toolbar-divider" />
+                      <button
+                        title="Undo"
+                        disabled={!undoStack.length}
+                        onClick={undo}
+                      >
+                        <Undo2 size={15} />
+                      </button>
+                      <button
+                        title="Redo"
+                        disabled={!redoStack.length}
+                        onClick={redo}
+                      >
+                        <Redo2 size={15} />
+                      </button>
+                      <button
+                        title="Fit view"
+                        onClick={() => flow.fitView({ padding: 0.2 })}
+                      >
+                        <Maximize size={15} />
+                      </button>
+                      <button
+                        title="Program settings"
+                        onClick={() => {
+                          setSettings(true);
+                          refreshVersions(program.id).catch(() => {});
+                        }}
+                      >
+                        <Settings2 size={15} />
+                      </button>
                     </div>
-                    <div className="search">
-                      <Search size={15} />
+                    <div className="button-row">
+                      <button onClick={() => importInput.current?.click()}>
+                        <Upload size={15} /> Import
+                      </button>
                       <input
-                        aria-label="Search blocks"
-                        placeholder="Search blocks…"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
+                        hidden
+                        type="file"
+                        accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"
+                        ref={importInput}
+                        onChange={(e) => {
+                          importProgram(e.target.files?.[0]);
+                          e.target.value = "";
+                        }}
                       />
+                      <select
+                        aria-label="Export format"
+                        value={format}
+                        onChange={(e) => setFormat(e.target.value)}
+                      >
+                        <option value="json">BMS project</option>
+                        <option value="st">Structured Text</option>
+                        <option value="plcopen">PLCopen XML</option>
+                        <option value="graphml">GraphML</option>
+                        <option value="bog">
+                          Niagara BOG (primitive profile)
+                        </option>
+                        <option value="temco-bas">Temco Control Basic</option>
+                        <option value="sedona">Native Sedona bundle</option>
+                        <option value="sedona-sax">
+                          Sedona SAX (kit required)
+                        </option>
+                        <option value="sedona-sab">
+                          Sedona SAB (kit required)
+                        </option>
+                      </select>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await programDownload(
+                              "/export",
+                              { program, format },
+                              program.id +
+                                "." +
+                                {
+                                  json: "bms.json",
+                                  st: "st",
+                                  plcopen: "xml",
+                                  graphml: "graphml",
+                                  bog: "bog",
+                                  "temco-bas": "bas",
+                                  sedona: "sedona.zip",
+                                  "sedona-sax": "sax",
+                                  "sedona-sab": "sab",
+                                }[format],
+                            );
+                            setMessage(
+                              format === "bog"
+                                ? "Exported native Niagara BOG primitives. Review event, status and priority semantics in Niagara; native runtime acceptance is unverified."
+                                : format === "temco-bas"
+                                  ? "Exported Control Basic source. Compile, verify with the native interpreter and review a separate controller transfer in Temco native."
+                                  : "Exported " +
+                                    format +
+                                    ". Review target compatibility before deployment.",
+                            );
+                          } catch (e) {
+                            setMessage(String(e));
+                          }
+                        }}
+                      >
+                        <Download size={15} /> Export
+                      </button>
                     </div>
-                    <div className="palette-scroll">
-                      {[
-                        "I/O",
-                        "Math",
-                        "Logic",
-                        "Control",
-                        "Supervision",
-                        "Macros",
-                      ].map((category) => (
-                        <div className="palette-group" key={category}>
-                          <div className="small-heading">{category}</div>
-                          {palette
-                            .filter((b) => b.category === category)
-                            .map((b) => (
-                              <button
-                                className="palette-block"
-                                key={specKey(b)}
-                                draggable
-                                onDragStart={(e) => {
-                                  e.dataTransfer.setData(
-                                    "application/bms-kind",
-                                    specKey(b),
-                                  );
-                                  e.dataTransfer.effectAllowed = "copy";
-                                }}
-                                onClick={() => add(specKey(b))}
-                                title={b.help || b.title}
-                              >
-                                <span
-                                  className={
-                                    "block-mark category-" +
-                                    category.toLowerCase().replace("/", "")
-                                  }
+                  </div>
+                  <ConversionPreview program={program} />
+                  <div className="editor-layout">
+                    <aside className="palette">
+                      <div className="panel-heading">
+                        <Workflow size={16} /> BLOCK LIBRARY{" "}
+                        <span>{specs.length}</span>
+                      </div>
+                      <div className="search">
+                        <Search size={15} />
+                        <input
+                          aria-label="Search blocks"
+                          placeholder="Search blocks…"
+                          value={search}
+                          onChange={(e) => setSearch(e.target.value)}
+                        />
+                      </div>
+                      <div className="palette-scroll">
+                        {[
+                          "I/O",
+                          "Math",
+                          "Logic",
+                          "Control",
+                          "Supervision",
+                          "Macros",
+                        ].map((category) => (
+                          <div className="palette-group" key={category}>
+                            <div className="small-heading">{category}</div>
+                            {palette
+                              .filter((b) => b.category === category)
+                              .map((b) => (
+                                <button
+                                  className="palette-block"
+                                  key={specKey(b)}
+                                  draggable
+                                  onDragStart={(e) => {
+                                    e.dataTransfer.setData(
+                                      "application/bms-kind",
+                                      specKey(b),
+                                    );
+                                    e.dataTransfer.effectAllowed = "copy";
+                                  }}
+                                  onClick={() => add(specKey(b))}
+                                  title={b.help || b.title}
                                 >
-                                  {b.stateful
-                                    ? "↻"
-                                    : b.kind === "Input"
-                                      ? "I"
-                                      : b.kind === "Output"
-                                        ? "O"
-                                        : b.title.slice(0, 1)}
-                                </span>
-                                <span>
-                                  {b.title}
-                                  <small>
-                                    {b.inputs.length
-                                      ? b.inputs.length + " inputs"
-                                      : "source"}
-                                  </small>
-                                </span>
-                                <Plus size={13} />
-                              </button>
-                            ))}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="palette-footer">
-                      Drag a block onto the wiresheet.
-                      <br />
-                      Click a block to add it.
-                    </div>
-                  </aside>
-                  <div className="editor-center">
-                    {activityCatalogError && (
-                      <p className="activity-source-error" role="alert">
-                        {activityCatalogError}
-                      </p>
-                    )}
-                    <Canvas
-                      activityBindings={activityPorts}
-                      program={program}
-                      blocks={specs}
-                      last={history.at(-1)}
-                      issues={issues}
-                      selected={selection}
-                      onSelect={setSelected}
-                      onChange={nodeChanges}
-                      onBeginDrag={remember}
-                      onConnect={connect}
-                      onAdd={add}
-                      onRemoveWire={(id) =>
-                        change({
-                          ...program,
-                          edges: program.edges.filter((e) => e.id !== id),
-                        })
-                      }
-                    />
-                    <SimulationPanel
-                      activityBindings={activityPorts}
-                      program={program}
-                      history={history}
-                      inputs={inputs}
-                      setInputs={setInputs}
-                      forces={forces}
-                      onReleaseForces={() => setForces({})}
-                      running={pacing.running}
-                      setRunning={(value) =>
-                        value ? pacing.run() : pacing.pause()
-                      }
-                      pacing={pacing}
-                      simBusy={
-                        !cleanupRestored.current ||
-                        simBusy ||
-                        simUncertain ||
-                        cleanupStatus.pending > 0 ||
-                        cleanupStatus.failed > 0 ||
-                        activityUnresolved
-                      }
-                      cleanup={{
-                        ...cleanupStatus,
-                        unknown: unknownSession,
-                        cache: cacheStatus,
-                        retry: retrySimulationCleanup,
-                        check: checkSimulationCache,
-                      }}
-                      onStep={() => {
-                        pacing.retire();
-                        void step().catch(() => {});
-                      }}
-                      onReset={resetSimulation}
-                      onRunScenario={runSimulationScenario}
-                      error={simError}
-                      recordHistory={recordHistory}
-                      setRecordHistory={setRecordHistory}
-                      recordingError={recordingError}
-                      nextClock={nextClock}
-                      setNextClock={setNextClock}
-                    />
-                  </div>
-                  {selection.length > 1 ? (
-                    <SelectionPanel
-                      nodes={program.nodes.filter((n) =>
-                        selection.includes(n.id),
+                                  <span
+                                    className={
+                                      "block-mark category-" +
+                                      category.toLowerCase().replace("/", "")
+                                    }
+                                  >
+                                    {b.stateful
+                                      ? "↻"
+                                      : b.kind === "Input"
+                                        ? "I"
+                                        : b.kind === "Output"
+                                          ? "O"
+                                          : b.title.slice(0, 1)}
+                                  </span>
+                                  <span>
+                                    {b.title}
+                                    <small>
+                                      {b.inputs.length
+                                        ? b.inputs.length + " inputs"
+                                        : "source"}
+                                    </small>
+                                  </span>
+                                  <Plus size={13} />
+                                </button>
+                              ))}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="palette-footer">
+                        Drag a block onto the wiresheet.
+                        <br />
+                        Click a block to add it.
+                      </div>
+                    </aside>
+                    <div className="editor-center">
+                      {activityCatalogError && (
+                        <p className="activity-source-error" role="alert">
+                          {activityCatalogError}
+                        </p>
                       )}
-                      onSelect={setSelected}
-                      onCopy={copySelection}
-                      onDuplicate={duplicate}
-                      onDelete={remove}
-                      onAlign={alignSelection}
-                    />
-                  ) : (
-                    <Inspector
-                      node={active}
-                      block={specs.find((b) => matchesBlock(b, active))}
-                      onEdit={edit}
-                      onDelete={remove}
-                      onDuplicate={duplicate}
-                      program={program}
-                      onSelect={setSelected}
-                      forces={forces}
-                      onForceChange={setForces}
-                      executionValues={executionValues}
-                      last={history.at(-1)}
-                      activityBindings={activityPorts}
-                      onActivityForceChange={changeActivityForces}
-                      sourceEpoch={renderedDraftEpoch}
-                      onRefreshActivityPorts={() => {
-                        resetSimulation();
-                        activityAuthorityEpoch.current++;
-                        setActivityPortSource(null);
-                        setActivityCatalogError("");
-                        setActivityCatalogRefresh((value) => value + 1);
-                      }}
-                    />
-                  )}
-                </div>
-                <div className="validation-bar">
-                  <button
-                    className={
-                      validationStatus === "complete"
-                        ? errors.length
-                          ? "validation-error"
-                          : "validation-ok"
-                        : ""
-                    }
-                    onClick={() => setShowIssues(!showIssues)}
-                  >
-                    {validationStatus !== "complete" || errors.length ? (
-                      <AlertTriangle size={14} />
+                      <Canvas
+                        activityBindings={activityPorts}
+                        program={program}
+                        blocks={specs}
+                        last={history.at(-1)}
+                        issues={issues}
+                        selected={selection}
+                        onSelect={setSelected}
+                        onChange={nodeChanges}
+                        onBeginDrag={remember}
+                        onConnect={connect}
+                        onAdd={add}
+                        onRemoveWire={(id) =>
+                          change({
+                            ...program,
+                            edges: program.edges.filter((e) => e.id !== id),
+                          })
+                        }
+                      />
+                      {mode === "simulate" && (
+                        <SimulationPanel
+                          activityBindings={activityPorts}
+                          program={program}
+                          history={history}
+                          inputs={inputs}
+                          setInputs={setInputs}
+                          forces={forces}
+                          onReleaseForces={() => setForces({})}
+                          running={pacing.running}
+                          setRunning={(value) =>
+                            value ? pacing.run() : pacing.pause()
+                          }
+                          pacing={pacing}
+                          simBusy={
+                            !cleanupRestored.current ||
+                            simBusy ||
+                            simUncertain ||
+                            cleanupStatus.pending > 0 ||
+                            cleanupStatus.failed > 0 ||
+                            activityUnresolved
+                          }
+                          cleanup={{
+                            ...cleanupStatus,
+                            unknown: unknownSession,
+                            cache: cacheStatus,
+                            retry: retrySimulationCleanup,
+                            check: checkSimulationCache,
+                          }}
+                          onStep={() => {
+                            pacing.retire();
+                            void step().catch(() => {});
+                          }}
+                          onReset={resetSimulation}
+                          onRunScenario={runSimulationScenario}
+                          error={simError}
+                          recordHistory={recordHistory}
+                          setRecordHistory={setRecordHistory}
+                          recordingError={recordingError}
+                          nextClock={nextClock}
+                          setNextClock={setNextClock}
+                        />
+                      )}
+                    </div>
+                    {selection.length > 1 ? (
+                      <SelectionPanel
+                        nodes={program.nodes.filter((n) =>
+                          selection.includes(n.id),
+                        )}
+                        onSelect={setSelected}
+                        onCopy={copySelection}
+                        onDuplicate={duplicate}
+                        onDelete={remove}
+                        onAlign={alignSelection}
+                      />
                     ) : (
-                      <CheckCircle2 size={14} />
-                    )}{" "}
-                    {validationStatus === "pending"
-                      ? "Checking graph…"
-                      : validationStatus === "error"
-                        ? "Graph check unavailable"
-                        : errors.length
-                          ? errors.length + " graph errors"
-                          : "Graph checks passed"}{" "}
-                    <span>
-                      {issues.filter((d) => d.level === "warning").length}{" "}
-                      notices
-                    </span>
-                  </button>
-                  <span>
-                    {program.nodes.length} blocks · {program.edges.length} wires
-                    · {program.scan_seconds}s scan · r{program.revision}
-                  </span>
-                </div>
-                {showIssues && (
-                  <div className="diagnostics">
-                    {issues.length ? (
-                      issues.map((d, i) => (
-                        <button key={i} onClick={() => setSelected(d.node)}>
-                          <span
-                            className={
-                              "pill " + (d.level === "error" ? "pending" : "")
-                            }
-                          >
-                            {d.level}
-                          </span>
-                          <b>{d.node || "Program"}</b>
-                          {d.message}
-                        </button>
-                      ))
-                    ) : (
-                      <p>
-                        {validationStatus === "pending"
-                          ? "Checking the current graph…"
-                          : validationStatus === "error"
-                            ? "Graph checks did not complete."
-                            : "All graph checks passed. This checks our graph semantics, not native firmware compatibility."}
-                      </p>
+                      <Inspector
+                        node={active}
+                        block={specs.find((b) => matchesBlock(b, active))}
+                        onEdit={edit}
+                        onDelete={remove}
+                        onDuplicate={duplicate}
+                        program={program}
+                        onSelect={setSelected}
+                        forces={forces}
+                        onForceChange={setForces}
+                        executionValues={executionValues}
+                        last={history.at(-1)}
+                        activityBindings={activityPorts}
+                        onActivityForceChange={changeActivityForces}
+                        sourceEpoch={renderedDraftEpoch}
+                        onRefreshActivityPorts={() => {
+                          resetSimulation();
+                          activityAuthorityEpoch.current++;
+                          setActivityPortSource(null);
+                          setActivityCatalogError("");
+                          setActivityCatalogRefresh((value) => value + 1);
+                        }}
+                      />
                     )}
                   </div>
-                )}
-              </>
-            ) : tab === "caf-compare" ? (
-              <CafComparison />
-            ) : tab === "bog" ? (
-              <NiagaraInspector />
-            ) : tab === "truth-tables" ? (
-              <TruthTableReview />
-            ) : tab === "hardware" ? (
-              <HardwareDefinitions />
-            ) : tab === "connections" ? (
-              <Connections />
-            ) : tab === "runtime" ? (
-              <RuntimePanel program={program} inputs={inputs} />
-            ) : tab === "native" ? (
-              <NativeSimulator
-                program={program}
-                onSaved={(p) => {
-                  recordSaved(
-                    p,
-                    program,
-                    renderedDraftEpoch,
-                    renderedNavigationEpoch,
-                    true,
-                  );
-                  refreshProjects().catch((e) => setMessage(String(e)));
-                }}
-              />
-            ) : tab === "temco" ? (
-              <TemcoSimulator program={program} />
-            ) : tab === "iec" ? (
-              <IECVerifier program={program} />
-            ) : tab === "system" ? (
-              <SystemSimulation program={program} />
-            ) : tab === "observations" ? (
-              <Observations />
-            ) : tab === "notifications" ? (
-              <Notifications />
-            ) : tab === "field-trends" ? (
-              <FieldTrends />
-            ) : tab === "device-history" ? (
-              <DeviceHistory />
-            ) : tab === "conformance" ? (
-              <ConformancePanel program={program} />
-            ) : tab === "macros" ? (
-              <MacroLibrary
-                program={program}
-                selectedIds={selection}
-                onChange={(next) => {
-                  if (
-                    latestProgram.current !== program ||
-                    draftEpoch.current !== renderedDraftEpoch
-                  )
-                    throw new Error(
-                      "Program changed before the reusable-library result could be adopted.",
+                  <div className="validation-bar">
+                    <button
+                      className={
+                        validationStatus === "complete"
+                          ? errors.length
+                            ? "validation-error"
+                            : "validation-ok"
+                          : ""
+                      }
+                      onClick={() => setShowIssues(!showIssues)}
+                    >
+                      {validationStatus !== "complete" || errors.length ? (
+                        <AlertTriangle size={14} />
+                      ) : (
+                        <CheckCircle2 size={14} />
+                      )}{" "}
+                      {validationStatus === "pending"
+                        ? "Checking graph…"
+                        : validationStatus === "error"
+                          ? "Graph check unavailable"
+                          : errors.length
+                            ? errors.length + " graph errors"
+                            : "Graph checks passed"}{" "}
+                      <span>
+                        {issues.filter((d) => d.level === "warning").length}{" "}
+                        notices
+                      </span>
+                    </button>
+                    <span>
+                      {program.nodes.length} blocks · {program.edges.length}{" "}
+                      wires · {program.scan_seconds}s scan · r{program.revision}
+                    </span>
+                  </div>
+                  {showIssues && (
+                    <div className="diagnostics">
+                      {issues.length ? (
+                        issues.map((d, i) => (
+                          <button key={i} onClick={() => setSelected(d.node)}>
+                            <span
+                              className={
+                                "pill " + (d.level === "error" ? "pending" : "")
+                              }
+                            >
+                              {d.level}
+                            </span>
+                            <b>{d.node || "Program"}</b>
+                            {d.message}
+                          </button>
+                        ))
+                      ) : (
+                        <p>
+                          {validationStatus === "pending"
+                            ? "Checking the current graph…"
+                            : validationStatus === "error"
+                              ? "Graph checks did not complete."
+                              : "All graph checks passed. This checks our graph semantics, not native firmware compatibility."}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </>
+              ) : tab === "caf-compare" ? (
+                <CafComparison />
+              ) : tab === "bog" ? (
+                <NiagaraInspector />
+              ) : tab === "truth-tables" ? (
+                <TruthTableReview />
+              ) : tab === "hardware" ? (
+                <HardwareDefinitions />
+              ) : tab === "connections" ? null : tab === "runtime" ? (
+                <RuntimePanel program={program} inputs={inputs} />
+              ) : tab === "native" ? (
+                <NativeSimulator
+                  program={program}
+                  onSaved={(p) => {
+                    recordSaved(
+                      p,
+                      program,
+                      renderedDraftEpoch,
+                      renderedNavigationEpoch,
+                      true,
                     );
-                  change(next);
-                }}
-                onSelect={setSelected}
-                onEditDefinition={openMacroEdit}
-                onBeforeMigration={() => {
-                  if (
-                    latestProgram.current !== program ||
-                    draftEpoch.current !== renderedDraftEpoch
-                  )
-                    throw new Error(
-                      "Program changed before simulation migration could begin.",
+                    refreshProjects().catch((e) => setMessage(String(e)));
+                  }}
+                />
+              ) : tab === "temco" || tab === "temco-transfer" ? (
+                <TemcoSimulator
+                  program={program}
+                  transfer={tab === "temco-transfer"}
+                  controller={controller}
+                />
+              ) : tab === "iec" ? (
+                <IECVerifier program={program} />
+              ) : tab === "system" ? (
+                <SystemSimulation program={program} />
+              ) : tab === "observations" ? (
+                <Observations />
+              ) : tab === "notifications" ? (
+                <Notifications />
+              ) : tab === "field-trends" ? (
+                <FieldTrends
+                  defaultAddress={controller?.address}
+                  controllerReady={controller?.interfaceOpen}
+                />
+              ) : tab === "device-history" ? (
+                <DeviceHistory
+                  defaultAddress={controller?.address}
+                  defaultTarget={controller}
+                />
+              ) : tab === "conformance" ? (
+                <ConformancePanel program={program} />
+              ) : tab === "macros" ? (
+                <MacroLibrary
+                  program={program}
+                  selectedIds={selection}
+                  onChange={(next) => {
+                    if (
+                      latestProgram.current !== program ||
+                      draftEpoch.current !== renderedDraftEpoch
+                    )
+                      throw new Error(
+                        "Program changed before the reusable-library result could be adopted.",
+                      );
+                    change(next);
+                  }}
+                  onSelect={setSelected}
+                  onEditDefinition={openMacroEdit}
+                  onBeforeMigration={() => {
+                    if (
+                      latestProgram.current !== program ||
+                      draftEpoch.current !== renderedDraftEpoch
+                    )
+                      throw new Error(
+                        "Program changed before simulation migration could begin.",
+                      );
+                    resetSimulation();
+                  }}
+                  sourceEpoch={renderedDraftEpoch}
+                  onActivityCatalog={(data, error) => {
+                    if (
+                      latestProgram.current !== program ||
+                      draftEpoch.current !== renderedDraftEpoch ||
+                      libraryVersion(program) !== 2
+                    )
+                      return;
+                    activityAuthorityEpoch.current++;
+                    if (!data) resetSimulation();
+                    setActivityCatalogError(error || "");
+                    setMacroBlocks(
+                      data
+                        ? data.definitions.map((definition: Block) => ({
+                            ...definition,
+                            stateful: true,
+                          }))
+                        : [],
                     );
-                  resetSimulation();
-                }}
-                sourceEpoch={renderedDraftEpoch}
-                onActivityCatalog={(data, error) => {
-                  if (
-                    latestProgram.current !== program ||
-                    draftEpoch.current !== renderedDraftEpoch ||
-                    libraryVersion(program) !== 2
-                  )
-                    return;
-                  activityAuthorityEpoch.current++;
-                  if (!data) resetSimulation();
-                  setActivityCatalogError(error || "");
-                  setMacroBlocks(
-                    data
-                      ? data.definitions.map((definition: Block) => ({
-                          ...definition,
-                          stateful: true,
-                        }))
-                      : [],
-                  );
-                  setActivityPortSource(
-                    data?.bindings
-                      ? { epoch: renderedDraftEpoch, data: data.bindings }
-                      : null,
-                  );
-                }}
-              />
-            ) : (
-              <Resources />
-            )}
-          </Suspense>
+                    setActivityPortSource(
+                      data?.bindings
+                        ? { epoch: renderedDraftEpoch, data: data.bindings }
+                        : null,
+                    );
+                  }}
+                />
+              ) : (
+                <Resources />
+              )}
+            </Suspense>
+          </div>
         </main>
       </div>
       {equipmentWizard && tab === "editor" && !macroEdit && (
