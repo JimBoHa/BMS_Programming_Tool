@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import type { Block, BmsNode, Program, Scan } from "./types";
 import { showValue } from "./types";
+import type { ActivityBindings } from "./activityContracts";
 import { programApi, saveBlob } from "./api";
 
 export function Inspector({
@@ -40,6 +41,10 @@ export function Inspector({
   onForceChange,
   last,
   executionValues,
+  activityBindings,
+  onActivityForceChange,
+  sourceEpoch,
+  onRefreshActivityPorts,
 }: {
   node?: BmsNode;
   block?: Block;
@@ -52,6 +57,10 @@ export function Inspector({
   onForceChange: (forces: Record<string, ExecutionValue>) => void;
   executionValues: Record<string, ExecutionValue>;
   last?: Scan;
+  activityBindings?: ActivityBindings | null;
+  onActivityForceChange?: (forces: Record<string, ExecutionValue>) => void;
+  sourceEpoch?: number;
+  onRefreshActivityPorts?: () => void;
 }) {
   if (!node || !block)
     return (
@@ -71,6 +80,23 @@ export function Inspector({
           <p>Use one-scan memory to close a feedback loop.</p>
         </div>
       </aside>
+    );
+  if (node.kind === "Activity")
+    return (
+      <ActivityInspector
+        key={node.id + ":" + sourceEpoch}
+        node={node}
+        block={block}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        onDuplicate={onDuplicate}
+        bindings={activityBindings}
+        forces={forces}
+        onForceChange={onActivityForceChange || onForceChange}
+        executionValues={executionValues}
+        last={last}
+        onRefresh={onRefreshActivityPorts}
+      />
     );
   const p = { ...block.parameters, ...node.params };
   function param(key: string, value: any) {
@@ -195,6 +221,141 @@ export function Inspector({
           executionValues={executionValues}
         />
         <DependencyView program={program} node={node.id} onSelect={onSelect} />
+      </div>
+    </aside>
+  );
+}
+
+function ActivityInspector({
+  node,
+  block,
+  onEdit,
+  onDelete,
+  onDuplicate,
+  bindings,
+  forces,
+  onForceChange,
+  executionValues,
+  last,
+  onRefresh,
+}: {
+  node: BmsNode;
+  block: Block;
+  onEdit: (node: BmsNode) => void;
+  onDelete: () => void;
+  onDuplicate: () => void;
+  bindings?: ActivityBindings | null;
+  forces: Record<string, ExecutionValue>;
+  onForceChange: (forces: Record<string, ExecutionValue>) => void;
+  executionValues: Record<string, ExecutionValue>;
+  last?: Scan;
+  onRefresh?: () => void;
+}) {
+  return (
+    <aside className="inspector" aria-label="Activity output inspector">
+      <div className="panel-heading">ACTIVITY PORTS</div>
+      <div className="inspector-body">
+        <button onClick={onRefresh}>Refresh activity port authority</button>
+        <p className="help-text">
+          Refreshing restarts the local simulation and clears its history and
+          forces.
+        </p>
+        <h3>{node.label || node.id}</h3>
+        <code>{node.params.definition}</code>
+        <label>
+          Activity label
+          <input
+            aria-label="Activity label"
+            value={node.label}
+            onChange={(event) => onEdit({ ...node, label: event.target.value })}
+          />
+        </label>
+        <p className="help-text">
+          This container has no scalar output. Each named port has its own
+          value, unit and portable simulation force.
+        </p>
+        <div className="button-row">
+          <button onClick={onDuplicate}>Duplicate</button>
+          <button className="danger" onClick={onDelete}>
+            Delete
+          </button>
+        </div>
+        {!bindings && (
+          <p role="status">
+            Validate this source before applying output forces. No old alias
+            authority is reused.
+          </p>
+        )}
+        <div className="activity-port-values">
+          {(block.outputs || []).map((port) => {
+            const binding = bindings?.outputs.find(
+              (row) =>
+                row.instance_path.length === 1 &&
+                row.instance_path[0] === node.id &&
+                row.output_id === port.id,
+            );
+            const value = binding
+              ? (executionValues[binding.alias_node_id] ??
+                last?.values[binding.alias_node_id])
+              : undefined;
+            const computed = binding
+              ? last?.computed?.[binding.alias_node_id]
+              : undefined;
+            return (
+              <section
+                key={port.id}
+                className="activity-port-value"
+                aria-label={"Activity output " + port.id}
+              >
+                <h4>{port.label || port.id}</h4>
+                <code>{port.id}</code>
+                <p>
+                  {port.value_type} · {port.unit || "dimensionless"}
+                </p>
+                <p>
+                  Last value: <b>{showValue(value)}</b>
+                  {computed !== undefined && (
+                    <>
+                      {" "}
+                      · computed <b>{showValue(computed)}</b>
+                    </>
+                  )}
+                </p>
+                {binding && (
+                  <ForceEditor
+                    node={{
+                      ...node,
+                      id: binding.alias_node_id,
+                      kind: "Switch",
+                      unit: port.unit,
+                      value_type: port.value_type,
+                      params: {},
+                    }}
+                    block={{
+                      kind: "Switch",
+                      title: port.label || port.id,
+                      category: "Activity output",
+                      inputs: ["on", "off", "select"],
+                      output: "same",
+                      parameters: {},
+                      help: "Portable output alias",
+                      stateful: false,
+                    }}
+                    forces={forces}
+                    onChange={onForceChange}
+                    last={last}
+                    executionValues={executionValues}
+                  />
+                )}
+              </section>
+            );
+          })}
+        </div>
+        <p className="help-text">
+          These values and forces belong to the local portable graph. A private
+          alias is not a controller address, physical override or native JCI
+          identity.
+        </p>
       </div>
     </aside>
   );
@@ -563,6 +724,7 @@ export function SimulationPanel({
   recordingError,
   nextClock,
   setNextClock,
+  activityBindings,
 }: {
   program: Program;
   history: Scan[];
@@ -592,6 +754,7 @@ export function SimulationPanel({
   recordingError: string;
   nextClock: string;
   setNextClock: (v: string) => void;
+  activityBindings?: ActivityBindings | null;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [events, setEvents] = useState(
@@ -600,17 +763,36 @@ export function SimulationPanel({
   const [scenarioError, setScenarioError] = useState("");
   const [duration, setDuration] = useState(90);
   function csv() {
-    const columns = program.nodes.map((n) => n.id);
+    const columns = program.nodes.flatMap((node) =>
+      node.kind === "Activity"
+        ? (activityBindings?.outputs || [])
+            .filter(
+              (row) =>
+                row.instance_path.length === 1 &&
+                row.instance_path[0] === node.id,
+            )
+            .map((row) => ({
+              id: row.alias_node_id,
+              label: row.instance_path.join(".") + "." + row.output_id,
+            }))
+        : [{ id: node.id, label: node.id }],
+    );
     const quote = (v: any) => '"' + String(v ?? "").replaceAll('"', '""') + '"';
     const text = [
-      ["seconds", "clock", ...columns, "force_overrides", "computed_values"]
+      [
+        "seconds",
+        "clock",
+        ...columns.map((column) => column.label),
+        "force_overrides",
+        "computed_values",
+      ]
         .map(quote)
         .join(","),
       ...history.map((r) =>
         [
           r.time,
           r.clock,
-          ...columns.map((c) => r.values[c]),
+          ...columns.map((column) => r.values[column.id]),
           sourceStringify(r.forces || {}),
           sourceStringify(r.computed || {}),
         ]
@@ -672,7 +854,11 @@ export function SimulationPanel({
           </button>
           <button
             onClick={csv}
-            disabled={!history.length}
+            disabled={
+              !history.length ||
+              (program.nodes.some((node) => node.kind === "Activity") &&
+                !activityBindings)
+            }
             title="Export simulation CSV"
           >
             <Download size={14} />

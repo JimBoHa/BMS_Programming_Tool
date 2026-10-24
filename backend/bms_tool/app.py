@@ -21,6 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import AwareDatetime, Field
 
 from .accumulator_prescale import PrescaleReviews, prescale_router
+from .activities import activity_router
 from .analysis import dependencies
 from .bacnet_cov import BacnetCov, CovAction, CovStart
 from .bacnet_event_ack import EventAckApply, EventAcknowledgements, EventAckPreview
@@ -674,6 +675,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.include_router(unit_ventilator_cycle3_router())
     app.include_router(sum8_macro_template_router())
     app.include_router(cancelable_pulse_template_router())
+    app.include_router(activity_router())
 
     @app.middleware("http")
     async def local_requests(request, call_next):

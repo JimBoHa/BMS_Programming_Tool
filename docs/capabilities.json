@@ -57,7 +57,7 @@
   {
     "feature": "Shared-signal system simulation",
     "status": "implemented",
-    "scope": "2\u201316 graph instances with a common clock and typed/unit-checked previous-cycle links. All programs commit together; a failed cycle holds every state/output. Bounded sessions/history, quality fault records and portable workspace save/reopen. No field interfaces or equipment/firmware emulation."
+    "scope": "2–16 graph instances with a common clock and typed/unit-checked previous-cycle links. All programs commit together; a failed cycle holds every state/output. Bounded sessions/history, quality fault records and portable workspace save/reopen. No field interfaces or equipment/firmware emulation."
   },
   {
     "feature": "Internal simulation holds and releases",
@@ -463,5 +463,10 @@
     "feature": "Authored fixed-duration cancelable pulse macro",
     "status": "implemented",
     "scope": "TIMER-CANCELABLE-001 generates six ordinary nodes and six wires with one required Boolean request and one pulse result. Whole-second duration1..86400 and parent scan1..60 must align; delayed committed expiry defines the authored scan phase, including one-scan pulses, cancellation and held-true behavior. Source-bound preview/export and narrow authenticated import recheck the supplied parent clock/profile/canonical digest before the unchanged generic macro merge. Unfinished editor graphs remain allowed, repeated reviews reuse identical definitions, and original artifacts preserve source identity. Quality faults retain the prior complete transaction, potentially a true output. No global engine gate: manual imports, later clock edits and dt overrides can leave historical qualification. Native JCI Timer/reliability/CAF/package/transfer, dynamic duration/reset action, Time Remaining and physical protection remain gaps under partial MF-c1feb93911. See docs/cancelable-pulse-template.md."
+  },
+  {
+    "feature": "Named mixed-output reusable activities",
+    "status": "implemented",
+    "scope": "Explicit studio-activities/2 libraries/archive2/Activity containers expose1..32 independently typed named outputs from one shared expanded state graph. Typed named handles, per-port portable values/forces, create/inspect/edit/delete/import/export, original source/revision/interchange and deliberate reviewed whole-v1 promotion preserve source identity and retire stale sessions/forces. V1 services, accepted admissions and legacy bytes remain separate; current IEC evidence binds original/expanded source and typed output aliases once. No proprietary native activity algorithms, Enum/reliability mapping, native JCI allocation/CAF/compiler/transfer, native internal-port forcing or physical/code acceptance. Broad UI-004 native-manufacturer equivalence remains outside scope. See docs/multi-output-activities.md."
   }
 ]

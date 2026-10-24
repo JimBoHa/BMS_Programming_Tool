@@ -9,6 +9,12 @@ export type Block = {
   help: string;
   stateful: boolean;
   unit?: string;
+  outputs?: {
+    id: string;
+    label: string;
+    value_type: "number" | "boolean";
+    unit: string;
+  }[];
 };
 export type BmsNode = {
   id: string;
