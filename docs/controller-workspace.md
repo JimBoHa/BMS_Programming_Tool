@@ -28,6 +28,12 @@ reference material. Opening the start screen does not open a field interface.
 4. Work in Overview, Points & I/O, Program, Schedules, Trends & Alarms or Changes.
    The selected target supplies downstream address and route fields. The header
    retains its name, Device instance, route and last verification age.
+   Points & I/O opens the controller's object inventory and reads live values,
+   units and native quality fields automatically. It does not require manually
+   entering object IDs. Program defaults to actual controller application
+   information and exposed Program objects. Local graph and CAF views require
+   an explicit local-source selection. Native editable logic requires a supported
+   application reader; the common BACnet reader does not provide that transfer.
 
 To change an instance number, open **Overview → Edit instance number**, enter the
 new allocated number and choose **Review instance change**. Review the exact
