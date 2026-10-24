@@ -76,6 +76,7 @@ export function RoutedDiscoveryPanel({
   onDiscovered,
   knownDevices = [],
   interfaceIdentity = "",
+  connectorConfig = null,
   localDiscoveryAvailable = true,
   onSelectionCleared,
 }: {
@@ -84,6 +85,7 @@ export function RoutedDiscoveryPanel({
   onDiscovered?: (result: RoutedScanResult) => void;
   knownDevices?: NamedScanTarget[];
   interfaceIdentity?: string;
+  connectorConfig?: unknown;
   localDiscoveryAvailable?: boolean;
   onSelectionCleared?: () => void;
 }) {
@@ -138,14 +140,27 @@ export function RoutedDiscoveryPanel({
   const endpointKey = (value: string) =>
     value.trim() &&
     (value.includes(":") ? value.trim() : value.trim() + ":47808");
+  const configKey = (value: unknown) =>
+    value && typeof value === "object" && !Array.isArray(value)
+      ? JSON.stringify(
+          Object.entries(value).sort(([a], [b]) => a.localeCompare(b)),
+        )
+      : null;
+  const currentConfig = configKey(connectorConfig);
+  const currentName = (item: NamedScanTarget) =>
+    !!interfaceIdentity &&
+    item.observedInterface === interfaceIdentity &&
+    currentConfig !== null &&
+    configKey(item.connectorConfig) === currentConfig;
+  const currentNames = knownDevices.filter(currentName);
   const routerName = (address: string) =>
-    knownDevices.find(
+    currentNames.find(
       (item) =>
         item.target.source === "ip" &&
         endpointKey(item.target.address) === endpointKey(address),
     )?.name;
   const controllerName = (device: RoutedDevice, result: RoutedScanResult) =>
-    knownDevices.find(
+    currentNames.find(
       (item) =>
         item.target.source === "routed" &&
         endpointKey(item.target.router ?? "") ===

@@ -206,3 +206,6 @@ The [cancelable-pulse macro template](docs/cancelable-pulse-template.md) adds an
 [Named mixed-output activities](docs/multi-output-activities.md) add explicit version2 reusable graphs with shared state, typed output handles and portable output forces. Version1 libraries remain separate; migration is deliberate and source-bound.
 
 The [authored CW isolation/pump output template](docs/cw-isolation-output-template.md) adds a shared-state two-output activity with explicit ramp, target-floor minimum, committed disable/restart and source/clock rules. Native vendor and physical plant acceptance remain separate.
+
+The [authored CO2 minimum-airflow reset template](docs/co2-minimum-flow-template.md) adds five live endpoint inputs, a bounded flow request and committed configuration diagnostic with explicit invalid-configuration hold and guarded flow-unit conversion. Native vendor, measured ventilation and physical/code acceptance remain separate.
+The [authored parallel fan purge template](docs/parallel-fan-purge-template.md) combines heating/cooling requests with separate raw-heating-below-off purge memory and live duration. It records fixed-declared-scan accounting, invalid-good hold/reset and quality rollback; native vendor and physical motor/fan acceptance remain separate.

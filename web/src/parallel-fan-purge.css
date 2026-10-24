@@ -1,0 +1,25 @@
+.parallel-purge-template {
+  margin: 18px 0;
+}
+.parallel-purge-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(150px, 1fr));
+  gap: 12px;
+}
+.parallel-purge-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.parallel-purge-retention {
+  border-left: 3px solid #b88c4a;
+  padding-left: 12px;
+}
+.parallel-purge-digests {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 750px) {
+  .parallel-purge-fields {
+    grid-template-columns: 1fr;
+  }
+}
