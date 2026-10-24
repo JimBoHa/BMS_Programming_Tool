@@ -126,6 +126,12 @@ class Suite(StrictModel):
 
 def contract(program):
     engine = Engine(program)  # Rejects invalid graphs and unexecuted native extensions.
+    library = program.metadata.get("macros")
+    activities = (
+        isinstance(library, dict)
+        and type(library.get("version")) is int
+        and library["version"] == 2
+    )
     signals = [
         {
             "id": n.id,
@@ -140,6 +146,7 @@ def contract(program):
             else "internal",
         }
         for n in program.nodes
+        if not (activities and n.kind == "Activity")
     ]
     if any(row["id"] not in engine.nodes for row in signals):
         raise ValueError("A root graph signal lacks an observable portable execution value.")

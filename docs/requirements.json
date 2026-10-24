@@ -1240,5 +1240,14 @@
     "pdf_pages_or_section": "PDF1698-1700 Table1375; docs/cancelable-pulse-template.md",
     "status": "partial",
     "implementation_or_gap": "TIMER-CANCELABLE-001 provides a bounded authored fixed-duration ordinary graph. Native timer identity/reliability, dynamic Duration/Setup/Reset Action and Time Remaining, other modes, retained restart state, arbitrary dt, native package/CAF compilation/transfer and physical controller acceptance remain unimplemented or unverified."
+  },
+  {
+    "id": "MACRO-MULTIOUT-001",
+    "feature": "Named mixed-output reusable activities",
+    "acceptance_criterion": "Deliberately author, nest, inspect/edit and exchange version2 activities with1..32 named Boolean/number outputs sharing one lowered state graph; retain original hierarchy, typed ports, current source-bound aliases, simulation/portable forces, explicit reviewed v1 migration and strict legacy compatibility.",
+    "evidence": "JCI Controller Tool Help18.0 LIT-12011147 originalSHA68935362c85cb1879dc033cc701115e8ea7c4ecb26748f21a9ceaf0454f82903; retained ALC LogicBuilder multiple Point/Valid output criteria; authored studio-activities/2",
+    "pdf_pages_or_section": "PDF43;224-225;905/Table572;1278-1279/Table1036;1297/Figure162; docs/multi-output-activities.md",
+    "status": "implemented",
+    "implementation_or_gap": "Separate exactversion2 library/archive/container and loader, one expansion per path, named typed aliases, strict source/clock/context guards, actual API/revisions/current portable interchange, guarded named-port UI and portable simulation/forces. Explicit whole v1 source/archive migration retires source aliases/state/forces; v1 services/emission/accepted goldens stay separate. Native IEC and existing target host evidence do not provide native JCI/ALC algorithms, Enum/reliability adapters, CAF/packages/transfer, native internal-port forcing or physical acceptance."
   }
 ]

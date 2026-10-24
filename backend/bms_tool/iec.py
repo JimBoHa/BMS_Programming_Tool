@@ -464,6 +464,7 @@ class NativeIEC:
             "warnings": self.warnings,
             "source_generator": source_profile(),
             "symbol_table": self.symbols.evidence(),
+            **_activity_evidence(self),
         }
 
     def close(self):
@@ -490,6 +491,36 @@ class NativeIEC:
         self.close()
 
 
+def _activity_evidence(native):
+    # Opaque legacy metadata may already use activity_expansion. It is not
+    # execution authority: only the original explicit v2 source selects this
+    # additive report, never a preserved or forged expanded-metadata field.
+    library = native.program.metadata.get("macros")
+    if not (
+        isinstance(library, dict)
+        and type(library.get("version")) is int
+        and library["version"] == 2
+    ):
+        return {}
+    binding = native.graph.metadata.get("activity_expansion")
+    if not isinstance(binding, dict) or binding.get("version") != 2:
+        return {}
+    from .activities import PROFILE, PROFILE_SHA
+
+    return {
+        "activity_bindings": {
+            "format": "bms.activity-bindings/1",
+            "profile": copy.deepcopy(PROFILE),
+            "profile_sha256": PROFILE_SHA,
+            "program_id": native.program.id,
+            "program_revision": native.program.revision,
+            "source_sha256": native.program.digest(),
+            "expanded_sha256": native.graph.digest(),
+            "outputs": copy.deepcopy(binding["outputs"]),
+        }
+    }
+
+
 def compile_program(program):
     with NativeIEC(program) as native:
         return native.compilation()
@@ -508,6 +539,7 @@ def verify_program(program, inputs=None, *, scans=1, dt=None, clock=None):
             "warnings": native.warnings,
             "profile": profile(),
             "symbol_table": native.symbols.evidence(),
+            **_activity_evidence(native),
         }
 
 
@@ -565,4 +597,5 @@ def verify_scenario(program, events, duration, dt=None, *, clock=None):
             "warnings": native.warnings,
             "profile": profile(),
             "symbol_table": native.symbols.evidence(),
+            **_activity_evidence(native),
         }

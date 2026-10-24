@@ -420,6 +420,7 @@ def _symbol_policy(profile, symbols):
 
 def export_st(program, embedded=True, *, profile=CURRENT, symbols=None):
     if _symbol_policy(profile, symbols) == SYMBOLS_LEGACY:
+        _require_legacy_activity_absence(program)
         return _legacy_export_st(program, embedded=embedded, profile=profile)
     declarations, body, _ = iec_source_parts(program)
     text = "PROGRAM MAIN\n"
@@ -444,6 +445,7 @@ def export_st(program, embedded=True, *, profile=CURRENT, symbols=None):
 
 def export_plcopen(program, *, profile=CURRENT, symbols=None):
     if _symbol_policy(profile, symbols) == SYMBOLS_LEGACY:
+        _require_legacy_activity_absence(program)
         return _legacy_export_plcopen(program, profile=profile)
     # The original writer emits unchanged control expressions over a private
     # copy. Only the original graph may be embedded or returned to an editor.
@@ -616,7 +618,15 @@ def import_program(content, filename):
             if ir is None:
                 raise ConversionError("GraphML lacks BMS graph metadata.")
             program = Program.model_validate_json(ir.text or "")
-            if _archival_graphml(program) != content:
+            library = program.metadata.get("macros")
+            expected = (
+                export_graphml(program)
+                if isinstance(library, dict)
+                and type(library.get("version")) is int
+                and library["version"] == 2
+                else _archival_graphml(program)
+            )
+            if expected != content:
                 raise ConversionError(
                     "GraphML structure differs from embedded graph; import refused."
                 )
@@ -626,10 +636,19 @@ def import_program(content, filename):
     )
 
 
+def _require_legacy_activity_absence(program):
+    raw = program.metadata.get("macros")
+    if (isinstance(raw, dict) and type(raw.get("version")) is int and raw["version"] == 2) or any(
+        node.kind == "Activity" for node in program.nodes
+    ):
+        raise ConversionError("Version2 activities require the current V3 IEC source envelope.")
+
+
 def _archival_st(program):
     """Pure legacy-source comparison; never export a projected graph to a user."""
     from .executable_numbers import _legacy_source_projection
 
+    _require_legacy_activity_absence(program)
     projected = _legacy_source_projection(program)
     return _legacy_export_st(projected, embedded=False, profile=LEGACY) + (
         b"(* BMS_STUDIO_IR_V1 " + base64.b64encode(canonical(program)) + b" *)\n"
@@ -639,6 +658,7 @@ def _archival_st(program):
 def _archival_plcopen(program):
     from .executable_numbers import _legacy_source_projection
 
+    _require_legacy_activity_absence(program)
     root = XML.fromstring(
         _legacy_export_plcopen(_legacy_source_projection(program), profile=LEGACY)
     )

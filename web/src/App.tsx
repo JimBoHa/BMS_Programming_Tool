@@ -74,6 +74,16 @@ import {
 } from "./simulationSessions";
 import { SelectionPanel } from "./SelectionPanel";
 import { ConversionPreview } from "./ConversionPreview";
+import {
+  activityCatalog,
+  libraryVersion,
+  matchesBlock,
+  reusableBase,
+  reusableKind,
+  sha256Blob,
+  type ActivityBindings,
+} from "./activityContracts";
+import "./activity-library.css";
 
 const NativeCaf = lazy(() =>
   import("./NativeCaf").then((m) => ({ default: m.NativeCaf })),
@@ -100,7 +110,7 @@ const Observations = lazy(() =>
   import("./Observations").then((m) => ({ default: m.Observations })),
 );
 const MacroLibrary = lazy(() =>
-  import("./MacroLibrary").then((m) => ({ default: m.MacroLibrary })),
+  import("./ReusableLibrary").then((m) => ({ default: m.ReusableLibrary })),
 );
 const FieldTrends = lazy(() =>
   import("./FieldTrends").then((m) => ({ default: m.FieldTrends })),
@@ -147,6 +157,12 @@ export function App() {
     [program, setProgramState] = useState<Program>(blankProgram),
     [blocks, setBlocks] = useState<Block[]>([]),
     [macroBlocks, setMacroBlocks] = useState<Block[]>([]),
+    [activityPortSource, setActivityPortSource] = useState<{
+      epoch: number;
+      data: ActivityBindings;
+    } | null>(null),
+    [activityCatalogError, setActivityCatalogError] = useState(""),
+    [activityCatalogRefresh, setActivityCatalogRefresh] = useState(0),
     [macroEdit, setMacroEditState] = useState<{
       parent: Program;
       definition: string;
@@ -253,6 +269,15 @@ export function App() {
     [],
   );
   const renderedDraftEpoch = draftEpoch.current;
+  const activityPorts =
+    libraryVersion(program) === 2 &&
+    activityPortSource?.epoch === renderedDraftEpoch
+      ? activityPortSource.data
+      : null;
+  const activityUnresolved =
+    libraryVersion(program) === 2 &&
+    program.nodes.some((node) => node.kind === "Activity") &&
+    !activityPorts;
   const renderedNavigationEpoch = loadEpoch.current;
   function setProgram(next: Program | ((current: Program) => Program)) {
     const updated =
@@ -427,7 +452,11 @@ export function App() {
   const flow = useReactFlow();
   const specs = [...blocks, ...macroBlocks];
   const specKey = (b: Block) =>
-    b.kind === "Macro" ? "macro:" + b.parameters.definition : b.kind;
+    b.kind === "Macro"
+      ? "macro:" + b.parameters.definition
+      : b.kind === "Activity"
+        ? "activity:" + b.parameters.definition
+        : b.kind;
   const selected = selection.at(-1) || null;
   const clipboard = useRef<{
     nodes: BmsNode[];
@@ -445,6 +474,7 @@ export function App() {
   useEffect(() => {
     let live = true;
     if (!ready) return;
+    if (libraryVersion(program) !== 1) return;
     const timer = setTimeout(
       () =>
         programApi("/macros/catalog", { program })
@@ -464,6 +494,65 @@ export function App() {
       clearTimeout(timer);
     };
   }, [program.metadata.macros, ready]);
+  const priorLibraryVersion = useRef(libraryVersion(program));
+  const activityAuthorityEpoch = useRef(0);
+  useEffect(() => {
+    const version = libraryVersion(program);
+    if (priorLibraryVersion.current === 2 && version !== 2) setMacroBlocks([]);
+    priorLibraryVersion.current = version;
+    setActivityPortSource(null);
+    setActivityCatalogError("");
+    if (version === null) {
+      setMacroBlocks([]);
+      setActivityCatalogError(
+        "Unsupported reusable-library version. Keep the original source and choose an explicit supported format.",
+      );
+    }
+    if (!ready || version !== 2) return;
+    let live = true;
+    const source = program,
+      epoch = draftEpoch.current;
+    const timer = setTimeout(() => {
+      const authority = activityAuthorityEpoch.current;
+      programApi("/activities/catalog", { program: source })
+        .then((data) => activityCatalog(data, source))
+        .then((data) => {
+          if (
+            !live ||
+            latestProgram.current !== source ||
+            draftEpoch.current !== epoch ||
+            activityAuthorityEpoch.current !== authority
+          )
+            return;
+          setMacroBlocks(
+            data.definitions.map((definition: Block) => ({
+              ...definition,
+              stateful: true,
+            })),
+          );
+          setActivityPortSource(
+            data.bindings ? { epoch, data: data.bindings } : null,
+          );
+        })
+        .catch((error) => {
+          if (
+            live &&
+            latestProgram.current === source &&
+            draftEpoch.current === epoch &&
+            activityAuthorityEpoch.current === authority
+          ) {
+            setMacroBlocks([]);
+            setActivityPortSource(null);
+            setActivityCatalogError(String(error));
+            resetSimulation();
+          }
+        });
+    }, 150);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [program, ready, activityCatalogRefresh]);
   useEffect(() => {
     let live = true;
     initSession()
@@ -704,17 +793,25 @@ export function App() {
       setSaving(false);
     }
   }
-  async function openMacroEdit(definition: string) {
-    if (macroEdit) return;
+  async function openMacroEdit(
+    definition: string,
+    owned: () => boolean = () => true,
+  ) {
+    if (macroEdit || !owned()) return;
     const parent = program;
+    const epoch = draftEpoch.current;
     try {
-      const draft = await sourceApi("/macros/definition", {
+      const draft = await sourceApi(reusableBase(parent) + "/definition", {
         program: parent,
         definition,
       });
-      if (latestProgram.current !== parent) {
+      if (
+        latestProgram.current !== parent ||
+        draftEpoch.current !== epoch ||
+        !owned()
+      ) {
         setMessage(
-          "Program changed while loading the definition. Open it again.",
+          "Program or library view changed while loading the definition. Open it again.",
         );
         return;
       }
@@ -732,13 +829,22 @@ export function App() {
   async function applyMacroEdit() {
     if (!macroEdit) return;
     const draft = program;
+    const editing = macroEdit,
+      epoch = draftEpoch.current;
     try {
-      const updated = await sourceApi("/macros/update", {
-        program: macroEdit.parent,
-        definition: macroEdit.definition,
-        replacement: draft,
-      });
-      if (latestProgram.current !== draft) {
+      const updated = await sourceApi(
+        reusableBase(macroEdit.parent) + "/update",
+        {
+          program: macroEdit.parent,
+          definition: macroEdit.definition,
+          replacement: draft,
+        },
+      );
+      if (
+        latestProgram.current !== draft ||
+        draftEpoch.current !== epoch ||
+        latestMacroEdit.current !== editing
+      ) {
         setMessage(
           "Definition changed while applying. Apply the current draft again.",
         );
@@ -769,7 +875,13 @@ export function App() {
   }
   const step = useCallback(
     async (steps = 1) => {
-      if (busy.current || simUncertain || cleanupBlocked()) return;
+      if (
+        busy.current ||
+        simUncertain ||
+        cleanupBlocked() ||
+        activityUnresolved
+      )
+        return;
       busy.current = true;
       setSimBusy(true);
       const epoch = simulationEpoch.current;
@@ -869,7 +981,15 @@ export function App() {
         setSimBusy(false);
       }
     },
-    [program, inputs, forces, recordHistory, nextClock, simUncertain],
+    [
+      program,
+      inputs,
+      forces,
+      recordHistory,
+      nextClock,
+      simUncertain,
+      activityUnresolved,
+    ],
   );
   const pacing = useSimulationClock({
     source: program,
@@ -881,11 +1001,13 @@ export function App() {
       simUncertain ||
       cleanupStatus.pending > 0 ||
       cleanupStatus.failed > 0 ||
-      !!nextClock,
+      !!nextClock ||
+      activityUnresolved,
     batch: step,
   });
   async function runSimulationScenario(events: unknown, duration: number) {
-    if (busy.current || simUncertain || cleanupBlocked()) return;
+    if (busy.current || simUncertain || cleanupBlocked() || activityUnresolved)
+      return;
     busy.current = true;
     setSimBusy(true);
     pacing.retire();
@@ -931,6 +1053,27 @@ export function App() {
     setSimError("");
     setRecordingError("");
     setForces({});
+  }
+  function changeActivityForces(next: Record<string, ExecutionValue>) {
+    if (!activityPorts || activityPortSource?.epoch !== draftEpoch.current) {
+      setMessage(
+        "Activity output authority changed. Validate the current source before forcing a port.",
+      );
+      return;
+    }
+    const allowed = new Set([
+      ...program.nodes
+        .filter((node) => node.kind !== "Activity")
+        .map((node) => node.id),
+      ...activityPorts.outputs.map((output) => output.alias_node_id),
+    ]);
+    if (Object.keys(next).some((key) => !allowed.has(key))) {
+      setMessage(
+        "A force names an old or unsupported activity output. Release it and use the current port.",
+      );
+      return;
+    }
+    setForces(next);
   }
   useEffect(() => {
     function keyboard(e: KeyboardEvent) {
@@ -991,18 +1134,29 @@ export function App() {
     if (!b) return;
     const placedByClick = x === undefined || y === undefined;
     if (placedByClick) {
-      const height = Math.max(108, b.inputs.length * 29 + 55);
+      const height = Math.max(
+        108,
+        Math.max(
+          b.inputs.length,
+          b.kind === "Activity" ? b.outputs?.length || 0 : 0,
+        ) *
+          29 +
+          55,
+      );
       for (let slot = 0; slot < 20000; slot++) {
         x = 100 + (slot % 4) * 280;
         y = 100 + Math.floor(slot / 4) * 220;
         const overlaps = program.nodes.some((old) => {
-          const spec = specs.find(
-            (s) =>
-              s.kind === old.kind &&
-              (s.kind !== "Macro" ||
-                s.parameters.definition === old.params.definition),
+          const spec = specs.find((s) => matchesBlock(s, old));
+          const oldHeight = Math.max(
+            108,
+            Math.max(
+              spec?.inputs.length || 0,
+              old.kind === "Activity" ? spec?.outputs?.length || 0 : 0,
+            ) *
+              29 +
+              55,
           );
-          const oldHeight = Math.max(108, (spec?.inputs.length || 0) * 29 + 55);
           return (
             x! < old.x + 252 &&
             x! + 252 > old.x &&
@@ -1070,20 +1224,49 @@ export function App() {
       return;
     }
     let base = program;
+    const epoch = draftEpoch.current;
     try {
       const definitions = new Set(
         clip.nodes
-          .filter((n) => n.kind === "Macro")
+          .filter((n) => reusableKind(n.kind))
           .map((n) => n.params.definition),
       );
+      if (
+        definitions.size &&
+        libraryVersion(clip.source) !== libraryVersion(program)
+      )
+        throw new Error(
+          "Reusable selections have different library versions. Explicitly migrate or promote their source before pasting.",
+        );
       for (const definition of definitions) {
-        const bundle = await sourceApi("/macros/export", {
-          program: clip.source,
-          definition,
-        });
-        base = await sourceApi("/macros/import", { program: base, bundle });
+        const family = reusableBase(program);
+        let bundle;
+        if (family === "/macros") {
+          bundle = await sourceApi("/macros/export", {
+            program: clip.source,
+            definition,
+          });
+        } else {
+          const doc = await programJsonDocument(
+            "/activities/export",
+            { program: clip.source, definition },
+            true,
+          );
+          if (
+            (await sha256Blob(doc.blob)) !== doc.headers?.get("X-File-SHA256")
+          )
+            throw new Error(
+              "Activity paste archive failed its original byte-digest check.",
+            );
+          bundle = parseSourceDocument(await doc.blob.text());
+        }
+        if (latestProgram.current !== program || draftEpoch.current !== epoch)
+          throw new Error(
+            "Program changed while preparing the reusable selection. Paste into the current source again.",
+          );
+        base = await sourceApi(family + "/import", { program: base, bundle });
       }
-      if (latestProgram.current !== program) {
+      if (latestProgram.current !== program || draftEpoch.current !== epoch) {
         setMessage(
           "Program changed while pasting. Paste again into the current graph.",
         );
@@ -1638,7 +1821,13 @@ export function App() {
                     </div>
                   </aside>
                   <div className="editor-center">
+                    {activityCatalogError && (
+                      <p className="activity-source-error" role="alert">
+                        {activityCatalogError}
+                      </p>
+                    )}
                     <Canvas
+                      activityBindings={activityPorts}
                       program={program}
                       blocks={specs}
                       last={history.at(-1)}
@@ -1657,6 +1846,7 @@ export function App() {
                       }
                     />
                     <SimulationPanel
+                      activityBindings={activityPorts}
                       program={program}
                       history={history}
                       inputs={inputs}
@@ -1673,7 +1863,8 @@ export function App() {
                         simBusy ||
                         simUncertain ||
                         cleanupStatus.pending > 0 ||
-                        cleanupStatus.failed > 0
+                        cleanupStatus.failed > 0 ||
+                        activityUnresolved
                       }
                       cleanup={{
                         ...cleanupStatus,
@@ -1710,13 +1901,7 @@ export function App() {
                   ) : (
                     <Inspector
                       node={active}
-                      block={specs.find(
-                        (b) =>
-                          b.kind === active?.kind &&
-                          (b.kind !== "Macro" ||
-                            b.parameters.definition ===
-                              active?.params.definition),
-                      )}
+                      block={specs.find((b) => matchesBlock(b, active))}
                       onEdit={edit}
                       onDelete={remove}
                       onDuplicate={duplicate}
@@ -1726,6 +1911,16 @@ export function App() {
                       onForceChange={setForces}
                       executionValues={executionValues}
                       last={history.at(-1)}
+                      activityBindings={activityPorts}
+                      onActivityForceChange={changeActivityForces}
+                      sourceEpoch={renderedDraftEpoch}
+                      onRefreshActivityPorts={() => {
+                        resetSimulation();
+                        activityAuthorityEpoch.current++;
+                        setActivityPortSource(null);
+                        setActivityCatalogError("");
+                        setActivityCatalogRefresh((value) => value + 1);
+                      }}
                     />
                   )}
                 </div>
@@ -1836,9 +2031,53 @@ export function App() {
               <MacroLibrary
                 program={program}
                 selectedIds={selection}
-                onChange={change}
+                onChange={(next) => {
+                  if (
+                    latestProgram.current !== program ||
+                    draftEpoch.current !== renderedDraftEpoch
+                  )
+                    throw new Error(
+                      "Program changed before the reusable-library result could be adopted.",
+                    );
+                  change(next);
+                }}
                 onSelect={setSelected}
                 onEditDefinition={openMacroEdit}
+                onBeforeMigration={() => {
+                  if (
+                    latestProgram.current !== program ||
+                    draftEpoch.current !== renderedDraftEpoch
+                  )
+                    throw new Error(
+                      "Program changed before simulation migration could begin.",
+                    );
+                  resetSimulation();
+                }}
+                sourceEpoch={renderedDraftEpoch}
+                onActivityCatalog={(data, error) => {
+                  if (
+                    latestProgram.current !== program ||
+                    draftEpoch.current !== renderedDraftEpoch ||
+                    libraryVersion(program) !== 2
+                  )
+                    return;
+                  activityAuthorityEpoch.current++;
+                  if (!data) resetSimulation();
+                  setActivityCatalogError(error || "");
+                  setMacroBlocks(
+                    data
+                      ? data.definitions.map((definition: Block) => ({
+                          ...definition,
+                          stateful: true,
+                        }))
+                      : [],
+                  );
+                  setActivityPortSource(
+                    data?.bindings
+                      ? { epoch: renderedDraftEpoch, data: data.bindings }
+                      : null,
+                  );
+                }}
               />
             ) : (
               <Resources />

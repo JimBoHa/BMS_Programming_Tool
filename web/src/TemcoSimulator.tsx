@@ -106,6 +106,7 @@ export function TemcoSimulator({ program }: { program: Program }) {
         .filter(
           (node) =>
             node.kind !== "Macro" &&
+            node.kind !== "Activity" &&
             status?.capabilities &&
             !status.capabilities.supported_blocks.includes(node.kind),
         )

@@ -325,7 +325,7 @@ def _validate_definitions(definitions: dict[str, MacroDefinition]):
         _validate_flat(expansion.result(provenance=False), f"Macro {definition.id}")
 
 
-def expand_macros(program: Program) -> Program:
+def _expand_v1_macros(program: Program) -> Program:
     """Return an executable flat copy, rejecting incomplete or ambiguous macros."""
     if "macros" not in program.metadata and not any(node.kind == "Macro" for node in program.nodes):
         return program.model_copy(deep=True)
@@ -336,6 +336,17 @@ def expand_macros(program: Program) -> Program:
     result = expansion.result()
     _validate_flat(result)
     return result
+
+
+def expand_macros(program: Program) -> Program:
+    raw = program.metadata.get("macros")
+    if isinstance(raw, dict) and type(raw.get("version")) is int and raw["version"] == 2:
+        from .activities import expand_activities
+
+        return expand_activities(program)
+    if any(node.kind == "Activity" for node in program.nodes):
+        raise ValueError("Activity containers require an explicit macros.version2 library.")
+    return _expand_v1_macros(program)
 
 
 def macro_catalog(program: Program) -> list[dict]:

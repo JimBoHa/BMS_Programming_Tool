@@ -280,10 +280,14 @@ def test_invalid_instance_or_connection_is_rejected(mutation, message):
 
 @pytest.mark.parametrize("field,value", [("version", 2), ("unknown", True)])
 def test_library_schema_is_strict(field, value):
+    from bms_tool.macros import _load_library
+
     program = caller()
     program.metadata["macros"][field] = value
     with pytest.raises(ValidationError):
-        expand_macros(program)
+        # The v1 schema stays strict; exact integer2 now deliberately dispatches
+        # to the separate activity implementation at the public entry point.
+        _load_library(program)
     program.metadata["macros"] = None
     with pytest.raises(ValidationError):
         expand_macros(program)
