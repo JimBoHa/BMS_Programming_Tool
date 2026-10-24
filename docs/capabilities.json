@@ -473,5 +473,10 @@
     "feature": "Authored CW isolation/pump output activity",
     "status": "implemented",
     "scope": "CW-ISO-OUTPUT-001 creates one reusable activity2 graph with two required inputs, Boolean enable proxy and percent command sharing one Delay. Fixed-scan bounded enabled up/down tracking, target-floor minimum, immediate committed disabled0/reset, negative-zero choices/source and original source-bound preview/export/import integrate with existing activity editing/simulation/revisions/interchange. Existing full-scan quality faults retain prior positive commands. No native JCI algorithm/Enum/reliability/CAF/package/transfer, actual flow/run/position/minimum-speed or mechanical-stroke proof, physical protection or G36/Title24 acceptance. Broad MF-8947786f93 remains partial. See docs/cw-isolation-output-template.md."
+  },
+  {
+    "feature": "Authored live-endpoint CO2 minimum-airflow reset activity",
+    "status": "implemented",
+    "scope": "CO2-MIN-FLOW-001 provides one editable 38-node / 57-edge activity2 graph with five required numeric live inputs, minimum-airflow and committed configuration-valid outputs, bounded authored linear reset and invalid-config hold in one Delay. Documented cfm/derived L/s defaults, guarded conversion, signed-zero source and original source-bound preview/export/import integrate with ordinary activity editing/simulation/revisions/interchange. Whole-scan quality rollback can retain positive flow and true diagnostic; native REAL coalescence/host limits remain explicit. No percent-damper/physical-output inference, measured ventilation/sizing/compliance, native JCI algorithms/reliability/Enum/CAF/packages/transfer or field/Bluetooth acceptance. Broad MF-74ca5999ab remains partial. See docs/co2-minimum-flow-template.md."
   }
 ]
