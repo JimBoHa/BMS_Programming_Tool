@@ -572,3 +572,120 @@ test("a held history response cannot receive another receipt's readback", async 
     );
   }
 });
+
+test("commissioning edits wait for the current connection defaults to hydrate", async ({
+  page,
+  request,
+}) => {
+  const server = await peer();
+  const headers = {
+    "X-Studio-Token": (await (await request.get("/api/session")).json()).token,
+  };
+  let release!: () => void, seen!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const captured = new Promise<void>((resolve) => {
+    seen = resolve;
+  });
+  try {
+    expect(
+      (
+        await request.post("/api/bacnet/connect", {
+          headers,
+          data: { local_address: `127.0.0.1:${await freePort()}` },
+        })
+      ).ok(),
+    ).toBe(true);
+    await page.route("**/api/bacnet/status", async (route) => {
+      const response = await route.fetch();
+      await test.info().attach("original-held-interface-status", {
+        body: await response.body(),
+        contentType: "application/json",
+      });
+      seen();
+      await gate;
+      await route.fulfill({ response });
+    });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Connect", exact: true }).click();
+    await captured;
+    const panel = page.getByRole("region", {
+      name: "Device instance commissioning",
+      exact: true,
+    });
+    const address = panel.getByLabel("Controller address (IPv4 or DNET:MAC)", {
+      exact: true,
+    });
+    const newInstance = panel.getByLabel(
+      "New controller instance (0–4194302)",
+      { exact: true },
+    );
+    await expect(address).toBeDisabled();
+    await expect(newInstance).toBeDisabled();
+    const history = panel.getByLabel("Retained instance receipts", {
+      exact: true,
+    });
+    if (await history.count()) await expect(history).toBeEnabled();
+    release();
+    await expect(address).toBeEnabled();
+    const endpoint = `127.0.0.1:${server.port}`;
+    await address.fill(endpoint);
+    await panel
+      .getByLabel("Current Device object (device,instance)", { exact: true })
+      .fill("device,5136");
+    await newInstance.fill("15136");
+    await expect(address).toHaveValue(endpoint);
+    const reviewed = page.waitForResponse((r) =>
+      r.url().endsWith("/device-instance/preview"),
+    );
+    await panel
+      .getByRole("button", { name: "Review instance change", exact: true })
+      .click();
+    const response = await reviewed;
+    expect(response.ok()).toBe(true);
+    expect(response.request().postDataJSON().address).toBe(endpoint);
+    await test.info().attach("original-hydrated-review", {
+      body: await response.body(),
+      contentType: "application/json",
+    });
+    await expect(
+      panel.getByLabel("Reviewed instance change", { exact: true }),
+    ).toContainText("5136 → 15136");
+    await expect(address).toHaveValue(endpoint);
+    expect(server.packets()).toBe(0);
+  } finally {
+    release();
+    const cleanup = await Promise.allSettled([
+      request.post("/api/bacnet/disconnect", { headers, data: {} }),
+      new Promise<void>((resolve, reject) => {
+        const child = server.process;
+        if (child.exitCode !== null || child.signalCode !== null) {
+          resolve();
+          return;
+        }
+        const escalation = setTimeout(() => child.kill("SIGKILL"), 3000);
+        const deadline = setTimeout(() => {
+          child.off("exit", done);
+          reject(new Error("Owned hydration peer was not reaped"));
+        }, 4500);
+        function done() {
+          clearTimeout(escalation);
+          clearTimeout(deadline);
+          resolve();
+        }
+        child.once("exit", done);
+        child.kill("SIGTERM");
+      }),
+    ]);
+    await test.info().attach("owned-hydration-peer-retirement", {
+      body: JSON.stringify({
+        pid: server.process.pid,
+        exitCode: server.process.exitCode,
+        signalCode: server.process.signalCode,
+      }),
+      contentType: "application/json",
+    });
+    expect(cleanup.filter((r) => r.status === "rejected")).toEqual([]);
+  }
+});
