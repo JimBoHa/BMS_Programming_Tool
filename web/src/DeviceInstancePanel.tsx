@@ -217,8 +217,38 @@ export function DeviceInstancePanel({
       if (mounted.current) setError(String(failure));
     }
   }
+  function downloadHandoff() {
+    if (!plan || plan.method_assessment?.can_attempt !== false) return;
+    const handoff = {
+      profile: "controller-instance-commissioning-handoff/1",
+      read_only: true,
+      transfer_performed: false,
+      notice:
+        "Commissioning instructions and observed identity only. This is not a CAF, controller backup, executable transfer or write authorization.",
+      target: plan.target,
+      identity: plan.identity,
+      old_instance: plan.old_instance,
+      proposed_instance: plan.new_instance,
+      reviewed_at: plan.created_at,
+      collision_check: plan.collision_check,
+      method_assessment: plan.method_assessment,
+    };
+    saveBlob(
+      new Blob([JSON.stringify(handoff, null, 2)], {
+        type: "application/json",
+      }),
+      "controller-instance-commissioning-handoff.json",
+    );
+  }
   const locked = busy || parentBusy;
-  const fresh = plan?.can_apply && now < Date.parse(plan.expires_at);
+  const method = plan?.method_assessment;
+  const methodAvailable =
+    method?.profile === "bacnet-instance-method/1" &&
+    method.can_attempt === true;
+  const fresh =
+    plan?.can_apply === true &&
+    methodAvailable &&
+    now < Date.parse(plan.expires_at);
   const attempt = receipt?.attempt;
   const observed = receipt?.readbacks.at(-1)?.readback || attempt?.readback;
   const resolved =
@@ -302,6 +332,46 @@ export function DeviceInstancePanel({
               Collision query: {plan.collision_check.scope}.{" "}
               {plan.collision_check.limitation}
             </p>
+            <div aria-label="Instance write method">
+              <p>
+                <strong>
+                  {method?.can_attempt === false
+                    ? "Standard instance write blocked"
+                    : "Standard instance write support unverified"}
+                </strong>
+              </p>
+              <p>
+                {method?.reason ||
+                  "The server did not return a method assessment. Update the server and review again before applying."}
+              </p>
+              {method?.can_attempt === false && (
+                <>
+                  <ol>
+                    {method.next_steps.map((step: string) => (
+                      <li key={step}>{step}</li>
+                    ))}
+                  </ol>
+                  {method.sources.map(
+                    (source: { title: string; url: string }) => (
+                      <p key={source.url}>
+                        <a href={source.url} target="_blank" rel="noreferrer">
+                          {source.title}
+                        </a>
+                      </p>
+                    ),
+                  )}
+                  <p>
+                    Native application transfer is not implemented in this app.
+                    The handoff contains the observed target, proposed number
+                    and commissioning instructions. It sends no controller
+                    changes.
+                  </p>
+                  <button disabled={locked} onClick={downloadHandoff}>
+                    Download commissioning handoff (JSON)
+                  </button>
+                </>
+              )}
+            </div>
             {plan.collision_check.devices.length > 0 && (
               <p role="alert">
                 New instance is already responding. Choose another reserved
@@ -317,7 +387,7 @@ export function DeviceInstancePanel({
               <input
                 type="checkbox"
                 checked={allocated}
-                disabled={!targetReady || locked}
+                disabled={!targetReady || locked || !methodAvailable}
                 onChange={(event) => setAllocated(event.target.checked)}
               />
               I reserved this new number across the BACnet internetwork,
@@ -329,7 +399,7 @@ export function DeviceInstancePanel({
             >
               Apply controller instance change
             </button>
-            {!fresh && plan.can_apply && (
+            {!fresh && plan.can_apply && methodAvailable && (
               <p role="status">
                 Review expired. Review the instance change again.
               </p>
@@ -358,9 +428,10 @@ export function DeviceInstancePanel({
             </p>
             {attempt.status === "rejected" && (
               <p>
-                The controller rejected the standard property write. A read-only
-                Object_Identifier requires the manufacturer’s commissioning
-                tool.
+                The controller rejected the standard property write. Review the
+                instance change again to inspect the method assessment and any
+                guidance for the manufacturer’s commissioning tool. A permission
+                denial does not explain the controller’s internal reason.
               </p>
             )}
             {attempt.may_have_applied && !resolved && (

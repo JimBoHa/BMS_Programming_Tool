@@ -32,6 +32,7 @@ from pydantic import Field, StrictBool
 
 from .bacnet_exchange import confirmed_exchange
 from .device_details import DeviceDetails, DeviceDetailsRequest
+from .instance_method import IDENTITY_FIELDS, assess_method, permission_denied
 from .ip_discovery import IpDiscovery
 from .models import StrictModel
 from .routed_discovery import RoutedDiscovery
@@ -40,13 +41,6 @@ PROFILE = "bacnet-device-instance-commissioning/1"
 PLAN_SECONDS = 60
 MAX_RECORDS = 1024
 RECORD_BYTES = 32768
-IDENTITY_FIELDS = (
-    "object-name",
-    "vendor-identifier",
-    "model-name",
-    "firmware-revision",
-    "application-software-version",
-)
 SCOPE = (
     "Standard BACnet WriteProperty of the selected controller's Device.object-identifier. "
     "Requires controller support; a read-only property requires the manufacturer's commissioning tool. "
@@ -319,6 +313,25 @@ class DeviceInstances:
                     "This station has an unresolved instance change. Read back its receipt; do not retry the write."
                 )
 
+    def _method(self, target, identity):
+        key = station_key(target)
+        for entry in self.journal.entries():
+            attempt = entry["attempt"]
+            if (
+                permission_denied(attempt)
+                and station_key(attempt["target"]) == key
+                and all(attempt.get("identity", {}).get(p) == identity[p] for p in IDENTITY_FIELDS)
+            ):
+                return assess_method(identity, attempt)
+        return assess_method(identity)
+
+    def _require_method(self, target, identity):
+        if not self._method(target, identity)["can_attempt"]:
+            raise ValueError(
+                "This controller previously denied the standard instance write. "
+                "Review the instance change for commissioning guidance; no write was sent."
+            )
+
     def cancel(self, operation_id):
         InstanceCancel(operation_id=operation_id)
         self._cancelled[operation_id] = True
@@ -459,6 +472,7 @@ class DeviceInstances:
                 self._guard(app, config)
                 identity = await self._identity(session, options.device)
             self._available(target)
+            method = self._method(target, identity)
             body = {
                 "profile": PROFILE,
                 "target": target,
@@ -469,7 +483,8 @@ class DeviceInstances:
                 "collision_check": collision,
                 "created_at": utc(),
                 "expires_at": (datetime.now(UTC) + timedelta(seconds=PLAN_SECONDS)).isoformat(),
-                "can_apply": not collision["devices"],
+                "method_assessment": method,
+                "can_apply": method["can_attempt"] and not collision["devices"],
                 "scope": SCOPE,
             }
             digest = sha(body)
@@ -547,6 +562,7 @@ class DeviceInstances:
             "new_instance": body["new_instance"],
             "connector_config": plan["config"],
             "review_sha256": plan["sha"],
+            "method_assessment": copy.deepcopy(body["method_assessment"]),
             "allocation_confirmed": True,
             "created_at": utc(),
             "status": "not_sent",
@@ -573,6 +589,7 @@ class DeviceInstances:
                     fresh = await self._identity(session, options.device)
                     if fresh != body["identity"]:
                         raise ValueError("Controller identity changed after review; preview again.")
+                    self._require_method(body["target"], fresh)
                     self._available(body["target"])
                     write = WritePropertyRequest(
                         objectIdentifier=ObjectIdentifier(options.device),
@@ -586,6 +603,7 @@ class DeviceInstances:
                         if time.monotonic() >= plan["expires"]:
                             raise ValueError("Instance review expired before dispatch.")
                         self._available(body["target"])
+                        self._require_method(body["target"], fresh)
                         receipt["request_apdu_sha256"] = hashlib.sha256(
                             bytes(packet.encode().pduData)
                         ).hexdigest()
@@ -627,6 +645,11 @@ class DeviceInstances:
                             may_have_applied=not rejected,
                         )
                         receipt["errors"].append((str(exc) or type(exc).__name__)[:512])
+                        if rejected and isinstance(exc, ErrorPDU):
+                            receipt["protocol_error"] = {
+                                "class": str(exc.errorClass),
+                                "code": str(exc.errorCode),
+                            }
                     except (ValueError, TimeoutError) as exc:
                         receipt["status"] = "unknown" if receipt["dispatch_started"] else "not_sent"
                         receipt["errors"].append((str(exc) or "Write response timed out")[:512])
