@@ -40,6 +40,16 @@ export function DeviceInstancePanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [now, setNow] = useState(Date.now());
+  const [hydratedDefaults, setHydratedDefaults] = useState<string | null>(null);
+  const defaultsIdentity = JSON.stringify([
+    connected,
+    interfaceIdentity,
+    defaultAddress,
+    defaultDevice,
+    defaultRouter,
+    defaultDnet,
+  ]);
+  const targetReady = connected && hydratedDefaults === defaultsIdentity;
   const mounted = useRef(false);
   const operation = useRef<string | null>(null);
   const generation = useRef(0);
@@ -79,14 +89,8 @@ export function DeviceInstancePanel({
       router: defaultRouter,
       dnet: defaultDnet == null ? "" : String(defaultDnet),
     });
-  }, [
-    connected,
-    interfaceIdentity,
-    defaultAddress,
-    defaultDevice,
-    defaultRouter,
-    defaultDnet,
-  ]);
+    setHydratedDefaults(defaultsIdentity);
+  }, [defaultsIdentity]);
   useEffect(() => {
     if (!plan) return;
     setNow(Date.now());
@@ -110,13 +114,15 @@ export function DeviceInstancePanel({
   }
   async function run(kind: "preview" | "apply" | "readback") {
     if (operation.current || parentBusy || !connected) return;
+    if (kind !== "readback" && !targetReady) return;
     const id = "instance-" + crypto.randomUUID();
     operation.current = id;
     const epoch = generation.current;
     setBusy(true);
     onBusy(true);
     setError("");
-    if (kind !== "readback") receiptEpoch.current++;
+    // Bind every operation to the receipt context admitted at its start.
+    const operationReceiptEpoch = ++receiptEpoch.current;
     try {
       if (kind === "preview") {
         setPlan(null);
@@ -153,21 +159,28 @@ export function DeviceInstancePanel({
           }
         }
       } else {
+        const attempt = receipt.attempt;
+        const receiptId = attempt.id;
         const result = await api(base + "/readback", {
           operation_id: id,
-          receipt_id: receipt.attempt.id,
+          receipt_id: receiptId,
         });
-        if (mounted.current)
-          setReceipt((current: any) => ({
-            ...current,
-            readbacks: [...current.readbacks, result],
-          }));
         if (
           mounted.current &&
-          epoch === generation.current &&
-          result.readback?.status === "verified_new"
-        )
-          onVerified?.({ ...receipt.attempt, readback: result.readback });
+          operationReceiptEpoch === receiptEpoch.current &&
+          result.receipt_id === receiptId
+        ) {
+          setReceipt((current: any) =>
+            current?.attempt.id === receiptId
+              ? { ...current, readbacks: [...current.readbacks, result] }
+              : current,
+          );
+          if (
+            epoch === generation.current &&
+            result.readback?.status === "verified_new"
+          )
+            onVerified?.({ ...attempt, readback: result.readback });
+        }
       }
       await refresh();
     } catch (failure) {
@@ -242,7 +255,7 @@ export function DeviceInstancePanel({
               <label key={key}>
                 {label}
                 <input
-                  disabled={locked}
+                  disabled={!targetReady || locked}
                   value={target[key]}
                   onChange={(event) =>
                     edit(() =>
@@ -257,7 +270,7 @@ export function DeviceInstancePanel({
             New controller instance (0–4194302)
             <input
               inputMode="numeric"
-              disabled={locked}
+              disabled={!targetReady || locked}
               value={newInstance}
               onChange={(event) =>
                 edit(() => setNewInstance(event.target.value))
@@ -265,7 +278,7 @@ export function DeviceInstancePanel({
             />
           </label>
           <button
-            disabled={!connected || locked || !newInstance || !target.device}
+            disabled={!targetReady || locked || !newInstance || !target.device}
             onClick={() => void run("preview")}
           >
             Review instance change
@@ -304,14 +317,14 @@ export function DeviceInstancePanel({
               <input
                 type="checkbox"
                 checked={allocated}
-                disabled={locked}
+                disabled={!targetReady || locked}
                 onChange={(event) => setAllocated(event.target.checked)}
               />
               I reserved this new number across the BACnet internetwork,
               including offline devices.
             </label>
             <button
-              disabled={!connected || locked || !fresh || !allocated}
+              disabled={!targetReady || locked || !fresh || !allocated}
               onClick={() => void run("apply")}
             >
               Apply controller instance change
@@ -366,7 +379,10 @@ export function DeviceInstancePanel({
             >
               Read back instance (no write)
             </button>
-            <button disabled={locked} onClick={() => void download()}>
+            <button
+              disabled={!targetReady || locked}
+              onClick={() => void download()}
+            >
               Download instance receipt
             </button>
           </div>
@@ -376,7 +392,7 @@ export function DeviceInstancePanel({
             Retained instance receipts
             <select
               aria-label="Retained instance receipts"
-              disabled={locked}
+              disabled={!targetReady || locked}
               value=""
               onChange={(event) => void loadReceipt(event.target.value)}
             >

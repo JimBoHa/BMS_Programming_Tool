@@ -87,6 +87,7 @@ export function RoutedDiscoveryPanel({
   onDiscovered,
   knownDevices = [],
   interfaceIdentity = "",
+  connectorConfig = null,
   localDiscoveryAvailable = true,
   onSelectionCleared,
   onNamesDiscovered,
@@ -96,6 +97,7 @@ export function RoutedDiscoveryPanel({
   onDiscovered?: (result: RoutedScanResult) => void;
   knownDevices?: NamedScanTarget[];
   interfaceIdentity?: string;
+  connectorConfig?: unknown;
   localDiscoveryAvailable?: boolean;
   onSelectionCleared?: () => void;
   onNamesDiscovered?: (devices: NamedScanTarget[]) => void;
@@ -165,8 +167,22 @@ export function RoutedDiscoveryPanel({
   const endpointKey = (value: string) =>
     value.trim() &&
     (value.includes(":") ? value.trim() : value.trim() + ":47808");
+  const configKey = (value: unknown) =>
+    value && typeof value === "object" && !Array.isArray(value)
+      ? JSON.stringify(
+          Object.entries(value).sort(([a], [b]) => a.localeCompare(b)),
+        )
+      : null;
+  const currentConfig = configKey(connectorConfig);
+  const currentNames = knownDevices.filter(
+    (item) =>
+      !!interfaceIdentity &&
+      item.observedInterface === interfaceIdentity &&
+      currentConfig !== null &&
+      configKey(item.connectorConfig) === currentConfig,
+  );
   const routerName = (address: string) =>
-    knownDevices.find(
+    currentNames.find(
       (item) =>
         item.target.source === "ip" &&
         endpointKey(item.target.address) === endpointKey(address),
@@ -258,6 +274,8 @@ export function RoutedDiscoveryPanel({
                   dnet: scan.report.dnet,
                 },
                 name: report.name,
+                observedInterface: interfaceIdentity,
+                connectorConfig: report.connector_config,
               },
             ]);
           } catch (failure) {
