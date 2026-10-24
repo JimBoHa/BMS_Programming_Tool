@@ -16,6 +16,7 @@ export type ConnectionView =
   | "setup"
   | "overview"
   | "points"
+  | "program"
   | "schedules"
   | "monitor"
   | "changes"

@@ -153,7 +153,7 @@ export function WorkflowContext({
           ) : (
             <span>No controller open · local work is available</span>
           )}
-          {contextSource === "caf" && document && (
+          {document && (
             <span>
               Local CAF · {document.name}
               {document.dirty
@@ -204,10 +204,12 @@ export function WorkflowContext({
             onChange={(event) => onProgramName(event.target.value)}
           />
         )}
-        <button onClick={onSave} disabled={saveDisabled || busy}>
-          <Save size={15} />
-          {saveLabel}
-        </button>
+        {contextSource !== "none" && (
+          <button onClick={onSave} disabled={saveDisabled || busy}>
+            <Save size={15} />
+            {saveLabel}
+          </button>
+        )}
       </div>
     </div>
   );

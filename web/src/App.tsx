@@ -1563,8 +1563,9 @@ export function App() {
       return;
     }
     if (next === "program") {
-      if (controller && sourceKind === "none") {
-        setTabState("controller-program");
+      if (controller) {
+        setConnectionsVisited(true);
+        setTabState("connections");
         setMode("commission");
         return;
       }
@@ -1596,6 +1597,14 @@ export function App() {
   }
   function chooseMode(next: "edit" | "simulate" | "commission") {
     if (workflowBusy) return;
+    if (controller && tab === "connections" && next !== "commission") {
+      chooseArea("program");
+      if (next === "simulate")
+        setMessage(
+          "Simulation requires a loaded native application and a supported execution adapter.",
+        );
+      return;
+    }
     if (next === "commission") {
       if (controller) chooseArea("overview");
       else beginConnect();
@@ -1620,7 +1629,10 @@ export function App() {
       if (!cafDocument.structuralDirty) setCafSaveRequest(crypto.randomUUID());
     } else void save();
   }
-  const source = surface === "start" ? "none" : sourceKind;
+  const source =
+    surface === "start" || (tab === "connections" && controller)
+      ? "none"
+      : sourceKind;
   const toolItems =
     surface === "library"
       ? [
@@ -1641,7 +1653,20 @@ export function App() {
           : surface === "workspace" && area === "program"
             ? mode === "simulate"
               ? simulationTools
-              : programTools
+              : controller
+                ? [
+                    { id: "connections", label: "Controller application" },
+                    ...programTools.map((tool) => ({
+                      ...tool,
+                      label:
+                        tool.id === "editor"
+                          ? "Local graph editor"
+                          : tool.id === "caf"
+                            ? "Local CAF file"
+                            : tool.label,
+                    })),
+                  ]
+                : programTools
             : surface === "workspace" && area === "monitor"
               ? [
                   { id: "connections", label: "Controller monitoring" },
@@ -1858,13 +1883,12 @@ export function App() {
                         ? "settings"
                         : connectionSetup
                           ? "setup"
-                          : area === "program"
-                            ? "overview"
-                            : area
+                          : area
                     }
                     onControllerChange={setController}
                     onBusyChange={setWorkflowBusy}
                     onConnectionSetup={beginConnect}
+                    onOpenLocalFile={openCafPicker}
                     onControllerOpened={() => {
                       setConnectionSetup(false);
                       setArea("overview");
@@ -1880,30 +1904,7 @@ export function App() {
               key={tab}
               fallback={<div className="loading">Opening workspace…</div>}
             >
-              {tab === "controller-program" ? (
-                <div className="workspace-page">
-                  <section className="workflow-identity">
-                    <span className="eyebrow">CONTROLLER APPLICATION</span>
-                    <h1>Open an application to work on its program</h1>
-                    <p className="workflow-lead">
-                      This generic BACnet connection exposes device metadata and
-                      supported point/settings operations. It does not upload or
-                      compile a JCI controller application.
-                    </p>
-                    <button className="primary" onClick={openCafPicker}>
-                      Open a CAF file
-                    </button>
-                    <button onClick={() => setTab("editor")}>
-                      Open local graph editor
-                    </button>
-                    <p className="help-text">
-                      A local file remains separate from the live controller
-                      until compatibility and transfer support have been
-                      established.
-                    </p>
-                  </section>
-                </div>
-              ) : tab === "start" ? (
+              {tab === "start" ? (
                 <StartWorkspace
                   onConnect={beginConnect}
                   onOpen={openCafPicker}

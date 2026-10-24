@@ -43,6 +43,11 @@ from .caf_simulation import CafSimulationProfile
 from .cancelable_pulse_template import cancelable_pulse_template_router
 from .conformance import ConformancePlans, conformance_router
 from .connections import Bacnet, modbus_read, ports
+from .controller_workspace import (
+    ControllerInventoryRequest,
+    ControllerPropertiesRequest,
+    ControllerWorkspace,
+)
 from .conversion_preview import conversion_preview
 from .cov_observations import CovObservations
 from .cw_isolation_output_template import cw_isolation_output_template_router
@@ -513,6 +518,7 @@ def create_app(state_dir=None, *, operation_power=None):
         bbmd_admin = None
         bbmd_admin_error = "BBMD administration unavailable: " + str(exc)[:1000]
     device_details = DeviceDetails(bacnet, store)
+    controller_workspace = ControllerWorkspace(bacnet, store)
 
     def instance_activity_guard():
         if field_trends.status()["running_jobs"] or any(job["active"] for job in cov.jobs.values()):
@@ -657,6 +663,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.state.bbmd_admin = bbmd_admin
     app.state.bbmd_admin_startup_error = bbmd_admin_error
     app.state.device_details = device_details
+    app.state.controller_workspace = controller_workspace
     app.state.device_instances = device_instances
     app.include_router(device_instance_router(device_instances))
     app.state.schedule_inventory = schedule_inventory
@@ -1697,6 +1704,18 @@ def create_app(state_dir=None, *, operation_power=None):
     @app.post("/api/bacnet/device-name")
     async def bacnet_device_name(body: DeviceDetailsRequest):
         return await device_details.read_name(**body.model_dump())
+
+    @app.post("/api/bacnet/controller/profile")
+    async def controller_profile(body: DeviceDetailsRequest):
+        return await controller_workspace.profile(**body.model_dump())
+
+    @app.post("/api/bacnet/controller/inventory")
+    async def controller_inventory(body: ControllerInventoryRequest):
+        return await controller_workspace.inventory(**body.model_dump())
+
+    @app.post("/api/bacnet/controller/properties")
+    async def controller_properties(body: ControllerPropertiesRequest):
+        return await controller_workspace.properties(**body.model_dump())
 
     @app.post("/api/enum-mapping/review")
     async def enum_mapping_review(body: EnumMappingRequest):

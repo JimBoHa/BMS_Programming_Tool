@@ -703,10 +703,8 @@ test("router → native trunks → scan → verified workspace → instance revi
       .getByRole("button", { name: "Program", exact: true })
       .click();
     await expect(
-      page.getByRole("heading", {
-        name: "Open an application to work on its program",
-      }),
-    ).toBeVisible();
+      page.getByRole("region", { name: "Connected controller application" }),
+    ).toContainText("Authored 3001 MAC 8");
     await tasks(page)
       .getByRole("button", { name: "Trends & Alarms", exact: true })
       .click();
@@ -817,6 +815,9 @@ test("connecting with a CAF open retains its draft and keeps the controller matc
     );
     await tasks(page)
       .getByRole("button", { name: "Program", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Local CAF file", exact: true })
       .click();
     await expect(
       page.getByLabel("CAF property 3113", { exact: true }),
