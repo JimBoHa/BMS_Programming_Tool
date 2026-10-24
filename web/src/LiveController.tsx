@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
+import { ControllerApplicationPanel } from "./ControllerApplication";
 import { controllerKey, type ControllerContext } from "./workflow";
 
 type RecordValue = Record<string, any>;
@@ -238,26 +239,14 @@ export function ControllerProgram({
             </button>
           </div>
         )}
-        <div
-          className="workflow-capability"
-          aria-label="Native logic capability"
-        >
-          <strong>
-            Native logic readback:{" "}
-            {profile?.native_logic?.available
-              ? "adapter available"
-              : "application adapter required"}
-          </strong>
-          <p>
-            The connected-device workspace reads actual exposed controller
-            information. Reading an editable logic diagram requires a native
-            application reader for the controller’s protocol and application
-            format. This connection has not loaded its native logic.
-          </p>
-          {onLocalFile && (
-            <button onClick={onLocalFile}>Open a local application file</button>
-          )}
-        </div>
+        <ControllerApplicationPanel
+          controller={controller}
+          connected={connected}
+          onVerified={onVerified}
+        />
+        {onLocalFile && (
+          <button onClick={onLocalFile}>Open a local application file</button>
+        )}
       </div>
     </section>
   );
@@ -343,63 +332,71 @@ export function LiveControllerPoints({
     const epoch = ++valueEpoch.current;
     let timer: number | undefined;
     if (!connected || !shown.length) return;
-    const read = async (configuration: boolean) => {
+    const configured = new Set<string>();
+    const read = async () => {
+      const identifiers = JSON.parse(pageKey) as string[];
+      const failures: string[] = [];
       try {
-        const identifiers = JSON.parse(pageKey) as string[];
-        const failures: string[] = [];
-        for (let index = 0; index < identifiers.length; index += 1) {
-          const report = await api(base + "properties", {
-            ...target(controller),
-            object_ids: identifiers.slice(index, index + 1),
-            properties: configuration
-              ? [
-                  "object-name",
-                  "description",
-                  "present-value",
-                  "units",
-                  "status-flags",
-                  "reliability",
-                  "out-of-service",
-                ]
-              : [
-                  "present-value",
-                  "status-flags",
-                  "reliability",
-                  "out-of-service",
-                ],
-          });
+        for (const identifier of identifiers) {
           if (epoch !== valueEpoch.current) return;
-          check(report, controller);
-          verified.current?.(report.finished_at);
-          setValues((prior) => {
-            const next = { ...prior };
-            for (const row of report.objects)
-              if (row.identity_verified)
-                next[row.object] = {
-                  ...row,
-                  properties: {
-                    ...prior[row.object]?.properties,
-                    ...row.properties,
-                  },
-                };
-            return next;
-          });
-          setReadAt(report.finished_at);
-          failures.push(...report.errors);
-          if (!report.complete)
-            failures.push(
-              "Partial read: some properties were not refreshed; their displayed values remain last known.",
-            );
+          const configuration = !configured.has(identifier);
+          try {
+            const report = await api(base + "properties", {
+              ...target(controller),
+              object_ids: [identifier],
+              properties: configuration
+                ? [
+                    "object-name",
+                    "description",
+                    "present-value",
+                    "units",
+                    "status-flags",
+                    "reliability",
+                    "out-of-service",
+                  ]
+                : [
+                    "present-value",
+                    "status-flags",
+                    "reliability",
+                    "out-of-service",
+                  ],
+            });
+            if (epoch !== valueEpoch.current) return;
+            check(report, controller);
+            verified.current?.(report.finished_at);
+            if (configuration && report.complete) configured.add(identifier);
+            setValues((prior) => {
+              const next = { ...prior };
+              for (const row of report.objects)
+                if (row.identity_verified)
+                  next[row.object] = {
+                    ...row,
+                    properties: {
+                      ...prior[row.object]?.properties,
+                      ...row.properties,
+                    },
+                  };
+              return next;
+            });
+            setReadAt(report.finished_at);
+            failures.push(...report.errors);
+            if (!report.complete)
+              failures.push(
+                "Partial read: some properties were not refreshed; their displayed values remain last known.",
+              );
+          } catch (failure) {
+            if (epoch !== valueEpoch.current) return;
+            failures.push(`${identifier}: ${String(failure)}`);
+          }
         }
-        setError(Array.from(new Set(failures)).join(" "));
-      } catch (failure) {
-        if (epoch === valueEpoch.current) setError(String(failure));
+        if (epoch === valueEpoch.current)
+          setError(Array.from(new Set(failures)).join(" "));
       } finally {
         if (epoch === valueEpoch.current && live)
-          timer = window.setTimeout(() => void read(false), interval * 1000);
+          timer = window.setTimeout(() => void read(), interval * 1000);
       }
     };
-    void read(true);
+    void read();
     return () => {
       valueEpoch.current++;
       window.clearTimeout(timer);

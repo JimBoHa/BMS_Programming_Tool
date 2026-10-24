@@ -32,8 +32,13 @@ reference material. Opening the start screen does not open a field interface.
    units and native quality fields automatically. It does not require manually
    entering object IDs. Program defaults to actual controller application
    information and exposed Program objects. Local graph and CAF views require
-   an explicit local-source selection. Native editable logic requires a supported
-   application reader; the common BACnet reader does not provide that transfer.
+   an explicit local-source selection. Use **Read controller application** to discover and read a published native
+   application file. The tagged MOI reader displays actual diagrams and configured
+   block properties across compatible models, and reads an exposed live value for
+   the selected block. The view labels its source file and capture time; refresh
+   to acquire later application changes. Unrecognized native formats explain the
+   missing reader. Native application editing, compilation and download remain
+   unavailable for this format.
 
 To change an instance number, open **Overview → Edit instance number**, enter the
 new allocated number and choose **Review instance change**. Review the exact
