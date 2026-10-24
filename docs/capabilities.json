@@ -473,5 +473,10 @@
     "feature": "Authored CW isolation/pump output activity",
     "status": "implemented",
     "scope": "CW-ISO-OUTPUT-001 creates one reusable activity2 graph with two required inputs, Boolean enable proxy and percent command sharing one Delay. Fixed-scan bounded enabled up/down tracking, target-floor minimum, immediate committed disabled0/reset, negative-zero choices/source and original source-bound preview/export/import integrate with existing activity editing/simulation/revisions/interchange. Existing full-scan quality faults retain prior positive commands. No native JCI algorithm/Enum/reliability/CAF/package/transfer, actual flow/run/position/minimum-speed or mechanical-stroke proof, physical protection or G36/Title24 acceptance. Broad MF-8947786f93 remains partial. See docs/cw-isolation-output-template.md."
+  },
+  {
+    "feature": "Reviewed controller Device instance commissioning",
+    "status": "implemented",
+    "scope": "Explicit standard Device.object-identifier WriteProperty to a pinned IPv4 or router/DNET/MAC station. One-use identity/configuration-bound review, scoped new-ID collision checks, site allocation confirmation, fresh preflight, single-attempt dispatch, durable intent/results, readback and restart reconciliation. Unsupported/read-only controllers require vendor tooling; no proprietary application transfer, reset, automatic retry/rollback or physical-controller acceptance claim. See docs/device-instance-commissioning.md."
   }
 ]

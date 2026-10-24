@@ -32,6 +32,7 @@ import { EventReceptionPanel } from "./EventReceptionPanel";
 import { NetworkNumberPlanPanel } from "./NetworkNumberPlanPanel";
 import { BusPreflightPanel } from "./BusPreflightPanel";
 import { OperationPowerPanel } from "./OperationPowerPanel";
+import { DeviceInstancePanel } from "./DeviceInstancePanel";
 
 export function Connections() {
   const [config, setConfig] = useState({
@@ -758,6 +759,24 @@ export function Connections() {
         defaultDnet={
           selectedRoute?.dnet ?? (/^\d+:/.test(target) ? probeDnet : null)
         }
+      />
+      <DeviceInstancePanel
+        connected={
+          !!status.connected &&
+          status.config?.transport !== "mstp" &&
+          !status.config?.bbmd_address
+        }
+        interfaceIdentity={JSON.stringify(status.config ?? null)}
+        defaultAddress={target}
+        defaultDevice={object.trim().startsWith("device,") ? object : ""}
+        defaultRouter={
+          selectedRoute?.router || (/^\d+:/.test(target) ? config.router : "")
+        }
+        defaultDnet={
+          selectedRoute?.dnet ?? (/^\d+:/.test(target) ? probeDnet : null)
+        }
+        parentBusy={busy}
+        onBusy={setBusy}
       />
       <PointStatusPanel
         connected={
