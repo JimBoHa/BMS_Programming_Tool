@@ -9,14 +9,12 @@ from __future__ import annotations
 import asyncio
 import base64
 import copy
-import fcntl
 import hashlib
 import importlib.metadata
 import json
 import math
 import os
 import secrets
-import stat
 import threading
 import time
 from collections import OrderedDict
@@ -41,6 +39,7 @@ from bacpypes3.primitivedata import ObjectIdentifier
 from pydantic import AwareDatetime, Field, field_validator, model_validator
 
 from .bacnet_exchange import confirmed_exchange
+from .file_access import file_lock, open_regular, regular_file, storage_profile, sync_directory
 from .models import StrictModel
 
 SCOPE = "Read-only BACnet Trend Log history; device timestamps interpreted in the operator-selected IANA timezone"
@@ -268,6 +267,10 @@ def _record(record, *, sequence, received_at, zone, fold):
 
 
 class BacnetHistory:
+    profile = PROFILE
+    source_kind = "device-history"
+    storage_name = "bacnet-history"
+
     def __init__(self, bacnet, store_or_directory=None, *, timeout=3.0, operation_timeout=30.0):
         if not 0.05 <= timeout <= 6 or not timeout <= operation_timeout <= 60:
             raise ValueError(
@@ -277,19 +280,20 @@ class BacnetHistory:
         self.timeout, self.operation_timeout = timeout, operation_timeout
         self.store = store_or_directory if hasattr(store_or_directory, "record") else None
         directory = getattr(store_or_directory, "directory", store_or_directory)
-        self.directory = Path(directory or bacnet.store.directory) / "bacnet-history"
+        self.directory = Path(directory or bacnet.store.directory) / self.storage_name
         self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
         self._lock = threading.RLock()
         self._reports = OrderedDict()
 
     def status(self):
         return {
-            "profile": PROFILE,
+            "profile": self.profile,
             "scope": SCOPE,
             "read_only": True,
             "connected": self.bacnet.status()["connected"],
             "source_kind": "device-history",
             "auto_poll": False,
+            "storage": storage_profile(),
             "limits": {
                 "records": 1000,
                 "page_size": 100,
@@ -558,7 +562,11 @@ class BacnetHistory:
                 report, sort_keys=True, allow_nan=False, separators=(",", ":")
             ).encode()
             wrapper = json.dumps(
-                {"format": PROFILE, "sha256": hashlib.sha256(raw).hexdigest(), "report": report},
+                {
+                    "format": self.profile,
+                    "sha256": hashlib.sha256(raw).hexdigest(),
+                    "report": report,
+                },
                 sort_keys=True,
                 allow_nan=False,
             ).encode()
@@ -572,50 +580,32 @@ class BacnetHistory:
                     "Saved history capture capacity reached; no existing evidence was deleted."
                 )
             temporary = self.directory / ("." + id + "." + secrets.token_hex(6) + ".tmp")
-            fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            fd = open_regular(temporary, writable=True, create=True, exclusive=True)
             try:
                 with os.fdopen(fd, "wb") as stream:
                     stream.write(wrapper)
                     stream.flush()
                     os.fsync(stream.fileno())
                 os.link(temporary, path)
-                descriptor = os.open(self.directory, os.O_RDONLY)
-                try:
-                    os.fsync(descriptor)
-                finally:
-                    os.close(descriptor)
+                sync_directory(self.directory)
             finally:
                 temporary.unlink(missing_ok=True)
             return self._summary(report)
 
     @contextmanager
     def _capture_lock(self):
-        flags = os.O_RDWR | os.O_CREAT | os.O_NONBLOCK | getattr(os, "O_NOFOLLOW", 0)
-        fd = os.open(self.directory / ".capture.lock", flags, 0o600)
-        with os.fdopen(fd, "a+b") as lock:
-            if not stat.S_ISREG(os.fstat(lock.fileno()).st_mode):
-                raise ValueError("History capture lock must be a regular file.")
-            deadline = time.monotonic() + CAPTURE_LOCK_SECONDS
-            while True:
-                try:
-                    fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                    break
-                except BlockingIOError:
-                    if time.monotonic() >= deadline:
-                        raise ValueError(
-                            "History capture storage is busy; retry after the current save finishes."
-                        ) from None
-                    time.sleep(0.01)
-            try:
-                yield
-            finally:
-                fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+        with file_lock(
+            self.directory / ".capture.lock",
+            timeout=CAPTURE_LOCK_SECONDS,
+            busy="History capture storage is busy; retry after the current save finishes.",
+        ):
+            yield
 
     def capture(self, id):
         id = self._identifier(id)
         path = self.directory / ("capture-" + id + ".json")
         try:
-            fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK | getattr(os, "O_NOFOLLOW", 0))
+            fd = open_regular(path)
         except FileNotFoundError as exc:
             raise ValueError("History capture unavailable.") from exc
         except OSError as exc:
@@ -624,7 +614,7 @@ class BacnetHistory:
             raise
         with os.fdopen(fd, "rb") as stream:
             information = os.fstat(stream.fileno())
-            if not stat.S_ISREG(information.st_mode) or information.st_size > MAX_BYTES:
+            if not regular_file(information) or information.st_size > MAX_BYTES:
                 raise ValueError("History capture must be a regular file within its size bound.")
             raw_file = stream.read(MAX_BYTES + 1)
         if len(raw_file) > MAX_BYTES:
@@ -643,12 +633,12 @@ class BacnetHistory:
         except RecursionError as exc:
             raise ValueError("Saved history report exceeds the nesting profile.") from exc
         if (
-            wrapper.get("format") != PROFILE
+            wrapper.get("format") != self.profile
             or wrapper.get("sha256") != hashlib.sha256(raw).hexdigest()
             or not isinstance(report, dict)
             or report.get("id") != id
-            or report.get("source_kind") != "device-history"
-            or report.get("profile") != PROFILE
+            or report.get("source_kind") != self.source_kind
+            or report.get("profile") != self.profile
             or not isinstance(report.get("records"), list)
             or len(report["records"]) > 1000
             or any(not isinstance(record, dict) for record in report["records"])
@@ -696,7 +686,7 @@ class BacnetHistory:
         paths, total = [], 0
         for path in self.directory.glob("capture-*.json"):
             information = path.lstat()
-            if not stat.S_ISREG(information.st_mode):
+            if not regular_file(information):
                 raise ValueError("History capture inventory contains a nonregular file.")
             total += information.st_size
             paths.append(path)

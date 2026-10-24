@@ -1,5 +1,7 @@
-import { test, expect } from "@playwright/test";
+import { simulationServerResponseJSON } from "./simulationFixture";
+import { test, expect } from "./simulationFixture";
 import { execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 
 test("copy a connected nested macro graph into a new project with its libraries", async ({
@@ -62,107 +64,211 @@ test("persist simulation trends and acknowledge returned alarms across reloads",
     ],
     { cwd: root },
   );
-  await page
-    .locator(
-      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"]',
-    )
-    .setInputFiles({
-      name: "alarm.bms.json",
-      mimeType: "application/json",
-      buffer,
+  const headers = {
+    "X-Studio-Token": (await (await request.get("/api/session")).json()).token,
+  };
+  // A retained source with the same message makes unscoped/label-only selection
+  // fail deterministically, even when this test starts with a fresh database.
+  const unrelatedProgram = JSON.parse(buffer.toString());
+  unrelatedProgram.id = "unrelated-alarm-" + randomUUID();
+  const operation = randomUUID().replaceAll("-", "");
+  const seeded = await request.post("/api/simulation/step", {
+    headers,
+    data: { program: unrelatedProgram, record: true, operation_id: operation },
+  });
+  expect(seeded.ok()).toBe(true);
+  const unrelated = await seeded.json();
+  expect(unrelated.session_creation_operation_id).toBe(operation);
+  const occurrences = async (source: string) => {
+    const response = await request.get(
+      "/api/observations/alarms?source=" + encodeURIComponent(source),
+    );
+    expect(response.ok()).toBe(true);
+    return response.json();
+  };
+  const retainedEvidence = async () =>
+    Object.fromEntries(
+      await Promise.all(
+        ["alarms", "events", "trends"].map(async (name) => {
+          const response = await request.get(
+            `/api/observations/${name}?source=` +
+              encodeURIComponent(unrelated.recording_source),
+          );
+          expect(response.ok()).toBe(true);
+          return [name, await response.text()];
+        }),
+      ),
+    );
+  const before = await retainedEvidence();
+  expect(JSON.parse(before.alarms)).toHaveLength(1);
+  expect(JSON.parse(before.alarms)[0]).toMatchObject({
+    active: true,
+    acknowledged: false,
+    message: "High temperature",
+  });
+  const occurrence = (id: number) =>
+    page.locator(".alarm-occurrence").filter({
+      has: page.getByRole("button", {
+        name: `Events for alarm ${id}`,
+        exact: true,
+      }),
     });
-  await page.getByLabel("Persist history", { exact: true }).check();
-  await page
-    .getByRole("button", { name: "Step simulation", exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: "Trends & alarms", exact: true })
-    .click();
-  await expect(page.locator(".alarm-occurrence")).toContainText(
-    "High temperature",
-  );
-  await page
-    .getByLabel(/acknowledgment note$/)
-    .fill("Reviewed simulated high temperature");
-  await page.getByRole("button", { name: /^Acknowledge alarm/ }).click();
-  await expect(page.locator(".alarm-occurrence")).toContainText(
-    "active · acknowledged",
-  );
-  await page.getByRole("button", { name: "Program", exact: true }).click();
-  await page.getByLabel("Simulate sensor", { exact: true }).fill("50");
-  await page
-    .getByRole("button", { name: "Step simulation", exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: "Trends & alarms", exact: true })
-    .click();
-  await expect(page.locator(".alarm-occurrence")).toContainText(
-    "returned · acknowledged",
-  );
-  await page.reload();
-  await page
-    .getByRole("button", { name: "Trends & alarms", exact: true })
-    .click();
-  await expect(page.locator(".alarm-occurrence")).toContainText(
-    "Reviewed simulated high temperature",
-  );
-  const event = page.waitForEvent("download");
-  await page
-    .getByRole("button", { name: "Export shown trends CSV", exact: true })
-    .click();
-  const file = await event;
-  const csv = execFileSync("/bin/cat", [(await file.path())!], {
-    encoding: "utf8",
-  });
-  expect(csv).toContain('"quality","unit"');
-  expect(csv).toContain('"good","degF"');
-  await page.getByRole("button", { name: "Program", exact: true }).click();
-  await page.getByLabel("Persist history", { exact: true }).check();
-  await page
-    .getByRole("button", { name: "Step simulation", exact: true })
-    .click();
-  const active = await (
-    await request.get("/api/observations/alarms?active=true")
-  ).json();
-  expect(active).toHaveLength(1);
-  await page
-    .getByRole("button", { name: "Trends & alarms", exact: true })
-    .click();
-  await page
-    .getByLabel("Observation source", { exact: true })
-    .selectOption(active[0].source);
-  await page
-    .getByText("Retention and source retirement", { exact: true })
-    .click();
-  await page
-    .getByLabel("Reason for ending source", { exact: true })
-    .fill("Simulation reset; close abandoned source");
-  await page
-    .getByRole("button", {
-      name: "End selected simulation source",
-      exact: true,
-    })
-    .click();
-  await expect(page.locator(".alarm-occurrence")).toContainText(
-    "source-ended · unacknowledged",
-  );
-  await expect(page.locator(".alarm-occurrence")).not.toContainText("Returned");
-  await page
-    .getByLabel(`Alarm ${active[0].id} acknowledgment note`, { exact: true })
-    .fill("Reviewed ended source");
-  await page
-    .getByRole("button", {
-      name: `Acknowledge alarm ${active[0].id}`,
-      exact: true,
-    })
-    .click();
-  await expect(page.locator(".alarm-occurrence")).toContainText(
-    "source-ended · acknowledged",
-  );
-  await page.screenshot({
-    path: "test-results/studio-observations.png",
-    fullPage: true,
-  });
+  const showSource = async (source: string) => {
+    await page
+      .getByRole("button", { name: "Trends & alarms", exact: true })
+      .click();
+    await page
+      .getByLabel("Observation source", { exact: true })
+      .selectOption(source);
+  };
+  const step = async () => {
+    const pending = page.waitForResponse(
+      (r) =>
+        r.url().endsWith("/api/simulation/step") &&
+        r.request().method() === "POST",
+    );
+    await page
+      .getByRole("button", { name: "Step simulation", exact: true })
+      .click();
+    const response = await pending;
+    expect(response.ok()).toBe(true);
+    const receipt = simulationServerResponseJSON(response);
+    expect(receipt.operation_id).toBe(
+      response.request().postDataJSON().operation_id,
+    );
+    expect(receipt.completed_steps).toBe(1);
+    expect(receipt.recording_source).toBe(
+      `simulation/${receipt.program_id}/${receipt.session}`,
+    );
+    return receipt;
+  };
+  try {
+    await page
+      .locator(
+        'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"]',
+      )
+      .setInputFiles({
+        name: "alarm.bms.json",
+        mimeType: "application/json",
+        buffer,
+      });
+    await expect(page.locator(".toast")).toContainText(
+      "Imported as a new local project",
+    );
+    await page.getByLabel("Persist history", { exact: true }).check();
+    const first = await step();
+    expect(first.session).not.toBe(unrelated.session);
+    expect(first.session_creation_operation_id).toBe(first.operation_id);
+    const [active] = await occurrences(first.recording_source);
+    expect(await occurrences(first.recording_source)).toHaveLength(1);
+    expect(active).toMatchObject({
+      source: first.recording_source,
+      signal: "high",
+      active: true,
+      acknowledged: false,
+    });
+    await showSource(first.recording_source);
+    const firstRow = occurrence(active.id);
+    await expect(firstRow).toHaveCount(1);
+    await expect(firstRow).toContainText("High temperature");
+    await expect(firstRow).toContainText(first.recording_source);
+    await firstRow
+      .getByLabel(`Alarm ${active.id} acknowledgment note`, { exact: true })
+      .fill("Reviewed simulated high temperature");
+    await firstRow
+      .getByRole("button", {
+        name: `Acknowledge alarm ${active.id}`,
+        exact: true,
+      })
+      .click();
+    await expect(firstRow).toContainText("active · acknowledged");
+    expect(await retainedEvidence()).toEqual(before);
+    await page.getByRole("button", { name: "Program", exact: true }).click();
+    await page.getByLabel("Simulate sensor", { exact: true }).fill("50");
+    expect((await step()).session).toBe(first.session);
+    await showSource(first.recording_source);
+    await expect(firstRow).toContainText("returned · acknowledged");
+    await page.reload();
+    await showSource(first.recording_source);
+    await expect(firstRow).toContainText("Reviewed simulated high temperature");
+    const returned = await occurrences(first.recording_source);
+    expect(returned).toHaveLength(1);
+    expect(returned[0]).toMatchObject({
+      id: active.id,
+      active: false,
+      acknowledged: true,
+      state: "returned",
+    });
+    const event = page.waitForEvent("download");
+    await page
+      .getByRole("button", { name: "Export shown trends CSV", exact: true })
+      .click();
+    const file = await event;
+    const csv = execFileSync("/bin/cat", [(await file.path())!], {
+      encoding: "utf8",
+    });
+    expect(csv).toContain('"quality","unit"');
+    expect(csv).toContain('"good","degF"');
+    expect(csv).toContain(first.recording_source);
+    expect(csv).not.toContain(unrelated.recording_source);
+    await page.getByRole("button", { name: "Program", exact: true }).click();
+    await page.getByLabel("Persist history", { exact: true }).check();
+    const restarted = await step();
+    expect(restarted.session).not.toBe(first.session);
+    expect(restarted.recording_source).not.toBe(first.recording_source);
+    const fresh = await occurrences(restarted.recording_source);
+    expect(fresh).toHaveLength(1);
+    expect(fresh[0]).toMatchObject({
+      source: restarted.recording_source,
+      active: true,
+      acknowledged: false,
+    });
+    expect(fresh[0].id).not.toBe(active.id);
+    await showSource(restarted.recording_source);
+    const endedRow = occurrence(fresh[0].id);
+    await page
+      .getByText("Retention and source retirement", { exact: true })
+      .click();
+    await page
+      .getByLabel("Reason for ending source", { exact: true })
+      .fill("Simulation reset; close abandoned source");
+    await page
+      .getByRole("button", {
+        name: "End selected simulation source",
+        exact: true,
+      })
+      .click();
+    await expect(endedRow).toContainText("source-ended · unacknowledged");
+    await expect(endedRow).not.toContainText("Returned");
+    await endedRow
+      .getByLabel(`Alarm ${fresh[0].id} acknowledgment note`, { exact: true })
+      .fill("Reviewed ended source");
+    await endedRow
+      .getByRole("button", {
+        name: `Acknowledge alarm ${fresh[0].id}`,
+        exact: true,
+      })
+      .click();
+    await expect(endedRow).toContainText("source-ended · acknowledged");
+    expect(await occurrences(first.recording_source)).toEqual(returned);
+    expect(await retainedEvidence()).toEqual(before);
+    await page.screenshot({
+      path: "test-results/studio-observations.png",
+      fullPage: true,
+    });
+  } finally {
+    const retired = await request.post("/api/simulation/retire", {
+      headers,
+      data: {
+        session: unrelated.session,
+        retirement_token: unrelated.retirement_token,
+        creation_operation_id: operation,
+      },
+    });
+    expect(retired.ok()).toBe(true);
+    expect((await retired.json()).recorded_evidence_unchanged).toBe(true);
+    expect(await retainedEvidence()).toEqual(before);
+  }
 });
 
 test("configure date exceptions and run an explicit UTC calendar scan", async ({

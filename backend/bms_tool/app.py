@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
-import os
 import secrets
 import sqlite3
 import time
@@ -20,22 +20,54 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import AwareDatetime, Field
 
+from .accumulator_prescale import PrescaleReviews, prescale_router
+from .activities import activity_router
 from .analysis import dependencies
+from .bacnet_cov import BacnetCov, CovAction, CovStart
+from .bacnet_event_ack import EventAckApply, EventAcknowledgements, EventAckPreview
+from .bacnet_event_log import EventLogHistory, EventLogHistoryRequest
+from .bacnet_events import EventCancelRequest, EventInventory, EventInventoryRequest
 from .bacnet_files import BacnetFiles
 from .bacnet_history import BacnetHistory, BacnetHistoryRequest
+from .bacnet_history_multiple import MultipleHistory, MultipleHistoryCancel, MultipleHistoryRequest
+from .bbmd_admin import BbmdAdmin, BbmdAdminApply, BbmdAdminPreview, BbmdAdminRestore
+from .bbmd_tables import BbmdCancel, BbmdInspection, BbmdTables
 from .blocks import catalog
+from .bus_preflight import bus_preflight_router
 from .caf import CafArchive
 from .caf_compare import compare_cafs
 from .caf_graph import CafGraph
+from .caf_hardware import CafHardwareBindings, HardwareExportRequest, HardwareMoveRequest
+from .caf_scenarios import CafInputScenarios, CafScenarioStore
 from .caf_simulation import CafSimulationProfile
+from .cancelable_pulse_template import cancelable_pulse_template_router
+from .co2_minimum_flow_template import co2_minimum_flow_template_router
+from .conformance import ConformancePlans, conformance_router
 from .connections import Bacnet, modbus_read, ports
+from .conversion_preview import conversion_preview
+from .cov_observations import CovObservations
+from .cw_isolation_output_template import cw_isolation_output_template_router
 from .deployment import Runtime
 from .device_details import DeviceDetails, DeviceDetailsRequest
 from .engine import Engine, output_type, run_scenario, validate
+from .enum_mapping import (
+    EnumMappingExport,
+    EnumMappingRequest,
+    export_review,
+    import_plan,
+    review_enum_mapping,
+)
+from .equipment_wizard import wizard_router
+from .event_reception import EventListenAction, EventListenStart, EventReception
 from .field_trends import FieldTrends, FieldTrendStart
 from .formats import export_program, import_program
+from .hardware_workbench import HardwareWorkbench, hardware_router
+from .heat_pump import heat_pump_router
+from .hydronic_io import HydronicPlanner, hydronic_router
 from .ip_discovery import IpDiscovery, IpScanRequest
 from .jci_hardware import JciHardwareDefinition, plan_hardware_migration
+from .jci_preflight import PreflightRequest, inventory_template, preflight
+from .jci_release_rules import catalog as release_rule_catalog
 from .macros import (
     create_definition,
     delete_macro_definition,
@@ -46,10 +78,40 @@ from .macros import (
     macro_catalog,
     update_macro_definition,
 )
+from .madd_mz_ahu import madd_mz_ahu_router
+from .masd_ahu import masd_ahu_router
 from .models import Program, StrictModel
+from .native_schedule_library import (
+    MAX_ARCHIVE_BYTES,
+    CaptureAction,
+    NativeScheduleLibrary,
+    WeeklyDayDraft,
+)
+from .native_schedule_write import (
+    NativeWeeklyDayWrites,
+    WeeklyWriteApply,
+    WeeklyWriteCancel,
+    WeeklyWritePreview,
+    WeeklyWriteReconcile,
+)
+from .native_schedule_write import (
+    encoded as native_write_json,
+)
 from .native_simulator import NativeSimulator
+from .network_number_plan import network_plan_router
 from .niagara import NiagaraArchive
 from .observability import ObservabilityStore
+from .operation_power import OperationPower
+from .parallel_fan_purge_template import parallel_fan_purge_template_router
+from .physical_capacity import capacity_router
+from .plant_signals import PlantSignals, plant_signal_router
+from .point_status import PointStatus, PointStatusCancel, PointStatusExport, PointStatusRequest
+from .program_source import SourceMode, source_response
+from .read_phase_trace import MAX_BYTES as READ_TRACE_MAX_BYTES
+from .read_phase_trace import capture as capture_read_trace
+from .read_phase_trace import freeze as freeze_read_trace
+from .read_phase_trace import unavailable as unavailable_read_trace
+from .resources import public_document, state_directory, web_directory
 from .routed_discovery import (
     ProbeTrunkRequest,
     RoutedDiscovery,
@@ -58,10 +120,23 @@ from .routed_discovery import (
     RouterNetworksRequest,
     RouterProbeRequest,
 )
+from .schedule_coordination import schedule_coordination_router
+from .schedule_inventory import (
+    ScheduleAction,
+    ScheduleExport,
+    ScheduleInventory,
+    ScheduleReadRequest,
+)
+from .sensor_supply import SupplyPlans, supply_router
+from .series_fan_vav import series_fan_vav_router
 from .simulation_group import SimulationGroups, SimulationWorkspace, demo_workspace
 from .storage import Conflict, Store
+from .sum8_macro_template import sum8_macro_template_router
 from .temco_transfer import TemcoTransfer
 from .templates import all_templates
+from .truth_tables import TruthTables, truth_table_router
+from .unit_ventilator_cycle3 import unit_ventilator_cycle3_router
+from .zone_setpoints import zone_setpoint_router
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -75,6 +150,13 @@ class SimulationRequest(StrictModel):
     clock: AwareDatetime | None = None
     forces: dict[str, Any] | None = None
     record: bool = False
+    operation_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
+
+
+class SimulationRetire(StrictModel):
+    session: str = Field(strict=True, pattern=r"^[A-Za-z0-9_-]{20,64}$")
+    retirement_token: str = Field(strict=True, pattern=r"^[A-Za-z0-9_-]{32,64}$")
+    creation_operation_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
 
 
 class NativeStart(StrictModel):
@@ -139,12 +221,33 @@ class ExportRequest(StrictModel):
     format: str
 
 
+class ConversionPreviewRequest(StrictModel):
+    program: Program
+
+
 class CafPatchRequest(StrictModel):
     changes: list[dict[str, Any]] = Field(max_length=1000)
 
 
 class CafSimulationRequest(StrictModel):
     profile: dict[str, Any]
+
+
+class CafLocalScenarioRequest(StrictModel):
+    scenario: dict[str, Any]
+
+
+class CafLocalScenarioSave(CafLocalScenarioRequest):
+    id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
+    expected_revision: int = Field(ge=0, strict=True)
+
+
+class CafLocalScenarioFrame(CafLocalScenarioRequest):
+    time: float = Field(ge=0, le=86400, strict=True)
+
+
+class CafLocalScenarioDelete(StrictModel):
+    expected_revision: int = Field(ge=1, strict=True)
 
 
 class CafCompareRequest(StrictModel):
@@ -383,23 +486,46 @@ class MacroUpdate(MacroReference):
     replacement: Program
 
 
-def create_app(state_dir=None):
-    store = Store(state_dir or os.environ.get("BMS_STUDIO_DATA", str(ROOT / ".state")))
+def create_app(state_dir=None, *, operation_power=None):
+    store = Store(state_dir or state_directory())
+    conformance = ConformancePlans(store)
     runtime = Runtime(store)
     bacnet = Bacnet(store)
     native = NativeSimulator(store)
     groups = SimulationGroups()
     observations = ObservabilityStore(store.directory)
     field_trends = FieldTrends(bacnet, store.directory, audit_store=store)
-    temco_transfer = TemcoTransfer(bacnet, store)
+    cov_recordings = CovObservations(field_trends.store)
+    cov = BacnetCov(bacnet, store, recorder=cov_recordings)
+    power = operation_power if operation_power is not None else OperationPower()
+    temco_transfer = TemcoTransfer(bacnet, store, operation_power=power)
     history = BacnetHistory(bacnet, store)
+    multiple_history = MultipleHistory(bacnet, store)
+    event_log = EventLogHistory(bacnet, store)
     routed = RoutedDiscovery(bacnet, store)
     ip_discovery = IpDiscovery(bacnet, store)
+    bbmd_tables = BbmdTables(bacnet, store)
+    bbmd_admin_error = None
+    try:
+        bbmd_admin = BbmdAdmin(bacnet, bbmd_tables, store.directory)
+    except (ValueError, OSError, sqlite3.Error) as exc:
+        bbmd_admin = None
+        bbmd_admin_error = "BBMD administration unavailable: " + str(exc)[:1000]
     device_details = DeviceDetails(bacnet, store)
+    schedule_inventory = ScheduleInventory(bacnet, store)
+    schedule_library = NativeScheduleLibrary(store.directory, schedule_inventory)
+    schedule_writes = NativeWeeklyDayWrites(bacnet, store, schedule_library)
+    point_status = PointStatus(bacnet, store)
+    event_inventory = EventInventory(bacnet, store)
+    event_ack = EventAcknowledgements(bacnet, store, event_inventory)
+    event_reception = EventReception(bacnet, store)
     files = BacnetFiles(bacnet, store)
+    hardware_workbench = HardwareWorkbench(bacnet, store, files)
+    supply_plans = SupplyPlans(store, hardware_workbench)
     notifications = None
     simulations = {}
     caf_files = {}
+    caf_scenarios = CafScenarioStore(store)
     niagara_files = {}
     hardware_files = {}
     session_token = secrets.token_urlsafe(32)
@@ -449,34 +575,113 @@ def create_app(state_dir=None):
         try:
             yield
         finally:
+            app.state.power_shutdown = await power.close()
             for task in tasks:
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
+            await schedule_writes.close()
             try:
-                if notifications is not None:
-                    await notifications.close()
+                try:
+                    try:
+                        await point_status.close()
+                    finally:
+                        await schedule_inventory.close()
+                finally:
+                    if bbmd_admin is not None:
+                        await bbmd_admin.close()
             finally:
                 try:
-                    await field_trends.close()
+                    await bbmd_tables.close()
                 finally:
                     try:
-                        bacnet.close()
+                        if notifications is not None:
+                            await notifications.close()
                     finally:
-                        native.stop()
+                        try:
+                            await field_trends.close()
+                        finally:
+                            try:
+                                await hardware_workbench.close()
+                            finally:
+                                try:
+                                    try:
+                                        await event_reception.close()
+                                    finally:
+                                        await cov.close()
+                                finally:
+                                    try:
+                                        await event_ack.close()
+                                    finally:
+                                        try:
+                                            await event_inventory.close()
+                                        finally:
+                                            try:
+                                                await event_log.close()
+                                            finally:
+                                                try:
+                                                    await multiple_history.close()
+                                                finally:
+                                                    try:
+                                                        bacnet.close()
+                                                    finally:
+                                                        native.stop()
 
     app = FastAPI(title="BMS Studio local API", version="0.1.0", lifespan=lifespan)
     app.state.runtime = runtime
     app.state.store = store
     app.state.bacnet = bacnet
+    app.state.bacnet_cov = cov
     app.state.native = native
     app.state.field_trends = field_trends
     app.state.temco_transfer = temco_transfer
+    app.state.operation_power = power
     app.state.bacnet_history = history
+    app.state.multiple_history = multiple_history
+    app.state.event_log = event_log
     app.state.routed_discovery = routed
     app.state.ip_discovery = ip_discovery
+    app.state.bbmd_tables = bbmd_tables
+    app.state.bbmd_admin = bbmd_admin
+    app.state.bbmd_admin_startup_error = bbmd_admin_error
     app.state.device_details = device_details
+    app.state.schedule_inventory = schedule_inventory
+    app.state.schedule_library = schedule_library
+    app.state.point_status = point_status
+    app.state.plant_signals = PlantSignals(store)
+    app.include_router(plant_signal_router(app.state.plant_signals))
+    app.state.hydronic_io = HydronicPlanner(app.state.plant_signals, hardware_workbench)
+    app.include_router(hydronic_router(app.state.hydronic_io))
+    app.state.prescale_reviews = PrescaleReviews(point_status)
+    app.include_router(prescale_router(app.state.prescale_reviews))
+    app.state.event_inventory = event_inventory
+    app.state.event_ack = event_ack
+    app.state.schedule_writes = schedule_writes
+    app.state.event_reception = event_reception
     app.state.bacnet_files = files
+    app.state.hardware_workbench = hardware_workbench
     app.state.notifications = None
+    app.include_router(hardware_router(hardware_workbench))
+    app.include_router(capacity_router(hardware_workbench))
+    app.include_router(supply_router(supply_plans))
+    app.state.truth_tables = TruthTables()
+    app.include_router(truth_table_router(app.state.truth_tables))
+    app.include_router(network_plan_router())
+    app.include_router(bus_preflight_router())
+    app.include_router(conformance_router(conformance))
+    app.include_router(wizard_router())
+    app.include_router(schedule_coordination_router())
+    app.include_router(heat_pump_router())
+    app.include_router(masd_ahu_router())
+    app.include_router(madd_mz_ahu_router())
+    app.include_router(zone_setpoint_router())
+    app.include_router(series_fan_vav_router())
+    app.include_router(unit_ventilator_cycle3_router())
+    app.include_router(sum8_macro_template_router())
+    app.include_router(cancelable_pulse_template_router())
+    app.include_router(activity_router())
+    app.include_router(cw_isolation_output_template_router())
+    app.include_router(co2_minimum_flow_template_router())
+    app.include_router(parallel_fan_purge_template_router())
 
     @app.middleware("http")
     async def local_requests(request, call_next):
@@ -537,12 +742,12 @@ def create_app(state_dir=None):
         }
 
     @app.get("/api/blocks")
-    def blocks():
-        return catalog()
+    def blocks(source_transport: SourceMode = False):
+        return source_response(catalog(), source_transport, kind="blocks")
 
     @app.get("/api/templates")
-    def templates():
-        return [p.model_dump() for p in all_templates()]
+    def templates(source_transport: SourceMode = False):
+        return source_response([p.model_dump() for p in all_templates()], source_transport)
 
     @app.get("/api/observations/status")
     def observation_status():
@@ -746,62 +951,75 @@ def create_app(state_dir=None):
         return {"definitions": macro_catalog(body.program)}
 
     @app.post("/api/macros/create")
-    def macros_create(body: MacroSelection):
-        return create_definition(body.program, body.selected_ids, body.name)
+    def macros_create(body: MacroSelection, source_transport: SourceMode = False):
+        return source_response(
+            create_definition(body.program, body.selected_ids, body.name), source_transport
+        )
 
     @app.post("/api/macros/instantiate")
-    def macros_instantiate(body: MacroInstance):
-        return instantiate_macro(body.program, body.definition, body.x, body.y)
+    def macros_instantiate(body: MacroInstance, source_transport: SourceMode = False):
+        return source_response(
+            instantiate_macro(body.program, body.definition, body.x, body.y), source_transport
+        )
 
     @app.post("/api/macros/definition")
-    def macros_definition(body: MacroReference):
-        return inspect_macro_definition(body.program, body.definition)
+    def macros_definition(body: MacroReference, source_transport: SourceMode = False):
+        return source_response(
+            inspect_macro_definition(body.program, body.definition), source_transport
+        )
 
     @app.post("/api/macros/delete")
-    def macros_delete(body: MacroReference):
-        return delete_macro_definition(body.program, body.definition)
+    def macros_delete(body: MacroReference, source_transport: SourceMode = False):
+        return source_response(
+            delete_macro_definition(body.program, body.definition), source_transport
+        )
 
     @app.post("/api/macros/export")
-    def macros_export(body: MacroReference):
-        return export_macro_library(body.program, body.definition)
+    def macros_export(body: MacroReference, source_transport: SourceMode = False):
+        return source_response(
+            export_macro_library(body.program, body.definition), source_transport
+        )
 
     @app.post("/api/macros/import")
-    def macros_import(body: MacroImport):
-        return import_macro_library(body.program, body.bundle)
+    def macros_import(body: MacroImport, source_transport: SourceMode = False):
+        return source_response(import_macro_library(body.program, body.bundle), source_transport)
 
     @app.post("/api/macros/update")
-    def macros_update(body: MacroUpdate):
-        return update_macro_definition(body.program, body.definition, body.replacement)
+    def macros_update(body: MacroUpdate, source_transport: SourceMode = False):
+        return source_response(
+            update_macro_definition(body.program, body.definition, body.replacement),
+            source_transport,
+        )
 
     @app.get("/api/groups/demo")
-    def group_demo():
-        return demo_workspace()
+    def group_demo(source_transport: SourceMode = False):
+        return source_response(demo_workspace(), source_transport)
 
     @app.get("/api/groups")
     def group_list():
         return groups.list()
 
     @app.post("/api/groups/start")
-    def group_start(body: GroupStart):
-        return groups.start(body.definition, body.replace)
+    def group_start(body: GroupStart, source_transport: SourceMode = False):
+        return source_response(groups.start(body.definition, body.replace), source_transport)
 
     @app.get("/api/groups/{session}")
-    def group_status(session: str):
-        return groups.status(session)
+    def group_status(session: str, source_transport: SourceMode = False):
+        return source_response(groups.status(session), source_transport)
 
     @app.post("/api/groups/step")
-    def group_step(body: GroupStep):
+    def group_step(body: GroupStep, source_transport: SourceMode = False):
         if body.clock is not None and body.steps != 1:
             raise ValueError("An explicit clock applies to one group cycle.")
         group = groups.get(body.session)
         for _ in range(body.steps):
             group.step(body.inputs, clock=body.clock)
-        return groups.status(body.session)
+        return source_response(groups.status(body.session), source_transport)
 
     @app.post("/api/groups/reset")
-    def group_reset(body: GroupRequest):
+    def group_reset(body: GroupRequest, source_transport: SourceMode = False):
         groups.get(body.session).reset()
-        return groups.status(body.session)
+        return source_response(groups.status(body.session), source_transport)
 
     @app.post("/api/groups/close")
     def group_close(body: GroupRequest):
@@ -813,31 +1031,37 @@ def create_app(state_dir=None):
         return Response(groups.export(body.session), media_type="application/json")
 
     @app.post("/api/groups/import")
-    async def group_import(file: Annotated[UploadFile, File()], replace: str | None = None):
+    async def group_import(
+        file: Annotated[UploadFile, File()],
+        replace: str | None = None,
+        source_transport: SourceMode = False,
+    ):
         content = await file.read(8 * 1024 * 1024 + 1)
-        return groups.import_file(content, replace)
+        return source_response(groups.import_file(content, replace), source_transport)
 
     @app.get("/api/projects")
     def projects():
         return store.projects()
 
     @app.post("/api/projects")
-    def save(body: SaveRequest):
-        return store.save(body.program, body.expected_revision)
+    def save(body: SaveRequest, source_transport: SourceMode = False):
+        return source_response(store.save(body.program, body.expected_revision), source_transport)
 
     @app.get("/api/projects/{id}/versions")
     def versions(id: str):
         return store.versions(id)
 
     @app.get("/api/projects/{id}")
-    def project(id: str, revision: int | None = None):
-        return store.load(id, revision)
+    def project(id: str, revision: int | None = None, source_transport: SourceMode = False):
+        return source_response(store.load(id, revision), source_transport)
 
     @app.post("/api/import")
-    async def import_file(file: Annotated[UploadFile, File()]):
+    async def import_file(
+        file: Annotated[UploadFile, File()], source_transport: SourceMode = False
+    ):
         content = await file.read(8 * 1024 * 1024 + 1)
         try:
-            return import_program(content, file.filename or "")
+            return source_response(import_program(content, file.filename or ""), source_transport)
         except (zipfile.BadZipFile, XML.ParseError, KeyError, TypeError) as exc:
             raise ValueError("Malformed interchange file: " + type(exc).__name__) from exc
 
@@ -852,13 +1076,17 @@ def create_app(state_dir=None):
             },
         )
 
+    @app.post("/api/conversion/preview")
+    def preview_conversion(body: ConversionPreviewRequest):
+        return conversion_preview(body.program)
+
     @app.get("/api/native/status")
-    def native_status():
-        return native.status()
+    def native_status(source_transport: SourceMode = False):
+        return source_response(native.status(), source_transport)
 
     @app.post("/api/native/start")
-    def native_start(body: NativeStart):
-        return native.start(body.program)
+    def native_start(body: NativeStart, source_transport: SourceMode = False):
+        return source_response(native.start(body.program), source_transport)
 
     @app.post("/api/native/stop")
     def native_stop():
@@ -874,8 +1102,8 @@ def create_app(state_dir=None):
         return native.inspect()
 
     @app.post("/api/native/save")
-    def native_save(body: NativeSave):
-        return native.save(body.expected_revision)
+    def native_save(body: NativeSave, source_transport: SourceMode = False):
+        return source_response(native.save(body.expected_revision), source_transport)
 
     @app.post("/api/native/export")
     def native_export(body: NativeExport):
@@ -901,11 +1129,41 @@ def create_app(state_dir=None):
     def native_rollback(body: RuntimeRollback):
         return native.rollback(body.backup_id, body.expected_generation)
 
-    @app.post("/api/simulation/step")
-    async def step(body: SimulationRequest):
+    def expire_simulation_sessions():
         now = time.monotonic()
         for id in [k for k, v in simulations.items() if now - v["touched"] > 3600]:
             del simulations[id]
+        return now
+
+    @app.get("/api/simulation/sessions/status")
+    async def simulation_session_status():
+        expire_simulation_sessions()
+        return {"cached_sessions": len(simulations), "limit": 25, "idle_expiry_seconds": 3600}
+
+    @app.post("/api/simulation/retire")
+    async def retire_simulation(body: SimulationRetire):
+        expire_simulation_sessions()
+        record = simulations.get(body.session)
+        if record is not None:
+            if (
+                not secrets.compare_digest(record["retirement_token"], body.retirement_token)
+                or record["creation_operation_id"] != body.creation_operation_id
+            ):
+                raise ValueError("Simulation retirement ownership does not match this session.")
+            del simulations[body.session]
+        return {
+            "session": body.session,
+            "retired": record is not None,
+            "recorded_evidence_unchanged": True,
+            "scope": "Only the volatile calculation session is removed. Recorded history and alarm lifecycle are unchanged; admitted scans are not rolled back.",
+        }
+
+    @app.post("/api/simulation/step")
+    async def step(body: SimulationRequest):
+        if body.clock is not None and body.steps != 1:
+            raise ValueError("An explicit clock applies to one scan; use single-step mode.")
+        created = not body.session
+        now = expire_simulation_sessions()
         if body.session:
             record = simulations.get(body.session)
             if record is None:
@@ -921,12 +1179,15 @@ def create_app(state_dir=None):
                     "Simulation session limit reached. Wait for expiration or restart the app."
                 )
             id = secrets.token_urlsafe(16)
-            record = {"engine": Engine(body.program), "touched": now}
+            record = {
+                "engine": Engine(body.program),
+                "touched": now,
+                "retirement_token": secrets.token_urlsafe(24),
+                "creation_operation_id": body.operation_id,
+            }
             simulations[id] = record
         engine = record["engine"]
         record["touched"] = now
-        if body.clock is not None and body.steps != 1:
-            raise ValueError("An explicit clock applies to one scan; use single-step mode.")
         rows = []
         scan_error = None
         recording_errors = []
@@ -936,7 +1197,11 @@ def create_app(state_dir=None):
                 row = engine.step(body.inputs, body.dt, body.clock, forces=body.forces)
             except ValueError as exc:
                 if not rows:
-                    raise
+                    # No scan or observation committed for this new, undisclosed session.
+                    if created:
+                        simulations.pop(id, None)
+                    if body.operation_id is None:
+                        raise
                 scan_error = str(exc)
                 break
             rows.append(row)
@@ -961,14 +1226,21 @@ def create_app(state_dir=None):
                     # never imply an executed scan was rolled back by a disk error.
                     recording_errors.append(str(exc))
         return {
-            "session": id,
-            "last": rows[-1],
+            "session": None if created and not rows else id,
+            "retirement_token": None if created and not rows else record["retirement_token"],
+            "session_creation_operation_id": record["creation_operation_id"],
+            "last": rows[-1] if rows else None,
             "history": engine.history[-300:],
             "snapshot": engine.snapshot(),
-            "recording_source": source if body.record else None,
+            "recording_source": source if body.record and not (created and not rows) else None,
             "recording_error": "; ".join(recording_errors) or None,
             "scan_error": scan_error,
             "completed_steps": len(rows),
+            "requested_steps": body.steps,
+            "operation_id": body.operation_id,
+            "applied_dt": engine.program.scan_seconds if body.dt is None else body.dt,
+            "program_id": engine.program.id,
+            "program_revision": engine.program.revision,
         }
 
     @app.post("/api/simulation/scenario")
@@ -991,6 +1263,32 @@ def create_app(state_dir=None):
         if id not in caf_files:
             raise ValueError("Open the CAF file first.")
         return caf_files[id]
+
+    @app.get("/api/jci/preflight/release-rules")
+    def preflight_release_rules():
+        return release_rule_catalog()
+
+    @app.get("/api/jci/preflight/template")
+    def preflight_template():
+        return inventory_template()
+
+    @app.get("/api/caf/{id}/preflight")
+    def caf_preflight_inspect(id: str):
+        return preflight(get_caf(id), PreflightRequest())
+
+    @app.post("/api/caf/{id}/preflight")
+    def caf_preflight(id: str, body: PreflightRequest):
+        hardware = get_hardware(body.hardware_sha256.lower()) if body.hardware_sha256 else None
+        return preflight(get_caf(id), body, hardware)
+
+    @app.post("/api/caf/{id}/preflight/export")
+    def caf_preflight_export(id: str, body: PreflightRequest):
+        hardware = get_hardware(body.hardware_sha256.lower()) if body.hardware_sha256 else None
+        return Response(
+            json.dumps(preflight(get_caf(id), body, hardware), indent=2, ensure_ascii=True),
+            media_type="application/json",
+            headers={"Content-Disposition": 'attachment; filename="jci-target-readiness.json"'},
+        )
 
     @app.post("/api/caf/compare")
     def caf_compare(body: CafCompareRequest):
@@ -1015,6 +1313,32 @@ def create_app(state_dir=None):
     def caf_properties(id: str, ref: str):
         return get_caf(id).properties(ref)
 
+    @app.get("/api/caf/{id}/hardware")
+    def caf_hardware(id: str):
+        return CafHardwareBindings(get_caf(id)).summary()
+
+    @app.post("/api/caf/{id}/hardware/preview")
+    def caf_hardware_preview(id: str, body: HardwareMoveRequest):
+        return CafHardwareBindings(get_caf(id)).preview(body)
+
+    @app.post("/api/caf/{id}/hardware/export")
+    def caf_hardware_export(id: str, body: HardwareExportRequest):
+        content, plan = CafHardwareBindings(get_caf(id)).export(body)
+        store.record(
+            "caf.hardware.export",
+            {
+                "source_sha256": id,
+                "output_sha256": hashlib.sha256(content).hexdigest(),
+                "plan": plan,
+                "native_validation": "pending",
+            },
+        )
+        return Response(
+            content,
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": 'attachment; filename="hardware-copy.caf"'},
+        )
+
     @app.get("/api/caf/{id}/simulation")
     def caf_simulation(id: str):
         return CafSimulationProfile(get_caf(id)).summary()
@@ -1034,6 +1358,43 @@ def create_app(state_dir=None):
             content,
             media_type="application/octet-stream",
             headers={"Content-Disposition": 'attachment; filename="simulation-copy.caf"'},
+        )
+
+    @app.get("/api/caf/{id}/local-scenarios")
+    def caf_local_scenarios(id: str):
+        adapter = CafInputScenarios(get_caf(id))
+        return {
+            "contract": adapter.contract(),
+            "template": adapter.template(),
+            "saved": caf_scenarios.list(adapter),
+        }
+
+    @app.post("/api/caf/{id}/local-scenarios/validate")
+    def caf_local_scenario_validate(id: str, body: CafLocalScenarioRequest):
+        return {"scenario": CafInputScenarios(get_caf(id)).validate(body.scenario)}
+
+    @app.post("/api/caf/{id}/local-scenarios/preview")
+    def caf_local_scenario_preview(id: str, body: CafLocalScenarioRequest):
+        return CafInputScenarios(get_caf(id)).preview(body.scenario)
+
+    @app.post("/api/caf/{id}/local-scenarios/startup-profile")
+    def caf_local_scenario_startup(id: str, body: CafLocalScenarioFrame):
+        return {"profile": CafInputScenarios(get_caf(id)).startup_profile(body.scenario, body.time)}
+
+    @app.post("/api/caf/{id}/local-scenarios/save")
+    def caf_local_scenario_save(id: str, body: CafLocalScenarioSave):
+        return caf_scenarios.save(
+            CafInputScenarios(get_caf(id)), body.scenario, body.id, body.expected_revision
+        )
+
+    @app.get("/api/caf/{id}/local-scenarios/{scenario_id}")
+    def caf_local_scenario_load(id: str, scenario_id: str):
+        return caf_scenarios.load(CafInputScenarios(get_caf(id)), scenario_id)
+
+    @app.delete("/api/caf/{id}/local-scenarios/{scenario_id}")
+    def caf_local_scenario_delete(id: str, scenario_id: str, body: CafLocalScenarioDelete):
+        return caf_scenarios.delete(
+            CafInputScenarios(get_caf(id)), scenario_id, body.expected_revision
         )
 
     @app.post("/api/caf/{id}/export")
@@ -1240,6 +1601,66 @@ def create_app(state_dir=None):
     def bacnet_status():
         return bacnet.status()
 
+    @app.get("/api/bacnet/cov/status")
+    async def cov_status():
+        return cov.status()
+
+    @app.get("/api/bacnet/event-reception/status")
+    async def event_listen_status():
+        return event_reception.status()
+
+    @app.get("/api/bacnet/event-reception/sessions/{id}")
+    async def event_listen_detail(id: str):
+        return event_reception.detail(id)
+
+    @app.post("/api/bacnet/event-reception/start")
+    async def event_listen_start(body: EventListenStart):
+        return await event_reception.start(**body.model_dump())
+
+    @app.post("/api/bacnet/event-reception/stop")
+    async def event_listen_stop(body: EventListenAction):
+        return await event_reception.stop(body.id)
+
+    @app.post("/api/bacnet/event-reception/save")
+    async def event_listen_save(body: EventListenAction):
+        return await event_reception.save(body.id)
+
+    @app.get("/api/bacnet/event-reception/snapshots")
+    def event_listen_snapshots():
+        return event_reception.snapshots()
+
+    @app.get("/api/bacnet/event-reception/snapshots/{id}")
+    def event_listen_snapshot(id: str):
+        return event_reception.saved(id)
+
+    @app.get("/api/bacnet/cov/jobs/{id}")
+    async def cov_detail(id: str):
+        return cov.detail(id)
+
+    @app.get("/api/bacnet/cov/recordings")
+    def cov_saved_recordings():
+        return cov_recordings.recordings()
+
+    @app.get("/api/bacnet/cov/recordings/{id}/events")
+    def cov_saved_events(id: str, after: int = 0, limit: int = 100):
+        return cov_recordings.events(id, after=after, limit=limit)
+
+    @app.get("/api/bacnet/cov/recordings/{id}/page")
+    def cov_saved_page(id: str, after: int = 0, limit: int = 100):
+        return cov_recordings.page(id, after=after, limit=limit)
+
+    @app.post("/api/bacnet/cov/start")
+    async def cov_start(body: CovStart):
+        return await cov.start(**body.model_dump())
+
+    @app.post("/api/bacnet/cov/renew")
+    async def cov_renew(body: CovAction):
+        return await cov.renew(body.id)
+
+    @app.post("/api/bacnet/cov/stop")
+    async def cov_stop(body: CovAction):
+        return await cov.stop(body.id)
+
     @app.get("/api/bacnet/routed-profile")
     def bacnet_routed_profile():
         return routed.status()
@@ -1259,6 +1680,250 @@ def create_app(state_dir=None):
     @app.post("/api/bacnet/device-details")
     async def bacnet_device_details(body: DeviceDetailsRequest):
         return await device_details.read(**body.model_dump())
+
+    @app.post("/api/enum-mapping/review")
+    async def enum_mapping_review(body: EnumMappingRequest):
+        return review_enum_mapping(body)
+
+    @app.post("/api/enum-mapping/export")
+    async def enum_mapping_export(body: EnumMappingExport):
+        return Response(
+            json.dumps(export_review(body), sort_keys=True, separators=(",", ":"), allow_nan=False),
+            media_type="application/json",
+            headers={"Content-Disposition": 'attachment; filename="enum-mapping-review.json"'},
+        )
+
+    @app.post("/api/enum-mapping/plan-export")
+    async def enum_mapping_plan_export(body: EnumMappingExport):
+        return Response(
+            json.dumps(
+                export_review(body)["source_plan"],
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ),
+            media_type="application/json",
+            headers={"Content-Disposition": 'attachment; filename="enum-mapping-plan.json"'},
+        )
+
+    @app.post("/api/enum-mapping/import")
+    async def enum_mapping_import(file: UploadFile):
+        return import_plan(await file.read(2 * 1024 * 1024 + 1))
+
+    @app.get("/api/bacnet/point-status/profile")
+    async def bacnet_point_status_profile():
+        return point_status.status()
+
+    @app.get("/api/bacnet/point-status/reports/{id}")
+    async def bacnet_point_status_detail(id: str):
+        return point_status.detail(id)
+
+    @app.post("/api/bacnet/point-status/read")
+    async def bacnet_point_status_read(body: PointStatusRequest):
+        return await point_status.read(**body.model_dump())
+
+    @app.post("/api/bacnet/point-status/read-diagnostics")
+    async def bacnet_point_status_read_diagnostics(body: PointStatusRequest):
+        # The native operation/cache/limits are unchanged. Diagnostic data never
+        # enters the core report or its evidence seal.
+        with capture_read_trace() as collector:
+            report = await point_status.read(**body.model_dump())
+        core = await bacnet_point_status_export(PointStatusExport(id=report["id"]))
+        try:
+            core_bytes = core.body
+            document = {
+                "format": "bms.native-read-diagnostic-envelope/1",
+                "core_report_id": report["id"],
+                "core_report_json": core_bytes.decode("utf-8"),
+                "core_report_sha256": hashlib.sha256(core_bytes).hexdigest(),
+                "trace_profile": "studio-readproperty-phase-trace/1",
+                "trace": freeze_read_trace(collector),
+            }
+            response = JSONResponse(document)
+            # JSON quoting can double core bytes; this is an independent wrapper
+            # bound, never permission to truncate or re-seal the core report.
+            wrapper_limit = 4 * 1024 * 1024 + READ_TRACE_MAX_BYTES + 4096
+            if len(response.body) > wrapper_limit:
+                document["trace"] = unavailable_read_trace("Diagnostic wrapper capacity reached.")
+                response = JSONResponse(document)
+            if len(response.body) <= wrapper_limit:
+                return response
+        except BaseException:
+            pass
+        # A diagnostic-only failure returns the original core Response. The UI
+        # treats it as core evidence with diagnostics unavailable, never retries.
+        core.headers["X-Studio-Diagnostics"] = "unavailable"
+        return core
+
+    @app.post("/api/bacnet/point-status/cancel")
+    async def bacnet_point_status_cancel(body: PointStatusCancel):
+        return point_status.cancel(body.operation_id)
+
+    @app.post("/api/bacnet/point-status/export")
+    async def bacnet_point_status_export(body: PointStatusExport):
+        return Response(
+            json.dumps(
+                point_status.detail(body.id), sort_keys=True, separators=(",", ":"), allow_nan=False
+            ),
+            media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="point-status-{body.id}.json"'},
+        )
+
+    @app.get("/api/bacnet/schedules/profile")
+    async def bacnet_schedules_profile():
+        return schedule_inventory.status()
+
+    @app.get("/api/bacnet/schedules/reports/{id}")
+    async def bacnet_schedule_detail(id: str):
+        return schedule_inventory.detail(id)
+
+    @app.post("/api/bacnet/schedules/read")
+    async def bacnet_schedules_read(body: ScheduleReadRequest):
+        return await schedule_inventory.read(**body.model_dump())
+
+    @app.post("/api/bacnet/schedules/cancel")
+    async def bacnet_schedules_cancel(body: ScheduleAction):
+        return schedule_inventory.cancel(body.operation_id)
+
+    @app.post("/api/bacnet/schedules/export")
+    async def bacnet_schedules_export(body: ScheduleExport):
+        report = schedule_inventory.detail(body.id)
+        # Export exact server JSON. Client parse/stringify would lose -0.0 and
+        # integral float spelling, invalidating the evidence-body hash.
+        return Response(
+            json.dumps(report, sort_keys=True, separators=(",", ":"), allow_nan=False),
+            media_type="application/json",
+            headers={
+                "Content-Disposition": f'attachment; filename="bacnet-schedules-{body.id}.json"'
+            },
+        )
+
+    @app.get("/api/bacnet/schedules/library/profile")
+    def bacnet_schedule_library_profile():
+        return schedule_library.status()
+
+    @app.get("/api/bacnet/schedules/library/captures/{id}")
+    def bacnet_schedule_capture(id: str):
+        return schedule_library.detail(id)
+
+    @app.post("/api/bacnet/schedules/library/save")
+    def bacnet_schedule_capture_save(body: ScheduleExport):
+        return schedule_library.save(body.id)
+
+    @app.post("/api/bacnet/schedules/library/import")
+    async def bacnet_schedule_capture_import(file: UploadFile):
+        return await asyncio.to_thread(
+            schedule_library.import_capture, await file.read(MAX_ARCHIVE_BYTES + 1)
+        )
+
+    @app.post("/api/bacnet/schedules/library/export")
+    def bacnet_schedule_capture_export(body: CaptureAction):
+        return Response(
+            schedule_library.archive(body.id),
+            media_type="application/json",
+            headers={
+                "Content-Disposition": f'attachment; filename="native-schedule-capture-{body.id}.json"'
+            },
+        )
+
+    @app.post("/api/bacnet/schedules/library/source-export")
+    def bacnet_schedule_source_export(body: CaptureAction):
+        return Response(
+            schedule_library.source(body.id),
+            media_type="application/json",
+            headers={
+                "Content-Disposition": f'attachment; filename="native-schedule-source-{body.id}.json"'
+            },
+        )
+
+    @app.post("/api/bacnet/schedules/library/drafts/review")
+    def bacnet_schedule_draft_review(body: WeeklyDayDraft):
+        return schedule_library.review(**body.model_dump())
+
+    @app.post("/api/bacnet/schedules/library/drafts/export")
+    def bacnet_schedule_draft_export(body: CaptureAction):
+        return Response(
+            schedule_library.export_review(body.id),
+            media_type="application/json",
+            headers={
+                "Content-Disposition": f'attachment; filename="native-schedule-day-draft-{body.id}.json"'
+            },
+        )
+
+    @app.post("/api/bacnet/schedules/library/drafts/import")
+    async def bacnet_schedule_draft_import(file: UploadFile):
+        return await asyncio.to_thread(
+            schedule_library.import_review, await file.read(256 * 1024 + 1)
+        )
+
+    @app.get("/api/bacnet/schedules/writes/profile")
+    def bacnet_schedule_write_profile():
+        return schedule_writes.status()
+
+    @app.post("/api/bacnet/schedules/writes/preview")
+    async def bacnet_schedule_write_preview(body: WeeklyWritePreview):
+        return Response(
+            native_write_json(await schedule_writes.preview(**body.model_dump())),
+            media_type="application/json",
+        )
+
+    @app.post("/api/bacnet/schedules/writes/apply")
+    async def bacnet_schedule_write_apply(body: WeeklyWriteApply):
+        return Response(
+            await schedule_writes.apply(**body.model_dump()), media_type="application/json"
+        )
+
+    @app.post("/api/bacnet/schedules/writes/cancel")
+    async def bacnet_schedule_write_cancel(body: WeeklyWriteCancel):
+        return schedule_writes.cancel(body.operation_id)
+
+    @app.get("/api/bacnet/schedules/writes/receipts/{id}")
+    def bacnet_schedule_write_receipt(id: str):
+        return Response(
+            schedule_writes.journal.receipt(id),
+            media_type="application/json",
+            headers={
+                "Content-Disposition": f'attachment; filename="native-weekly-write-{id}.json"'
+            },
+        )
+
+    @app.post("/api/bacnet/schedules/writes/reconcile")
+    async def bacnet_schedule_write_reconcile(body: WeeklyWriteReconcile):
+        return Response(
+            await schedule_writes.reconcile(**body.model_dump()), media_type="application/json"
+        )
+
+    @app.get("/api/bacnet/events/profile")
+    def bacnet_events_profile():
+        return event_inventory.status()
+
+    @app.post("/api/bacnet/events/read")
+    async def bacnet_events_read(body: EventInventoryRequest):
+        return await event_inventory.read(**body.model_dump())
+
+    @app.post("/api/bacnet/events/cancel")
+    async def bacnet_events_cancel(body: EventCancelRequest):
+        return event_inventory.cancel(body.operation_id)
+
+    @app.get("/api/bacnet/events/ack/profile")
+    def bacnet_event_ack_profile():
+        return event_ack.status()
+
+    @app.post("/api/bacnet/events/ack/preview")
+    async def bacnet_event_ack_preview(body: EventAckPreview):
+        return await event_ack.preview(**body.model_dump())
+
+    @app.post("/api/bacnet/events/ack/apply")
+    async def bacnet_event_ack_apply(body: EventAckApply):
+        return await event_ack.apply(**body.model_dump())
+
+    @app.post("/api/bacnet/events/ack/cancel")
+    async def bacnet_event_ack_cancel(body: EventCancelRequest):
+        return event_ack.cancel(body.operation_id)
+
+    @app.get("/api/bacnet/events/ack/receipts/{identifier}")
+    def bacnet_event_ack_receipt(identifier: str):
+        return event_ack.receipt(identifier)
 
     @app.post("/api/bacnet/router-networks")
     async def bacnet_router_networks(body: RouterNetworksRequest):
@@ -1329,9 +1994,105 @@ def create_app(state_dir=None):
     def bacnet_history_capture(id: str):
         return history.capture(id)
 
+    @app.get("/api/bacnet/history-multiple/status")
+    def bacnet_multiple_history_status():
+        return multiple_history.status()
+
+    @app.post("/api/bacnet/history-multiple/read")
+    async def bacnet_multiple_history_read(body: MultipleHistoryRequest):
+        return await multiple_history.read(**body.model_dump())
+
+    @app.post("/api/bacnet/history-multiple/cancel")
+    async def bacnet_multiple_history_cancel(body: MultipleHistoryCancel):
+        return multiple_history.cancel(body.operation_id)
+
+    @app.post("/api/bacnet/history-multiple/save")
+    def bacnet_multiple_history_save(body: HistoryCaptureRequest):
+        return multiple_history.save(body.id)
+
+    @app.get("/api/bacnet/history-multiple/captures/{id}")
+    def bacnet_multiple_history_capture(id: str):
+        return multiple_history.capture(id)
+
+    @app.get("/api/bacnet/event-log/status")
+    def bacnet_event_log_status():
+        return event_log.status()
+
+    @app.post("/api/bacnet/event-log/read")
+    async def bacnet_event_log_read(body: EventLogHistoryRequest):
+        return await event_log.read(**body.model_dump())
+
+    @app.post("/api/bacnet/event-log/cancel")
+    async def bacnet_event_log_cancel(body: MultipleHistoryCancel):
+        return event_log.cancel(body.operation_id)
+
+    @app.post("/api/bacnet/event-log/save")
+    def bacnet_event_log_save(body: HistoryCaptureRequest):
+        return event_log.save(body.id)
+
+    @app.get("/api/bacnet/event-log/captures/{id}")
+    def bacnet_event_log_capture(id: str):
+        return event_log.capture(id)
+
     @app.post("/api/bacnet/connect")
     async def bacnet_connect(body: BacnetConnect):
+        await schedule_writes.close()
+        await event_ack.close()
+        await event_inventory.close()
+        await event_log.close()
+        await multiple_history.close()
         return await bacnet.connect(**body.model_dump())
+
+    def bbmd_admin_service():
+        if bbmd_admin is None:
+            raise ValueError(bbmd_admin_error or "BBMD administration unavailable.")
+        return bbmd_admin
+
+    @app.get("/api/bacnet/bbmd-admin/status")
+    async def bbmd_admin_status():
+        if bbmd_admin is None:
+            return {"available": False, "reason": bbmd_admin_error, "active": []}
+        return bbmd_admin.status()
+
+    @app.get("/api/bacnet/bbmd-admin/history")
+    async def bbmd_admin_history():
+        return await bbmd_admin_service().saved_history()
+
+    @app.get("/api/bacnet/bbmd-admin/receipts/{id}")
+    async def bbmd_admin_receipt(id: str):
+        return await bbmd_admin_service().saved_detail(id)
+
+    @app.post("/api/bacnet/bbmd-admin/preview")
+    async def bbmd_admin_preview(body: BbmdAdminPreview):
+        return await bbmd_admin_service().preview(**body.model_dump())
+
+    @app.post("/api/bacnet/bbmd-admin/apply")
+    async def bbmd_admin_apply(body: BbmdAdminApply):
+        return await bbmd_admin_service().apply(**body.model_dump())
+
+    @app.post("/api/bacnet/bbmd-admin/cancel")
+    async def bbmd_admin_cancel(body: BbmdCancel):
+        return await bbmd_admin_service().cancel(body.id)
+
+    @app.post("/api/bacnet/bbmd-admin/restore-preview")
+    async def bbmd_admin_restore_preview(body: BbmdAdminRestore):
+        return await bbmd_admin_service().restore_preview(body.id, body.timeout_seconds)
+
+    @app.get("/api/bacnet/bbmd-tables/status")
+    async def bbmd_table_status():
+        return bbmd_tables.status()
+
+    @app.get("/api/bacnet/bbmd-tables/jobs/{id}")
+    async def bbmd_table_detail(id: str):
+        return bbmd_tables.detail(id)
+
+    @app.post("/api/bacnet/bbmd-tables/start")
+    async def bbmd_table_start(body: BbmdInspection):
+        return bbmd_tables.start(**body.model_dump())
+
+    @app.post("/api/bacnet/bbmd-tables/cancel")
+    async def bbmd_table_cancel(body: BbmdCancel):
+        return await bbmd_tables.cancel(body.id)
 
     @app.post("/api/bacnet/discover-foreign")
     async def bacnet_discover_foreign(body: BacnetForeignDiscover):
@@ -1339,10 +2100,20 @@ def create_app(state_dir=None):
 
     @app.post("/api/bacnet/connect-mstp")
     async def bacnet_connect_mstp(body: BacnetMstp):
+        await schedule_writes.close()
+        await event_ack.close()
+        await event_inventory.close()
+        await event_log.close()
+        await multiple_history.close()
         return await bacnet.connect_mstp(**body.model_dump())
 
     @app.post("/api/bacnet/disconnect")
     async def bacnet_disconnect():
+        await schedule_writes.close()
+        await event_ack.close()
+        await event_inventory.close()
+        await event_log.close()
+        await multiple_history.close()
         return await bacnet.disconnect()
 
     @app.get("/api/temco/status")
@@ -1373,6 +2144,10 @@ def create_app(state_dir=None):
             scans=body.scans,
             clock=body.clock,
         )
+
+    @app.get("/api/operation-power")
+    def operation_power_status():
+        return power.status()
 
     @app.get("/api/temco/transfer/status")
     def temco_transfer_status():
@@ -1461,16 +2236,15 @@ def create_app(state_dir=None):
 
     @app.get("/api/capabilities")
     def capabilities():
-        return json.loads((ROOT / "docs" / "capabilities.json").read_text())
+        return public_document("capabilities.json")
 
     @app.get("/api/references")
     def references():
-        file = ROOT / "docs" / "references.json"
-        return json.loads(file.read_text()) if file.exists() else []
+        return public_document("references.json")
 
     @app.get("/api/requirements")
     def requirements():
-        return json.loads((ROOT / "docs/requirements.json").read_text())
+        return public_document("requirements.json")
 
     @app.get("/api/library/{collection}/{document_id}")
     def local_manual(collection: str, document_id: str):
@@ -1496,8 +2270,8 @@ def create_app(state_dir=None):
             raise ValueError("Catalog PDF is missing or outside the collection.")
         return FileResponse(path, media_type="application/pdf")
 
-    dist = ROOT / "web" / "dist"
-    if dist.exists():
+    dist = web_directory()
+    if dist is not None:
         app.mount("/", StaticFiles(directory=dist, html=True), name="web")
     else:
 

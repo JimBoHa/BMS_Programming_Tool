@@ -1,0 +1,68 @@
+{
+  "source_commit": "1eac0840d2575a824adcec914101eee64be34c39",
+  "baseline_sha256": "d8587cf20d8e17b8a2219a812314eef2cec81255318ff834ec1612a5d2ef1f38",
+  "numeric_profiles": {
+    "studio-literals/1": {
+      "id": "studio-literals/1",
+      "rules_sha256": "0a090b7203496dd0bd5c20756464e55a491a1be06c3b9647d42776dcc12a8222"
+    },
+    "studio-literals/2": {
+      "id": "studio-literals/2",
+      "rules_sha256": "be014ca51c1d3e42538d607d698b8ddacd164b2e0ddfb821c433329b99050493"
+    }
+  },
+  "frozen_emitter_ast_sha256": "273acffde39bded4381e1483d0c4bd11824a7b619ac83caefb1d52ab403a2805",
+  "cases": {
+    "numbers": {
+      "program_sha256": "f3e2538f20cd41acf4c35ae4df8b15ed11d8303f47c1a8516f2078d40a0b6112",
+      "kits": {
+        "studio-literals/1": "studiof3e2538f20",
+        "studio-literals/2": "studio966698ecdb"
+      }
+    },
+    "state-calendar": {
+      "program_sha256": "1282774c9eb4613626944198106f6a9fc276fda655e2f448878295ff33c47b11",
+      "kits": {
+        "studio-literals/1": "studio1282774c9e",
+        "studio-literals/2": "studio51a6bbcd7f"
+      }
+    },
+    "nested-macro": {
+      "program_sha256": "93135bae2f771271bf03bf78f144ea0e4aedf4393275c98487b6fd3269851ddd",
+      "kits": {
+        "studio-literals/1": "studio93135bae2f",
+        "studio-literals/2": "studio7c17019519"
+      }
+    }
+  },
+  "files_sha256": {
+    "numbers/v2.st": "72c39ed1229bdc36c6c1021f6dc5984cb7809a8ff47cd11fb0e2b24453242dd6",
+    "numbers/program.json": "f3e2538f20cd41acf4c35ae4df8b15ed11d8303f47c1a8516f2078d40a0b6112",
+    "numbers/v1.sedona": "77ed5a6ccc511652fdf276429495b048c6c8e79038b58b54f2652dea77201b23",
+    "numbers/v1.sax": "f6800eadd777065ecfdc7d7041821d3a9a5db2ffffc412879ee9f69e51299021",
+    "numbers/v2.sax": "a7bdde42c8683210fa38ad510e96a66fa50db55c55ce01884ff00095a5e98c7e",
+    "numbers/v1.st": "64bf391ded72f9acf438e0e2ef12cd78f00bcf579f2e0d8e3fef93e634e9faf1",
+    "numbers/v2.sedona": "ccce92559dc66d9a3760d4c6a965a718a9a6ab1c2593508e2e8479d6ca37a956",
+    "numbers/v1.xml": "b7acd9ed0e7bca843f8449831f83f09794c415e56b77e8a277a47e503f6b59b6",
+    "numbers/v2.xml": "842c0e4f162fd2b324e479b9f24bb7fa663cdf2f296d8f13c6baa6bd7c8d175a",
+    "nested-macro/v2.st": "38765c68c418b00bbfd80d1c346e08c33a7558f9cb71d01438c555af93005b67",
+    "nested-macro/program.json": "93135bae2f771271bf03bf78f144ea0e4aedf4393275c98487b6fd3269851ddd",
+    "nested-macro/v1.sedona": "d607e7dda93376007b46366a2887c15bd2a8bb2cafc85c56ea6e119aba070bfa",
+    "nested-macro/v1.sax": "47f6491e8985ac15094eca1bafc8b597b38120209a67faf7c9f4ccf5b3316bca",
+    "nested-macro/v2.sax": "3442dd8f11cd2e173d081f5d11203e4a3ca98411567bc6a1ad438bda3fec6a3a",
+    "nested-macro/v1.st": "cccfdc883e1cca11f65ad5ad4751bb53e084e4e928a599b79502127bc1145639",
+    "nested-macro/v2.sedona": "07e0fdd45a6cf40500dcf68d42210d04aaa4ad3f8ca74db8713056a0f66f786b",
+    "nested-macro/v1.xml": "3d3a0bed17516146db827491fb21765ab7ec9dfcbb839a779742bf532ce2128f",
+    "nested-macro/v2.xml": "3c5abeba80caa8b0e25d7775db5aa792737ff7b1555738aaf7eab543930f2e04",
+    "state-calendar/v2.st": "36e3381acd422d72d4280f4b4d8929ebfe8df8dda12cde78764beb7ef92f821f",
+    "state-calendar/program.json": "1282774c9eb4613626944198106f6a9fc276fda655e2f448878295ff33c47b11",
+    "state-calendar/v1.sedona": "aa82375d0d2c62138bf84d04e4fcb4efa720dc3a3abe0eb30f36ba73028b7212",
+    "state-calendar/v1.sax": "677a8515db270ba06bcba192682a04bb8560903b667bb03c73bd22e20a3a380d",
+    "state-calendar/v2.sax": "66767e6a3d5ebfe54802e4d2271d797402ee94e2badcca77e8ac5e9d7df4dce0",
+    "state-calendar/v1.st": "82c676ce0a9540f10999f072ff149c5340df797efff287442beadfd5069ad186",
+    "state-calendar/v2.sedona": "93127061b9e251b6d4fc7517e9bf2a588c8f18ee81725fc2d0129bfd7c9b4356",
+    "state-calendar/v1.xml": "15a013490c7348990a67fe2b6b6287837c4dc1412b038abac52c97ec52c3f7cb",
+    "state-calendar/v2.xml": "225ce8c2112415a303e479528823fea47ba01d4acefa1bb510de96d3c613b789"
+  },
+  "qualification": "Independent clean frozen32 capture before any candidate edits, preserving current V2 and legacy V1 source/kit byte contracts. Source generation only, no native runtime. Existing published legacy archives remain in their original separate fixture directories."
+}

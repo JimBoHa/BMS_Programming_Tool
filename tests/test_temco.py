@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -21,10 +22,11 @@ from bms_tool.temco import (
     native_status,
     verify_program,
 )
+from bms_tool.temperature import TEMPERATURE_BLOCKS, input_units
 
 
 def graph(kind="Add", *, values=None, params=None):
-    node = Node(id="operation", kind=kind, params=params or {})
+    node = Node(id="operation", kind=kind, params=params or {}, unit=BLOCKS[kind].unit)
     values = values or {}
     nodes = []
     edges = []
@@ -47,6 +49,12 @@ def graph(kind="Add", *, values=None, params=None):
     nodes.append(node)
     nodes.append(Node(id="result", kind="Output", value_type=output_type(node)))
     edges.append(Edge(id="publish", source=node.id, target="result"))
+    if kind in TEMPERATURE_BLOCKS:
+        required = input_units(kind, {**BLOCKS[kind].parameters, **node.params}, node.unit)
+        for source in nodes:
+            if source.kind == "Input":
+                source.unit = required[source.id]
+        nodes[-1].unit = node.unit
     if kind == "Convert":
         nodes[0].unit = "degF"
         node.unit = "degC"
@@ -75,7 +83,7 @@ def test_supported_source_roundtrip_preserves_simulated_semantics(kind):
     assert not source.startswith("{")
     converted = import_source(source)
     assert import_values(converted, program) == pytest.approx(expected)
-    if kind in STATELESS:
+    if kind in STATELESS and kind not in TEMPERATURE_BLOCKS:
         assert converted.metadata["conversion"]["review_required"] is True
     else:
         assert converted == program
@@ -327,8 +335,9 @@ def test_resource_limit_is_actual_manufacturer_bytecode_limit():
 
 
 def test_setup_provenance_retains_original_manufacturer_license():
-    sdk = Path(__file__).resolve().parents[2] / "Reference_Sources/temcocontrols--T3000"
-    license_text = (sdk / "build/bms-host/LICENSE.txt").read_text()
+    default = Path(__file__).resolve().parents[2] / "Reference_Sources/temcocontrols--T3000/build/bms-host"
+    home = Path(os.environ.get("BMS_TEMCO_HOME", default))
+    license_text = (home / "LICENSE.txt").read_text()
     assert "Copyright (c) 2017 Temco Controls" in license_text
     assert "MIT License" in license_text
     assert capabilities()["source_url"].startswith("https://github.com/temcocontrols/")

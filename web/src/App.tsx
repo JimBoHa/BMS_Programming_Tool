@@ -1,4 +1,14 @@
 import {
+  parseSourceDocument,
+  sourceStringify,
+  isExactProgram,
+  parseExecutionHistoryTail,
+  executionScalarMap,
+  type ExecutionValue,
+} from "./programSource";
+import { sourceApi } from "./api";
+import { cloneSource } from "./programSource";
+import {
   lazy,
   Suspense,
   useCallback,
@@ -35,8 +45,14 @@ import {
   Code2,
   FileCheck2,
   BellRing,
+  TableProperties,
 } from "lucide-react";
-import { api, download, initSession } from "./api";
+import {
+  programApi,
+  programJsonDocument,
+  programDownload,
+  initSession,
+} from "./api";
 import {
   blankProgram,
   type Block,
@@ -46,7 +62,28 @@ import {
 } from "./types";
 import { Canvas } from "./Canvas";
 import { Inspector, SimulationPanel } from "./Panels";
+import { useSimulationClock } from "./useSimulationClock";
+import { persistDraftRecovery } from "./draftRecovery";
+import {
+  sessionFromReceipt,
+  retireSimulationSession,
+  pendingSimulationCleanup,
+  rememberSimulationCleanup,
+  finishSimulationCleanup,
+  type SimulationSession,
+} from "./simulationSessions";
 import { SelectionPanel } from "./SelectionPanel";
+import { ConversionPreview } from "./ConversionPreview";
+import {
+  activityCatalog,
+  libraryVersion,
+  matchesBlock,
+  reusableBase,
+  reusableKind,
+  sha256Blob,
+  type ActivityBindings,
+} from "./activityContracts";
+import "./activity-library.css";
 
 const NativeCaf = lazy(() =>
   import("./NativeCaf").then((m) => ({ default: m.NativeCaf })),
@@ -73,7 +110,7 @@ const Observations = lazy(() =>
   import("./Observations").then((m) => ({ default: m.Observations })),
 );
 const MacroLibrary = lazy(() =>
-  import("./MacroLibrary").then((m) => ({ default: m.MacroLibrary })),
+  import("./ReusableLibrary").then((m) => ({ default: m.ReusableLibrary })),
 );
 const FieldTrends = lazy(() =>
   import("./FieldTrends").then((m) => ({ default: m.FieldTrends })),
@@ -92,13 +129,22 @@ const IECVerifier = lazy(() =>
 const CafComparison = lazy(() =>
   import("./CafComparison").then((m) => ({ default: m.CafComparison })),
 );
+const EquipmentWizard = lazy(() =>
+  import("./EquipmentWizard").then((m) => ({ default: m.EquipmentWizard })),
+);
 const DeviceHistory = lazy(() =>
   import("./DeviceHistory").then((m) => ({ default: m.DeviceHistory })),
+);
+const ConformancePanel = lazy(() =>
+  import("./ConformancePanel").then((m) => ({ default: m.ConformancePanel })),
 );
 const CafSimulationPanel = lazy(() =>
   import("./CafSimulationPanel").then((m) => ({
     default: m.CafSimulationPanel,
   })),
+);
+const TruthTableReview = lazy(() =>
+  import("./TruthTableReview").then((m) => ({ default: m.TruthTableReview })),
 );
 const Notifications = lazy(() =>
   import("./Notifications").then((m) => ({ default: m.Notifications })),
@@ -111,7 +157,13 @@ export function App() {
     [program, setProgramState] = useState<Program>(blankProgram),
     [blocks, setBlocks] = useState<Block[]>([]),
     [macroBlocks, setMacroBlocks] = useState<Block[]>([]),
-    [macroEdit, setMacroEdit] = useState<{
+    [activityPortSource, setActivityPortSource] = useState<{
+      epoch: number;
+      data: ActivityBindings;
+    } | null>(null),
+    [activityCatalogError, setActivityCatalogError] = useState(""),
+    [activityCatalogRefresh, setActivityCatalogRefresh] = useState(0),
+    [macroEdit, setMacroEditState] = useState<{
       parent: Program;
       definition: string;
       undo: Program[];
@@ -127,9 +179,13 @@ export function App() {
     [search, setSearch] = useState(""),
     [format, setFormat] = useState("json"),
     [history, setHistory] = useState<Scan[]>([]),
+    [executionValues, setExecutionValues] = useState<
+      Record<string, ExecutionValue>
+    >({}),
     [inputs, setInputs] = useState<Record<string, any>>({}),
-    [forces, setForces] = useState<Record<string, number | boolean>>({}),
-    [running, setRunning] = useState(false),
+    [forces, setForces] = useState<Record<string, ExecutionValue>>({}),
+    [simBusy, setSimBusy] = useState(false),
+    [simUncertain, setSimUncertain] = useState(false),
     [simError, setSimError] = useState(""),
     [recordHistory, setRecordHistory] = useState(false),
     [recordingError, setRecordingError] = useState(""),
@@ -137,6 +193,8 @@ export function App() {
     [message, setMessage] = useState(""),
     [ready, setReady] = useState(false),
     [settings, setSettings] = useState(false),
+    [equipmentWizard, setEquipmentWizard] = useState(false),
+    [recoveryError, setRecoveryError] = useState(""),
     [versions, setVersions] = useState<any[]>([]),
     [showIssues, setShowIssues] = useState(false),
     [saving, setSaving] = useState(false),
@@ -148,40 +206,257 @@ export function App() {
     [undoStack, setUndoStack] = useState<Program[]>([]),
     [redoStack, setRedoStack] = useState<Program[]>([]);
   const latestProgram = useRef(program);
+  const latestMacroEdit = useRef(macroEdit);
+  const recoveryReady = useRef(false);
+  const recoveryReadBlocked = useRef(false);
+  const recoveryMounted = useRef(false);
+  function setMacroEdit(
+    next: typeof macroEdit | ((current: typeof macroEdit) => typeof macroEdit),
+  ) {
+    const value =
+      typeof next === "function" ? next(latestMacroEdit.current) : next;
+    latestMacroEdit.current = value;
+    setMacroEditState(value);
+  }
+  function persistRecovery(
+    program: Program,
+    macro: { parent: Program; definition: string } | null,
+  ) {
+    if (recoveryReadBlocked.current) return;
+    try {
+      persistDraftRecovery(localStorage, program, macro);
+      if (recoveryMounted.current) setRecoveryError("");
+    } catch (error) {
+      if (recoveryMounted.current)
+        setRecoveryError(
+          `Browser draft recovery failed: ${String(error)}. Previous recovery data is retained when a write fails. Save or export current work before closing.`,
+        );
+    }
+  }
+  function flushRecovery() {
+    if (recoveryReady.current)
+      persistRecovery(latestProgram.current, latestMacroEdit.current);
+  }
+  useEffect(() => {
+    recoveryMounted.current = true;
+    const hidden = () => {
+      if (document.visibilityState === "hidden") flushRecovery();
+    };
+    window.addEventListener("pagehide", flushRecovery);
+    window.addEventListener("beforeunload", flushRecovery);
+    document.addEventListener("visibilitychange", hidden);
+    return () => {
+      flushRecovery();
+      recoveryMounted.current = false;
+      window.removeEventListener("pagehide", flushRecovery);
+      window.removeEventListener("beforeunload", flushRecovery);
+      document.removeEventListener("visibilitychange", hidden);
+    };
+  }, []);
+  const latestForces = useRef(forces);
+  latestForces.current = forces;
+  const simulationEpoch = useRef(0);
   const draftEpoch = useRef(0),
     loadEpoch = useRef(0),
     validationEpoch = useRef(0),
     versionsEpoch = useRef(0),
     projectsEpoch = useRef(0),
     saveActive = useRef(false);
+  useEffect(
+    () => () => {
+      simulationEpoch.current++;
+    },
+    [],
+  );
   const renderedDraftEpoch = draftEpoch.current;
+  const activityPorts =
+    libraryVersion(program) === 2 &&
+    activityPortSource?.epoch === renderedDraftEpoch
+      ? activityPortSource.data
+      : null;
+  const activityUnresolved =
+    libraryVersion(program) === 2 &&
+    program.nodes.some((node) => node.kind === "Activity") &&
+    !activityPorts;
   const renderedNavigationEpoch = loadEpoch.current;
   function setProgram(next: Program | ((current: Program) => Program)) {
     const updated =
       typeof next === "function" ? next(latestProgram.current) : next;
+    if (!isExactProgram(updated))
+      throw new Error(
+        "Program source projection refused; reopen the authoritative source.",
+      );
     if (updated === latestProgram.current) return;
+    simulationEpoch.current++;
+    detachSimulationSession();
     latestProgram.current = updated;
     draftEpoch.current++;
     setProgramState(updated);
   }
   async function refreshProjects() {
     const epoch = ++projectsEpoch.current;
-    const rows = await api("/projects");
+    const rows = await programApi("/projects");
     if (epoch === projectsEpoch.current) setProjects(rows);
   }
   async function refreshVersions(id: string) {
     const epoch = ++versionsEpoch.current;
-    const rows = await api(`/projects/${id}/versions`);
+    const rows = await programApi(`/projects/${id}/versions`);
     if (epoch === versionsEpoch.current && latestProgram.current.id === id)
       setVersions(rows);
   }
-  const session = useRef<string | null>(null),
+  const session = useRef<SimulationSession | null>(null),
     busy = useRef(false),
     importInput = useRef<HTMLInputElement>(null);
+  const retirePending = useRef(new Map<string, Promise<void>>());
+  const retireFailed = useRef(
+    new Map<string, { handle: SimulationSession; error: string }>(),
+  );
+  const retired = useRef(new Set<string>());
+  const cleanupRestored = useRef(false);
+  const simulationMounted = useRef(false);
+  const [cleanupStatus, setCleanupStatus] = useState({
+    pending: 0,
+    failed: 0,
+    error: "",
+  });
+  const [unknownSession, setUnknownSession] = useState(false);
+  const [cacheStatus, setCacheStatus] = useState("");
+  function publishCleanup() {
+    if (simulationMounted.current)
+      setCleanupStatus({
+        pending: retirePending.current.size,
+        failed: retireFailed.current.size,
+        error: [...retireFailed.current.values()]
+          .map((row) => row.error)
+          .join("; ")
+          .slice(0, 1500),
+      });
+  }
+  function cleanupBlocked() {
+    return (
+      !cleanupRestored.current ||
+      retirePending.current.size > 0 ||
+      retireFailed.current.size > 0
+    );
+  }
+  function cleanupStorageFailure(error: unknown) {
+    if (simulationMounted.current)
+      setCacheStatus(
+        "Local cleanup recovery could not be retained or verified: " +
+          String(error).slice(0, 500) +
+          ". Known cleanup is still attempted; unknown sessions are never guessed or removed.",
+      );
+  }
+  function retireOwnedSimulation(
+    handle: SimulationSession,
+    explicitRetry = false,
+  ): Promise<void> {
+    if (retired.current.has(handle.session)) return Promise.resolve();
+    const existing = retirePending.current.get(handle.session);
+    if (existing) return existing;
+    if (retireFailed.current.has(handle.session) && !explicitRetry)
+      return Promise.resolve();
+    retireFailed.current.delete(handle.session);
+    // Persist the already-requested deletion before its first asynchronous
+    // handoff. A document can disappear before keepalive receives its reply.
+    try {
+      rememberSimulationCleanup(handle);
+    } catch (error) {
+      cleanupStorageFailure(error);
+    }
+    const pending = (async () => {
+      try {
+        await retireSimulationSession(handle);
+        try {
+          finishSimulationCleanup(handle);
+        } catch (error) {
+          cleanupStorageFailure(error);
+        }
+        retired.current.add(handle.session);
+        if (retired.current.size > 128)
+          retired.current.delete(retired.current.values().next().value!);
+        retireFailed.current.delete(handle.session);
+      } catch (error) {
+        retireFailed.current.set(handle.session, {
+          handle,
+          error: String(error).slice(0, 1000),
+        });
+      } finally {
+        retirePending.current.delete(handle.session);
+        publishCleanup();
+      }
+    })();
+    retirePending.current.set(handle.session, pending);
+    publishCleanup();
+    return pending;
+  }
+  function detachSimulationSession() {
+    const known = session.current;
+    session.current = null;
+    if (known) void retireOwnedSimulation(known);
+  }
+  function noteUnknownSession() {
+    if (simulationMounted.current) setUnknownSession(true);
+  }
+  function retrySimulationCleanup() {
+    for (const { handle } of [...retireFailed.current.values()])
+      void retireOwnedSimulation(handle, true);
+  }
+  async function checkSimulationCache() {
+    try {
+      const value = await programApi("/simulation/sessions/status");
+      if (
+        !Number.isInteger(value.cached_sessions) ||
+        value.cached_sessions < 0 ||
+        value.cached_sessions > value.limit ||
+        value.limit !== 25 ||
+        value.idle_expiry_seconds !== 3600
+      )
+        throw new Error("Invalid local session cache status.");
+      if (simulationMounted.current)
+        setCacheStatus(
+          `Local cache snapshot: ${value.cached_sessions}/${value.limit} calculation sessions; unknown idle sessions expire after ${value.idle_expiry_seconds} seconds.`,
+        );
+    } catch (error) {
+      if (simulationMounted.current) setCacheStatus(String(error));
+    }
+  }
+  useEffect(() => {
+    simulationMounted.current = true;
+    const pagehide = (event: PageTransitionEvent) => {
+      if (event.persisted) return;
+      simulationEpoch.current++;
+      detachSimulationSession();
+    };
+    window.addEventListener("pagehide", pagehide);
+    return () => {
+      simulationMounted.current = false;
+      simulationEpoch.current++;
+      detachSimulationSession();
+      window.removeEventListener("pagehide", pagehide);
+    };
+  }, []);
+  useEffect(() => {
+    if (!ready || cleanupRestored.current) return;
+    cleanupRestored.current = true;
+    try {
+      // One local idempotent retirement attempt per saved deletion intent on
+      // this authenticated document. Failure still requires explicit Retry.
+      for (const handle of pendingSimulationCleanup())
+        void retireOwnedSimulation(handle);
+    } catch (error) {
+      cleanupStorageFailure(error);
+    }
+    publishCleanup();
+  }, [ready]);
   const flow = useReactFlow();
   const specs = [...blocks, ...macroBlocks];
   const specKey = (b: Block) =>
-    b.kind === "Macro" ? "macro:" + b.parameters.definition : b.kind;
+    b.kind === "Macro"
+      ? "macro:" + b.parameters.definition
+      : b.kind === "Activity"
+        ? "activity:" + b.parameters.definition
+        : b.kind;
   const selected = selection.at(-1) || null;
   const clipboard = useRef<{
     nodes: BmsNode[];
@@ -199,9 +474,10 @@ export function App() {
   useEffect(() => {
     let live = true;
     if (!ready) return;
+    if (libraryVersion(program) !== 1) return;
     const timer = setTimeout(
       () =>
-        api("/macros/catalog", { program })
+        programApi("/macros/catalog", { program })
           .then((r) => {
             if (live)
               setMacroBlocks(
@@ -218,11 +494,74 @@ export function App() {
       clearTimeout(timer);
     };
   }, [program.metadata.macros, ready]);
+  const priorLibraryVersion = useRef(libraryVersion(program));
+  const activityAuthorityEpoch = useRef(0);
+  useEffect(() => {
+    const version = libraryVersion(program);
+    if (priorLibraryVersion.current === 2 && version !== 2) setMacroBlocks([]);
+    priorLibraryVersion.current = version;
+    setActivityPortSource(null);
+    setActivityCatalogError("");
+    if (version === null) {
+      setMacroBlocks([]);
+      setActivityCatalogError(
+        "Unsupported reusable-library version. Keep the original source and choose an explicit supported format.",
+      );
+    }
+    if (!ready || version !== 2) return;
+    let live = true;
+    const source = program,
+      epoch = draftEpoch.current;
+    const timer = setTimeout(() => {
+      const authority = activityAuthorityEpoch.current;
+      programApi("/activities/catalog", { program: source })
+        .then((data) => activityCatalog(data, source))
+        .then((data) => {
+          if (
+            !live ||
+            latestProgram.current !== source ||
+            draftEpoch.current !== epoch ||
+            activityAuthorityEpoch.current !== authority
+          )
+            return;
+          setMacroBlocks(
+            data.definitions.map((definition: Block) => ({
+              ...definition,
+              stateful: true,
+            })),
+          );
+          setActivityPortSource(
+            data.bindings ? { epoch, data: data.bindings } : null,
+          );
+        })
+        .catch((error) => {
+          if (
+            live &&
+            latestProgram.current === source &&
+            draftEpoch.current === epoch &&
+            activityAuthorityEpoch.current === authority
+          ) {
+            setMacroBlocks([]);
+            setActivityPortSource(null);
+            setActivityCatalogError(String(error));
+            resetSimulation();
+          }
+        });
+    }, 150);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [program, ready, activityCatalogRefresh]);
   useEffect(() => {
     let live = true;
     initSession()
       .then(() =>
-        Promise.all([api("/blocks"), api("/templates"), api("/projects")]),
+        Promise.all([
+          sourceApi("/blocks"),
+          sourceApi("/templates"),
+          programApi("/projects"),
+        ]),
       )
       .then(([b, t, p]) => {
         if (!live) return;
@@ -230,25 +569,37 @@ export function App() {
         setTemplates(t);
         setProjects(p);
         let initial = t[0];
+        const blockUnreadRecovery = () => {
+          recoveryReadBlocked.current = true;
+          setRecoveryError(
+            "Browser draft recovery unavailable. Automatic recovery writes are paused for this page to preserve existing data. Saved revisions, import and export remain available; reload to retry.",
+          );
+        };
         try {
           const saved = localStorage.getItem("bms-studio-draft-v1");
           if (saved) {
-            const parsed = JSON.parse(saved);
+            const parsed = parseSourceDocument(saved);
             if (
               parsed.schema_version === 1 &&
               Array.isArray(parsed.nodes) &&
               Array.isArray(parsed.edges)
             )
               initial = parsed;
+            else throw new Error("Unsupported browser draft recovery.");
           }
-        } catch {}
+        } catch {
+          blockUnreadRecovery();
+        }
         try {
-          const draft = JSON.parse(
-            localStorage.getItem("bms-studio-macro-edit-v1") || "null",
-          );
+          const raw = localStorage.getItem("bms-studio-macro-edit-v1");
+          const draft = parseSourceDocument(raw || "null");
           if (
             draft?.parent?.schema_version === 1 &&
             draft?.draft?.schema_version === 1 &&
+            Array.isArray(draft.parent.nodes) &&
+            Array.isArray(draft.parent.edges) &&
+            Array.isArray(draft.draft.nodes) &&
+            Array.isArray(draft.draft.edges) &&
             typeof draft.definition === "string"
           ) {
             setMacroEdit({
@@ -258,9 +609,13 @@ export function App() {
               redo: [],
             });
             initial = draft.draft;
-          }
-        } catch {}
+          } else if (raw && draft !== null)
+            throw new Error("Unsupported macro draft recovery.");
+        } catch {
+          blockUnreadRecovery();
+        }
         setProgram(initial);
+        recoveryReady.current = true;
         setReady(true);
       })
       .catch((e) => setMessage(e.message));
@@ -274,24 +629,16 @@ export function App() {
     let live = true;
     setIssues([]);
     setValidationStatus("pending");
-    setRunning(false);
-    session.current = null;
+    detachSimulationSession();
+    setSimUncertain(false);
     setHistory([]);
+    setExecutionValues({});
     setForces({});
     setSimError("");
     setRecordingError("");
     const timer = setTimeout(() => {
-      if (macroEdit)
-        localStorage.setItem(
-          "bms-studio-macro-edit-v1",
-          JSON.stringify({
-            parent: macroEdit.parent,
-            definition: macroEdit.definition,
-            draft: program,
-          }),
-        );
-      else localStorage.setItem("bms-studio-draft-v1", JSON.stringify(program));
-      api("/validate", program)
+      flushRecovery();
+      programApi("/validate", program)
         .then((r) => {
           if (
             live &&
@@ -319,7 +666,7 @@ export function App() {
     };
   }, [program, ready, macroEdit]);
   const remember = useCallback(() => {
-    setUndoStack((s) => [...s.slice(-49), structuredClone(program)]);
+    setUndoStack((s) => [...s.slice(-49), cloneSource(program)]);
     setRedoStack([]);
   }, [program]);
   function change(p: Program, record = true) {
@@ -329,13 +676,13 @@ export function App() {
   }
   function undo() {
     if (!undoStack.length) return;
-    setRedoStack((s) => [...s, structuredClone(program)]);
+    setRedoStack((s) => [...s, cloneSource(program)]);
     setProgram(undoStack.at(-1)!);
     setUndoStack((s) => s.slice(0, -1));
   }
   function redo() {
     if (!redoStack.length) return;
-    setUndoStack((s) => [...s, structuredClone(program)]);
+    setUndoStack((s) => [...s, cloneSource(program)]);
     setProgram(redoStack.at(-1)!);
     setRedoStack((s) => s.slice(0, -1));
   }
@@ -394,6 +741,10 @@ export function App() {
     return outcome;
   }
   async function save() {
+    if (tab === "truth-tables") {
+      setMessage("Use Export table in the truth-table workspace.");
+      return;
+    }
     if (macroEdit) {
       await applyMacroEdit();
       return;
@@ -409,12 +760,13 @@ export function App() {
     const epoch = draftEpoch.current,
       navigation = loadEpoch.current;
     try {
-      const native = tab === "native" ? await api("/native/status") : null;
+      const native =
+        tab === "native" ? await sourceApi("/native/status") : null;
       const p = native?.running
-        ? await api("/native/save", {
+        ? await sourceApi("/native/save", {
             expected_revision: native.program.revision,
           })
-        : await api("/projects", {
+        : await sourceApi("/projects", {
             program: snapshot,
             expected_revision: snapshot.revision,
           });
@@ -441,21 +793,29 @@ export function App() {
       setSaving(false);
     }
   }
-  async function openMacroEdit(definition: string) {
-    if (macroEdit) return;
+  async function openMacroEdit(
+    definition: string,
+    owned: () => boolean = () => true,
+  ) {
+    if (macroEdit || !owned()) return;
     const parent = program;
+    const epoch = draftEpoch.current;
     try {
-      const draft = await api("/macros/definition", {
+      const draft = await sourceApi(reusableBase(parent) + "/definition", {
         program: parent,
         definition,
       });
-      if (latestProgram.current !== parent) {
+      if (
+        latestProgram.current !== parent ||
+        draftEpoch.current !== epoch ||
+        !owned()
+      ) {
         setMessage(
-          "Program changed while loading the definition. Open it again.",
+          "Program or library view changed while loading the definition. Open it again.",
         );
         return;
       }
-      localStorage.setItem("bms-studio-draft-v1", JSON.stringify(parent));
+      persistRecovery(parent, null);
       setMacroEdit({ parent, definition, undo: undoStack, redo: redoStack });
       setProgram(draft);
       setUndoStack([]);
@@ -469,13 +829,22 @@ export function App() {
   async function applyMacroEdit() {
     if (!macroEdit) return;
     const draft = program;
+    const editing = macroEdit,
+      epoch = draftEpoch.current;
     try {
-      const updated = await api("/macros/update", {
-        program: macroEdit.parent,
-        definition: macroEdit.definition,
-        replacement: draft,
-      });
-      if (latestProgram.current !== draft) {
+      const updated = await sourceApi(
+        reusableBase(macroEdit.parent) + "/update",
+        {
+          program: macroEdit.parent,
+          definition: macroEdit.definition,
+          replacement: draft,
+        },
+      );
+      if (
+        latestProgram.current !== draft ||
+        draftEpoch.current !== epoch ||
+        latestMacroEdit.current !== editing
+      ) {
         setMessage(
           "Definition changed while applying. Apply the current draft again.",
         );
@@ -486,7 +855,7 @@ export function App() {
       setRedoStack([]);
       setMacroEdit(null);
       setSelected(null);
-      localStorage.removeItem("bms-studio-macro-edit-v1");
+      flushRecovery();
       setMessage(
         "Definition updated in all instances. Save a revision to retain the project.",
       );
@@ -501,40 +870,211 @@ export function App() {
     setRedoStack(macroEdit.redo);
     setMacroEdit(null);
     setSelected(null);
-    localStorage.removeItem("bms-studio-macro-edit-v1");
+    flushRecovery();
     setMessage("Definition edits discarded.");
   }
-  const step = useCallback(async () => {
-    if (busy.current) return;
+  const step = useCallback(
+    async (steps = 1) => {
+      if (
+        busy.current ||
+        simUncertain ||
+        cleanupBlocked() ||
+        activityUnresolved
+      )
+        return;
+      busy.current = true;
+      setSimBusy(true);
+      const epoch = simulationEpoch.current;
+      const operation = crypto.randomUUID().replaceAll("-", "");
+      const expectedSession = session.current;
+      let provedReceipt = false;
+      try {
+        const document = await programJsonDocument("/simulation/step", {
+          program,
+          inputs,
+          forces,
+          steps,
+          session: expectedSession?.session || null,
+          record: recordHistory,
+          operation_id: operation,
+          clock: nextClock
+            ? new Date(nextClock + "Z").toISOString()
+            : undefined,
+        });
+        const r = document.data;
+        if (
+          r.operation_id !== operation ||
+          r.requested_steps !== steps ||
+          r.program_id !== program.id ||
+          r.program_revision !== program.revision ||
+          r.applied_dt !== program.scan_seconds ||
+          (r.scan_error !== null && typeof r.scan_error !== "string") ||
+          (r.recording_error !== null &&
+            typeof r.recording_error !== "string") ||
+          !Number.isInteger(r.completed_steps) ||
+          r.completed_steps < 0 ||
+          r.completed_steps > steps ||
+          (r.completed_steps === 0
+            ? !r.scan_error ||
+              r.last !== null ||
+              (expectedSession === null
+                ? r.session !== null
+                : typeof r.session !== "string")
+            : typeof r.session !== "string" || !r.last) ||
+          !Array.isArray(r.history) ||
+          r.history.length > 300 ||
+          !r.history.every(
+            (row: Scan) =>
+              row &&
+              Number.isFinite(row.time) &&
+              typeof row.clock === "string" &&
+              row.values &&
+              row.outputs,
+          ) ||
+          (r.completed_steps < steps && !r.scan_error) ||
+          !r.snapshot ||
+          (expectedSession && expectedSession.session !== r.session)
+        )
+          throw new Error(
+            "Simulation batch receipt does not match its exact request. Reset before running again.",
+          );
+        const owned = sessionFromReceipt(r, operation, expectedSession);
+        provedReceipt = true;
+        if (
+          latestProgram.current !== program ||
+          simulationEpoch.current !== epoch
+        ) {
+          if (owned) void retireOwnedSimulation(owned);
+          return;
+        }
+        session.current = owned;
+        const tail = parseExecutionHistoryTail(await document.blob.text());
+        const exactValues = executionScalarMap(tail.values || {});
+        if (
+          latestProgram.current !== program ||
+          simulationEpoch.current !== epoch
+        ) {
+          if (owned) void retireOwnedSimulation(owned);
+          return;
+        }
+        setHistory(r.history);
+        setExecutionValues(exactValues);
+        setSimError(r.scan_error || "");
+        setRecordingError(r.recording_error || "");
+        if (r.completed_steps > 0) setNextClock("");
+        return r;
+      } catch (e) {
+        if (!expectedSession && !provedReceipt) noteUnknownSession();
+        if (
+          latestProgram.current !== program ||
+          simulationEpoch.current !== epoch
+        )
+          return;
+        setSimUncertain(true);
+        setSimError(
+          String(e) +
+            " An admitted request may have committed scans. Reset is required; no automatic retry.",
+        );
+        throw e;
+      } finally {
+        busy.current = false;
+        setSimBusy(false);
+      }
+    },
+    [
+      program,
+      inputs,
+      forces,
+      recordHistory,
+      nextClock,
+      simUncertain,
+      activityUnresolved,
+    ],
+  );
+  const pacing = useSimulationClock({
+    source: program,
+    active: tab === "editor",
+    scanSeconds: program.scan_seconds,
+    blocked:
+      !cleanupRestored.current ||
+      simBusy ||
+      simUncertain ||
+      cleanupStatus.pending > 0 ||
+      cleanupStatus.failed > 0 ||
+      !!nextClock ||
+      activityUnresolved,
+    batch: step,
+  });
+  async function runSimulationScenario(events: unknown, duration: number) {
+    if (busy.current || simUncertain || cleanupBlocked() || activityUnresolved)
+      return;
     busy.current = true;
+    setSimBusy(true);
+    pacing.retire();
+    const epoch = ++simulationEpoch.current;
+    const source = program;
+    const admittedForces = forces;
     try {
-      const r = await api("/simulation/step", {
-        program,
-        inputs,
+      const document = await programJsonDocument("/simulation/scenario", {
+        program: source,
+        events,
+        duration,
         forces,
-        session: session.current,
-        record: recordHistory,
-        clock: nextClock ? new Date(nextClock + "Z").toISOString() : undefined,
       });
-      if (latestProgram.current !== program) return;
-      session.current = r.session;
-      setHistory(r.history);
-      setSimError(r.scan_error || "");
-      if (r.scan_error) setRunning(false);
-      setRecordingError(r.recording_error || "");
-      setNextClock("");
-    } catch (e) {
-      setSimError(String(e));
-      setRunning(false);
+      const result = document.data;
+      const tail = parseExecutionHistoryTail(await document.blob.text());
+      const retainedForces = executionScalarMap(tail.forces || {});
+      const exactValues = executionScalarMap(tail.values || {});
+      if (simulationEpoch.current !== epoch || latestProgram.current !== source)
+        return;
+      if (!Array.isArray(result.history))
+        throw new Error("Scenario response has no valid bounded history.");
+      detachSimulationSession();
+      setHistory(result.history);
+      setExecutionValues(exactValues);
+      if (latestForces.current === admittedForces) setForces(retainedForces);
+      setSimError("");
+      setRecordingError("");
+    } catch (error) {
+      if (simulationEpoch.current === epoch && latestProgram.current === source)
+        setSimError(String(error));
     } finally {
       busy.current = false;
+      setSimBusy(false);
     }
-  }, [program, inputs, forces, recordHistory, nextClock]);
-  useEffect(() => {
-    if (!running) return;
-    const timer = setInterval(step, 500);
-    return () => clearInterval(timer);
-  }, [running, step]);
+  }
+  function resetSimulation() {
+    simulationEpoch.current++;
+    pacing.retire();
+    setSimUncertain(false);
+    detachSimulationSession();
+    setHistory([]);
+    setExecutionValues({});
+    setSimError("");
+    setRecordingError("");
+    setForces({});
+  }
+  function changeActivityForces(next: Record<string, ExecutionValue>) {
+    if (!activityPorts || activityPortSource?.epoch !== draftEpoch.current) {
+      setMessage(
+        "Activity output authority changed. Validate the current source before forcing a port.",
+      );
+      return;
+    }
+    const allowed = new Set([
+      ...program.nodes
+        .filter((node) => node.kind !== "Activity")
+        .map((node) => node.id),
+      ...activityPorts.outputs.map((output) => output.alias_node_id),
+    ]);
+    if (Object.keys(next).some((key) => !allowed.has(key))) {
+      setMessage(
+        "A force names an old or unsupported activity output. Release it and use the current port.",
+      );
+      return;
+    }
+    setForces(next);
+  }
   useEffect(() => {
     function keyboard(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
@@ -594,18 +1134,29 @@ export function App() {
     if (!b) return;
     const placedByClick = x === undefined || y === undefined;
     if (placedByClick) {
-      const height = Math.max(108, b.inputs.length * 29 + 55);
+      const height = Math.max(
+        108,
+        Math.max(
+          b.inputs.length,
+          b.kind === "Activity" ? b.outputs?.length || 0 : 0,
+        ) *
+          29 +
+          55,
+      );
       for (let slot = 0; slot < 20000; slot++) {
         x = 100 + (slot % 4) * 280;
         y = 100 + Math.floor(slot / 4) * 220;
         const overlaps = program.nodes.some((old) => {
-          const spec = specs.find(
-            (s) =>
-              s.kind === old.kind &&
-              (s.kind !== "Macro" ||
-                s.parameters.definition === old.params.definition),
+          const spec = specs.find((s) => matchesBlock(s, old));
+          const oldHeight = Math.max(
+            108,
+            Math.max(
+              spec?.inputs.length || 0,
+              old.kind === "Activity" ? spec?.outputs?.length || 0 : 0,
+            ) *
+              29 +
+              55,
           );
-          const oldHeight = Math.max(108, (spec?.inputs.length || 0) * 29 + 55);
           return (
             x! < old.x + 252 &&
             x! + 252 > old.x &&
@@ -622,7 +1173,7 @@ export function App() {
       label: b.title,
       x: x ?? 100 + (program.nodes.length % 4) * 240,
       y: y ?? 100 + Math.floor(program.nodes.length / 4) * 180,
-      params: structuredClone(b.parameters),
+      params: cloneSource(b.parameters),
       unit: b.unit || "",
       value_type: b.output === "boolean" ? "boolean" : "number",
     };
@@ -651,7 +1202,7 @@ export function App() {
     pasteSelection();
   }
   function copySelection() {
-    clipboard.current = structuredClone({
+    clipboard.current = cloneSource({
       source: program,
       nodes: program.nodes.filter((n) => selection.includes(n.id)),
       edges: program.edges.filter(
@@ -673,20 +1224,49 @@ export function App() {
       return;
     }
     let base = program;
+    const epoch = draftEpoch.current;
     try {
       const definitions = new Set(
         clip.nodes
-          .filter((n) => n.kind === "Macro")
+          .filter((n) => reusableKind(n.kind))
           .map((n) => n.params.definition),
       );
+      if (
+        definitions.size &&
+        libraryVersion(clip.source) !== libraryVersion(program)
+      )
+        throw new Error(
+          "Reusable selections have different library versions. Explicitly migrate or promote their source before pasting.",
+        );
       for (const definition of definitions) {
-        const bundle = await api("/macros/export", {
-          program: clip.source,
-          definition,
-        });
-        base = await api("/macros/import", { program: base, bundle });
+        const family = reusableBase(program);
+        let bundle;
+        if (family === "/macros") {
+          bundle = await sourceApi("/macros/export", {
+            program: clip.source,
+            definition,
+          });
+        } else {
+          const doc = await programJsonDocument(
+            "/activities/export",
+            { program: clip.source, definition },
+            true,
+          );
+          if (
+            (await sha256Blob(doc.blob)) !== doc.headers?.get("X-File-SHA256")
+          )
+            throw new Error(
+              "Activity paste archive failed its original byte-digest check.",
+            );
+          bundle = parseSourceDocument(await doc.blob.text());
+        }
+        if (latestProgram.current !== program || draftEpoch.current !== epoch)
+          throw new Error(
+            "Program changed while preparing the reusable selection. Paste into the current source again.",
+          );
+        base = await sourceApi(family + "/import", { program: base, bundle });
       }
-      if (latestProgram.current !== program) {
+      if (latestProgram.current !== program || draftEpoch.current !== epoch) {
         setMessage(
           "Program changed while pasting. Paste again into the current graph.",
         );
@@ -703,7 +1283,7 @@ export function App() {
       ]),
     );
     const nodes = clip.nodes.map((n) => ({
-      ...structuredClone(n),
+      ...cloneSource(n),
       id: ids[n.id],
       label: (n.label + " copy").slice(0, 200),
       x: n.x + 50,
@@ -790,7 +1370,7 @@ export function App() {
       epoch = draftEpoch.current;
     const snapshot = latestProgram.current;
     try {
-      const loaded = await api(
+      const loaded = await sourceApi(
         `/projects/${id}${revision ? "?revision=" + revision : ""}`,
       );
       if (request !== loadEpoch.current) return;
@@ -821,7 +1401,7 @@ export function App() {
     try {
       const f = new FormData();
       f.append("file", file);
-      const imported = await api("/import", f);
+      const imported = await sourceApi("/import", f);
       if (request !== loadEpoch.current) return;
       if (epoch !== draftEpoch.current || latestProgram.current !== snapshot) {
         setMessage(
@@ -852,9 +1432,11 @@ export function App() {
     );
   const tabs = [
     { id: "editor", title: "Program", icon: Workflow },
+    { id: "truth-tables", title: "Truth tables", icon: TableProperties },
     { id: "caf", title: "CAF files", icon: FileArchive },
     { id: "caf-compare", title: "CAF compare", icon: FileCheck2 },
     { id: "caf-simulation", title: "CAF simulation", icon: FlaskConical },
+    { id: "conformance", title: "Conformance tests", icon: FlaskConical },
     { id: "bog", title: "BOG files", icon: FileArchive },
     { id: "hardware", title: "JCI hardware", icon: CircuitBoard },
     { id: "connections", title: "Connect", icon: Network },
@@ -898,6 +1480,7 @@ export function App() {
         <div className="project-title">
           <input
             aria-label="Program name"
+            disabled={tab === "truth-tables"}
             value={program.name}
             onChange={(e) => change({ ...program, name: e.target.value })}
           />
@@ -906,7 +1489,12 @@ export function App() {
         <button
           className="save-button primary"
           onClick={save}
-          disabled={saving}
+          disabled={saving || tab === "truth-tables"}
+          title={
+            tab === "truth-tables"
+              ? "Use Export table in the truth-table workspace."
+              : undefined
+          }
         >
           <Save size={15} />{" "}
           {macroEdit
@@ -969,6 +1557,7 @@ export function App() {
             </div>
           )}
           <Suspense
+            key={tab}
             fallback={<div className="loading">Opening workspace…</div>}
           >
             {tab === "caf" || tab === "caf-simulation" ? null : tab ===
@@ -1003,6 +1592,12 @@ export function App() {
                     >
                       <Plus size={15} /> New
                     </button>
+                    <button
+                      disabled={!!macroEdit || saving}
+                      onClick={() => setEquipmentWizard(true)}
+                    >
+                      Equipment wizard
+                    </button>
                     <select
                       aria-label="Open saved project"
                       disabled={!!macroEdit}
@@ -1026,7 +1621,7 @@ export function App() {
                         );
                         if (p) {
                           change({
-                            ...structuredClone(p),
+                            ...cloneSource(p),
                             id: p.id + "-" + Date.now().toString(36),
                           });
                           setSelected(null);
@@ -1112,7 +1707,7 @@ export function App() {
                     <button
                       onClick={async () => {
                         try {
-                          await download(
+                          await programDownload(
                             "/export",
                             { program, format },
                             program.id +
@@ -1147,6 +1742,7 @@ export function App() {
                     </button>
                   </div>
                 </div>
+                <ConversionPreview program={program} />
                 <div className="editor-layout">
                   <aside className="palette">
                     <div className="panel-heading">
@@ -1225,7 +1821,13 @@ export function App() {
                     </div>
                   </aside>
                   <div className="editor-center">
+                    {activityCatalogError && (
+                      <p className="activity-source-error" role="alert">
+                        {activityCatalogError}
+                      </p>
+                    )}
                     <Canvas
+                      activityBindings={activityPorts}
                       program={program}
                       blocks={specs}
                       last={history.at(-1)}
@@ -1244,27 +1846,39 @@ export function App() {
                       }
                     />
                     <SimulationPanel
+                      activityBindings={activityPorts}
                       program={program}
                       history={history}
                       inputs={inputs}
                       setInputs={setInputs}
                       forces={forces}
                       onReleaseForces={() => setForces({})}
-                      running={running}
-                      setRunning={setRunning}
-                      onStep={step}
-                      onReset={() => {
-                        session.current = null;
-                        setHistory([]);
-                        setRunning(false);
-                        setSimError("");
-                        setForces({});
+                      running={pacing.running}
+                      setRunning={(value) =>
+                        value ? pacing.run() : pacing.pause()
+                      }
+                      pacing={pacing}
+                      simBusy={
+                        !cleanupRestored.current ||
+                        simBusy ||
+                        simUncertain ||
+                        cleanupStatus.pending > 0 ||
+                        cleanupStatus.failed > 0 ||
+                        activityUnresolved
+                      }
+                      cleanup={{
+                        ...cleanupStatus,
+                        unknown: unknownSession,
+                        cache: cacheStatus,
+                        retry: retrySimulationCleanup,
+                        check: checkSimulationCache,
                       }}
-                      onScenario={(h) => {
-                        session.current = null;
-                        setHistory(h);
-                        setForces(h.at(-1)?.forces || {});
+                      onStep={() => {
+                        pacing.retire();
+                        void step().catch(() => {});
                       }}
+                      onReset={resetSimulation}
+                      onRunScenario={runSimulationScenario}
                       error={simError}
                       recordHistory={recordHistory}
                       setRecordHistory={setRecordHistory}
@@ -1287,13 +1901,7 @@ export function App() {
                   ) : (
                     <Inspector
                       node={active}
-                      block={specs.find(
-                        (b) =>
-                          b.kind === active?.kind &&
-                          (b.kind !== "Macro" ||
-                            b.parameters.definition ===
-                              active?.params.definition),
-                      )}
+                      block={specs.find((b) => matchesBlock(b, active))}
                       onEdit={edit}
                       onDelete={remove}
                       onDuplicate={duplicate}
@@ -1301,7 +1909,18 @@ export function App() {
                       onSelect={setSelected}
                       forces={forces}
                       onForceChange={setForces}
+                      executionValues={executionValues}
                       last={history.at(-1)}
+                      activityBindings={activityPorts}
+                      onActivityForceChange={changeActivityForces}
+                      sourceEpoch={renderedDraftEpoch}
+                      onRefreshActivityPorts={() => {
+                        resetSimulation();
+                        activityAuthorityEpoch.current++;
+                        setActivityPortSource(null);
+                        setActivityCatalogError("");
+                        setActivityCatalogRefresh((value) => value + 1);
+                      }}
                     />
                   )}
                 </div>
@@ -1370,6 +1989,8 @@ export function App() {
               <CafComparison />
             ) : tab === "bog" ? (
               <NiagaraInspector />
+            ) : tab === "truth-tables" ? (
+              <TruthTableReview />
             ) : tab === "hardware" ? (
               <HardwareDefinitions />
             ) : tab === "connections" ? (
@@ -1404,13 +2025,59 @@ export function App() {
               <FieldTrends />
             ) : tab === "device-history" ? (
               <DeviceHistory />
+            ) : tab === "conformance" ? (
+              <ConformancePanel program={program} />
             ) : tab === "macros" ? (
               <MacroLibrary
                 program={program}
                 selectedIds={selection}
-                onChange={change}
+                onChange={(next) => {
+                  if (
+                    latestProgram.current !== program ||
+                    draftEpoch.current !== renderedDraftEpoch
+                  )
+                    throw new Error(
+                      "Program changed before the reusable-library result could be adopted.",
+                    );
+                  change(next);
+                }}
                 onSelect={setSelected}
                 onEditDefinition={openMacroEdit}
+                onBeforeMigration={() => {
+                  if (
+                    latestProgram.current !== program ||
+                    draftEpoch.current !== renderedDraftEpoch
+                  )
+                    throw new Error(
+                      "Program changed before simulation migration could begin.",
+                    );
+                  resetSimulation();
+                }}
+                sourceEpoch={renderedDraftEpoch}
+                onActivityCatalog={(data, error) => {
+                  if (
+                    latestProgram.current !== program ||
+                    draftEpoch.current !== renderedDraftEpoch ||
+                    libraryVersion(program) !== 2
+                  )
+                    return;
+                  activityAuthorityEpoch.current++;
+                  if (!data) resetSimulation();
+                  setActivityCatalogError(error || "");
+                  setMacroBlocks(
+                    data
+                      ? data.definitions.map((definition: Block) => ({
+                          ...definition,
+                          stateful: true,
+                        }))
+                      : [],
+                  );
+                  setActivityPortSource(
+                    data?.bindings
+                      ? { epoch: renderedDraftEpoch, data: data.bindings }
+                      : null,
+                  );
+                }}
               />
             ) : (
               <Resources />
@@ -1418,6 +2085,35 @@ export function App() {
           </Suspense>
         </main>
       </div>
+      {equipmentWizard && tab === "editor" && !macroEdit && (
+        <Suspense fallback={<div>Opening equipment wizard…</div>}>
+          <EquipmentWizard
+            source={program}
+            onClose={() => setEquipmentWizard(false)}
+            onCreate={(generated, sourceKey) => {
+              if (
+                sourceStringify(latestProgram.current) !== sourceKey ||
+                macroEdit ||
+                tab !== "editor"
+              )
+                return false;
+              loadEpoch.current++;
+              versionsEpoch.current++;
+              change(generated);
+              setSelected(null);
+              setVersions([]);
+              setInputs({});
+              setTimeout(() => flow.fitView({ padding: 0.2 }), 100);
+              return true;
+            }}
+          />
+        </Suspense>
+      )}
+      {recoveryError && (
+        <div className="draft-recovery-error" role="alert">
+          {recoveryError}
+        </div>
+      )}
       <footer className="app-footer">
         <span>
           <span className="status-dot on" /> Local storage · configured alarm
@@ -1560,9 +2256,7 @@ export function App() {
               {program.metadata?.conversion && (
                 <details open className="conversion-report">
                   <summary>Native conversion report · review required</summary>
-                  <pre>
-                    {JSON.stringify(program.metadata.conversion, null, 2)}
-                  </pre>
+                  <pre>{sourceStringify(program.metadata.conversion, 2)}</pre>
                 </details>
               )}
               {versions.map((v) => (

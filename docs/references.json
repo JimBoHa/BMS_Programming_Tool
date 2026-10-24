@@ -93,7 +93,8 @@
     "status": "indexed",
     "local_collection": "jci",
     "local_id": "jci-lit-12011147-18-0-14d1fc",
-    "notes": "CCT/PCT programming and operation"
+    "notes": "CCT/PCT programming and operation",
+    "masd_ahu_review": "PDF 375\u2013378,382\u2013385,389/392/394\u2013397,1078\u20131083,1097\u20131100,1286\u20131287, 1334\u20131336 reviewed for bounded authored single-fan SAT/pressure/economizer generator. Current MASD AHU uses MASD-with-HR v51, not adjacent rooftop-only MASD mapping. Position-only OA, Pa-only pressure and explicit fixed-gain/proof policies; no native algorithm/CAF/physical/code equivalence. See docs/masd-ahu-wizard.md."
   },
   {
     "vendor": "Johnson Controls",
@@ -381,7 +382,8 @@
     "status": "indexed",
     "local_collection": "jci",
     "local_id": "jci-lit-12014531-1-0-037a21",
-    "notes": "Guideline 36 programming"
+    "notes": "Guideline 36 programming",
+    "hydraulic_planner_review": "PDF5\u20138,34\u201337,49\u201354 Tables28/29/32: four bounded parallel-chiller layouts, flow/pressure/temperature dependencies, equally-sized headered assumption and explicit physical/network point direction. Source-qualified authored hydraulic subset only; native applications/whole-plant safety and physical acceptance unverified. See docs/hydronic-io-planner.md."
   },
   {
     "vendor": "Johnson Controls",
@@ -1413,7 +1415,8 @@
     "status": "indexed",
     "local_collection": "jci",
     "local_id": "jci-lit-12011575-2017-06-01-714767",
-    "notes": "Plant optimization programming"
+    "notes": "Plant optimization programming",
+    "hydraulic_planner_conflict": "2017 PDF13 variable-primary/secondary exclusion remains edition-specific; separate2025 chilled profile permits variable-primary/secondary without converting old applications."
   },
   {
     "vendor": "Johnson Controls",
@@ -2811,7 +2814,7 @@
     "vendor": "Open source / source research",
     "title": "MatIEC independent Structured Text compilation/execution",
     "url": "https://github.com/beremiz/matiec/tree/3a41303bcb4e50403417bc39c63f88981d7d961e",
-    "notes": "External GPL-3.0-or-later compiler with individually LGPL runtime headers; no compiler/runtime source bundled. All 27 blocks and nine example graphs compile to C and execute independently on this host. No physical PLC deployment claim.",
+    "notes": "External GPL-3.0-or-later compiler with individually LGPL runtime headers; no compiler/runtime source bundled. All 30 blocks and nine example graphs compile to C and execute independently on this host. No physical PLC deployment claim.",
     "status": "source and local behavior reviewed"
   },
   {
@@ -2869,5 +2872,25 @@
     "url": "https://github.com/ifaddr/ifaddr",
     "notes": "MIT; pinned 0.2.0. The bound IPv4 interface's operating-system prefix determines local broadcast scope; point-to-point interfaces require directed discovery. An explicit connection prefix is used only when no operating-system interface match exists. No subnet mask is guessed.",
     "status": "source and local behavior reviewed"
+  },
+  {
+    "vendor": "ASHRAE/BACnet",
+    "title": "ANSI/ASHRAE 135-1995 errata, September 7, 1999",
+    "url": "https://bacnet.org/wp-content/uploads/sites/4/2022/08/135-1995-Errata-9-7-1999.pdf",
+    "document": "135-1995 Errata 1999-09-07",
+    "pages": 11,
+    "sha256": "5e0c5a707ba360fe10d1d72396088aec34688118974b4d3739788fec52ad2c8e",
+    "status": "reviewed",
+    "notes": "Primary PDF; 6.2.2.1 physical-network numeric range. Private source outside repository."
+  },
+  {
+    "vendor": "NIST/BACnet",
+    "title": "GSA Guide to Specifying Interoperable Building Automation and Control Systems Using BACnet",
+    "url": "https://bacnet.org/wp-content/uploads/sites/4/2022/06/NISTIR-6392.pdf",
+    "document": "NISTIR 6392, November 1999",
+    "pages": 80,
+    "sha256": "2e15fa8a34e1f36a93deb848a775664c83e1c0254b862af09768ad464319f80f",
+    "status": "reviewed",
+    "notes": "Primary author PDF; 6.1, 6.4, 6.6.2 reviewed for internetwork numbering and BACnet/IP subnet distinctions. Private source outside repository."
   }
 ]

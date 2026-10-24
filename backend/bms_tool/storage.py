@@ -50,8 +50,8 @@ class Store:
                 )
             """)
 
-    def connect(self):
-        db = sqlite3.connect(self.db, timeout=10)
+    def connect(self, *, timeout=10):
+        db = sqlite3.connect(self.db, timeout=timeout)
         db.row_factory = sqlite3.Row
         return db
 
@@ -148,10 +148,10 @@ class Store:
                 )
             ]
 
-    def record(self, operation, detail):
+    def record(self, operation, detail, *, lock_timeout=10):
         content = json.dumps(detail, sort_keys=True, allow_nan=False)
         created = datetime.now(UTC).isoformat()
-        with self.connect() as db:
+        with self.connect(timeout=lock_timeout) as db:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute(
                 "SELECT entry_hash FROM audit ORDER BY sequence DESC LIMIT 1"

@@ -21,6 +21,7 @@ from bms_tool.iec import (
     verify_scenario,
 )
 from bms_tool.models import Edge, Node, Program
+from bms_tool.temperature import TEMPERATURE_BLOCKS, input_units
 from bms_tool.templates import all_templates
 
 requires_compiler = pytest.mark.skipif(
@@ -29,7 +30,7 @@ requires_compiler = pytest.mark.skipif(
 
 
 def block_program(kind):
-    node = Node(id="block", kind=kind)
+    node = Node(id="block", kind=kind, unit=BLOCKS[kind].unit)
     if kind == "Input":
         node.params = {"default": 2.5}
     if kind == "Constant":
@@ -50,6 +51,8 @@ def block_program(kind):
             params={"default": True if boolean else 4 if index == 0 else 2},
             unit="degF" if kind == "Convert" else "",
         )
+        if kind in TEMPERATURE_BLOCKS:
+            source.unit = input_units(kind, BLOCKS[kind].parameters, node.unit)[port]
         nodes.append(source)
         edges.append(Edge(id=f"edge{index}", source=source.id, target=node.id, target_port=port))
     nodes.append(Node(id="out", kind="Output", value_type=output_type(node), unit=node.unit))
@@ -59,7 +62,7 @@ def block_program(kind):
 
 @requires_compiler
 @pytest.mark.parametrize("kind", list(BLOCKS))
-def test_all_27_blocks_compile_to_native_machine_code_and_match_graph_reference(kind):
+def test_all_core_blocks_compile_to_native_machine_code_and_match_graph_reference(kind):
     with NativeIEC(block_program(kind)) as native:
         for index in range(3):
             row = native.step(clock=datetime(2026, 1, 5, 12, 0, index, tzinfo=UTC))
@@ -316,15 +319,16 @@ def test_scenario_quality_fault_is_recorded_and_recovery_resumes_retained_native
 
 
 def test_compiler_lock_wait_has_a_deadline_and_releases_thread_ownership(monkeypatch, tmp_path):
+    import bms_tool.file_access as access
     import bms_tool.iec as iec
 
-    times = iter((0, 46))
+    times = iter((0, 46, 46, 92))
     monkeypatch.setattr(iec.time, "monotonic", lambda: next(times))
 
     def busy(*args):
         raise BlockingIOError("held by another process")
 
-    monkeypatch.setattr(iec.fcntl, "flock", busy)
+    monkeypatch.setattr(access, "try_lock", busy)
     with pytest.raises(ConversionError, match="busy rebuilding"):
         with _tool_lock(tmp_path):
             pytest.fail("Entered compiler critical section while already locked")

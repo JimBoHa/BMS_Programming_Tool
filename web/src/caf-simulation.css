@@ -71,48 +71,48 @@
   max-width: 680px;
   margin: 10px auto;
 }
-.caf-simulation-table {
+:is(.caf-simulation-table, .caf-local-table) {
   overflow: auto;
   background: white;
   border: 1px solid var(--line, #e1e5e9);
   border-radius: 10px;
 }
-.caf-simulation-table table {
+:is(.caf-simulation-table, .caf-local-table) table {
   border-collapse: collapse;
   width: 100%;
   min-width: 900px;
 }
-.caf-simulation-table th,
-.caf-simulation-table td {
+:is(.caf-simulation-table, .caf-local-table) th,
+:is(.caf-simulation-table, .caf-local-table) td {
   padding: 12px 14px;
   border-bottom: 1px solid var(--line, #e1e5e9);
   text-align: left;
   vertical-align: top;
 }
-.caf-simulation-table th {
+:is(.caf-simulation-table, .caf-local-table) th {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   background: #f6f8fa;
 }
-.caf-simulation-table td strong,
-.caf-simulation-table td code,
-.caf-simulation-table td small {
+:is(.caf-simulation-table, .caf-local-table) td strong,
+:is(.caf-simulation-table, .caf-local-table) td code,
+:is(.caf-simulation-table, .caf-local-table) td small {
   display: block;
   max-width: 370px;
   overflow-wrap: anywhere;
 }
-.caf-simulation-table td code {
+:is(.caf-simulation-table, .caf-local-table) td code {
   font-size: 11px;
   margin: 5px 0;
   white-space: pre-wrap;
 }
-.caf-simulation-table td small {
+:is(.caf-simulation-table, .caf-local-table) td small {
   font-size: 11px;
   color: var(--muted, #64748b);
   line-height: 1.5;
 }
-.caf-simulation-table input {
+:is(.caf-simulation-table, .caf-local-table) input {
   width: 150px;
 }
 .caf-simulation-validation {
@@ -120,4 +120,45 @@
   color: var(--muted, #64748b);
   line-height: 1.5;
   margin-top: 16px;
+}
+
+.caf-local-scenarios {
+  margin-top: 32px;
+  padding: 22px;
+  border: 1px solid var(--line, #e1e5e9);
+  border-radius: 10px;
+  background: white;
+}
+.caf-local-scenarios p {
+  line-height: 1.55;
+}
+.caf-local-scenarios > p > code {
+  overflow-wrap: anywhere;
+}
+.caf-local-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 16px 0;
+}
+.caf-local-fields label {
+  display: grid;
+  gap: 6px;
+  flex: 1 1 180px;
+}
+.caf-local-fields input,
+.caf-local-fields select,
+.caf-local-fields textarea {
+  min-width: 0;
+  width: 100%;
+}
+.caf-local-scenarios details {
+  margin: 18px 0;
+}
+.caf-local-scenarios summary {
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+.caf-local-scenarios :is(.caf-simulation-table, .caf-local-table) {
+  margin: 16px 0;
 }

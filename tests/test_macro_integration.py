@@ -10,6 +10,8 @@ from bms_tool.app import create_app
 from bms_tool.deployment import Runtime
 from bms_tool.engine import Engine, validate
 from bms_tool.formats import export_program, import_program
+from bms_tool.iec_symbols import SymbolTable
+from bms_tool.macros import expand_macros
 from bms_tool.models import Edge, Node, Program
 from bms_tool.native_simulator import NativeSimulator
 from bms_tool.sedona import toolchain
@@ -111,8 +113,13 @@ def test_interchange_keeps_editable_macro_library_and_compiles_semantics(format,
     assert Engine(restored).step()["outputs"] == {"out_a": 1, "out_b": -1}
     assert [node.kind for node in restored.nodes].count("Macro") == 2
     if format == "st":
-        body = data.split(b"(* BMS_STUDIO_IR_V1", 1)[0]
-        assert b"mn_" in body and b"Slew" not in body
+        body = data.split(b"(* BMS_STUDIO_IR_V3", 1)[0]
+        symbols = SymbolTable(source)
+        retained = [n for n in expand_macros(source).nodes if n.kind == "Slew"]
+        assert retained and b"Slew" not in body
+        for node in retained:
+            assert symbols.role(node.id, "memory").encode() in body
+            assert node.id.encode() not in body
 
 
 def test_runtime_preserves_compatible_internal_state_and_resets_changed_control(tmp_path):

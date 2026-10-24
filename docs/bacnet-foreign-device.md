@@ -10,6 +10,13 @@ The registration and renewal task starts only after an explicit Connect
 request. Loading a saved configuration after restarting the tool does not open
 a socket, register or discover devices.
 
+The Connect form restores saved IP settings while its fields are untouched.
+Focusing any IP configuration field claims the complete draft before typing
+starts: a delayed status response can update connection status without replacing
+the focused value or its text selection. The draft stays owned until a successful
+explicit Open interface or leaving the workspace. This does not open an interface
+or send a discovery request by itself.
+
 ## Connection and API
 
 ```json

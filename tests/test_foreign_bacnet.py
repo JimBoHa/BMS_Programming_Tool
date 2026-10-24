@@ -59,12 +59,19 @@ class RawBBMD(asyncio.DatagramProtocol):
         self.rogue = None
         self.destination = None
         self.malformed_first = False
+        self.registration_result_delay = 0.0
+        self.delayed_registration_results = set()
         self.iam_instances = [4190012]
         self.expected_whois = bytes.fromhex("010010080b3fef3c1b3fef3c")
 
     def connection_made(self, transport):
         self.transport = transport
         self.address = transport.get_extra_info("sockname")
+
+    def connection_lost(self, exc):
+        for handle in self.delayed_registration_results:
+            handle.cancel()
+        self.delayed_registration_results.clear()
 
     def datagram_received(self, data, address):
         try:
@@ -91,6 +98,17 @@ class RawBBMD(asyncio.DatagramProtocol):
                             bvlc(0, struct.pack(">H", self.code)),
                             address,
                         )
+                    elif self.registration_result_delay:
+                        result = bvlc(0, struct.pack(">H", self.code))
+
+                        def send_result():
+                            self.delayed_registration_results.discard(handle)
+                            self.transport.sendto(result, address)
+
+                        handle = asyncio.get_running_loop().call_later(
+                            self.registration_result_delay, send_result
+                        )
+                        self.delayed_registration_results.add(handle)
                     else:
                         self.transport.sendto(bvlc(0, struct.pack(">H", self.code)), address)
             elif data[1] == 9:
@@ -171,25 +189,38 @@ async def test_actual_registration_broadcast_forwarded_discovery_unicast_read_an
         client.close()
 
 
+@pytest.mark.parametrize("registration_result_delay", [0.0, 0.05])
 async def test_real_short_ttl_renewal_stops_after_disconnect_and_restart_does_not_register(
-    peers, tmp_path
+    peers, tmp_path, registration_result_delay
 ):
     bbmd, _, _ = peers
+    bbmd.registration_result_delay = registration_result_delay
     client = Bacnet(Store(tmp_path))
-    await client.connect(
-        f"127.0.0.1:{free_port()}", bbmd_address=f"127.0.0.1:{bbmd.address[1]}", foreign_ttl=1
-    )
-    await wait_until(lambda: bbmd.registrations().count(1) >= 2, 2)
-    assert client.status()["foreign_device"]["acknowledgements"] >= 2
-    await client.disconnect()
-    await wait_until(lambda: bbmd.registrations()[-1:] == [0])
-    before = len(bbmd.frames)
-    await asyncio.sleep(1.1)
-    assert len(bbmd.frames) == before
-    restarted = Bacnet(Store(tmp_path))
-    assert restarted.config["foreign_ttl"] == 1 and restarted.app is None
-    await asyncio.sleep(0.05)
-    assert len(bbmd.frames) == before
+    try:
+        await client.connect(
+            f"127.0.0.1:{free_port()}", bbmd_address=f"127.0.0.1:{bbmd.address[1]}", foreign_ttl=1
+        )
+        # Receipt at the peer precedes its result and the client's processing.
+        # Keep the existing bound, but await both independent wire milestones.
+        await wait_until(
+            lambda: (
+                bbmd.registrations().count(1) >= 2
+                and client.status()["foreign_device"]["acknowledgements"] >= 2
+            ),
+            2,
+        )
+        assert client.status()["foreign_device"]["acknowledgements"] >= 2
+        await client.disconnect()
+        await wait_until(lambda: bbmd.registrations()[-1:] == [0])
+        before = len(bbmd.frames)
+        await asyncio.sleep(1.1)
+        assert len(bbmd.frames) == before
+        restarted = Bacnet(Store(tmp_path))
+        assert restarted.config["foreign_ttl"] == 1 and restarted.app is None
+        await asyncio.sleep(0.05)
+        assert len(bbmd.frames) == before
+    finally:
+        client.close()
 
 
 async def test_rejected_initial_registration_fails_without_leaking_socket_or_worker(

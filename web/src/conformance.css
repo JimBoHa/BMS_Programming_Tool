@@ -1,0 +1,50 @@
+.conformance fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 1rem;
+  margin: 1rem 0;
+  border: 1px solid var(--border, #ccd3dc);
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+.conformance label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 12rem;
+}
+.conformance textarea {
+  min-width: 20rem;
+  min-height: 4rem;
+}
+.conformance input,
+.conformance select,
+.conformance textarea {
+  padding: 0.5rem;
+}
+.conformance table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+.conformance th,
+.conformance td {
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--border, #ccd3dc);
+  text-align: left;
+}
+.conformance code {
+  overflow-wrap: anywhere;
+}
+.conformance pre {
+  max-height: 30rem;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+.conformance [role="alert"] {
+  color: var(--danger, #ad2929);
+}
+.conformance section {
+  margin: 1rem 0;
+}

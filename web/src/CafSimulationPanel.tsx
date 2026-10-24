@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Download, FileArchive, RotateCcw, Upload } from "lucide-react";
 import { api, download, saveBlob } from "./api";
 import "./caf-simulation.css";
+import { CafLocalScenarios } from "./CafLocalScenarios";
 
 type SimulationRecord = {
   ref: string;
@@ -109,6 +110,8 @@ function importProfile(value: unknown, original: Profile): Profile {
 }
 
 export function CafSimulationPanel({ visible = true }: { visible?: boolean }) {
+  const [scenarioDirty, setScenarioDirty] = useState(false);
+  const [scenarioEpoch, setScenarioEpoch] = useState(0);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [original, setOriginal] = useState<Profile | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -159,9 +162,9 @@ export function CafSimulationPanel({ visible = true }: { visible?: boolean }) {
   async function open(file?: File) {
     if (!file || !visible || importing || exporting) return;
     if (
-      unsaved &&
+      (unsaved || scenarioDirty) &&
       !window.confirm(
-        "Discard unexported simulation draft and open another CAF?",
+        "Discard unexported simulation draft and unsaved local scenario changes, then open another CAF?",
       )
     )
       return;
@@ -182,6 +185,7 @@ export function CafSimulationPanel({ visible = true }: { visible?: boolean }) {
       importRequest.current++;
       exportRequest.current++;
       setSummary(inventory);
+      setScenarioEpoch((prior) => prior + 1);
       setOriginal(exportedProfile);
       setProfile(exportedProfile);
       setSaved(signature(exportedProfile));
@@ -499,6 +503,14 @@ export function CafSimulationPanel({ visible = true }: { visible?: boolean }) {
             </div>
           )}
           <p className="caf-simulation-validation">{summary.validation}</p>
+          <CafLocalScenarios
+            key={`${summary.sha256}:${scenarioEpoch}`}
+            sha={summary.sha256}
+            filename={filename}
+            visible={visible}
+            parentBusy={busy}
+            onDirtyChange={setScenarioDirty}
+          />
         </>
       )}
     </div>

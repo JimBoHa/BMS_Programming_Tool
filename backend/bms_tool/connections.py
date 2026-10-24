@@ -29,6 +29,7 @@ from serial.tools import list_ports
 from .bacnet_read import close_application, read_property
 from .bacnet_values import json_value
 from .bacnet_write import write_property
+from .ipv4_ingress import install_ipv4_ingress
 
 MAX_FOREIGN_DEVICES = 1000
 
@@ -176,6 +177,7 @@ class Bacnet:
                         )
                 if router:
                     await app.nsap.update_router_references(None, router_target, [dnet])
+                install_ipv4_ingress(app)
             except BaseException:
                 close_application(app)
                 raise
@@ -484,6 +486,9 @@ class Bacnet:
                 raise ValueError(
                     "Analog command must be a finite integer or float; no strings or booleans."
                 )
+            from .executable_numbers import require_number
+
+            require_number(value, "Analog command")
             try:
                 # Double derives from Real; check it first. Persist exactly the
                 # number that survives BACnet's native IEEE wire encoding, so

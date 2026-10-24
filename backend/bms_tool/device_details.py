@@ -12,7 +12,7 @@ import copy
 import hashlib
 import json
 import math
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, nullcontext
 from datetime import UTC, datetime
 
 from bacpypes3.npdu import NPDU
@@ -24,6 +24,7 @@ from .bacnet_read import read_property
 from .bacnet_values import json_value
 from .models import StrictModel
 from .routed_discovery import ROUTED_HOP_COUNT, _router
+from .scoped_hooks import restore_attribute
 
 PROFILE = "bacnet-device-details/1"
 SCOPE = (
@@ -153,6 +154,18 @@ class DeviceDetails:
                 or self.bacnet.config != session["config"]
             ):
                 raise ValueError("BACnet application/configuration changed.")
+            if (session["config"] or {}).get("transport") == "mstp":
+                link = getattr(session["app"], "mstp_link", None)
+                actual = link.status() if link is not None else {}
+                if (
+                    any(
+                        actual.get(key) != session["config"].get(key)
+                        for key in ("port", "mac", "baudrate", "max_master", "max_info_frames")
+                    )
+                    or int(session["app"].device_object.objectIdentifier[1])
+                    != session["config"]["instance"]
+                ):
+                    raise ValueError("Serial link identity/configuration changed.")
             for layer in session["app"].link_layers.values():
                 server = getattr(layer, "server", None)
                 if server is not None and (
@@ -163,11 +176,32 @@ class DeviceDetails:
             raise _InterfaceChanged("Device-details interface changed; repeat explicitly.") from exc
 
     @asynccontextmanager
-    async def _path(self, options):
-        async with self.bacnet.lock:
+    async def _path(self, options, *, lock_held=False, preserve_packet=None):
+        # A composite operation may already own the same connection lock.
+        # Default callers continue to acquire it here.
+        async with nullcontext() if lock_held else self.bacnet.lock:
             app = self.bacnet.require()
             config = copy.deepcopy(self.bacnet.config)
             adapter = app.nsap.local_adapter
+            if getattr(options, "transport", "bacnet-ip") == "direct-mstp":
+                # Hardware-only request models opt in; the public DeviceDetailsRequest
+                # and event/COV requests retain their existing IPv4 profile.
+                from .hardware_target import serial_identity
+
+                identity = serial_identity(config, options)
+                target = self.bacnet.target_address(options.address)
+                if (
+                    adapter is None
+                    or adapter.adapterAddr != Address(str(identity["mac"]))
+                    or getattr(app, "mstp_link", None) is None
+                ):
+                    raise ValueError(
+                        "Direct MS/TP hardware reads require the already-open matching serial interface."
+                    )
+                session = {"app": app, "config": config, "target": target, "last_request": 0.0}
+                self._guard(session)
+                yield session
+                return
             if (
                 config is None
                 or config.get("transport") == "mstp"
@@ -197,8 +231,14 @@ class DeviceDetails:
                 if (
                     observing
                     and incoming_adapter is adapter
+                    and packet.npduSADR is not None
                     and packet.npduSADR == target
                     and packet.pduSource != router
+                    and not (preserve_packet and preserve_packet(incoming_adapter, packet))
+                    and not (
+                        getattr(nsap, "_bms_event_receiver", None)
+                        and nsap._bms_event_receiver(incoming_adapter, packet)
+                    )
                 ):
                     session["ignored_router_packets"] += 1
                     return
@@ -226,10 +266,7 @@ class DeviceDetails:
                     ("indication", directed, previous_send),
                 ):
                     if nsap.__dict__.get(name) is temporary:
-                        if previous is _MISSING:
-                            delattr(nsap, name)
-                        else:
-                            setattr(nsap, name, previous)
+                        restore_attribute(nsap, name, previous, _MISSING)
 
     async def _read(self, session, obj, prop, index=None):
         self._guard(session)

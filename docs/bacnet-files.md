@@ -52,3 +52,10 @@ Two additional HTTP integration tests use the same actual UDP peer to verify ses
 A genuine editable CAF upload still needs a matching authorized CCT/PCT installation and its compatible controller package/release database, with the native upload/persistent-storage conversion implementation (`Metasys.FCAccess.dll`/`Metasys.DataAccess.dll` and their installed configuration/definitions), or an independently verified replacement for those interfaces. No such installed bridge or public complete decoder was established. An actual vendor upload/reopen comparison and controller-specific acceptance evidence remain required. No proprietary service number, File OID or conversion rule is invented here.
 
 The public ASHRAE PDF was downloaded outside Git to `../Reference_Library/research/jci-upload-2026-10-19/ASHRAE-135.1-2011-Addendum-m.pdf`, SHA-256 `c95e533da9940ae6ecaf8c32c4cb19b50fdb6f00f38abac006d10703bb7b9c1c`. `sources.json` records URL, retrieval metadata and hashes. JCI HTML downloads were dynamic-reader shells and are labelled accordingly, not counted as full manuals; their topic content was verified through the browser and existing local CCT manuals. No original private CAF or site credential was read or changed as part of network testing; all service tests use local authored peers.
+
+
+Local capture ownership and safe-file opens use native POSIX/Windows primitives.
+Windows flushes file data and retains exclusive hard-link publication, but does
+not claim directory or power-loss durability. The browser displays this limit;
+see [portable storage](portable-storage.md) for reparse-point checks, native lock
+ownership, filesystem prerequisites and unchanged capture seals.

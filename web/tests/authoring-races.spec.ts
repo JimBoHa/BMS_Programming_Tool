@@ -2,6 +2,10 @@ import { test, expect, type Page, type Route } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import {
+  projectedSourceFixture,
+  requestProgram,
+} from "./sourceTransportFixtures";
 
 const root = path.resolve("..");
 function program(name: string, id: string) {
@@ -50,7 +54,10 @@ async function holdActual(
     heldURL = route.request().url();
     const response = await route.fetch();
     // The production endpoint has completed. Hold only actual HTTP delivery.
-    received({ status: response.status(), data: await response.json() });
+    received({
+      status: response.status(),
+      data: projectedSourceFixture(await response.json()),
+    });
     await gate;
     await route.fulfill({ response });
   };
@@ -353,7 +360,8 @@ test("an old validation response cannot attach graph errors to a newer valid dra
   const validation = await holdActual(
     page,
     "**/api/validate",
-    (route) => route.request().postDataJSON().nodes.length === 0,
+    (route) =>
+      requestProgram(route.request().postDataJSON()).nodes.length === 0,
   );
   try {
     await page

@@ -8,7 +8,6 @@ This local host profile has no physical I/O, network or controller download.
 from __future__ import annotations
 
 import copy
-import fcntl
 import hashlib
 import json
 import math
@@ -26,9 +25,13 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from .engine import Engine, output_type
-from .formats import ConversionError, export_st, structured_text_parts
+from .executable_numbers import require_number
+from .file_access import file_lock
+from .formats import ConversionError, export_st, iec_source_parts
+from .iec_symbols import symbol_profile
 from .macros import expand_macros
 from .models import Program
+from .source_profiles import source_profile
 
 ROOT = Path(__file__).resolve().parents[2]
 PIN = "3a41303bcb4e50403417bc39c63f88981d7d961e"
@@ -53,6 +56,8 @@ def _library_digest(directory):
 
 
 def toolchain():
+    if os.name != "posix":
+        raise ConversionError("The current native IEC host profile requires POSIX process pipes.")
     home = Path(os.environ.get("BMS_IEC_HOME", ROOT.parent / ".toolchain" / ("matiec-" + PIN[:12])))
     if not (home / "manifest.json").is_file() or not (home / "bin/iec2c").is_file():
         raise ConversionError("Native IEC compiler unavailable. Run scripts/setup_iec.py first.")
@@ -71,8 +76,6 @@ def toolchain():
         raise ConversionError("Native IEC runtime headers or host clang compiler are unavailable.")
     if _library_digest(home / "source/lib") != manifest.get("library_sha256"):
         raise ConversionError("The IEC runtime library checksum differs from its build manifest.")
-    if os.name != "posix":
-        raise ConversionError("The current native IEC host profile requires POSIX process pipes.")
     return home.resolve(), manifest
 
 
@@ -82,21 +85,15 @@ def _tool_lock(home):
     if not _LOCK.acquire(timeout=45):
         raise ConversionError("The IEC compiler queue is busy; retry after current work ends.")
     try:
-        with (home / ".build.lock").open("a+b") as lock:
-            while True:
-                try:
-                    fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                    break
-                except BlockingIOError:
-                    if time.monotonic() >= deadline:
-                        raise ConversionError(
-                            "The IEC toolchain is busy rebuilding or compiling."
-                        ) from None
-                    time.sleep(0.02)
-            try:
+        try:
+            with file_lock(
+                home / ".build.lock",
+                timeout=max(0, deadline - time.monotonic()),
+                busy="The IEC toolchain is busy rebuilding or compiling.",
+            ):
                 yield
-            finally:
-                fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+        except ValueError as exc:
+            raise ConversionError(str(exc)) from exc
     finally:
         _LOCK.release()
 
@@ -113,6 +110,8 @@ def profile():
         "compiler": "MatIEC iec2c then host clang",
         "revision": PIN,
         "execution": "compiled IEC Structured Text via MatIEC/native C",
+        "host_initialization": "studio-iec-zero-initialized-main/1",
+        "number_encoding": "studio-iec-json-negative-zero/1",
         "types": {"number": "IEC REAL / host IEEE float32", "boolean": "IEC BOOL"},
         "limits": {
             "nodes": 2000,
@@ -127,6 +126,8 @@ def profile():
         "controller_download": False,
         "certified": False,
         "provenance": manifest,
+        "source_generator": source_profile(),
+        "symbol_generator": symbol_profile(),
     }
 
 
@@ -143,25 +144,9 @@ def _run(args, *, cwd, timeout=45):
     return result
 
 
-def _name(identifier):
-    return "n_" + re.sub("[^A-Za-z0-9_]", "_", identifier)
-
-
-def _harness(declarations, output_nodes, graph):
+def _harness(declarations, output_nodes, symbols):
     fields = declarations["inputVars"]
-    state_names = {
-        _name(node.id) + suffix
-        for node in graph.nodes
-        for suffix in {
-            "Delay": ("_memory",),
-            "Deadband": ("_memory",),
-            "Slew": ("_memory",),
-            "PI": ("_integral",),
-            "TimerOn": ("_elapsed",),
-            "Alarm": ("_elapsed",),
-        }.get(node.kind, ())
-    }
-    states = [(name, typ) for name, typ, _ in declarations["localVars"] if name in state_names]
+    states = symbols.state_rows()
     lines = [
         "#include <stdio.h>",
         "#include <stdlib.h>",
@@ -172,9 +157,12 @@ def _harness(declarations, output_nodes, graph):
         '#include "POUS.h"',
         '#include "POUS.c"',
         "TIME __CURRENT_TIME;",
-        'static void number(double x) { if (isfinite(x)) printf("%.9g", x); else fputs("null", stdout); }',
+        "static void number(double x) {",
+        ' if (x == 0.0 && signbit(x)) fputs("-0.0", stdout);',
+        ' else if (isfinite(x)) printf("%.9g", x); else fputs("null", stdout);',
+        "}",
         "int main(void) {",
-        " MAIN_data__ data; MAIN_init__(&data, 0); unsigned successful = 0, attempts = 0;",
+        " MAIN_data__ data = {0}; MAIN_init__(&data, 0); unsigned successful = 0, attempts = 0;",
         f" char line[{max(1024, len(fields) * 48 + 16)}]; double values[{max(1, len(fields))}];",
         " while (fgets(line, sizeof(line), stdin)) {",
         "  if (++attempts > 1000 || !strchr(line, '\\n')) return 2;",
@@ -197,19 +185,21 @@ def _harness(declarations, output_nodes, graph):
     for index, node in enumerate(output_nodes):
         prefix = ("," if index else "") + json.dumps(node.id) + ":"
         lines.append("  fputs(" + json.dumps(prefix) + ", stdout);")
-        member = "data." + _name(node.id).upper() + ".value"
+        member = "data." + symbols.role(node.id).upper() + ".value"
         lines.append(
             f'  fputs({member}?"true":"false",stdout);'
             if output_type(node) == "boolean"
             else f"  number({member});"
         )
     lines.append('  fputs("},\\"native_state\\":{", stdout);')
-    for index, (name, typ) in enumerate(states):
-        prefix = ("," if index else "") + json.dumps(name) + ":"
+    for index, state in enumerate(states):
+        prefix = ("," if index else "") + json.dumps(state["state_label"]) + ":"
         lines.append("  fputs(" + json.dumps(prefix) + ", stdout);")
-        member = "data." + name.upper() + ".value"
+        member = "data." + state["symbol"].upper() + ".value"
         lines.append(
-            f'  fputs({member}?"true":"false",stdout);' if typ == "BOOL" else f"  number({member});"
+            f'  fputs({member}?"true":"false",stdout);'
+            if state["type"] == "BOOL"
+            else f"  number({member});"
         )
     lines += ['  fputs("}}\\n", stdout); fflush(stdout);', " }", " return 0;", "}"]
     return "\n".join(lines) + "\n"
@@ -222,7 +212,7 @@ class NativeIEC:
         self.program = Program.model_validate(program).model_copy(deep=True)
         self.graph = expand_macros(self.program)
         self.reference = Engine(self.program)
-        self.declarations, _ = structured_text_parts(self.program)
+        self.declarations, _, self.symbols = iec_source_parts(self.program)
         if len(self.graph.nodes) > 2000:
             raise ConversionError("IEC host profile supports at most 2000 expanded nodes.")
         self.home, self.manifest = toolchain()
@@ -251,7 +241,7 @@ class NativeIEC:
                 )
                 self.generated_c = (self.directory / "POUS.c").read_text()
                 (self.directory / "host.c").write_text(
-                    _harness(self.declarations, self.outputs, self.graph)
+                    _harness(self.declarations, self.outputs, self.symbols)
                 )
                 result = _run(
                     [
@@ -294,6 +284,9 @@ class NativeIEC:
         if self.attempts >= 1000:
             raise ConversionError("IEC verification session scan limit reached (1000).")
         values = [bindings[name] for name, _, _ in self.declarations["inputVars"]]
+        for value in values:
+            if type(value) is not bool:
+                require_number(value, "IEC binding")
         request = (
             " ".join(
                 str(int(value)) if type(value) is bool else format(value, ".17g")
@@ -376,6 +369,7 @@ class NativeIEC:
                     if type(value) is not bool:
                         raise ValueError("IEC Boolean input type mismatch: " + identifier)
                 else:
+                    require_number(value, f"IEC numeric input {identifier}")
                     if (
                         type(value) not in (int, float)
                         or not -3.0e38 <= value <= 3.0e38
@@ -386,8 +380,8 @@ class NativeIEC:
                         )
                     if value and struct.unpack("f", struct.pack("f", value))[0] == 0:
                         raise ValueError("IEC numeric input underflows REAL: " + identifier)
-                bindings[_name(identifier)] = value
-                bindings[_name(identifier) + "_valid"] = quality == "good"
+                bindings[self.symbols.role(identifier)] = value
+                bindings[self.symbols.role(identifier, "valid")] = quality == "good"
             host_fault = None
             calendars = {
                 key: calendar
@@ -415,8 +409,8 @@ class NativeIEC:
                             "Calendar host bindings need explicit Boolean value and valid fields."
                         )
                     active, valid = row["value"], row["valid"]
-                bindings[_name(identifier) + "_calendar"] = active
-                bindings[_name(identifier) + "_calendar_valid"] = valid
+                bindings[self.symbols.role(identifier, "calendar")] = active
+                bindings[self.symbols.role(identifier, "calendar_valid")] = valid
                 if not valid:
                     host_fault = "Calendar host validity is false: " + identifier
             candidate = copy.deepcopy(self.reference)
@@ -447,6 +441,7 @@ class NativeIEC:
                 self.reference.history = []
             row = {
                 **native,
+                "source_generator": source_profile(),
                 "time": self.reference.time,
                 "clock": current_clock.isoformat(),
                 "reference_outputs": baseline,
@@ -467,6 +462,9 @@ class NativeIEC:
             "program_sha256": self.program.digest(),
             "profile": profile(),
             "warnings": self.warnings,
+            "source_generator": source_profile(),
+            "symbol_table": self.symbols.evidence(),
+            **_activity_evidence(self),
         }
 
     def close(self):
@@ -493,6 +491,36 @@ class NativeIEC:
         self.close()
 
 
+def _activity_evidence(native):
+    # Opaque legacy metadata may already use activity_expansion. It is not
+    # execution authority: only the original explicit v2 source selects this
+    # additive report, never a preserved or forged expanded-metadata field.
+    library = native.program.metadata.get("macros")
+    if not (
+        isinstance(library, dict)
+        and type(library.get("version")) is int
+        and library["version"] == 2
+    ):
+        return {}
+    binding = native.graph.metadata.get("activity_expansion")
+    if not isinstance(binding, dict) or binding.get("version") != 2:
+        return {}
+    from .activities import PROFILE, PROFILE_SHA
+
+    return {
+        "activity_bindings": {
+            "format": "bms.activity-bindings/1",
+            "profile": copy.deepcopy(PROFILE),
+            "profile_sha256": PROFILE_SHA,
+            "program_id": native.program.id,
+            "program_revision": native.program.revision,
+            "source_sha256": native.program.digest(),
+            "expanded_sha256": native.graph.digest(),
+            "outputs": copy.deepcopy(binding["outputs"]),
+        }
+    }
+
+
 def compile_program(program):
     with NativeIEC(program) as native:
         return native.compilation()
@@ -510,6 +538,8 @@ def verify_program(program, inputs=None, *, scans=1, dt=None, clock=None):
             "program_sha256": native.program.digest(),
             "warnings": native.warnings,
             "profile": profile(),
+            "symbol_table": native.symbols.evidence(),
+            **_activity_evidence(native),
         }
 
 
@@ -566,4 +596,6 @@ def verify_scenario(program, events, duration, dt=None, *, clock=None):
             "program_sha256": native.program.digest(),
             "warnings": native.warnings,
             "profile": profile(),
+            "symbol_table": native.symbols.evidence(),
+            **_activity_evidence(native),
         }

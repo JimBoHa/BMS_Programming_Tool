@@ -1,3 +1,4 @@
+import { executionSourceValue } from "./programSource";
 import { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
@@ -6,7 +7,7 @@ import {
   Download,
   FlaskConical,
 } from "lucide-react";
-import { api, saveBlob } from "./api";
+import { programApi, saveBlob } from "./api";
 import { showValue, type Program } from "./types";
 import { TemcoTransfer } from "./TemcoTransfer";
 import "./temco-simulator.css";
@@ -59,7 +60,7 @@ export function TemcoSimulator({ program }: { program: Program }) {
 
   useEffect(() => {
     mounted.current = true;
-    api("/temco/status")
+    programApi("/temco/status")
       .then((next) => {
         if (mounted.current) setStatus(next);
       })
@@ -105,6 +106,7 @@ export function TemcoSimulator({ program }: { program: Program }) {
         .filter(
           (node) =>
             node.kind !== "Macro" &&
+            node.kind !== "Activity" &&
             status?.capabilities &&
             !status.capabilities.supported_blocks.includes(node.kind),
         )
@@ -137,11 +139,10 @@ export function TemcoSimulator({ program }: { program: Program }) {
       graphInputs.map((node) => {
         const item = inputs[node.id];
         const value =
-          node.value_type === "boolean" ? item.value : Number(item.value);
-        if (
-          node.value_type !== "boolean" &&
-          (item.value === "" || !Number.isFinite(value))
-        )
+          node.value_type === "boolean"
+            ? item.value
+            : executionSourceValue(String(item.value));
+        if (node.value_type !== "boolean" && item.value === "")
           throw new Error(
             `${node.label || node.id}: enter a finite input value.`,
           );
@@ -159,12 +160,12 @@ export function TemcoSimulator({ program }: { program: Program }) {
     try {
       let next;
       if (kind === "compile") {
-        next = await api("/temco/compile", { program, bindings });
+        next = await programApi("/temco/compile", { program, bindings });
       } else {
         const count = Number(scans);
         if (!Number.isInteger(count) || count < 1 || count > 1000)
           throw new Error("Native verification requires 1..1000 whole scans.");
-        next = await api("/temco/verify", {
+        next = await programApi("/temco/verify", {
           program,
           bindings,
           inputs: values(),

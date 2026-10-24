@@ -1,0 +1,271 @@
+{
+  "description": "",
+  "edges": [
+    {
+      "id": "edge0",
+      "source": "a",
+      "source_port": "out",
+      "target": "instance",
+      "target_port": "x"
+    },
+    {
+      "id": "edge1",
+      "source": "b",
+      "source_port": "out",
+      "target": "instance",
+      "target_port": "y"
+    },
+    {
+      "id": "edge2",
+      "source": "instance",
+      "source_port": "out",
+      "target": "out",
+      "target_port": "in"
+    }
+  ],
+  "id": "nested-macro",
+  "metadata": {
+    "macros": {
+      "definitions": [
+        {
+          "id": "outer",
+          "name": "outer",
+          "program": {
+            "description": "",
+            "edges": [
+              {
+                "id": "edge0",
+                "source": "x",
+                "source_port": "out",
+                "target": "sum",
+                "target_port": "x"
+              },
+              {
+                "id": "edge1",
+                "source": "y",
+                "source_port": "out",
+                "target": "sum",
+                "target_port": "y"
+              },
+              {
+                "id": "edge2",
+                "source": "sum",
+                "source_port": "out",
+                "target": "result",
+                "target_port": "in"
+              }
+            ],
+            "id": "outer",
+            "metadata": {},
+            "name": "outer",
+            "nodes": [
+              {
+                "id": "x",
+                "kind": "Input",
+                "label": "",
+                "params": {},
+                "unit": "",
+                "value_type": "number",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "y",
+                "kind": "Input",
+                "label": "",
+                "params": {},
+                "unit": "",
+                "value_type": "number",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "sum",
+                "kind": "Macro",
+                "label": "",
+                "params": {
+                  "definition": "adder"
+                },
+                "unit": "",
+                "value_type": "number",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "result",
+                "kind": "Output",
+                "label": "",
+                "params": {},
+                "unit": "",
+                "value_type": "number",
+                "x": 0.0,
+                "y": 0.0
+              }
+            ],
+            "revision": 0,
+            "scan_seconds": 1.0,
+            "schema_version": 1,
+            "target": {
+              "family": "universal-runtime",
+              "firmware": "",
+              "max_nodes": 2000,
+              "model": "",
+              "physical_inputs": null,
+              "physical_outputs": null,
+              "release_mode": ""
+            }
+          }
+        },
+        {
+          "id": "adder",
+          "name": "adder",
+          "program": {
+            "description": "",
+            "edges": [
+              {
+                "id": "edge0",
+                "source": "x",
+                "source_port": "out",
+                "target": "sum",
+                "target_port": "a"
+              },
+              {
+                "id": "edge1",
+                "source": "y",
+                "source_port": "out",
+                "target": "sum",
+                "target_port": "b"
+              },
+              {
+                "id": "edge2",
+                "source": "sum",
+                "source_port": "out",
+                "target": "result",
+                "target_port": "in"
+              }
+            ],
+            "id": "adder",
+            "metadata": {},
+            "name": "adder",
+            "nodes": [
+              {
+                "id": "x",
+                "kind": "Input",
+                "label": "",
+                "params": {},
+                "unit": "",
+                "value_type": "number",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "y",
+                "kind": "Input",
+                "label": "",
+                "params": {},
+                "unit": "",
+                "value_type": "number",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "sum",
+                "kind": "Add",
+                "label": "",
+                "params": {},
+                "unit": "",
+                "value_type": "number",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "result",
+                "kind": "Output",
+                "label": "",
+                "params": {},
+                "unit": "",
+                "value_type": "number",
+                "x": 0.0,
+                "y": 0.0
+              }
+            ],
+            "revision": 0,
+            "scan_seconds": 1.0,
+            "schema_version": 1,
+            "target": {
+              "family": "universal-runtime",
+              "firmware": "",
+              "max_nodes": 2000,
+              "model": "",
+              "physical_inputs": null,
+              "physical_outputs": null,
+              "release_mode": ""
+            }
+          }
+        }
+      ],
+      "version": 1
+    }
+  },
+  "name": "nested-macro",
+  "nodes": [
+    {
+      "id": "a",
+      "kind": "Input",
+      "label": "",
+      "params": {
+        "default": 2
+      },
+      "unit": "",
+      "value_type": "number",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": "b",
+      "kind": "Input",
+      "label": "",
+      "params": {
+        "default": 3
+      },
+      "unit": "",
+      "value_type": "number",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": "instance",
+      "kind": "Macro",
+      "label": "",
+      "params": {
+        "definition": "outer"
+      },
+      "unit": "",
+      "value_type": "number",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": "out",
+      "kind": "Output",
+      "label": "",
+      "params": {},
+      "unit": "",
+      "value_type": "number",
+      "x": 0.0,
+      "y": 0.0
+    }
+  ],
+  "revision": 0,
+  "scan_seconds": 1.0,
+  "schema_version": 1,
+  "target": {
+    "family": "universal-runtime",
+    "firmware": "",
+    "max_nodes": 2000,
+    "model": "",
+    "physical_inputs": null,
+    "physical_outputs": null,
+    "release_mode": ""
+  }
+}

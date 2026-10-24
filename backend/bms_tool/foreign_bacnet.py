@@ -97,6 +97,13 @@ class ManagedForeignLink(BIPForeign):
 
     async def confirmation(self, packet):
         if isinstance(packet, Result):
+            # Read-table NACKs and other BVLC management results cannot be
+            # registration outcomes, even during a pending renewal.
+            if int(packet.bvlciResultCode) not in (0, 0x0030):
+                self.ignored_results += 1
+                if self.serviceElement is not None:
+                    await self.sap_response(packet)
+                return
             if (
                 self.closed
                 or not self._pending
