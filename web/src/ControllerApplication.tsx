@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Background,
   Controls,
+  MarkerType,
   Position,
   ReactFlow,
   ReactFlowProvider,
@@ -181,7 +182,7 @@ export function ControllerApplicationPanel({
         id: block.ref,
         position: block.layout
           ? { x: block.layout.x * 4, y: block.layout.y * 2 }
-          : { x: (index % 6) * 250, y: Math.floor(index / 6) * 120 },
+          : { x: (index % 6) * 360, y: Math.floor(index / 6) * 150 },
         data: { label: `${block.name}\n${block.object ?? block.class_name}` },
         sourcePosition: Position.Right,
         targetPosition: Position.Left,
@@ -203,6 +204,7 @@ export function ControllerApplicationPanel({
         target: wire.target_ref,
         label: `${wire.source_port} → ${wire.target_port}`,
         type: "smoothstep",
+        markerEnd: { type: MarkerType.ArrowClosed },
         style: { stroke: "#39888a" },
       })),
     [diagram],
