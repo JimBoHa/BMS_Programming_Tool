@@ -263,10 +263,12 @@ for (const mode of [
       const guide = page.getByRole("region", {
         name: "Routed BACnet discovery",
         exact: true,
+        includeHidden: true,
       });
       const scan = page.getByRole("region", {
         name: "BACnet device scan",
         exact: true,
+        includeHidden: true,
       });
       await scanIp(page, peer.endpoint);
       await expect(
