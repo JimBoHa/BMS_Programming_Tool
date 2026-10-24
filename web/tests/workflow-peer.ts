@@ -13,7 +13,7 @@ export async function freePort(): Promise<number> {
     });
   });
 }
-export async function peer(network = 3001) {
+export async function peer(network = 3001, cached = false) {
   const child = spawn(
     path.join(root, ".venv/bin/python"),
     [
@@ -22,14 +22,21 @@ export async function peer(network = 3001) {
       `
 import asyncio,sys
 from tests.guided_router_peer import GuidedRouter
+from tests.test_routed_discovery import RawRouter
 async def main():
- _,peer=await asyncio.get_running_loop().create_datagram_endpoint(lambda:GuidedRouter(int(sys.argv[1])),local_addr=('127.0.0.1',0))
+ if sys.argv[2]=='cached':
+  peer=RawRouter()
+  peer.advertise_networks=False
+  peer.devices=[(132007,b'\\x07',2105)]
+ else:peer=GuidedRouter(int(sys.argv[1]))
+ transport,_=await asyncio.get_running_loop().create_datagram_endpoint(lambda:peer,local_addr=('127.0.0.1',0))
  print(peer.endpoint,flush=True)
  try:await asyncio.Event().wait()
- finally:peer.close()
+ finally:transport.close()
 asyncio.run(main())
 `,
       String(network),
+      cached ? "cached" : "advertised",
     ],
     {
       cwd: root,

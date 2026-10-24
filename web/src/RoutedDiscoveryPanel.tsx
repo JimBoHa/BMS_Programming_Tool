@@ -23,7 +23,12 @@ type WindowReport = {
   scope: string;
 };
 type NetworkReport = WindowReport & { networks: number[] };
-type RouterChoice = { router: string; networks: number[]; truncated?: boolean };
+type RouterChoice = {
+  router: string;
+  networks: number[];
+  truncated?: boolean;
+  cached?: boolean;
+};
 type RouterReport = {
   routers: RouterChoice[];
   complete: boolean;
@@ -101,6 +106,9 @@ export function RoutedDiscoveryPanel({
   const [networks, setNetworks] = useState<NetworkReport | null>(null);
   const [scan, setScan] = useState<RoutedScanResult | null>(null);
   const [bindings, setBindings] = useState<BindingReport | null>(null);
+  const networkChoices = Array.from(
+    new Set([...(networks?.networks ?? []), ...(bindings?.networks ?? [])]),
+  ).sort((a, b) => a - b);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const [outcome, setOutcome] = useState("");
@@ -220,6 +228,7 @@ export function RoutedDiscoveryPanel({
       if (!selectedRouter.trim())
         throw new Error("Enter an explicit router IPv4 address and UDP port.");
       setRouter(selectedRouter);
+      setRouterDevice("");
       setNetworks(null);
       setBindings(null);
       setScan(null);
@@ -239,6 +248,31 @@ export function RoutedDiscoveryPanel({
           ),
           { router: report.router, networks: report.networks },
         ]);
+        if (!report.networks.length) {
+          try {
+            const cached = await api("/bacnet/router-bindings", {
+              router: report.router,
+              max_bindings: 2048,
+            });
+            if (current(request)) {
+              setBindings(cached);
+              setRouterDevice(String(cached.device));
+              setRouters((choices) =>
+                choices.map((choice) =>
+                  endpointKey(choice.router) === endpointKey(cached.router)
+                    ? { ...choice, networks: cached.networks, cached: true }
+                    : choice,
+                ),
+              );
+            }
+          } catch (failure) {
+            if (current(request))
+              setError(
+                "The router did not advertise networks, and its cached network list could not be read. " +
+                  String(failure),
+              );
+          }
+        }
       }
     });
   }
@@ -281,19 +315,19 @@ export function RoutedDiscoveryPanel({
     await action(async (request) => {
       if (!router.trim())
         throw new Error("Enter an explicit router IPv4 address and UDP port.");
-      const device = integer(
-        routerDevice,
-        0,
-        4194302,
-        "Router device instance",
-      );
+      const device = routerDevice.trim()
+        ? integer(routerDevice, 0, 4194302, "Router device instance")
+        : undefined;
       setBindings(null);
       const report = await api("/bacnet/router-bindings", {
         router: router.trim(),
         device,
         max_bindings: 2048,
       });
-      if (current(request)) setBindings(report);
+      if (current(request)) {
+        setBindings(report);
+        setRouterDevice(String(report.device));
+      }
     });
   }
   async function exportBindings() {
@@ -403,10 +437,10 @@ export function RoutedDiscoveryPanel({
       </div>
       <div className="card-body">
         <p>
-          Choose a router, select one of its advertised trunks, scan that trunk,
-          then choose a controller to modify. Devices that do not answer during
-          the response window can be absent. Discovery does not upload a
-          controller program.
+          Choose a router, select an advertised or cached network, scan that
+          network, then choose a controller to modify. Devices that do not
+          answer during the response window can be absent. Discovery does not
+          upload a controller program.
         </p>
         {!connected && (
           <p className="help-text">
@@ -437,6 +471,7 @@ export function RoutedDiscoveryPanel({
                     : ""}
                   {item.router} · networks{" "}
                   {item.networks.join(", ") || "none advertised"}
+                  {item.cached ? " (cached; scan required)" : ""}
                 </option>
               ))}
             </select>
@@ -497,142 +532,166 @@ export function RoutedDiscoveryPanel({
             </button>
           </div>
         </div>
-        <div className="form-grid">
-          <label>
-            Router device instance (optional cached-binding read)
-            <input
-              aria-label="Discovery router device instance"
-              type="number"
-              min={0}
-              max={4194302}
-              disabled={busy || !connected}
-              value={routerDevice}
-              onChange={(event) =>
-                edit(() => {
-                  setRouterDevice(event.target.value);
-                  setBindings(null);
-                })
-              }
-            />
-          </label>
-          <div className="routed-action">
-            <button
-              disabled={busy || !connected || !router.trim() || !routerDevice}
-              onClick={readBindings}
-            >
-              Read router cached bindings
-            </button>
-          </div>
-        </div>
-        {bindings && (
-          <div role="region" aria-label="Router cached address bindings">
-            <div className="routed-report-heading">
-              <b>Cached bindings from router device {bindings.device}</b>
-              <button disabled={busy} onClick={exportBindings}>
-                <Download size={14} /> Download cached bindings JSON
+        <details>
+          <summary>Router identity and cached address evidence</summary>
+          <div className="form-grid">
+            <label>
+              Router device instance (optional cached-binding read)
+              <input
+                aria-label="Discovery router device instance"
+                type="number"
+                min={0}
+                max={4194302}
+                disabled={busy || !connected}
+                value={routerDevice}
+                onChange={(event) =>
+                  edit(() => {
+                    setRouterDevice(event.target.value);
+                    setBindings(null);
+                  })
+                }
+              />
+            </label>
+            <div className="routed-action">
+              <button
+                disabled={busy || !connected || !router.trim()}
+                onClick={readBindings}
+              >
+                Read router cached bindings
               </button>
             </div>
-            <p>
-              Cached addresses are discovery leads. Liveness, manufacturer and
-              controller type have not been verified; unknown device instances
-              remain unknown.
-            </p>
-            <WindowDetails report={bindings} cached />
-            <div className="routed-networks">
-              {bindings.networks.map((network) => (
-                <button
-                  key={network}
-                  disabled={busy || !connected}
-                  onClick={() => edit(() => setDnet(String(network)))}
-                >
-                  Select cached network {network}
+          </div>
+          {bindings && (
+            <div role="region" aria-label="Router cached address bindings">
+              <div className="routed-report-heading">
+                <b>Cached bindings from router device {bindings.device}</b>
+                <button disabled={busy} onClick={exportBindings}>
+                  <Download size={14} /> Download cached bindings JSON
                 </button>
-              ))}
-            </div>
-            <div className="routed-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Cached address</th>
-                    <th>Network</th>
-                    <th>MAC bytes</th>
-                    <th>Device identity</th>
-                    <th>Evidence</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bindings.bindings.slice(0, 100).map((binding, index) => (
-                    <tr key={index}>
-                      <td>{binding.address}</td>
-                      <td>{binding.dnet}</td>
-                      <td>{binding.mac_hex}</td>
-                      <td>
-                        {binding.device ||
-                          (binding.device_instance === null
-                            ? "Unknown device instance"
-                            : `device,${binding.device_instance}`)}
-                      </td>
-                      <td>Cached · liveness unverified</td>
+              </div>
+              <p>
+                Cached addresses are discovery leads. Liveness, manufacturer and
+                controller type have not been verified; unknown device instances
+                remain unknown.
+              </p>
+              <WindowDetails report={bindings} cached />
+              <div className="routed-networks">
+                {bindings.networks.map((network) => (
+                  <button
+                    key={network}
+                    disabled={busy || !connected}
+                    onClick={() => edit(() => setDnet(String(network)))}
+                  >
+                    Select cached network {network}
+                  </button>
+                ))}
+              </div>
+              <div className="routed-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Cached address</th>
+                      <th>Network</th>
+                      <th>MAC bytes</th>
+                      <th>Device identity</th>
+                      <th>Evidence</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {bindings.bindings.slice(0, 100).map((binding, index) => (
+                      <tr key={index}>
+                        <td>{binding.address}</td>
+                        <td>{binding.dnet}</td>
+                        <td>{binding.mac_hex}</td>
+                        <td>
+                          {binding.device ||
+                            (binding.device_instance === null
+                              ? "Unknown device instance"
+                              : `device,${binding.device_instance}`)}
+                        </td>
+                        <td>Cached · liveness unverified</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {bindings.bindings.length > 100 && (
+                <p>
+                  Showing 100 of {bindings.bindings.length} cached bindings.
+                  Download JSON for the complete returned set.
+                </p>
+              )}
+              {!bindings.bindings.length && (
+                <p>
+                  No cached bindings were returned. This does not prove
+                  downstream networks are empty.
+                </p>
+              )}
             </div>
-            {bindings.bindings.length > 100 && (
-              <p>
-                Showing 100 of {bindings.bindings.length} cached bindings.
-                Download JSON for the complete returned set.
-              </p>
-            )}
-            {!bindings.bindings.length && (
-              <p>
-                No cached bindings were returned. This does not prove downstream
-                networks are empty.
-              </p>
-            )}
-          </div>
-        )}
+          )}
+        </details>
         {networks && (
-          <div role="region" aria-label="Router network response">
-            <WindowDetails report={networks} />
-            <div className="routed-networks">
-              {networks.networks.map((network) => (
-                <button
-                  key={network}
-                  disabled={busy || !connected}
-                  onClick={() => edit(() => setDnet(String(network)))}
-                >
-                  Select network {network}
-                </button>
-              ))}
+          <details>
+            <summary>Network advertisement evidence</summary>
+            <div role="region" aria-label="Router network response">
+              <WindowDetails report={networks} />
+              <div className="routed-networks">
+                {networks.networks.map((network) => (
+                  <button
+                    key={network}
+                    disabled={busy || !connected}
+                    onClick={() => edit(() => setDnet(String(network)))}
+                  >
+                    Select network {network}
+                  </button>
+                ))}
+              </div>
+              {!networks.networks.length && (
+                <p>No networks were received during this response window.</p>
+              )}
             </div>
-            {!networks.networks.length && (
-              <p>No networks were received during this response window.</p>
-            )}
-          </div>
+          </details>
+        )}
+        {busy && networks && !networks.networks.length && (
+          <p role="status">
+            No network advertisement arrived. Reading the selected router’s
+            cached network list…
+          </p>
+        )}
+        {bindings && !networks?.networks.length && (
+          <p role="status" aria-label="Cached network discovery">
+            Router Device {bindings.device}: {bindings.networks.length} cached
+            network choice(s). These are discovery leads; scan the selected
+            network to verify responding controllers.
+            {bindings.truncated ? " The cache result is partial." : ""}
+          </p>
         )}
         <h4>2. Select and scan a trunk</h4>
         <label>
           Trunk / BACnet network
           <select
             aria-label="Commissioning trunk"
-            disabled={busy || !connected || !networks?.networks.length}
-            value={networks?.networks.includes(Number(dnet)) ? dnet : ""}
+            disabled={busy || !connected || !networkChoices.length}
+            value={networkChoices.includes(Number(dnet)) ? dnet : ""}
             onChange={(event) => edit(() => setDnet(event.target.value))}
           >
             <option value="" disabled>
-              Choose an advertised network
+              Choose a discovered network
             </option>
-            {networks?.networks.map((network) => (
+            {networkChoices.map((network) => (
               <option key={network} value={String(network)}>
                 Network {network}
+                {networks?.networks.includes(network)
+                  ? " · advertised"
+                  : " · cached; scan required"}
               </option>
             ))}
           </select>
         </label>
         <p className="help-text">
-          These are advertised BACnet network numbers. Router advertisements do
-          not supply FC trunk names or verify the bus type.
+          Advertised and cached BACnet networks do not supply FC trunk names or
+          verify the bus type. Cached choices do not establish current routing
+          or controller liveness; a fresh scan is required.
         </p>
         <div className="form-grid">
           {(

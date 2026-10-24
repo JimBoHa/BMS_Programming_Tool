@@ -35,6 +35,12 @@ async def test_explicit_http_router_cache_scan_and_controller_read(rig, tmp_path
             )
             assert cached.status_code == 200, cached.text
             assert cached.json()["bindings"][1]["device_instance"] is None
+            automatic = await client.post(
+                "/api/bacnet/router-bindings", json={"router": peer.endpoint}, headers=headers
+            )
+            assert automatic.status_code == 200, automatic.text
+            assert automatic.json()["device"] == 505
+            assert automatic.json()["networks"] == [1001, 2105, 2205]
             scan = await client.post(
                 "/api/bacnet/scan-trunk", json={**body, "dnet": 2105}, headers=headers
             )
