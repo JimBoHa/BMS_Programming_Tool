@@ -43,6 +43,12 @@ from .caf_simulation import CafSimulationProfile
 from .cancelable_pulse_template import cancelable_pulse_template_router
 from .conformance import ConformancePlans, conformance_router
 from .connections import Bacnet, modbus_read, ports
+from .controller_application import (
+    ApplicationCaptureRequest,
+    ApplicationDiagramRequest,
+    ApplicationReadRequest,
+    ControllerApplication,
+)
 from .controller_workspace import (
     ControllerInventoryRequest,
     ControllerPropertiesRequest,
@@ -518,7 +524,11 @@ def create_app(state_dir=None, *, operation_power=None):
         bbmd_admin = None
         bbmd_admin_error = "BBMD administration unavailable: " + str(exc)[:1000]
     device_details = DeviceDetails(bacnet, store)
-    controller_workspace = ControllerWorkspace(bacnet, store)
+    files = BacnetFiles(bacnet, store)
+    controller_application = ControllerApplication(bacnet, store, files)
+    controller_workspace = ControllerWorkspace(
+        bacnet, store, native_readers=(controller_application,)
+    )
 
     def instance_activity_guard():
         if field_trends.status()["running_jobs"] or any(job["active"] for job in cov.jobs.values()):
@@ -534,7 +544,6 @@ def create_app(state_dir=None, *, operation_power=None):
     event_inventory = EventInventory(bacnet, store)
     event_ack = EventAcknowledgements(bacnet, store, event_inventory)
     event_reception = EventReception(bacnet, store)
-    files = BacnetFiles(bacnet, store)
     hardware_workbench = HardwareWorkbench(bacnet, store, files)
     supply_plans = SupplyPlans(store, hardware_workbench)
     notifications = None
@@ -664,6 +673,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.state.bbmd_admin_startup_error = bbmd_admin_error
     app.state.device_details = device_details
     app.state.controller_workspace = controller_workspace
+    app.state.controller_application = controller_application
     app.state.device_instances = device_instances
     app.include_router(device_instance_router(device_instances))
     app.state.schedule_inventory = schedule_inventory
@@ -1716,6 +1726,24 @@ def create_app(state_dir=None, *, operation_power=None):
     @app.post("/api/bacnet/controller/properties")
     async def controller_properties(body: ControllerPropertiesRequest):
         return await controller_workspace.properties(**body.model_dump())
+
+    @app.post("/api/bacnet/controller/application/read")
+    async def controller_application_read(body: ApplicationReadRequest):
+        return await controller_application.read_application(
+            body.model_dump(exclude={"file_object"}), file_object=body.file_object
+        )
+
+    @app.post("/api/bacnet/controller/application/captures")
+    def controller_application_captures(body: DeviceDetailsRequest):
+        return controller_application.captures(body.model_dump())
+
+    @app.post("/api/bacnet/controller/application/capture")
+    def controller_application_capture(body: ApplicationCaptureRequest):
+        return controller_application.capture(body.model_dump())
+
+    @app.post("/api/bacnet/controller/application/diagram")
+    def controller_application_diagram(body: ApplicationDiagramRequest):
+        return controller_application.diagram(body.model_dump())
 
     @app.post("/api/enum-mapping/review")
     async def enum_mapping_review(body: EnumMappingRequest):

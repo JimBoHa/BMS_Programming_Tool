@@ -14,8 +14,12 @@ model registration. Standard and installed vendor object schemas select property
 decoders by protocol object type and the controller's observed vendor ID.
 
 Points & I/O loads the actual inventory and reads visible points automatically.
-The default live refresh is ten seconds; reads are sequential, bounded and never
-overlap within the view. Opening configuration reads exposed properties; a
+The default live refresh waits ten seconds after each read cycle; reads are
+sequential, bounded and never overlap within the view. Values arrive one object
+at a time. One failed object does not starve later objects; missing configuration
+is retried on the next cycle. Controllers that declare ReadPropertyMultiple and
+sufficient APDU capacity use bounded exact-property batches with single-property
+fallback. Large inventories retain indexed pagination. Opening configuration reads exposed properties; a
 property name or number can request additional attributes. The original native
 evidence is retained. Standard primitive wire tags can be decoded without a
 manufacturer property schema; proprietary context-tagged structures remain
@@ -51,11 +55,29 @@ field application and its source, rather than reconstruct a guessed program from
 point values, firmware strings or a local example. The reader contract belongs
 to an application protocol/format family, not an individual installed controller.
 
-The common BACnet workspace currently reads exposed configuration and live data.
-No native application reader is registered in this workspace yet. In particular,
-the JCI application upload required for an editable controller logic diagram
-remains unimplemented; the Program view reports that limitation. Existing offline
-CAF tools and adapter-specific transfer tools remain separate capabilities.
+The application File reader uses the existing guarded BACnet File acquisition
+service inside the selected source-pinned controller route. It discovers readable
+application files from published File metadata, checks identity, membership and
+metadata before and after the transfer, and retains an immutable source capture.
+Multiple candidate files require an explicit selection. Native format readers
+supply extensions, byte recognition, summaries and diagram decoding; the common
+acquisition service contains no controller model selection or graph field IDs.
+
+The installed tagged MOI reader reads recognized JCI application records across
+models. It uses native item references, block lists, execution order and explicit
+source/destination property records to display actual diagrams. Stored positions
+are used when available; otherwise the view labels its automatic arrangement.
+Unknown classes and structured settings remain source evidence; unrecognized or
+conflicting graph structures produce an explanation instead of guessed wires.
+The original file and its hash remain available independently of interpretation.
+
+Program labels these applications as controller file snapshots with their exact
+route, File object and capture time. Refresh reads subsequent application changes.
+Selecting a block reads its actual exposed BACnet value and quality separately;
+archive defaults are never presented as live values. Captures from another target,
+route or interface cannot populate this workspace. There is no native MOI editing,
+compilation or controller application download. Offline CAF editing and existing
+adapter-specific transfer tools remain separate capabilities.
 
 ## Verification
 
@@ -63,4 +85,7 @@ Authored protocol peers cover different vendor IDs and model names, inventories
 with 0, 1, 5 and 7 exposed I/O groups, native value changes, inventory pagination,
 source pinning and shared-Device-ID target changes. Browser checks verify that
 connecting after local graph work opens actual device views and does not substitute
-the local graph. No live controller writes are used to verify the workspace.
+the local graph. Authored native archives and real loopback File transfers cover
+actual graph fields, opaque settings, malformed references, format/resource limits,
+source isolation and live block values independent of archive defaults. No live
+controller writes are used to verify the workspace.
