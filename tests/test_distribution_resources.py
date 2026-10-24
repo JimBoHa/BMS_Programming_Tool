@@ -5,6 +5,7 @@ import os
 import re
 import subprocess
 import sys
+import venv
 import zipfile
 from pathlib import Path
 
@@ -83,10 +84,28 @@ def test_built_wheel_installs_and_serves_without_source_checkout(tmp_path):
     root = Path(__file__).resolve().parents[1]
     if not (root / "web/dist/index.html").is_file():
         pytest.skip("Build the UI first for the installed-wheel acceptance check.")
+    builder = tmp_path / "builder"
+    venv.EnvBuilder(with_pip=True).create(builder)
+    builder_python = builder / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    # Python 3.11 may seed setuptools; newer venvs normally contain only pip.
+    # Exercise the same missing-backend condition on every supported version.
+    subprocess.run(
+        [str(builder_python), "-m", "pip", "uninstall", "--yes", "setuptools", "wheel"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    no_build_tools = (
+        "import importlib.util; "
+        "assert importlib.util.find_spec('setuptools') is None; "
+        "assert importlib.util.find_spec('wheel') is None"
+    )
+    subprocess.run([str(builder_python), "-I", "-c", no_build_tools], check=True)
     output = tmp_path / "wheel"
     subprocess.run(
         [
-            sys.executable,
+            str(builder_python),
             str(root / "scripts/build_portable.py"),
             "--output",
             str(output),
@@ -97,6 +116,7 @@ def test_built_wheel_installs_and_serves_without_source_checkout(tmp_path):
         capture_output=True,
         text=True,
     )
+    subprocess.run([str(builder_python), "-I", "-c", no_build_tools], check=True)
     (wheel,) = output.glob("*.whl")
     installed = tmp_path / "installed"
     with zipfile.ZipFile(wheel) as archive:
