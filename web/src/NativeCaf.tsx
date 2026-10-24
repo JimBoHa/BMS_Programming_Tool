@@ -9,6 +9,7 @@ import {
 import { api, download } from "./api";
 import { CafGraphPanel } from "./CafGraphPanel";
 import { CafHardwarePanel } from "./CafHardwarePanel";
+import { CafInstancePanel } from "./CafInstancePanel";
 import { JciPreflight } from "./JciPreflight";
 import type { CafDocument, FileRequest } from "./workflow";
 import { WorkflowToolTabs } from "./WorkflowChrome";
@@ -73,6 +74,7 @@ export function NativeCaf({
   const [exporting, setExporting] = useState(false);
   const [graphDirty, setGraphDirty] = useState(false);
   const [hardwareDirty, setHardwareDirty] = useState(false);
+  const [instanceDirty, setInstanceDirty] = useState(false);
   const [savedScalarKey, setSavedScalarKey] = useState("[]");
   const [exported, setExported] = useState("");
   const input = useRef<HTMLInputElement>(null);
@@ -91,8 +93,8 @@ export function NativeCaf({
         model: caf.model || "Unknown",
         release: caf.release_mode || "Unknown",
         changes: changes.length,
-        dirty: unsavedScalars || graphDirty || hardwareDirty,
-        structuralDirty: graphDirty || hardwareDirty,
+        dirty: unsavedScalars || graphDirty || hardwareDirty || instanceDirty,
+        structuralDirty: graphDirty || hardwareDirty || instanceDirty,
         file: sourceFile.current,
       });
   }, [
@@ -102,6 +104,7 @@ export function NativeCaf({
     unsavedScalars,
     graphDirty,
     hardwareDirty,
+    instanceDirty,
     onDocumentChange,
   ]);
   useEffect(() => {
@@ -117,14 +120,15 @@ export function NativeCaf({
     void exportScalars();
   }, [visible, saveRequest, caf]);
   useEffect(() => {
-    if (!unsavedScalars && !graphDirty && !hardwareDirty) return;
+    if (!unsavedScalars && !graphDirty && !hardwareDirty && !instanceDirty)
+      return;
     const warn = (event: BeforeUnloadEvent) => {
       event.preventDefault();
       event.returnValue = "";
     };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [unsavedScalars, graphDirty, hardwareDirty]);
+  }, [unsavedScalars, graphDirty, hardwareDirty, instanceDirty]);
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -162,7 +166,7 @@ export function NativeCaf({
   async function upload(file?: File) {
     if (!file || !visible) return;
     if (
-      (unsavedScalars || graphDirty || hardwareDirty) &&
+      (unsavedScalars || graphDirty || hardwareDirty || instanceDirty) &&
       !window.confirm(
         "Discard unexported CAF edits and open another file? Cancel to keep editing or export the current changes first.",
       )
@@ -190,6 +194,7 @@ export function NativeCaf({
       setSavedScalarKey("[]");
       setGraphDirty(false);
       setHardwareDirty(false);
+      setInstanceDirty(false);
       setExported("");
       setExporting(false);
       setSelected(null);
@@ -378,6 +383,22 @@ export function NativeCaf({
                 native logic creation, simulation and download are pending.
               </p>
             </div>
+          </div>
+          <div hidden={currentView !== "objects" && currentView !== "changes"}>
+            <CafInstancePanel
+              key={`instance:${caf.sha256}:${archiveGeneration}`}
+              id={caf.sha256}
+              filename={filename}
+              disabled={
+                opening ||
+                !visible ||
+                (currentView !== "objects" && currentView !== "changes")
+              }
+              otherChangesPending={
+                unsavedScalars || graphDirty || hardwareDirty
+              }
+              onDirtyChange={setInstanceDirty}
+            />
           </div>
           <div hidden={currentView !== "compatibility"}>
             <JciPreflight
