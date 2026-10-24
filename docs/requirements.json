@@ -1267,5 +1267,23 @@
     "pdf_pages_or_section": "PDF905-906/Tables571-572; docs/cw-isolation-output-template.md",
     "status": "partial",
     "implementation_or_gap": "CW-ISO-OUTPUT-001 supplies an explicitly authored fixed-scan two-output graph. Native ramp/minimum/restart/Enum/reliability identity, dynamic parameters, actual pump/valve position/run/flow/minimum speed and mechanical stroke, stager/plant integration, CAF/package/compiler/transfer, physical protection and G36/Title24 acceptance remain unimplemented or unverified."
+  },
+  {
+    "id": "CO2-MIN-FLOW-001",
+    "feature": "Authored live-endpoint CO2 minimum-airflow reset activity",
+    "acceptance_criterion": "Generate and deliberately import a 38-node / 57-edge version-two activity with five live numeric CO2/endpoint inputs, two terminal typed outputs, bounded linear reset, committed invalid-configuration hold, source-bound review/export/import and guarded cfm/L/s defaults conversion.",
+    "evidence": "JCI Controller Tool Help 18.0 LIT-12011147 original SHA 68935362c85cb1879dc033cc701115e8ea7c4ecb26748f21a9ceaf0454f82903; authored studio-co2-minimum-flow-template/1.",
+    "pdf_pages_or_section": "PDF 736\u2013737 / Tables 350\u2013351; docs/co2-minimum-flow-template.md",
+    "status": "implemented",
+    "implementation_or_gap": "Five required runtime ports preserve documented 800/1000 ppm and 425/825 cfm defaults while explicitly authoring the in-band curve/domain/safe denominator/diagnostic/hold policy. One shared Delay, terminal portable force separation, ordinary editable activity2 source/revision/interchange, both flow units and signed-zero source are retained. Parent clock is normal runtime context, not a separate template timer. Native REAL endpoint coalescence and host representability remain qualified; no native JCI reliability/Enum/CAF/package/transfer, measured OA flow, physical downstream equipment, ventilation sizing or code acceptance."
+  },
+  {
+    "id": "MF-74ca5999ab",
+    "feature": "Damper Minimum Flow Reset by CO2",
+    "acceptance_criterion": "Provide complete source-qualified minimum-airflow reset with native algorithm, application/reliability bindings, supported controller integration and verified deployment.",
+    "evidence": "Controller Tool Help 18.0 LIT-12011147 and eight applicable original edition passages; position-looking attribute prose versus cfm output is retained.",
+    "pdf_pages_or_section": "PDF 736\u2013737 / Tables 350\u2013351; docs/co2-minimum-flow-template.md",
+    "status": "partial",
+    "implementation_or_gap": "CO2-MIN-FLOW-001 provides an authored portable five-input, two-output activity. Native curve/invalid/startup/input reliability mechanics and application-tree/Enum bindings, matching packages, CAF compiler/transfer and physical sensor/downstream OA-flow acceptance remain unfinished. This is a flow request rather than percent damper position; no inferred physical output/VAV minimum or project G36 / Title 24 compliance."
   }
 ]
