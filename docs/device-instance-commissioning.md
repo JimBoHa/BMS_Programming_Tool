@@ -32,6 +32,10 @@ are outside this UI profile.
    the new number, for one second, on the selected remote network or bound local
    IPv4 subnet. A response blocks Apply. Silence does not prove uniqueness,
    especially for offline devices or other networks.
+   Review also shows a separate **Instance write method** assessment. A clear
+   collision query does not establish property-write permission. Without a
+   matching retained denial, support is explicitly **unverified**; Apply remains
+   a single attempt that the controller can reject.
 6. Confirm the site-wide allocation and choose **Apply controller instance
    change** within 60 seconds. The app repeats the collision query and identity
    reads before sending one typed `ObjectIdentifier` write to the old Device
@@ -75,6 +79,60 @@ ambiguous network numbers are blocked conservatively; this is not proof that
 two routes identify the same physical controller. Existing journal records and
 their evidence bytes are retained without a schema migration.
 Continue vendor commissioning outside this profile if a controller requires it.
+
+## Retained write permission and native commissioning
+
+After a validated `property: write-access-denied` reply, a fresh review at that
+station with matching name/vendor/model/firmware/application metadata returns
+`method_assessment.state = write_access_denied` and `can_apply = false`. This
+decision applies to any manufacturer. A model name or manufacturer ID alone
+never determines writability. Timeouts, uncertain dispatches, generic Rejects
+and unrelated property errors do not become permission evidence.
+
+The backend checks the retained denial again after fresh identity reads and
+before dispatch. A prior review cannot authorize another write after a different
+app instance records a matching denial. Restarting the app, changing the proposed
+number, changing the routed next hop or spelling a MAC in hexadecimal does not
+erase it. Other stations with the same Device instance remain independent.
+Changed identity metadata receives a new, unverified assessment. Metadata is not
+device authentication, and a denial does not prove a permanent read-only property
+or identify the controller's internal reason.
+
+The assessment cites the original receipt and its hash/time. Older sealed
+receipts with the exact native error text remain usable without rewriting their
+bytes or adding a database migration. New receipts also retain the validated
+error class and code separately. Existing uncertain-write guards take precedence;
+this change does not permit retrying an uncertain operation.
+
+For CCT-managed Johnson Controls families, blocked reviews include the documented
+**Define Hardware → Network Settings → Instance Number (BACnet ID)** and
+**Transfer to Device** route. The family match selects guidance only. The
+manufacturer's documentation explicitly excludes instance changes from Read/Write
+Attributes Online. Obtain a compatible tool/package and a verified original CAF,
+then review the application and interruption before an external transfer. A
+standard BACnet File capture is not a complete CAF backup. Duplicate-ID device
+selection limitations must be resolved in the manufacturer's tool before transfer.
+
+**Native CAF transfer is not implemented in this app.** The repair prevents
+another known-denied standard write and explains the missing commissioning
+method; it does not make that property writable, implement the vendor loader,
+or claim that a controller was modified. No private-property fallback, reset,
+application download, retry or rollback is attempted.
+
+**Download commissioning handoff (JSON)** exports the exact reviewed target,
+identity, current/proposed instance, dated collision check and documented next
+steps. It excludes the one-use token and review hash. It is instructions only,
+not a CAF, backup, executable transfer or write authorization. After an external
+transfer, select the original receipt and use **Read back instance (no write)**.
+Only matching `verified_new` readback establishes the observed new identity;
+the original rejected attempt remains immutable. Start any post-change observation
+period after that verification, not after a rejection or a handoff download.
+
+Regression checks use authored direct and routed UDP controllers. They cover
+permission assessment across manufacturers, legacy receipts, app restart,
+different proposals, alternate routers, duplicate-ID station separation, a denial
+arriving after review, continued readback, API bypass attempts and the browser's
+blocked Apply/handoff behavior. No further site write is needed for these tests.
 
 ## Evidence and API
 
