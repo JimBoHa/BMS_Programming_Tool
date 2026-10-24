@@ -49,6 +49,7 @@ from .cov_observations import CovObservations
 from .cw_isolation_output_template import cw_isolation_output_template_router
 from .deployment import Runtime
 from .device_details import DeviceDetails, DeviceDetailsRequest
+from .device_instance import DeviceInstances, device_instance_router
 from .engine import Engine, output_type, run_scenario, validate
 from .enum_mapping import (
     EnumMappingExport,
@@ -120,6 +121,7 @@ from .routed_discovery import (
     RouterNetworksRequest,
     RouterProbeRequest,
 )
+from .router_discovery import RouterDiscovery, RouterDiscoveryRequest
 from .schedule_coordination import schedule_coordination_router
 from .schedule_inventory import (
     ScheduleAction,
@@ -503,6 +505,7 @@ def create_app(state_dir=None, *, operation_power=None):
     multiple_history = MultipleHistory(bacnet, store)
     event_log = EventLogHistory(bacnet, store)
     routed = RoutedDiscovery(bacnet, store)
+    routers = RouterDiscovery(bacnet, store)
     ip_discovery = IpDiscovery(bacnet, store)
     bbmd_tables = BbmdTables(bacnet, store)
     bbmd_admin_error = None
@@ -512,6 +515,14 @@ def create_app(state_dir=None, *, operation_power=None):
         bbmd_admin = None
         bbmd_admin_error = "BBMD administration unavailable: " + str(exc)[:1000]
     device_details = DeviceDetails(bacnet, store)
+
+    def instance_activity_guard():
+        if field_trends.status()["running_jobs"] or any(job["active"] for job in cov.jobs.values()):
+            raise ValueError(
+                "Stop field polling and COV monitors before changing a device instance."
+            )
+
+    device_instances = DeviceInstances(bacnet, store, activity_guard=instance_activity_guard)
     schedule_inventory = ScheduleInventory(bacnet, store)
     schedule_library = NativeScheduleLibrary(store.directory, schedule_inventory)
     schedule_writes = NativeWeeklyDayWrites(bacnet, store, schedule_library)
@@ -610,7 +621,10 @@ def create_app(state_dir=None, *, operation_power=None):
                                         await cov.close()
                                 finally:
                                     try:
-                                        await event_ack.close()
+                                        try:
+                                            await device_instances.close()
+                                        finally:
+                                            await event_ack.close()
                                     finally:
                                         try:
                                             await event_inventory.close()
@@ -639,11 +653,14 @@ def create_app(state_dir=None, *, operation_power=None):
     app.state.multiple_history = multiple_history
     app.state.event_log = event_log
     app.state.routed_discovery = routed
+    app.state.router_discovery = routers
     app.state.ip_discovery = ip_discovery
     app.state.bbmd_tables = bbmd_tables
     app.state.bbmd_admin = bbmd_admin
     app.state.bbmd_admin_startup_error = bbmd_admin_error
     app.state.device_details = device_details
+    app.state.device_instances = device_instances
+    app.include_router(device_instance_router(device_instances))
     app.state.schedule_inventory = schedule_inventory
     app.state.schedule_library = schedule_library
     app.state.point_status = point_status
@@ -1925,6 +1942,10 @@ def create_app(state_dir=None, *, operation_power=None):
     def bacnet_event_ack_receipt(identifier: str):
         return event_ack.receipt(identifier)
 
+    @app.post("/api/bacnet/discover-routers")
+    async def bacnet_discover_routers(body: RouterDiscoveryRequest):
+        return await routers.discover(**body.model_dump())
+
     @app.post("/api/bacnet/router-networks")
     async def bacnet_router_networks(body: RouterNetworksRequest):
         return await routed.networks(**body.model_dump())
@@ -2036,6 +2057,7 @@ def create_app(state_dir=None, *, operation_power=None):
 
     @app.post("/api/bacnet/connect")
     async def bacnet_connect(body: BacnetConnect):
+        await device_instances.close()
         await schedule_writes.close()
         await event_ack.close()
         await event_inventory.close()
@@ -2100,6 +2122,7 @@ def create_app(state_dir=None, *, operation_power=None):
 
     @app.post("/api/bacnet/connect-mstp")
     async def bacnet_connect_mstp(body: BacnetMstp):
+        await device_instances.close()
         await schedule_writes.close()
         await event_ack.close()
         await event_inventory.close()
@@ -2109,6 +2132,7 @@ def create_app(state_dir=None, *, operation_power=None):
 
     @app.post("/api/bacnet/disconnect")
     async def bacnet_disconnect():
+        await device_instances.close()
         await schedule_writes.close()
         await event_ack.close()
         await event_inventory.close()

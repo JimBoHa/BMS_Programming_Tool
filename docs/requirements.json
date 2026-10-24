@@ -1303,5 +1303,14 @@
     "pdf_pages_or_section": "PDF 1167\u20131168 / Tables 950\u2013951; docs/parallel-fan-purge-template.md",
     "status": "partial",
     "implementation_or_gap": "PARALLEL-FAN-PURGE-001 authors a bounded request/purge foundation with no core/compiler rule changes. Exact native equalities, Timer clamps/order/startup and input-reliability fallback, true runtime-dt accounting, Off/On Enum/controller packages, CAF compile/transfer and physical fan/electric-heat/motor protection remain unfinished. Flow/occupancy-based requests and complete ventilation/G36/Title24 acceptance are separate."
+  },
+  {
+    "id": "COMM-INSTANCE-001",
+    "feature": "Reviewed controller Device instance commissioning",
+    "acceptance_criterion": "Review and explicitly change a writable BACnet Device instance at an exact station, verify readback and retain uncertain outcomes without automatic retries.",
+    "evidence": "BACpypes3 typed WriteProperty; authored direct/routed UDP, production API and browser peers.",
+    "pdf_pages_or_section": "docs/device-instance-commissioning.md",
+    "status": "implemented",
+    "implementation_or_gap": "Guided local router discovery and router/trunk/controller selectors fill exact commissioning targets; verified names reuse the shared Scan inventory. Explicit standard Device.object-identifier WriteProperty to a pinned IPv4 or router/DNET/MAC station. One-use identity/configuration-bound review, scoped new-ID collision checks, site allocation confirmation, fresh preflight, single-attempt dispatch, durable intent/results, readback and restart reconciliation. Unsupported/read-only controllers require vendor tooling; no proprietary application transfer, reset, automatic retry/rollback or physical-controller acceptance claim. See docs/device-instance-commissioning.md."
   }
 ]

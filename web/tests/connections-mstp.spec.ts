@@ -57,11 +57,12 @@ async function mockMstp(
         ? route.request().postDataJSON()
         : null;
     if (
-      path === "/api/bacnet/ip-scan-profile" &&
+      (path === "/api/bacnet/ip-scan-profile" ||
+        path === "/api/bacnet/device-instance/status") &&
       route.request().method() === "GET"
     ) {
-      // Reading Scan's local capability profile cannot open an interface or
-      // transmit BACnet traffic. POSTs and every scan action remain blocked.
+      // Local capability/receipt status cannot open an interface or transmit
+      // BACnet traffic. POSTs and every scan/commissioning action remain blocked.
       await route.continue();
       return;
     }
