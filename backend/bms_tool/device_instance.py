@@ -72,6 +72,21 @@ def seal(value):
     return {**value, "evidence_sha256": sha(value)}
 
 
+def station_key(target):
+    """Conservative BACnet station identity, independent of a routed next hop.
+
+    Receipts retain their exact router. Ambiguous reused network numbers remain
+    blocked until the original uncertain attempt is explicitly resolved.
+    """
+    if type(target) is not dict or set(target) != {"address", "router", "dnet"}:
+        raise ValueError("Invalid retained device-instance target.")
+    options = DeviceDetailsRequest(**target, device="device,0")
+    address = Address(options.address)
+    if options.router is not None:
+        return ("routed", options.dnet, bytes(address.addrAddr).hex())
+    return ("ipv4", *IPv4Address(options.address).addrTuple)
+
+
 class InstancePreview(DeviceDetailsRequest):
     operation_id: str = Field(pattern=r"^[A-Za-z0-9_-]{8,80}$")
     new_instance: int = Field(ge=0, le=4194302, strict=True)
@@ -141,6 +156,15 @@ class InstanceJournal:
         )
         with self.store.connect(timeout=0.25) as db:
             db.execute("BEGIN IMMEDIATE")
+            key = station_key(receipt["target"])
+            for previous in db.execute(
+                "SELECT intent,result FROM device_instance_changes WHERE unresolved=1"
+            ):
+                raw = previous[1] if previous[1] is not None else previous[0]
+                if station_key(self._checked(raw)["target"]) == key:
+                    raise sqlite3.IntegrityError(
+                        "This BACnet station has an unresolved instance change through another or the same route."
+                    )
             if (
                 db.execute("SELECT COUNT(*) FROM device_instance_changes").fetchone()[0]
                 >= MAX_RECORDS
@@ -288,8 +312,9 @@ class DeviceInstances:
         if self.bacnet.commands:
             raise ValueError("Release owned point commands before device-instance commissioning.")
         self.activity_guard()
+        key = station_key(target)
         for entry in self.journal.entries():
-            if entry["attempt"]["target"] == target and self.pending(entry):
+            if self.pending(entry) and station_key(entry["attempt"]["target"]) == key:
                 raise ValueError(
                     "This station has an unresolved instance change. Read back its receipt; do not retry the write."
                 )
@@ -677,7 +702,7 @@ def device_instance_router(service):
         return await service.apply(**body.model_dump())
 
     @router.post("/cancel")
-    def cancel(body: InstanceCancel):
+    async def cancel(body: InstanceCancel):
         return service.cancel(body.operation_id)
 
     @router.post("/readback")

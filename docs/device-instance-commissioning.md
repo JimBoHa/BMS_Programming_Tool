@@ -67,6 +67,13 @@ never broadcasts a write or locates the target by instance ID alone.
 `verified_old` after an uncertain dispatch does not prove that a delayed change
 will never apply. Another write to that station remains blocked until a matching
 `verified_new` readback resolves it. A different identity remains unresolved.
+For routed targets this admission check uses the canonical network number and
+MAC, independent of the selected IPv4 next hop. Choosing another router or
+opening another app instance cannot permit a second uncertain write to that
+station. The receipt retains its exact original router for readback. Reused or
+ambiguous network numbers are blocked conservatively; this is not proof that
+two routes identify the same physical controller. Existing journal records and
+their evidence bytes are retained without a schema migration.
 Continue vendor commissioning outside this profile if a controller requires it.
 
 ## Evidence and API
@@ -93,3 +100,25 @@ read-only reconciliation. API/browser tests exercise the production routes and
 UI with authored BACnet peers. No physical-controller instance write was used
 to validate this feature; acceptance and persistence on site hardware remain
 unverified.
+
+## Interface observations and retained receipts
+
+The target and new-instance fields become editable after the current connection
+status and its default target have loaded. Receipt history and receipt downloads
+remain available while disconnected. A readback is attached only to the receipt
+that requested it; an earlier history request cannot replace that receipt while
+the readback is pending.
+
+Scan history is retained when an interface changes. The guided selectors reuse a
+name only when its metadata was observed in the current UI connection context
+and the original metadata connector configuration matches the current interface.
+Opening or closing an interface invalidates that reuse, including reopening the
+same configuration. Otherwise, the selector shows the address and Device object
+without presenting an old name as a current observation. Reopen the interface
+when moving to another network; an unchanged address alone cannot identify a
+physical network or authenticate a controller. Review still reads live identity
+before every instance write.
+
+Cancellation runs on the operation's event loop. Cancelling a dispatched write
+still leaves an uncertain receipt when its outcome cannot be verified; it does
+not undo a transmitted request.
