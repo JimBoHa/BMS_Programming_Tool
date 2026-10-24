@@ -2504,9 +2504,7 @@ export function App() {
             Saved {lastSaved.name} · r{lastSaved.revision}
           </span>
         )}
-        <span>
-          BMS Studio 0.1 · Development build · Native vendor adapters pending
-        </span>
+        <span>BMS Studio 0.1 · Development build</span>
       </footer>
       {message && (
         <div className="toast" role="status">
