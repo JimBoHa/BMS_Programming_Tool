@@ -18,6 +18,7 @@ from bacpypes3.vendor import get_vendor_info
 from pydantic import Field, field_validator
 
 from .device_details import DeviceDetails, DeviceDetailsRequest
+from .hardware_survey import read_fields
 from .property_evidence import PropertyEvidence, ReadBudget, _encoded, _utc, native_value
 
 
@@ -74,7 +75,7 @@ class NativeApplicationReader(Protocol):
 
 
 class ControllerWorkspace:
-    def __init__(self, bacnet, store, *, native_readers=(), timeout=0.8, operation_timeout=15):
+    def __init__(self, bacnet, store, *, native_readers=(), timeout=1.5, operation_timeout=15):
         self.bacnet, self.store = bacnet, store
         self.path = DeviceDetails(
             bacnet, store, timeout=timeout, operation_timeout=operation_timeout, request_gap=0.02
@@ -82,6 +83,109 @@ class ControllerWorkspace:
         self.reader = PropertyEvidence(self.path)
         self.native_readers: tuple[NativeApplicationReader, ...] = tuple(native_readers)
         self.timeout, self.operation_timeout = timeout, operation_timeout
+        self.capability_cache = {}
+
+    async def _caps(self, session, budget, options):
+        key = (
+            id(session["app"]),
+            str(session["target"]),
+            options.router,
+            options.device,
+            repr(session["config"]),
+        )
+        cached = self.capability_cache.get(key)
+        if cached and cached["expires"] > time.monotonic():
+            return cached
+        services, row = await self._read(
+            session, budget, options.device, "protocol-services-supported"
+        )
+        maximum, size_row = await self._read(
+            session, budget, options.device, "max-apdu-length-accepted"
+        )
+        cached = {
+            "rpm": row["status"] == "ok"
+            and isinstance(services, list)
+            and len(services) > 14
+            and bool(services[14]),
+            "apdu": int(maximum)
+            if size_row["status"] == "ok"
+            and isinstance(maximum, int)
+            and int(maximum) in (50, 128, 206, 480, 1024, 1476)
+            else 50,
+            "expires": time.monotonic() + 60,
+        }
+        self.capability_cache[key] = cached
+        while len(self.capability_cache) > 256:
+            self.capability_cache.pop(next(iter(self.capability_cache)))
+        return cached
+
+    async def _fields(self, session, budget, options, obj, properties):
+        caps = await self._caps(session, budget, options)
+        schema = (
+            get_vendor_info(session.get("vendor_identifier", 0)).get_object_class(
+                int(ObjectIdentifier(obj)[0])
+            )
+            or Object
+        )
+        if (
+            not caps["rpm"]
+            or caps["apdu"] < 480
+            or any(schema.get_property_type(prop) is None for prop in properties)
+        ):
+            return {prop: (await self._read(session, budget, obj, prop))[1] for prop in properties}
+        fields = [(prop, None, schema.get_property_type(prop)) for prop in properties]
+        budget.requests += len(fields) + 1  # bound RPM plus a possible exact-read fallback
+        if budget.requests > budget.max_requests:
+            raise ValueError("Controller property request budget reached.")
+        rows = await read_fields(self.path, session, obj, fields, retain_raw=True)
+        result = {}
+        for (prop, _, datatype), observed in zip(fields, rows, strict=True):
+            row = {
+                "object": obj,
+                "property": prop,
+                "received_at": _utc(),
+                "status": "native_error" if "error" in observed else "ok",
+                "acquisition": "ReadPropertyMultiple with bounded exact-read fallback",
+                **observed,
+            }
+            if "error" not in observed:
+                try:
+                    raw = bytes.fromhex(observed["encoded_hex"])
+                    tags = list(TagList.decode(PDU(raw)))
+                    if tags and tags[0].tag_class == TagClass.opening:
+                        tags = tags[1:-1]
+                    original = list(tags)
+                    remaining = TagList(tags)
+                    decoded = datatype.decode(remaining)
+                    if len(remaining):
+                        raise ValueError("Trailing native property tags.")
+                    if prop in ("status-flags", "out-of-service"):
+                        valid = len(original) == 1 and original[0].tag_class == TagClass.application
+                        valid = valid and (
+                            original[0].tag_number == 8
+                            and len(original[0].tag_data) == 2
+                            and original[0].tag_data[0] == 4
+                            and not (original[0].tag_data[1] & 15)
+                            if prop == "status-flags"
+                            else original[0].tag_number == 1 and original[0].tag_lvt in (0, 1)
+                        )
+                        if not valid:
+                            row.update(
+                                status="invalid_native_value",
+                                error="Noncanonical native quality encoding; original evidence retained.",
+                            )
+                    if row["status"] == "ok":
+                        row["value"] = native_value(decoded, [])
+                    else:
+                        row.pop("value", None)
+                except (ValueError, TypeError, AttributeError) as failure:
+                    row.pop("value", None)
+                    row.update(status="decode_error", error=str(failure))
+            budget.retained_bytes += len(_encoded(row))
+            if budget.retained_bytes > budget.max_bytes:
+                raise ValueError("Controller property evidence budget reached.")
+            result[prop] = row
+        return result
 
     def _report(self, options, operation):
         return {
@@ -236,7 +340,7 @@ class ControllerWorkspace:
         options = ControllerInventoryRequest(**arguments)
         report = self._report(options, "object-inventory")
         report.update(objects=[], total=None, offset=options.offset, next_offset=None)
-        session, budget = None, ReadBudget(max_requests=140, max_bytes=256 * 1024)
+        session, budget = None, ReadBudget(max_requests=160, max_bytes=256 * 1024)
         deadline = time.monotonic() + self.operation_timeout - 3 * self.timeout - 0.2
         try:
             async with asyncio.timeout(self.operation_timeout):
@@ -256,6 +360,29 @@ class ControllerWorkspace:
                             "The controller did not expose a bounded object-list count."
                         )
                     report["total"] = int(count)
+                    caps = await self._caps(session, budget, options)
+                    whole = None
+                    allowance = max(
+                        0,
+                        (
+                            min(
+                                int(session["app"].device_object.maxApduLengthAccepted),
+                                caps["apdu"],
+                            )
+                            - 32
+                        )
+                        // 5,
+                    )
+                    if count <= allowance:
+                        values, array_row = await self._read(
+                            session, budget, options.device, "object-list"
+                        )
+                        if (
+                            array_row["status"] == "ok"
+                            and isinstance(values, list)
+                            and len(values) == count
+                        ):
+                            whole = values
                     if options.offset > count:
                         raise ValueError("Object-list offset exceeds the current inventory.")
                     for index in range(
@@ -263,9 +390,12 @@ class ControllerWorkspace:
                     ):
                         if time.monotonic() > deadline:
                             break
-                        obj, row = await self._read(
-                            session, budget, options.device, "object-list", index
-                        )
+                        if whole is not None:
+                            obj, row = whole[index - 1], {"status": "ok"}
+                        else:
+                            obj, row = await self._read(
+                                session, budget, options.device, "object-list", index
+                            )
                         if (
                             row["status"] != "ok"
                             or not isinstance(obj, ObjectIdentifier)
@@ -331,11 +461,9 @@ class ControllerWorkspace:
                         report["objects"].append(item)
                         if not item["identity_verified"]:
                             continue
-                        for prop in options.properties:
-                            if time.monotonic() > deadline:
-                                break
-                            _, row = await self._read(session, budget, obj, prop)
-                            item["properties"][prop] = row
+                        item["properties"].update(
+                            await self._fields(session, budget, options, obj, options.properties)
+                        )
                     await self._identity(session, budget, options)
                     report["identity_verified"] = True
                     report["complete"] = len(report["objects"]) == len(options.object_ids) and all(
