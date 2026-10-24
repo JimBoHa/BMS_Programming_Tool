@@ -14,6 +14,10 @@ interface. Treat it as the default design contract for new and revised workflows
 - Group device work into Overview, Points & I/O, Program, Schedules, Trends &
   Alarms, and Changes. Put reusable assets in Library, cross-session records in
   History, configuration in Settings and reference material in Help.
+- Read connected configuration and values from the selected controller. Discover
+  objects, capabilities and I/O relationships rather than selecting inventories or
+  module counts by model. Native readers belong to protocol/format families and
+  must distinguish captured configuration, exposed live values and write support.
 - Enter addresses once. Reuse the authoritative selection in downstream tools.
   Changing targets invalidates their pending write reviews, while retaining local
   file drafts and recovery evidence.

@@ -71,6 +71,25 @@ material. These groups replace most feature-level global destinations.
 - Show unsupported capabilities with a short explanation in the relevant view.
   Hide unrelated tools. Do not turn unavailable services into a wall of disabled cards.
 
+## Controller data and compatibility
+
+Connected device tasks display that controller's actual published configuration,
+application and values. A local graph, example program or opened file must never
+silently supply the connected device's data.
+
+Discover objects, capabilities and exposed I/O relationships from the controller.
+Do not select a fixed point list, module count or workflow by controller model.
+Different models and expansion counts use the same acquisition workflow. Native
+protocol and application-format adapters may add supported operations across a
+format family; they must identify unsupported structures explicitly and retain
+original evidence.
+
+Keep the exact endpoint, router, network, station and Device identity with each
+result. Changing the target invalidates pending display results. Label captured
+applications with their source and capture time, and distinguish stored defaults
+from separately acquired live values. A readable native diagram does not establish
+editing, compilation, download or physical acceptance capability.
+
 ## Action language and outcomes
 
 Use precise verbs: Connect, Scan controllers, Open controller, Edit instance number,
