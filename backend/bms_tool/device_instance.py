@@ -677,7 +677,7 @@ def device_instance_router(service):
         return await service.apply(**body.model_dump())
 
     @router.post("/cancel")
-    def cancel(body: InstanceCancel):
+    async def cancel(body: InstanceCancel):
         return service.cancel(body.operation_id)
 
     @router.post("/readback")
