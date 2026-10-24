@@ -335,9 +335,8 @@ test("Program reads a controller's published native application and displays act
     await expect(page.getByLabel("Working context")).not.toContainText(
       "Local graph",
     );
-    await page.screenshot({
+    await native.getByLabel("Actual native program diagram").screenshot({
       path: test.info().outputPath("native-controller-application.png"),
-      fullPage: true,
     });
   } finally {
     device.close();

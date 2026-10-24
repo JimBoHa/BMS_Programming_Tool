@@ -133,117 +133,121 @@ export function ControllerProgram({
         <span className="pill">CONTROLLER DATA</span>
       </div>
       <div className="card-body">
-        <div className="button-row">
-          <button
-            disabled={!connected || busy}
-            onClick={() => setRefresh((value) => value + 1)}
-          >
-            Read controller application information
-          </button>
-          <span>
-            {busy
-              ? "Reading the selected controller…"
-              : profile
-                ? `Read at ${profile.finished_at}`
-                : "No application information read"}
-          </span>
-        </div>
-        {!connected && (
-          <p role="status">
-            The matching controller interface is closed. Displayed information
-            is last known.
-          </p>
-        )}
-        {error && (
-          <p className="inline-error" role="alert">
-            {error}
-          </p>
-        )}
-        {profile && (
-          <>
-            <dl className="workflow-identity-grid">
-              {[
-                ["Controller name", "object-name"],
-                ["Manufacturer", "vendor-name"],
-                ["Model", "model-name"],
-                ["Firmware", "firmware-revision"],
-                [
-                  "Application software version",
-                  "application-software-version",
-                ],
-                ["Configured BACnet objects", "object-list"],
-              ].map(([label, prop]) => (
-                <div key={prop}>
-                  <dt>{label}</dt>
-                  <dd>{field(profile.properties, prop)}</dd>
-                </div>
-              ))}
-            </dl>
-            <details>
-              <summary>Discovered protocol capabilities</summary>
-              <pre>
-                {JSON.stringify(
-                  profile.properties["protocol-services-supported"],
-                  null,
-                  2,
-                )}
-              </pre>
-            </details>
-          </>
-        )}
-        <h3>Program objects exposed by the controller</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Object</th>
-              <th>Actual state</th>
-              <th>Description</th>
-            </tr>
-          </thead>
-          <tbody>
-            {programs.map((row) => (
-              <tr key={row.object}>
-                <td>{field(row.properties, "object-name")}</td>
-                <td>{row.object}</td>
-                <td>{field(row.properties, "program-state")}</td>
-                <td>{field(row.properties, "description")}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {inventory && !programs.length && (
-          <p>
-            No standard Program objects were returned in this inventory page. A
-            controller can run native application logic without exposing BACnet
-            Program objects.
-          </p>
-        )}
-        {inventory && (
-          <div className="button-row">
-            <span>
-              Objects {inventory.offset + 1}–
-              {inventory.offset + inventory.objects.length} of {inventory.total}
-            </span>
-            <button
-              disabled={busy || !offset}
-              onClick={() => setOffset(Math.max(0, offset - 64))}
-            >
-              Previous application inventory
-            </button>
-            <button
-              disabled={busy || inventory.next_offset == null}
-              onClick={() => setOffset(inventory.next_offset)}
-            >
-              Next application inventory
-            </button>
-          </div>
-        )}
         <ControllerApplicationPanel
           controller={controller}
           connected={connected}
           onVerified={onVerified}
         />
+        <details>
+          <summary>Controller identity, protocol and Program objects</summary>
+          <div className="button-row">
+            <button
+              disabled={!connected || busy}
+              onClick={() => setRefresh((value) => value + 1)}
+            >
+              Read controller application information
+            </button>
+            <span>
+              {busy
+                ? "Reading the selected controller…"
+                : profile
+                  ? `Read at ${profile.finished_at}`
+                  : "No application information read"}
+            </span>
+          </div>
+          {!connected && (
+            <p role="status">
+              The matching controller interface is closed. Displayed information
+              is last known.
+            </p>
+          )}
+          {error && (
+            <p className="inline-error" role="alert">
+              {error}
+            </p>
+          )}
+          {profile && (
+            <>
+              <dl className="workflow-identity-grid">
+                {[
+                  ["Controller name", "object-name"],
+                  ["Manufacturer", "vendor-name"],
+                  ["Model", "model-name"],
+                  ["Firmware", "firmware-revision"],
+                  [
+                    "Application software version",
+                    "application-software-version",
+                  ],
+                  ["Configured BACnet objects", "object-list"],
+                ].map(([label, prop]) => (
+                  <div key={prop}>
+                    <dt>{label}</dt>
+                    <dd>{field(profile.properties, prop)}</dd>
+                  </div>
+                ))}
+              </dl>
+              <details>
+                <summary>Discovered protocol capabilities</summary>
+                <pre>
+                  {JSON.stringify(
+                    profile.properties["protocol-services-supported"],
+                    null,
+                    2,
+                  )}
+                </pre>
+              </details>
+            </>
+          )}
+          <h3>Program objects exposed by the controller</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Object</th>
+                <th>Actual state</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              {programs.map((row) => (
+                <tr key={row.object}>
+                  <td>{field(row.properties, "object-name")}</td>
+                  <td>{row.object}</td>
+                  <td>{field(row.properties, "program-state")}</td>
+                  <td>{field(row.properties, "description")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {inventory && !programs.length && (
+            <p>
+              No standard Program objects were returned in this inventory page.
+              A controller can run native application logic without exposing
+              BACnet Program objects.
+            </p>
+          )}
+          {inventory && (
+            <div className="button-row">
+              <span>
+                Objects {inventory.offset + 1}–
+                {inventory.offset + inventory.objects.length} of{" "}
+                {inventory.total}
+              </span>
+              <button
+                disabled={busy || !offset}
+                onClick={() => setOffset(Math.max(0, offset - 64))}
+              >
+                Previous application inventory
+              </button>
+              <button
+                disabled={busy || inventory.next_offset == null}
+                onClick={() => setOffset(inventory.next_offset)}
+              >
+                Next application inventory
+              </button>
+            </div>
+          )}
+        </details>
         {onLocalFile && (
           <button onClick={onLocalFile}>Open a local application file</button>
         )}
