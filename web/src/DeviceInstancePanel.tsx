@@ -113,7 +113,9 @@ export function DeviceInstancePanel({
     setBusy(true);
     onBusy(true);
     setError("");
-    if (kind !== "readback") receiptEpoch.current++;
+    // Retire history loads admitted before this operation. Readback remains
+    // bound to its captured receipt even if another response arrives later.
+    const operationReceiptEpoch = ++receiptEpoch.current;
     try {
       if (kind === "preview") {
         setPlan(null);
@@ -149,15 +151,21 @@ export function DeviceInstancePanel({
           }
         }
       } else {
+        const receiptId = receipt.attempt.id;
         const result = await api(base + "/readback", {
           operation_id: id,
-          receipt_id: receipt.attempt.id,
+          receipt_id: receiptId,
         });
-        if (mounted.current)
-          setReceipt((current: any) => ({
-            ...current,
-            readbacks: [...current.readbacks, result],
-          }));
+        if (
+          mounted.current &&
+          operationReceiptEpoch === receiptEpoch.current &&
+          result.receipt_id === receiptId
+        )
+          setReceipt((current: any) =>
+            current?.attempt.id === receiptId
+              ? { ...current, readbacks: [...current.readbacks, result] }
+              : current,
+          );
       }
       await refresh();
     } catch (failure) {

@@ -391,3 +391,184 @@ test("a late preview cannot restore Apply after leaving the connection workspace
     server.process.kill("SIGTERM");
   }
 });
+
+test("a held history response cannot receive another receipt's readback", async ({
+  page,
+  request,
+}) => {
+  const first = await peer();
+  const second = await peer("unchanged");
+  let releaseHistory!: () => void, releaseReadback!: () => void;
+  const historyGate = new Promise<void>((resolve) => {
+    releaseHistory = resolve;
+  });
+  const readbackGate = new Promise<void>((resolve) => {
+    releaseReadback = resolve;
+  });
+  let historySeen!: () => void, readbackSeen!: () => void;
+  const historyReady = new Promise<void>((resolve) => {
+    historySeen = resolve;
+  });
+  const readbackReady = new Promise<void>((resolve) => {
+    readbackSeen = resolve;
+  });
+  const headers = {
+    "X-Studio-Token": (await (await request.get("/api/session")).json()).token,
+  };
+  try {
+    await open(page, request, first);
+    async function applyTo(port: number) {
+      const planResponse = await request.post(
+        "/api/bacnet/device-instance/preview",
+        {
+          headers,
+          data: {
+            operation_id: "history-preview-" + port,
+            address: `127.0.0.1:${port}`,
+            device: "device,5136",
+            new_instance: 15136,
+          },
+        },
+      );
+      expect(planResponse.ok()).toBe(true);
+      const plan = await planResponse.json();
+      const result = await request.post("/api/bacnet/device-instance/apply", {
+        headers,
+        data: {
+          operation_id: "history-apply-" + port,
+          token: plan.token,
+          review_sha256: plan.review_sha256,
+          allocation_confirmed: true,
+        },
+      });
+      expect(result.ok()).toBe(true);
+      return result.json();
+    }
+    const a = await applyTo(first.port),
+      b = await applyTo(second.port);
+    expect(a.status).toBe("verified");
+    expect(b.status).toBe("unknown");
+    await page.reload();
+    await page.getByRole("button", { name: "Connect", exact: true }).click();
+    const panel = page.getByRole("region", {
+      name: "Device instance commissioning",
+      exact: true,
+    });
+    const history = panel.getByLabel("Retained instance receipts", {
+      exact: true,
+    });
+    await history.selectOption(a.id);
+    const receipt = panel.getByLabel("Instance change receipt", {
+      exact: true,
+    });
+    await expect(receipt).toContainText(`127.0.0.1:${first.port}`);
+    await page.route(
+      "**/api/bacnet/device-instance/receipts/" + b.id,
+      async (route) => {
+        const response = await route.fetch();
+        historySeen();
+        await historyGate;
+        await route.fulfill({ response });
+      },
+    );
+    await page.route(
+      "**/api/bacnet/device-instance/readback",
+      async (route) => {
+        const response = await route.fetch();
+        const result = await response.json();
+        expect(result.receipt_id).toBe(a.id);
+        expect(result.readback.status).toBe("verified_new");
+        await test.info().attach("original-readback-A", {
+          body: await response.body(),
+          contentType: "application/json",
+        });
+        readbackSeen();
+        await readbackGate;
+        await route.fulfill({ response });
+      },
+    );
+    await history.selectOption(b.id);
+    await historyReady;
+    await receipt
+      .getByRole("button", {
+        name: "Read back instance (no write)",
+        exact: true,
+      })
+      .click();
+    await readbackReady;
+    const historyResponse = page.waitForResponse((r) =>
+      r.url().endsWith("/receipts/" + b.id),
+    );
+    releaseHistory();
+    await historyResponse;
+    releaseReadback();
+    await expect(
+      receipt.getByRole("button", {
+        name: "Read back instance (no write)",
+        exact: true,
+      }),
+    ).toBeEnabled();
+    await expect(receipt).toContainText(`127.0.0.1:${first.port}`);
+    await expect(receipt).not.toContainText(`127.0.0.1:${second.port}`);
+    const retainedB = await request.get(
+      "/api/bacnet/device-instance/receipts/" + b.id,
+    );
+    const bodyB = await retainedB.json();
+    expect(bodyB.readbacks).toEqual([]);
+    expect(bodyB.attempt.readback.status).toBe("verified_old");
+    const status = await (
+      await request.get("/api/bacnet/device-instance/status")
+    ).json();
+    expect(status.receipts.find((r: any) => r.id === b.id).pending).toBe(true);
+    const downloadEvent = page.waitForEvent("download");
+    await receipt
+      .getByRole("button", { name: "Download instance receipt", exact: true })
+      .click();
+    const download = await downloadEvent;
+    const originalA = await request.get(
+      "/api/bacnet/device-instance/receipts/" + a.id,
+    );
+    expect(readFileSync((await download.path())!)).toEqual(
+      await originalA.body(),
+    );
+    expect(first.packets()).toBe(1);
+    expect(second.packets()).toBe(1);
+  } finally {
+    releaseHistory();
+    releaseReadback();
+    const cleanup = await Promise.allSettled([
+      request.post("/api/bacnet/disconnect", { headers, data: {} }),
+      ...[first.process, second.process].map(async (child) => {
+        if (child.exitCode !== null || child.signalCode !== null) return;
+        await new Promise<void>((resolve, reject) => {
+          const escalation = setTimeout(() => child.kill("SIGKILL"), 3000);
+          const deadline = setTimeout(() => {
+            child.off("exit", done);
+            reject(new Error(`Owned peer ${child.pid} was not reaped`));
+          }, 4500);
+          function done() {
+            clearTimeout(escalation);
+            clearTimeout(deadline);
+            resolve();
+          }
+          child.once("exit", done);
+          child.kill("SIGTERM");
+        });
+      }),
+    ]);
+    await test.info().attach("owned-peer-retirement", {
+      body: JSON.stringify(
+        [first.process, second.process].map((child) => ({
+          pid: child.pid,
+          exitCode: child.exitCode,
+          signalCode: child.signalCode,
+        })),
+      ),
+      contentType: "application/json",
+    });
+    const failed = cleanup.filter((result) => result.status === "rejected");
+    expect(failed, "All owned peers and the interface must be retired").toEqual(
+      [],
+    );
+  }
+});
