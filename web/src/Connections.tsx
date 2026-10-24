@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Download,
   Network,
@@ -49,6 +49,7 @@ import {
   type ControllerContext,
   type ControllerTarget,
   type WorkspaceArea,
+  controllerKey,
 } from "./workflow";
 
 export function Connections({
@@ -184,6 +185,16 @@ export function Connections({
       parity: "N",
     }),
     [modbusResult, setModbusResult] = useState<any>(null);
+  const mergeScanNames = useCallback((incoming: NamedScanTarget[]) => {
+    setScanNames((current) => {
+      const entries = new Map(
+        current.map((item) => [controllerKey(item.target), item]),
+      );
+      for (const item of incoming)
+        entries.set(controllerKey(item.target), item);
+      return Array.from(entries.values());
+    });
+  }, []);
   const mounted = useRef(false),
     statusEpoch = useRef(0),
     previewEpoch = useRef(0),
@@ -1205,6 +1216,7 @@ export function Connections({
                   status.connected &&
                   !busy &&
                   discoverActive &&
+                  showTool("ip") &&
                   status.config?.transport !== "mstp"
                 }
                 localAddress={
@@ -1212,7 +1224,7 @@ export function Connections({
                 }
                 routedResult={routedResult}
                 onSelect={selectScannedDevice}
-                onInventory={setScanNames}
+                onInventory={mergeScanNames}
               />
             </TaskMount>
             <TaskMount active={showTool("routed")} preserve={true}>
@@ -1221,10 +1233,12 @@ export function Connections({
                   status.connected &&
                   !busy &&
                   discoverActive &&
+                  showTool("routed") &&
                   status.config?.transport !== "mstp"
                 }
                 onDiscovered={setRoutedResult}
                 knownDevices={scanNames}
+                onNamesDiscovered={mergeScanNames}
                 interfaceIdentity={JSON.stringify({
                   connected: status.connected,
                   config: status.config,

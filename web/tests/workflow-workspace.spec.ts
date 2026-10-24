@@ -74,6 +74,205 @@ const instance = (page: Page) =>
     exact: true,
   });
 
+async function scanRouter(page: Page, endpoint: string) {
+  const guide = page.getByRole("region", {
+    name: "Routed BACnet discovery",
+    exact: true,
+  });
+  await guide
+    .getByLabel("Discovery router address", { exact: true })
+    .fill(endpoint);
+  await guide
+    .getByRole("button", { name: "Read router networks", exact: true })
+    .click();
+  await guide
+    .getByLabel("Commissioning trunk", { exact: true })
+    .selectOption("3001");
+  await guide
+    .getByLabel("Routed response window seconds", { exact: true })
+    .fill("1");
+  await guide
+    .getByRole("button", { name: "Scan selected routed network", exact: true })
+    .click();
+  return guide;
+}
+
+test("scan names are primary, searchable and read for every device beyond the first 20 rows", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(45000);
+  await reset(request);
+  const router = await peer(3001, false, 24, true);
+  const details: string[] = [],
+    names: any[] = [];
+  page.on("request", (req) => {
+    if (req.method() === "POST") {
+      if (req.url().endsWith("/device-details")) details.push(req.url());
+      if (req.url().endsWith("/device-name")) names.push(req.postDataJSON());
+    }
+  });
+  try {
+    await connect(page);
+    const guide = await scanRouter(page, router.endpoint);
+    await expect(guide.getByLabel("Controller name lookup")).toContainText(
+      "24 of 24 controller names read.",
+      { timeout: 15000 },
+    );
+    await expect(
+      guide.getByLabel("Commissioning controller").locator("option"),
+    ).toHaveCount(25);
+    await expect(guide.getByLabel("Commissioning controller")).toContainText(
+      "TB-3-201 · 3001:7 · device,5136",
+    );
+    await expect(guide.getByLabel("Commissioning controller")).toContainText(
+      "HP-3A · 3001:8 · device,5136",
+    );
+    await expect(guide.getByLabel("Commissioning controller")).toContainText(
+      "Authored 3001 MAC 30",
+    );
+    expect(names).toHaveLength(24);
+    expect(
+      names.every(
+        (target) =>
+          target.router === router.endpoint &&
+          target.dnet === 3001 &&
+          target.device === "device,5136",
+      ),
+    ).toBe(true);
+    expect(details).toEqual([]);
+    await guide.getByLabel("Find scanned controller").fill("HP-3A");
+    await expect(
+      guide.getByRole("cell", { name: "HP-3A", exact: true }),
+    ).toHaveCount(1);
+    await expect(
+      guide.getByLabel("Commissioning controller").locator("option"),
+    ).toHaveCount(2);
+    const pending = page.waitForEvent("download");
+    await guide
+      .getByRole("button", {
+        name: "Download routed discovery JSON",
+        exact: true,
+      })
+      .click();
+    const download = await pending;
+    const { readFile } = await import("node:fs/promises");
+    const report = JSON.parse(await readFile((await download.path())!, "utf8"));
+    expect(report.device_names).toHaveLength(24);
+    expect(
+      report.device_names.find((row: any) => row.address === "3001:8").name,
+    ).toBe("HP-3A");
+    await guide
+      .getByLabel("Commissioning controller")
+      .selectOption(JSON.stringify(["3001:8", "device,5136"]));
+    await guide
+      .getByRole("button", { name: "Open controller", exact: true })
+      .click();
+    await expect(
+      page.getByRole("region", { name: "Controller overview" }),
+    ).toContainText("HP-3A");
+    expect(router.writes).toEqual([]);
+    expect(router.errors).toEqual([]);
+  } finally {
+    router.close();
+  }
+});
+
+test("a late name from another trunk cannot relabel the current scan", async ({
+  page,
+  request,
+}) => {
+  await reset(request);
+  const router = await peer(3001, false, 2, true);
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => (release = resolve));
+  let arrive!: () => void;
+  const ready = new Promise<void>((resolve) => (arrive = resolve));
+  try {
+    await page.route("**/api/bacnet/device-name", async (route) => {
+      if (route.request().postDataJSON().address !== "3001:7")
+        return route.continue();
+      const response = await route.fetch();
+      arrive();
+      await held;
+      await route.fulfill({ response });
+    });
+    await connect(page);
+    const guide = await scanRouter(page, router.endpoint);
+    await ready;
+    await guide
+      .getByLabel("Commissioning trunk", { exact: true })
+      .selectOption("3002");
+    await guide
+      .getByRole("button", {
+        name: "Scan selected routed network",
+        exact: true,
+      })
+      .click();
+    await expect(guide.getByLabel("Controller name lookup")).toContainText(
+      "2 of 2 controller names read.",
+    );
+    release();
+    await page.waitForLoadState("networkidle");
+    await expect(guide.getByLabel("Commissioning controller")).toContainText(
+      "Authored 3002 MAC 7",
+    );
+    await expect(
+      guide.getByLabel("Commissioning controller"),
+    ).not.toContainText("TB-3-201");
+    await expect(guide.getByLabel("Controller name lookup")).toContainText(
+      "2 of 2 controller names read.",
+    );
+    expect(router.writes).toEqual([]);
+  } finally {
+    release();
+    router.close();
+  }
+});
+
+test("unavailable scan names remain explicit and can be retried", async ({
+  page,
+  request,
+}) => {
+  await reset(request);
+  const router = await peer(3001, false, 2, true);
+  let fail = true;
+  try {
+    await page.route("**/api/bacnet/device-name", async (route) => {
+      if (fail && route.request().postDataJSON().address === "3001:8")
+        await route.fulfill({
+          json: {
+            identity_verified: false,
+            name: null,
+            errors: [{ error: "Authored name read failure" }],
+          },
+        });
+      else await route.continue();
+    });
+    await connect(page);
+    const guide = await scanRouter(page, router.endpoint);
+    await expect(guide.getByLabel("Controller name lookup")).toContainText(
+      "1 unavailable.",
+    );
+    await expect(guide.getByLabel("Commissioning controller")).toContainText(
+      "Name unavailable · 3001:8 · device,5136",
+    );
+    fail = false;
+    await guide
+      .getByRole("button", { name: "Retry unavailable names", exact: true })
+      .click();
+    await expect(guide.getByLabel("Controller name lookup")).toContainText(
+      "2 of 2 controller names read.",
+    );
+    await expect(guide.getByLabel("Commissioning controller")).toContainText(
+      "HP-3A",
+    );
+    expect(router.writes).toEqual([]);
+  } finally {
+    router.close();
+  }
+});
+
 test("a router without network advertisements supplies cached choices that require a live scan", async ({
   page,
   request,

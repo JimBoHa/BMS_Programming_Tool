@@ -1694,6 +1694,10 @@ def create_app(state_dir=None, *, operation_power=None):
     async def bacnet_device_details(body: DeviceDetailsRequest):
         return await device_details.read(**body.model_dump())
 
+    @app.post("/api/bacnet/device-name")
+    async def bacnet_device_name(body: DeviceDetailsRequest):
+        return await device_details.read_name(**body.model_dump())
+
     @app.post("/api/enum-mapping/review")
     async def enum_mapping_review(body: EnumMappingRequest):
         return review_enum_mapping(body)

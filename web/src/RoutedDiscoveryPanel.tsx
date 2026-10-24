@@ -50,6 +50,12 @@ type BindingReport = WindowReport & {
     live_verified: boolean;
   }[];
 };
+type ScanName = {
+  name: string | null;
+  state: "reading" | "complete" | "unavailable";
+  finishedAt?: string;
+  error?: string;
+};
 type ScanRequest = {
   router: string;
   dnet: number;
@@ -83,6 +89,7 @@ export function RoutedDiscoveryPanel({
   interfaceIdentity = "",
   localDiscoveryAvailable = true,
   onSelectionCleared,
+  onNamesDiscovered,
 }: {
   connected: boolean;
   onSelect?: (device: RoutedDevice, router: string, dnet: number) => void;
@@ -91,6 +98,7 @@ export function RoutedDiscoveryPanel({
   interfaceIdentity?: string;
   localDiscoveryAvailable?: boolean;
   onSelectionCleared?: () => void;
+  onNamesDiscovered?: (devices: NamedScanTarget[]) => void;
 }) {
   const [router, setRouter] = useState("");
   const [dnet, setDnet] = useState("");
@@ -106,6 +114,17 @@ export function RoutedDiscoveryPanel({
   const [networks, setNetworks] = useState<NetworkReport | null>(null);
   const [scan, setScan] = useState<RoutedScanResult | null>(null);
   const [bindings, setBindings] = useState<BindingReport | null>(null);
+  const [nameResults, setNameResults] = useState<Record<string, ScanName>>({});
+  const [nameBusy, setNameBusy] = useState(false);
+  const [nameRetry, setNameRetry] = useState(0);
+  const [controllerQuery, setControllerQuery] = useState("");
+  const namesRef = useRef(nameResults);
+  const namedScan = useRef<RoutedScanResult | null>(null);
+  const nameEpoch = useRef(0);
+  const namesCallback = useRef(onNamesDiscovered);
+  namesCallback.current = onNamesDiscovered;
+  const connectedRef = useRef(connected);
+  connectedRef.current = connected;
   const networkChoices = Array.from(
     new Set([...(networks?.networks ?? []), ...(bindings?.networks ?? [])]),
   ).sort((a, b) => a - b);
@@ -152,18 +171,134 @@ export function RoutedDiscoveryPanel({
         item.target.source === "ip" &&
         endpointKey(item.target.address) === endpointKey(address),
     )?.name;
+  const nameKey = (device: RoutedDevice, result: RoutedScanResult) =>
+    JSON.stringify([
+      endpointKey(result.report.router),
+      result.report.dnet,
+      device.address,
+      device.device,
+    ]);
   const controllerName = (device: RoutedDevice, result: RoutedScanResult) =>
-    knownDevices.find(
-      (item) =>
-        item.target.source === "routed" &&
-        endpointKey(item.target.router ?? "") ===
-          endpointKey(result.report.router) &&
-        item.target.dnet === result.report.dnet &&
-        item.target.address === device.address &&
-        item.target.device === device.device,
-    )?.name;
+    nameResults[nameKey(device, result)]?.name;
+  const nameLabel = (device: RoutedDevice, result: RoutedScanResult) =>
+    controllerName(device, result) ||
+    (nameResults[nameKey(device, result)]?.state === "unavailable"
+      ? "Name unavailable"
+      : "Reading name…");
   const controllerKey = (device: RoutedDevice) =>
     JSON.stringify([device.address, device.device]);
+  useEffect(() => {
+    const owner = ++nameEpoch.current;
+    setNameBusy(false);
+    if (namedScan.current !== scan) {
+      namedScan.current = scan;
+      namesRef.current = {};
+      setNameResults({});
+      setControllerQuery("");
+    }
+    if (!connected || !scan) return;
+    const valid = () =>
+      mounted.current &&
+      connectedRef.current &&
+      nameEpoch.current === owner &&
+      currentScan.current === scan;
+    setNameBusy(true);
+    void (async () => {
+      try {
+        for (const device of scan.report.devices) {
+          if (!valid()) break;
+          const key = nameKey(device, scan);
+          if (
+            ["complete", "unavailable"].includes(namesRef.current[key]?.state)
+          )
+            continue;
+          namesRef.current = {
+            ...namesRef.current,
+            [key]: { name: null, state: "reading" },
+          };
+          setNameResults(namesRef.current);
+          try {
+            const report = await api("/bacnet/device-name", {
+              address: device.address,
+              device: device.device,
+              router: scan.report.router,
+              dnet: scan.report.dnet,
+            });
+            if (!valid()) break;
+            if (
+              !report.identity_verified ||
+              typeof report.name !== "string" ||
+              !report.name.trim() ||
+              report.address !== device.address ||
+              report.device !== device.device ||
+              endpointKey(report.router ?? "") !==
+                endpointKey(scan.report.router) ||
+              report.dnet !== scan.report.dnet
+            )
+              throw new Error(
+                report.errors?.map((item: any) => item.error).join(" ") ||
+                  "The device did not return a name verified for this exact scan identity.",
+              );
+            namesRef.current = {
+              ...namesRef.current,
+              [key]: {
+                name: report.name,
+                state: "complete",
+                finishedAt: report.finished_at,
+              },
+            };
+            setNameResults(namesRef.current);
+            namesCallback.current?.([
+              {
+                target: {
+                  source: "routed",
+                  address: device.address,
+                  device: device.device,
+                  router: scan.report.router,
+                  dnet: scan.report.dnet,
+                },
+                name: report.name,
+              },
+            ]);
+          } catch (failure) {
+            if (!valid()) break;
+            namesRef.current = {
+              ...namesRef.current,
+              [key]: {
+                name: null,
+                state: "unavailable",
+                error: String(failure),
+              },
+            };
+            setNameResults(namesRef.current);
+          }
+        }
+      } finally {
+        if (valid()) setNameBusy(false);
+      }
+    })();
+    return () => {
+      nameEpoch.current++;
+    };
+  }, [scan, connected, nameRetry]);
+  const matchingControllers =
+    scan?.report.devices.filter((device) =>
+      [
+        controllerName(device, scan),
+        device.address,
+        device.device,
+        device.vendor,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(controllerQuery.trim().toLowerCase()),
+    ) ?? [];
+  const namesRead = Object.values(nameResults).filter(
+    (item) => item.state === "complete",
+  ).length;
+  const namesUnavailable = Object.values(nameResults).filter(
+    (item) => item.state === "unavailable",
+  ).length;
   function clearSelection() {
     setController("");
     onSelectionCleared?.();
@@ -305,7 +440,7 @@ export function RoutedDiscoveryPanel({
     setController(controllerKey(device));
     onSelect?.(device, result.report.router, result.report.dnet);
     setOutcome(
-      `Selected ${controllerName(device, result) || device.device} at ${device.address} via ${result.report.router}. Commissioning fields are filled below.`,
+      `Opening ${controllerName(device, result) || device.device} at ${device.address} via ${result.report.router}. Its identity will be read again before commissioning.`,
     );
     document
       .getElementById("controller-instance-commissioning")
@@ -379,6 +514,16 @@ export function RoutedDiscoveryPanel({
   async function exportScan() {
     if (!scan || active.current) return;
     const snapshot = scan;
+    const nameSnapshot = snapshot.report.devices.map((device) => ({
+      address: device.address,
+      device: device.device,
+      router: snapshot.report.router,
+      dnet: snapshot.report.dnet,
+      ...(namesRef.current[nameKey(device, snapshot)] ?? {
+        name: null,
+        state: "pending",
+      }),
+    }));
     active.current = true;
     setBusy(true);
     setError("");
@@ -388,6 +533,10 @@ export function RoutedDiscoveryPanel({
       const digest = await crypto.subtle.digest(
         "SHA-256",
         new TextEncoder().encode(raw),
+      );
+      const nameDigest = await crypto.subtle.digest(
+        "SHA-256",
+        new TextEncoder().encode(JSON.stringify(nameSnapshot)),
       );
       if (!mounted.current || currentScan.current !== snapshot) return;
       const sha = Array.from(new Uint8Array(digest), (v) =>
@@ -404,6 +553,11 @@ export function RoutedDiscoveryPanel({
                 report_sha256: sha,
                 hash_encoding: "UTF-8 JSON.stringify(report)",
                 report: snapshot.report,
+                device_names: nameSnapshot,
+                names_sha256: Array.from(new Uint8Array(nameDigest), (value) =>
+                  value.toString(16).padStart(2, "0"),
+                ).join(""),
+                names_hash_encoding: "UTF-8 JSON.stringify(device_names)",
               },
               null,
               2,
@@ -729,6 +883,42 @@ export function RoutedDiscoveryPanel({
         {scan && (
           <div role="region" aria-label="Routed device response">
             <h4>3. Select a controller to modify</h4>
+            <p role="status" aria-label="Controller name lookup">
+              {namesRead} of {scan.report.devices.length} controller names read.
+              {nameBusy ? " Reading names sequentially…" : ""}
+              {namesUnavailable ? ` ${namesUnavailable} unavailable.` : ""}
+            </p>
+            <div className="button-row">
+              <label>
+                Find controller
+                <input
+                  aria-label="Find scanned controller"
+                  type="search"
+                  placeholder="Name, address or instance — e.g. TB-3-201"
+                  value={controllerQuery}
+                  onChange={(event) => {
+                    setControllerQuery(event.target.value);
+                    setController("");
+                  }}
+                />
+              </label>
+              {!!namesUnavailable && (
+                <button
+                  disabled={busy || nameBusy || !connected}
+                  onClick={() => {
+                    namesRef.current = Object.fromEntries(
+                      Object.entries(namesRef.current).filter(
+                        ([, item]) => item.state === "complete",
+                      ),
+                    );
+                    setNameResults(namesRef.current);
+                    setNameRetry((value) => value + 1);
+                  }}
+                >
+                  Retry unavailable names
+                </button>
+              )}
+            </div>
             <div className="form-grid">
               <label>
                 Controller
@@ -741,15 +931,13 @@ export function RoutedDiscoveryPanel({
                   <option value="" disabled>
                     Choose a controller from this scan
                   </option>
-                  {scan.report.devices.map((device) => (
+                  {matchingControllers.map((device) => (
                     <option
                       key={controllerKey(device)}
                       value={controllerKey(device)}
                     >
-                      {controllerName(device, scan)
-                        ? `${controllerName(device, scan)} · `
-                        : ""}
-                      {device.device} · {device.address}
+                      {nameLabel(device, scan)} · {device.address} ·{" "}
+                      {device.device}
                     </option>
                   ))}
                 </select>
@@ -768,11 +956,6 @@ export function RoutedDiscoveryPanel({
                 </button>
               </div>
             </div>
-            {onDiscovered && (
-              <p>
-                <a href="#bacnet-device-scan">View named Scan results</a>
-              </p>
-            )}
             <div className="routed-report-heading">
               <b>
                 Network {scan.report.dnet} via {scan.report.router}
@@ -791,7 +974,8 @@ export function RoutedDiscoveryPanel({
               <table>
                 <thead>
                   <tr>
-                    <th>Controller / address</th>
+                    <th>Controller name</th>
+                    <th>Address / MAC</th>
                     <th>Device</th>
                     <th>Vendor</th>
                     <th>Max APDU</th>
@@ -799,19 +983,19 @@ export function RoutedDiscoveryPanel({
                   </tr>
                 </thead>
                 <tbody>
-                  {scan.report.devices.map((device, index) => (
+                  {matchingControllers.map((device, index) => (
                     <tr
                       key={device.address + ":" + device.device + ":" + index}
                     >
                       <td>
-                        {controllerName(device, scan) && (
-                          <>
-                            <strong>{controllerName(device, scan)}</strong>
-                            <br />
-                          </>
+                        <strong>{nameLabel(device, scan)}</strong>
+                        {nameResults[nameKey(device, scan)]?.error && (
+                          <small>
+                            {nameResults[nameKey(device, scan)].error}
+                          </small>
                         )}
-                        {device.address}
                       </td>
+                      <td>{device.address}</td>
                       <td>{device.device}</td>
                       <td>{device.vendor}</td>
                       <td>{device.max_apdu}</td>
@@ -824,7 +1008,8 @@ export function RoutedDiscoveryPanel({
                                 selectController(device, scan);
                             }}
                           >
-                            Use routed device {device.address}
+                            Open{" "}
+                            {controllerName(device, scan) || device.address}
                           </button>
                         ) : (
                           "Inspect only"
@@ -841,11 +1026,14 @@ export function RoutedDiscoveryPanel({
                 is empty.
               </p>
             )}
+            {!!scan.report.devices.length && !matchingControllers.length && (
+              <p>No controllers match this search.</p>
+            )}
             {onSelect && (
               <p className="help-text">
-                Select a controller to fill its exact router, network, MAC and
-                Device instance in the commissioning panel below. Selection
-                sends no writes.
+                Open a controller to verify its exact router, network, MAC and
+                Device instance before commissioning. Reading names and opening
+                a controller send no writes.
               </p>
             )}
           </div>
