@@ -345,49 +345,53 @@ export function LiveControllerPoints({
     if (!connected || !shown.length) return;
     const read = async (configuration: boolean) => {
       try {
-        const report = await api(base + "properties", {
-          ...target(controller),
-          object_ids: JSON.parse(pageKey),
-          properties: configuration
-            ? [
-                "object-name",
-                "description",
-                "present-value",
-                "units",
-                "status-flags",
-                "reliability",
-                "out-of-service",
-              ]
-            : [
-                "present-value",
-                "status-flags",
-                "reliability",
-                "out-of-service",
-              ],
-        });
-        if (epoch !== valueEpoch.current) return;
-        check(report, controller);
-        verified.current?.(report.finished_at);
-        setValues((prior) => {
-          const next = { ...prior };
-          for (const row of report.objects)
-            if (row.identity_verified)
-              next[row.object] = {
-                ...row,
-                properties: {
-                  ...prior[row.object]?.properties,
-                  ...row.properties,
-                },
-              };
-          return next;
-        });
-        setReadAt(report.finished_at);
-        setError(
-          report.errors.join(" ") ||
-            (!report.complete
-              ? "Partial read: some properties were not refreshed; their displayed values remain last known."
-              : ""),
-        );
+        const identifiers = JSON.parse(pageKey) as string[];
+        const failures: string[] = [];
+        for (let index = 0; index < identifiers.length; index += 1) {
+          const report = await api(base + "properties", {
+            ...target(controller),
+            object_ids: identifiers.slice(index, index + 1),
+            properties: configuration
+              ? [
+                  "object-name",
+                  "description",
+                  "present-value",
+                  "units",
+                  "status-flags",
+                  "reliability",
+                  "out-of-service",
+                ]
+              : [
+                  "present-value",
+                  "status-flags",
+                  "reliability",
+                  "out-of-service",
+                ],
+          });
+          if (epoch !== valueEpoch.current) return;
+          check(report, controller);
+          verified.current?.(report.finished_at);
+          setValues((prior) => {
+            const next = { ...prior };
+            for (const row of report.objects)
+              if (row.identity_verified)
+                next[row.object] = {
+                  ...row,
+                  properties: {
+                    ...prior[row.object]?.properties,
+                    ...row.properties,
+                  },
+                };
+            return next;
+          });
+          setReadAt(report.finished_at);
+          failures.push(...report.errors);
+          if (!report.complete)
+            failures.push(
+              "Partial read: some properties were not refreshed; their displayed values remain last known.",
+            );
+        }
+        setError(Array.from(new Set(failures)).join(" "));
       } catch (failure) {
         if (epoch === valueEpoch.current) setError(String(failure));
       } finally {
@@ -535,7 +539,7 @@ export function LiveControllerPoints({
             type="search"
             aria-label="Find controller points"
             value={query}
-            placeholder="Name, description or object"
+            placeholder="Name, description or object on this page"
             onChange={(event) => setQuery(event.target.value)}
           />
         </label>

@@ -205,8 +205,10 @@ def occupancy(report):
     modules = copy.deepcopy(report.get("modules", []))
     base_model = report.get("identity", {}).get("model")
     base_capacity = model_capacity(base_model)
-    if isinstance(base_model, str) and base_model and not any(
-        m.get("host") == "local" for m in modules
+    if (
+        isinstance(base_model, str)
+        and base_model
+        and not any(m.get("host") == "local" for m in modules)
     ):
         modules.insert(
             0,
@@ -275,9 +277,8 @@ def occupancy(report):
         module["unmapped_input_objects"] = [
             p.get("object")
             for p in assigned
-            if capacity and (
-                p.get("slot") not in physical_slots or p.get("terminal_type") not in {"UI", "BI"}
-            )
+            if capacity
+            and (p.get("slot") not in physical_slots or p.get("terminal_type") not in {"UI", "BI"})
         ]
         module["candidate_inputs"] = []
         if capacity is None:
@@ -334,6 +335,8 @@ class HardwareSurvey:
             "index": index,
             "declared_type": datatype.__name__,
         }
+        if getattr(self, "retain_raw", False):
+            result["encoded_hex"] = encoded.hex()
         if len(encoded) > 4096:
             return {**result, "error": "Property exceeds 4096-byte field limit."}
         try:
@@ -699,9 +702,10 @@ class HardwareSurvey:
         return enrich_report(report, evidence)
 
 
-async def read_fields(details, session, obj, fields):
+async def read_fields(details, session, obj, fields, *, retain_raw=False):
     """Public, bounded exact read primitive for a caller-owned pinned session."""
     service = HardwareSurvey(details.bacnet, details.store)
+    service.retain_raw = retain_raw
     return await service._many(details, session, obj, fields)
 
 
