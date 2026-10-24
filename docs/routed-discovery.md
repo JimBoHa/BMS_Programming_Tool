@@ -7,6 +7,37 @@ devices, poll a trunk, subscribe to changes or write controller properties.
 
 ## Workflow and API
 
+The web UI offers **Router → Trunk / BACnet network → Controller** selectors.
+**Find local routers** fills the router list; choosing one queries its advertised
+networks. Choose a network, scan it, then **Modify selected controller** to fill
+the exact commissioning target below. Names reuse verified metadata from the
+shared Scan inventory. No write occurs when choosing a router, trunk or controller.
+Changing upstream selections clears the old controller and instance-change review.
+
+`POST /api/bacnet/discover-routers` sends one local-subnet
+Who-Is-Router-To-Network broadcast on an already open plain BACnet/IPv4 interface:
+
+```json
+{"udp_port":47808,"timeout_seconds":2.0,"max_routers":64,"max_networks":128}
+```
+
+The subnet comes from the actual interface or its explicit prefix. Unknown or
+point-to-point subnets and foreign-device links require entering a known router
+address instead. The response window is 1–5 seconds, capped at 128 routers,
+128 networks per router and 4096 advertisements. Replies must originate within
+the local subnet at the requested UDP port and carry no routed source/destination.
+Repeated advertisements merge by exact IP/port. Empty, partial and malformed
+observations remain explicit; silence does not prove no routers exist. Native
+advertisements provide network numbers, not FC trunk names or physical bus types.
+The existing loopback session token protects this endpoint. It never opens or
+reconfigures an interface, searches a remote/global network or sends a write.
+
+The production local-broadcast bytes and collector are tested with an independent
+raw UDP peer. Darwin loopback tests mirror identical broadcast bytes to that
+peer after attempting the production destination. Browser router-list fixtures
+are authored for this loopback constraint; selected-router network queries,
+trunk scans, metadata, instance writes and readback use actual HTTP/UDP services.
+
 1. Explicitly connect a BACnet/IPv4 interface. An existing foreign-device
    connection can also carry these addressed packets while its registration is
    healthy.
@@ -18,8 +49,8 @@ devices, poll a trunk, subscribe to changes or write controller properties.
 
    The service sends one unicast Who-Is-Router-To-Network request. It accepts
    I-Am-Router-To-Network replies only from that exact router IP/UDP port and
-   retains the advertised network numbers. It never searches every router or
-   sends a local or global broadcast to find one.
+   retains the advertised network numbers. This selected-router query sends no
+   broadcast; **Find local routers** is a separate explicit local action.
 3. If the router is silent and its Device instance is known, explicitly read its
    standard address cache with `POST /api/bacnet/router-bindings`:
 
