@@ -1249,5 +1249,23 @@
     "pdf_pages_or_section": "PDF43;224-225;905/Table572;1278-1279/Table1036;1297/Figure162; docs/multi-output-activities.md",
     "status": "implemented",
     "implementation_or_gap": "Separate exactversion2 library/archive/container and loader, one expansion per path, named typed aliases, strict source/clock/context guards, actual API/revisions/current portable interchange, guarded named-port UI and portable simulation/forces. Explicit whole v1 source/archive migration retires source aliases/state/forces; v1 services/emission/accepted goldens stay separate. Native IEC and existing target host evidence do not provide native JCI/ALC algorithms, Enum/reliability adapters, CAF/packages/transfer, native internal-port forcing or physical acceptance."
+  },
+  {
+    "id": "CW-ISO-OUTPUT-001",
+    "feature": "Authored CW isolation/pump two-output activity",
+    "acceptance_criterion": "Generate and deliberately import a13-node/14-edge version2 activity whose logical on/off and percent outputs share one previous-command state. Apply source-bound fixed-scan symmetric enabled ramp, immediate committed disabled0/reset, target-floor minimum, explicit source/clock/quality and signed-zero provenance.",
+    "evidence": "JCI Controller Tool Help18.0 LIT-12011147 originalSHA68935362c85cb1879dc033cc701115e8ea7c4ecb26748f21a9ceaf0454f82903; authored studio-cw-iso-output-template/1",
+    "pdf_pages_or_section": "PDF905-906/Tables571-572; docs/cw-isolation-output-template.md",
+    "status": "implemented",
+    "implementation_or_gap": "Two required logical inputs and named Boolean/percent outputs with one shared Delay, fixed whole-scan command tracking and exact source/profile/choices/parent/definition/archive guards. Editable activity2 workflow, original exports, deliberate revision/interchange and representative unchanged host IEC execution. Minimum is a target floor and OnOff is a logical Boolean proxy; no native JCI algorithm/Enum/reliability/CAF/package/transfer, physical run/flow/position proof, protection or code acceptance."
+  },
+  {
+    "id": "MF-8947786f93",
+    "feature": "CW Iso Valve Output Control",
+    "acceptance_criterion": "Provide complete source-qualified condenser-water pump/isolation-valve command control with supported native ramp/minimum/restart/reliability semantics, target integration and verified deployment.",
+    "evidence": "Controller Tool Help18.0 LIT-12011147; native numeric/direction/minimum/disabled/restart bounds and Enum details remain unspecified by the cited pages.",
+    "pdf_pages_or_section": "PDF905-906/Tables571-572; docs/cw-isolation-output-template.md",
+    "status": "partial",
+    "implementation_or_gap": "CW-ISO-OUTPUT-001 supplies an explicitly authored fixed-scan two-output graph. Native ramp/minimum/restart/Enum/reliability identity, dynamic parameters, actual pump/valve position/run/flow/minimum speed and mechanical stroke, stager/plant integration, CAF/package/compiler/transfer, physical protection and G36/Title24 acceptance remain unimplemented or unverified."
   }
 ]

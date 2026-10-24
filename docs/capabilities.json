@@ -468,5 +468,10 @@
     "feature": "Named mixed-output reusable activities",
     "status": "implemented",
     "scope": "Explicit studio-activities/2 libraries/archive2/Activity containers expose1..32 independently typed named outputs from one shared expanded state graph. Typed named handles, per-port portable values/forces, create/inspect/edit/delete/import/export, original source/revision/interchange and deliberate reviewed whole-v1 promotion preserve source identity and retire stale sessions/forces. V1 services, accepted admissions and legacy bytes remain separate; current IEC evidence binds original/expanded source and typed output aliases once. No proprietary native activity algorithms, Enum/reliability mapping, native JCI allocation/CAF/compiler/transfer, native internal-port forcing or physical/code acceptance. Broad UI-004 native-manufacturer equivalence remains outside scope. See docs/multi-output-activities.md."
+  },
+  {
+    "feature": "Authored CW isolation/pump output activity",
+    "status": "implemented",
+    "scope": "CW-ISO-OUTPUT-001 creates one reusable activity2 graph with two required inputs, Boolean enable proxy and percent command sharing one Delay. Fixed-scan bounded enabled up/down tracking, target-floor minimum, immediate committed disabled0/reset, negative-zero choices/source and original source-bound preview/export/import integrate with existing activity editing/simulation/revisions/interchange. Existing full-scan quality faults retain prior positive commands. No native JCI algorithm/Enum/reliability/CAF/package/transfer, actual flow/run/position/minimum-speed or mechanical-stroke proof, physical protection or G36/Title24 acceptance. Broad MF-8947786f93 remains partial. See docs/cw-isolation-output-template.md."
   }
 ]

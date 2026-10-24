@@ -203,3 +203,5 @@ The [eight-input sum macro template](docs/sum8-macro-template.md) provides a sou
 The [cancelable-pulse macro template](docs/cancelable-pulse-template.md) adds an editable fixed-duration Boolean pulse with explicit parent-clock alignment, cancellation and source-bound import guards. Native timer and physical deployment acceptance remain separate.
 
 [Named mixed-output activities](docs/multi-output-activities.md) add explicit version2 reusable graphs with shared state, typed output handles and portable output forces. Version1 libraries remain separate; migration is deliberate and source-bound.
+
+The [authored CW isolation/pump output template](docs/cw-isolation-output-template.md) adds a shared-state two-output activity with explicit ramp, target-floor minimum, committed disable/restart and source/clock rules. Native vendor and physical plant acceptance remain separate.
