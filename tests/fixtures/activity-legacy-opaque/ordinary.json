@@ -1,0 +1,55 @@
+{
+  "description": "",
+  "edges": [
+    {
+      "id": "wire",
+      "source": "input",
+      "source_port": "out",
+      "target": "out",
+      "target_port": "in"
+    }
+  ],
+  "id": "legacy-opaque-ordinary",
+  "metadata": {
+    "activity_expansion": {
+      "version": 2
+    }
+  },
+  "name": "Untitled program",
+  "nodes": [
+    {
+      "id": "input",
+      "kind": "Input",
+      "label": "",
+      "params": {
+        "default": 3
+      },
+      "unit": "",
+      "value_type": "number",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": "out",
+      "kind": "Output",
+      "label": "",
+      "params": {},
+      "unit": "",
+      "value_type": "number",
+      "x": 0.0,
+      "y": 0.0
+    }
+  ],
+  "revision": 0,
+  "scan_seconds": 1.0,
+  "schema_version": 1,
+  "target": {
+    "family": "universal-runtime",
+    "firmware": "",
+    "max_nodes": 2000,
+    "model": "",
+    "physical_inputs": null,
+    "physical_outputs": null,
+    "release_mode": ""
+  }
+}

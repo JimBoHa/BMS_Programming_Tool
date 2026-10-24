@@ -162,7 +162,10 @@ async def link(tmp_path):
     server.setup()
     client = Bacnet(Store(tmp_path))
     await client.connect(f"127.0.0.1:{free_udp()}")
-    adapter = TemcoTransfer(client, timeout=0.1)
+    # Success/concurrency tests must reach their intended fault injection even
+    # while independent native compilers run. This stays below production's
+    # one-second budget; deadline-specific tests set their own short timeout.
+    adapter = TemcoTransfer(client, timeout=0.5)
     try:
         yield server, client, adapter, f"127.0.0.1:{port}"
     finally:
@@ -358,9 +361,15 @@ async def test_more_than_256_exchanges_reuse_invoke_ids_without_stale_server_tra
 
 
 @pytest.mark.asyncio
-async def test_recovery_rejects_unrelated_external_program_bytes(link):
+@pytest.mark.parametrize("interrupt_first", [False, True])
+async def test_recovery_rejects_unrelated_external_program_bytes(link, interrupt_first):
     server, client, adapter, address = link
     plan = await adapter.plan_replace(address, INSTANCE, 3, SOURCE, **IDENTITY)
+    if interrupt_first:
+        # Drop the first application write before changing its bytes. The same
+        # external writer will then intervene during compensating recovery.
+        server.fail_package = 0
+        adapter.timeout = 0.1
 
     def change_while_writing(command, slot, package):
         if command == 116 and package == 1:
@@ -369,8 +378,15 @@ async def test_recovery_rejects_unrelated_external_program_bytes(link):
     server.before_write = change_while_writing
     result = await adapter.apply(plan["token"])
     assert not result["ok"] and not result["recovery"]["restored"]
-    assert "Unrelated" in result["recovery"]["error"]
+    assert result["recovery"]["manual_recovery_required"] is True
+    if interrupt_first:
+        assert "timed out" in result["error"]
+        assert "changed concurrently" in result["recovery"]["error"]
+    else:
+        assert "changed concurrently" in result["error"]
+        assert "Unrelated" in result["recovery"]["error"]
     assert server.images[3][1999] == 0x5A and server.descriptors[3][32] == 0
+    assert not client.app.asap.clientTransactions and not client.app._requests
 
 
 @pytest.mark.asyncio

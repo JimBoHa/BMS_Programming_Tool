@@ -1,0 +1,7 @@
+{
+  "program_sha256": "85f9e41853531e6c834d275283a52b70f769664ecd19cba3b41a2458a2512553",
+  "origin": "Feature90 initial16 failed NativeIEC constructors; exact deterministic pre-fix Program reconstruction retained after automatic failed compiler temporary cleanup.",
+  "qualification": "This file is not a capture from destroyed compiler temporary files or a physical controller. It retains the original authored Outputzone_temperature_valid conflicting with Inputzone_temperature automatic validity flag; test must compile it without changing portable identifiers.",
+  "source_profile": "studio-occupied-series-fan-vav/1",
+  "source_profile_sha256": "46bc497336413f1f52944d5d16cec45cd2ba1860800c7d0c566d3a5142a43db9"
+}

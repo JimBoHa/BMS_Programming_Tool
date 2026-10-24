@@ -1,0 +1,2 @@
+<?xml version='1.0' encoding='utf-8'?>
+<sedonaApp><schema><kit name="sys" /><kit name="platUnix" /><kit name="studio966698ecdb" /></schema><app><prop name="appName" val="bms-studio" /><prop name="scanPeriod" val="1000" /><comp name="service" type="sys::Folder"><comp name="plat" type="platUnix::UnixPlatformService" /></comp><comp name="logic" type="sys::Folder"><comp name="graph" type="studio966698ecdb::Graph"><prop name="autoScan" val="true" /></comp></comp></app><links /></sedonaApp>

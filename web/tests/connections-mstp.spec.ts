@@ -66,8 +66,13 @@ async function mockMstp(
       return;
     }
     switch (path) {
+      case "/api/bacnet/hardware/status":
+      case "/api/bacnet/events/profile":
+      case "/api/bacnet/schedules/library/profile":
       case "/api/bacnet/files/status":
       case "/api/bacnet/files/captures":
+      case "/api/bacnet/cov/status":
+      case "/api/bacnet/events/ack/profile":
         // These GETs inspect local service/capture metadata and cannot open an
         // interface or issue BACnet requests to a device.
         await route.continue();
@@ -99,7 +104,14 @@ async function mockMstp(
         });
         break;
       case "/api/bacnet/write-plan":
-        await route.fulfill({ json: { ...body, token: "mock-preview-only" } });
+        await route.fulfill({
+          json: {
+            ...body,
+            object: body.object_id,
+            requested_value: body.value,
+            token: "mock-preview-only",
+          },
+        });
         break;
       case "/api/bacnet/write-apply":
         mock.applied.push(body);

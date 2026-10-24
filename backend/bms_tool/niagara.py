@@ -23,9 +23,11 @@ from defusedxml.common import DefusedXmlException
 
 from .blocks import BLOCKS
 from .engine import input_type, output_type, validate
+from .executable_numbers import require_number
 from .formats import ConversionError
 from .macros import expand_macros
 from .models import Edge, Node, Program, canonical
+from .temperature import ABSOLUTE_UNITS, DELTA_FOR_ABSOLUTE, DELTA_UNITS
 
 NATIVE = {
     "Add": ("kitControl:Add", {"a": "inA", "b": "inB"}),
@@ -43,9 +45,23 @@ NATIVE = {
     "Not": ("kitControl:Not", {"in": "in"}),
     "Scale": ("kitControl:Reset", {"in": "inA"}),
     "Convert": ("kitControl:NumericUnitConverter", {"in": "in"}),
+    "DeltaConvert": ("kitControl:NumericUnitConverter", {"in": "in"}),
 }
-REVERSE = {typ: (kind, {v: k for k, v in ports.items()}) for kind, (typ, ports) in NATIVE.items()}
-SUPPORTED = {*NATIVE, "Input", "Output", "Constant", "Switch", "Clamp"}
+REVERSE = {
+    typ: (kind, {v: k for k, v in ports.items()})
+    for kind, (typ, ports) in NATIVE.items()
+    if kind != "DeltaConvert"
+}
+SUPPORTED = {
+    *NATIVE,
+    "Input",
+    "Output",
+    "Constant",
+    "Switch",
+    "Clamp",
+    "TemperatureDifference",
+    "TemperatureOffset",
+}
 RESET_LIMITS = {
     "in_min": "inputLowLimit",
     "in_max": "inputHighLimit",
@@ -79,6 +95,9 @@ UNITS = {
     "degF": "fahrenheit;\N{DEGREE SIGN}F;(K);*0.5555555555555556+255.37222222222223;",
     "degC": "celsius;\N{DEGREE SIGN}C;(K);+273.15;",
     "K": "kelvin;K;(K);;",
+    "delta-degF": "fahrenheit degrees;Δ°F;(K);*0.5555555555555556;",
+    "delta-degC": "celsius degrees;Δ°C;(K);;",
+    "delta-K": "kelvin degrees;Δ°K;(K);;",
     "%": "percent;%;;;",
     "cfm": "cubic feet per minute;cfm;(m3)(s-1);*4.719474432E-4;",
 }
@@ -106,6 +125,11 @@ def _scalar(value, boolean=False):
         )
     if type(value) is bool:
         raise ConversionError("Native numeric value cannot be Boolean.")
+    if type(value) is int:
+        try:
+            require_number(value, "Native numeric value")
+        except ValueError as exc:
+            raise ConversionError(str(exc)) from exc
     try:
         number = float(value)
     except (ValueError, TypeError, OverflowError) as exc:
@@ -444,7 +468,26 @@ def _lower_composites(graph: Program):
         if node.kind == "Scale":
             incoming = next(e for e in graph.edges if e.target == node.id)
             input_unit = by_id[incoming.source].unit
-        if node.kind == "Clamp":
+        if node.kind == "TemperatureDifference":
+            nodes.append(node.model_copy(deep=True, update={"kind": "Subtract", "params": {}}))
+        elif node.kind == "TemperatureOffset":
+            delta_unit = DELTA_FOR_ABSOLUTE[params["unit"]]
+            converter = None
+            if params["difference_unit"] != delta_unit:
+                converter = add("DeltaConvert", delta_unit, parent=node)
+                nodes[-1].params = {"from": params["difference_unit"], "to": delta_unit}
+            nodes.append(node.model_copy(deep=True, update={"kind": "Add", "params": {}}))
+            for edge in edges:
+                if edge.target == node.id:
+                    if edge.target_port == "base":
+                        edge.target_port = "a"
+                    elif converter:
+                        edge.target, edge.target_port = converter, "in"
+                    else:
+                        edge.target_port = "b"
+            if converter:
+                wire(converter, node.id, "b")
+        elif node.kind == "Clamp":
             minimum = add("Min", node.unit, parent=node)
             lower = add("Constant", node.unit, value=params["min"], parent=node)
             upper = add("Constant", node.unit, value=params["max"], parent=node)
@@ -511,7 +554,13 @@ def niagara_xml(program: Program):
             "Physical terminals need a Niagara driver binding; native export cannot omit them."
         )
     differences = DIFFERENCES + (
-        EXTENDED_DIFFERENCES if any(n.kind in {"Scale", "Convert"} for n in graph.nodes) else []
+        EXTENDED_DIFFERENCES
+        if any(
+            n.kind
+            in {"Scale", "Convert", "DeltaConvert", "TemperatureDifference", "TemperatureOffset"}
+            for n in graph.nodes
+        )
+        else []
     )
     graph = _lower_composites(graph)
     root = ET.Element(
@@ -575,7 +624,7 @@ def niagara_xml(program: Program):
             "p",
             {"n": "wsAnnotation", "t": "b:WsAnnotation", "v": f"{round(n.x)},{round(n.y)},8"},
         )
-        if n.kind == "Convert":
+        if n.kind in {"Convert", "DeltaConvert"}:
             parameters = {**BLOCKS[n.kind].parameters, **n.params}
             for slot, key in (("inFacets", "from"), ("outFacets", "to")):
                 ET.SubElement(
@@ -663,7 +712,16 @@ def import_bog(content: bytes):
     source = SOURCE.search(archive.xml)
     if source:
         program = Program.model_validate_json(base64.b64decode(source[1], validate=True))
-        if niagara_xml(program) != archive.xml:
+        # Compare old emitted source without treating archival import as new
+        # executable admission. Return the untouched embedded graph below.
+        from .executable_numbers import _legacy_source_projection
+
+        expected = niagara_xml(_legacy_source_projection(program))
+        original_comment = (
+            b"<!-- BMS_STUDIO_BOG_V1 " + base64.b64encode(canonical(program)) + b" -->"
+        )
+        expected = SOURCE.sub(lambda _: original_comment, expected, count=1)
+        if expected != archive.xml:
             raise ConversionError(
                 "Native BOG was edited; embedded source no longer matches. Open without its source comment for explicit semantic conversion."
             )
@@ -828,11 +886,17 @@ def import_bog(content: bytes):
                     )
                 facets = _value(element, slot, "")
                 params[key] = _unit_facets(facets)
-                if params[key] not in {"degF", "degC", "K"}:
+                if params[key] not in (*ABSOLUTE_UNITS, *DELTA_UNITS):
                     raise ConversionError(
                         "Native unit converter requires explicit supported temperature units."
                     )
                 converter_facets[slot] = facets
+            if (params["from"] in DELTA_UNITS) != (params["to"] in DELTA_UNITS):
+                raise ConversionError(
+                    "Native converter cannot mix absolute and difference temperature units."
+                )
+            if params["from"] in DELTA_UNITS:
+                kind = "DeltaConvert"
             unit = params["to"]
             native_facets[record["path"]] = converter_facets
         else:
@@ -888,7 +952,7 @@ def import_bog(content: bytes):
                     )
                 source_id = const(value, input_type(node, port) == "boolean")
                 nodes[-1].unit = (
-                    (node.params["from"] if node.kind == "Convert" else node.unit)
+                    (node.params["from"] if node.kind in {"Convert", "DeltaConvert"} else node.unit)
                     if nodes[-1].value_type == "number"
                     else ""
                 )
@@ -938,6 +1002,37 @@ def import_bog(content: bytes):
             nodes.append(tap)
             wire(result_id, tap.id, "in")
             leaf_taps.append(record["path"])
+    # Infer only exact, zero-offset arithmetic quantity contracts from linked
+    # unit evidence. A raw Add never performs an implicit cross-unit conversion.
+    by_id = {node.id: node for node in nodes}
+    links = {(edge.target, edge.target_port): by_id[edge.source] for edge in edges}
+    for node in nodes:
+        if node.kind not in {"Subtract", "Add"}:
+            continue
+        left, right = links.get((node.id, "a")), links.get((node.id, "b"))
+        if left is None or right is None:
+            continue
+        if (
+            node.kind == "Subtract"
+            and left.unit in ABSOLUTE_UNITS
+            and right.unit == left.unit
+            and node.unit == DELTA_FOR_ABSOLUTE[left.unit]
+        ):
+            node.kind = "TemperatureDifference"
+            node.params = {"unit": left.unit}
+        elif node.kind == "Add" and node.unit in ABSOLUTE_UNITS:
+            base_port = next(
+                (port for port, source in (("a", left), ("b", right)) if source.unit == node.unit),
+                None,
+            )
+            difference_port = "b" if base_port == "a" else "a"
+            difference = right if difference_port == "b" else left
+            if base_port and difference.unit == DELTA_FOR_ABSOLUTE[node.unit]:
+                node.kind = "TemperatureOffset"
+                node.params = {"unit": node.unit, "difference_unit": difference.unit}
+                for edge in edges:
+                    if edge.target == node.id:
+                        edge.target_port = "base" if edge.target_port == base_port else "difference"
     if len(nodes) > 2000 or len(edges) > 10000:
         raise ConversionError("Converted Niagara graph exceeds project limits.")
     program = Program(

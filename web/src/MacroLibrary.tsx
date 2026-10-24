@@ -1,3 +1,11 @@
+import {
+  cloneSource,
+  parseSourceDocument,
+  projectSourceDocument,
+  sourceEqual,
+  sourceStringify,
+} from "./programSource";
+import { sourceApi } from "./api";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDownToLine,
@@ -11,9 +19,15 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
-import { api, saveBlob } from "./api";
+import { programApi, saveBlob } from "./api";
 import type { Program } from "./types";
 import "./macro-library.css";
+import { Sum8Template } from "./Sum8Template";
+import { CancelablePulseTemplate } from "./CancelablePulseTemplate";
+import {
+  PULSE_BASE,
+  type PulseImport,
+} from "./cancelablePulseTemplateContract";
 
 type MacroPort = {
   id: string;
@@ -50,7 +64,7 @@ function portType(port: { value_type: string; unit: string }) {
 }
 
 function compact(value: unknown) {
-  const text = JSON.stringify(value);
+  const text = sourceStringify(value);
   return text && text.length > 180 ? text.slice(0, 177) + "…" : text || "—";
 }
 
@@ -107,7 +121,7 @@ export function MacroLibrary({
     const request = ++catalogRequest.current;
     setLoading(true);
     const timer = setTimeout(() => {
-      api("/macros/catalog", { program })
+      programApi("/macros/catalog", { program })
         .then((next: MacroCatalog) => {
           if (!live || request !== catalogRequest.current) return;
           setCatalog(next);
@@ -144,7 +158,7 @@ export function MacroLibrary({
       return;
     }
     setInspectBusy(true);
-    api("/macros/definition", { program, definition: inspectedId })
+    sourceApi("/macros/definition", { program, definition: inspectedId })
       .then((next: Program) => {
         if (live && request === inspectRequest.current)
           setInspection({ definition: inspectedId, program: next });
@@ -184,7 +198,7 @@ export function MacroLibrary({
   }
 
   function adopt(source: Program, next: Program) {
-    if (JSON.stringify(current.current) !== JSON.stringify(source))
+    if (sourceStringify(current.current) !== sourceStringify(source))
       throw new Error(
         "The program changed while this operation ran. Run it again using the current program.",
       );
@@ -193,7 +207,7 @@ export function MacroLibrary({
 
   async function create() {
     await action(async (source) => {
-      const next: Program = await api("/macros/create", {
+      const next: Program = await sourceApi("/macros/create", {
         program: source,
         selected_ids: selectedNodes.map((node) => node.id),
         name: name.trim(),
@@ -214,7 +228,7 @@ export function MacroLibrary({
 
   async function instantiate() {
     await action(async (source) => {
-      const next: Program = await api("/macros/instantiate", {
+      const next: Program = await sourceApi("/macros/instantiate", {
         program: source,
         definition: selected,
         ...position,
@@ -230,12 +244,12 @@ export function MacroLibrary({
 
   async function exportDefinition() {
     await action(async (source) => {
-      const bundle = await api("/macros/export", {
+      const bundle = await sourceApi("/macros/export", {
         program: source,
         definition: selected,
       });
       saveBlob(
-        new Blob([JSON.stringify(bundle, null, 2) + "\n"], {
+        new Blob([sourceStringify(bundle, 2) + "\n"], {
           type: "application/json",
         }),
         filename(definition?.name || selected),
@@ -250,11 +264,11 @@ export function MacroLibrary({
         throw new Error("Macro bundle exceeds the 8 MiB import limit.");
       let bundle: unknown;
       try {
-        bundle = JSON.parse(await file.text());
+        bundle = parseSourceDocument(await file.text());
       } catch {
         throw new Error("Choose a valid .bms-macro.json file.");
       }
-      const next: Program = await api("/macros/import", {
+      const next: Program = await sourceApi("/macros/import", {
         program: source,
         bundle,
       });
@@ -266,7 +280,7 @@ export function MacroLibrary({
 
   async function remove() {
     await action(async (source) => {
-      const next: Program = await api("/macros/delete", {
+      const next: Program = await sourceApi("/macros/delete", {
         program: source,
         definition: selected,
       });
@@ -274,6 +288,83 @@ export function MacroLibrary({
       setTrail([]);
       setNotice("Unused macro definition removed.");
     });
+  }
+
+  async function importTemplate(
+    bundle: Record<string, any>,
+    sourceKey: string,
+    definition: string,
+    owned: () => boolean,
+  ) {
+    let imported = false;
+    await action(async (source) => {
+      if (!owned() || sourceStringify(source) !== sourceKey)
+        throw new Error(
+          "The current editor changed. Preview the sum template again.",
+        );
+      const next: Program = await sourceApi("/macros/import", {
+        program: source,
+        bundle,
+      });
+      if (!owned()) return;
+      adopt(source, next);
+      setSelected(definition);
+      setTrail([]);
+      setNotice(
+        "Reviewed sum definition added to this editor. Add an instance separately; no project revision was saved.",
+      );
+      imported = true;
+    });
+    return imported;
+  }
+
+  async function importPulseTemplate(
+    request: PulseImport,
+    sourceKey: string,
+    definition: string,
+    expectedDefinition: Record<string, any>,
+    owned: () => boolean,
+  ) {
+    let imported = false;
+    await action(async (source) => {
+      if (
+        !owned() ||
+        sourceStringify(source) !== sourceKey ||
+        source.scan_seconds !== request.choices.scan_seconds
+      )
+        throw new Error(
+          "The current editor or clock changed. Preview the pulse template again.",
+        );
+      const next: Program = await sourceApi(PULSE_BASE + "/import", {
+        program: source,
+        ...request,
+      });
+      if (!owned()) return;
+      const received = next.metadata?.macros?.definitions?.find(
+        (item: any) => item.id === definition,
+      );
+      if (
+        next.id !== source.id ||
+        next.revision !== source.revision ||
+        next.scan_seconds !== source.scan_seconds ||
+        !received ||
+        !sourceEqual(
+          projectSourceDocument(cloneSource(received)),
+          projectSourceDocument(cloneSource(expectedDefinition)),
+        )
+      )
+        throw new Error(
+          "Pulse import response differs from the current parent or reviewed definition.",
+        );
+      adopt(source, next);
+      setSelected(definition);
+      setTrail([]);
+      setNotice(
+        "Reviewed pulse definition added at this editor's declared clock. Add an instance separately; no project revision was saved.",
+      );
+      imported = true;
+    });
+    return imported;
   }
 
   const matches = catalog.definitions.filter((item) =>
@@ -339,6 +430,16 @@ export function MacroLibrary({
 
       <div className="macro-library-layout">
         <aside className="macro-library-sidebar">
+          <Sum8Template
+            program={program}
+            disabled={busy}
+            onImport={importTemplate}
+          />
+          <CancelablePulseTemplate
+            program={program}
+            disabled={busy}
+            onImport={importPulseTemplate}
+          />
           <section className="macro-card macro-selection-card">
             <div className="macro-card-heading">
               <Layers size={16} />
@@ -658,7 +759,7 @@ export function MacroLibrary({
                                 <td>{portType(node)}</td>
                                 <td
                                   className="mono"
-                                  title={JSON.stringify(node.params, null, 2)}
+                                  title={sourceStringify(node.params, 2)}
                                 >
                                   {compact(node.params)}
                                 </td>

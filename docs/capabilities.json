@@ -2,7 +2,22 @@
   {
     "feature": "Create and edit control programs",
     "status": "implemented",
-    "scope": "Our versioned graph format: 27 block types, typed wiring, engineering units, revisions, validation and undo/redo."
+    "scope": "Our versioned graph format: 30 block types, typed wiring, engineering units, revisions, validation and undo/redo."
+  },
+  {
+    "feature": "Per-target conversion source review",
+    "status": "implemented",
+    "scope": "Explicit current-graph preview runs six actual in-process source encoders/re-importers, lists changed authoring fields and numeric/quality/clock/calendar requirements, and exports source-hashed evidence. Sedona source lowering only; missing JCI/ALC/Spyder encoders remain blocked. No native compilation, field traffic or semantic-equivalence/acceptance claim. Source changes and late replies invalidate displayed evidence."
+  },
+  {
+    "feature": "Explicit temperature quantities",
+    "status": "implemented",
+    "scope": "TemperatureDifference, DeltaConvert and TemperatureOffset use distinct absolute/delta unit tokens and checked port contracts. Existing Convert, graph schema and legacy stored hashes remain unchanged. Graph simulation, ST/PLCopen/GraphML/BMS, native Sedona and Temco compilation/execution, and genuine Niagara delta facets preserve these explicit quantities. Native numeric/quality differences and Niagara station acceptance limits remain visible. No general dimensional algebra or native JCI compilation."
+  },
+  {
+    "feature": "Standard BACnet Trend Log Multiple history",
+    "status": "implemented",
+    "scope": "Explicit bounded native multi-channel ReadRange over direct or pinned routed IPv4 verifies Device/log identity and current references, preserves native choices/clock/quality uncertainty, and saves sealed captures with JSON/CSV and restart integrity. Current reference coherence never proves historical assignments. Exact-device support, physical JCI acceptance, proprietary historians, native application backup and unsolicited subscriptions remain unverified or outside this profile. JSON downloads retain the exact original read/load HTTP response bytes, preserving native integral floats, signed zero, exponent notation and the original evidence/capture hashes; display and CSV formatting are separate."
   },
   {
     "feature": "Graphical drag-and-drop programming",
@@ -32,7 +47,7 @@
   {
     "feature": "Existing BACnet Trend Log history",
     "status": "implemented",
-    "scope": "Explicit bounded forward ReadRange through the connected interface; standard single-value Trend Log only. Device timezone/fold, original local clocks, unresolved UTC, all 11 datum alternatives, quality, sequence gaps/wrap and partial failures stay visible. Immutable sealed captures and JSON/CSV retain provenance. No auto-connect, background polling, device writes, physical-device validation or proprietary history import."
+    "scope": "Explicit bounded forward ReadRange through the connected interface; standard single-value Trend Log only. Device timezone/fold, original local clocks, unresolved UTC, all 11 datum alternatives, quality, sequence gaps/wrap and partial failures stay visible. Immutable sealed captures and JSON/CSV retain provenance. No auto-connect, background polling, device writes, physical-device validation or proprietary history import. JSON downloads retain the exact original read/load HTTP response bytes, preserving native integral floats, signed zero, exponent notation and the original evidence/capture hashes; display and CSV formatting are separate."
   },
   {
     "feature": "Program and input/output simulation",
@@ -42,7 +57,7 @@
   {
     "feature": "Shared-signal system simulation",
     "status": "implemented",
-    "scope": "2\u201316 graph instances with a common clock and typed/unit-checked previous-cycle links. All programs commit together; a failed cycle holds every state/output. Bounded sessions/history, quality fault records and portable workspace save/reopen. No field interfaces or equipment/firmware emulation."
+    "scope": "2–16 graph instances with a common clock and typed/unit-checked previous-cycle links. All programs commit together; a failed cycle holds every state/output. Bounded sessions/history, quality fault records and portable workspace save/reopen. No field interfaces or equipment/firmware emulation."
   },
   {
     "feature": "Internal simulation holds and releases",
@@ -57,7 +72,7 @@
   {
     "feature": "Interchange conversion and export",
     "status": "partial",
-    "scope": "BMS JSON, IEC Structured Text, PLCopen TC6 XML with ST, GraphML, native Sedona bundles/SAX/SAB/SCode, a 20-kind native Niagara BOG profile and Temco Control Basic. Studio files verify original source consistency; supported foreign subsets convert with execution-difference reports. Generated ST independently compiles and runs through MatIEC/native C locally; physical PLC and Niagara runtime acceptance remain unverified."
+    "scope": "BMS JSON, IEC Structured Text, PLCopen TC6 XML with ST, GraphML, native Sedona bundles/SAX/SAB/SCode, a 23-kind native Niagara BOG profile and Temco Control Basic. Studio files verify original source consistency; supported foreign subsets convert with execution-difference reports. Generated ST independently compiles and runs through MatIEC/native C locally; physical PLC and Niagara runtime acceptance remain unverified."
   },
   {
     "feature": "FX and Metasys CAF inspection",
@@ -72,12 +87,12 @@
   {
     "feature": "Independent compiled IEC verification",
     "status": "implemented",
-    "scope": "Studio-generated ST passes unchanged through pinned MatIEC to C and a separate native Clang process. All 27 blocks/nine examples, retained state, quality faults, timed events, calendars, macros and float32 overflow differences have independent execution tests. Host-only memory I/O; no PLC runtime certification or controller deployment."
+    "scope": "Studio-generated ST passes unchanged through pinned MatIEC to C and a separate native Clang process. All 30 blocks/nine examples, retained state, quality faults, timed events, calendars, macros and float32 overflow differences have independent execution tests. Host-only memory I/O; no PLC runtime certification or controller deployment."
   },
   {
     "feature": "JCI native hardware definitions",
     "status": "implemented",
-    "scope": "Offline inspection of observed manufacturer Interface XML: point types, imperial/metric ranges, BACnet identities, aliases and presets. Validated selections and source-hashed migration reports distinguish rebinding/parameter/interface changes. Exact XML export preserves unknown metadata. This does not allocate CAF objects or compile/download a controller program."
+    "scope": "Offline inspection of observed manufacturer Interface XML: point types, imperial/metric ranges, BACnet identities, aliases and presets. Validated selections and source-hashed migration reports distinguish rebinding/parameter/interface changes. Exact XML export preserves unknown metadata. This does not allocate CAF objects or compile/download a controller program. Engineering JSON exports retain original response bytes. XML exports verify the selected original source hash; source/unit/selection and mounted-operation guards retire stale reports and downloads. Source hashes do not authenticate manufacturer origin."
   },
   {
     "feature": "CAF application editing",
@@ -92,22 +107,22 @@
   {
     "feature": "Native vendor formats",
     "status": "partial",
-    "scope": "Native Sedona compilation/execution, native Temco Control Basic compiler/interpreter host and 20 Niagara BOG graph-kind mappings are available. New JCI CAF/CAP, ALC equipment and Honeywell Spyder encoders still require verified semantics, compilers/packages and target tests. Native archive inspection, saved CAF simulation-value editing and supported conversion profiles do not establish proprietary controller compilation or deployment."
+    "scope": "Native Sedona compilation/execution, native Temco Control Basic compiler/interpreter host and 23 Niagara BOG graph-kind mappings are available. New JCI CAF/CAP, ALC equipment and Honeywell Spyder encoders still require verified semantics, compilers/packages and target tests. Native archive inspection, saved CAF simulation-value editing and supported conversion profiles do not establish proprietary controller compilation or deployment."
   },
   {
     "feature": "Native Sedona applications",
     "status": "implemented",
-    "scope": "Pinned upstream compiler creates real kits, SAX, SAB and 64-bit simulator SCode. All 27 graph blocks run in a separate native VM, compared with the graph engine. Native online components/wiring persist through revisions and exports. Exported applications scan automatically; calendar/I/O mapping is a destination-runtime responsibility. Experimental local Unix port, not physical-platform certification."
+    "scope": "Pinned upstream compiler creates real kits, SAX, SAB and 64-bit simulator SCode. All 30 graph blocks run in a separate native VM, compared with the graph engine. Native online components/wiring persist through revisions and exports. Exported applications scan automatically; calendar/I/O mapping is a destination-runtime responsibility. Experimental local Unix port, not physical-platform certification."
   },
   {
     "feature": "Native Temco Control Basic",
     "status": "partial",
-    "scope": "All 27 blocks compile into real manufacturer bytecode and execute in the pinned interpreter host, with retained state and visible fixed-point differences. Separate native BACnet slot transfer stops, backs up, replaces, reads back and conditionally resumes an exact pinned device/slot. Real UDP/routed emulator and recovery tests pass; physical execution, flash persistence and scan cadence remain unverified. Transfer refuses unprovisioned calendars and VARs beyond 128."
+    "scope": "All 30 blocks compile into real manufacturer bytecode and execute in the pinned interpreter host, with retained state and visible fixed-point differences. Separate native BACnet slot transfer stops, backs up, replaces, reads back and conditionally resumes an exact pinned device/slot. Real UDP/routed emulator and recovery tests pass; physical execution, flash persistence and scan cadence remain unverified. Transfer refuses unprovisioned calendars and VARs beyond 128."
   },
   {
     "feature": "Native Niagara BOG primitives",
     "status": "partial",
-    "scope": "20 graph kinds map to real bajaObjectGraph ZIP/XML, including Clamp, clamped/extrapolating Scale and absolute-temperature Convert. Supported foreign Reset, explicit temperature-unit converters and primitive components convert with mandatory event/status/priority review. Composite mappings preserve units, bounds and reversed endpoint meaning. Genuine manufacturer module/API metadata verifies native classes, inherited slots, link types, serialized units and palette aliases. Unknown logic/resources/configuration fail conversion; original archive bytes are preserved separately. No licensed Workbench/station execution or full station conversion."
+    "scope": "23 graph kinds map to real bajaObjectGraph ZIP/XML, including Clamp, clamped/extrapolating Scale and absolute-temperature Convert. Supported foreign Reset, explicit temperature-unit converters and primitive components convert with mandatory event/status/priority review. Composite mappings preserve units, bounds and reversed endpoint meaning. Genuine manufacturer module/API metadata verifies native classes, inherited slots, link types, serialized units and palette aliases. Unknown logic/resources/configuration fail conversion; original archive bytes are preserved separately. No licensed Workbench/station execution or full station conversion."
   },
   {
     "feature": "BACnet/IP connection",
@@ -188,5 +203,285 @@
     "feature": "Evidence and reference library",
     "status": "implemented",
     "scope": "Vendor manuals, source repository inventory, page-level evidence, feature requirements and explicit support gaps. Copyrighted reference PDFs and site files stay outside the code repository."
+  },
+  {
+    "feature": "Bounded BACnet object COV monitoring",
+    "status": "implemented",
+    "scope": "Direct BACnet/IPv4 and explicit IPv4-router/DNET:MAC object subscriptions; exact Device/object/actual-next-hop/NPDU-source/process/mode checks and task-scoped pinned ACK routing, explicit finite renewal and cancellation, bounded received evidence, native array indexes/priority/opaque datatypes and local receipt times. Real UDP/HTTP/browser tests; no automatic reconnect/renewal, routed segmented notifications, BBMD/direct serial/BTCVT or physical JCI acceptance. Job and saved-page JSON downloads retain original HTTP response bytes, preserving native integral floats and signed zero. Saved pages atomically bind recording/source metadata, cursor/count, receipt bodies and retention boundaries; changing selections or navigation rejects stale downloads. No client re-sealing or recorder/protocol changes."
+  },
+  {
+    "feature": "Opt-in durable BACnet COV receipts and field trends",
+    "status": "implemented",
+    "scope": "Explicit recording only; actual accepted direct/routed COV callbacks enter a bounded nonblocking queue and atomic background writes in the field observation store. Exact native values, verified source/route/process identity, receipt versus unknown controller clock, finite lifecycle, discarded/dropped/storage-failure and retention evidence. Eligible finite numeric/boolean values share Field trends with distinct COV provenance and conservative quality. Local history paging/JSON and CSV export persist across restart; recording/subscriptions remain off. Exclusive POSIX/Windows writer-lock branches; Windows execution, physical JCI/MS/TP and BTCVT remain unverified. Job and saved-page JSON downloads retain original HTTP response bytes, preserving native integral floats and signed zero. Saved pages atomically bind recording/source metadata, cursor/count, receipt bodies and retention boundaries; changing selections or navigation rejects stale downloads. No client re-sealing or recorder/protocol changes."
+  },
+  {
+    "feature": "Read-only IPv4 BBMD table inspection",
+    "status": "implemented",
+    "scope": "Explicit one-endpoint native BVLC Read-BDT/Read-FDT on the already-open normal/foreign UDP interface. Exact peer, app/config/link/socket identity, raw mask bytes, TTL/remaining lease evidence, bounded snapshots and raw hashes; malformed/bounds/NACK/timeout/cancel outcomes; paced requests and joined teardown. Independently encoded real UDP, HTTP and browser checks preserve concurrent point reads, foreign renewals and unrelated native handlers. No atomicity or transaction-ID freshness guarantee, inferred live devices, table writes/deletion, hosting, BACnet/SC, IPv6, durable storage or physical JCI/BBMD validation."
+  },
+  {
+    "feature": "BBMD table writes, FDT deletion and hosting",
+    "status": "partial",
+    "scope": "MF-7558ea4aa8 / IA-120b496d86 table changes have a separate reviewed plain-IPv4 profile below. BBMD hosting, BACnet/SC, IPv6 administration and physical vendor acceptance remain pending; foreign-registration/native/custom-management conflicts are deliberately refused for writes."
+  },
+  {
+    "feature": "Offline sensor supply budgeting",
+    "status": "implemented",
+    "scope": "Exact reviewed JCI auxiliary rails and combined Belimo sensor profiles plus explicit custom supplies; AC/DC voltage envelopes, shared and terminal current budgets, physical quantities and steady/startup demand. Guarded local revisioned plans/import/export and optional exact survey binding. Maximum/startup/tolerance and existing load gaps stay explicit. No wiring approval, new input allocation, native program changes or field writes; publisher extraction hashes are distinguished from PDF byte hashes."
+  },
+  {
+    "feature": "Standard BACnet Event Log history",
+    "status": "implemented",
+    "scope": "Explicit bounded read-only standard type25 Event Log ReadRange over connected direct/routed IPv4. Exact Device/log identities, native notification parameters/enums/TimeStamp choices, logger/read/event clocks, status and clock changes remain distinct; unsupported native record encodings retain bounded opaque itemData evidence without guessed notifications. Sealed separate captures/restart and JSON/CSV browser export are tested with local UDP/routed peers. Physical support on any exact JCI device/firmware remains unknown. No unsolicited alarm subscriptions, device writes, synthesized human receipt/ack lifecycle or proprietary JCI historian access. JSON downloads retain the exact original read/load HTTP response bytes, preserving native integral floats, signed zero, exponent notation and the original evidence/capture hashes; display and CSV formatting are separate."
+  },
+  {
+    "feature": "BACnet network-number engineering plans",
+    "status": "implemented",
+    "scope": "Offline operator-declared internetwork/domain and physical-network identities; exact attachment/endpoint-port records, shared-network multi-router validation, collision/mismatch/unknown findings and an explicitly selected JCI Release 15 Remote Field Bus profile. Generic 1..65534 numbering is separate from 2000/65000 reservations for new R15 IP/MS/TP assignments. Complete Connect authoring and source-guarded plan JSON reopen/export; sealed full-plan review reports, stale response/download invalidation and strict finite bounds. No inferred topology, globally available-number claim, scans, automatic renumbering, server-side plan persistence or controller writes."
+  },
+  {
+    "feature": "Portable native local storage ownership",
+    "status": "implemented",
+    "scope": "POSIX flock and Windows msvcrt byte-zero ownership with bounded capture waits, final-component safe regular-file handles, reparse/device refusal, non-inheritance, unchanged capture seals and no-overwrite hard-link publication. Native POSIX regressions plus actual Windows 10 x64/Python 3.13.16 acceptance: 24 native storage tests passed with one POSIX FIFO skip, five loopback capture API tests passed, and isolated wheel imports/local app workflows passed. POSIX directory fsync retained; Windows file-data flush only, namespace/power-loss durability unverified. Native IEC host remains explicitly POSIX-only."
+  },
+  {
+    "feature": "Reviewed IPv4 BBMD table changes",
+    "status": "implemented",
+    "scope": "Explicit fresh source-pinned Write-BDT replacement or exact Delete-FDT with sealed 60-second one-use review, native masks/ports/lease evidence, durable original/preapply/intent and bounded SQLite receipts. Exact BDT or FDT address/TTL membership baseline is rechecked before one mutation; post-state readback is an observation, never proven authorship, atomic CAS or lease-generation identity. Native Results/NACKs stay evidence with bounded counters/reserved NACK retention. No automatic retry/rollback/reconnect; postdispatch loss stays unknown; restart disables all actions and restoring BDT requires a new explicit proposal. Real independent UDP, HTTP/browser, storage-fault/ownership, cancellation/observer/restart tests only. Plain IPv4 refuses foreign/native/custom-management owners; no hosting, SC/IPv6, controller programming or physical BBMD/JCI acceptance."
+  },
+  {
+    "feature": "JCI MS/TP and SA address/topology preflight",
+    "status": "implemented",
+    "scope": "Offline strict physical-bus/device/link plans with explicit Metasys R15 and FX 2024-12-11 source profiles. Bus-scoped duplicate MACs, documented role/reservation checks, explicit legacy DIP128 and refreshed sensor generations, SA one-host/single-segment/no-repeater constraints, ordinary trunk graph branches/cycles/disconnection and FC/SA EOL distinctions. Exact refreshed NS8000/CWCVT service leaf and declared FC repeater bridges are separate graph exceptions. Complete Connect authoring, guarded portable JSON reopen/export, sealed review reports and stale-response/download invalidation. Unknown models, generations, cable construction/power/host-specific capacities remain unresolved. No field operations, measured wiring, electrical certification or native controller programming."
+  },
+  {
+    "feature": "Safe native COV writer file ownership",
+    "status": "implemented",
+    "scope": "Real process contention/crash/symlink/directory/FIFO refusal and direct/routed recording regressions. Uses Win32 safe handles/msvcrt and POSIX O_NOFOLLOW/flock; physical Windows COV and controller acceptance remain separate."
+  },
+  {
+    "feature": "Finite standard BACnet event-notification reception",
+    "status": "implemented",
+    "scope": "Explicit already-open plain IPv4 or pinned router/DNET:MAC listeners verify Device and optional object identity before finite Device/process/mode-filtered reception. Known native confirmed/unconfirmed EventNotification fields, raw TimeStamp, unknown enums and opaque unsupported nested choices retain source/receipt clocks and raw APDU evidence. ACKs use the exact pinned adapter/next hop/invoke identity; they mean reception only, never operator AcknowledgeAlarm, human receipt, resolution or delivery guarantee. Bounded callbacks/retention, source/socket loss, native-owner refusal, expiry, joined shutdown and immutable stopped-session snapshots/export are tested with real independently encoded UDP/API/browser peers. No recipient-list/device writes, automatic subscriptions/reconnect/restart, durable live recording, field alarm lifecycle synthesis, BBMD/serial/BTCVT, segmented reception or physical manufacturer acceptance. Broader IA-e35c4d605e / IA-5f71db3ed0 scope remains partial."
+  },
+  {
+    "feature": "Finite truth-table authoring and completeness review",
+    "status": "implemented",
+    "scope": "Offline Boolean/explicit signed32-bit Enum domains, stable identities, 4096-case exhaustive coverage, wildcard rules, all overlaps, default overlap rejection and explicit first-match priority with shadow/unreachable-row evidence. Optional constant fallback requires rationale. Browser authoring/import and server-authoritative sealed source/full-review JSON exports preserve source/profile/content hashes and stale-response guards. Bounded stateless selected-case evaluation only; no implicit hold-last, native reliability, CAF encoding, executable graph lowering, proprietary compilation or field writes."
+  },
+  {
+    "feature": "Native BACnet Calendar/Schedule inventory",
+    "status": "implemented",
+    "scope": "Explicit bounded read-only standard Calendar6/Schedule17 properties over direct or pinned routed plain IPv4, verified Device/object identities, indexed weekly/exception arrays, native AnyAtomic/date/reference/priority evidence, raw clocks and per-property failures. Exact HTTP-byte JSON exports preserve float spelling and evidence hashes; session-only reports, owned cancellation/teardown and stale-source browser guards. No coherent backup, native editing/transfer, reference crawling, timezone inference, segmented values, BBMD/direct serial or physical JCI/manufacturer acceptance. Broader MF-e39fd7dcb6/MF-3964cbd0c0/MF-9030e4190e remain partial."
+  },
+  {
+    "feature": "Source-bound portable graph conformance suites",
+    "status": "implemented",
+    "scope": "Operator-authored named cases with explicit value/quality stimuli, exact signal/type/unit checks, finite numeric tolerances and final transactional faults. Fresh deterministic engines and UTC clocks, bounded scans/work/report/storage, exact program/revision/execution-profile guards, optimistic SQLite restart/reopen and complete author/run/import/export UI. Sealed reports retain authoritative server bytes and explicit asserted/unasserted coverage. No generated expectations, arbitrary native CAF execution, field writes or complete-sequence/Title24/Guideline36 certification."
+  },
+  {
+    "feature": "Native point reliability and service-state inspection",
+    "status": "implemented",
+    "scope": "Explicit selected standard analog/binary/multistate/Accumulator point inventory on one exact Device over direct or pinned routed plain IPv4. Raw native types/units/reliability/status flags/out-of-service, optional priority slots/relinquish values, source/identity evidence, per-property native failures and exact JSON export. Malformed quality encodings remain unknown; optional-property absence is separate from health. Finite owned reads/cancel/shutdown and session-only16reports. No discovery/polling/writes, engineering scaling, healthy-I/O/winning-priority inference, proprietary state mapping, BBMD/direct serial or physical acceptance. Broad MF-b3e8f374e9 remains partial."
+  },
+  {
+    "feature": "Operation-qualified JCI tool/release rule review",
+    "status": "partial",
+    "scope": "Reviewed CCT older-application open/commission, CCT18 exact-mode/default-edit/simulation and same-family upgrade prerequisites, alpha/beta exception, CCT16+ package-security boundary, CCT18 license restrictions, SQL independence, mixed-MS/TP enum caveats and PCT10.3 historical mode switching. Strict bounded optional CAF preflight inputs, manual/page/SHA-qualified catalog, sealed original-source review export and complete UI with stale/source/hidden-workspace guards. Unknown/cross-product/future combinations remain unresolved. No installed-tool detection, model/package/firmware acceptance, native compilation, upgrade or transfer approval."
+  },
+  {
+    "feature": "Equipment and sequence selection wizard",
+    "status": "partial",
+    "scope": "Portable VAV authoring for cooling-only, inline hot-water reheat/no fan and parallel-fan hot-water reheat, plus separately profiled dual-duct hot/cold decks with explicit pickup layouts, authored guard behavior and declared target labels, actual logical inputs/outputs, P/PI position mapping or measured-airflow feedback, coupled unit/gain conversion and exact-choice preview before separate editable project creation. Source/choice evidence, stale-response and current-editor guards, revision/save/export/simulation workflows. Native CAF/package/terminal allocation and complete ventilation, safety, G36/Title24 sequences remain incomplete. See docs/equipment-wizard.md."
+  },
+  {
+    "feature": "Native state domains and offline enum mapping review",
+    "status": "implemented",
+    "scope": "Explicit opt-in native binary/multistate labels, polarity, Number_Of_States and bounded indexed State_Text with exact code validation and raw failures. Separate bounded operator-declared namespace/state-ID/code mapping editor reviews missing/duplicate/unknown states, target coverage and explicit many-to-one loss with rationale; probes, strict plan import and sealed exact exports. No label-driven mapping, native/JCI/portable domain binding, executable lowering or controller writes. Broad MF-3fc6a30927 remains partial. docs/native-enum-domains.md"
+  },
+  {
+    "feature": "Paced portable-graph simulation clock",
+    "status": "implemented",
+    "scope": "Explicit requested 1-100x versus achieved rate, unchanged scan timestep, at most 100 scans/batch and one admitted request, finite scan/simulated-time/active-wall budgets, lag pause, explicit run/pause/step and navigation/visibility policy. Exact-source/reset/correlation guards retain confirmed partial commits and distinguish known zero-commit faults from uncertain HTTP outcomes requiring reset. Production API/browser/independent CSV and authored monotonic arithmetic tests; no native CAF/firmware timing, hard real-time or field-I/O claims. See docs/simulation-clock.md."
+  },
+  {
+    "feature": "Lifecycle draft recovery",
+    "status": "implemented",
+    "scope": "Latest ready portable program/macro snapshots flush on pagehide, beforeunload, hidden-page and React unmount while retaining 200 ms validation debounce. Shared ordered serializer protects prior macro recovery on failed primary writes; storage errors remain separate from validation; startup read/parse failure disables automatic recovery writes for that page. Fast reload, apply/discard, ready guards and actual unmount tested in Chromium/WebKit. Browser crashes/forced exits, storage availability and disk durability remain outside the guarantee; project save/export is separate."
+  },
+  {
+    "feature": "Exact portable Program numeric source",
+    "status": "implemented",
+    "scope": "Opt-in Program-only source envelopes, strict token parser, source-aware clone/editor/recovery/API workflows, exact canonical conformance binding and archival retention. Typed structural projection bounds and executable numeric profile remain explicit; no legacy content migration, reconstruction of previously rounded data, native evidence reinterpretation or controller acceptance. See docs/program-source.md."
+  },
+  {
+    "feature": "Executable integer precision guards",
+    "status": "implemented",
+    "scope": "Known graph numeric parameters, expanded macros, live inputs/forces and computed values refuse nonrepresentable integer-to-binary64 coercion before execution/commit. Exact large integers remain valid. ST/PLCopen/Niagara/native IEC/Sedona numeric boundaries guard before conversion/exchange. New decimal literal generation is separately versioned; legacy source regeneration remains available. Archival Program/canonical hashes and native evidence remain unchanged. Ordinary floating-point and native binary32/fixed-point differences remain explicit; no arbitrary-precision or physical-controller equivalence claim."
+  },
+  {
+    "feature": "Owned local simulation session cleanup",
+    "status": "implemented",
+    "scope": "Exact volatile calculation ownership tokens and immutable creation-operation identities release known sessions on reset/source/scenario replacement and document retirement; verified stale first replies cannot restore state or remove unrelated sessions. Cleanup gates new scans/scenarios and failures require explicit retry. Recorded trends/alarms/events/source lifecycle remain unchanged. Best-effort exit cleanup, missing first receipts and one-hour idle expiry remain explicit; 25-session cap unchanged, no global clear or field operations. See docs/simulation-sessions.md."
+  },
+  {
+    "feature": "Versioned numeric literal source profiles",
+    "status": "implemented",
+    "scope": "New ST/PLCopen/Sedona source preserves original integer and roundtrip binary64 literal text before declared native binary32 conversion. Explicit profile/rules bindings, profile-bound generated Sedona kit identity, strict unknown/duplicate/tamper rejection and byte-exact legacy regeneration preserve old Program hashes and archives. Native MatIEC/Sedona midpoint behavior is tested locally; reports/UI expose provenance. GraphML/BOG/canonical formats unchanged. No arbitrary-precision, physical-controller or native JCI acceptance claim."
+  },
+  {
+    "feature": "Exact operator BACnet command preview intent",
+    "status": "implemented",
+    "scope": "Bounded parser reuses executionNumber/parseExecutionJSON, retains original numeric atoms for the narrow write-plan request, pairs original HTTP response text with the opaque receipt and verifies exact requested integer/type/float sign plus target/object/priority. Pending navigation/source changes cannot restore an Apply token. Bare enum and quoted strings/booleans retain semantics; explicit decimal/exponent tokens use finite binary64, Real32 rounding stays visible. No automatic apply/retry, arbitrary decimal precision, native application programming or field-write validation. See docs/bacnet-command-intent.md."
+  },
+  {
+    "feature": "Owned wiresheet measurement lifecycle",
+    "status": "implemented",
+    "scope": "Canvas-local current-DOM geometry cache with Canvas/project/node/port-shape ownership, removal pruning and targeted handle refresh. Raw exported Program/digest remains unchanged by measurement; no global fit, timing retry, source-schema or field-device behavior changes. See docs/canvas-measurements.md."
+  },
+  {
+    "feature": "Exact supported browser history identities",
+    "status": "implemented",
+    "scope": "Canonical decimal whole-ID text uses BigInt before Number; received numeric IDs require Number.isSafeInteger and positive bounds, with zero only for cursors. Unsupported pages clear row actions/cursors, safe filters remain usable, and each download/retry/discard/prune/ack/events/paging boundary rechecks IDs. Original delivery Blob downloads preserve nested payload values. Browser profile stops at MAX_SAFE_INTEGER; no full 64-bit browser protocol, backend history/native evidence changes or field traffic. See docs/browser-history-identities.md."
+  },
+  {
+    "feature": "Preserved live numeric input intent",
+    "status": "implemented",
+    "scope": "Validated SourceNumber atoms preserve original live numeric tokens. Accepted response tail values/forces and verified group source paths retain types; structural Program/DTO projection and legacy Number APIs stay unchanged. Receipt-only128MiB/8M/depth64 extraction bound preserves proved session ownership on refusal. Finite binary64 and native precision limits remain explicit; no arbitrary-precision, field-device or native JCI equivalence claim. See docs/live-numeric-intent.md."
+  },
+  {
+    "feature": "Durable native schedule evidence and offline day drafts",
+    "status": "implemented",
+    "scope": "Exact original native Calendar/Schedule report bytes and seals, bounded immutable local capture library, offline reopen/import/export and strict existing weekly-day typed draft with exact old/new native encoding/rounding proof. Complete default/type/context guards and source/rule hashes; unsupported context retained but deferred. No queries on library/draft operations, native writes, calendar/exception authoring, schedule evaluation, native CAF, vendor provisioning or physical acceptance. See docs/native-schedule-drafts.md."
+  },
+  {
+    "feature": "Guarded existing native weekly-day write backend",
+    "status": "implemented",
+    "scope": "Backend/API preview/apply for one existing Schedule weekly index1..7, exact source/native/static-tag and socket/path guards, one service15 send/no retries, durable bounded intent/result journal, original sealed bytes and explicit read-only reconciliation. Postdispatch native rejection/timeout/cancellation remain may_have_applied; protocol acknowledgement and observed readback are separate. Browser Apply integration is separate. No CAS/rollback, Calendar/exception/context writes, native CAF generation, BBMD/serial writes or physical manufacturer acceptance. See docs/native-weekly-day-write.md."
+  },
+  {
+    "feature": "Accumulator metering evidence and exact offline pulse review",
+    "status": "implemented",
+    "scope": "Opt-in verified direct/routed native Accumulator Prescale/Scale and related properties, typed/raw unknown and partial outcomes, independent exact integer batch/remainder review, explicit noncommitting limit stop, separate native baseline, server-byte sealed JSON/CSV and configuration-only import. Defaults add no native queries. No physical pulse/debounce/persistence/COV/wrap emulator, native configuration write, JCI compilation or hardware acceptance. See docs/accumulator-prescale.md."
+  },
+  {
+    "feature": "Reviewed native weekly-day deployment GUI",
+    "status": "implemented",
+    "scope": "Scoped Connect GUI: explicit operator/rationale and fresh native preview, source/connection/expiry guards, one-use Apply, cancellation, durable local journal reopen, independent may-have-applied/protocol/readback facts and original HTTP-byte exports. Recovered intents remain unknown; reconciliation is explicit read-only. No automatic queries/writes/retry, arbitrary CAF/program upload, Calendar/exception/target/default edits, extra transports or physical manufacturer acceptance. See docs/native-weekly-day-write-ui.md."
+  },
+  {
+    "feature": "Native property dispatch diagnostics",
+    "status": "implemented",
+    "scope": "Shared source-pinned read receipts retain guarded handoff/completion timing and existing candidate/filter facts. Opt-in PointStatus phase traces pair separately bounded handoff/multiplexer/callback/retirement observations with exact original core-export bytes and Blob downloads; diagnostics never consume native property/query budgets, change eligibility, add controller requests/retries or persist a recorder. No all-UDP/socket-transmit/device-latency proof; original missing-reply causes remain unresolved. See docs/property-dispatch-diagnostics.md."
+  },
+  {
+    "feature": "Source-bound distributed plant signal engineering",
+    "status": "implemented",
+    "scope": "Offline explicit host/subsystem/role/terminal declarations and exact immutable portable Program sources, bounded I/O/network review with type/unit/single-writer/fanout/collision diagnostics, original server JSON/CSV and durable sealed capture import/reopen. No inferred label matching, terminal capacity/aliases/native allocation, controller identity, supervisory deployment, simulation, field traffic or JCI/G36 physical acceptance. Broad MF-3aba872151 remains partial. See docs/distributed-plant-signals.md."
+  },
+  {
+    "feature": "Portable dual-duct VAV wizard",
+    "status": "implemented",
+    "scope": "Explicit two-deck position or hot/cold, hot-total, cold-total calibrated-flow declarations, inspectable raw third-flow arithmetic and independent fixed-gain P/PI deck loops. Authored invalid-flow/setpoint zero-command/integral-hold policy, coupled unit/gain conversion and exact source/profile/choice hashes across preview/create/simulation/save/interchange UI. Legacy single-duct profiles/digests unchanged. No adaptive tuning, total-only control, native actuator allocation/calibration/CAF deployment or G36/Title24/physical acceptance. Broad MF-173d9ae6c9 partial. See docs/dual-duct-wizard.md."
+  },
+  {
+    "feature": "Exact JCI physical capacity matrix",
+    "status": "implemented",
+    "scope": "32 exact scoped products; bounded integral pool-count matching, explicit original-survey/hash/host binding, offline Connect matrix and authoritative sealed exports. Unknown suffixes and conflicting ratings remain unresolved. No field/power/wiring approval, spare-terminal claim, CAF allocation or expansion of existing native profiles."
+  },
+  {
+    "feature": "Portable fan-coil wizard foundation",
+    "status": "implemented",
+    "scope": "Explicit separate proportional coils; single/variable-speed fan; occupied continuous or positive-demand cycling; unit-enable/holdoff/ordered-setpoint gates; distinct condensate cooling inhibit/shutdown; held inactive PI integrals and coupled temperature/gain conversion. Exact source/profile/choice hashes, editable browser workflow, independent Engine and actual host IEC tests; prior VAV profiles/digests unchanged. No native CAF/compiler/transfer, physical allocation/protection, native adaptive tuning, setbacks/frost/restart or G36/Title24/physical acceptance. Broad MF-2e7fda5bcf partial. See docs/fan-coil-wizard.md."
+  },
+  {
+    "feature": "Portable weekly zone-group occupancy composition",
+    "status": "implemented",
+    "scope": "Explicit named-zone weekly window/all-day/disabled groups, end-preserving earlier pre-or-occupied union, separate aggregate pre-only and AHU original-occupancy outputs using existing Schedule/Or blocks. Bounded UTC preview, profile/source/choice/Program hashes, guarded browser creation and authoritative review JSON. DST elapsed-lead differences, hosted native calendar bindings and previous-cycle system links remain explicit. No exceptions/countdown/warmup, native MV/Global Data mapping, CAF/SCT archive/transfer or G36/Title24/physical acceptance. Broad MF-43cb984ef4 partial. See docs/zone-group-schedules.md."
+  },
+  {
+    "feature": "Portable single-compressor heat-pump wizard",
+    "status": "implemented",
+    "scope": "Explicit reversing polarity/initial mode, fixed demand hysteresis, single-speed fan, distinct compressor minon/off and valve off/settle timers, logical airflow/occupied/enable/holdoff/condensate gates, whole-second aligned timing and coupled temperature/difference conversion. Exact profile/choice/source evidence, guarded browser creation/revision/interchange and actual host IEC tests. Off-state valve commands may change per scan; quality faults retain prior outputs. No native JCI allocation/CAF/compiler/transfer, physical protections, adaptive MSC, second compressor/economizer/supplemental heat, durable restart or G36/Title24 acceptance. Broad MF-724ea67583 partial. See docs/heat-pump-wizard.md."
+  },
+  {
+    "feature": "Strict UTF8 native Schedule strings",
+    "status": "implemented",
+    "scope": "Separate observed-String draft/write authority with preserved app-tag7 UTF8/encoding0/256byte payload qualification acrossdefault/present/allweek/exceptions and byte-exact captured property-tag evidence. The SDK may normalize original UDP headers; their canonicality is not proved. Empty/control/NUL/untrimmed strings, quotedJSON browser entry, original response exports and existing single-day native preview/one-attemptApply/readback/cancellation. Original seven-domain rules/seals/passive receipts unchanged. No SDK fallback/legacy conversion, larger APDU/tag/property bounds, automatic retry, Niagara station/facet serialization, JCI String target or physical acceptance. BroadMF-f9b827580e partial. See docs/native-schedule-strings.md."
+  },
+  {
+    "feature": "Chilled-water hydraulic I/O and declared subset capacity planner",
+    "status": "implemented",
+    "scope": "Four parallel-chiller primary-only/primary-secondary times headered/dedicated variable-primary layouts; shared measurement-role derivation and explicit monitoring/prove-on choices. Exact sealed PLANT source/interface/link bindings, explicit controller/module electrical modes and per-host HW-CAP witnesses; original JSON/CSV browser workflow. Count fit covers only declared hydraulic subset; other application occupancy remains unknown. No generated Program, spare terminal/native allocation, plant sequence/hydraulic simulation, field deployment or G36/Title24/physical acceptance. Broad MF-8e7eecb866 partial. See docs/hydronic-io-planner.md."
+  },
+  {
+    "feature": "Authored mixed-air single-duct AHU wizard",
+    "status": "implemented",
+    "scope": "Actual editable ordinary-core SAT heat/cool, common position-only OA/economizer and single constant/variable supply fan with Pa feedback. Independent proof/start/recovery/reset state, held active PI at setpoint, command-based saturation/release, explicit drybulb OA/RA dependencies, coupled F/C deltas/inverse gains and original source-bound preview/create/simulate/revise/export. Existing wizards/Engine unchanged. Position is not measured outdoor airflow/ventilation. No native JCI CAF/compiler/transfer, physical protection or G36/Title24 acceptance. Broad MF-ec17b3073c partial. See docs/masd-ahu-wizard.md."
+  },
+  {
+    "feature": "Authored AHU-only independent hot/cold deck wizard",
+    "status": "implemented",
+    "scope": "Editable ordinary-core single-speed supply fan, independent hot/cold temperature targets and simultaneous coil demands, common position-only OA and cold economizer staging, explicit proof/deadlines/reset and held PI. Original source/profile choices across preview/create/simulate/revision/interchange. Invalid runtime setpoints inhibit commands; bad quality rolls back scans. Finite-precision F/C trajectories can diverge at PI boundaries. No zone generation, native JCI CAF/compiler/transfer, measured ventilation or physical/code acceptance. Broad MF-9c85cb8feb partial. See docs/madd-mz-ahu-wizard.md."
+  },
+  {
+    "feature": "Advisory operation-owned idle-sleep requests",
+    "status": "implemented",
+    "scope": "App-managed Temco native apply owns a bounded idle-only OS request through validation, write/readback and shielded recovery/cleanup. Owned macOS caffeinate child or same-thread Windows system request; failures/expiry remain visible and never cancel, retry or authorize transfers. Read-only explicit-refresh status with original response export. Linux unavailable/unverified; guest protection does not protect physical host. No global power settings, display request, native JCI transfer integration or explicit Sleep/lid/power-loss guarantee. See docs/operation-power.md."
+  },
+  {
+    "feature": "Authored occupied, population and window zone setpoint composer",
+    "status": "implemented",
+    "scope": "Editable flat ordinary-core occupied/unoccupied absolute target pairs; optional continuous-entry/release population deadband offset and higher-priority absolute window pair. Timers continue behind window with distinct latent/applied diagnostics, aligned scan choices and original source/profile/choice/manifest bindings. Constructor range/order and inactive-branch checks, existing quality rollback and explicit startup numeric/precision limits. No whole-unit enable/operation, native occupancy/MV/sensor allocation, demand/local-adjustment hierarchy, airflow/ventilation, native JCI CAF/compiler/transfer or physical/code acceptance. Broad MF-b04d70f58e partial. See docs/zone-setpoint-wizard.md."
+  },
+  {
+    "feature": "Optional exact-model controller transport admission",
+    "status": "implemented",
+    "scope": "Three source-qualified exact FAC parts separate documented capability, operator-declared current protocol, available adapter and observed identity. Optional HardwareWorkbench qualification recomputes existing path/interface/serial guards before queueing, retains source/config/target and raw match/mismatch/unresolved job evidence, and preserves original surveys/seals/export bytes. Explicit pure review makes no native call; unknown/incompatible/SC/N2 modes remain nonadmitted. All unqualified generic and routed paths retain existing rules; one-octet routed MS/TP is the bounded qualified path. No automatic connect/discovery/protocol change, native program deployment, BACnet/SC/N2 driver or physical/manufacturer authentication. Broad MF-be5f1e078a partial. See docs/model-transport-admission.md."
+  },
+  {
+    "feature": "Authored occupied single-speed series-fan VAV wizard",
+    "status": "implemented",
+    "scope": "Editable ordinary-core cold-primary VAV with calibrated primary-flow feedback and proportional hot-water reheat. Elapsed close-command phase then fan request, stable independent proof and bounded chatter deadline, latched good-quality proof-loss stop/raw-request-off fresh reset. Cascaded zone-cooling/flow PI, direct heating PI, command-aware hysteresis and held inactive integrals; explicit good-value admission versus complete bad-quality rollback. Coupled temperature/flow/delta/inverse-gain unit conversion and source-bound author/simulate/revision/export. Estimated closure/primary flow is not measured damper closure/total coil flow or ventilation. No unoccupied/purge/variable fan, native JCI allocation/CAF/compiler/transfer or physical/code acceptance. Broad MF-8a75247a85 partial. See docs/series-fan-vav-wizard.md."
+  },
+  {
+    "feature": "Versioned private IEC compiler symbol allocation",
+    "status": "implemented",
+    "scope": "IEC-SYMBOL-001 allocates deterministic typed private value/quality/stage/state/calendar roles and shares them with the native host while preserving original graph identifiers and source identity. New ST V3 and symbol-qualified PLCopen coexist with strict exact legacy V1/V2/numeric/Sedona regeneration. Web conversion and native verifier show separate symbol provenance; read-only mapping and original compilation/trace response downloads retain complete evidence. No identifier-schema widening, arbitrary vendor IEC import, native JCI compilation/download or physical deployment. See docs/iec-symbol-namespace.md."
+  },
+  {
+    "feature": "Authored occupied Unit Ventilator Cycle III composer",
+    "status": "implemented",
+    "scope": "UV-C3-001 creates an editable ordinary graph for an occupied single-speed fan, separate proportional hydronic zone coils and cold-outdoor mixed-air damper action. Explicit condensate policy, stable proof/bounded startup/latch reset, independent zone and MAT PI loops with a zone-limited damper floor;13 logical inputs/29 outputs. Source-bound preview/import/export, coupled temperature values/differences/gains, simulation/revisions and typed signed-zero request/source preservation. Bad quality retains the whole prior transaction; good invalid values inhibit commands. No native v51 equivalence, actual airflow/physical protection/ventilation, other UV cycles, native JCI allocation/CAF/compiler/transfer or compliance acceptance. Broad MF-069429184f remains partial. See docs/unit-ventilator-cycle3-wizard.md."
+  },
+  {
+    "feature": "Source-qualified eight-input sum macro template",
+    "status": "implemented",
+    "scope": "MACRO-SUM8-001 provides eight required numeric ports, seven ordinary Add blocks and one result using an explicit left fold and five homogeneous authored unit labels. Original profile/choice/definition/Program/bundle seals bind editable macro import, instance wiring, simulation, deliberate revision save and portable interchange. Same-ID generic macro imports compare validated names and canonical Program bytes, preserving signed zero and integer/float distinctions while allowing canonical key reordering; conflicting definitions refuse without replacing the current editor. Native JCI Add-8 identity/reliability/order, CAF/package compilation/download, physical capacity and code acceptance remain gaps under partial MF-a06ed19e27. See docs/sum8-macro-template.md."
+  },
+  {
+    "feature": "Authored fixed-duration cancelable pulse macro",
+    "status": "implemented",
+    "scope": "TIMER-CANCELABLE-001 generates six ordinary nodes and six wires with one required Boolean request and one pulse result. Whole-second duration1..86400 and parent scan1..60 must align; delayed committed expiry defines the authored scan phase, including one-scan pulses, cancellation and held-true behavior. Source-bound preview/export and narrow authenticated import recheck the supplied parent clock/profile/canonical digest before the unchanged generic macro merge. Unfinished editor graphs remain allowed, repeated reviews reuse identical definitions, and original artifacts preserve source identity. Quality faults retain the prior complete transaction, potentially a true output. No global engine gate: manual imports, later clock edits and dt overrides can leave historical qualification. Native JCI Timer/reliability/CAF/package/transfer, dynamic duration/reset action, Time Remaining and physical protection remain gaps under partial MF-c1feb93911. See docs/cancelable-pulse-template.md."
+  },
+  {
+    "feature": "Named mixed-output reusable activities",
+    "status": "implemented",
+    "scope": "Explicit studio-activities/2 libraries/archive2/Activity containers expose1..32 independently typed named outputs from one shared expanded state graph. Typed named handles, per-port portable values/forces, create/inspect/edit/delete/import/export, original source/revision/interchange and deliberate reviewed whole-v1 promotion preserve source identity and retire stale sessions/forces. V1 services, accepted admissions and legacy bytes remain separate; current IEC evidence binds original/expanded source and typed output aliases once. No proprietary native activity algorithms, Enum/reliability mapping, native JCI allocation/CAF/compiler/transfer, native internal-port forcing or physical/code acceptance. Broad UI-004 native-manufacturer equivalence remains outside scope. See docs/multi-output-activities.md."
+  },
+  {
+    "feature": "Authored CW isolation/pump output activity",
+    "status": "implemented",
+    "scope": "CW-ISO-OUTPUT-001 creates one reusable activity2 graph with two required inputs, Boolean enable proxy and percent command sharing one Delay. Fixed-scan bounded enabled up/down tracking, target-floor minimum, immediate committed disabled0/reset, negative-zero choices/source and original source-bound preview/export/import integrate with existing activity editing/simulation/revisions/interchange. Existing full-scan quality faults retain prior positive commands. No native JCI algorithm/Enum/reliability/CAF/package/transfer, actual flow/run/position/minimum-speed or mechanical-stroke proof, physical protection or G36/Title24 acceptance. Broad MF-8947786f93 remains partial. See docs/cw-isolation-output-template.md."
+  },
+  {
+    "feature": "Authored live-endpoint CO2 minimum-airflow reset activity",
+    "status": "implemented",
+    "scope": "CO2-MIN-FLOW-001 provides one editable 38-node / 57-edge activity2 graph with five required numeric live inputs, minimum-airflow and committed configuration-valid outputs, bounded authored linear reset and invalid-config hold in one Delay. Documented cfm/derived L/s defaults, guarded conversion, signed-zero source and original source-bound preview/export/import integrate with ordinary activity editing/simulation/revisions/interchange. Whole-scan quality rollback can retain positive flow and true diagnostic; native REAL coalescence/host limits remain explicit. No percent-damper/physical-output inference, measured ventilation/sizing/compliance, native JCI algorithms/reliability/Enum/CAF/packages/transfer or field/Bluetooth acceptance. Broad MF-74ca5999ab remains partial. See docs/co2-minimum-flow-template.md."
+  },
+  {
+    "feature": "Authored parallel fan thermal request and heating purge activity",
+    "status": "implemented",
+    "scope": "PARALLEL-FAN-PURGE-001 supplies an ordinary 51-node / 73-edge Activity2 with five required live numeric ports and two terminal Boolean outputs. Heating/cooling start, strict threshold hysteresis, raw-heating-low purge reset, live duration, declared-scan counter and invalid-good hold/reset have explicit local core/API and unchanged host IEC checks. Whole quality rollback can retain an On request, elapsed time and true diagnostic. Original source-bound review/import/export integrates with generic activity editing/simulation/revisions. Native threshold coalescence remains visible; no native JCI Enum/Timer/reliability/CAF/package/transfer, arbitrary-dt equivalence, fan proof/motor/electric-heat/physical or G36/Title24 acceptance. Broad MF-b292402bbd remains partial. See docs/parallel-fan-purge-template.md."
   }
 ]

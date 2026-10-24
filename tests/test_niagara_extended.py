@@ -289,7 +289,7 @@ def test_new_native_composite_slots_and_links_match_genuine_manufacturer_descrip
 def test_documented_reset_and_converter_contracts_are_present_in_pinned_vendor_metadata(
     vendor_metadata,
 ):
-    assert len(SUPPORTED) == 20
+    assert len(SUPPORTED) == 23
     registry = DescriptorRegistry(vendor_metadata)
     try:
         reset = registry.descriptor("com.tridium.kitControl.util.BReset")

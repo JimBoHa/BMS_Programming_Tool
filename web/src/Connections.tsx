@@ -8,14 +8,30 @@ import {
   Search,
   PlugZap,
 } from "lucide-react";
-import { api, saveBlob } from "./api";
+import { api, programJsonDocument, saveBlob } from "./api";
+import {
+  parseBacnetCommandIntent,
+  verifyBacnetCommandPlan,
+} from "./commandIntent";
 import {
   RoutedDiscoveryPanel,
   type RoutedScanResult,
 } from "./RoutedDiscoveryPanel";
 import { DeviceScanPanel, type ScanTarget } from "./DeviceScanPanel";
 import { BacnetFilesPanel } from "./BacnetFilesPanel";
+import { BbmdTablesPanel } from "./BbmdTablesPanel";
+import { BbmdAdminPanel } from "./BbmdAdminPanel";
 import { ControllerProbePanel } from "./ControllerProbePanel";
+import { HardwareSurveyPanel } from "./HardwareSurveyPanel";
+import { EnumMappingPanel } from "./EnumMappingPanel";
+import { ScheduleInventoryPanel } from "./ScheduleInventoryPanel";
+import { PointStatusPanel } from "./PointStatusPanel";
+import { BacnetCovPanel } from "./BacnetCovPanel";
+import { BacnetEventsPanel } from "./BacnetEventsPanel";
+import { EventReceptionPanel } from "./EventReceptionPanel";
+import { NetworkNumberPlanPanel } from "./NetworkNumberPlanPanel";
+import { BusPreflightPanel } from "./BusPreflightPanel";
+import { OperationPowerPanel } from "./OperationPowerPanel";
 
 export function Connections() {
   const [config, setConfig] = useState({
@@ -48,7 +64,7 @@ export function Connections() {
     [busy, setBusy] = useState(false),
     [command, setCommand] = useState("50"),
     [priority, setPriority] = useState(16),
-    [plan, setPlan] = useState<any>(null),
+    [plan, setPlan] = useState<{ receipt: any; text: string } | null>(null),
     [serialPorts, setSerialPorts] = useState<any[]>([]),
     [mstp, setMstp] = useState({
       port: "",
@@ -72,6 +88,8 @@ export function Connections() {
     [modbusResult, setModbusResult] = useState<any>(null);
   const mounted = useRef(false),
     statusEpoch = useRef(0),
+    previewEpoch = useRef(0),
+    previewSource = useRef(""),
     ipDirty = useRef(false);
   const routerKey = (address?: string) =>
     address?.trim()
@@ -85,6 +103,14 @@ export function Connections() {
       routerKey(status.config?.router) === routerKey(selectedRoute.router) &&
       Number(status.config?.dnet) === selectedRoute.dnet);
   const pointReady = status.connected && selectedRouteReady;
+  previewSource.current = JSON.stringify({
+    target,
+    object,
+    command,
+    priority,
+    ready: pointReady,
+    config: status.config,
+  });
   const probeNetwork = Number(config.dnet);
   const probeDnet =
     Number.isInteger(probeNetwork) && probeNetwork >= 1 && probeNetwork <= 65534
@@ -194,6 +220,7 @@ export function Connections() {
     return () => {
       mounted.current = false;
       statusEpoch.current++;
+      previewEpoch.current++;
     };
   }, []);
   useEffect(() => {
@@ -279,16 +306,22 @@ export function Connections() {
         type={type}
         disabled={busy}
         value={config[name]}
+        onFocus={() => {
+          // Claim the draft before text selection/typing: late status hydration
+          // must not replace a focused value or move its insertion point.
+          ipDirty.current = true;
+        }}
         onChange={(e) => {
           setPlan(null);
           ipDirty.current = true;
-          setConfig({
-            ...config,
-            [name]:
-              type === "number" && name !== "dnet"
-                ? Number(e.target.value)
-                : e.target.value,
-          });
+          const value =
+            type === "number" && name !== "dnet"
+              ? Number(e.target.value)
+              : e.target.value;
+          setConfig((current) => ({
+            ...current,
+            [name]: value,
+          }));
         }}
       />
     </label>
@@ -339,6 +372,7 @@ export function Connections() {
           )}
         </div>
       </div>
+      <OperationPowerPanel />
       <div className="two-column">
         <section className="card">
           <div className="card-header">
@@ -670,6 +704,8 @@ export function Connections() {
           </div>
         </section>
       </div>
+      <NetworkNumberPlanPanel />
+      <BusPreflightPanel />
       <DeviceScanPanel
         connected={
           status.connected && !busy && status.config?.transport !== "mstp"
@@ -694,10 +730,135 @@ export function Connections() {
           setSelectedRoute({ router, dnet });
         }}
       />
+      <BacnetCovPanel
+        connected={
+          !!status.connected &&
+          !busy &&
+          status.config?.transport !== "mstp" &&
+          !status.config?.bbmd_address
+        }
+        defaultAddress={target}
+        defaultDevice={object.trim().startsWith("device,") ? object : ""}
+        defaultObject={object}
+        defaultRouter={selectedRoute?.router || status.config?.router || ""}
+        defaultDnet={selectedRoute?.dnet || status.config?.dnet}
+      />
+      <EventReceptionPanel
+        connected={
+          !!status.connected &&
+          !busy &&
+          status.config?.transport !== "mstp" &&
+          !status.config?.bbmd_address
+        }
+        defaultAddress={target}
+        defaultDevice={object.trim().startsWith("device,") ? object : ""}
+        defaultRouter={
+          selectedRoute?.router || (/^\d+:/.test(target) ? config.router : "")
+        }
+        defaultDnet={
+          selectedRoute?.dnet ?? (/^\d+:/.test(target) ? probeDnet : null)
+        }
+      />
+      <PointStatusPanel
+        connected={
+          !!status.connected &&
+          !busy &&
+          status.config?.transport !== "mstp" &&
+          !status.config?.bbmd_address
+        }
+        interfaceIdentity={JSON.stringify(status.config ?? null)}
+        defaultAddress={target}
+        defaultDevice={object.trim().startsWith("device,") ? object : ""}
+        defaultObject={object}
+        defaultRouter={
+          selectedRoute?.router || (/^\d+:/.test(target) ? config.router : "")
+        }
+        defaultDnet={
+          selectedRoute?.dnet ?? (/^\d+:/.test(target) ? probeDnet : null)
+        }
+      />
+      <EnumMappingPanel />
+      <ScheduleInventoryPanel
+        connected={
+          !!status.connected &&
+          !busy &&
+          status.config?.transport !== "mstp" &&
+          !status.config?.bbmd_address
+        }
+        defaultAddress={target}
+        defaultDevice={object.trim().startsWith("device,") ? object : ""}
+        defaultRouter={
+          selectedRoute?.router || (/^\d+:/.test(target) ? config.router : "")
+        }
+        defaultDnet={
+          selectedRoute?.dnet ?? (/^\d+:/.test(target) ? probeDnet : null)
+        }
+      />
+      <BacnetEventsPanel
+        connected={
+          !!status.connected && !busy && status.config?.transport !== "mstp"
+        }
+        defaultAddress={target}
+        defaultDevice={object.trim().startsWith("device,") ? object : ""}
+        defaultRouter={
+          selectedRoute?.router || (/^\d+:/.test(target) ? config.router : "")
+        }
+        defaultDnet={
+          selectedRoute?.dnet ?? (/^\d+:/.test(target) ? probeDnet : null)
+        }
+      />
+      <BbmdTablesPanel
+        connected={
+          !!status.connected && !busy && status.config?.transport !== "mstp"
+        }
+        defaultEndpoint={
+          status.config?.bbmd_address ||
+          selectedRoute?.router ||
+          (target.includes(".") ? target : "")
+        }
+      />
+      <BbmdAdminPanel
+        connected={
+          !!status.connected &&
+          !busy &&
+          status.config?.transport !== "mstp" &&
+          !status.config?.bbmd_address
+        }
+        defaultEndpoint={
+          status.config?.bbmd_address ||
+          selectedRoute?.router ||
+          (target.includes(".") ? target : "")
+        }
+      />
       <BacnetFilesPanel
         connected={!!pointReady && !busy}
         defaultAddress={target}
         defaultDevice={object.trim().startsWith("device,") ? object : ""}
+      />
+      <HardwareSurveyPanel
+        connected={!!pointReady && !busy}
+        defaultTransport={
+          status.config?.transport === "mstp" ? "direct-mstp" : "bacnet-ip"
+        }
+        interfaceConfig={status.config}
+        defaultAddress={target}
+        defaultDevice={object.trim().startsWith("device,") ? object : ""}
+        defaultRouter={
+          status.config?.transport === "mstp"
+            ? ""
+            : selectedRoute?.router ||
+              (/^\d+(?::\d+)?$/.test(target.trim())
+                ? status.config?.router || ""
+                : "")
+        }
+        defaultDnet={
+          status.config?.transport === "mstp"
+            ? null
+            : (selectedRoute?.dnet ??
+              (/^\d+(?::\d+)?$/.test(target.trim())
+                ? (status.config?.dnet ?? null)
+                : null))
+        }
       />
       <ControllerProbePanel
         connected={!!probeReady}
@@ -772,6 +933,13 @@ export function Connections() {
             physical input. Preview checks an unused priority slot; relinquish
             clears the command owned by this session.
           </p>
+          <p className="help-text">
+            Integer tokens must be exactly representable in binary64. Decimal
+            and exponent tokens use finite binary64 semantics. Preview shows
+            requested_value separately from value, the native BACnet wire value;
+            Real32 rounding can differ. Use quoted strings or bare enum labels
+            such as active and inactive, or JSON true and false.
+          </p>
           <div className="form-grid">
             <label>
               Command value
@@ -804,20 +972,29 @@ export function Connections() {
               disabled={busy || !pointReady}
               onClick={() =>
                 action(async () => {
-                  let v: any;
-                  try {
-                    v = JSON.parse(command);
-                  } catch {
-                    v = command;
-                  }
-                  setPlan(
-                    await api("/bacnet/write-plan", {
+                  setPlan(null);
+                  const value = parseBacnetCommandIntent(command),
+                    request = {
                       address: target,
                       object_id: object,
-                      value: v,
+                      value,
                       priority,
-                    }),
-                  );
+                    },
+                    epoch = ++previewEpoch.current,
+                    source = previewSource.current,
+                    result = await programJsonDocument(
+                      "/bacnet/write-plan",
+                      request,
+                    ),
+                    text = await result.blob.text();
+                  if (
+                    !mounted.current ||
+                    epoch !== previewEpoch.current ||
+                    source !== previewSource.current
+                  )
+                    return;
+                  verifyBacnetCommandPlan(request, result.data, text);
+                  setPlan({ receipt: result.data, text });
                 })
               }
             >
@@ -830,7 +1007,9 @@ export function Connections() {
                 onClick={() =>
                   action(async () => {
                     setValue(
-                      await api("/bacnet/write-apply", { token: plan.token }),
+                      await api("/bacnet/write-apply", {
+                        token: plan.receipt.token,
+                      }),
                     );
                     setPlan(null);
                   })
@@ -841,7 +1020,9 @@ export function Connections() {
             )}
           </div>
           {plan && (
-            <pre className="result">{JSON.stringify(plan, null, 2)}</pre>
+            <pre className="result" aria-label="BACnet command preview">
+              {plan.text}
+            </pre>
           )}
           {status.commands.map((c: any) => (
             <div className="owned-command" key={c.id}>

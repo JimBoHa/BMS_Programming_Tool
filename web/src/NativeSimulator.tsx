@@ -1,3 +1,5 @@
+import { numericToken, executionSourceInput } from "./programSource";
+import { sourceApi, programApi } from "./api";
 import { useEffect, useMemo, useState } from "react";
 import {
   ReactFlow,
@@ -243,7 +245,7 @@ export function NativeSimulator({
   const [newValue, setNewValue] = useState("0");
   const [nativeSlot, setNativeSlot] = useState("in");
   async function refresh() {
-    const s = await api("/native/status");
+    const s = await sourceApi("/native/status");
     setStatus(s);
     if (s.running) setComponents((await api("/native/inventory")).components);
     else setComponents([]);
@@ -318,13 +320,24 @@ export function NativeSimulator({
               <small>
                 {status.running ? status.address : "Simulator stopped"}
               </small>
+              {status.source_generator && (
+                <>
+                  <small>
+                    Literal profile: <code>{status.source_generator.id}</code>
+                  </small>
+                  <details>
+                    <summary>Literal rules SHA-256</summary>
+                    <code>{status.source_generator.rules_sha256}</code>
+                  </details>
+                </>
+              )}
             </div>
             <button
               className="primary"
               disabled={busy || status.available === false}
               onClick={() =>
                 action(async () => {
-                  await api("/native/start", { program });
+                  await sourceApi("/native/start", { program });
                   setInputs({});
                   setQualities({});
                   setPending([]);
@@ -350,7 +363,7 @@ export function NativeSimulator({
               disabled={busy || !status.running}
               onClick={() =>
                 action(async () => {
-                  const saved = await api("/native/save", {
+                  const saved = await sourceApi("/native/save", {
                     expected_revision: status.program.revision,
                   });
                   onSaved(saved);
@@ -420,12 +433,13 @@ export function NativeSimulator({
                         <input
                           type="number"
                           aria-label={"Native input " + n.id}
-                          value={inputs[n.id] ?? n.params.default ?? 0}
+                          value={numericToken(
+                            inputs[n.id] ?? n.params.default ?? 0,
+                          )}
                           onChange={(e) =>
-                            setInputs({
-                              ...inputs,
-                              [n.id]: Number(e.target.value),
-                            })
+                            executionSourceInput(e, (value) =>
+                              setInputs({ ...inputs, [n.id]: value }),
+                            )
                           }
                         />
                       )}
@@ -466,7 +480,7 @@ export function NativeSimulator({
                           },
                         ]),
                       );
-                      const result = await api("/native/step", {
+                      const result = await programApi("/native/step", {
                         inputs: values,
                         ...(clock ? { clock: clock + "Z" } : {}),
                       });

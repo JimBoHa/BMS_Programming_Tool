@@ -9,14 +9,12 @@ from __future__ import annotations
 
 import asyncio
 import copy
-import fcntl
 import hashlib
 import io
 import json
 import math
 import os
 import secrets
-import stat
 import threading
 import time
 import zipfile
@@ -44,6 +42,7 @@ from bacpypes3.errors import DecodingError, InvalidTag
 from bacpypes3.primitivedata import Boolean, CharacterString, ObjectIdentifier, Unsigned
 
 from .bacnet_exchange import confirmed_exchange
+from .file_access import file_lock, open_regular, regular_file, storage_profile, sync_directory
 
 PROFILE = "bacnet-opaque-file/1"
 SCOPE = "Existing BACnet File object bytes only; not CAF conversion or a coherent native application backup."
@@ -134,6 +133,7 @@ class BacnetFiles:
             "scope": SCOPE,
             "read_only": True,
             "auto_poll": False,
+            "storage": storage_profile(),
             "native_caf": False,
             "limits": {
                 "file_bytes": MAX_BYTES,
@@ -598,31 +598,12 @@ class BacnetFiles:
 
     @contextmanager
     def _capture_lock(self):
-        flags = os.O_RDWR | os.O_CREAT | os.O_NONBLOCK | getattr(os, "O_NOFOLLOW", 0)
-        try:
-            descriptor = os.open(self.directory / ".capture.lock", flags, 0o600)
-        except OSError as exc:
-            raise ValueError("File capture storage lock is unavailable.") from exc
-        try:
-            if not stat.S_ISREG(os.fstat(descriptor).st_mode):
-                raise ValueError("File capture storage lock must be a regular file.")
-            deadline = time.monotonic() + 2
-            while True:
-                try:
-                    fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                    break
-                except BlockingIOError:
-                    if time.monotonic() >= deadline:
-                        raise ValueError(
-                            "File capture storage is busy; no existing capture was changed."
-                        ) from None
-                    time.sleep(0.01)
-            try:
-                yield
-            finally:
-                fcntl.flock(descriptor, fcntl.LOCK_UN)
-        finally:
-            os.close(descriptor)
+        with file_lock(
+            self.directory / ".capture.lock", timeout=2,
+            busy="File capture storage is busy; no existing capture was changed.",
+            unavailable="File capture storage lock is unavailable.",
+        ):
+            yield
 
     def _save(self, report, data):
         # Reserve a unique capture name with O_EXCL. Nothing can overwrite an
@@ -636,7 +617,7 @@ class BacnetFiles:
         content = wrapper.getvalue()
         with self._capture_lock():
             existing = list(self.directory.glob("*.capture"))
-            if any(not stat.S_ISREG(path.lstat().st_mode) for path in existing):
+            if any(not regular_file(path.lstat()) for path in existing):
                 raise ValueError("Saved file captures must be regular files.")
             if (
                 len(existing) >= MAX_CAPTURES
@@ -647,18 +628,14 @@ class BacnetFiles:
                 )
             path = self.directory / (report["id"] + ".capture")
             temporary = self.directory / ("." + report["id"] + "." + secrets.token_hex(6) + ".tmp")
-            fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            fd = open_regular(temporary, writable=True, create=True, exclusive=True)
             try:
                 with os.fdopen(fd, "wb") as stream:
                     stream.write(content)
                     stream.flush()
                     os.fsync(stream.fileno())
                 os.link(temporary, path)
-                directory = os.open(self.directory, os.O_RDONLY)
-                try:
-                    os.fsync(directory)
-                finally:
-                    os.close(directory)
+                sync_directory(self.directory)
             finally:
                 temporary.unlink(missing_ok=True)
         self.store.record(
@@ -675,12 +652,12 @@ class BacnetFiles:
         identifier = _identifier(identifier)
         path = self.directory / (identifier + ".capture")
         try:
-            fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK | getattr(os, "O_NOFOLLOW", 0))
+            fd = open_regular(path)
         except OSError as exc:
             raise ValueError("BACnet file capture is unavailable or not a regular file.") from exc
         with os.fdopen(fd, "rb") as stream:
             info = os.fstat(stream.fileno())
-            if not stat.S_ISREG(info.st_mode) or info.st_size > MAX_BYTES + 512 * 1024:
+            if not regular_file(info) or info.st_size > MAX_BYTES + 512 * 1024:
                 raise ValueError("BACnet file capture exceeds its regular-file size profile.")
             raw = stream.read(MAX_BYTES + 512 * 1024 + 1)
         try:

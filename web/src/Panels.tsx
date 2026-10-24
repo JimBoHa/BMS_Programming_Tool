@@ -1,3 +1,16 @@
+import { SPEEDS } from "./simulationClock";
+import "./simulation-pacing.css";
+import type { useSimulationClock } from "./useSimulationClock";
+import {
+  parseExecutionSourceJSON,
+  executionSourceValue,
+  isSourceNumber,
+  numericToken,
+  sourceNumber,
+  sourceStringify,
+  parseSourceJSON,
+  type ExecutionValue,
+} from "./programSource";
 import { useEffect, useState } from "react";
 import {
   Play,
@@ -13,7 +26,8 @@ import {
 } from "lucide-react";
 import type { Block, BmsNode, Program, Scan } from "./types";
 import { showValue } from "./types";
-import { api, saveBlob } from "./api";
+import type { ActivityBindings } from "./activityContracts";
+import { programApi, saveBlob } from "./api";
 
 export function Inspector({
   node,
@@ -26,6 +40,11 @@ export function Inspector({
   forces,
   onForceChange,
   last,
+  executionValues,
+  activityBindings,
+  onActivityForceChange,
+  sourceEpoch,
+  onRefreshActivityPorts,
 }: {
   node?: BmsNode;
   block?: Block;
@@ -34,9 +53,14 @@ export function Inspector({
   onDuplicate: () => void;
   program: Program;
   onSelect: (id: string) => void;
-  forces: Record<string, number | boolean>;
-  onForceChange: (forces: Record<string, number | boolean>) => void;
+  forces: Record<string, ExecutionValue>;
+  onForceChange: (forces: Record<string, ExecutionValue>) => void;
+  executionValues: Record<string, ExecutionValue>;
   last?: Scan;
+  activityBindings?: ActivityBindings | null;
+  onActivityForceChange?: (forces: Record<string, ExecutionValue>) => void;
+  sourceEpoch?: number;
+  onRefreshActivityPorts?: () => void;
 }) {
   if (!node || !block)
     return (
@@ -57,9 +81,36 @@ export function Inspector({
         </div>
       </aside>
     );
+  if (node.kind === "Activity")
+    return (
+      <ActivityInspector
+        key={node.id + ":" + sourceEpoch}
+        node={node}
+        block={block}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        onDuplicate={onDuplicate}
+        bindings={activityBindings}
+        forces={forces}
+        onForceChange={onActivityForceChange || onForceChange}
+        executionValues={executionValues}
+        last={last}
+        onRefresh={onRefreshActivityPorts}
+      />
+    );
   const p = { ...block.parameters, ...node.params };
   function param(key: string, value: any) {
-    if (node) onEdit({ ...node, params: { ...node.params, [key]: value } });
+    if (node) {
+      let unit = node.unit;
+      if (key === "unit" && node.kind === "TemperatureDifference")
+        unit =
+          { degF: "delta-degF", degC: "delta-degC", K: "delta-K" }[
+            value as "degF" | "degC" | "K"
+          ] || node.unit;
+      if (key === "unit" && node.kind === "TemperatureOffset") unit = value;
+      if (key === "to" && node.kind === "DeltaConvert") unit = value;
+      onEdit({ ...node, unit, params: { ...node.params, [key]: value } });
+    }
   }
   return (
     <aside className="inspector">
@@ -109,7 +160,7 @@ export function Inspector({
         <label>
           Engineering units
           <input
-            placeholder="e.g. degF, %, cfm"
+            placeholder="e.g. degF, delta-degF, %, cfm"
             value={node.unit}
             onChange={(e) => onEdit({ ...node, unit: e.target.value })}
           />
@@ -126,29 +177,27 @@ export function Inspector({
               />
             ) : Array.isArray(value) && key === "exceptions" ? (
               <JsonParameter value={value} onChange={(v) => param(key, v)} />
-            ) : Array.isArray(value) ? (
-              <input
-                value={value.join(",")}
-                onChange={(e) =>
-                  param(
-                    key,
-                    e.target.value.split(",").filter(Boolean).map(Number),
-                  )
-                }
+            ) : Array.isArray(value) &&
+              value.every(
+                (item) => typeof item === "number" || isSourceNumber(item),
+              ) ? (
+              <NumericParameter
+                value={value}
+                onChange={(v) => param(key, v)}
+                array
+              />
+            ) : typeof value === "number" || isSourceNumber(value) ? (
+              <NumericParameter value={value} onChange={(v) => param(key, v)} />
+            ) : value === null || typeof value === "object" ? (
+              <JsonParameter
+                value={value}
+                onChange={(v) => param(key, v)}
+                label={key + " parameter JSON"}
               />
             ) : (
               <input
-                type={typeof value === "number" ? "number" : "text"}
-                step="any"
                 value={value}
-                onChange={(e) =>
-                  param(
-                    key,
-                    typeof value === "number"
-                      ? Number(e.target.value)
-                      : e.target.value,
-                  )
-                }
+                onChange={(e) => param(key, e.target.value)}
               />
             )}
           </label>
@@ -169,6 +218,7 @@ export function Inspector({
           forces={forces}
           onChange={onForceChange}
           last={last}
+          executionValues={executionValues}
         />
         <DependencyView program={program} node={node.id} onSelect={onSelect} />
       </div>
@@ -176,23 +226,206 @@ export function Inspector({
   );
 }
 
+function ActivityInspector({
+  node,
+  block,
+  onEdit,
+  onDelete,
+  onDuplicate,
+  bindings,
+  forces,
+  onForceChange,
+  executionValues,
+  last,
+  onRefresh,
+}: {
+  node: BmsNode;
+  block: Block;
+  onEdit: (node: BmsNode) => void;
+  onDelete: () => void;
+  onDuplicate: () => void;
+  bindings?: ActivityBindings | null;
+  forces: Record<string, ExecutionValue>;
+  onForceChange: (forces: Record<string, ExecutionValue>) => void;
+  executionValues: Record<string, ExecutionValue>;
+  last?: Scan;
+  onRefresh?: () => void;
+}) {
+  return (
+    <aside className="inspector" aria-label="Activity output inspector">
+      <div className="panel-heading">ACTIVITY PORTS</div>
+      <div className="inspector-body">
+        <button onClick={onRefresh}>Refresh activity port authority</button>
+        <p className="help-text">
+          Refreshing restarts the local simulation and clears its history and
+          forces.
+        </p>
+        <h3>{node.label || node.id}</h3>
+        <code>{node.params.definition}</code>
+        <label>
+          Activity label
+          <input
+            aria-label="Activity label"
+            value={node.label}
+            onChange={(event) => onEdit({ ...node, label: event.target.value })}
+          />
+        </label>
+        <p className="help-text">
+          This container has no scalar output. Each named port has its own
+          value, unit and portable simulation force.
+        </p>
+        <div className="button-row">
+          <button onClick={onDuplicate}>Duplicate</button>
+          <button className="danger" onClick={onDelete}>
+            Delete
+          </button>
+        </div>
+        {!bindings && (
+          <p role="status">
+            Validate this source before applying output forces. No old alias
+            authority is reused.
+          </p>
+        )}
+        <div className="activity-port-values">
+          {(block.outputs || []).map((port) => {
+            const binding = bindings?.outputs.find(
+              (row) =>
+                row.instance_path.length === 1 &&
+                row.instance_path[0] === node.id &&
+                row.output_id === port.id,
+            );
+            const value = binding
+              ? (executionValues[binding.alias_node_id] ??
+                last?.values[binding.alias_node_id])
+              : undefined;
+            const computed = binding
+              ? last?.computed?.[binding.alias_node_id]
+              : undefined;
+            return (
+              <section
+                key={port.id}
+                className="activity-port-value"
+                aria-label={"Activity output " + port.id}
+              >
+                <h4>{port.label || port.id}</h4>
+                <code>{port.id}</code>
+                <p>
+                  {port.value_type} · {port.unit || "dimensionless"}
+                </p>
+                <p>
+                  Last value: <b>{showValue(value)}</b>
+                  {computed !== undefined && (
+                    <>
+                      {" "}
+                      · computed <b>{showValue(computed)}</b>
+                    </>
+                  )}
+                </p>
+                {binding && (
+                  <ForceEditor
+                    node={{
+                      ...node,
+                      id: binding.alias_node_id,
+                      kind: "Switch",
+                      unit: port.unit,
+                      value_type: port.value_type,
+                      params: {},
+                    }}
+                    block={{
+                      kind: "Switch",
+                      title: port.label || port.id,
+                      category: "Activity output",
+                      inputs: ["on", "off", "select"],
+                      output: "same",
+                      parameters: {},
+                      help: "Portable output alias",
+                      stateful: false,
+                    }}
+                    forces={forces}
+                    onChange={onForceChange}
+                    last={last}
+                    executionValues={executionValues}
+                  />
+                )}
+              </section>
+            );
+          })}
+        </div>
+        <p className="help-text">
+          These values and forces belong to the local portable graph. A private
+          alias is not a controller address, physical override or native JCI
+          identity.
+        </p>
+      </div>
+    </aside>
+  );
+}
+
+/** A deliberate valid edit creates a new source token even when Number equality is unchanged. */
+function NumericParameter({
+  value,
+  onChange,
+  array = false,
+}: {
+  value: any;
+  onChange: (v: any) => void;
+  array?: boolean;
+}) {
+  const render = () =>
+    array ? value.map(numericToken).join(",") : numericToken(value);
+  const key = render();
+  const [text, setText] = useState(key),
+    [error, setError] = useState("");
+  useEffect(() => {
+    setText(key);
+    setError("");
+  }, [key]);
+  return (
+    <>
+      <input
+        inputMode="decimal"
+        value={text}
+        onChange={(event) => {
+          const next = event.target.value;
+          setText(next);
+          try {
+            const parsed = array
+              ? next
+                  .split(",")
+                  .filter((part) => part.trim())
+                  .map(sourceNumber)
+              : sourceNumber(next);
+            onChange(parsed);
+            setError("");
+          } catch (e) {
+            setError("Edit not applied: " + String(e));
+          }
+        }}
+      />
+      {error && <span className="inline-error">{error}</span>}
+    </>
+  );
+}
+
 function JsonParameter({
   value,
   onChange,
+  label = "Calendar exception JSON",
 }: {
-  value: unknown[];
-  onChange: (v: unknown[]) => void;
+  value: unknown;
+  onChange: (v: any) => void;
+  label?: string;
 }) {
-  const [text, setText] = useState(JSON.stringify(value, null, 2));
+  const [text, setText] = useState(sourceStringify(value, 2));
   const [error, setError] = useState("");
   useEffect(() => {
-    setText(JSON.stringify(value, null, 2));
+    setText(sourceStringify(value, 2));
     setError("");
-  }, [JSON.stringify(value)]);
+  }, [sourceStringify(value)]);
   return (
     <>
       <textarea
-        aria-label="Calendar exception JSON"
+        aria-label={label}
         rows={7}
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -201,9 +434,9 @@ function JsonParameter({
         type="button"
         onClick={() => {
           try {
-            const parsed = JSON.parse(text);
-            if (!Array.isArray(parsed))
-              throw new Error("Use a JSON array of date exceptions.");
+            const parsed = parseSourceJSON(text);
+            if (Array.isArray(value) && !Array.isArray(parsed))
+              throw new Error("Use a JSON array for this parameter.");
             onChange(parsed);
             setError("");
           } catch (e) {
@@ -211,7 +444,9 @@ function JsonParameter({
           }
         }}
       >
-        Apply calendar exceptions
+        {label === "Calendar exception JSON"
+          ? "Apply calendar exceptions"
+          : "Apply parameter JSON"}
       </button>
       {error && <span className="inline-error">{error}</span>}
     </>
@@ -224,11 +459,13 @@ function ForceEditor({
   forces,
   onChange,
   last,
+  executionValues,
 }: {
   node: BmsNode;
   block: Block;
-  forces: Record<string, number | boolean>;
-  onChange: (forces: Record<string, number | boolean>) => void;
+  forces: Record<string, ExecutionValue>;
+  onChange: (forces: Record<string, ExecutionValue>) => void;
+  executionValues: Record<string, ExecutionValue>;
   last?: Scan;
 }) {
   const boolean =
@@ -237,11 +474,11 @@ function ForceEditor({
       : block.output === "boolean";
   const initial =
     forces[node.id] ??
-    last?.values[node.id] ??
+    executionValues[node.id] ??
     node.params.value ??
     node.params.default ??
     (boolean ? false : 0);
-  const [value, setValue] = useState(String(initial));
+  const [value, setValue] = useState(numericToken(initial));
   const [error, setError] = useState("");
   const requested = Object.hasOwn(forces, node.id);
   const applied = !!last?.forces && Object.hasOwn(last.forces, node.id);
@@ -271,16 +508,15 @@ function ForceEditor({
       </label>
       <button
         onClick={() => {
-          const next = boolean ? value === "true" : Number(value);
-          if (
-            typeof next === "number" &&
-            (!value.trim() || !Number.isFinite(next))
-          ) {
-            setError("Enter a finite force value.");
-            return;
+          try {
+            const next = boolean
+              ? value === "true"
+              : executionSourceValue(value);
+            setError("");
+            onChange({ ...forces, [node.id]: next });
+          } catch (e) {
+            setError(String(e));
           }
-          setError("");
-          onChange({ ...forces, [node.id]: next });
         }}
       >
         Hold simulation value
@@ -326,7 +562,7 @@ function DependencyView({
     setData(null);
     setError("");
     const timer = setTimeout(() => {
-      api("/dependencies", { program, node })
+      programApi("/dependencies", { program, node })
         .then((result) => {
           if (live) setData(result);
         })
@@ -474,9 +710,12 @@ export function SimulationPanel({
   setInputs,
   running,
   setRunning,
+  pacing,
+  simBusy,
+  cleanup,
   onStep,
   onReset,
-  onScenario,
+  onRunScenario,
   error,
   forces,
   onReleaseForces,
@@ -485,6 +724,7 @@ export function SimulationPanel({
   recordingError,
   nextClock,
   setNextClock,
+  activityBindings,
 }: {
   program: Program;
   history: Scan[];
@@ -492,17 +732,29 @@ export function SimulationPanel({
   setInputs: (v: Record<string, any>) => void;
   running: boolean;
   setRunning: (v: boolean) => void;
+  pacing: ReturnType<typeof useSimulationClock>;
+  simBusy: boolean;
+  cleanup: {
+    pending: number;
+    failed: number;
+    error: string;
+    unknown: boolean;
+    cache: string;
+    retry: () => void;
+    check: () => void;
+  };
   onStep: () => void;
   onReset: () => void;
-  onScenario: (h: Scan[]) => void;
+  onRunScenario: (events: unknown, duration: number) => Promise<void>;
   error: string;
-  forces: Record<string, number | boolean>;
+  forces: Record<string, ExecutionValue>;
   onReleaseForces: () => void;
   recordHistory: boolean;
   setRecordHistory: (v: boolean) => void;
   recordingError: string;
   nextClock: string;
   setNextClock: (v: string) => void;
+  activityBindings?: ActivityBindings | null;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [events, setEvents] = useState(
@@ -511,19 +763,38 @@ export function SimulationPanel({
   const [scenarioError, setScenarioError] = useState("");
   const [duration, setDuration] = useState(90);
   function csv() {
-    const columns = program.nodes.map((n) => n.id);
+    const columns = program.nodes.flatMap((node) =>
+      node.kind === "Activity"
+        ? (activityBindings?.outputs || [])
+            .filter(
+              (row) =>
+                row.instance_path.length === 1 &&
+                row.instance_path[0] === node.id,
+            )
+            .map((row) => ({
+              id: row.alias_node_id,
+              label: row.instance_path.join(".") + "." + row.output_id,
+            }))
+        : [{ id: node.id, label: node.id }],
+    );
     const quote = (v: any) => '"' + String(v ?? "").replaceAll('"', '""') + '"';
     const text = [
-      ["seconds", "clock", ...columns, "force_overrides", "computed_values"]
+      [
+        "seconds",
+        "clock",
+        ...columns.map((column) => column.label),
+        "force_overrides",
+        "computed_values",
+      ]
         .map(quote)
         .join(","),
       ...history.map((r) =>
         [
           r.time,
           r.clock,
-          ...columns.map((c) => r.values[c]),
-          JSON.stringify(r.forces || {}),
-          JSON.stringify(r.computed || {}),
+          ...columns.map((column) => r.values[column.id]),
+          sourceStringify(r.forces || {}),
+          sourceStringify(r.computed || {}),
         ]
           .map(quote)
           .join(","),
@@ -556,6 +827,13 @@ export function SimulationPanel({
             {history.at(-1)?.time.toFixed(1) || "0.0"} s
           </span>
           <button
+            disabled={
+              !running &&
+              (simBusy ||
+                !!nextClock ||
+                pacing.report?.status === "pausing" ||
+                pacing.report?.status === "fault")
+            }
             onClick={() => setRunning(!running)}
             className={running ? "" : "primary"}
             title={running ? "Pause simulation" : "Run simulation"}
@@ -565,6 +843,7 @@ export function SimulationPanel({
           </button>
           <button
             onClick={onStep}
+            disabled={simBusy || running}
             title="Step simulation"
             aria-label="Step simulation"
           >
@@ -575,7 +854,11 @@ export function SimulationPanel({
           </button>
           <button
             onClick={csv}
-            disabled={!history.length}
+            disabled={
+              !history.length ||
+              (program.nodes.some((node) => node.kind === "Activity") &&
+                !activityBindings)
+            }
             title="Export simulation CSV"
           >
             <Download size={14} />
@@ -590,6 +873,86 @@ export function SimulationPanel({
           )}
         </div>
       </div>
+      <div
+        className="simulation-pacing"
+        aria-label="Simulation pacing controls"
+      >
+        <label>
+          Requested speed
+          <select
+            aria-label="Requested simulation speed"
+            value={pacing.speed}
+            disabled={running || simBusy || pacing.report?.status === "pausing"}
+            onChange={(e) => {
+              pacing.retire();
+              pacing.setSpeed(Number(e.target.value));
+            }}
+          >
+            {SPEEDS.map((speed) => (
+              <option value={speed} key={speed}>
+                {speed}× real time
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Maximum scans per run
+          <input
+            aria-label="Maximum scans per run"
+            type="number"
+            min="1"
+            max="10000"
+            value={pacing.limit}
+            disabled={running || simBusy || pacing.report?.status === "pausing"}
+            onChange={(e) => {
+              pacing.retire();
+              pacing.setLimit(Number(e.target.value));
+            }}
+          />
+        </label>
+        <span>
+          Fixed scan: {program.scan_seconds} s · at most 100 scans/batch, 86400
+          simulated seconds/run and one active wall hour.
+        </span>
+        <output aria-label="Simulation pacing status" aria-live="polite">
+          {pacing.report
+            ? `${pacing.report.status}: ${pacing.report.completedScans} confirmed committed scans, ${pacing.report.remainingScans} remaining; requested ${pacing.report.requestedSpeed}×, achieved ${pacing.report.achievedSpeed.toFixed(2)}×; lag ${pacing.report.lagSeconds.toFixed(2)} simulated s; ${pacing.report.pendingScans} admitted pending. ${pacing.report.reason}`
+            : "Idle. Run starts a bounded pacing window; Step executes one fixed scan. No hidden-page or workspace-navigation catch-up."}
+        </output>
+        {nextClock && (
+          <small>
+            Apply the explicit UTC clock with Step before running. Monotonic
+            pacing time does not set simulation UTC.
+          </small>
+        )}
+      </div>
+      <div
+        className="simulation-pacing"
+        aria-label="Local simulation session cleanup"
+      >
+        <output aria-label="Simulation cleanup status" aria-live="polite">
+          {cleanup.pending
+            ? `Releasing ${cleanup.pending} owned local calculation session(s). Run, Step and scenarios wait for cleanup.`
+            : cleanup.failed
+              ? `${cleanup.failed} local session cleanup request(s) unconfirmed: ${cleanup.error}`
+              : "Known calculation sessions are released on reset/source replacement, scenario completion and document exit. Recorded history and alarms are unchanged."}
+        </output>
+        {cleanup.failed > 0 && (
+          <button onClick={cleanup.retry} disabled={cleanup.pending > 0}>
+            Retry session cleanup
+          </button>
+        )}
+        <button onClick={cleanup.check}>Check local session cache</button>
+        {cleanup.cache && <small>{cleanup.cache}</small>}
+        {cleanup.unknown && (
+          <small>
+            Some first replies could not be verified. Unknown session IDs cannot
+            be safely removed and may remain until the one-hour idle expiry.
+            There is a 25-session local cache limit; no automatic scan retry
+            occurs.
+          </small>
+        )}
+      </div>
       {recordingError && (
         <div className="inline-error">
           Scan completed; history recording failed: {recordingError}
@@ -601,6 +964,7 @@ export function SimulationPanel({
           type="datetime-local"
           aria-label="Next scan UTC clock"
           value={nextClock}
+          disabled={running || simBusy}
           onChange={(e) => setNextClock(e.target.value)}
           step="1"
         />
@@ -612,9 +976,13 @@ export function SimulationPanel({
             .map((n) => {
               const current = inputs[n.id] ?? n.params.default ?? 0;
               const value =
-                typeof current === "object" ? current.value : current;
+                typeof current === "object" && !isSourceNumber(current)
+                  ? current.value
+                  : current;
               const quality =
-                typeof current === "object" ? current.quality : "good";
+                typeof current === "object" && !isSourceNumber(current)
+                  ? current.quality
+                  : "good";
               const change = (v: any, q = quality) =>
                 setInputs({
                   ...inputs,
@@ -640,8 +1008,16 @@ export function SimulationPanel({
                       aria-label={"Simulate " + n.id}
                       type="number"
                       step="any"
-                      value={value}
-                      onChange={(e) => change(Number(e.target.value))}
+                      value={numericToken(value)}
+                      onChange={(e) => {
+                        try {
+                          change(executionSourceValue(e.target.value));
+                          e.currentTarget.setCustomValidity("");
+                        } catch (error) {
+                          e.currentTarget.setCustomValidity(String(error));
+                          e.currentTarget.reportValidity();
+                        }
+                      }}
                     />
                   )}
                   <select
@@ -692,17 +1068,12 @@ export function SimulationPanel({
             />
           </label>
           <button
+            disabled={running || simBusy}
             onClick={async () => {
               try {
-                setRunning(false);
-                const r = await api("/simulation/scenario", {
-                  program,
-                  events: JSON.parse(events),
-                  duration,
-                  forces,
-                });
-                onScenario(r.history);
+                const parsed = parseExecutionSourceJSON(events);
                 setScenarioError("");
+                await onRunScenario(parsed, duration);
               } catch (e) {
                 setScenarioError(String(e));
               }

@@ -280,10 +280,14 @@ def test_invalid_instance_or_connection_is_rejected(mutation, message):
 
 @pytest.mark.parametrize("field,value", [("version", 2), ("unknown", True)])
 def test_library_schema_is_strict(field, value):
+    from bms_tool.macros import _load_library
+
     program = caller()
     program.metadata["macros"][field] = value
     with pytest.raises(ValidationError):
-        expand_macros(program)
+        # The v1 schema stays strict; exact integer2 now deliberately dispatches
+        # to the separate activity implementation at the public entry point.
+        _load_library(program)
     program.metadata["macros"] = None
     with pytest.raises(ValidationError):
         expand_macros(program)
@@ -455,7 +459,11 @@ def test_instantiation_creates_unique_typed_unwired_nodes_without_changing_sourc
         expand_macros(instantiated)
 
 
-@pytest.mark.parametrize("coordinate", [True, float("nan"), float("inf"), "42", 10**1000])
+@pytest.mark.parametrize(
+    "coordinate",
+    [True, float("nan"), float("inf"), "42", 10**1000],
+    ids=["boolean", "nan", "infinity", "numeric-string", "huge-integer"],
+)
 def test_instantiation_rejects_invalid_coordinates(coordinate):
     with pytest.raises(ValueError, match="coordinates must be finite numbers"):
         instantiate_macro(caller(), "adder", coordinate, 0)

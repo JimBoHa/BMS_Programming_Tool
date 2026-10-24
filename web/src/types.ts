@@ -1,3 +1,4 @@
+import { markProgram } from "./programSource";
 export type Block = {
   kind: string;
   title: string;
@@ -8,6 +9,12 @@ export type Block = {
   help: string;
   stateful: boolean;
   unit?: string;
+  outputs?: {
+    id: string;
+    label: string;
+    value_type: "number" | "boolean";
+    unit: string;
+  }[];
 };
 export type BmsNode = {
   id: string;
@@ -55,29 +62,34 @@ export type Scan = {
   forces?: Record<string, number | boolean>;
   computed?: Record<string, number | boolean>;
 };
-export const blankProgram = (): Program => ({
-  schema_version: 1,
-  id: "project-" + Date.now().toString(36),
-  name: "New control program",
-  description: "",
-  revision: 0,
-  scan_seconds: 1,
-  target: {
-    family: "universal-runtime",
-    model: "",
-    firmware: "",
-    release_mode: "",
-    max_nodes: 2000,
-    physical_inputs: null,
-    physical_outputs: null,
-  },
-  nodes: [],
-  edges: [],
-  metadata: {},
-});
+export const blankProgram = (): Program =>
+  markProgram({
+    schema_version: 1,
+    id: "project-" + Date.now().toString(36),
+    name: "New control program",
+    description: "",
+    revision: 0,
+    scan_seconds: 1,
+    target: {
+      family: "universal-runtime",
+      model: "",
+      firmware: "",
+      release_mode: "",
+      max_nodes: 2000,
+      physical_inputs: null,
+      physical_outputs: null,
+    },
+    nodes: [],
+    edges: [],
+    metadata: {},
+  });
 export const showValue = (value: unknown) =>
   typeof value === "number"
-    ? Number(value.toFixed(3)).toString()
+    ? Object.is(value, -0)
+      ? "-0.0"
+      : Number.isInteger(value) && !Number.isSafeInteger(value)
+        ? BigInt(value).toString()
+        : Number(value.toFixed(3)).toString()
     : typeof value === "boolean"
       ? value
         ? "TRUE"

@@ -17,8 +17,17 @@ Studio graph → Python reference ← compare ← native Clang executable
 
 MatIEC receives the same ST downloaded by the portable exporter, with one small
 configuration/resource/task declaration appended to instantiate `PROGRAM MAIN`.
-The host driver calls MatIEC's generated `MAIN_init__` and `MAIN_body__`
-functions. Host bindings provide elapsed scan seconds, day/minute and inputs;
+The host driver zero-initializes all `MAIN_data__` storage before calling
+MatIEC's generated `MAIN_init__`, then calls `MAIN_body__` for each scan.
+The native profile identifies this policy as `studio-iec-zero-initialized-main/1`.
+Zero initialization clears runtime control flags; `MAIN_init__` subsequently
+applies declared nonzero/Boolean initial values. This fixes an earlier host
+bug where indeterminate automatic-storage FORCE flags could silently prevent
+assignments. That initialization policy left Program hashes, source profiles and
+generated C unchanged; the pinned external runtime is not patched. Current
+private symbol allocation is separately versioned in the
+[IEC identifier profile](iec-symbol-namespace.md).
+Host bindings provide elapsed scan seconds, day/minute and inputs;
 the compiled program produces its own outputs, retained state and fault flag.
 
 ## Install the optional compiler
@@ -79,7 +88,7 @@ at or after their time. Arbitrary ST/C uploads, output forces and native
 extensions are not accepted by these endpoints. Mutating requests require the
 local session token and pass the application's loopback host/origin checks.
 
-The independent execution tests compile and run all **27 graph block kinds**,
+The independent execution tests compile and run all **30 graph block kinds**,
 all **nine VAV example graphs**, feedback, independent nested macro instances,
 Boolean memory, PI anti-windup, timer/alarm resets, sensor quality faults,
 late-scan divide faults, float overflow, hosted calendars and timed scenarios.
@@ -99,6 +108,18 @@ an unavailable compiler never silently substitutes the Python engine.
   The portable exporter can represent literals up to float32's maximum, but
   this runtime's existing generated scan guard faults numeric node results
   beyond ±`3e38`; successful export alone does not bypass that runtime bound.
+- The host JSON encoder preserves the actual native negative-zero sign as
+  `-0.0` for numeric outputs and retained state. Earlier `%.9g` output emitted
+  `-0`, which JSON decoding converted to positive integer zero. The profile
+  identifies this transport correction as `studio-iec-json-negative-zero/1`.
+  Positive zero and other finite numbers keep their existing formatting;
+  nonfinite native values still appear as `null`. Values are never reconstructed
+  from the reference engine. Numeric comparison tolerances remain unchanged;
+  `matches_reference` is not an IEEE sign-equivalence certification.
+  The browser pairs each accepted verification/scenario result with its original
+  HTTP response Blob and downloads those bytes. Input/source changes clear that
+  pair; generation and unmount guards reject stale results. Export does not
+  re-serialize parsed JSON or remove numeric spelling/type information.
 - Numeric inputs must be actual finite numbers within ±`3e38`; numeric strings,
   Boolean numbers, NaN, infinity and nonzero values that underflow float32 are
   rejected. Boolean inputs must be actual Booleans. Unknown input names fail.

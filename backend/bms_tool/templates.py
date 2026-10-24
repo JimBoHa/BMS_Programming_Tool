@@ -45,7 +45,7 @@ def vav(variant="cooling-only", family="universal-runtime"):
     node(
         "min_flow",
         "Scale",
-        "Minimum airflow",
+        "Damper position mapping",
         650,
         140,
         {"in_min": 0, "in_max": 100, "out_min": 20, "out_max": 100},

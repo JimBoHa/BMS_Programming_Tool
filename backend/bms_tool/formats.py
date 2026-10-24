@@ -12,7 +12,23 @@ from defusedxml import ElementTree as SafeXML
 
 from .blocks import BLOCKS
 from .engine import execution_order, output_type, validate
+from .executable_numbers import require_number
+from .iec_symbols import CURRENT as SYMBOLS_CURRENT
+from .iec_symbols import LEGACY as SYMBOLS_LEGACY
+from .iec_symbols import SymbolTable, verify_symbol_profile
+from .iec_symbols import read_source_document as read_iec_source_document
+from .iec_symbols import source_document as iec_source_document
+from .iec_symbols import symbol_profile as iec_symbol_profile
 from .models import Program, canonical
+from .source_profiles import (
+    CURRENT,
+    LEGACY,
+    read_source_document,
+    source_document,
+    source_profile,
+    verify_source_profile,
+)
+from .temperature import DELTA_FOR_ABSOLUTE, difference_expression
 
 PLC = "http://www.plcopen.org/xml/tc6_0201"
 XHTML = "http://www.w3.org/1999/xhtml"
@@ -33,18 +49,21 @@ def _check(program):
         raise ConversionError("; ".join(errors))
 
 
-def _literal(v):
+def _literal(v, *, profile=CURRENT):
+    source_profile(profile)
     if type(v) is bool:
         return "TRUE" if v else "FALSE"
-    if type(v) not in (int, float):
-        raise ConversionError("Cannot export nonnumeric/nonboolean literal.")
+    try:
+        require_number(v, "Literal")
+    except ValueError as exc:
+        raise ConversionError(str(exc)) from exc
     try:
         encoded = struct.unpack(">f", struct.pack(">f", v))[0]
     except (OverflowError, struct.error) as exc:
         raise ConversionError("Literal exceeds the IEC REAL 32-bit range.") from exc
     if v != 0 and encoded == 0:
         raise ConversionError("Literal underflows the IEC REAL 32-bit range.")
-    s = format(v, ".15g")
+    s = format(v, ".15g") if profile == LEGACY else repr(v) if type(v) is float else str(v)
     # IEC real literals require a fractional part, including in scientific
     # notation. Python's 1e+30 is rejected by independent IEC compilers.
     mantissa, separator, exponent = s.lower().partition("e")
@@ -53,11 +72,16 @@ def _literal(v):
     return mantissa + ("E" + exponent if separator else "")
 
 
-def structured_text_parts(program):
+def structured_text_parts(program, *, profile=CURRENT):
     from .macros import expand_macros
 
     program = expand_macros(program)
     _check(program)
+    source_profile(profile)
+
+    def literal(value):
+        return _literal(value, profile=profile)
+
     nodes = {n.id: n for n in program.nodes}
     links = {(e.target, e.target_port): e.source for e in program.edges}
     # Prefix every name; preserve a reversible map without colliding with IEC keywords.
@@ -66,7 +90,7 @@ def structured_text_parts(program):
         raise ConversionError("Node identifiers collide under case-insensitive IEC naming.")
     declarations = {"inputVars": [], "outputVars": [], "localVars": []}
     declarations["inputVars"] += [
-        ("StudioScanSeconds", "REAL", _literal(program.scan_seconds)),
+        ("StudioScanSeconds", "REAL", literal(program.scan_seconds)),
         ("StudioDayOfWeek", "INT", "0"),
         ("StudioMinuteOfDay", "INT", "0"),
     ]
@@ -80,7 +104,7 @@ def structured_text_parts(program):
             else "localVars"
         )
         initial = (
-            _literal(n.params.get("default", False if output_type(n) == "boolean" else 0))
+            literal(n.params.get("default", False if output_type(n) == "boolean" else 0))
             if n.kind == "Input"
             else None
         )
@@ -140,7 +164,7 @@ def structured_text_parts(program):
             return names[links[(current_node, port)]]
 
         def lit(key, parameters=p):
-            return _literal(parameters[key])
+            return literal(parameters[key])
 
         expression = None
         if k == "Input":
@@ -203,6 +227,15 @@ def structured_text_parts(program):
                 if p["to"] == "K"
                 else c
             )
+        elif k == "TemperatureDifference":
+            expression = f"{a('a')} - {a('b')}"
+        elif k == "DeltaConvert":
+            expression = difference_expression(a("in"), p["from"], p["to"])
+        elif k == "TemperatureOffset":
+            difference = difference_expression(
+                a("difference"), p["difference_unit"], DELTA_FOR_ABSOLUTE[p["unit"]]
+            )
+            expression = f"{a('base')} + {difference}"
         elif k == "Switch":
             lines.append(
                 f"IF {a('select')} THEN {name} := {a('on')}; ELSE {name} := {a('off')}; END_IF;"
@@ -286,8 +319,8 @@ def structured_text_parts(program):
     return declarations, "\n".join(lines)
 
 
-def export_st(program, embedded=True):
-    declarations, body = structured_text_parts(program)
+def _legacy_export_st(program, embedded=True, *, profile=CURRENT):
+    declarations, body = structured_text_parts(program, profile=profile)
     text = "PROGRAM MAIN\n"
     for category, keyword in [
         ("inputVars", "VAR_INPUT"),
@@ -300,12 +333,15 @@ def export_st(program, embedded=True):
         text += "END_VAR\n"
     text += body + "\nEND_PROGRAM\n"
     if embedded:
-        text += "(* BMS_STUDIO_IR_V1 " + base64.b64encode(canonical(program)).decode() + " *)\n"
+        marker, document = (
+            ("V1", canonical(program)) if profile == LEGACY else ("V2", source_document(program))
+        )
+        text += "(* BMS_STUDIO_IR_" + marker + " " + base64.b64encode(document).decode() + " *)\n"
     return text.encode()
 
 
-def export_plcopen(program):
-    declarations, body = structured_text_parts(program)
+def _legacy_export_plcopen(program, *, profile=CURRENT):
+    declarations, body = structured_text_parts(program, profile=profile)
     XML.register_namespace("", PLC)
     XML.register_namespace("xhtml", XHTML)
     XML.register_namespace("bms", BMS)
@@ -350,6 +386,78 @@ def export_plcopen(program):
         {"sha256": hashlib.sha256(canonical(program)).hexdigest()},
     )
     ir.text = base64.b64encode(canonical(program)).decode()
+    if profile != LEGACY:
+        info = source_profile(profile)
+        ir.set("sourceProfile", info["id"])
+        ir.set("sourceProfileRules", info["rules_sha256"])
+    return XML.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+def iec_source_parts(program):
+    """New IEC policy only; preserve the old expression emitter and Sedona path."""
+    from .macros import expand_macros
+
+    expanded = expand_macros(program)
+    _check(expanded)
+    symbols = SymbolTable(expanded)
+    lowered = symbols.lowered()
+    declarations, body = structured_text_parts(lowered)
+    symbols.verify_declarations(declarations)
+    return declarations, body, symbols
+
+
+def _symbol_policy(profile, symbols):
+    source_profile(profile)
+    selected = (
+        (SYMBOLS_LEGACY if profile == LEGACY else SYMBOLS_CURRENT) if symbols is None else symbols
+    )
+    if selected not in (SYMBOLS_CURRENT, SYMBOLS_LEGACY):
+        raise ConversionError("Unknown IEC symbol-generator profile.")
+    if selected == SYMBOLS_CURRENT and profile != CURRENT:
+        raise ConversionError("Current IEC symbols require the current numeric literal profile.")
+    return selected
+
+
+def export_st(program, embedded=True, *, profile=CURRENT, symbols=None):
+    if _symbol_policy(profile, symbols) == SYMBOLS_LEGACY:
+        _require_legacy_activity_absence(program)
+        return _legacy_export_st(program, embedded=embedded, profile=profile)
+    declarations, body, _ = iec_source_parts(program)
+    text = "PROGRAM MAIN\n"
+    for category, keyword in [
+        ("inputVars", "VAR_INPUT"),
+        ("outputVars", "VAR_OUTPUT"),
+        ("localVars", "VAR"),
+    ]:
+        text += keyword + "\n"
+        for name, kind, initial in declarations[category]:
+            text += f"  {name} : {kind}" + (" := " + initial if initial is not None else "") + ";\n"
+        text += "END_VAR\n"
+    text += body + "\nEND_PROGRAM\n"
+    if embedded:
+        text += (
+            "(* BMS_STUDIO_IR_V3 "
+            + base64.b64encode(iec_source_document(program)).decode()
+            + " *)\n"
+        )
+    return text.encode()
+
+
+def export_plcopen(program, *, profile=CURRENT, symbols=None):
+    if _symbol_policy(profile, symbols) == SYMBOLS_LEGACY:
+        _require_legacy_activity_absence(program)
+        return _legacy_export_plcopen(program, profile=profile)
+    # The original writer emits unchanged control expressions over a private
+    # copy. Only the original graph may be embedded or returned to an editor.
+    _, _, allocation = iec_source_parts(program)
+    root = XML.fromstring(_legacy_export_plcopen(allocation.lowered()))
+    ir = root.find(".//{" + BMS + "}program")
+    raw = canonical(program)
+    ir.text = base64.b64encode(raw).decode()
+    ir.set("sha256", hashlib.sha256(raw).hexdigest())
+    info = iec_symbol_profile()
+    ir.set("iecSymbols", info["id"])
+    ir.set("iecSymbolsRules", info["rules_sha256"])
     return XML.tostring(root, encoding="utf-8", xml_declaration=True)
 
 
@@ -438,13 +546,25 @@ def import_program(content, filename):
     if name.endswith(".json"):
         return Program.model_validate_json(content)
     if name.endswith(".st"):
-        match = re.search(rb"\(\* BMS_STUDIO_IR_V1 ([A-Za-z0-9+/=]+) \*\)", content)
-        if not match:
+        markers = re.findall(rb"\(\* BMS_STUDIO_IR_V([A-Za-z0-9]+) ([A-Za-z0-9+/=]+) \*\)", content)
+        if len(markers) != 1:
             raise ConversionError(
-                "ST import currently supports BMS Studio generated files, not arbitrary IEC source."
+                "ST import requires one supported Studio source-profile marker, not arbitrary IEC source."
             )
-        program = Program.model_validate_json(base64.b64decode(match.group(1), validate=True))
-        if export_st(program) != content:
+        version, encoded = markers[0]
+        raw = base64.b64decode(encoded, validate=True)
+        if version == b"1":
+            program = Program.model_validate_json(raw)
+            expected = _archival_st(program)
+        elif version == b"2":
+            program = read_source_document(raw)
+            expected = export_st(program, symbols=SYMBOLS_LEGACY)
+        elif version == b"3":
+            program = read_iec_source_document(raw)
+            expected = export_st(program)
+        else:
+            raise ConversionError("Unknown ST source-generator profile marker.")
+        if expected != content:
             raise ConversionError(
                 "ST source was edited outside Studio. Embedded graph no longer matches; import refused."
             )
@@ -458,7 +578,32 @@ def import_program(content, filename):
                     "PLCopen import currently supports Studio-generated projects with graph metadata. Arbitrary vendor PLCopen requires a schema/semantic adapter."
                 )
             program = Program.model_validate_json(base64.b64decode(ir.text or "", validate=True))
-            if export_plcopen(program) != content:
+            if set(ir.attrib) == {"sha256"}:
+                expected = _archival_plcopen(program)
+            elif set(ir.attrib) == {"sha256", "sourceProfile", "sourceProfileRules"}:
+                verify_source_profile(
+                    {"id": ir.get("sourceProfile"), "rules_sha256": ir.get("sourceProfileRules")}
+                )
+                expected = export_plcopen(program, symbols=SYMBOLS_LEGACY)
+            elif set(ir.attrib) == {
+                "sha256",
+                "sourceProfile",
+                "sourceProfileRules",
+                "iecSymbols",
+                "iecSymbolsRules",
+            }:
+                verify_source_profile(
+                    {"id": ir.get("sourceProfile"), "rules_sha256": ir.get("sourceProfileRules")}
+                )
+                verify_symbol_profile(
+                    {"id": ir.get("iecSymbols"), "rules_sha256": ir.get("iecSymbolsRules")}
+                )
+                expected = export_plcopen(program)
+            else:
+                raise ConversionError(
+                    "Unknown or conflicting PLCopen source-generator profile markers."
+                )
+            if expected != content:
                 raise ConversionError(
                     "PLCopen source or metadata differs from the embedded graph; import refused."
                 )
@@ -473,7 +618,15 @@ def import_program(content, filename):
             if ir is None:
                 raise ConversionError("GraphML lacks BMS graph metadata.")
             program = Program.model_validate_json(ir.text or "")
-            if export_graphml(program) != content:
+            library = program.metadata.get("macros")
+            expected = (
+                export_graphml(program)
+                if isinstance(library, dict)
+                and type(library.get("version")) is int
+                and library["version"] == 2
+                else _archival_graphml(program)
+            )
+            if expected != content:
                 raise ConversionError(
                     "GraphML structure differs from embedded graph; import refused."
                 )
@@ -481,3 +634,51 @@ def import_program(content, filename):
     raise ConversionError(
         "Unrecognized import format. CAF inspection uses the separate loss-preserving CAF adapter."
     )
+
+
+def _require_legacy_activity_absence(program):
+    raw = program.metadata.get("macros")
+    if (isinstance(raw, dict) and type(raw.get("version")) is int and raw["version"] == 2) or any(
+        node.kind == "Activity" for node in program.nodes
+    ):
+        raise ConversionError("Version2 activities require the current V3 IEC source envelope.")
+
+
+def _archival_st(program):
+    """Pure legacy-source comparison; never export a projected graph to a user."""
+    from .executable_numbers import _legacy_source_projection
+
+    _require_legacy_activity_absence(program)
+    projected = _legacy_source_projection(program)
+    return _legacy_export_st(projected, embedded=False, profile=LEGACY) + (
+        b"(* BMS_STUDIO_IR_V1 " + base64.b64encode(canonical(program)) + b" *)\n"
+    )
+
+
+def _archival_plcopen(program):
+    from .executable_numbers import _legacy_source_projection
+
+    _require_legacy_activity_absence(program)
+    root = XML.fromstring(
+        _legacy_export_plcopen(_legacy_source_projection(program), profile=LEGACY)
+    )
+    embedded = root.find(".//{" + BMS + "}program")
+    embedded.text = base64.b64encode(canonical(program)).decode()
+    embedded.set("sha256", hashlib.sha256(canonical(program)).hexdigest())
+    return XML.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+def _archival_graphml(program):
+    from xml.sax.saxutils import escape
+
+    from .executable_numbers import _legacy_source_projection
+
+    projected = _legacy_source_projection(program)
+    generated = export_graphml(projected)
+    before, after = (
+        escape(canonical(projected).decode()).encode(),
+        escape(canonical(program).decode()).encode(),
+    )
+    if generated.count(before) != 1:
+        raise ConversionError("GraphML archival source comparison is ambiguous.")
+    return generated.replace(before, after, 1)

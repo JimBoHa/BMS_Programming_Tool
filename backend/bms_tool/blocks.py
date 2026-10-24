@@ -12,6 +12,7 @@ class Block:
     parameters: dict = field(default_factory=dict)
     help: str = ""
     stateful: bool = False
+    unit: str = ""
 
 
 BLOCKS = {
@@ -62,6 +63,30 @@ BLOCKS = {
         ("in",),
         parameters={"from": "degF", "to": "degC"},
         help="Absolute temperatures; never use this block for temperature differences.",
+    ),
+    "TemperatureDifference": Block(
+        "Temperature difference",
+        "Math",
+        ("a", "b"),
+        parameters={"unit": "degF"},
+        unit="delta-degF",
+        help="a minus b: both inputs are absolute temperatures in the declared unit (degF, degC or K). Output is the corresponding delta-degF, delta-degC or delta-K. No absolute zero/32-degree offset is applied.",
+    ),
+    "DeltaConvert": Block(
+        "Temperature difference conversion",
+        "Math",
+        ("in",),
+        parameters={"from": "delta-degF", "to": "delta-degC"},
+        unit="delta-degC",
+        help="Convert a temperature difference using scale only: 18 delta-degF = 10 delta-degC = 10 delta-K. Zero stays zero; absolute degF/degC/K inputs are rejected.",
+    ),
+    "TemperatureOffset": Block(
+        "Temperature offset",
+        "Math",
+        ("base", "difference"),
+        parameters={"unit": "degF", "difference_unit": "delta-degF"},
+        unit="degF",
+        help="Add a signed temperature difference to an absolute base. Declare the base unit (degF, degC or K) and difference unit (delta-degF, delta-degC or delta-K); the difference is scaled without an absolute offset. Output keeps the base unit.",
     ),
     "Greater": Block("Greater than", "Logic", ("a", "b"), "boolean"),
     "Less": Block("Less than", "Logic", ("a", "b"), "boolean"),

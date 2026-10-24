@@ -14,7 +14,6 @@ import math
 import os
 import re
 import sqlite3
-import stat
 import threading
 import uuid
 from contextlib import contextmanager
@@ -24,6 +23,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
+from .file_access import open_regular, regular_file, try_lock
 from .observability import ObservabilityStore, _clock, _integer, _text
 
 EVENTS = frozenset({"activated", "returned", "acknowledged", "source-ended"})
@@ -81,30 +81,11 @@ class _OwnerLock:
 
     def __init__(self, path):
         self.fd = None
-        flags = (
-            os.O_CREAT
-            | os.O_RDWR
-            | getattr(os, "O_NOFOLLOW", 0)
-            | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NONBLOCK", 0)
-        )
         try:
-            self.fd = os.open(path, flags, 0o600)
-            if not stat.S_ISREG(os.fstat(self.fd).st_mode):
-                raise ValueError("Outbox ownership lock must be a regular file.")
+            self.fd = open_regular(path, writable=True, create=True)
             if hasattr(os, "fchmod"):
                 os.fchmod(self.fd, 0o600)
-            if os.name == "nt":
-                import msvcrt
-
-                if os.fstat(self.fd).st_size == 0:
-                    os.write(self.fd, b"0")
-                os.lseek(self.fd, 0, os.SEEK_SET)
-                msvcrt.locking(self.fd, msvcrt.LK_NBLCK, 1)
-            else:
-                import fcntl
-
-                fcntl.flock(self.fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            try_lock(self.fd)
         except (OSError, ValueError) as exc:
             self.close()
             raise ValueError(
@@ -156,7 +137,7 @@ class NotificationOutbox:
         self.directory.chmod(0o700)
         self.db = self.directory / "notification_outbox.sqlite3"
         try:
-            if not stat.S_ISREG(self.db.lstat().st_mode):
+            if not regular_file(self.db.lstat()):
                 raise ValueError(
                     "Outbox database must be a regular file, not a symlink or directory."
                 )

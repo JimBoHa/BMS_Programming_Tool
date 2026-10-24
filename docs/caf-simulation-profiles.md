@@ -8,11 +8,11 @@ Johnson Controls documents [saved startup settings in Simulation mode](https://d
 
 The encoding was independently observed in the seven authorized private CAF examples. Four contain 72 `simulationProperty` records, all with native property identifier `3113`, on signal-block class version `1.0`. The other three contain none. The new folder's files duplicate the earlier sample corpus, so these are seven distinct files, not fourteen. No private CAF content is distributed with this implementation.
 
-| Native class | Scalar representation | Observed records | Editing |
-|---|---|---:|---|
-| 526, 527 | `float`, no scalar attributes | 39 | Existing scalar text only |
-| 530 | `boolean`, no scalar attributes | 11 | Existing scalar text only |
-| 528, 529 | `enum` with a native set identifier | 22 | Read-only |
+| Native class | Scalar representation               | Observed records | Editing                   |
+| ------------ | ----------------------------------- | ---------------: | ------------------------- |
+| 526, 527     | `float`, no scalar attributes       |               39 | Existing scalar text only |
+| 530          | `boolean`, no scalar attributes     |               11 | Existing scalar text only |
+| 528, 529     | `enum` with a native set identifier |               22 | Read-only                 |
 
 In particular, `simulationProperty id="3113"` and ordinary `property id="3113"` can coexist on an object. They are separate records. This feature changes only the former. Signal-block dictionary names are labels, not independent proof of the field's runtime behavior.
 
@@ -31,6 +31,10 @@ Float replacements require native decimal text, finite float32 range, and no non
 Profiles are bounded to 10,000 records and 2 MiB of compact serialized JSON, with reserved API/header space. Oversized metadata is rejected explicitly rather than truncating guard identities. The editor uses the CAF parser's actual XML token spans, copies ZIP metadata, reparses the result and verifies changed native values. The browser preserves drafts across workspace tabs, requires explicit discard before replacement/reset, and suppresses a pending download when its workspace is hidden.
 
 The API uses `GET /api/caf/{id}/simulation`, `GET /api/caf/{id}/simulation/profile`, and `POST /api/caf/{id}/simulation` with `{ "profile": ... }`. POST returns a downloadable native CAF and records only source hash/change count in the audit entry; it does not mutate the cached source.
+
+## Local input scenarios
+
+Named, persisted value/quality trajectories now have a separate [local CAF input scenario workflow](caf-local-input-scenarios.md). It previews input stimuli only and uses this existing editor to prepare scalar startup copies from all-good frames. It does not add native CCT execution or encode native trajectories/quality.
 
 ## Verification and remaining dependencies
 

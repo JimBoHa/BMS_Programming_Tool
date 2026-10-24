@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Database, Download, History, RefreshCw, Save } from "lucide-react";
-import { api, saveBlob } from "./api";
+import { api, saveBlob, type JsonDocument } from "./api";
+import { historyEvidence, historyVisible } from "./historyEvidence";
+import { MultipleHistoryPanel } from "./MultipleHistoryPanel";
 import "./temco-simulator.css";
 
 type RecordValue = {
@@ -56,7 +58,8 @@ export function DeviceHistory() {
   const [count, setCount] = useState("100");
   const [pageSize, setPageSize] = useState("25");
   const [fold, setFold] = useState("");
-  const [report, setReport] = useState<Report | null>(null);
+  const [document, setDocument] = useState<JsonDocument<Report> | null>(null);
+  const report = document?.data ?? null;
   const [capture, setCapture] = useState("");
   const [offset, setOffset] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -65,6 +68,7 @@ export function DeviceHistory() {
   const mounted = useRef(false);
   const generation = useRef(0);
   const statusRequest = useRef(0);
+  const panel = useRef<HTMLDivElement>(null);
   useEffect(() => {
     mounted.current = true;
     refresh().catch((e) => {
@@ -78,7 +82,7 @@ export function DeviceHistory() {
   }, []);
   function invalidate() {
     generation.current++;
-    setReport(null);
+    setDocument(null);
     setMessage("");
     setError("");
     setOffset(0);
@@ -100,7 +104,7 @@ export function DeviceHistory() {
     setError("");
     setMessage("");
     try {
-      let next: Report | null = null;
+      let next: JsonDocument<Report> | null = null;
       if (kind === "read") {
         const requested = Number(count),
           size = Number(pageSize),
@@ -131,19 +135,23 @@ export function DeviceHistory() {
           throw new Error(
             "Enter a valid range reference for the selected mode.",
           );
-        setReport(null);
-        next = await api("/bacnet/history/read", {
-          address: address.trim(),
-          object_id: objectId.trim(),
-          device_timezone: zone.trim(),
-          mode,
-          ...(mode === "time"
-            ? { reference_time: referenceTime + "Z" }
-            : { reference: anchor }),
-          count: requested,
-          page_size: size,
-          ...(fold ? { fold: Number(fold) } : {}),
-        });
+        setDocument(null);
+        next = await historyEvidence<Report>(
+          "/bacnet/history/read",
+          "trend-log",
+          {
+            address: address.trim(),
+            object_id: objectId.trim(),
+            device_timezone: zone.trim(),
+            mode,
+            ...(mode === "time"
+              ? { reference_time: referenceTime + "Z" }
+              : { reference: anchor }),
+            count: requested,
+            page_size: size,
+            ...(fold ? { fold: Number(fold) } : {}),
+          },
+        );
       } else if (kind === "save") {
         if (!report) throw new Error("Read history before saving a capture.");
         await api("/bacnet/history/save", { id: report.id });
@@ -153,11 +161,17 @@ export function DeviceHistory() {
           );
       } else if (kind === "load") {
         if (!capture) throw new Error("Choose a saved capture.");
-        next = await api("/bacnet/history/captures/" + capture);
+        setDocument(null);
+        next = await historyEvidence<Report>(
+          "/bacnet/history/captures/" + capture,
+          "trend-log",
+          undefined,
+          capture,
+        );
       }
       if (!mounted.current || current !== generation.current) return;
       if (next) {
-        setReport(next);
+        setDocument(next);
         setOffset(0);
       }
       await refresh();
@@ -169,12 +183,10 @@ export function DeviceHistory() {
     }
   }
   function jsonDownload() {
-    if (report)
+    if (document && !busy && mounted.current && historyVisible(panel.current))
       saveBlob(
-        new Blob([JSON.stringify(report, null, 2)], {
-          type: "application/json",
-        }),
-        "bacnet-device-history-" + report.id + ".json",
+        document.blob,
+        "bacnet-device-history-" + document.data.id + ".json",
       );
   }
   function csvDownload() {
@@ -273,24 +285,31 @@ export function DeviceHistory() {
   }
 
   return (
-    <div className="workspace-page temco-simulator">
+    <div className="workspace-page temco-simulator" ref={panel}>
       <div className="page-intro">
         <div>
           <span className="eyebrow">BACNET · EXISTING DEVICE HISTORY</span>
-          <h1>Device trend history</h1>
+          <h1>Device history</h1>
           <p>
-            Read stored Trend Log records through the shared BACnet connection.
-            Save explicit local captures without starting a polling job.
+            Read stored Trend Log, Trend Log Multiple and Event Log records
+            through the shared BACnet connection. Save explicit local captures
+            without starting a polling job.
           </p>
         </div>
         <History size={30} />
       </div>
       <p className="temco-scope">
-        BACnet log timestamps do not include a timezone. Enter the timezone used
-        by the device clock. Unresolved clock values and non-sample records
+        BACnet log timestamps do not include a timezone. Single-value Trend Log
+        reads require a device timezone; the other profiles can retain
+        unresolved native clocks. Unresolved clock values and non-sample records
         remain visible with their original data. These captures stay separate
         from simulation and live field-trend databases.
       </p>
+      {status?.storage && (
+        <p className="temco-scope" aria-label="History storage durability">
+          Local capture storage: {status.storage.durability}
+        </p>
+      )}
       <section className="temco-card" aria-label="BACnet history request">
         <h2>Addressed read-only request</h2>
         <p>
@@ -475,7 +494,10 @@ export function DeviceHistory() {
               aria-label="Saved device history capture"
               value={capture}
               disabled={busy}
-              onChange={(e) => setCapture(e.target.value)}
+              onChange={(e) => {
+                invalidate();
+                setCapture(e.target.value);
+              }}
             >
               <option value="">Choose a capture…</option>
               {status?.captures.map((item: any) => (
@@ -553,7 +575,7 @@ export function DeviceHistory() {
               <Save size={15} />
               Save immutable history capture
             </button>
-            <button onClick={jsonDownload}>
+            <button disabled={busy} onClick={jsonDownload}>
               <Download size={15} />
               Download device history JSON
             </button>
@@ -562,6 +584,10 @@ export function DeviceHistory() {
               Download device history CSV
             </button>
           </div>
+          <p className="temco-muted">
+            JSON preserves the original server response bytes and native numeric
+            values. Browser display and CSV use formatted values.
+          </p>
           <p className="temco-muted">
             CSV repeats capture provenance on each row. Empty reports contain a
             metadata-only row with blank record values.
@@ -639,6 +665,8 @@ export function DeviceHistory() {
           </details>
         </section>
       )}
+      <MultipleHistoryPanel />
+      <MultipleHistoryPanel eventLog />
     </div>
   );
 }

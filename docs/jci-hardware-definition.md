@@ -46,6 +46,14 @@ Migration compares stable point IDs within the same interface/vendor identity. I
 
 Open **JCI hardware**, upload the current native device-info XML, and choose imperial or metric profiles. Search the typed point catalog, choose explicit points or an existing native preset, and review a validated engineering selection. Native aliases and unsupported point descriptors produce visible errors. Upload a replacement XML to compare selected stable point IDs, binding changes, parameter changes and interface metadata. Export either original XML byte-for-byte or a separate JSON review report. The JSON report is an engineering artifact and does not become a native CAF or controller download.
 
+## Original report bytes and workspace ownership
+
+Engineering-selection and migration JSON downloads preserve the original HTTP response body bytes. The workspace parses a separate display copy; its formatted display may render `-0.0` as `0` or `1.0` as `1`. Downloads keep those original native Float spellings and do not rebuild the report from the display object.
+
+Reports belong to the exact XML source hashes, selected points and measurement system used by their request. Source imports, unit refreshes and point-selection changes retire earlier report authority. A failed import clears the affected source; a failed unit refresh clears both displayed profiles so they must be reopened. Held imports, unit responses, reports and XML exports cannot restore state or download after the workspace closes. An XML export also checks the returned bytes against the selected original source SHA before saving.
+
+These checks establish fidelity to the selected file and HTTP response, not publisher authentication, signed-package validation or manufacturer acceptance. The migration API reports changed and blocking point IDs rather than echoing every unchanged selected point; the browser binds its request context and reported source identities without claiming an independent reconstruction of the full migration result. Native interpretation, alias rejection, migration policy and the offline-only boundary remain the existing backend behavior. This extends FMT-010 without adding a second hardware-authoring capability.
+
 ## Tests and next native authoring dependency
 
 Authored examples exercise measurement selection, inheritance, enum behavior, alias collisions, malformed/unknown XML, protected metadata, and migration decisions. An optional local test reads the pinned public NS8000 fixture and checks all 25 point profiles in both systems, the actual alias collision, the actual preset, and byte-exact export without changing its source file. These are metadata tests, not controller acceptance tests.

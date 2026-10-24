@@ -8,7 +8,14 @@ from datetime import UTC, datetime, timedelta
 
 from .blocks import BLOCKS
 from .calendar_schedule import compile_schedule, validate_schedule_params
+from .executable_numbers import require_number
 from .models import Diagnostic, Program
+from .temperature import (
+    DELTA_FOR_ABSOLUTE,
+    TEMPERATURE_BLOCKS,
+    convert_difference,
+    input_units,
+)
 
 
 def validate(program: Program) -> list[Diagnostic]:
@@ -70,6 +77,9 @@ def validate(program: Program) -> list[Diagnostic]:
         if expected == "number" and b.kind not in (
             "Scale",
             "Convert",
+            "TemperatureDifference",
+            "DeltaConvert",
+            "TemperatureOffset",
             "PI",
             "Multiply",
             "Divide",
@@ -101,8 +111,7 @@ def validate(program: Program) -> list[Diagnostic]:
             if n.value_type == "boolean" and n.kind in ("Input", "Constant", "Delay"):
                 numeric.difference_update({"value", "default", "initial"})
             for key in numeric:
-                if type(p[key]) not in (int, float) or not math.isfinite(p[key]):
-                    raise ValueError(f"{key} must be a finite number")
+                require_number(p[key], key)
             for key, v in defaults.items():
                 if isinstance(v, bool) and type(p[key]) is not bool:
                     raise ValueError(f"{key} must be boolean")
@@ -123,6 +132,15 @@ def validate(program: Program) -> list[Diagnostic]:
                 or n.unit != p["to"]
             ):
                 raise ValueError("use degF, degC or K; output unit must equal 'to'")
+            if n.kind in TEMPERATURE_BLOCKS:
+                required = input_units(n.kind, p, n.unit)
+                for port, unit in required.items():
+                    source = incoming.get((n.id, port))
+                    if source is not None and source.unit != unit:
+                        raise ValueError(
+                            f"{port} requires {unit}, received {source.unit or 'dimensionless'}; "
+                            "absolute temperatures and differences are distinct quantities"
+                        )
             if n.kind == "Schedule":
                 validate_schedule_params(p)
             if n.kind in ("Input", "Constant", "Delay"):
@@ -266,9 +284,10 @@ class Engine:
                 valid = type(value) is bool
             else:
                 try:
-                    valid = type(value) in (int, float) and math.isfinite(value)
-                except OverflowError:
-                    valid = False
+                    require_number(value, f"{identifier}: force")
+                except ValueError as exc:
+                    raise ScanError(str(exc)) from exc
+                valid = True
             if not valid:
                 raise ScanError(f"{identifier}: force requires a finite {typ} value.")
         dt = self.program.scan_seconds if dt is None else dt
@@ -333,6 +352,14 @@ class Engine:
                         else arg("in")
                     )
                     v = c * 9 / 5 + 32 if p["to"] == "degF" else c + 273.15 if p["to"] == "K" else c
+                elif k == "TemperatureDifference":
+                    v = arg("a") - arg("b")
+                elif k == "DeltaConvert":
+                    v = convert_difference(arg("in"), p["from"], p["to"])
+                elif k == "TemperatureOffset":
+                    v = arg("base") + convert_difference(
+                        arg("difference"), p["difference_unit"], DELTA_FOR_ABSOLUTE[p["unit"]]
+                    )
                 elif k == "Greater":
                     v = arg("a") > arg("b")
                 elif k == "Less":
@@ -383,8 +410,11 @@ class Engine:
                 expected = output_type(n)
                 if expected == "boolean" and type(v) is not bool:
                     raise ScanError(f"{node_id}: expected boolean")
-                if expected == "number" and (type(v) not in (int, float) or not math.isfinite(v)):
-                    raise ScanError(f"{node_id}: expected finite number")
+                if expected == "number":
+                    try:
+                        require_number(v, node_id)
+                    except ValueError as exc:
+                        raise ScanError(str(exc)) from exc
                 if node_id in held:
                     computed[node_id] = v
                     v = held[node_id]

@@ -1,4 +1,16 @@
-import { memo, type DragEvent } from "react";
+import {
+  CanvasMeasurements,
+  type MeasurementOwner,
+} from "./canvasMeasurements";
+import {
+  memo,
+  useId,
+  useLayoutEffect,
+  useReducer,
+  useRef,
+  useCallback,
+  type DragEvent,
+} from "react";
 import {
   ReactFlow,
   Background,
@@ -7,6 +19,7 @@ import {
   Handle,
   Position,
   useReactFlow,
+  useUpdateNodeInternals,
   type Node,
   type NodeProps,
   type NodeChange,
@@ -15,6 +28,11 @@ import {
 import { CircuitBoard } from "lucide-react";
 import type { Block, BmsNode, Program, Scan } from "./types";
 import { showValue } from "./types";
+import {
+  matchesBlock,
+  type ActivityBinding,
+  type ActivityBindings,
+} from "./activityContracts";
 type ControlNode = Node<
   {
     block: BmsNode;
@@ -22,6 +40,13 @@ type ControlNode = Node<
     value: unknown;
     invalid: boolean;
     forced: boolean;
+    activityValues?: {
+      port: { id: string; label: string; unit: string };
+      value: unknown;
+      forced: boolean;
+    }[];
+    owner: MeasurementOwner;
+    measure: (owner: MeasurementOwner, element: HTMLElement) => void;
   },
   "control"
 >;
@@ -29,11 +54,41 @@ const ControlBlock = memo(function ControlBlock({
   data,
   selected,
 }: NodeProps<ControlNode>) {
-  const { block, spec, value, invalid, forced } = data;
+  const {
+    block,
+    spec,
+    value,
+    invalid,
+    forced,
+    owner,
+    measure,
+    activityValues,
+  } = data;
+  const element = useRef<HTMLDivElement>(null);
+  const updateInternals = useUpdateNodeInternals();
+  useLayoutEffect(() => {
+    const wrapper = element.current?.closest<HTMLElement>(".react-flow__node");
+    if (wrapper) measure(owner, wrapper);
+  });
+  // Replaced nodes/ports need current handle geometry even when their box size is unchanged.
+  useLayoutEffect(() => {
+    updateInternals(block.id);
+  }, [owner, block.id, updateInternals]);
   return (
     <div
-      className={`control-node category-${spec.category.toLowerCase().replace("/", "")} ${selected ? "selected" : ""} ${invalid ? "invalid" : ""} ${forced ? "forced" : ""}`}
-      style={{ minHeight: Math.max(108, spec.inputs.length * 29 + 55) }}
+      ref={element}
+      className={`control-node category-${spec.category.toLowerCase().replace("/", "")}${block.kind === "Activity" ? " activity-container" : ""} ${selected ? "selected" : ""} ${invalid ? "invalid" : ""} ${forced ? "forced" : ""}`}
+      style={{
+        minHeight: Math.max(
+          108,
+          Math.max(
+            spec.inputs.length,
+            block.kind === "Activity" ? spec.outputs?.length || 0 : 0,
+          ) *
+            29 +
+            55,
+        ),
+      }}
     >
       <div className="node-header">
         <span className="node-indicator" />
@@ -50,10 +105,33 @@ const ControlBlock = memo(function ControlBlock({
           </div>
         ))}
       </div>
-      <div className="output-port" style={{ top: 73 }}>
-        <span>{showValue(value)}</span>
-        <Handle type="source" position={Position.Right} id="out" />
-      </div>
+      {block.kind === "Activity" ? (
+        (spec.outputs || []).map((port, index) => {
+          const reading = activityValues?.find(
+            (row) => row.port.id === port.id,
+          );
+          return (
+            <div
+              className="output-port"
+              style={{ top: 73 + index * 29 }}
+              key={port.id}
+              title={port.id + (port.unit ? " · " + port.unit : "")}
+            >
+              <span>
+                {port.label || port.id}:{" "}
+                {reading ? showValue(reading.value) : "—"}
+                {reading?.forced ? " · FORCED" : ""}
+              </span>
+              <Handle type="source" position={Position.Right} id={port.id} />
+            </div>
+          );
+        })
+      ) : (
+        <div className="output-port" style={{ top: 73 }}>
+          <span>{showValue(value)}</span>
+          <Handle type="source" position={Position.Right} id="out" />
+        </div>
+      )}
       {block.kind === "Constant" && (
         <small className="constant-value">
           {showValue(block.params.value)}
@@ -75,6 +153,7 @@ export function Canvas({
   onConnect,
   onAdd,
   onRemoveWire,
+  activityBindings,
 }: {
   program: Program;
   blocks: Block[];
@@ -87,35 +166,87 @@ export function Canvas({
   onConnect: (c: Connection) => void;
   onAdd: (kind: string, x: number, y: number) => void;
   onRemoveWire: (id: string) => void;
+  activityBindings?: ActivityBindings | null;
 }) {
   const flow = useReactFlow();
-  const nodes: ControlNode[] = program.nodes.map((n) => ({
-    id: n.id,
-    type: "control",
-    position: { x: n.x, y: n.y },
-    selected: selected.includes(n.id),
-    data: {
-      block: n,
-      spec: blocks.find(
-        (b) =>
-          b.kind === n.kind &&
-          (b.kind !== "Macro" ||
-            b.parameters.definition === n.params.definition),
-      ) || {
-        kind: n.kind,
-        title: n.kind,
-        category: "unknown",
-        inputs: [],
-        output: "number",
-        parameters: {},
-        help: "Unknown block",
-        stateful: false,
-      },
-      value: last?.values[n.id],
-      invalid: issues.some((d) => d.node === n.id && d.level === "error"),
-      forced: !!last?.forces && Object.hasOwn(last.forces, n.id),
+  const canvasId = useId();
+  const cache = useRef<CanvasMeasurements | null>(null);
+  if (!cache.current) cache.current = new CanvasMeasurements(canvasId);
+  const [, changedGeometry] = useReducer((value: number) => value + 1, 0);
+  const measure = useCallback(
+    (owner: MeasurementOwner, element: HTMLElement) => {
+      if (cache.current!.measure(owner, element)) changedGeometry();
     },
-  }));
+    [],
+  );
+  const described = program.nodes.map((n) => {
+    const spec = blocks.find((b) => matchesBlock(b, n)) || {
+      kind: n.kind,
+      title: n.kind,
+      category: "unknown",
+      inputs: [],
+      output: "number",
+      parameters: {},
+      help: "Unknown block",
+      stateful: false,
+    };
+    return {
+      n,
+      spec,
+      shape: JSON.stringify([
+        n.kind,
+        n.value_type,
+        spec.inputs,
+        spec.output,
+        spec.category,
+        ...(n.kind === "Activity" ? [spec.outputs || []] : []),
+      ]),
+    };
+  });
+  const owners = cache.current.prepare(
+    program.id,
+    described.map(({ n, shape }) => ({ id: n.id, shape })),
+  );
+  const nodes: ControlNode[] = described.map(({ n, spec }) => {
+    const owner = owners.get(n.id)!;
+    return {
+      id: n.id,
+      type: "control",
+      position: { x: n.x, y: n.y },
+      selected: selected.includes(n.id),
+      measured: cache.current!.get(owner),
+      data: {
+        block: n,
+        spec,
+        value: last?.values[n.id],
+        invalid: issues.some((d) => d.node === n.id && d.level === "error"),
+        forced: !!last?.forces && Object.hasOwn(last.forces, n.id),
+        activityValues:
+          n.kind === "Activity"
+            ? (spec.outputs || []).map((port) => {
+                const binding = activityBindings?.outputs.find(
+                  (row: ActivityBinding) =>
+                    row.instance_path.length === 1 &&
+                    row.instance_path[0] === n.id &&
+                    row.output_id === port.id,
+                );
+                return {
+                  port,
+                  value: binding
+                    ? last?.values[binding.alias_node_id]
+                    : undefined,
+                  forced:
+                    !!binding &&
+                    !!last?.forces &&
+                    Object.hasOwn(last.forces, binding.alias_node_id),
+                };
+              })
+            : undefined,
+        owner,
+        measure,
+      },
+    };
+  });
   const edges = program.edges.map((e) => ({
     id: e.id,
     source: e.source,
@@ -139,6 +270,7 @@ export function Canvas({
   return (
     <div
       className="canvas"
+      data-canvas-owner={canvasId}
       onDrop={drop}
       onDragOver={(e) => {
         e.preventDefault();

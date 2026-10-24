@@ -30,7 +30,7 @@ def test_native_bog_and_basic_exports_are_real_reimportable_source(tmp_path):
         headers = {"X-Studio-Token": client.get("/api/session").json()["token"]}
         program = primitive()
         profile = client.get("/api/niagara/profile").json()
-        assert len(profile["native_types"]) == 20
+        assert len(profile["native_types"]) == 23
         assert {"Clamp", "Scale", "Convert"} <= set(profile["native_types"])
         assert profile["native_runtime_verified"] is False
         for format, extension in [("bog", "bog"), ("temco-bas", "bas")]:

@@ -1,0 +1,191 @@
+{
+  "description": "",
+  "edges": [
+    {
+      "id": "a_instance",
+      "source": "a",
+      "source_port": "out",
+      "target": "instance",
+      "target_port": "x"
+    },
+    {
+      "id": "b_instance",
+      "source": "b",
+      "source_port": "out",
+      "target": "instance",
+      "target_port": "y"
+    },
+    {
+      "id": "publish",
+      "source": "instance",
+      "source_port": "out",
+      "target": "out",
+      "target_port": "in"
+    }
+  ],
+  "id": "legacy-opaque-macro",
+  "metadata": {
+    "activity_expansion": {
+      "outputs": [
+        {
+          "alias_node_id": "untrusted",
+          "output_id": "fake"
+        }
+      ],
+      "version": 2
+    },
+    "macros": {
+      "definitions": [
+        {
+          "id": "adder",
+          "name": "Add two signals",
+          "program": {
+            "description": "",
+            "edges": [
+              {
+                "id": "xsum",
+                "source": "x",
+                "source_port": "out",
+                "target": "sum",
+                "target_port": "a"
+              },
+              {
+                "id": "ysum",
+                "source": "y",
+                "source_port": "out",
+                "target": "sum",
+                "target_port": "b"
+              },
+              {
+                "id": "publish",
+                "source": "sum",
+                "source_port": "out",
+                "target": "result",
+                "target_port": "in"
+              }
+            ],
+            "id": "adder",
+            "metadata": {},
+            "name": "Untitled program",
+            "nodes": [
+              {
+                "id": "x",
+                "kind": "Input",
+                "label": "",
+                "params": {},
+                "unit": "",
+                "value_type": "number",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "y",
+                "kind": "Input",
+                "label": "",
+                "params": {},
+                "unit": "",
+                "value_type": "number",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "sum",
+                "kind": "Add",
+                "label": "",
+                "params": {},
+                "unit": "",
+                "value_type": "number",
+                "x": 0.0,
+                "y": 0.0
+              },
+              {
+                "id": "result",
+                "kind": "Output",
+                "label": "",
+                "params": {},
+                "unit": "",
+                "value_type": "number",
+                "x": 0.0,
+                "y": 0.0
+              }
+            ],
+            "revision": 0,
+            "scan_seconds": 1.0,
+            "schema_version": 1,
+            "target": {
+              "family": "universal-runtime",
+              "firmware": "",
+              "max_nodes": 2000,
+              "model": "",
+              "physical_inputs": null,
+              "physical_outputs": null,
+              "release_mode": ""
+            }
+          }
+        }
+      ],
+      "version": 1
+    }
+  },
+  "name": "Untitled program",
+  "nodes": [
+    {
+      "id": "a",
+      "kind": "Input",
+      "label": "",
+      "params": {
+        "default": 2
+      },
+      "unit": "",
+      "value_type": "number",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": "b",
+      "kind": "Input",
+      "label": "",
+      "params": {
+        "default": 3
+      },
+      "unit": "",
+      "value_type": "number",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": "instance",
+      "kind": "Macro",
+      "label": "",
+      "params": {
+        "definition": "adder"
+      },
+      "unit": "",
+      "value_type": "number",
+      "x": 0.0,
+      "y": 0.0
+    },
+    {
+      "id": "out",
+      "kind": "Output",
+      "label": "",
+      "params": {},
+      "unit": "",
+      "value_type": "number",
+      "x": 0.0,
+      "y": 0.0
+    }
+  ],
+  "revision": 0,
+  "scan_seconds": 1.0,
+  "schema_version": 1,
+  "target": {
+    "family": "universal-runtime",
+    "firmware": "",
+    "max_nodes": 2000,
+    "model": "",
+    "physical_inputs": null,
+    "physical_outputs": null,
+    "release_mode": ""
+  }
+}
