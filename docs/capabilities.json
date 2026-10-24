@@ -478,5 +478,10 @@
     "feature": "Authored live-endpoint CO2 minimum-airflow reset activity",
     "status": "implemented",
     "scope": "CO2-MIN-FLOW-001 provides one editable 38-node / 57-edge activity2 graph with five required numeric live inputs, minimum-airflow and committed configuration-valid outputs, bounded authored linear reset and invalid-config hold in one Delay. Documented cfm/derived L/s defaults, guarded conversion, signed-zero source and original source-bound preview/export/import integrate with ordinary activity editing/simulation/revisions/interchange. Whole-scan quality rollback can retain positive flow and true diagnostic; native REAL coalescence/host limits remain explicit. No percent-damper/physical-output inference, measured ventilation/sizing/compliance, native JCI algorithms/reliability/Enum/CAF/packages/transfer or field/Bluetooth acceptance. Broad MF-74ca5999ab remains partial. See docs/co2-minimum-flow-template.md."
+  },
+  {
+    "feature": "Authored parallel fan thermal request and heating purge activity",
+    "status": "implemented",
+    "scope": "PARALLEL-FAN-PURGE-001 supplies an ordinary 51-node / 73-edge Activity2 with five required live numeric ports and two terminal Boolean outputs. Heating/cooling start, strict threshold hysteresis, raw-heating-low purge reset, live duration, declared-scan counter and invalid-good hold/reset have explicit local core/API and unchanged host IEC checks. Whole quality rollback can retain an On request, elapsed time and true diagnostic. Original source-bound review/import/export integrates with generic activity editing/simulation/revisions. Native threshold coalescence remains visible; no native JCI Enum/Timer/reliability/CAF/package/transfer, arbitrary-dt equivalence, fan proof/motor/electric-heat/physical or G36/Title24 acceptance. Broad MF-b292402bbd remains partial. See docs/parallel-fan-purge-template.md."
   }
 ]
