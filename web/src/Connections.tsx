@@ -44,6 +44,7 @@ import {
   TaskMount,
 } from "./ControllerWorkspace";
 import { WorkflowToolTabs } from "./WorkflowChrome";
+import { ControllerProgram, LiveControllerPoints } from "./LiveController";
 import {
   type ConnectionView,
   type ControllerContext,
@@ -60,6 +61,7 @@ export function Connections({
   onNavigate,
   onBusyChange,
   onConnectionSetup,
+  onOpenLocalFile,
 }: {
   visible?: boolean;
   view?: ConnectionView;
@@ -68,6 +70,7 @@ export function Connections({
   onNavigate?: (area: WorkspaceArea) => void;
   onBusyChange?: (busy: boolean) => void;
   onConnectionSetup?: () => void;
+  onOpenLocalFile?: () => void;
 }) {
   const [controller, setController] = useState<ControllerContext | null>(null);
   const [setupStep, setSetupStep] = useState<
@@ -84,12 +87,14 @@ export function Connections({
       { id: "instance", label: "Instance settings" },
     ],
     points: [
-      { id: "status", label: "Values & quality" },
+      { id: "live-points", label: "Live points & configuration" },
+      { id: "status", label: "Detailed point evidence" },
       { id: "property", label: "Read properties" },
       { id: "commands", label: "Commands & overrides" },
       { id: "hardware", label: "Hardware survey" },
       { id: "enum", label: "State mapping" },
     ],
+    program: [{ id: "application", label: "Controller application" }],
     schedules: [{ id: "schedules", label: "Schedules & calendars" }],
     monitor: [
       { id: "cov", label: "Live COV monitor" },
@@ -382,16 +387,20 @@ export function Connections({
         throw new Error(
           "Controller identity could not be verified. Review the station and try again.",
         );
-      setTarget(candidate.address);
+      const confirmedAddress = details.address || candidate.address;
+      const confirmedRouter = details.router ?? route;
+      const confirmedNetwork = details.dnet ?? dnet;
+      setTarget(confirmedAddress);
       setObject(device);
       setProperty("object-name");
       clearPointResults(true);
-      if (route && dnet != null) setSelectedRoute({ router: route, dnet });
+      if (confirmedRouter && confirmedNetwork != null)
+        setSelectedRoute({ router: confirmedRouter, dnet: confirmedNetwork });
       const active: ControllerContext = {
-        address: candidate.address,
+        address: confirmedAddress,
         device,
-        router: route,
-        dnet,
+        router: confirmedRouter,
+        dnet: confirmedNetwork,
         name: String(details.properties["object-name"]),
         model: String(details.properties["model-name"] || "Not exposed"),
         firmware: String(
@@ -835,6 +844,46 @@ export function Connections({
             </div>
           )}
           <BoundControllerContext.Provider value={!!controller}>
+            <TaskMount active={showTool("live-points")}>
+              {controller && (
+                <LiveControllerPoints
+                  key={controllerKey(controller) + controller.interfaceKey}
+                  controller={controller}
+                  connected={!!controllerReady}
+                  onVerified={(when) =>
+                    setController((current) =>
+                      current &&
+                      controllerKey(current) === controllerKey(controller)
+                        ? { ...current, verifiedAt: when }
+                        : current,
+                    )
+                  }
+                  onCommand={(selected) => {
+                    setObject(selected);
+                    setPlan(null);
+                    setToolChoice({ view: "points", tool: "commands" });
+                  }}
+                />
+              )}
+            </TaskMount>
+            <TaskMount active={showTool("application")}>
+              {controller && (
+                <ControllerProgram
+                  key={controllerKey(controller) + controller.interfaceKey}
+                  controller={controller}
+                  connected={!!controllerReady}
+                  onVerified={(when) =>
+                    setController((current) =>
+                      current &&
+                      controllerKey(current) === controllerKey(controller)
+                        ? { ...current, verifiedAt: when }
+                        : current,
+                    )
+                  }
+                  onLocalFile={onOpenLocalFile}
+                />
+              )}
+            </TaskMount>
             <TaskMount active={showTool("power")} preserve={false}>
               <OperationPowerPanel />
             </TaskMount>
