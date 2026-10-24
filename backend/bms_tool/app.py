@@ -102,6 +102,7 @@ from .network_number_plan import network_plan_router
 from .niagara import NiagaraArchive
 from .observability import ObservabilityStore
 from .operation_power import OperationPower
+from .parallel_fan_purge_template import parallel_fan_purge_template_router
 from .physical_capacity import capacity_router
 from .plant_signals import PlantSignals, plant_signal_router
 from .point_status import PointStatus, PointStatusCancel, PointStatusExport, PointStatusRequest
@@ -680,6 +681,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.include_router(activity_router())
     app.include_router(cw_isolation_output_template_router())
     app.include_router(co2_minimum_flow_template_router())
+    app.include_router(parallel_fan_purge_template_router())
 
     @app.middleware("http")
     async def local_requests(request, call_next):
