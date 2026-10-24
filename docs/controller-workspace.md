@@ -12,6 +12,10 @@ reference material. Opening the start screen does not open a field interface.
    router, choose one of its reported networks, then scan that trunk. A known
    router can also be queried by address. Direct IP discovery and known controller
    addresses provide shortcuts.
+   If the router does not advertise its networks, the app discovers that router's
+   Device identity and reads its cached address bindings. Those network choices
+   are labelled cached and require a fresh scan; they do not prove current device
+   liveness, an exhaustive network list or a physical trunk type.
 3. Select the controller by its physical route and choose **Open controller**.
    The application opens the required route and reads the controller identity.
    An open interface alone is not a verified controller.
