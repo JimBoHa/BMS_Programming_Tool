@@ -705,7 +705,7 @@ export function RoutedDiscoveryPanel({
                     if (device) selectController(device, scan);
                   }}
                 >
-                  Modify selected controller
+                  Open controller
                 </button>
               </div>
             </div>

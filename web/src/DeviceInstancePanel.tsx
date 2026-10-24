@@ -1,3 +1,4 @@
+import { TargetFields } from "./ControllerWorkspace";
 import { useEffect, useRef, useState } from "react";
 import { api, apiJsonDocument, apiKeepalive, saveBlob } from "./api";
 
@@ -13,6 +14,7 @@ export function DeviceInstancePanel({
   defaultDnet,
   parentBusy,
   onBusy,
+  onVerified,
 }: {
   connected: boolean;
   interfaceIdentity: string;
@@ -22,6 +24,7 @@ export function DeviceInstancePanel({
   defaultDnet: number | null;
   parentBusy: boolean;
   onBusy: (value: boolean) => void;
+  onVerified?: (result: any) => void;
 }) {
   const [target, setTarget] = useState<Target>({
     address: "",
@@ -146,6 +149,7 @@ export function DeviceInstancePanel({
               device: `device,${result.new_instance}`,
             }));
             setNewInstance("");
+            onVerified?.(result);
           }
         }
       } else {
@@ -158,6 +162,12 @@ export function DeviceInstancePanel({
             ...current,
             readbacks: [...current.readbacks, result],
           }));
+        if (
+          mounted.current &&
+          epoch === generation.current &&
+          result.readback?.status === "verified_new"
+        )
+          onVerified?.({ ...receipt.attempt, readback: result.readback });
       }
       await refresh();
     } catch (failure) {
@@ -171,8 +181,8 @@ export function DeviceInstancePanel({
       operation.current = null;
       if (mounted.current) {
         setBusy(false);
-        onBusy(false);
       }
+      onBusy(false);
     }
   }
   async function loadReceipt(id: string) {
@@ -220,27 +230,29 @@ export function DeviceInstancePanel({
           and MAC stay the same.
         </p>
         <div className="form-grid">
-          {(
-            [
-              ["address", "Controller address (IPv4 or DNET:MAC)"],
-              ["device", "Current Device object (device,instance)"],
-              ["router", "Instance-change router (routed targets only)"],
-              ["dnet", "Instance-change network (1–65534)"],
-            ] as const
-          ).map(([key, label]) => (
-            <label key={key}>
-              {label}
-              <input
-                disabled={locked}
-                value={target[key]}
-                onChange={(event) =>
-                  edit(() =>
-                    setTarget({ ...target, [key]: event.target.value }),
-                  )
-                }
-              />
-            </label>
-          ))}
+          <TargetFields>
+            {(
+              [
+                ["address", "Controller address (IPv4 or DNET:MAC)"],
+                ["device", "Current Device object (device,instance)"],
+                ["router", "Instance-change router (routed targets only)"],
+                ["dnet", "Instance-change network (1–65534)"],
+              ] as const
+            ).map(([key, label]) => (
+              <label key={key}>
+                {label}
+                <input
+                  disabled={locked}
+                  value={target[key]}
+                  onChange={(event) =>
+                    edit(() =>
+                      setTarget({ ...target, [key]: event.target.value }),
+                    )
+                  }
+                />
+              </label>
+            ))}
+          </TargetFields>
           <label>
             New controller instance (0–4194302)
             <input

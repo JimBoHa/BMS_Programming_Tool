@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Download, RefreshCw, ShieldCheck, Upload } from "lucide-react";
 import { api, saveBlob } from "./api";
+import type { ControllerContext } from "./workflow";
 
 type Target = {
   address: string;
@@ -25,7 +26,13 @@ type Plan = {
   program_budget_bytes: number;
 };
 
-export function TemcoTransfer({ source }: { source: string | null }) {
+export function TemcoTransfer({
+  source,
+  controller,
+}: {
+  source: string | null;
+  controller?: ControllerContext | null;
+}) {
   const [target, setTarget] = useState<Target>({
     address: "",
     device_instance: "",
@@ -67,6 +74,26 @@ export function TemcoTransfer({ source }: { source: string | null }) {
     setReviewed(false);
     setError("");
   }, [source]);
+  useEffect(() => {
+    if (!controller) return;
+    invalidate();
+    setTarget((current) => ({
+      ...current,
+      address: controller.address,
+      device_instance: controller.device.split(",")[1],
+      expected_model: controller.model,
+      expected_firmware: controller.firmware,
+    }));
+  }, [
+    controller?.address,
+    controller?.device,
+    controller?.router,
+    controller?.dnet,
+    controller?.interfaceKey,
+    controller?.interfaceOpen,
+    controller?.model,
+    controller?.firmware,
+  ]);
   useEffect(() => {
     if (!expires) return;
     const update = () =>
@@ -124,6 +151,14 @@ export function TemcoTransfer({ source }: { source: string | null }) {
     setBusy(true);
     setError("");
     try {
+      if (
+        controller &&
+        !controller.interfaceOpen &&
+        !["refresh", "download"].includes(kind)
+      )
+        throw new Error(
+          "Reconnect and verify the selected controller before a field transfer operation.",
+        );
       if (kind === "refresh") {
         await refresh();
         return;
@@ -248,6 +283,7 @@ export function TemcoTransfer({ source }: { source: string | null }) {
               value={target[key]}
               placeholder={placeholder}
               disabled={busy}
+              readOnly={!!controller && key !== "slot"}
               onChange={(e) => {
                 invalidate();
                 setTarget({ ...target, [key]: e.target.value });
