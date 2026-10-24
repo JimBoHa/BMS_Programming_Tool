@@ -17,7 +17,11 @@ import {
   RoutedDiscoveryPanel,
   type RoutedScanResult,
 } from "./RoutedDiscoveryPanel";
-import { DeviceScanPanel, type ScanTarget } from "./DeviceScanPanel";
+import {
+  DeviceScanPanel,
+  type ScanTarget,
+  type NamedScanTarget,
+} from "./DeviceScanPanel";
 import { BacnetFilesPanel } from "./BacnetFilesPanel";
 import { BbmdTablesPanel } from "./BbmdTablesPanel";
 import { BbmdAdminPanel } from "./BbmdAdminPanel";
@@ -32,6 +36,7 @@ import { EventReceptionPanel } from "./EventReceptionPanel";
 import { NetworkNumberPlanPanel } from "./NetworkNumberPlanPanel";
 import { BusPreflightPanel } from "./BusPreflightPanel";
 import { OperationPowerPanel } from "./OperationPowerPanel";
+import { DeviceInstancePanel } from "./DeviceInstancePanel";
 
 export function Connections() {
   const [config, setConfig] = useState({
@@ -47,6 +52,8 @@ export function Connections() {
     [property, setProperty] = useState("present-value"),
     [devices, setDevices] = useState<any[]>([]),
     [routedResult, setRoutedResult] = useState<RoutedScanResult | null>(null),
+    [scanNames, setScanNames] = useState<NamedScanTarget[]>([]),
+    [interfaceEpoch, setInterfaceEpoch] = useState(0),
     [foreignLow, setForeignLow] = useState("0"),
     [foreignHigh, setForeignHigh] = useState("4194302"),
     [value, setValue] = useState<any>(null),
@@ -91,6 +98,11 @@ export function Connections() {
     previewEpoch = useRef(0),
     previewSource = useRef(""),
     ipDirty = useRef(false);
+  const interfaceIdentity = JSON.stringify({
+    connected: status.connected,
+    config: status.config,
+    epoch: interfaceEpoch,
+  });
   const routerKey = (address?: string) =>
     address?.trim()
       ? address.trim().includes(":")
@@ -102,7 +114,11 @@ export function Connections() {
     (status.config?.transport !== "mstp" &&
       routerKey(status.config?.router) === routerKey(selectedRoute.router) &&
       Number(status.config?.dnet) === selectedRoute.dnet);
-  const pointReady = status.connected && selectedRouteReady;
+  const pointReady =
+    status.connected &&
+    selectedRouteReady &&
+    !!target.trim() &&
+    !!object.trim();
   previewSource.current = JSON.stringify({
     target,
     object,
@@ -361,6 +377,7 @@ export function Connections() {
               }
               onClick={() =>
                 action(async () => {
+                  setInterfaceEpoch((value) => value + 1);
                   const result = await api("/bacnet/disconnect", {});
                   if (result.audit_error) setError(result.audit_error);
                   setPlan(null);
@@ -398,6 +415,7 @@ export function Connections() {
                 className="primary"
                 onClick={() =>
                   action(async () => {
+                    setInterfaceEpoch((value) => value + 1);
                     await api("/bacnet/connect", {
                       ...config,
                       router: config.router || null,
@@ -713,12 +731,23 @@ export function Connections() {
         localAddress={status.config?.local_address || config.local_address}
         routedResult={routedResult}
         onSelect={selectScannedDevice}
+        onInventory={setScanNames}
+        interfaceIdentity={interfaceIdentity}
       />
       <RoutedDiscoveryPanel
         connected={
           status.connected && !busy && status.config?.transport !== "mstp"
         }
         onDiscovered={setRoutedResult}
+        knownDevices={scanNames}
+        interfaceIdentity={interfaceIdentity}
+        connectorConfig={status.config ?? null}
+        localDiscoveryAvailable={!status.config?.bbmd_address}
+        onSelectionCleared={() => {
+          setTarget("");
+          setObject("");
+          clearPointResults(true);
+        }}
         onSelect={(device, router, dnet) => {
           if (busy) return;
           ipDirty.current = true;
@@ -729,6 +758,24 @@ export function Connections() {
           clearPointResults();
           setSelectedRoute({ router, dnet });
         }}
+      />
+      <DeviceInstancePanel
+        connected={
+          !!status.connected &&
+          status.config?.transport !== "mstp" &&
+          !status.config?.bbmd_address
+        }
+        interfaceIdentity={interfaceIdentity}
+        defaultAddress={target}
+        defaultDevice={object.trim().startsWith("device,") ? object : ""}
+        defaultRouter={
+          selectedRoute?.router || (/^\d+:/.test(target) ? config.router : "")
+        }
+        defaultDnet={
+          selectedRoute?.dnet ?? (/^\d+:/.test(target) ? probeDnet : null)
+        }
+        parentBusy={busy}
+        onBusy={setBusy}
       />
       <BacnetCovPanel
         connected={
@@ -1255,6 +1302,7 @@ export function Connections() {
                 }
                 onClick={() =>
                   action(async () => {
+                    setInterfaceEpoch((value) => value + 1);
                     await api("/bacnet/connect-mstp", mstp);
                     setTarget(mstp.mac === 5 ? "6" : "5");
                     setDevices([]);

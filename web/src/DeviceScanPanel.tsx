@@ -13,6 +13,12 @@ export type ScanTarget = {
   mac_hex?: string;
   mstp_mac?: number | null;
 };
+export type NamedScanTarget = {
+  target: ScanTarget;
+  name: string | null;
+  observedInterface: string | null;
+  connectorConfig: unknown;
+};
 type Status = {
   status: string;
   error: string | null;
@@ -51,6 +57,7 @@ type Row = {
   version: number;
   state: "pending" | "reading" | "complete" | "partial" | "error";
   details: DeviceDetails | null;
+  detailsContext?: string;
   detail_error: string | null;
 };
 type ScanReport = Record<string, unknown> & {
@@ -164,11 +171,15 @@ export function DeviceScanPanel({
   localAddress,
   routedResult,
   onSelect,
+  onInventory,
+  interfaceIdentity = "",
 }: {
   connected: boolean;
   localAddress: string;
   routedResult?: RoutedScanResult | null;
   onSelect: (target: ScanTarget) => void;
+  onInventory?: (devices: NamedScanTarget[]) => void;
+  interfaceIdentity?: string;
 }) {
   const [mode, setMode] = useState("local"),
     [ip, setIp] = useState(""),
@@ -214,6 +225,20 @@ export function DeviceScanPanel({
   const rowsRef = useRef(new Map<string, Row>()),
     reportsRef = useRef<Record<string, ScopeReports>>({}),
     seenRouted = useRef<RoutedScanResult | null>(null);
+  useEffect(() => {
+    onInventory?.(
+      rows.map((row) => ({
+        target: row.target,
+        name:
+          row.details?.identity_verified &&
+          typeof row.details.properties["object-name"] === "string"
+            ? row.details.properties["object-name"]
+            : null,
+        observedInterface: row.detailsContext ?? null,
+        connectorConfig: row.details?.connector_config ?? null,
+      })),
+    );
+  }, [rows, onInventory]);
   function publish() {
     if (mounted.current) setRows(Array.from(rowsRef.current.values()));
   }
@@ -443,7 +468,12 @@ export function DeviceScanPanel({
   const shownRef = useRef(shown);
   shownRef.current = shown;
   useEffect(() => {
-    const context = JSON.stringify([connected, localAddress, visibleKey]);
+    const context = JSON.stringify([
+      connected,
+      localAddress,
+      visibleKey,
+      interfaceIdentity,
+    ]);
     if (metadataContext.current !== context) {
       metadataContext.current = context;
       metadataEpoch.current++;
@@ -495,6 +525,7 @@ export function DeviceScanPanel({
                 ...current,
                 state: details.complete ? "complete" : "partial",
                 details,
+                detailsContext: interfaceIdentity,
                 detail_error: null,
               }));
           } catch (error) {
@@ -521,7 +552,15 @@ export function DeviceScanPanel({
         }
       }
     })();
-  }, [connected, localAddress, visibleKey, paused, scanBusy, kick]);
+  }, [
+    connected,
+    localAddress,
+    visibleKey,
+    interfaceIdentity,
+    paused,
+    scanBusy,
+    kick,
+  ]);
 
   function edit(change: () => void) {
     if (scanActive.current) return;
