@@ -15,6 +15,11 @@ cd ..
 .venv/bin/python scripts/build_portable.py --output local-reports/distribution
 ```
 
+Wheel creation uses pip's isolated build environment to install the
+`[build-system]` requirements from `pyproject.toml`. The invoking environment
+needs pip; it does not need `setuptools` or `wheel` preinstalled. Resolving build
+requirements needs access to a package index or a configured local package source.
+
 The build requires committed source by default. `--allow-dirty` permits an
 explicit development build and records that fact in the embedded provenance.
 The builder copies Git-tracked package files, three named public JSON documents,
