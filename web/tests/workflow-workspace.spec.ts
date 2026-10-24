@@ -74,6 +74,122 @@ const instance = (page: Page) =>
     exact: true,
   });
 
+test("a router without network advertisements supplies cached choices that require a live scan", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(30000);
+  await reset(request);
+  const router = await peer(2105, true);
+  const calls: { url: string; body: any }[] = [];
+  page.on("request", (req) => {
+    if (req.method() === "POST" && /\/api\/bacnet\//.test(req.url()))
+      calls.push({ url: req.url(), body: req.postDataJSON() });
+  });
+  try {
+    await connect(page);
+    const guide = page.getByRole("region", {
+      name: "Routed BACnet discovery",
+      exact: true,
+    });
+    await guide
+      .getByLabel("Discovery router address", { exact: true })
+      .fill(router.endpoint);
+    await guide
+      .getByRole("button", { name: "Read router networks", exact: true })
+      .click();
+    await expect(
+      guide.getByLabel("Cached network discovery", { exact: true }),
+    ).toContainText("Router Device 505: 3 cached network choice(s)");
+    await expect(
+      guide.getByLabel("Commissioning trunk", { exact: true }),
+    ).toBeEnabled();
+    await expect(
+      guide.getByLabel("Commissioning trunk").locator('option[value="2105"]'),
+    ).toContainText("cached; scan required");
+    expect(
+      calls.filter((call) => call.url.endsWith("/router-bindings"))[0].body,
+    ).toEqual({ router: router.endpoint, max_bindings: 2048 });
+    expect(calls.filter((call) => call.url.endsWith("/scan-trunk"))).toEqual(
+      [],
+    );
+    await expect(guide.getByLabel("Commissioning controller")).toHaveCount(0);
+    await guide
+      .getByLabel("Commissioning trunk", { exact: true })
+      .selectOption("2105");
+    await guide
+      .getByLabel("Routed response window seconds", { exact: true })
+      .fill("1");
+    await guide
+      .getByRole("button", {
+        name: "Scan selected routed network",
+        exact: true,
+      })
+      .click();
+    await expect(
+      guide.getByLabel("Commissioning controller").locator("option"),
+    ).toHaveCount(2);
+    await guide
+      .getByLabel("Commissioning controller")
+      .selectOption(JSON.stringify(["2105:7", "device,132007"]));
+    await guide
+      .getByRole("button", { name: "Open controller", exact: true })
+      .click();
+    await expect(
+      page.getByRole("region", { name: "Controller overview" }),
+    ).toContainText("Independent controller7");
+    await expect(page.getByLabel("Working context")).toContainText("2105:7");
+  } finally {
+    router.close();
+  }
+});
+
+test("a late cached-network read cannot refill the selector after leaving discovery", async ({
+  page,
+  request,
+}) => {
+  await reset(request);
+  const router = await peer(2105, true);
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => (release = resolve));
+  let arrive!: () => void;
+  const ready = new Promise<void>((resolve) => (arrive = resolve));
+  try {
+    await connect(page);
+    await page.route("**/api/bacnet/router-bindings", async (route) => {
+      const response = await route.fetch();
+      arrive();
+      await held;
+      await route.fulfill({ response });
+    });
+    const guide = page.getByRole("region", {
+      name: "Routed BACnet discovery",
+      exact: true,
+    });
+    await guide
+      .getByLabel("Discovery router address", { exact: true })
+      .fill(router.endpoint);
+    await guide
+      .getByRole("button", { name: "Read router networks", exact: true })
+      .click();
+    await ready;
+    await nav(page)
+      .getByRole("button", { name: "Library", exact: true })
+      .click();
+    release();
+    await page.waitForLoadState("networkidle");
+    await page
+      .getByLabel("Working context")
+      .getByRole("button", { name: "Connect", exact: true })
+      .click();
+    await expect(guide.getByLabel("Cached network discovery")).toHaveCount(0);
+    await expect(guide.getByLabel("Commissioning trunk")).toBeDisabled();
+  } finally {
+    release();
+    router.close();
+  }
+});
+
 test("a failed controller identity read keeps the previous verified target", async ({
   page,
   request,
