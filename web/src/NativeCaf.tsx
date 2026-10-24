@@ -9,6 +9,7 @@ import {
 import { api, download } from "./api";
 import { CafGraphPanel } from "./CafGraphPanel";
 import { CafHardwarePanel } from "./CafHardwarePanel";
+import { CafInstancePanel } from "./CafInstancePanel";
 import { JciPreflight } from "./JciPreflight";
 
 function scalarSignature(changes: any[]) {
@@ -39,6 +40,7 @@ export function NativeCaf({ visible = true }: { visible?: boolean }) {
   const [exporting, setExporting] = useState(false);
   const [graphDirty, setGraphDirty] = useState(false);
   const [hardwareDirty, setHardwareDirty] = useState(false);
+  const [instanceDirty, setInstanceDirty] = useState(false);
   const [savedScalarKey, setSavedScalarKey] = useState("[]");
   const [exported, setExported] = useState("");
   const input = useRef<HTMLInputElement>(null);
@@ -50,14 +52,15 @@ export function NativeCaf({ visible = true }: { visible?: boolean }) {
   const scalarKey = scalarSignature(changes);
   const unsavedScalars = changes.length > 0 && scalarKey !== savedScalarKey;
   useEffect(() => {
-    if (!unsavedScalars && !graphDirty && !hardwareDirty) return;
+    if (!unsavedScalars && !graphDirty && !hardwareDirty && !instanceDirty)
+      return;
     const warn = (event: BeforeUnloadEvent) => {
       event.preventDefault();
       event.returnValue = "";
     };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [unsavedScalars, graphDirty, hardwareDirty]);
+  }, [unsavedScalars, graphDirty, hardwareDirty, instanceDirty]);
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -95,7 +98,7 @@ export function NativeCaf({ visible = true }: { visible?: boolean }) {
   async function upload(file?: File) {
     if (!file || !visible) return;
     if (
-      (unsavedScalars || graphDirty || hardwareDirty) &&
+      (unsavedScalars || graphDirty || hardwareDirty || instanceDirty) &&
       !window.confirm(
         "Discard unexported CAF edits and open another file? Cancel to keep editing or export the current changes first.",
       )
@@ -122,6 +125,7 @@ export function NativeCaf({ visible = true }: { visible?: boolean }) {
       setSavedScalarKey("[]");
       setGraphDirty(false);
       setHardwareDirty(false);
+      setInstanceDirty(false);
       setExported("");
       setExporting(false);
       setSelected(null);
@@ -291,6 +295,14 @@ export function NativeCaf({ visible = true }: { visible?: boolean }) {
               </p>
             </div>
           </div>
+          <CafInstancePanel
+            key={`instance:${caf.sha256}:${archiveGeneration}`}
+            id={caf.sha256}
+            filename={filename}
+            disabled={opening || !visible}
+            otherChangesPending={unsavedScalars || graphDirty || hardwareDirty}
+            onDirtyChange={setInstanceDirty}
+          />
           <JciPreflight
             key={`preflight:${caf.sha256}:${archiveGeneration}`}
             id={caf.sha256}

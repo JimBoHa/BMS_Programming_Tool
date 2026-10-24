@@ -38,6 +38,7 @@ from .caf import CafArchive
 from .caf_compare import compare_cafs
 from .caf_graph import CafGraph
 from .caf_hardware import CafHardwareBindings, HardwareExportRequest, HardwareMoveRequest
+from .caf_instance import CafInstanceChange, CafInstanceEditor, CafInstanceExport
 from .caf_scenarios import CafInputScenarios, CafScenarioStore
 from .caf_simulation import CafSimulationProfile
 from .cancelable_pulse_template import cancelable_pulse_template_router
@@ -1333,6 +1334,29 @@ def create_app(state_dir=None, *, operation_power=None):
     @app.get("/api/caf/{id}/hardware")
     def caf_hardware(id: str):
         return CafHardwareBindings(get_caf(id)).summary()
+
+    @app.get("/api/caf/{id}/device-instance")
+    def caf_device_instance(id: str):
+        return CafInstanceEditor(get_caf(id)).summary()
+
+    @app.post("/api/caf/{id}/device-instance/preview")
+    def caf_device_instance_preview(id: str, body: CafInstanceChange):
+        return CafInstanceEditor(get_caf(id)).preview(body)
+
+    @app.post("/api/caf/{id}/device-instance/export")
+    def caf_device_instance_export(id: str, body: CafInstanceExport):
+        content, plan = CafInstanceEditor(get_caf(id)).export(body)
+        store.record("caf.device-instance.export", plan)
+        return Response(
+            content,
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": f'attachment; filename="controller-instance-{body.new_instance}.caf"',
+                "X-CAF-Source-SHA256": plan["source_sha256"],
+                "X-CAF-Output-SHA256": plan["output_sha256"],
+                "X-CAF-Instance-Plan-SHA256": plan["plan_sha256"],
+            },
+        )
 
     @app.post("/api/caf/{id}/hardware/preview")
     def caf_hardware_preview(id: str, body: HardwareMoveRequest):
