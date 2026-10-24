@@ -397,6 +397,61 @@ class DeviceDetails:
             if result["programs_status"] != "limit_exceeded":
                 result["programs_status"] = "partial" if result["programs"] else "unavailable"
 
+    async def read_name(self, **arguments):
+        """Read a scan label without waiting for optional metadata or program inventory."""
+        options = DeviceDetailsRequest(**arguments)
+        self.bacnet.require()
+        result = {
+            "profile": "bacnet-device-name/1",
+            "read_only": True,
+            "address": options.address,
+            "device": options.device,
+            "router": options.router,
+            "dnet": options.dnet,
+            "name": None,
+            "identity_verified": False,
+            "errors": [],
+            "started_at": _utc(),
+            "finished_at": None,
+            "connector_config": None,
+            "ignored_router_packets": 0,
+        }
+        session = None
+        prop = "object-identifier"
+        try:
+            async with asyncio.timeout(min(self.operation_timeout, 6.0)):
+                async with self._path(options) as session:
+                    result["connector_config"] = session["config"]
+                    expected = ObjectIdentifier(options.device)
+                    before = await self._read(session, options.device, prop)
+                    if before != expected:
+                        raise ValueError("Device identity differs from the scanned Device object.")
+                    prop = "object-name"
+                    name = await self._read(session, options.device, prop)
+                    if not isinstance(name, str) or not name.strip():
+                        raise ValueError(
+                            "The controller did not expose a nonempty Device object-name."
+                        )
+                    name = str(name)
+                    if len(name.encode("utf-8")) > MAX_TEXT_BYTES:
+                        raise ValueError("Device name exceeds the 4096-byte field budget.")
+                    prop = "object-identifier"
+                    after = await self._read(session, options.device, prop)
+                    if after != expected:
+                        raise ValueError("Device identity changed while reading its name.")
+                    result["identity_verified"] = True
+                    result["name"] = str(name)
+        except (ValueError, TimeoutError) as exc:
+            self._error(result, options.device, prop, exc)
+        if session is not None:
+            result["ignored_router_packets"] = session.get("ignored_router_packets", 0)
+        result["finished_at"] = _utc()
+        try:
+            self.store.record("bacnet.device.name", result)
+        except Exception:
+            result["audit_error"] = "Device name was read, but its local audit could not be saved."
+        return result
+
     async def read(self, **arguments):
         options = DeviceDetailsRequest(**arguments)
         self.bacnet.require()  # A closed interface is an admission error, not a silent probe.

@@ -164,6 +164,64 @@ async def details_link(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_scan_name_reads_only_identity_name_and_identity_again(details_link):
+    server, client, service, address = details_link
+    requests = []
+    original = server.do_ReadPropertyRequest
+
+    async def tracked(request):
+        requests.append(str(request.propertyIdentifier))
+        await original(request)
+
+    server.do_ReadPropertyRequest = tracked
+    result = await service.read_name(address=address, device="device,4190090")
+    assert result["identity_verified"] and result["name"] == "Independent Device Details"
+    assert requests == ["object-identifier", "object-name", "object-identifier"]
+    assert result["read_only"] and not result["errors"]
+    assert not client.app.asap.clientTransactions and not client.app._requests
+
+
+@pytest.mark.asyncio
+async def test_scan_name_discards_name_if_identity_changes_during_read(details_link):
+    server, _, service, address = details_link
+    original = server.do_ReadPropertyRequest
+
+    async def changed(request):
+        await original(request)
+        if str(request.propertyIdentifier) == "object-name":
+            server.device_object.objectIdentifier = ("device", 4190091)
+
+    server.do_ReadPropertyRequest = changed
+    result = await service.read_name(address=address, device="device,4190090")
+    assert not result["identity_verified"] and result["name"] is None
+    assert result["errors"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("name", ["", "   ", None])
+async def test_scan_name_does_not_fabricate_a_label_for_missing_name(details_link, name):
+    server, _, service, address = details_link
+    original = server.do_ReadPropertyRequest
+
+    async def changed(request):
+        if str(request.propertyIdentifier) == "object-name":
+            await server.response(
+                ReadPropertyACK(
+                    objectIdentifier=request.objectIdentifier,
+                    propertyIdentifier=request.propertyIdentifier,
+                    propertyValue=Any(Null(()) if name is None else CharacterString(name)),
+                    context=request,
+                )
+            )
+        else:
+            await original(request)
+
+    server.do_ReadPropertyRequest = changed
+    result = await service.read_name(address=address, device="device,4190090")
+    assert not result["identity_verified"] and result["name"] is None and result["errors"]
+
+
+@pytest.mark.asyncio
 async def test_real_device_and_actual_program_names_with_inventory_hash(details_link):
     server, client, service, address = details_link
     requests = []
@@ -323,6 +381,26 @@ async def routed_details(tmp_path):
         close_application(objects)
         await asyncio.sleep(0.02)
         assert not router.errors
+
+
+@pytest.mark.asyncio
+async def test_scan_name_pins_route_without_reconfiguring_the_shared_interface(routed_details):
+    _, client, service, router, rogue = routed_details
+    before = copy.deepcopy(client.config)
+    router.rogue = rogue
+    result = await service.read_name(
+        address="3001:7", device="device,4190090", router=router.endpoint, dnet=3001
+    )
+    assert result["identity_verified"] and result["name"] == "Independent Device Details"
+    assert result["router"] == router.endpoint and result["address"] == "3001:7"
+    assert result["ignored_router_packets"] >= 3
+    assert [row[2] for row in router.requests] == [
+        "object-identifier",
+        "object-name",
+        "object-identifier",
+    ]
+    assert client.config == before and not client.lock.locked()
+    assert not client.app.asap.clientTransactions and not client.app._requests
 
 
 @pytest.mark.asyncio

@@ -13,7 +13,12 @@ export async function freePort(): Promise<number> {
     });
   });
 }
-export async function peer(network = 3001, cached = false) {
+export async function peer(
+  network = 3001,
+  cached = false,
+  stations = 2,
+  named = false,
+) {
   const child = spawn(
     path.join(root, ".venv/bin/python"),
     [
@@ -28,7 +33,10 @@ async def main():
   peer=RawRouter()
   peer.advertise_networks=False
   peer.devices=[(132007,b'\\x07',2105)]
- else:peer=GuidedRouter(int(sys.argv[1]))
+ else:
+  network=int(sys.argv[1])
+  names={(network,7):'TB-3-201',(network,8):'HP-3A'} if sys.argv[4]=='named' else {}
+  peer=GuidedRouter(network,stations=tuple(range(7,7+int(sys.argv[3]))),names=names)
  transport,_=await asyncio.get_running_loop().create_datagram_endpoint(lambda:peer,local_addr=('127.0.0.1',0))
  print(peer.endpoint,flush=True)
  try:await asyncio.Event().wait()
@@ -37,6 +45,8 @@ asyncio.run(main())
 `,
       String(network),
       cached ? "cached" : "advertised",
+      String(stations),
+      named ? "named" : "default",
     ],
     {
       cwd: root,
