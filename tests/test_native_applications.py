@@ -176,6 +176,16 @@ class NativePeer(Application):
                 self.metadata["system-status"] = 2
             if self.mode == "mismatch":
                 self.files[3] = parameters_source(model="OTHER")[0]
+            if self.mode == "changed-saved-setting":
+                directory = bytearray(self.files[11])
+                offset = 0
+                while offset < len(directory):
+                    size = int.from_bytes(directory[offset : offset + 2], "big")
+                    directory[offset + 2 : offset + 6] = ((8 << 22) | self.instance).to_bytes(
+                        4, "big"
+                    )
+                    offset += size
+                self.files[11] = bytes(directory).replace(b"saved", b"other")
             if self.mode == "drop-end":
                 return
         else:
@@ -314,6 +324,8 @@ async def test_capture_review_compile_transfer_and_verify_all_use_owned_udp(nati
     result = await service.apply(**apply_request(plan))
     assert result["result"]["status"] == "verified", result
     assert not result["pending"] and result["result"]["protocol_accepted"] and dispatched
+    assert result["result"]["preservation"]["application_identical_except_instance"] is True
+    assert result["result"]["preservation"]["saved_application_parameters_verified"] == 7
     assert peer.instance == 5336 and MoiIdentity(peer.files[3]).instance == 5336
     e = MoiIdentity(peer.files[3])
     assert e.reader.scalar(e.root, 901) == 70000 and e.reader.scalar(e.root, 900) == 3.5
@@ -323,6 +335,20 @@ async def test_capture_review_compile_transfer_and_verify_all_use_owned_udp(nati
     assert not bacnet.app.asap.clientTransactions and not bacnet.lock.locked()
     with pytest.raises(ValueError, match="consumed"):
         await service.apply(**apply_request(plan))
+
+
+async def test_matching_application_with_changed_saved_setting_stays_unresolved(native_link):
+    peer, bacnet, store, service, target = native_link
+    _, plan = await review(native_link)
+    peer.mode = "changed-saved-setting"
+    receipt = await service.apply(**apply_request(plan))
+    assert receipt["result"]["status"] == "unknown" and receipt["pending"]
+    assert receipt["result"]["native_sha256"] == receipt["intent"]["native_payload_sha256"]
+    assert "current saved parameter differs" in receipt["result"]["error"]
+    dispatched = len([row for row in peer.events if row[0] == "write"])
+    with pytest.raises(ValueError, match="pending|unresolved|receipt"):
+        await service.capture(**target, operation_id="authored-followup")
+    assert len([row for row in peer.events if row[0] == "write"]) == dispatched
 
 
 @pytest.mark.parametrize(
