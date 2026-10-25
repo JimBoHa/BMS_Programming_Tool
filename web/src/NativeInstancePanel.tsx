@@ -10,12 +10,16 @@ import type { DeviceInstanceProps } from "./DeviceInstancePanel";
 
 const base = "/bacnet/controller/native-application";
 
-export function NativeInstancePanel(props: DeviceInstanceProps) {
+export function NativeInstancePanel(
+  props: DeviceInstanceProps & { changeKind?: "name" | "instance" },
+) {
+  const renaming = props.changeKind === "name";
   const [capture, setCapture] = useState<any>(null);
   const [plan, setPlan] = useState<any>(null);
   const [receipt, setReceipt] = useState<any>(null);
   const [status, setStatus] = useState<any>(null);
   const [number, setNumber] = useState("");
+  const [newName, setNewName] = useState("");
   const [allocated, setAllocated] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [backup, setBackup] = useState("");
@@ -35,6 +39,7 @@ export function NativeInstancePanel(props: DeviceInstanceProps) {
     props.defaultDevice,
     props.defaultRouter,
     props.defaultDnet,
+    props.changeKind,
   ]);
   const [hydrated, setHydrated] = useState("");
   const ready =
@@ -75,6 +80,7 @@ export function NativeInstancePanel(props: DeviceInstanceProps) {
     setCapture(null);
     setPlan(null);
     setNumber("");
+    setNewName("");
     setAllocated(false);
     setConfirmed(false);
     setError("");
@@ -95,6 +101,14 @@ export function NativeInstancePanel(props: DeviceInstanceProps) {
     setAllocated(false);
     setConfirmed(false);
     setNumber(value);
+  }
+  function editName(value: string) {
+    cancel();
+    generation.current++;
+    setPlan(null);
+    setAllocated(false);
+    setConfirmed(false);
+    setNewName(value);
   }
 
   async function run(
@@ -137,8 +151,15 @@ export function NativeInstancePanel(props: DeviceInstanceProps) {
         });
         if (mounted.current && epoch === generation.current) setCapture(result);
       } else if (kind === "preview") {
-        if (!/^(0|[1-9][0-9]*)$/.test(number) || Number(number) > 4194302)
+        if (
+          !renaming &&
+          (!/^(0|[1-9][0-9]*)$/.test(number) || Number(number) > 4194302)
+        )
           throw new Error("Enter a Device instance from 0 through 4194302.");
+        if (renaming && (!newName || newName.trim() !== newName))
+          throw new Error(
+            "Enter the controller name without surrounding whitespace.",
+          );
         setPlan(null);
         setAllocated(false);
         setConfirmed(false);
@@ -147,7 +168,10 @@ export function NativeInstancePanel(props: DeviceInstanceProps) {
           ...target,
           operation_id: id,
           capture_id: capture.id,
-          new_instance: Number(number),
+          new_instance: renaming
+            ? Number(capture.identity.device.split(",")[1])
+            : Number(number),
+          ...(renaming ? { new_name: newName } : {}),
         });
         if (mounted.current && epoch === generation.current) {
           setPlan(result);
@@ -168,7 +192,8 @@ export function NativeInstancePanel(props: DeviceInstanceProps) {
             operation_id: id,
             token: p.token,
             review_sha256: p.review_sha256,
-            allocation_confirmed: allocated,
+            allocation_confirmed: !renaming && allocated,
+            name_change_confirmed: renaming && allocated,
             application_transfer_confirmed: confirmed,
           });
         } else
@@ -184,6 +209,7 @@ export function NativeInstancePanel(props: DeviceInstanceProps) {
           if (epoch === generation.current && observed?.status === "verified") {
             setCapture(null);
             setNumber("");
+            setNewName("");
             props.onVerified?.({ ...result.intent, ...observed });
           }
         }
@@ -232,12 +258,24 @@ export function NativeInstancePanel(props: DeviceInstanceProps) {
     receipt?.result;
   return (
     <section
-      id="controller-instance-commissioning"
+      id={
+        renaming
+          ? "controller-name-commissioning"
+          : "controller-instance-commissioning"
+      }
       className="card"
-      aria-label="Native application instance commissioning"
+      aria-label={
+        renaming
+          ? "Native application name commissioning"
+          : "Native application instance commissioning"
+      }
     >
       <div className="card-header">
-        <h2>Edit connected application instance</h2>
+        <h2>
+          {renaming
+            ? "Edit controller name"
+            : "Edit connected application instance"}
+        </h2>
       </div>
       <div className="card-body">
         <p>
@@ -320,21 +358,35 @@ export function NativeInstancePanel(props: DeviceInstanceProps) {
               </p>
             ) : (
               <div className="form-grid">
-                <label>
-                  New application Device instance (0–4194302)
-                  <input
-                    inputMode="numeric"
-                    disabled={!ready || locked}
-                    value={number}
-                    onChange={(e) => editNumber(e.target.value)}
-                  />
-                </label>
+                {renaming ? (
+                  <label>
+                    New controller name
+                    <input
+                      disabled={!ready || locked}
+                      value={newName}
+                      maxLength={128}
+                      onChange={(event) => editName(event.target.value)}
+                    />
+                  </label>
+                ) : (
+                  <label>
+                    New application Device instance (0–4194302)
+                    <input
+                      inputMode="numeric"
+                      disabled={!ready || locked}
+                      value={number}
+                      onChange={(e) => editNumber(e.target.value)}
+                    />
+                  </label>
+                )}
                 <button
                   className={!plan ? "primary" : ""}
-                  disabled={!ready || locked || !number}
+                  disabled={!ready || locked || !(renaming ? newName : number)}
                   onClick={() => void run("preview")}
                 >
-                  Review application instance change
+                  {renaming
+                    ? "Review name change"
+                    : "Review application instance change"}
                 </button>
               </div>
             )}
@@ -344,13 +396,20 @@ export function NativeInstancePanel(props: DeviceInstanceProps) {
           <div aria-label="Reviewed native application transfer">
             <p>
               <strong>
-                {plan.identity["object-name"]}: {plan.old_instance} →{" "}
-                {plan.new_instance}
+                {renaming
+                  ? `${plan.old_name} → ${plan.new_name}`
+                  : `${plan.identity["object-name"]}: ${plan.old_instance} → ${plan.new_instance}`}
               </strong>{" "}
               at {plan.target.address}
               {plan.target.router ? ` via ${plan.target.router}` : ""}
             </p>
             <p>{plan.parameter_policy}</p>
+            {renaming && (
+              <p>
+                Device instance remains {plan.old_instance}. The physical
+                address and route are unchanged.
+              </p>
+            )}
             <p className="help-text">
               Collision check: {plan.collision_check.scope}.{" "}
               {plan.collision_check.limitation}
@@ -364,8 +423,11 @@ export function NativeInstancePanel(props: DeviceInstanceProps) {
             <details>
               <summary>Application change details</summary>
               <p>
-                Two typed identity fields change. Other application records are
-                preserved, with saved parameters merged from a fresh backup.
+                {renaming
+                  ? "Only the typed controller-name value changes."
+                  : "Two typed identity fields change."}{" "}
+                Other application records are preserved, with saved parameters
+                merged from a fresh backup.
               </p>
               <pre>
                 {JSON.stringify(plan.compilation.identity_edit.edits, null, 2)}
@@ -379,8 +441,9 @@ export function NativeInstancePanel(props: DeviceInstanceProps) {
                 checked={allocated}
                 onChange={(e) => setAllocated(e.target.checked)}
               />{" "}
-              I reserved this instance across the BACnet internetwork, including
-              offline devices.
+              {renaming
+                ? "I confirm this controller name change."
+                : "I reserved this instance across the BACnet internetwork, including offline devices."}
             </label>
             <label>
               <input
@@ -397,11 +460,13 @@ export function NativeInstancePanel(props: DeviceInstanceProps) {
               disabled={!ready || locked || !fresh || !allocated || !confirmed}
               onClick={() => void run("apply")}
             >
-              Apply application instance change
+              {renaming
+                ? "Apply controller name"
+                : "Apply application instance change"}
             </button>
             {!fresh && plan.can_apply && (
               <p role="status">
-                Review expired. Review the application instance change again.
+                Review expired. Review the identity change again.
               </p>
             )}
           </div>
@@ -418,7 +483,7 @@ export function NativeInstancePanel(props: DeviceInstanceProps) {
             <p>
               <strong>Result: {observed?.status || "unknown"}</strong>
               {receipt.intent &&
-                ` · ${receipt.intent.target.address} · ${receipt.intent.old_instance} → ${receipt.intent.new_instance}`}
+                ` · ${receipt.intent.target.address} · ${receipt.intent.change_kind === "name" ? `${receipt.intent.old_name} → ${receipt.intent.new_name}` : `${receipt.intent.old_instance} → ${receipt.intent.new_instance}`}`}
             </p>
             <p>
               Device readback: {observed?.readback?.status || "not read"}.
@@ -436,11 +501,21 @@ export function NativeInstancePanel(props: DeviceInstanceProps) {
                   ? "operational"
                   : observed.system_status === 2
                     ? "download required"
-                    : `not operational (state ${observed.system_status})`}
+                    : observed.system_status === 5
+                      ? "backup in progress; wait before reading back again"
+                      : `not operational (state ${observed.system_status})`}
                 .
               </p>
             )}
             {observed?.error && <p role="alert">{observed.error}</p>}
+            {!!observed?.preservation?.device_calculated_changes?.length && (
+              <p role="status">
+                The controller refreshed its automatic flow calibration offset.
+                The transferred program and other saved settings match the
+                review. The before and after values are retained in the transfer
+                receipt.
+              </p>
+            )}
             {receipt.pending && (
               <p role="alert">
                 This transfer is unresolved. Read back its receipt before
@@ -457,7 +532,9 @@ export function NativeInstancePanel(props: DeviceInstanceProps) {
                   disabled={!props.connected || locked}
                   onClick={() => void run("readback")}
                 >
-                  Read back application and instance
+                  {renaming
+                    ? "Read back application and name"
+                    : "Read back application and instance"}
                 </button>
                 <button
                   disabled={locked}
@@ -483,7 +560,8 @@ export function NativeInstancePanel(props: DeviceInstanceProps) {
               </option>
               {status.receipts.map((r: any) => (
                 <option key={r.id} value={r.id}>
-                  {r.created_at} · {r.target.address} → {r.new_instance} ·{" "}
+                  {r.created_at} · {r.target.address} →{" "}
+                  {r.change_kind === "name" ? r.new_name : r.new_instance} ·{" "}
                   {r.pending ? "readback required" : r.status}
                 </option>
               ))}

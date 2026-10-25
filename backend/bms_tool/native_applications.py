@@ -12,7 +12,7 @@ from datetime import UTC, datetime, timedelta
 from bacpypes3.apdu import ReadPropertyACK, ReadPropertyRequest
 from bacpypes3.primitivedata import ObjectIdentifier, Unsigned
 from fastapi import APIRouter, Response
-from pydantic import Field, SecretStr, StrictBool
+from pydantic import Field, SecretStr, StrictBool, field_validator
 
 from .application_files import ApplicationFiles
 from .application_preservation import verify_preservation
@@ -28,7 +28,7 @@ from .device_details import DeviceDetailsRequest
 from .device_instance import InstanceApply, InstanceCancel, InstancePreview, InstanceReconcile
 from .mce_wire import VENDOR, MceWire, controller_info
 from .models import StrictModel
-from .moi_identity import MoiIdentity, seal, sha
+from .moi_identity import MoiIdentity, controller_name, seal, sha
 from .moi_parameters import ParameterApplication
 from .property_evidence import PropertyEvidence
 
@@ -48,10 +48,17 @@ class NativeCapture(DeviceDetailsRequest):
 
 class NativePreview(InstancePreview):
     capture_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    new_name: str | None = Field(default=None, strict=True, max_length=128)
+
+    @field_validator("new_name")
+    @classmethod
+    def valid_name(cls, value):
+        return controller_name(value) if value is not None else None
 
 
 class NativeApply(InstanceApply):
     application_transfer_confirmed: StrictBool
+    name_change_confirmed: StrictBool = False
 
 
 class NativeCredentials(StrictModel):
@@ -94,6 +101,9 @@ class NativeApplications:
                     "target": r["intent"]["target"],
                     "old_instance": r["intent"]["old_instance"],
                     "new_instance": r["intent"]["new_instance"],
+                    "change_kind": r["intent"].get("change_kind", "instance"),
+                    "old_name": r["intent"].get("old_name"),
+                    "new_name": r["intent"].get("new_name"),
                     "status": (r.get("latest_readback") or r["result"] or r["intent"])["status"],
                     "pending": r["pending"],
                     "created_at": r["intent"]["created_at"],
@@ -297,7 +307,7 @@ class NativeApplications:
         return receipt, files
 
     @staticmethod
-    def compile(files, new_instance):
+    def compile(files, new_instance, new_name=None):
         merged, parameters = ParameterApplication(files[3], files[11], files[12]).compile()
         editor = MoiIdentity(merged)
         q = {
@@ -305,22 +315,30 @@ class NativeApplications:
             "expected_instance": editor.instance,
             "new_instance": new_instance,
         }
+        if new_name is not None:
+            q.update(expected_name=editor.summary()["name"], new_name=new_name)
         edit = editor.preview(**q)
         output, edits = editor.export(**q, plan_sha256=edit["plan_sha256"])
         return output, {"parameters": parameters, "identity_edit": edits}
 
     async def preview(self, **arguments):
         options = NativePreview(**arguments)
-        if ObjectIdentifier(options.device)[1] == options.new_instance:
+        renaming = options.new_name is not None
+        old_instance = ObjectIdentifier(options.device)[1]
+        if renaming and options.new_instance != old_instance:
+            raise ValueError("A name-only review must preserve the current instance.")
+        if not renaming and old_instance == options.new_instance:
             raise ValueError("Choose a different reserved Device instance.")
         async with self.operation(options.operation_id, "review"):
             self.available(options)
             captured, files = self.check_capture(options)
-            output, compilation = self.compile(files, options.new_instance)
+            if renaming and options.new_name == captured["identity"]["object-name"]:
+                raise ValueError("Choose a different controller name.")
+            output, compilation = self.compile(files, options.new_instance, options.new_name)
             config, app = copy.deepcopy(self.bacnet.config), self.bacnet.require()
             if options.new_instance == config["instance"]:
                 raise ValueError("The proposed instance belongs to this engineering client.")
-            collision = await self.instances._collision(options)
+            collision = self.name_scope() if renaming else await self.instances._collision(options)
             async with self.path._path(options) as session:
                 PropertyEvidence.pin(session, options.router)
                 actual, _ = await self.identity(session, options.device)
@@ -332,6 +350,9 @@ class NativeApplications:
                 "identity": actual,
                 "old_instance": ObjectIdentifier(options.device)[1],
                 "new_instance": options.new_instance,
+                "change_kind": "name" if renaming else "instance",
+                "old_name": actual["object-name"],
+                "new_name": options.new_name if renaming else actual["object-name"],
                 "capture_id": options.capture_id,
                 "snapshot_sha256": captured["evidence_sha256"],
                 "application_sha256": sha(files[3]),
@@ -367,9 +388,38 @@ class NativeApplications:
                 self.plans.popitem(last=False)
             return {**body, "token": token, "review_sha256": digest}
 
+    @staticmethod
+    def name_scope():
+        return {
+            "scope": "Name-only edit at the selected physical station",
+            "devices": [],
+            "checked_at": utc(),
+            "limitation": "The existing instance is retained; no new number is allocated.",
+        }
+
+    async def observe_name(self, session, intent):
+        try:
+            actual = await self.instances._identity(session, intent["identity"]["device"])
+            expected = {**intent["identity"], "object-name": intent["new_name"]}
+            state = (
+                "verified_new"
+                if actual == expected
+                else "verified_old"
+                if actual == intent["identity"]
+                else "identity_mismatch"
+            )
+            return {"status": state, "identity": actual, "errors": []}
+        except (ValueError, TimeoutError, OSError) as exc:
+            return {"status": "unconfirmed", "identity": None, "errors": [str(exc)[:256]]}
+
     async def verify(self, session, intent):
         self.phase("reading back the physical station")
-        observed = await self.instances._observe(session, intent)
+        renaming = intent.get("change_kind") == "name"
+        observed = (
+            await self.observe_name(session, intent)
+            if renaming
+            else await self.instances._observe(session, intent)
+        )
         result = {
             "status": "unknown",
             "readback": observed,
@@ -406,11 +456,17 @@ class NativeApplications:
             )
             if digest == intent["native_payload_sha256"]:
                 _, original_files = self.storage.load(intent["backup_id"])
+                name_policy = (
+                    {"old_name": intent["old_name"], "new_name": intent["new_name"]}
+                    if renaming
+                    else {}
+                )
                 result["preservation"] = verify_preservation(
                     original_files,
                     files,
                     old_instance=intent["old_instance"],
                     new_instance=intent["new_instance"],
+                    **name_policy,
                 )
                 status = int(await self.path._read(session, options.device, "system-status"))
                 result.update(system_status=status, operational=status == 0)
@@ -436,7 +492,12 @@ class NativeApplications:
             raise ValueError(
                 "Native application review is changed, blocked, expired or already consumed."
             )
-        if not request.allocation_confirmed or not request.application_transfer_confirmed:
+        renaming = plan["body"].get("change_kind") == "name"
+        if (
+            not request.application_transfer_confirmed
+            or (renaming and not request.name_change_confirmed)
+            or (not renaming and not request.allocation_confirmed)
+        ):
             raise ValueError("Confirm the reserved number and reviewed application transfer.")
         body, options = plan["body"], plan["options"]
         receipt_id, intent, dispatched = secrets.token_hex(16), None, False
@@ -457,7 +518,9 @@ class NativeApplications:
                     raise ValueError("Interface or review changed; review again.")
                 if seal(self.credentials.get()) != plan["credentials_digest"]:
                     raise ValueError("Transfer credentials changed; review again.")
-                collision = await self.instances._collision(options)
+                collision = (
+                    self.name_scope() if renaming else await self.instances._collision(options)
+                )
                 if collision["devices"]:
                     raise ValueError(
                         "The proposed number answered the fresh collision query. No transfer was sent."
@@ -477,7 +540,9 @@ class NativeApplications:
                         raise ValueError(
                             "Application or saved parameter directory changed after review. Capture and review again."
                         )
-                    output, compilation = self.compile(files, options.new_instance)
+                    output, compilation = self.compile(
+                        files, options.new_instance, options.new_name
+                    )
                     capacity_request = ReadPropertyRequest(
                         objectIdentifier=(10, 3), propertyIdentifier=3380
                     )
@@ -517,6 +582,9 @@ class NativeApplications:
                                     "identity",
                                     "old_instance",
                                     "new_instance",
+                                    "change_kind",
+                                    "old_name",
+                                    "new_name",
                                     "connector_config",
                                 )
                             },
@@ -529,7 +597,8 @@ class NativeApplications:
                             "native_payload_sha256": sha(MoiIdentity(output).data),
                             "compilation": compilation,
                             "collision_check": collision,
-                            "allocation_confirmed": True,
+                            "allocation_confirmed": request.allocation_confirmed,
+                            "name_change_confirmed": request.name_change_confirmed,
                             "application_transfer_confirmed": True,
                         }
                     )

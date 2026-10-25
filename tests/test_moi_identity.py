@@ -11,7 +11,16 @@ from bms_tool.moi_identity import MoiIdentity
 from .test_controller_application import encoded, native_record
 
 
-def source(*, model="UNLISTED-CONTROLLER", cid=194, modules=0, compressed=False, extended=False):
+def source(
+    *,
+    model="UNLISTED-CONTROLLER",
+    cid=194,
+    modules=0,
+    compressed=False,
+    extended=False,
+    name="Authored controller",
+    name_encoding=0,
+):
     old = 5136
     root = native_record(
         cid,
@@ -19,7 +28,7 @@ def source(*, model="UNLISTED-CONTROLLER", cid=194, modules=0, compressed=False,
         [
             (32527, encoded(CharacterString("controller"))),
             (75, encoded(ObjectIdentifier((8, old)))),
-            (2390, encoded(CharacterString("Authored controller"))),
+            (2390, encoded(CharacterString(name, _encoding=name_encoding))),
             (70, encoded(CharacterString(model))),
             (4128, encoded(Unsigned(62))),
             (4129, encoded(Unsigned(62))),
