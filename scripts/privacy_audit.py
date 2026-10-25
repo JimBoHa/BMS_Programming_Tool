@@ -26,8 +26,8 @@ COMMON = (
     (
         "private-key",
         re.compile(
-            rb"(?m)^-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----\r?\n"
-            rb"(?:[A-Za-z0-9+/=]{16,}\r?\n)+"
+            rb"-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----(?:\r?\n|\\n)"
+            rb"(?:[A-Za-z0-9+/=]{16,}(?:\r?\n|\\n))+"
             rb"-----END (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----"
         ),
     ),
@@ -41,9 +41,11 @@ def rules(document):
         networks = tuple(
             ipaddress.ip_network(s, strict=False) for s in document.get("networks", [])
         )
+        if any(net.version != 4 for net in networks):
+            raise ValueError
         literals = []
-        for label, value in document.get("secrets", {}).items():
-            if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", label) or not isinstance(value, str):
+        for index, value in enumerate(document.get("secrets", {}).values(), 1):
+            if not isinstance(value, str):
                 raise ValueError
             if len(value) < 4:
                 raise ValueError
@@ -54,7 +56,7 @@ def rules(document):
                 base64.b64encode(value.encode()),
                 json.dumps(value, ensure_ascii=True)[1:-1].encode(),
             }
-            literals.extend((label, variant) for variant in variants)
+            literals.extend((str(index), variant) for variant in variants)
         return {"networks": networks, "literals": tuple(literals)}
     except (ValueError, TypeError, AttributeError):
         raise ValueError("Invalid private audit rules; values were not printed.") from None
@@ -77,6 +79,12 @@ def scan_bytes(data, private):
         while (offset := data.find(literal, start)) >= 0:
             found.add((offset, "known-secret:" + label))
             start = offset + len(literal)
+    for net in private["networks"]:
+        if net.prefixlen == 24:
+            prefix = str(net.network_address).rsplit(".", 1)[0].encode() + b"."
+            for match in re.finditer(rb"(?<![\d.])" + re.escape(prefix), data):
+                if not any(offset == match.start() for offset, _ in found):
+                    found.add((match.start(), "configured-network-prefix"))
     return [
         {"line": data.count(b"\n", 0, offset) + 1, "kind": label} for offset, label in sorted(found)
     ]
@@ -98,13 +106,25 @@ def git(root, *args, data=None):
 
 
 def scan_worktree(root, private):
-    findings, skipped, scanned = [], [], 0
-    for raw in git(root, "ls-files", "-z").split(b"\0"):
-        if not raw:
+    findings, skipped, gitlinks, scanned = [], [], [], 0
+    for entry in git(root, "ls-files", "--stage", "-z").split(b"\0"):
+        if not entry:
             continue
+        header, _, raw = entry.partition(b"\t")
+        mode, oid, stage = header.split()
         name = os.fsdecode(raw)
         path = root / name
         location = safe_location(name, private)
+        findings.extend(
+            {"location": location, "line": 1, "kind": "path:" + row["kind"]}
+            for row in scan_bytes(raw, private)
+        )
+        if stage != b"0":
+            skipped.append({"location": location, "reason": "unmerged-index-entry"})
+            continue
+        if mode == b"160000":
+            gitlinks.append({"location": location, "object": oid.decode()})
+            continue
         if path.is_symlink():
             data = os.readlink(path).encode()
         elif path.is_file() and path.stat().st_size <= MAX_BLOB:
@@ -114,15 +134,34 @@ def scan_worktree(root, private):
             continue
         scanned += 1
         findings.extend({"location": location, **row} for row in scan_bytes(data, private))
-    return {"objects_scanned": scanned, "findings": findings, "skipped": skipped}
+    return {
+        "objects_scanned": scanned,
+        "findings": findings,
+        "skipped": skipped,
+        "external_gitlinks": gitlinks,
+    }
 
 
 def scan_history(root, private):
-    """Read unique reachable blobs and commits, including deleted historical files."""
+    """Read reachable blobs, commits, tags, ref names and historical file names."""
     names = {}
+    findings = []
     for line in git(root, "rev-list", "--objects", "--all").splitlines():
         oid, _, path = line.partition(b" ")
         names.setdefault(oid.decode(), os.fsdecode(path) if path else "<commit>")
+        findings.extend(
+            {"object": oid.decode(), "location": safe_location(os.fsdecode(path), private),
+             "line": 1, "kind": "path:" + row["kind"]}
+            for row in scan_bytes(path, private)
+        )
+    for line in git(root, "for-each-ref", "--format=%(objectname) %(refname)").splitlines():
+        oid, _, ref = line.partition(b" ")
+        names.setdefault(oid.decode(), "<ref-object>")
+        findings.extend(
+            {"object": oid.decode(), "location": safe_location(os.fsdecode(ref), private),
+             "line": 1, "kind": "ref:" + row["kind"]}
+            for row in scan_bytes(ref, private)
+        )
     checks = git(
         root,
         "cat-file",
@@ -132,7 +171,7 @@ def scan_history(root, private):
     wanted, skipped = [], []
     for line in checks.decode().splitlines():
         parts = line.split()
-        if len(parts) != 3 or parts[1] not in ("blob", "commit"):
+        if len(parts) != 3 or parts[1] not in ("blob", "commit", "tag"):
             continue
         oid, kind, size = parts
         location = safe_location(names[oid], private)
@@ -146,7 +185,6 @@ def scan_history(root, private):
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
     )
-    findings = []
     try:
         for oid, kind, location in wanted:
             process.stdin.write((oid + "\n").encode())
@@ -189,6 +227,7 @@ def main(argv=None):
         scope="reachable-git-history" if args.history else "tracked-working-files",
         custom_rules_loaded=bool(args.private_rules),
         complete=not result["skipped"],
+        exclusions=["submodule contents", "hosted metadata and assets", "archive decoding"],
     )
     text = json.dumps(result, indent=2) + "\n"
     if args.output:
