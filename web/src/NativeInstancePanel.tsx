@@ -429,6 +429,18 @@ export function NativeInstancePanel(props: DeviceInstanceProps) {
                 : "not verified"}
               .
             </p>
+            {typeof observed?.system_status === "number" && (
+              <p>
+                Controller status:{" "}
+                {observed.system_status === 0
+                  ? "operational"
+                  : observed.system_status === 2
+                    ? "download required"
+                    : `not operational (state ${observed.system_status})`}
+                .
+              </p>
+            )}
+            {observed?.error && <p role="alert">{observed.error}</p>}
             {receipt.pending && (
               <p role="alert">
                 This transfer is unresolved. Read back its receipt before

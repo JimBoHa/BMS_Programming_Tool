@@ -3,6 +3,7 @@
 import asyncio
 import copy
 import socket
+import time
 
 import pytest
 from bacpypes3.apdu import (
@@ -61,15 +62,31 @@ class NativePeer(Application):
             "model-name": "UNLISTED-MODEL",
             "firmware-revision": "authored-1",
             "application-software-version": "authored-application",
+            "system-status": 0,
         }
         self.events = []
         self.mode = "normal"
         self.restore = False
         self.stage = bytearray()
         self.dispatch = None
+        self.restore_ready_at = 0
+        self.restore_delay = 0.02
+        self.application_capacity = 131072
 
     async def do_ReadPropertyRequest(self, request):
         prop = str(request.propertyIdentifier)
+        if prop == "system-status":
+            from bacpypes3.apdu import ReadPropertyACK
+
+            await self.response(
+                ReadPropertyACK(
+                    context=request,
+                    objectIdentifier=request.objectIdentifier,
+                    propertyIdentifier=request.propertyIdentifier,
+                    propertyValue=Any(Enumerated(self.metadata[prop])),
+                )
+            )
+            return
         if prop == "max-apdu-length-accepted":
             values = {prop: 480}
         elif request.objectIdentifier == ObjectIdentifier(("file", 3)):
@@ -80,7 +97,11 @@ class NativePeer(Application):
                     context=request,
                     objectIdentifier=request.objectIdentifier,
                     propertyIdentifier=request.propertyIdentifier,
-                    propertyValue=Any(CharacterString(".moi")),
+                    propertyValue=Any(
+                        Unsigned(self.application_capacity)
+                        if prop == "3380"
+                        else CharacterString(".moi")
+                    ),
                 )
             )
             return
@@ -143,6 +164,7 @@ class NativePeer(Application):
             assert str(request.password) == "authored-restore"
             self.restore = True
             self.stage = bytearray()
+            self.restore_ready_at = time.monotonic() + self.restore_delay
             if self.mode == "drop-start":
                 return
         elif state == "end-restore":
@@ -150,6 +172,8 @@ class NativePeer(Application):
             self.files[3] = bytes(self.stage)
             self.instance = MoiIdentity(self.files[3]).instance
             self.restore = False
+            if self.mode == "not-operational":
+                self.metadata["system-status"] = 2
             if self.mode == "mismatch":
                 self.files[3] = parameters_source(model="OTHER")[0]
             if self.mode == "drop-end":
@@ -185,6 +209,9 @@ class NativePeer(Application):
 
     async def do_AtomicWriteFileRequest(self, request):
         assert self.restore and request.fileIdentifier == ObjectIdentifier(("file", 3))
+        if time.monotonic() < self.restore_ready_at:
+            self.events.append(("early-block",))
+            return  # Native peer drops a request received during storage preparation.
         a = request.accessMethod.streamAccess
         pos = int(a.fileStartPosition)
         assert pos == len(self.stage)
@@ -203,7 +230,8 @@ class NativePeer(Application):
 
 
 @pytest.fixture
-async def native_link(tmp_path):
+async def native_link(tmp_path, monkeypatch):
+    monkeypatch.setattr("bms_tool.native_applications.RESTORE_PREPARATION_SECONDS", 0.03)
     remote = port()
     peer = NativePeer.from_object_list(
         [
@@ -453,3 +481,48 @@ async def test_native_and_standard_device_identity_must_agree_before_backup(nati
     with pytest.raises(ValueError, match="disagrees"):
         await service.capture(**target, operation_id="mismatched-native-identity")
     assert not peer.events
+
+
+async def test_new_identity_and_matching_bytes_do_not_verify_a_nonoperational_controller(
+    native_link,
+):
+    peer, _, _, service, _ = native_link
+    _, plan = await review(native_link)
+    peer.mode = "not-operational"
+    result = await service.apply(**apply_request(plan))
+    assert peer.instance == 5336
+    assert result["pending"] and result["result"]["status"] == "unknown"
+    assert result["result"]["system_status"] == 2 and not result["result"]["operational"]
+    assert "not operational" in result["result"]["error"]
+    assert not any(e[0] == "early-block" for e in peer.events)
+
+
+async def test_application_capacity_is_checked_before_entering_restore(native_link):
+    peer, _, _, service, _ = native_link
+    _, plan = await review(native_link)
+    peer.application_capacity = 1
+    result = await service.apply(**apply_request(plan))
+    assert result["result"]["status"] == "not_sent" and not result["pending"]
+    assert "capacity" in result["result"]["errors"][0]
+    assert not any(e[0] == "write" or e == ("state", "start-restore") for e in peer.events)
+
+
+async def test_cancel_during_storage_preparation_preserves_pending_without_sending_a_block(
+    native_link, monkeypatch
+):
+    peer, _, _, service, _ = native_link
+    _, plan = await review(native_link)
+    original = service.storage.event
+
+    def cancel_at_preparation(receipt_id, stage, detail):
+        result = original(receipt_id, stage, detail)
+        if stage == "restore-preparation-start":
+            service.cancel("authored-apply")
+        return result
+
+    monkeypatch.setattr(service.storage, "event", cancel_at_preparation)
+    result = await service.apply(**apply_request(plan))
+    assert result["pending"] and result["result"]["status"] == "unknown"
+    assert ("state", "start-restore") in peer.events
+    assert not any(e[0] in ("write", "early-block") for e in peer.events)
+    assert ("state", "end-restore") not in peer.events

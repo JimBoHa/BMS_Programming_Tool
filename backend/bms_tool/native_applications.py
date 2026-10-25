@@ -9,7 +9,8 @@ from collections import OrderedDict
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 
-from bacpypes3.primitivedata import ObjectIdentifier
+from bacpypes3.apdu import ReadPropertyACK, ReadPropertyRequest
+from bacpypes3.primitivedata import ObjectIdentifier, Unsigned
 from fastapi import APIRouter, Response
 from pydantic import Field, SecretStr, StrictBool
 
@@ -31,6 +32,8 @@ from .moi_parameters import ParameterApplication
 from .property_evidence import PropertyEvidence
 
 PLAN_SECONDS = 180
+# Objects-only restore acknowledges before application storage is ready.
+RESTORE_PREPARATION_SECONDS = 5.0
 SCOPE = (
     "Edit the connected controller application Device identity. Capture the original application "
     "and parameter files; merge fresh saved parameters; transfer only the application File; "
@@ -372,7 +375,20 @@ class NativeApplications:
             "read_only": True,
             "observed_at": utc(),
         }
+        identity = observed.get("identity")
+        if identity is not None:
+            try:
+                status = int(await self.path._read(session, identity["device"], "system-status"))
+                result.update(system_status=status, operational=status == 0)
+            except (ValueError, TimeoutError, OSError) as exc:
+                result["error"] = (
+                    "Controller operational status could not be read: " + str(exc)[:256]
+                )
+                return result
         if observed["status"] != "verified_new":
+            return result
+        if not result.get("operational"):
+            result["error"] = "The new identity responds, but the controller is not operational."
             return result
         options = DeviceDetailsRequest(
             **intent["target"], device=f"device,{intent['new_instance']}"
@@ -388,8 +404,15 @@ class NativeApplications:
                 expected_native_sha256=intent["native_payload_sha256"],
             )
             if digest == intent["native_payload_sha256"]:
-                result["status"] = "verified"
-                self.instances._forget_old_address(session)
+                status = int(await self.path._read(session, options.device, "system-status"))
+                result.update(system_status=status, operational=status == 0)
+                if status == 0:
+                    result["status"] = "verified"
+                    self.instances._forget_old_address(session)
+                else:
+                    result["error"] = (
+                        "Application bytes match, but the controller is not operational."
+                    )
             else:
                 result["error"] = (
                     "Device identity changed, but application bytes do not match the transmitted application."
@@ -447,6 +470,23 @@ class NativeApplications:
                             "Application or saved parameter directory changed after review. Capture and review again."
                         )
                     output, compilation = self.compile(files, options.new_instance)
+                    capacity_request = ReadPropertyRequest(
+                        objectIdentifier=(10, 3), propertyIdentifier=3380
+                    )
+                    capacity_reply = await self.files.exchange(
+                        session, capacity_request, ReadPropertyACK
+                    )
+                    if (
+                        capacity_reply.objectIdentifier != capacity_request.objectIdentifier
+                        or capacity_reply.propertyIdentifier != capacity_request.propertyIdentifier
+                        or capacity_reply.propertyArrayIndex is not None
+                    ):
+                        raise ValueError("Application capacity reply does not match its request.")
+                    capacity = int(capacity_reply.propertyValue.cast_out(Unsigned))
+                    if capacity <= 0 or len(output) > capacity:
+                        raise ValueError(
+                            "Compiled application exceeds the controller-reported application capacity."
+                        )
                     # Durable payload and original backup exist before the first restore request.
                     private_folder = self.storage.directory / backup["id"]
                     private_write(private_folder / "reviewed-application.bin", output)
@@ -513,6 +553,15 @@ class NativeApplications:
                     self.storage.event(
                         receipt_id, "ack-start-restore", session["last_application_wire"]
                     )
+                    self.phase("preparing controller application storage")
+                    self.storage.event(
+                        receipt_id,
+                        "restore-preparation-start",
+                        {"wait_seconds": RESTORE_PREPARATION_SECONDS},
+                    )
+                    await asyncio.sleep(RESTORE_PREPARATION_SECONDS)
+                    self.path._guard(session)
+                    self.storage.event(receipt_id, "restore-preparation-finished", {})
                     self.phase("transferring reviewed application")
 
                     def block(detail, packet):

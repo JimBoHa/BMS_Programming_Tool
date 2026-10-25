@@ -49,8 +49,14 @@ transfer while retaining readable original evidence.
 The transport uses source-pinned BACnet/IPv4, directly or through an explicit
 IPv4 router. Backup uses ReinitializeDevice start-backup/end-backup and bounded
 AtomicReadFile requests for the family application's virtual Files 11, 12 and 3.
-Application transfer uses start-restore, AtomicWriteFile for File 3 only, and
-end-restore. Boot and firmware writes are excluded. Direct MS/TP, BBMD/foreign
+Application transfer reads the controller's application capacity (File 3 property
+3380) before entering restore and refuses an oversized payload. It uses
+start-restore, a five-second application-storage preparation interval,
+AtomicWriteFile for File 3 only, and end-restore. A start-restore acknowledgement
+precedes storage readiness; sending the first block immediately can lose that
+request and leave the controller reporting download required. Preparation is
+journalled, and cancellation during it retains an unresolved transfer without
+sending an application block. Boot and firmware writes are excluded. Direct MS/TP, BBMD/foreign
 device transfer, firmware conversion and background downloads are outside this
 profile.
 
@@ -94,7 +100,9 @@ while a prior native transfer remains unresolved.
 Responses require matching original-unicast UDP ingress, physical source,
 router, socket, invoke ID, service and exact APDU bytes. Readback remains tied to
 the receipt's original station even when another controller shares its old
-Device instance.
+Device instance. Verification also requires the Device to report operational
+status before and after application readback. An unchanged instance alone does
+not establish recovery: download-required status remains visible and unresolved.
 
 ## Verification and current limits
 
@@ -106,6 +114,9 @@ The browser test exercises the same transport through the connected workflow.
 A private field capture was acquired directly by this implementation. Its
 parameter merge and instance edit were compared byte for byte with offline
 reference compiler output. Vendor binaries, source captures and protocol
-credentials are not repository fixtures or runtime dependencies. Physical
-application transfer acceptance must be recorded separately; read-only field
-acquisition and offline binary equivalence do not establish that acceptance.
+credentials are not repository fixtures or runtime dependencies. A single
+physical application transfer has now been acknowledged and verified by changed
+identity, operational status and an exact expanded-application readback. This is
+one field acceptance result; it does not establish support for every model.
+Read-only acquisition and offline binary equivalence alone do not establish
+physical application acceptance.
