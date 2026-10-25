@@ -102,15 +102,17 @@ class ParameterApplication:
                 if end >= len(dynamic) or any(i in used for i in range(position, end + 1)):
                     raise ValueError("Dynamic parameter offsets overlap or exceed the capture.")
                 payload = dynamic[position:end]
-                checksum = header_crc(payload) ^ (0 if flags == 0x67 else 0xFF)
-                if dynamic[end] != checksum:
-                    raise ValueError("Dynamic parameter checksum does not match its value.")
                 used.update(dict.fromkeys(range(position, end + 1)))
                 if flags == 0x67:
                     if prop is not None:
                         raise ValueError("Application parameter has no valid saved value.")
+                    # An explicitly unsaved, unreferenced slot has no value to
+                    # decode. Firmware can leave its old payload/CRC behind.
+                    # Its complete range remains reserved and bounds checked.
                     offset += length
                     continue
+                if dynamic[end] != header_crc(payload) ^ 0xFF:
+                    raise ValueError("Dynamic parameter checksum does not match its value.")
                 if kind is Real:
                     value = b"\x44" + payload + b"\x2f"
                     # Preserve the exact IEEE bits, including signed zero; do not
