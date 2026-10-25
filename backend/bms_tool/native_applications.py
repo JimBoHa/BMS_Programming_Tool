@@ -32,7 +32,12 @@ from .moi_identity import MoiIdentity, controller_name, seal, sha
 from .moi_parameters import ParameterApplication
 from .property_evidence import PropertyEvidence
 
-PLAN_SECONDS = 180
+# A routed native backup consists of many separately acknowledged File chunks.
+# Allow a fresh backup to finish inside the review window on slower trunks, and
+# reserve a separate operation budget for backup + transfer + verified readback.
+# Per-request deadlines, single dispatch and the pre-restore expiry guard remain.
+PLAN_SECONDS = 15 * 60
+OPERATION_SECONDS = 30 * 60
 # Objects-only restore acknowledges before application storage is ready.
 RESTORE_PREPARATION_SECONDS = 5.0
 SCOPE = (
@@ -70,7 +75,14 @@ class NativeApplications:
     id = "mce-native-application"
 
     def __init__(
-        self, bacnet, store, instances, *, operation_timeout=300, request_timeout=4, gap=0.02
+        self,
+        bacnet,
+        store,
+        instances,
+        *,
+        operation_timeout=OPERATION_SECONDS,
+        request_timeout=4,
+        gap=0.02,
     ):
         self.bacnet, self.store, self.instances = bacnet, store, instances
         self.path = instances.path
@@ -92,6 +104,11 @@ class NativeApplications:
             "credentials_configured": self.credentials.configured(),
             "vendor_runtime_required": False,
             "scope": SCOPE,
+            "limits": {
+                "operation_seconds": self.operation_timeout,
+                "review_seconds": PLAN_SECONDS,
+                "request_seconds": self.files.timeout,
+            },
             "active": (
                 {k: v for k, v in self.active.items() if k != "task"} if self.active else None
             ),
