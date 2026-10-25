@@ -285,7 +285,7 @@ test("controller rejection stays explicit and does not report success", async ({
       exact: true,
     });
     await expect(receipt).toContainText("Result: rejected");
-    await expect(receipt).toContainText("manufacturer’s commissioning tool");
+    await expect(receipt).toContainText("Connected application transfer");
     expect(server.packets()).toBe(1);
     // A reload/reconnect must retain the denial. This is a real backend and
     // authored UDP peer; neither capability nor rejected replies are mocked.
@@ -303,10 +303,8 @@ test("controller rejection stays explicit and does not report success", async ({
       exact: true,
     });
     await expect(method).toContainText("Standard instance write blocked");
-    await expect(method).toContainText("Transfer to Device");
-    await expect(method).toContainText(
-      "Native application transfer is not implemented",
-    );
+    await expect(method).toContainText("Connected application transfer");
+    await expect(method).toContainText("review the instance edit");
     await expect(
       restarted.getByRole("checkbox", {
         name: "I reserved this new number",

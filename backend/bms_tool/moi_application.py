@@ -29,6 +29,7 @@ from bacpypes3.primitivedata import (
 )
 
 from .caf import ATTRIBUTES, BY_CLASS, CLASSES
+from .moi_framing import native_frames
 
 MAX_SOURCE = 2 * 1024 * 1024
 MAX_EXPANDED = 8 * 1024 * 1024
@@ -158,21 +159,35 @@ class MoiApplication:
                 "This file does not contain the recognized tagged MOI application format."
             )
         self.data, self.records, self.errors = data, {}, []
-        pattern = rb"(?P<class>.{2})\x02\x00\x0e\x1c(?P<oid>.{4})\x0f\x1e"
-        accepted_end, candidates = 0, 0
-        for match in re.finditer(pattern, data, re.S):
-            if match.start() < accepted_end:
+        self.metadata_records = []
+        frames = native_frames(data)
+        if frames is None:
+            pattern = rb"(?P<class>.{2})\x02\x00\x0e\x1c(?P<oid>.{4})\x0f\x1e"
+            candidates = [
+                (m.start(), int.from_bytes(m["class"], "little"), m["oid"], None)
+                for m in re.finditer(pattern, data, re.S)
+            ]
+        else:
+            candidates = frames
+        accepted_end, count = 0, 0
+        for start, cid, oid, declared_end in candidates:
+            if (
+                start < accepted_end
+                or not 0 <= cid <= 1023
+                or cid != int.from_bytes(oid, "big") >> 22
+            ):
                 continue
-            cid = int.from_bytes(match["class"], "little")
-            oid = int.from_bytes(match["oid"], "big")
-            if not 0 <= cid <= 1023 or cid != oid >> 22:
-                continue
-            candidates += 1
-            if candidates > MAX_RECORDS:
+            count += 1
+            if count > MAX_RECORDS:
                 raise ValueError("Native application exceeds its record budget.")
             try:
-                record = self._record(match.start(), cid, match["oid"])
+                record = self._record(start, cid, oid)
+                if declared_end is not None and record["end_offset"] != declared_end:
+                    raise ValueError("Native object does not consume its declared record length.")
                 accepted_end = record["end_offset"]
+                if frames is not None and 32527 not in record["properties"]:
+                    self.metadata_records.append(record)
+                    continue
                 ref = self.scalar(record, 32527)
                 if not isinstance(ref, str) or not ref or len(ref) > 512 or ref in self.records:
                     raise ValueError(
@@ -181,7 +196,7 @@ class MoiApplication:
                 record["ref"] = ref
                 self.records[ref] = record
             except (ValueError, TypeError, AttributeError, InvalidTag) as failure:
-                self.errors.append({"offset": match.start(), "error": str(failure)[:240]})
+                self.errors.append({"offset": start, "error": str(failure)[:240]})
         if not self.records:
             raise ValueError("No recognized native application records were found.")
 
@@ -224,6 +239,8 @@ class MoiApplication:
             value_end = start + 4 + before - len(pdu.pduData)
             properties[pid] = {
                 "id": pid,
+                "value_start_offset": value_start,
+                "value_end_offset": value_end,
                 "name": BY_CLASS.get(str(cid), {}).get(
                     str(pid), ATTRIBUTES.get(str(pid), "Unmapped property")
                 ),
@@ -339,6 +356,7 @@ class MoiApplication:
             except (ValueError, TypeError, AttributeError, InvalidTag) as failure:
                 errors.append({"ref": ref, "error": str(failure)[:240]})
         return {
+            "metadata_records": len(self.metadata_records),
             "format": self.format,
             "sha256": self.sha256,
             "record_count": len(self.records),
