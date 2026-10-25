@@ -171,6 +171,8 @@ class NativePeer(Application):
             assert self.restore
             self.files[3] = bytes(self.stage)
             self.instance = MoiIdentity(self.files[3]).instance
+            if self.mode != "ignore-name":
+                self.metadata["object-name"] = MoiIdentity(self.files[3]).summary()["name"]
             self.restore = False
             if self.mode == "not-operational":
                 self.metadata["system-status"] = 2
@@ -335,6 +337,71 @@ async def test_capture_review_compile_transfer_and_verify_all_use_owned_udp(nati
     assert not bacnet.app.asap.clientTransactions and not bacnet.lock.locked()
     with pytest.raises(ValueError, match="consumed"):
         await service.apply(**apply_request(plan))
+
+
+async def name_review(link):
+    _, _, _, service, target = link
+    capture = await service.capture(**target, operation_id="name-capture")
+    plan = await service.preview(
+        **target,
+        operation_id="name-preview",
+        capture_id=capture["id"],
+        new_instance=5136,
+        new_name="Renamed controller",
+    )
+    return capture, plan
+
+
+async def test_name_only_transfer_preserves_number_and_all_other_settings(native_link):
+    peer, _, _, service, _ = native_link
+    before = copy.deepcopy(peer.files)
+
+    async def forbidden_collision(options):
+        raise AssertionError("Name-only operation must not reserve another instance.")
+
+    service.instances._collision = forbidden_collision
+    _, plan = await name_review(native_link)
+    result = await service.apply(
+        **{**apply_request(plan), "allocation_confirmed": False, "name_change_confirmed": True}
+    )
+    assert result["result"]["status"] == "verified" and not result["pending"]
+    assert peer.instance == 5136 and peer.metadata["object-name"] == "Renamed controller"
+    assert result["intent"]["old_instance"] == result["intent"]["new_instance"] == 5136
+    assert not result["intent"]["allocation_confirmed"]
+    assert result["result"]["preservation"]["application_identical_except_name"]
+    assert peer.files[11] == before[11] and peer.files[12] == before[12]
+    assert len([event for event in peer.events if event == ("state", "start-restore")]) == 1
+
+
+async def test_name_confirmation_required_and_mixed_edit_refused(native_link):
+    peer, _, _, service, target = native_link
+    capture, plan = await name_review(native_link)
+    with pytest.raises(ValueError, match="Confirm"):
+        await service.apply(**apply_request(plan))
+    with pytest.raises(ValueError, match="preserve the current instance"):
+        await service.preview(
+            **target,
+            operation_id="mixed-review",
+            capture_id=capture["id"],
+            new_instance=5336,
+            new_name="Renamed controller",
+        )
+    assert not any(event[0] == "write" for event in peer.events)
+
+
+async def test_name_not_activated_stays_pending_and_readback_never_reapplies(native_link):
+    peer, _, _, service, _ = native_link
+    _, plan = await name_review(native_link)
+    peer.mode = "ignore-name"
+    result = await service.apply(**{**apply_request(plan), "name_change_confirmed": True})
+    assert result["pending"] and result["result"]["status"] == "unknown"
+    writes = [event for event in peer.events if event[0] == "write"]
+    peer.metadata["object-name"] = "Renamed controller"
+    resolved = await service.reconcile(
+        operation_id="name-readback", receipt_id=result["intent"]["id"]
+    )
+    assert not resolved["pending"] and resolved["latest_readback"]["status"] == "verified"
+    assert writes == [event for event in peer.events if event[0] == "write"]
 
 
 async def test_matching_application_with_changed_saved_setting_stays_unresolved(native_link):

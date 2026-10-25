@@ -11,7 +11,8 @@ import struct
 import zlib
 
 from bacpypes3.errors import InvalidTag
-from bacpypes3.primitivedata import ObjectIdentifier
+from bacpypes3.pdu import PDUData
+from bacpypes3.primitivedata import CharacterString, ClosingTag, ObjectIdentifier, Tag, TagList
 
 from .moi_application import MoiApplication
 from .moi_framing import native_frames
@@ -30,6 +31,20 @@ def seal(value):
 def number(value):
     if type(value) is not int or not 0 <= value <= 4194302:
         raise ValueError("Use an actual Device instance from 0 through 4194302.")
+    return value
+
+
+def controller_name(value):
+    if (
+        not isinstance(value, str)
+        or not value
+        or value.strip() != value
+        or len(value.encode("utf-8")) > 128
+        or any(ord(char) < 32 or ord(char) == 127 for char in value)
+    ):
+        raise ValueError(
+            "Use a nonempty controller name of at most 128 UTF-8 bytes, without control characters or surrounding whitespace."
+        )
     return value
 
 
@@ -95,12 +110,46 @@ class MoiIdentity:
             "controller_write": False,
         }
 
-    def preview(self, *, source_sha256, expected_instance, new_instance):
+    def preview(
+        self, *, source_sha256, expected_instance, new_instance, expected_name=None, new_name=None
+    ):
         number(expected_instance)
         number(new_instance)
         if source_sha256 != self.source_sha256 or expected_instance != self.instance:
             raise ValueError("Native application source or Device instance changed; capture again.")
         edits = []
+        if new_name is not None:
+            controller_name(new_name)
+            if expected_name != self.summary()["name"]:
+                raise ValueError("Native application name changed; capture again.")
+            if new_instance != self.instance:
+                raise ValueError("Review a name-only or instance-only change, not both together.")
+            prop = self.root["properties"].get(2390)
+            if prop is None:
+                raise ValueError("The application does not expose a typed Device name.")
+            start, end = prop["value_start_offset"], prop["value_end_offset"]
+            pdu = PDUData(self.data[start:end])
+            tag = Tag.decode(pdu)
+            if not tag.tag_data or tag.tag_data[0] not in (0, 3, 4, 5):
+                raise ValueError("Unsupported native Device-name character encoding.")
+            original = CharacterString.decode(TagList([tag]))
+            replacement = CharacterString(new_name, _encoding=tag.tag_data[0])
+            encoded_name = bytes(TagList([*replacement.encode(), ClosingTag(2)]).encode().pduData)
+            if str(original) != expected_name or self.data[start:end] != bytes(
+                TagList([*original.encode(), ClosingTag(2)]).encode().pduData
+            ):
+                raise ValueError("Device name does not have a reversible native string encoding.")
+            if new_name != expected_name:
+                edits.append(
+                    {
+                        "location": "Device.Object_Name",
+                        "native_byte_offset": start,
+                        "before": self.data[start:end].hex(),
+                        "after": encoded_name.hex(),
+                        "native_property": 2390,
+                        "character_encoding": tag.tag_data[0],
+                    }
+                )
         if new_instance != self.instance:
             for location, start, kind in (
                 ("root-object-header", self.header_start, self.root["class_id"]),
@@ -120,6 +169,8 @@ class MoiIdentity:
             "new_instance": new_instance,
             "edits": edits,
         }
+        if new_name is not None:
+            plan.update(old_name=expected_name, new_name=new_name, change_kind="name")
         return {**plan, "plan_sha256": seal(plan)}
 
     def export(self, *, plan_sha256, **request):
@@ -129,9 +180,33 @@ class MoiIdentity:
         if not plan["edits"]:
             return self.source, {**plan, "output_sha256": self.source_sha256}
         data = bytearray(self.data)
-        for edit in plan["edits"]:
+        for edit in sorted(
+            plan["edits"], key=lambda edit: edit["native_byte_offset"], reverse=True
+        ):
             start = edit["native_byte_offset"]
-            data[start : start + 4] = bytes.fromhex(edit["after"])
+            data[start : start + len(bytes.fromhex(edit["before"]))] = bytes.fromhex(edit["after"])
+        if request.get("new_name") is not None:
+            # Only the root property's encoded value can change. Reframe that
+            # record if its string length changes; retain every other raw record.
+            edit = plan["edits"][0]
+            delta = (len(edit["after"]) - len(edit["before"])) // 2
+            framed, previous = bytearray(self.data[:14]), 14
+            for record in self.records:
+                start, end = record["offset"], record["end_offset"]
+                if record is self.root:
+                    raw = bytes(data[start : end + delta])
+                else:
+                    shift = delta if start > self.root["offset"] else 0
+                    raw = bytes(data[start + shift : end + shift])
+                extended = start - previous == 6 or len(raw) + 2 > 65535
+                framed.extend(
+                    b"\x00\x00" + struct.pack("<I", len(raw) + 6)
+                    if extended
+                    else struct.pack("<H", len(raw) + 2)
+                )
+                framed.extend(raw)
+                previous = end
+            data = framed
         output = bytes(data)
         if self.compressed:
             compressor = zlib.compressobj(level=9, wbits=-15)
@@ -144,4 +219,6 @@ class MoiIdentity:
         actual = MoiIdentity(output)
         if actual.instance != request["new_instance"] or len(actual.records) != len(self.records):
             raise ValueError("Native application identity failed exact output readback.")
+        if request.get("new_name") is not None and actual.summary()["name"] != request["new_name"]:
+            raise ValueError("Native application name failed exact output readback.")
         return output, {**plan, "output_sha256": sha(output), "native_output_sha256": sha(data)}
