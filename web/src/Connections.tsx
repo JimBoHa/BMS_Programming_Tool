@@ -79,12 +79,15 @@ export function Connections({
   const [transport, setTransport] = useState("interface");
   const [discovery, setDiscovery] = useState("routed");
   const [toolChoice, setToolChoice] = useState({ view, tool: "" });
+  const [identitySetting, setIdentitySetting] = useState<"instance" | "name">(
+    "instance",
+  );
   const controllerEpoch = useRef(0);
   const groups: Record<ConnectionView, { id: string; label: string }[]> = {
     setup: [],
     overview: [
       { id: "summary", label: "Identity & status" },
-      { id: "instance", label: "Instance settings" },
+      { id: "instance", label: "Identity settings" },
     ],
     points: [
       { id: "live-points", label: "Live points & configuration" },
@@ -827,9 +830,14 @@ export function Connections({
               }
               connected={status.connected}
               busy={busy}
-              onEditInstance={() =>
-                setToolChoice({ view: "overview", tool: "instance" })
-              }
+              onEditInstance={() => {
+                setIdentitySetting("instance");
+                setToolChoice({ view: "overview", tool: "instance" });
+              }}
+              onEditName={() => {
+                setIdentitySetting("name");
+                setToolChoice({ view: "overview", tool: "instance" });
+              }}
               onRefresh={() => controller && void openController(controller)}
               onConnect={() => {
                 setSetupStep(status.connected ? "discovery" : "connection");
@@ -1317,6 +1325,7 @@ export function Connections({
             </TaskMount>
             <TaskMount active={showTool("instance")} preserve={false}>
               <DeviceInstancePanel
+                initialChange={identitySetting}
                 connected={
                   visible &&
                   controllerReady &&
@@ -1356,6 +1365,10 @@ export function Connections({
                       ? {
                           ...current,
                           device: `device,${result.new_instance}`,
+                          name:
+                            result.change_kind === "name"
+                              ? result.new_name
+                              : current.name,
                           verifiedAt: new Date().toISOString(),
                         }
                       : current,

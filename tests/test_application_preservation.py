@@ -4,7 +4,7 @@ import gzip
 import struct
 
 import pytest
-from bacpypes3.primitivedata import CharacterString, Unsigned
+from bacpypes3.primitivedata import CharacterString, Real, Unsigned
 from bms_tool.application_preservation import verify_preservation
 from bms_tool.moi_identity import MoiIdentity
 from bms_tool.moi_parameters import ParameterApplication
@@ -127,3 +127,108 @@ def test_wrong_instance_or_incomplete_capture_cannot_pass():
         verify_preservation(before, after, old_instance=5136, new_instance=5337)
     with pytest.raises(ValueError, match="complete native snapshots"):
         verify_preservation(before, {3: after[3]}, old_instance=5136, new_instance=5336)
+
+
+def renamed_snapshots():
+    before, _ = snapshots()
+    merged, _ = ParameterApplication(before[3], before[11], before[12]).compile()
+    editor = MoiIdentity(merged)
+    query = dict(
+        source_sha256=editor.source_sha256,
+        expected_instance=5136,
+        new_instance=5136,
+        expected_name=editor.summary()["name"],
+        new_name="Reviewed name",
+    )
+    plan = editor.preview(**query)
+    output, _ = editor.export(**query, plan_sha256=plan["plan_sha256"])
+    return before, {3: output, 11: before[11], 12: before[12]}
+
+
+def name_proof(before, after):
+    return verify_preservation(
+        before,
+        after,
+        old_instance=5136,
+        new_instance=5136,
+        old_name="Authored controller",
+        new_name="Reviewed name",
+    )
+
+
+def test_name_only_preserves_different_program_and_seven_live_saved_settings():
+    before, after = renamed_snapshots()
+    proof = name_proof(before, after)
+    assert proof["application_identical_except_name"] is True
+    assert proof["application_identical_except_instance"] is False
+    assert proof["saved_application_parameters_verified"] == 7
+
+
+def test_name_edit_cannot_hide_an_unrelated_application_record_change():
+    before, after = renamed_snapshots()
+    after[3] = gzip.compress(
+        gzip.decompress(after[3]).replace(b"opaque footer", b"unsafe footer"), mtime=0
+    )
+    with pytest.raises(ValueError, match="non-name application record"):
+        name_proof(before, after)
+
+
+def test_name_edit_cannot_hide_a_changed_current_saved_value():
+    before, after = renamed_snapshots()
+    after[11] = after[11].replace(b"saved", b"other")
+    with pytest.raises(ValueError, match="current saved parameter differs"):
+        name_proof(before, after)
+
+
+def add_saved_real(files, cid, pid, current):
+    record = native_record(
+        cid, 73, [(32527, encoded(CharacterString("controller/flow"))), (pid, encoded(Real(0.25)))]
+    )
+    raw = bytearray(gzip.decompress(files[3]))
+    struct.pack_into("<I", raw, 10, struct.unpack_from("<I", raw, 10)[0] + 1)
+    raw.extend(struct.pack("<H", len(record) + 2) + record)
+    files[3] = gzip.compress(raw, mtime=0)
+    position = len(files[12])
+    payload = struct.pack(">f", current)
+    files[12] += payload + bytes([header_crc(payload) ^ 255])
+    body = ((2 << 22) | 73).to_bytes(4, "big") + pid.to_bytes(2, "big")
+    body += b"\x6f\x04" + cid.to_bytes(2, "big") + position.to_bytes(2, "big") + b"\x12\x34"
+    files[11] += (len(body) + 2).to_bytes(2, "big") + body
+
+
+def test_calculated_flow_zero_offset_is_reported_separately_from_settings():
+    before, after = renamed_snapshots()
+    add_saved_real(before, 570, 3506, 0.25)
+    add_saved_real(after, 570, 3506, -0.125)
+    proof = name_proof(before, after)
+    assert proof["saved_application_parameters_verified"] == 8
+    assert proof["runtime_counter_changes"] == []
+    assert proof["device_calculated_changes"] == [
+        {
+            "class": 570,
+            "instance": 73,
+            "property": 3506,
+            "changed": True,
+            "property_name": "Autocalibrate Offset",
+            "application_value": 0.25,
+            "current_saved_value": -0.125,
+            "reason": "Flow module calculated zero-flow calibration output",
+        }
+    ]
+
+
+@pytest.mark.parametrize("cid,pid", [(571, 3506), (570, 3505), (570, 900)])
+def test_flow_exception_cannot_allow_other_parameters_or_other_module_classes(cid, pid):
+    before, after = renamed_snapshots()
+    add_saved_real(before, cid, pid, 0.25)
+    add_saved_real(after, cid, pid, -0.125)
+    with pytest.raises(ValueError, match="current saved parameter differs"):
+        name_proof(before, after)
+
+
+def test_flow_calibration_nonfinite_saved_value_still_fails():
+    before, after = renamed_snapshots()
+    add_saved_real(before, 570, 3506, 0.25)
+    add_saved_real(after, 570, 3506, float("nan"))
+    with pytest.raises(ValueError, match="Nonfinite"):
+        name_proof(before, after)
