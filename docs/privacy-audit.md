@@ -11,10 +11,13 @@ Git object IDs without printing matched addresses or credentials:
     python scripts/privacy_audit.py --history --private-rules /private/path/rules.json
 
 The first command reads tracked working files, including staged additions. The
-second reads unique blobs and commits reachable from local Git refs, including
+second reads unique blobs, commits, annotated tags, ref names and file names
+reachable from local Git refs, including
 deleted historical content. Fetch the intended remote refs before a history
 audit. A finding or an oversized/unreadable object gives a nonzero exit status.
 Use --output /private/path/report.json to retain a private report.
+Git submodule pointers are reported separately: their external repository
+contents require their own audit and are not root-repository file blobs.
 
 The private profile has networks and secrets fields. A **synthetic example** is:
 
@@ -24,7 +27,10 @@ The private profile has networks and secrets fields. A **synthetic example** is:
     }
 
 Supply actual site rules only through an untracked private profile. Known-secret
-checks cover literal, JSON-escaped, URL-encoded, base64 and UTF-16LE forms. Without
+checks cover literal, JSON-escaped, URL-encoded, base64 and UTF-16LE forms. Secret
+labels are replaced with opaque numbers in reports. Network rules support IPv4;
+IPv6 profiles are rejected explicitly. A /24 rule also detects dynamically
+constructed dotted prefixes. Without
 a private profile, the scanner checks common GitHub token and complete PEM
 private-key patterns; it cannot identify an arbitrary site's addresses/passwords.
 Literal key-header checks used by validators are not themselves private keys.

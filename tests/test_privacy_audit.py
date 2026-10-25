@@ -21,7 +21,7 @@ def test_reports_network_and_secret_categories_without_values():
     result = audit.scan_bytes(data, private)
     assert {row["kind"] for row in result} == {
         "configured-network-address",
-        "known-secret:test",
+        "known-secret:1",
     }
     rendered = json.dumps(result)
     assert secret not in rendered and "192.0.2.12" not in rendered
@@ -65,4 +65,67 @@ def test_deleted_file_is_detected_in_reachable_history(tmp_path):
     result = audit.scan_history(tmp_path, private)
     assert len(result["findings"]) == 1
     assert result["findings"][0]["location"] == "old.txt"
-    assert result["findings"][0]["kind"] == "known-secret:test"
+    assert result["findings"][0]["kind"] == "known-secret:1"
+
+
+def test_private_labels_cannot_leak_and_ipv6_is_rejected():
+    secret = "authored-secret-label"
+    result = audit.scan_bytes(secret.encode(), audit.rules({"secrets": {secret: secret}}))
+    assert secret not in json.dumps(result)
+    with pytest.raises(ValueError):
+        audit.rules({"networks": ["2001:db8::/32"]})
+
+
+def test_binary_and_json_embedded_keys_and_dynamic_network_prefix():
+    header = "-----BEGIN " + "PRIVATE KEY-----"
+    footer = "-----END " + "PRIVATE KEY-----"
+    key = header + "\n" + "A" * 64 + "\n" + footer
+    private = audit.rules({"networks": ["192.0.2.0/24"]})
+    for body in (b"binary\x00" + key.encode(), json.dumps(key).encode()):
+        assert any(row["kind"] == "private-key" for row in audit.scan_bytes(body, private))
+    assert audit.scan_bytes(b'f"192.0.2.{index}"', private)[0]["kind"] == "configured-network-prefix"
+
+
+def test_history_includes_sensitive_paths_and_annotated_tags(tmp_path):
+    def git(*args):
+        subprocess.run(["git", "-C", str(tmp_path), *args], check=True, capture_output=True)
+
+    git("init")
+    git("config", "user.name", "Authored test")
+    git("config", "user.email", "test@example.invalid")
+    (tmp_path / "capture-192.0.2.12.txt").write_text("Clean body")
+    git("add", ".")
+    git("commit", "-m", "Authored fixture")
+    git("tag", "-a", "example", "-m", "Authored test-secret-value")
+    result = audit.scan_history(tmp_path, audit.rules({
+        "networks": ["192.0.2.0/24"], "secrets": {"test": "test-secret-value"}
+    }))
+    assert any(row["kind"].startswith("path:") for row in result["findings"])
+    assert any(row.get("object_type") == "tag" for row in result["findings"])
+    assert "192.0.2.12" not in json.dumps(result)
+
+
+def test_gitlinks_are_reported_separately_and_private_paths_are_redacted(tmp_path):
+    def git(*args):
+        return subprocess.run(
+            ["git", "-C", str(tmp_path), *args], check=True, capture_output=True
+        ).stdout
+
+    git("init")
+    git("config", "user.name", "Authored test")
+    git("config", "user.email", "test@example.invalid")
+    (tmp_path / "README").write_text("Authored clean fixture")
+    git("add", "README")
+    git("commit", "-m", "Authored fixture")
+    oid = git("rev-parse", "HEAD").decode().strip()
+    git("update-index", "--add", "--cacheinfo", "160000," + oid + ",vendor/example")
+    name = "capture-192.0.2.12.txt"
+    (tmp_path / name).write_text("Clean body with a sensitive filename")
+    git("add", name)
+    result = audit.scan_worktree(tmp_path, audit.rules({"networks": ["192.0.2.0/24"]}))
+    assert not result["skipped"]
+    assert len(result["external_gitlinks"]) == 1
+    assert result["external_gitlinks"][0]["object"] == oid
+    assert len(result["findings"]) == 1
+    assert result["findings"][0]["kind"] == "path:configured-network-address"
+    assert "192.0.2.12" not in json.dumps(result)
