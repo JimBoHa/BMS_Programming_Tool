@@ -102,6 +102,44 @@ asyncio.run(main())
   });
   return { process: child, port, packets: () => packets };
 }
+async function editor(
+  page: Page,
+  server: { port: number },
+  routed = false,
+  inSetup = false,
+) {
+  if (!inSetup)
+    await page
+      .getByRole("button", { name: /^Connect to a controller/ })
+      .click();
+  await page
+    .getByRole("button", { name: "Known controller address", exact: true })
+    .click();
+  await page
+    .getByLabel("Known controller address", { exact: true })
+    .fill(routed ? "3001:7" : `127.0.0.1:${server.port}`);
+  await page
+    .getByLabel("Known Device object", { exact: true })
+    .fill("device,5136");
+  await page
+    .getByLabel("Known router", { exact: true })
+    .fill(routed ? `127.0.0.1:${server.port}` : "");
+  await page
+    .getByLabel("Known network", { exact: true })
+    .fill(routed ? "3001" : "");
+  await page
+    .getByRole("region", { name: "Known controller connection" })
+    .getByRole("button", { name: "Open controller", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Edit instance number", exact: true })
+    .click();
+  return page.getByRole("region", {
+    name: "Device instance commissioning",
+    exact: true,
+  });
+}
+
 async function open(
   page: Page,
   request: APIRequestContext,
@@ -120,27 +158,7 @@ async function open(
     ).ok(),
   ).toBe(true);
   await page.goto("/");
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
-  const panel = page.getByRole("region", {
-    name: "Device instance commissioning",
-    exact: true,
-  });
-  await panel
-    .getByLabel("Controller address (IPv4 or DNET:MAC)", { exact: true })
-    .fill(routed ? "3001:7" : `127.0.0.1:${server.port}`);
-  await panel
-    .getByLabel("Current Device object (device,instance)", { exact: true })
-    .fill("device,5136");
-  if (routed) {
-    await panel
-      .getByLabel("Instance-change router (routed targets only)", {
-        exact: true,
-      })
-      .fill(`127.0.0.1:${server.port}`);
-    await panel
-      .getByLabel("Instance-change network (1–65534)", { exact: true })
-      .fill("3001");
-  }
+  const panel = await editor(page, server, routed);
   await panel
     .getByLabel("New controller instance (0–4194302)", { exact: true })
     .fill("15136");
@@ -204,11 +222,9 @@ test("direct controller review, stale edit, single write, verified readback and 
       path: test.info().outputPath("instance-verified.png"),
     });
     await expect.poll(server.packets).toBe(1);
-    await expect(
-      panel.getByLabel("Current Device object (device,instance)", {
-        exact: true,
-      }),
-    ).toHaveValue("device,15136");
+    await expect(page.getByLabel("Working context")).toContainText(
+      "device,15136",
+    );
     const downloadEvent = page.waitForEvent("download");
     await receipt
       .getByRole("button", { name: "Download instance receipt", exact: true })
@@ -285,7 +301,7 @@ test("controller rejection stays explicit and does not report success", async ({
       exact: true,
     });
     await expect(receipt).toContainText("Result: rejected");
-    await expect(receipt).toContainText("manufacturer’s commissioning tool");
+    await expect(receipt).toContainText("Connected application transfer");
     expect(server.packets()).toBe(1);
     // A reload/reconnect must retain the denial. This is a real backend and
     // authored UDP peer; neither capability nor rejected replies are mocked.
@@ -303,10 +319,8 @@ test("controller rejection stays explicit and does not report success", async ({
       exact: true,
     });
     await expect(method).toContainText("Standard instance write blocked");
-    await expect(method).toContainText("Transfer to Device");
-    await expect(method).toContainText(
-      "Native application transfer is not implemented",
-    );
+    await expect(method).toContainText("Connected application transfer");
+    await expect(method).toContainText("review the instance edit");
     await expect(
       restarted.getByRole("checkbox", {
         name: "I reserved this new number",
@@ -379,11 +393,7 @@ test("cancel after dispatch retains an uncertain receipt across reload and never
       panel.getByLabel("Instance change receipt", { exact: true }),
     ).toContainText("Result: unknown");
     await page.reload();
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
-    const restored = page.getByRole("region", {
-      name: "Device instance commissioning",
-      exact: true,
-    });
+    const restored = await editor(page, server);
     const list = restored.getByLabel("Retained instance receipts", {
       exact: true,
     });
@@ -412,7 +422,7 @@ test("cancel after dispatch retains an uncertain receipt across reload and never
   }
 });
 
-test("a late preview cannot restore Apply after leaving the connection workspace", async ({
+test("a late preview cannot restore Apply after reloading the controller workspace", async ({
   page,
   request,
 }) => {
@@ -431,15 +441,15 @@ test("a late preview cannot restore Apply after leaving the connection workspace
       const response = await route.fetch();
       captured();
       await gate;
-      await route.fulfill({ response });
+      await route.fulfill({ response }).catch(() => {});
     });
     await panel
       .getByRole("button", { name: "Review instance change", exact: true })
       .click();
     await ready;
-    await page.getByRole("button", { name: "Program", exact: true }).click();
+    await page.reload();
     release();
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
+    await editor(page, server);
     await expect(
       page.getByRole("region", {
         name: "Device instance commissioning",
@@ -516,11 +526,7 @@ test("a held history response cannot receive another receipt's readback", async 
     expect(a.status).toBe("verified");
     expect(b.status).toBe("unknown");
     await page.reload();
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
-    const panel = page.getByRole("region", {
-      name: "Device instance commissioning",
-      exact: true,
-    });
+    const panel = await editor(page, second);
     const history = panel.getByLabel("Retained instance receipts", {
       exact: true,
     });
@@ -640,7 +646,7 @@ test("a held history response cannot receive another receipt's readback", async 
   }
 });
 
-test("commissioning edits wait for the current connection defaults to hydrate", async ({
+test("commissioning waits for interface hydration and verified controller defaults", async ({
   page,
   request,
 }) => {
@@ -675,34 +681,35 @@ test("commissioning edits wait for the current connection defaults to hydrate", 
       await route.fulfill({ response });
     });
     await page.goto("/");
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
+    await page
+      .getByRole("button", { name: /^Connect to a controller/ })
+      .click();
     await captured;
-    const panel = page.getByRole("region", {
-      name: "Device instance commissioning",
-      exact: true,
-    });
-    const address = panel.getByLabel("Controller address (IPv4 or DNET:MAC)", {
-      exact: true,
-    });
+    await expect(
+      page.getByRole("button", {
+        name: "Known controller address",
+        exact: true,
+      }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole("region", {
+        name: "Device instance commissioning",
+        exact: true,
+      }),
+    ).toHaveCount(0);
+    release();
+    const panel = await editor(page, server, false, true);
     const newInstance = panel.getByLabel(
       "New controller instance (0–4194302)",
       { exact: true },
     );
-    await expect(address).toBeDisabled();
-    await expect(newInstance).toBeDisabled();
-    const history = panel.getByLabel("Retained instance receipts", {
-      exact: true,
-    });
-    if (await history.count()) await expect(history).toBeEnabled();
-    release();
-    await expect(address).toBeEnabled();
     const endpoint = `127.0.0.1:${server.port}`;
-    await address.fill(endpoint);
-    await panel
-      .getByLabel("Current Device object (device,instance)", { exact: true })
-      .fill("device,5136");
+    await expect(newInstance).toBeEnabled();
+    await expect(page.getByLabel("Working context")).toContainText(endpoint);
+    await expect(page.getByLabel("Working context")).toContainText(
+      "device,5136",
+    );
     await newInstance.fill("15136");
-    await expect(address).toHaveValue(endpoint);
     const reviewed = page.waitForResponse((r) =>
       r.url().endsWith("/device-instance/preview"),
     );
@@ -719,7 +726,7 @@ test("commissioning edits wait for the current connection defaults to hydrate", 
     await expect(
       panel.getByLabel("Reviewed instance change", { exact: true }),
     ).toContainText("5136 → 15136");
-    await expect(address).toHaveValue(endpoint);
+    await expect(page.getByLabel("Working context")).toContainText(endpoint);
     expect(server.packets()).toBe(0);
   } finally {
     release();

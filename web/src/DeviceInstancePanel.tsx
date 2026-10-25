@@ -1,3 +1,4 @@
+import { NativeInstancePanel } from "./NativeInstancePanel";
 import { TargetFields } from "./ControllerWorkspace";
 import { useEffect, useRef, useState } from "react";
 import { api, apiJsonDocument, apiKeepalive, saveBlob } from "./api";
@@ -5,17 +6,7 @@ import { api, apiJsonDocument, apiKeepalive, saveBlob } from "./api";
 type Target = { address: string; device: string; router: string; dnet: string };
 const base = "/bacnet/device-instance";
 
-export function DeviceInstancePanel({
-  connected,
-  interfaceIdentity,
-  defaultAddress,
-  defaultDevice,
-  defaultRouter,
-  defaultDnet,
-  parentBusy,
-  onBusy,
-  onVerified,
-}: {
+export type DeviceInstanceProps = {
   connected: boolean;
   interfaceIdentity: string;
   defaultAddress: string;
@@ -25,7 +16,48 @@ export function DeviceInstancePanel({
   parentBusy: boolean;
   onBusy: (value: boolean) => void;
   onVerified?: (result: any) => void;
-}) {
+};
+
+export function DeviceInstancePanel(props: DeviceInstanceProps) {
+  const [method, setMethod] = useState("standard");
+  return (
+    <>
+      <label>
+        Instance change method
+        <select
+          aria-label="Instance change method"
+          disabled={props.parentBusy}
+          value={method}
+          onChange={(event) => setMethod(event.target.value)}
+        >
+          <option value="standard">BACnet property write</option>
+          <option value="native">Connected application transfer</option>
+        </select>
+      </label>
+      {method === "native" ? (
+        <NativeInstancePanel {...props} />
+      ) : (
+        <StandardInstancePanel
+          {...props}
+          onNative={() => setMethod("native")}
+        />
+      )}
+    </>
+  );
+}
+
+function StandardInstancePanel({
+  connected,
+  interfaceIdentity,
+  defaultAddress,
+  defaultDevice,
+  defaultRouter,
+  defaultDnet,
+  parentBusy,
+  onBusy,
+  onVerified,
+  onNative,
+}: DeviceInstanceProps & { onNative: () => void }) {
   const [target, setTarget] = useState<Target>({
     address: "",
     device: "",
@@ -268,9 +300,9 @@ export function DeviceInstancePanel({
       <div className="card-body">
         <p className="help-text">
           Writes the controller’s BACnet Device object identifier. The
-          controller must support this property write; otherwise use its
-          manufacturer’s commissioning tool. The client instance, network number
-          and MAC stay the same.
+          controller must support this property write. Connected application
+          transfer provides the native application editing workflow. The client
+          instance, network number and MAC stay the same.
         </p>
         <div className="form-grid">
           <TargetFields>
@@ -361,11 +393,15 @@ export function DeviceInstancePanel({
                     ),
                   )}
                   <p>
-                    Native application transfer is not implemented in this app.
-                    The handoff contains the observed target, proposed number
-                    and commissioning instructions. It sends no controller
-                    changes.
+                    Use Connected application transfer to read the actual
+                    application, review the instance edit, and apply it through
+                    a supported native adapter. The handoff contains the
+                    observed target, proposed number and commissioning
+                    instructions. It sends no controller changes.
                   </p>
+                  <button disabled={locked} onClick={onNative}>
+                    Edit through connected application
+                  </button>
                   <button disabled={locked} onClick={downloadHandoff}>
                     Download commissioning handoff (JSON)
                   </button>
@@ -428,10 +464,10 @@ export function DeviceInstancePanel({
             </p>
             {attempt.status === "rejected" && (
               <p>
-                The controller rejected the standard property write. Review the
-                instance change again to inspect the method assessment and any
-                guidance for the manufacturer’s commissioning tool. A permission
-                denial does not explain the controller’s internal reason.
+                The controller rejected the standard property write. Choose
+                Connected application transfer to inspect the actual application
+                and review a supported native instance edit. A permission denial
+                does not explain the controller’s internal reason.
               </p>
             )}
             {attempt.may_have_applied && !resolved && (

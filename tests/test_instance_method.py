@@ -192,16 +192,19 @@ async def test_literal_router_alias_cannot_bypass_denial_and_other_mac_is_indepe
             await router.close()
 
 
-@pytest.mark.parametrize("model", ["MS-VMA1630-0", "MS-FEC2611-0", "FX-PCG2611-0"])
-def test_cct_guidance_is_not_native_write_support_or_a_model_writability_guess(model):
+@pytest.mark.parametrize(
+    "model", ["MS-VMA1630-0", "MS-FEC2611-0", "FX-PCG2611-0", "UNLISTED-NEW-MODEL"]
+)
+def test_native_family_candidate_still_requires_captured_format_validation(model):
     identity = {"vendor-identifier": 5, "model-name": model}
     assert assess_method(identity)["can_attempt"]  # no fabricated read-only test
     assert assess_method(identity)["state"] == "unverified"
     denied = {"id": "a" * 32, "finished_at": "2026-01-01", "evidence_sha256": "b" * 64}
     result = assess_method(identity, denied)
     assert not result["can_attempt"] and not result["external_transfer_available"]
-    assert len(result["sources"]) == 2
-    assert "not a full CAF backup" in result["next_steps"][0]
-    assert "Transfer to Device" in result["next_steps"][2]
+    assert result["native_application_adapter"] == "mce-native-application"
+    assert not result["sources"]
+    assert "Connected application transfer" in result["next_steps"][0]
+    assert "actual protocol and application format" in result["next_steps"][1]
     other_vendor = assess_method({**identity, "vendor-identifier": 999}, denied)
     assert not other_vendor["can_attempt"] and not other_vendor["sources"]
