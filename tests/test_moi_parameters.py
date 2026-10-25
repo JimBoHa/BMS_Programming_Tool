@@ -165,3 +165,50 @@ def test_unsupported_or_corrupt_parameters_cannot_compile(mutation):
         s[-3] = 1
     with pytest.raises(ValueError):
         ParameterApplication(archive, bytes(s), bytes(d)).compile()
+
+
+@pytest.mark.parametrize("checksum", [0, 51, 204, 255])
+def test_unsaved_non_application_slot_does_not_decode_or_validate_old_payload(checksum):
+    archive, static, dynamic = parameters_source()
+    expected, _ = ParameterApplication(archive, static, dynamic).compile()
+    position = len(dynamic)
+    # An unreferenced runtime object, explicitly marked as having no saved value.
+    body = ((19 << 22) | 321).to_bytes(4, "big") + (85).to_bytes(2, "big")
+    body += b"\x67\x09" + (141).to_bytes(2, "big")
+    body += position.to_bytes(2, "big") + b"\x12\x34"
+    static += (len(body) + 2).to_bytes(2, "big") + body
+    dynamic += b"\xff\xff" + bytes([checksum])
+    actual, report = ParameterApplication(archive, static, dynamic).compile()
+    assert MoiIdentity(actual).data == MoiIdentity(expected).data
+    assert report["matched_parameters"] == 7
+
+
+def test_unsaved_slot_resolving_to_an_application_setting_is_still_rejected():
+    archive, static, dynamic = parameters_source()
+    invalid = bytearray(static)
+    invalid[8] = 0x67
+    with pytest.raises(ValueError, match="no valid saved value"):
+        ParameterApplication(archive, bytes(invalid), dynamic).compile()
+
+
+@pytest.mark.parametrize("flags", [0x6F, 0xEF])
+def test_valid_non_application_slot_still_requires_its_crc(flags):
+    archive, static, dynamic = parameters_source()
+    position = len(dynamic)
+    body = ((19 << 22) | 321).to_bytes(4, "big") + (85).to_bytes(2, "big")
+    body += bytes([flags, 9]) + (141).to_bytes(2, "big")
+    body += position.to_bytes(2, "big") + b"\x12\x34"
+    static += (len(body) + 2).to_bytes(2, "big") + body
+    payload = b"\x01\x02"
+    dynamic += payload + bytes([header_crc(payload)])  # Wrong for a valid slot.
+    with pytest.raises(ValueError, match="checksum"):
+        ParameterApplication(archive, static, dynamic).compile()
+
+
+def test_unsaved_unused_slot_must_still_own_a_bounded_nonoverlapping_range():
+    archive, static, dynamic = parameters_source()
+    body = ((19 << 22) | 321).to_bytes(4, "big") + (85).to_bytes(2, "big")
+    body += b"\x67\x09" + (141).to_bytes(2, "big") + b"\x00\x00\x12\x34"
+    static += (len(body) + 2).to_bytes(2, "big") + body
+    with pytest.raises(ValueError, match="overlap"):
+        ParameterApplication(archive, static, dynamic).compile()
