@@ -10,6 +10,7 @@ import {
 import { programApi, saveBlob } from "./api";
 import { showValue, type Program } from "./types";
 import { TemcoTransfer } from "./TemcoTransfer";
+import type { ControllerContext } from "./workflow";
 import "./temco-simulator.css";
 
 type InputValue = { value: string | boolean; quality: string };
@@ -43,7 +44,15 @@ type Verification = {
   calendar_bindings: Record<string, { active: string; valid: string }>;
 };
 
-export function TemcoSimulator({ program }: { program: Program }) {
+export function TemcoSimulator({
+  program,
+  transfer = false,
+  controller,
+}: {
+  program: Program;
+  transfer?: boolean;
+  controller?: ControllerContext | null;
+}) {
   const [status, setStatus] = useState<any>(null);
   const [bindings, setBindings] = useState<Record<string, string>>({});
   const [inputs, setInputs] = useState<Record<string, InputValue>>({});
@@ -548,7 +557,12 @@ export function TemcoSimulator({ program }: { program: Program }) {
           </details>
         </section>
       )}
-      <TemcoTransfer source={compiled?.source ?? null} />
+      {transfer && (
+        <TemcoTransfer
+          source={compiled?.source ?? null}
+          controller={controller}
+        />
+      )}
       {compiled && (
         <section
           className="temco-card"

@@ -1,3 +1,4 @@
+import { TargetFields } from "./ControllerWorkspace";
 import { useEffect, useRef, useState } from "react";
 import {
   api,
@@ -323,46 +324,54 @@ export function PointStatusPanel({
         point/object-list tools.
       </p>
       <div className="form-grid">
-        <label>
-          Point-status source address
-          <input
-            aria-label="Point-status source address"
-            value={address}
-            disabled={busy}
-            onChange={(e) => setAddress(e.target.value)}
-          />
-        </label>
-        <label>
-          Point-status Device identifier
-          <input
-            aria-label="Point-status Device identifier"
-            value={device}
-            disabled={busy}
-            onChange={(e) => setDevice(e.target.value)}
-            placeholder="device,1234"
-          />
-        </label>
-        <label>
-          Point-status router endpoint
-          <input
-            aria-label="Point-status router endpoint"
-            value={router}
-            disabled={busy}
-            onChange={(e) => setRouter(e.target.value)}
-          />
-        </label>
-        <label>
-          Point-status DNET
-          <input
-            aria-label="Point-status DNET"
-            type="number"
-            min={1}
-            max={65534}
-            value={dnet}
-            disabled={busy}
-            onChange={(e) => setDnet(e.target.value)}
-          />
-        </label>
+        <TargetFields>
+          <label>
+            Point-status source address
+            <input
+              aria-label="Point-status source address"
+              value={address}
+              disabled={busy}
+              onChange={(e) => setAddress(e.target.value)}
+            />
+          </label>
+        </TargetFields>
+        <TargetFields>
+          <label>
+            Point-status Device identifier
+            <input
+              aria-label="Point-status Device identifier"
+              value={device}
+              disabled={busy}
+              onChange={(e) => setDevice(e.target.value)}
+              placeholder="device,1234"
+            />
+          </label>
+        </TargetFields>
+        <TargetFields>
+          <label>
+            Point-status router endpoint
+            <input
+              aria-label="Point-status router endpoint"
+              value={router}
+              disabled={busy}
+              onChange={(e) => setRouter(e.target.value)}
+            />
+          </label>
+        </TargetFields>
+        <TargetFields>
+          <label>
+            Point-status DNET
+            <input
+              aria-label="Point-status DNET"
+              type="number"
+              min={1}
+              max={65534}
+              value={dnet}
+              disabled={busy}
+              onChange={(e) => setDnet(e.target.value)}
+            />
+          </label>
+        </TargetFields>
         <label className="full">
           Selected native points
           <textarea

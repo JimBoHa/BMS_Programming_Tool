@@ -1,3 +1,4 @@
+import { TargetFields } from "./ControllerWorkspace";
 import { useEffect, useRef, useState } from "react";
 import { Database, Download, FileSearch, RefreshCw, Save } from "lucide-react";
 import { api, saveBlob } from "./api";
@@ -270,26 +271,30 @@ export function BacnetFilesPanel({
           This tool does not issue STARTBACKUP or any device write.
         </p>
         <div className="form-grid">
-          <label>
-            File device address
-            <input
-              aria-label="File device address"
-              disabled={busy}
-              value={address}
-              placeholder="2105:79 or 192.168.1.10:47808"
-              onChange={(event) => edit(() => setAddress(event.target.value))}
-            />
-          </label>
-          <label>
-            File Device object
-            <input
-              aria-label="File Device object"
-              disabled={busy}
-              value={device}
-              placeholder="device,132079"
-              onChange={(event) => edit(() => setDevice(event.target.value))}
-            />
-          </label>
+          <TargetFields>
+            <label>
+              File device address
+              <input
+                aria-label="File device address"
+                disabled={busy}
+                value={address}
+                placeholder="2105:79 or 192.168.1.10:47808"
+                onChange={(event) => edit(() => setAddress(event.target.value))}
+              />
+            </label>
+          </TargetFields>
+          <TargetFields>
+            <label>
+              File Device object
+              <input
+                aria-label="File Device object"
+                disabled={busy}
+                value={device}
+                placeholder="device,132079"
+                onChange={(event) => edit(() => setDevice(event.target.value))}
+              />
+            </label>
+          </TargetFields>
           <div className="bacnet-file-action">
             <button
               className="button primary"

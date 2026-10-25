@@ -44,6 +44,17 @@ from .cancelable_pulse_template import cancelable_pulse_template_router
 from .co2_minimum_flow_template import co2_minimum_flow_template_router
 from .conformance import ConformancePlans, conformance_router
 from .connections import Bacnet, modbus_read, ports
+from .controller_application import (
+    ApplicationCaptureRequest,
+    ApplicationDiagramRequest,
+    ApplicationReadRequest,
+    ControllerApplication,
+)
+from .controller_workspace import (
+    ControllerInventoryRequest,
+    ControllerPropertiesRequest,
+    ControllerWorkspace,
+)
 from .conversion_preview import conversion_preview
 from .cov_observations import CovObservations
 from .cw_isolation_output_template import cw_isolation_output_template_router
@@ -515,6 +526,11 @@ def create_app(state_dir=None, *, operation_power=None):
         bbmd_admin = None
         bbmd_admin_error = "BBMD administration unavailable: " + str(exc)[:1000]
     device_details = DeviceDetails(bacnet, store)
+    files = BacnetFiles(bacnet, store)
+    controller_application = ControllerApplication(bacnet, store, files)
+    controller_workspace = ControllerWorkspace(
+        bacnet, store, native_readers=(controller_application,)
+    )
 
     def instance_activity_guard():
         if field_trends.status()["running_jobs"] or any(job["active"] for job in cov.jobs.values()):
@@ -530,7 +546,6 @@ def create_app(state_dir=None, *, operation_power=None):
     event_inventory = EventInventory(bacnet, store)
     event_ack = EventAcknowledgements(bacnet, store, event_inventory)
     event_reception = EventReception(bacnet, store)
-    files = BacnetFiles(bacnet, store)
     hardware_workbench = HardwareWorkbench(bacnet, store, files)
     supply_plans = SupplyPlans(store, hardware_workbench)
     notifications = None
@@ -659,6 +674,8 @@ def create_app(state_dir=None, *, operation_power=None):
     app.state.bbmd_admin = bbmd_admin
     app.state.bbmd_admin_startup_error = bbmd_admin_error
     app.state.device_details = device_details
+    app.state.controller_workspace = controller_workspace
+    app.state.controller_application = controller_application
     app.state.device_instances = device_instances
     app.include_router(device_instance_router(device_instances))
     app.state.schedule_inventory = schedule_inventory
@@ -1697,6 +1714,40 @@ def create_app(state_dir=None, *, operation_power=None):
     @app.post("/api/bacnet/device-details")
     async def bacnet_device_details(body: DeviceDetailsRequest):
         return await device_details.read(**body.model_dump())
+
+    @app.post("/api/bacnet/device-name")
+    async def bacnet_device_name(body: DeviceDetailsRequest):
+        return await device_details.read_name(**body.model_dump())
+
+    @app.post("/api/bacnet/controller/profile")
+    async def controller_profile(body: DeviceDetailsRequest):
+        return await controller_workspace.profile(**body.model_dump())
+
+    @app.post("/api/bacnet/controller/inventory")
+    async def controller_inventory(body: ControllerInventoryRequest):
+        return await controller_workspace.inventory(**body.model_dump())
+
+    @app.post("/api/bacnet/controller/properties")
+    async def controller_properties(body: ControllerPropertiesRequest):
+        return await controller_workspace.properties(**body.model_dump())
+
+    @app.post("/api/bacnet/controller/application/read")
+    async def controller_application_read(body: ApplicationReadRequest):
+        return await controller_application.read_application(
+            body.model_dump(exclude={"file_object"}), file_object=body.file_object
+        )
+
+    @app.post("/api/bacnet/controller/application/captures")
+    def controller_application_captures(body: DeviceDetailsRequest):
+        return controller_application.captures(body.model_dump())
+
+    @app.post("/api/bacnet/controller/application/capture")
+    def controller_application_capture(body: ApplicationCaptureRequest):
+        return controller_application.capture(body.model_dump())
+
+    @app.post("/api/bacnet/controller/application/diagram")
+    def controller_application_diagram(body: ApplicationDiagramRequest):
+        return controller_application.diagram(body.model_dump())
 
     @app.post("/api/enum-mapping/review")
     async def enum_mapping_review(body: EnumMappingRequest):

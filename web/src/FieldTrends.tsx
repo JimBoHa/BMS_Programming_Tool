@@ -18,17 +18,23 @@ type Point = {
   unit: string;
   value_type: string;
 };
-const point = (index: number): Point => ({
+const point = (index: number, address = "127.0.0.1:47808"): Point => ({
   signal: `point_${index}`,
-  address: "127.0.0.1:47808",
+  address,
   object_id: `analog-input,${index}`,
   property_id: "present-value",
   unit: "",
   value_type: "number",
 });
 
-export function FieldTrends() {
-  const [points, setPoints] = useState<Point[]>([point(1)]);
+export function FieldTrends({
+  defaultAddress,
+  controllerReady,
+}: {
+  defaultAddress?: string;
+  controllerReady?: boolean;
+}) {
+  const [points, setPoints] = useState<Point[]>([point(1, defaultAddress)]);
   const [name, setName] = useState("");
   const [interval, setIntervalSeconds] = useState(10);
   const [verifyQuality, setVerifyQuality] = useState(true);
@@ -62,14 +68,14 @@ export function FieldTrends() {
       ]);
       if (current !== request.current) return;
       setStatus(state);
-      setConnected(link.connected);
+      setConnected(link.connected && controllerReady !== false);
       setSources(streams);
       setSamples(data);
       setEvents(log);
     } catch (e) {
       if (current === request.current) setError(String(e));
     }
-  }, [source, after]);
+  }, [source, after, controllerReady]);
   useEffect(() => {
     void refresh();
     const timer = window.setInterval(() => {
@@ -231,6 +237,7 @@ export function FieldTrends() {
                         <input
                           aria-label={`Field ${{ object_id: "object identifier", property_id: "property identifier", signal: "signal", address: "address" }[key]} ${i + 1}`}
                           value={p[key]}
+                          readOnly={key === "address" && !!defaultAddress}
                           onChange={(e) => update(i, key, e.target.value)}
                         />
                       </td>
@@ -273,7 +280,9 @@ export function FieldTrends() {
           <div className="button-row">
             <button
               disabled={points.length >= 16}
-              onClick={() => setPoints([...points, point(points.length + 1)])}
+              onClick={() =>
+                setPoints([...points, point(points.length + 1, defaultAddress)])
+              }
             >
               <Plus size={15} /> Add field point
             </button>
