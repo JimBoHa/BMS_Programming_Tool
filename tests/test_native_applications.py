@@ -106,7 +106,9 @@ class NativePeer(Application):
             Enumerated(1),
             Enumerated(1),
             CharacterString(""),
-            ObjectIdentifier((8, self.instance)),
+            ObjectIdentifier(
+                (8, self.instance + (1 if self.mode == "different-info-identity" else 0))
+            ),
             Real(0),
             Unsigned(0),
             Unsigned(0),
@@ -154,7 +156,12 @@ class NativePeer(Application):
                 return
         else:
             assert state == "end-backup"
-        await self.response(SimpleAckPDU(context=request))
+        ack = SimpleAckPDU(context=request)
+        if state == "start-restore" and self.mode == "wrong-service":
+            ack.apduService = 12
+        if state == "start-restore" and self.mode == "trailing-ack":
+            ack.put_data(b"\x00")
+        await self.response(ack)
 
     async def do_AtomicReadFileRequest(self, request):
         assert request.fileIdentifier[0] == 10
@@ -290,7 +297,9 @@ async def test_capture_review_compile_transfer_and_verify_all_use_owned_udp(nati
         await service.apply(**apply_request(plan))
 
 
-@pytest.mark.parametrize("mode", ["drop-start", "drop-block", "drop-end"])
+@pytest.mark.parametrize(
+    "mode", ["drop-start", "drop-block", "drop-end", "wrong-service", "trailing-ack"]
+)
 async def test_any_lost_mutation_ack_stops_once_and_survives_restart(native_link, mode):
     peer, bacnet, store, service, target = native_link
     _, plan = await review(native_link)
@@ -300,7 +309,7 @@ async def test_any_lost_mutation_ack_stops_once_and_survives_restart(native_link
     assert result["result"]["may_have_applied"]
     assert len([e for e in peer.events if e == ("state", "start-restore")]) == 1
     writes = [e for e in peer.events if e[0] == "write"]
-    if mode == "drop-start":
+    if mode in ("drop-start", "wrong-service", "trailing-ack"):
         assert not writes
     if mode == "drop-block":
         assert len(writes) == 1 and ("state", "end-restore") not in peer.events
@@ -436,3 +445,11 @@ async def test_unsupported_application_retains_original_backup_without_admitting
             new_instance=5336,
         )
     assert not any(e == ("state", "start-restore") or e[0] == "write" for e in peer.events)
+
+
+async def test_native_and_standard_device_identity_must_agree_before_backup(native_link):
+    peer, _, _, service, target = native_link
+    peer.mode = "different-info-identity"
+    with pytest.raises(ValueError, match="disagrees"):
+        await service.capture(**target, operation_id="mismatched-native-identity")
+    assert not peer.events

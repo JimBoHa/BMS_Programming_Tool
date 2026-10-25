@@ -10,6 +10,7 @@ from bacpypes3.apdu import (
     ConfirmedPrivateTransferRequest,
 )
 from bacpypes3.constructeddata import Any
+from bacpypes3.errors import InvalidTag
 from bacpypes3.primitivedata import (
     ClosingTag,
     ContextTag,
@@ -57,6 +58,8 @@ def command_result(reply, command, *, selector=DEVICE_SELECTOR):
         int(reply.vendorID) != VENDOR or int(reply.serviceNumber) != SERVICE
     ):
         raise ValueError("Native reply is not a matching command acknowledgement.")
+    if reply.resultBlock is None or reply.resultBlock.tagList is None:
+        raise ValueError("Native reply omitted its command result group.")
     tags = list(reply.resultBlock.tagList)
     if len(tags) < 6:
         raise ValueError("Truncated native command reply.")
@@ -114,17 +117,20 @@ async def controller_info(wire, session, device):
     tags = await wire.exchange(session, CONTROLLER_INFO, [Unsigned(1)])
     if not 21 <= len(tags) <= 32 or any(t.tag_class != TagClass.application for t in tags):
         raise ValueError("Unsupported native controller-information response version.")
-    if ObjectIdentifier.decode(TagList([tags[10]])) != ObjectIdentifier(device):
-        raise ValueError(
-            "Native controller information disagrees with the selected Device identity."
-        )
-    text = {}
-    for name, index in [("name", 0), ("description", 1), ("application_name", 6)]:
-        value = str(CharacterString.decode(TagList([tags[index]])))
-        if len(value.encode()) > 512 or (name == "name" and not value):
-            raise ValueError("Native controller information contains invalid text.")
-        text[name] = value
-    return {**text, "device": str(ObjectIdentifier(device)), "vendor_runtime_required": False}
+    try:
+        if ObjectIdentifier.decode(TagList([tags[10]])) != ObjectIdentifier(device):
+            raise ValueError(
+                "Native controller information disagrees with the selected Device identity."
+            )
+        text = {}
+        for name, index in [("name", 0), ("description", 1), ("application_name", 6)]:
+            value = str(CharacterString.decode(TagList([tags[index]])))
+            if len(value.encode()) > 512 or (name == "name" and not value):
+                raise ValueError("Native controller information contains invalid text.")
+            text[name] = value
+        return {**text, "device": str(ObjectIdentifier(device)), "vendor_runtime_required": False}
+    except (InvalidTag, TypeError, AttributeError, IndexError) as exc:
+        raise ValueError("Unsupported native controller-information datatypes.") from exc
 
 
 class MceController:
