@@ -6,6 +6,13 @@ The implementation creates and executes **our own control graphs**, compiles the
 
 ## Run locally
 
+The interface starts with **Connect to a controller** or **Open a CAF file**.
+See [Using the controller workspace](docs/controller-workspace.md) for discovery,
+instance changes, offline CAF work and working modes.
+The [device-driven architecture](docs/device-workspace-architecture.md) describes
+model-independent inventory, live point reads, exposed I/O groups and the separate
+native application adapter boundary.
+
 Requirements: Python 3.11+ (3.13 recommended) and Node.js 22.12+ to build the UI. The already configured workspace has a virtual environment and built UI assets. On that Mac, double-click `Launch BMS Studio.command`, then open <http://127.0.0.1:8765>.
 
 From a fresh source checkout:

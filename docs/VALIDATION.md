@@ -231,6 +231,9 @@ simulation or polling databases. See [history scope](bacnet-history.md).
 
 ## Site, compliance and VM status
 
+Network locations in this section have been anonymized using documentation-only
+addresses. Original field captures remain private and outside source control.
+
 After the user approved the subnet and restarted Tailscale on the site Mac, the 192.0.2.0/24 route appeared in the peer's approved primary routes and the OS selected utun4 for both NAEs. TCP 80/443 connections succeeded. Both HTTPS peers presented self-signed certificates with the expected E2-NAE/F2-NAE names; certificate-chain trust was not established. Public web roots and documented UI paths returned HTTP 403. The legacy TimeService metadata request redirected to its 400 page. No credentials were transmitted to a guessed login endpoint.
 
 Actual production BACnet unicast discovery and ReadProperty succeeded through that route: E2-NAE at 192.0.2.32 is device 505; F2-NAE at 192.0.2.35 is device 506. Both report model MS-NAE5510-2, firmware 11.0.7.40 and vendor 5. These are NAE firmware values, not the downstream VAV firmware. Desktop credentials remain unread and web authentication remains untested. The BACnet checks did not require those credentials. Private engine-access evidence is retained in ignored `local-reports/site-route-retest-after-restart.json`, `site-http-identity.json` and `site-bacnet-readonly.json`. No local exit node was selected.

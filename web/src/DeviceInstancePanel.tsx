@@ -1,3 +1,4 @@
+import { TargetFields } from "./ControllerWorkspace";
 import { useEffect, useRef, useState } from "react";
 import { api, apiJsonDocument, apiKeepalive, saveBlob } from "./api";
 
@@ -13,6 +14,7 @@ export function DeviceInstancePanel({
   defaultDnet,
   parentBusy,
   onBusy,
+  onVerified,
 }: {
   connected: boolean;
   interfaceIdentity: string;
@@ -22,6 +24,7 @@ export function DeviceInstancePanel({
   defaultDnet: number | null;
   parentBusy: boolean;
   onBusy: (value: boolean) => void;
+  onVerified?: (result: any) => void;
 }) {
   const [target, setTarget] = useState<Target>({
     address: "",
@@ -118,8 +121,7 @@ export function DeviceInstancePanel({
     setBusy(true);
     onBusy(true);
     setError("");
-    // Retire history loads admitted before this operation. Readback remains
-    // bound to its captured receipt even if another response arrives later.
+    // Bind every operation to the receipt context admitted at its start.
     const operationReceiptEpoch = ++receiptEpoch.current;
     try {
       if (kind === "preview") {
@@ -153,10 +155,12 @@ export function DeviceInstancePanel({
               device: `device,${result.new_instance}`,
             }));
             setNewInstance("");
+            onVerified?.(result);
           }
         }
       } else {
-        const receiptId = receipt.attempt.id;
+        const attempt = receipt.attempt;
+        const receiptId = attempt.id;
         const result = await api(base + "/readback", {
           operation_id: id,
           receipt_id: receiptId,
@@ -165,12 +169,18 @@ export function DeviceInstancePanel({
           mounted.current &&
           operationReceiptEpoch === receiptEpoch.current &&
           result.receipt_id === receiptId
-        )
+        ) {
           setReceipt((current: any) =>
             current?.attempt.id === receiptId
               ? { ...current, readbacks: [...current.readbacks, result] }
               : current,
           );
+          if (
+            epoch === generation.current &&
+            result.readback?.status === "verified_new"
+          )
+            onVerified?.({ ...attempt, readback: result.readback });
+        }
       }
       await refresh();
     } catch (failure) {
@@ -184,8 +194,8 @@ export function DeviceInstancePanel({
       operation.current = null;
       if (mounted.current) {
         setBusy(false);
-        onBusy(false);
       }
+      onBusy(false);
     }
   }
   async function loadReceipt(id: string) {
@@ -263,27 +273,29 @@ export function DeviceInstancePanel({
           and MAC stay the same.
         </p>
         <div className="form-grid">
-          {(
-            [
-              ["address", "Controller address (IPv4 or DNET:MAC)"],
-              ["device", "Current Device object (device,instance)"],
-              ["router", "Instance-change router (routed targets only)"],
-              ["dnet", "Instance-change network (1–65534)"],
-            ] as const
-          ).map(([key, label]) => (
-            <label key={key}>
-              {label}
-              <input
-                disabled={!targetReady || locked}
-                value={target[key]}
-                onChange={(event) =>
-                  edit(() =>
-                    setTarget({ ...target, [key]: event.target.value }),
-                  )
-                }
-              />
-            </label>
-          ))}
+          <TargetFields>
+            {(
+              [
+                ["address", "Controller address (IPv4 or DNET:MAC)"],
+                ["device", "Current Device object (device,instance)"],
+                ["router", "Instance-change router (routed targets only)"],
+                ["dnet", "Instance-change network (1–65534)"],
+              ] as const
+            ).map(([key, label]) => (
+              <label key={key}>
+                {label}
+                <input
+                  disabled={!targetReady || locked}
+                  value={target[key]}
+                  onChange={(event) =>
+                    edit(() =>
+                      setTarget({ ...target, [key]: event.target.value }),
+                    )
+                  }
+                />
+              </label>
+            ))}
+          </TargetFields>
           <label>
             New controller instance (0–4194302)
             <input
@@ -438,7 +450,10 @@ export function DeviceInstancePanel({
             >
               Read back instance (no write)
             </button>
-            <button disabled={locked} onClick={() => void download()}>
+            <button
+              disabled={!targetReady || locked}
+              onClick={() => void download()}
+            >
               Download instance receipt
             </button>
           </div>
@@ -448,7 +463,7 @@ export function DeviceInstancePanel({
             Retained instance receipts
             <select
               aria-label="Retained instance receipts"
-              disabled={locked}
+              disabled={!targetReady || locked}
               value=""
               onChange={(event) => void loadReceipt(event.target.value)}
             >

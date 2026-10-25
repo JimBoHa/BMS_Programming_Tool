@@ -3,6 +3,7 @@ import { Database, Download, History, RefreshCw, Save } from "lucide-react";
 import { api, saveBlob, type JsonDocument } from "./api";
 import { historyEvidence, historyVisible } from "./historyEvidence";
 import { MultipleHistoryPanel } from "./MultipleHistoryPanel";
+import type { ControllerTarget } from "./workflow";
 import "./temco-simulator.css";
 
 type RecordValue = {
@@ -47,9 +48,15 @@ function csvCell(value: unknown) {
   return '"' + text.replaceAll('"', '""') + '"';
 }
 
-export function DeviceHistory() {
+export function DeviceHistory({
+  defaultAddress,
+  defaultTarget,
+}: {
+  defaultAddress?: string;
+  defaultTarget?: ControllerTarget | null;
+}) {
   const [status, setStatus] = useState<any>(null);
-  const [address, setAddress] = useState("");
+  const [address, setAddress] = useState(defaultAddress || "");
   const [objectId, setObjectId] = useState("trend-log,1");
   const [zone, setZone] = useState("");
   const [mode, setMode] = useState("sequence");
@@ -332,6 +339,7 @@ export function DeviceHistory() {
               aria-label="History device address"
               placeholder="e.g. 192.0.2.10 or 2001:5"
               value={address}
+              readOnly={!!defaultAddress}
               disabled={busy}
               onChange={(e) => {
                 invalidate();
@@ -665,8 +673,8 @@ export function DeviceHistory() {
           </details>
         </section>
       )}
-      <MultipleHistoryPanel />
-      <MultipleHistoryPanel eventLog />
+      <MultipleHistoryPanel defaultTarget={defaultTarget} />
+      <MultipleHistoryPanel eventLog defaultTarget={defaultTarget} />
     </div>
   );
 }

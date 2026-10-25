@@ -108,7 +108,7 @@ class RoutedScanRequest(StrictModel):
 
 class RouterBindingsRequest(StrictModel):
     router: str = Field(min_length=1, max_length=64)
-    device: int = Field(ge=0, le=4194302, strict=True)
+    device: int | None = Field(default=None, ge=0, le=4194302, strict=True)
     max_bindings: int = Field(default=2048, ge=1, le=4096, strict=True)
 
     @field_validator("router")
@@ -575,7 +575,12 @@ class RoutedDiscovery:
         their large cache; retain the exact observed capabilities rather than
         guessing them or depending on a previous UI discovery action.
         """
-        future = app.who_is(device, device, address=router, timeout=2)
+        future = app.who_is(
+            0 if device is None else device,
+            4194302 if device is None else device,
+            address=router,
+            timeout=2,
+        )
         try:
             async with asyncio.timeout(2.25):
                 while not future.done():
@@ -591,7 +596,12 @@ class RoutedDiscovery:
             if (
                 not isinstance(reply, IAmRequest)
                 or reply.pduSource != router
-                or reply.iAmDeviceIdentifier != ObjectIdentifier(("device", device))
+                or int(reply.iAmDeviceIdentifier[0]) != 8
+                or not 0 <= reply.iAmDeviceIdentifier[1] <= 4194302
+                or (
+                    device is not None
+                    and reply.iAmDeviceIdentifier != ObjectIdentifier(("device", device))
+                )
                 or int(reply.maxAPDULengthAccepted) not in {50, 128, 206, 480, 1024, 1476}
                 or int(reply.segmentationSupported) not in {0, 1, 2, 3}
                 or not 0 <= int(reply.vendorID) <= 65535
@@ -604,7 +614,7 @@ class RoutedDiscovery:
             await app.device_info_cache.set_device_info(reply)
             return {
                 "address": str(router),
-                "device_instance": device,
+                "device_instance": reply.iAmDeviceIdentifier[1],
                 "max_apdu": int(reply.maxAPDULengthAccepted),
                 "segmentation": str(reply.segmentationSupported),
                 "vendor": int(reply.vendorID),
@@ -626,8 +636,9 @@ class RoutedDiscovery:
                 raise ValueError("Select a remote router, not this client's own IPv4 endpoint.")
             started_at = _utc()
             identity = await self._router_identity(app, config, router, options.device)
+            device = identity["device_instance"]
             request = ReadPropertyRequest(
-                objectIdentifier=("device", options.device),
+                objectIdentifier=("device", device),
                 propertyIdentifier="device-address-binding",
                 destination=router,
             )
@@ -640,7 +651,7 @@ class RoutedDiscovery:
                 not isinstance(reply, ReadPropertyACK)
                 or reply.pduSource != router
                 or reply.apduInvokeID != request.apduInvokeID
-                or reply.objectIdentifier != ObjectIdentifier(("device", options.device))
+                or reply.objectIdentifier != ObjectIdentifier(("device", device))
                 or str(reply.propertyIdentifier) != "device-address-binding"
                 or reply.propertyArrayIndex is not None
             ):
@@ -696,7 +707,7 @@ class RoutedDiscovery:
                 "profile": PROFILE,
                 "scope": SCOPE,
                 "router": str(router),
-                "device": options.device,
+                "device": device,
                 "router_identity": identity,
                 "started_at": started_at,
                 "received_at": _utc(),
