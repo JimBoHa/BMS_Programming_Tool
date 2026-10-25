@@ -1218,10 +1218,10 @@ export function DeviceScanPanel({
                     <div className="button-row">
                       <button
                         disabled={busy || !connected}
-                        aria-label={`Use controller ${row.target.router ?? "IP"}/${row.target.address}/${row.target.device}`}
+                        aria-label={`Open controller ${row.target.router ?? "IP"}/${row.target.address}/${row.target.device}`}
                         onClick={() => choose(row)}
                       >
-                        Use controller
+                        Open controller
                       </button>
                       <button
                         onClick={() => setSelected(row.key)}

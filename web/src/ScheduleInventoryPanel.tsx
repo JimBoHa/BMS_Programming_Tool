@@ -1,3 +1,4 @@
+import { TargetFields } from "./ControllerWorkspace";
 import { useEffect, useRef, useState } from "react";
 import { api, download } from "./api";
 import { ScheduleLibraryPanel } from "./ScheduleLibraryPanel";
@@ -186,48 +187,56 @@ export function ScheduleInventoryPanel({
         entries; oversized or segmented values remain incomplete.
       </p>
       <div className="form-grid">
-        <label>
-          Schedule source address
-          <input
-            aria-label="Schedule source address"
-            value={address}
-            disabled={busy}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="192.0.2.10 or 3001:7"
-          />
-        </label>
-        <label>
-          Schedule Device identifier
-          <input
-            aria-label="Schedule Device identifier"
-            value={device}
-            disabled={busy}
-            onChange={(e) => setDevice(e.target.value)}
-            placeholder="device,1234"
-          />
-        </label>
-        <label>
-          Schedule router endpoint
-          <input
-            aria-label="Schedule router endpoint"
-            value={router}
-            disabled={busy}
-            onChange={(e) => setRouter(e.target.value)}
-            placeholder="Optional explicit IPv4:port"
-          />
-        </label>
-        <label>
-          Schedule DNET
-          <input
-            aria-label="Schedule DNET"
-            type="number"
-            min={1}
-            max={65534}
-            value={dnet}
-            disabled={busy}
-            onChange={(e) => setDnet(e.target.value)}
-          />
-        </label>
+        <TargetFields>
+          <label>
+            Schedule source address
+            <input
+              aria-label="Schedule source address"
+              value={address}
+              disabled={busy}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="192.0.2.10 or 3001:7"
+            />
+          </label>
+        </TargetFields>
+        <TargetFields>
+          <label>
+            Schedule Device identifier
+            <input
+              aria-label="Schedule Device identifier"
+              value={device}
+              disabled={busy}
+              onChange={(e) => setDevice(e.target.value)}
+              placeholder="device,1234"
+            />
+          </label>
+        </TargetFields>
+        <TargetFields>
+          <label>
+            Schedule router endpoint
+            <input
+              aria-label="Schedule router endpoint"
+              value={router}
+              disabled={busy}
+              onChange={(e) => setRouter(e.target.value)}
+              placeholder="Optional explicit IPv4:port"
+            />
+          </label>
+        </TargetFields>
+        <TargetFields>
+          <label>
+            Schedule DNET
+            <input
+              aria-label="Schedule DNET"
+              type="number"
+              min={1}
+              max={65534}
+              value={dnet}
+              disabled={busy}
+              onChange={(e) => setDnet(e.target.value)}
+            />
+          </label>
+        </TargetFields>
         <label className="full">
           Calendar/Schedule object selection
           <textarea

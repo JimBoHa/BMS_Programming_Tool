@@ -17,8 +17,10 @@ function synthetic() {
 
 async function open(page: import("@playwright/test").Page) {
   await page.goto("/");
+  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await page.getByRole("button", { name: "Simulate", exact: true }).click();
   await page
-    .getByRole("button", { name: "CAF simulation", exact: true })
+    .getByRole("button", { name: "CAF simulation inputs", exact: true })
     .click();
   await page.getByLabel("Simulation CAF file", { exact: true }).setInputFiles({
     name: "authored.caf",
@@ -137,13 +139,11 @@ test("profile import guards, invalid scalar refusal and explicit draft discard r
     page.getByLabel("Simulation value 8-1/526_1", { exact: true }),
   ).toHaveValue("NaN");
   page.once("dialog", (dialog) => dialog.dismiss());
-  await page
-    .getByLabel("Simulation CAF file", { exact: true })
-    .setInputFiles({
-      name: "other.caf",
-      mimeType: "application/octet-stream",
-      buffer: synthetic(),
-    });
+  await page.getByLabel("Simulation CAF file", { exact: true }).setInputFiles({
+    name: "other.caf",
+    mimeType: "application/octet-stream",
+    buffer: synthetic(),
+  });
   await expect(
     page.getByRole("region", { name: "Simulation file summary" }),
   ).toContainText("authored.caf");
@@ -194,8 +194,9 @@ test("leaving simulation workspace suppresses a late native download", async ({
       .locator(".caf-simulation button")
       .filter({ hasText: "Export simulation CAF" }),
   ).toHaveCount(1);
+  await page.getByRole("button", { name: "Simulate", exact: true }).click();
   await page
-    .getByRole("button", { name: "CAF simulation", exact: true })
+    .getByRole("button", { name: "CAF simulation inputs", exact: true })
     .click();
   await expect(
     page.getByRole("button", { name: "Export simulation CAF", exact: true }),

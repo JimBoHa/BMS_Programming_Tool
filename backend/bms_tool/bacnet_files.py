@@ -19,7 +19,7 @@ import threading
 import time
 import zipfile
 from collections import OrderedDict
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -217,7 +217,19 @@ class BacnetFiles:
         return identity
 
     async def _file_list(self, session, device):
-        count = int(await self._property(session, device, "configuration-files", Unsigned, 0))
+        try:
+            count = int(await self._property(session, device, "configuration-files", Unsigned, 0))
+            session["configuration_files_supported"] = True
+        except ValueError as failure:
+            # This optional property is absent on some otherwise capable devices.
+            # Only the native unknown-property rejection permits object-list fallback.
+            message = str(failure)
+            if not message.startswith("BACnet file service rejected:") or not any(
+                name in message for name in ("unknown-property", "unknownProperty")
+            ):
+                raise
+            session["configuration_files_supported"] = False
+            return []
         if count > MAX_FILES:
             raise ValueError(
                 "Device configuration-files exceeds the16-file profile; no guessed selection is made."
@@ -343,14 +355,15 @@ class BacnetFiles:
             "target": self.bacnet.target_address(address),
         }
 
-    async def inspect_config(self, address, device):
+    async def inspect_config(self, address, device, *, lock_held=False):
         device = _oid(device, 8)
         try:
             async with asyncio.timeout(self.operation_timeout):
-                async with self.bacnet.lock:
+                async with nullcontext() if lock_held else self.bacnet.lock:
                     session = self._session(address)
                     identity = await self._identity(session, device)
                     configuration_files = await self._file_list(session, device)
+                    configuration_files_supported = session["configuration_files_supported"]
                     discovered = await self._advertised_files(
                         session, device, configuration_files, identity["max-apdu-length-accepted"]
                     )
@@ -368,6 +381,7 @@ class BacnetFiles:
                             identity["max-apdu-length-accepted"],
                         )
                         != discovered
+                        or session["configuration_files_supported"] != configuration_files_supported
                     ):
                         raise ValueError(
                             "Device identity/configuration-files/advertised File objects changed during inspection."
@@ -380,6 +394,7 @@ class BacnetFiles:
                         "connector_config": session["config"],
                         "device_identity": identity,
                         "configuration_files": configuration_files,
+                        "configuration_files_supported": configuration_files_supported,
                         "discovery_source": (
                             "configuration-files" if configuration_files else "object-list"
                         ),
@@ -402,7 +417,7 @@ class BacnetFiles:
         except (DecodingError, InvalidTag, TypeError, AttributeError) as exc:
             raise ValueError("Malformed BACnet configuration-file metadata.") from exc
 
-    async def read_raw_file(self, inspection_id, object_id, metadata_sha256):
+    async def read_raw_file(self, inspection_id, object_id, metadata_sha256, *, lock_held=False):
         inspection_id, object_id = _identifier(inspection_id), _oid(object_id, 10)
         with self._memory_lock:
             original = self._inspections.get(inspection_id)
@@ -420,7 +435,7 @@ class BacnetFiles:
         started = datetime.now(UTC).isoformat()
         try:
             async with asyncio.timeout(self.operation_timeout):
-                async with self.bacnet.lock:
+                async with nullcontext() if lock_held else self.bacnet.lock:
                     session = self._session(inspected["target"]["address"])
                     if (
                         session["app"] is not inspected_app
@@ -436,6 +451,8 @@ class BacnetFiles:
                             != inspected["device_identity"]
                             or await self._file_list(session, inspected["target"]["device"])
                             != inspected["configuration_files"]
+                            or session["configuration_files_supported"]
+                            != inspected.get("configuration_files_supported", True)
                             or (
                                 await self._advertised_files(
                                     session,
@@ -568,6 +585,9 @@ class BacnetFiles:
                         "connector_config": inspected["connector_config"],
                         "device_identity": inspected["device_identity"],
                         "configuration_files": inspected["configuration_files"],
+                        "configuration_files_supported": inspected.get(
+                            "configuration_files_supported", True
+                        ),
                         "discovery_source": inspected["discovery_source"],
                         "advertised_files": inspected["advertised_files"],
                         "object_list_count": inspected["object_list_count"],
@@ -599,7 +619,8 @@ class BacnetFiles:
     @contextmanager
     def _capture_lock(self):
         with file_lock(
-            self.directory / ".capture.lock", timeout=2,
+            self.directory / ".capture.lock",
+            timeout=2,
             busy="File capture storage is busy; no existing capture was changed.",
             unavailable="File capture storage lock is unavailable.",
         ):
@@ -777,6 +798,10 @@ class BacnetFiles:
 
     def capture(self, identifier):
         return self._load(identifier)[0]
+
+    def capture_data(self, identifier):
+        """Return integrity-checked receipt and bytes for a format reader."""
+        return self._load(identifier)
 
     def captures(self):
         rows = []
