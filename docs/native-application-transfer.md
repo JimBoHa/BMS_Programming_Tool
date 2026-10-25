@@ -85,9 +85,19 @@ other application edits require their own typed editor and validation.
 
 Reviews bind the selected route, interface object/configuration, current
 identity, original snapshot, proposed instance and credential revision. They
-expire after 180 seconds, are consumed once, and are invalidated when edited,
+expire after 900 seconds, are consumed once, and are invalidated when edited,
 cancelled, disconnected or superseded for that station. A fresh preflight also
 checks review expiry before any restore request.
+
+The default operation deadline is 1,800 seconds to cover the fresh backup,
+application transfer and verified readback across slower routed trunks. A backup
+can require hundreds of confirmed chunks even for a modest application. Each
+individual File request still has its four-second deadline and one dispatch;
+lost acknowledgements do not acquire automatic retries. The current operation,
+review and per-request limits are exposed by the native status endpoint. API
+clients must allow their HTTP request to remain open for the operation deadline.
+An expired review still stops before restore, and any uncertain dispatched
+transfer retains its receipt and requires readback rather than another apply.
 
 Original snapshots and the exact outgoing application reach private durable
 storage before a restore can start. A SQLite intent and per-dispatch event are
