@@ -210,6 +210,21 @@ async def test_wrong_native_id_stops_before_clock(configured, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_verified_zero_physical_io_is_supported(configured, monkeypatch):
+    directory, cfg = configured
+    cfg["targets"][0]["io_objects"] = []
+    verified = json.loads((directory / "0-verified.json").read_text())
+    verified["io_count"] = 0
+    (directory / "0-verified.json").write_text(json.dumps(verified))
+    (directory / "batch-settings.json").write_text(json.dumps(cfg))
+    peer(monkeypatch)
+    result = await batch.observe(directory)
+    assert result["stable"] is True
+    assert result["latest"]["0"]["io"] == {}
+    assert len(result["latest"]["1"]["io"]) == 4
+
+
+@pytest.mark.asyncio
 async def test_transient_override_never_becomes_a_clean_pass(configured, monkeypatch):
     directory, _ = configured
     peer(monkeypatch, "late-override")
