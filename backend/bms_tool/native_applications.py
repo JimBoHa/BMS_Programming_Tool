@@ -15,6 +15,7 @@ from fastapi import APIRouter, Response
 from pydantic import Field, SecretStr, StrictBool
 
 from .application_files import ApplicationFiles
+from .application_preservation import verify_preservation
 from .application_store import (
     PROFILE,
     ApplicationCredentials,
@@ -404,6 +405,13 @@ class NativeApplications:
                 expected_native_sha256=intent["native_payload_sha256"],
             )
             if digest == intent["native_payload_sha256"]:
+                _, original_files = self.storage.load(intent["backup_id"])
+                result["preservation"] = verify_preservation(
+                    original_files,
+                    files,
+                    old_instance=intent["old_instance"],
+                    new_instance=intent["new_instance"],
+                )
                 status = int(await self.path._read(session, options.device, "system-status"))
                 result.update(system_status=status, operational=status == 0)
                 if status == 0:
