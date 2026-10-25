@@ -3,6 +3,7 @@ import { Download, FileArchive, RotateCcw, Upload } from "lucide-react";
 import { api, download, saveBlob } from "./api";
 import "./caf-simulation.css";
 import { CafLocalScenarios } from "./CafLocalScenarios";
+import type { FileRequest } from "./workflow";
 
 type SimulationRecord = {
   ref: string;
@@ -109,7 +110,20 @@ function importProfile(value: unknown, original: Profile): Profile {
   };
 }
 
-export function CafSimulationPanel({ visible = true }: { visible?: boolean }) {
+export function CafSimulationPanel({
+  visible = true,
+  incomingFile,
+}: {
+  visible?: boolean;
+  incomingFile?: FileRequest | null;
+}) {
+  const handledFile = useRef("");
+  useEffect(() => {
+    if (!visible || !incomingFile || handledFile.current === incomingFile.id)
+      return;
+    handledFile.current = incomingFile.id;
+    void open(incomingFile.file);
+  }, [visible, incomingFile]);
   const [scenarioDirty, setScenarioDirty] = useState(false);
   const [scenarioEpoch, setScenarioEpoch] = useState(0);
   const [summary, setSummary] = useState<Summary | null>(null);

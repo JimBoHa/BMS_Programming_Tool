@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 
@@ -15,16 +15,23 @@ function fixture() {
   );
 }
 
+async function openCaf(page: Page, name: string) {
+  const choosing = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: /^Open a CAF file/ }).click();
+  await (
+    await choosing
+  ).setFiles({
+    name,
+    mimeType: "application/octet-stream",
+    buffer: fixture(),
+  });
+}
+
 test("CAF instance review saves both native identity fields and preserves the application", async ({
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "CAF files", exact: true }).click();
-  await page.locator('input[type=file][accept=".caf"]').setInputFiles({
-    name: "authored.caf",
-    mimeType: "application/octet-stream",
-    buffer: fixture(),
-  });
+  await openCaf(page, "authored.caf");
   const panel = page.getByLabel("CAF device instance", { exact: true });
   await expect(panel).toContainText("current instance 99");
   const input = panel.getByLabel("New CAF device instance (0–4194302)", {
@@ -66,7 +73,7 @@ test("CAF instance review saves both native identity fields and preserves the ap
   await input.fill("5337");
   await expect(panel.getByLabel("Reviewed CAF instance change")).toHaveCount(0);
   page.once("dialog", (dialog) => dialog.dismiss());
-  await page.locator('input[type=file][accept=".caf"]').setInputFiles({
+  await page.locator('input[type=file][accept=".caf"]').first().setInputFiles({
     name: "replacement.caf",
     mimeType: "application/octet-stream",
     buffer: fixture(),
@@ -95,13 +102,8 @@ test("a delayed instance review cannot follow a replacement CAF", async ({
     await route.fulfill({ response });
   });
   await page.goto("/");
-  await page.getByRole("button", { name: "CAF files", exact: true }).click();
-  const picker = page.locator('input[type=file][accept=".caf"]');
-  await picker.setInputFiles({
-    name: "first.caf",
-    mimeType: "application/octet-stream",
-    buffer: fixture(),
-  });
+  await openCaf(page, "first.caf");
+  const picker = page.locator('input[type=file][accept=".caf"]').first();
   const panel = page.getByLabel("CAF device instance", { exact: true });
   await panel.getByLabel("New CAF device instance (0–4194302)").fill("5336");
   await panel

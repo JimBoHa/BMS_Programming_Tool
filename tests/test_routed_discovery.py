@@ -59,6 +59,7 @@ class RawRouter(asyncio.DatagramProtocol):
 
     def __init__(self):
         self.networks = [2105, 2205]
+        self.advertise_networks = True
         self.devices = [(132079, b"\x4f", 2105), (132080, b"\x50", 2105)]
         self.bindings = [
             (132079, 2105, b"\x4f"),
@@ -122,6 +123,8 @@ class RawRouter(asyncio.DatagramProtocol):
                 return
             packet = data[4:]
             if packet == bytes.fromhex("018000"):
+                if not self.advertise_networks:
+                    return
                 response = b"\x01\x80\x01" + b"".join(struct.pack(">H", n) for n in self.networks)
                 if self.rogue:
                     self.rogue.sendto(bvlc(b"\x01\x80\x01\x27\x0f"), address)
@@ -209,7 +212,13 @@ class RawRouter(asyncio.DatagramProtocol):
                     70: "model-name",
                     44: "firmware-revision",
                     12: "application-software-version",
-                }[property_number]
+                }.get(property_number)
+                if name is None:
+                    npdu = b"\x01\x08" + struct.pack(">H", dnet) + bytes([len(mac)]) + mac
+                    self.transport.sendto(
+                        bvlc(npdu + b"\x50" + invoke + b"\x0c\x91\x02\x91\x20"), address
+                    )
+                    return
                 self.probe_received.put_nowait((name, requested))
                 if name in self.probe_hold_props:
                     return
@@ -399,6 +408,40 @@ async def test_real_binding_read_keeps_unknown_instance_and_wide_mac_as_cached_h
     assert not connector.app.asap.clientTransactions and not connector.app._requests
     limited = await service.bindings(router=peer.endpoint, device=505, max_bindings=1)
     assert limited["truncated"] and not limited["complete"] and limited["total_bindings"] == 4
+
+
+async def test_silent_router_network_query_can_discover_identity_and_read_cached_networks(rig):
+    service, connector, peer, _ = rig
+    peer.advertise_networks = False
+    report = await service.networks(router=peer.endpoint, timeout_seconds=1.0)
+    assert report["networks"] == [] and report["responses"] == 0
+    cached = await service.bindings(router=peer.endpoint)
+    assert cached["device"] == cached["router_identity"]["device_instance"] == 505
+    assert cached["networks"] == [1001, 2105, 2205]
+    assert all(row["cached"] and not row["live_verified"] for row in cached["bindings"])
+    assert not connector.app.asap.clientTransactions and not connector.app._requests
+    assert not connector.lock.locked()
+
+
+async def test_automatic_router_identity_preserves_segmented_binding_preflight(rig):
+    service, connector, peer, _ = rig
+    peer.bindings = [(132000 + number, 2105, bytes([number])) for number in range(161)]
+    peer.segmented_bindings = peer.require_identity = True
+    result = await service.bindings(router=peer.endpoint)
+    assert result["device"] == 505 and peer.identity_seen
+    assert result["router_identity"]["segmentation"] == "segmented-both"
+    assert len(result["bindings"]) == 161
+    assert len(peer.segment_sends) >= 5
+    assert not connector.app.asap.clientTransactions and not connector.app._requests
+
+
+async def test_automatic_router_identity_refuses_unknown_instance_without_binding_read(rig):
+    service, connector, peer, _ = rig
+    peer.identity_instance = 4194303
+    with pytest.raises(ValueError, match="no matching I-Am"):
+        await service.bindings(router=peer.endpoint)
+    assert not peer.property_received.is_set()
+    assert not connector.app._who_is_futures and not connector.lock.locked()
 
 
 async def test_fresh_interface_performs_exact_identity_preflight_then_real_segmented_binding_cache(

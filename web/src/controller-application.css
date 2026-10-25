@@ -1,0 +1,56 @@
+.controller-application {
+  margin-block: 1.5rem;
+  border-block: 1px solid var(--border, #cedcdd);
+  padding-block: 1rem;
+}
+.native-application-heading {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+}
+.native-application-heading h3 {
+  margin-block: 0 0.5rem;
+}
+.native-application-heading p {
+  max-width: 70ch;
+}
+.native-application-heading button {
+  flex-shrink: 0;
+}
+.native-application-source {
+  color: #385d60;
+  overflow-wrap: anywhere;
+}
+.controller-application label {
+  display: grid;
+  gap: 0.5rem;
+  margin-block: 1rem;
+}
+.controller-application select {
+  max-width: 100%;
+}
+.native-controller-diagram {
+  height: 480px;
+  border: 1px solid #adc8c9;
+  border-radius: 6px;
+  background: #f6fbfb;
+}
+.controller-application dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2rem;
+}
+.controller-application dd {
+  margin-inline: 0;
+}
+.controller-application pre {
+  max-height: 18rem;
+  overflow: auto;
+}
+@media (max-width: 800px) {
+  .native-application-heading {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

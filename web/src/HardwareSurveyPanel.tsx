@@ -1,3 +1,4 @@
+import { TargetFields } from "./ControllerWorkspace";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, FileSearch, RefreshCw, Search, Upload } from "lucide-react";
 import { api, saveBlob } from "./api";
@@ -880,60 +881,70 @@ export function HardwareSurveyPanel({
           </p>
         )}
         <div className="hardware-target form-grid">
-          <label>
-            Hardware transport
-            <select
-              aria-label="Hardware transport"
-              value={transport}
-              onChange={(e) =>
-                edit(() => {
-                  const next = e.target.value as "bacnet-ip" | "direct-mstp";
-                  setTransport(next);
-                  if (next === "direct-mstp") {
-                    setRouter("");
-                    setDnet("");
-                  }
-                })
-              }
-            >
-              <option value="bacnet-ip">BACnet/IP or IP-routed MS/TP</option>
-              <option value="direct-mstp">Direct serial MS/TP</option>
-            </select>
-          </label>
-          <label>
-            Hardware controller address
-            <input
-              value={address}
-              onChange={(e) => edit(() => setAddress(e.target.value))}
-            />
-          </label>
-          <label>
-            Hardware Device object
-            <input
-              value={device}
-              placeholder="device,1234"
-              onChange={(e) => edit(() => setDevice(e.target.value))}
-            />
-          </label>
-          <label>
-            Hardware router (optional)
-            <input
-              value={router}
-              disabled={transport === "direct-mstp"}
-              onChange={(e) => edit(() => setRouter(e.target.value))}
-            />
-          </label>
-          <label>
-            Hardware destination network (optional)
-            <input
-              value={dnet}
-              disabled={transport === "direct-mstp"}
-              type="number"
-              min={1}
-              max={65534}
-              onChange={(e) => edit(() => setDnet(e.target.value))}
-            />
-          </label>
+          <TargetFields>
+            <label>
+              Hardware transport
+              <select
+                aria-label="Hardware transport"
+                value={transport}
+                onChange={(e) =>
+                  edit(() => {
+                    const next = e.target.value as "bacnet-ip" | "direct-mstp";
+                    setTransport(next);
+                    if (next === "direct-mstp") {
+                      setRouter("");
+                      setDnet("");
+                    }
+                  })
+                }
+              >
+                <option value="bacnet-ip">BACnet/IP or IP-routed MS/TP</option>
+                <option value="direct-mstp">Direct serial MS/TP</option>
+              </select>
+            </label>
+          </TargetFields>
+          <TargetFields>
+            <label>
+              Hardware controller address
+              <input
+                value={address}
+                onChange={(e) => edit(() => setAddress(e.target.value))}
+              />
+            </label>
+          </TargetFields>
+          <TargetFields>
+            <label>
+              Hardware Device object
+              <input
+                value={device}
+                placeholder="device,1234"
+                onChange={(e) => edit(() => setDevice(e.target.value))}
+              />
+            </label>
+          </TargetFields>
+          <TargetFields>
+            <label>
+              Hardware router (optional)
+              <input
+                value={router}
+                disabled={transport === "direct-mstp"}
+                onChange={(e) => edit(() => setRouter(e.target.value))}
+              />
+            </label>
+          </TargetFields>
+          <TargetFields>
+            <label>
+              Hardware destination network (optional)
+              <input
+                value={dnet}
+                disabled={transport === "direct-mstp"}
+                type="number"
+                min={1}
+                max={65534}
+                onChange={(e) => edit(() => setDnet(e.target.value))}
+              />
+            </label>
+          </TargetFields>
         </div>
         <label className="hardware-checkbox">
           <input

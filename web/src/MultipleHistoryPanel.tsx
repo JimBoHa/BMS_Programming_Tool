@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, saveBlob, type JsonDocument } from "./api";
 import { historyEvidence, historyVisible } from "./historyEvidence";
+import type { ControllerTarget } from "./workflow";
 
 function cell(value: unknown) {
   let text =
@@ -14,8 +15,10 @@ function cell(value: unknown) {
 }
 export function MultipleHistoryPanel({
   eventLog = false,
+  defaultTarget,
 }: {
   eventLog?: boolean;
+  defaultTarget?: ControllerTarget | null;
 }) {
   const endpoint = eventLog ? "/bacnet/event-log" : "/bacnet/history-multiple";
   const filePrefix = eventLog
@@ -45,11 +48,11 @@ export function MultipleHistoryPanel({
   }
   const [status, setStatus] = useState<any>(null);
   const [fields, setFields] = useState({
-    address: "",
-    device: "",
+    address: defaultTarget?.address || "",
+    device: defaultTarget?.device || "",
     object_id: eventLog ? "event-log,1" : "trend-log-multiple,1",
-    router: "",
-    dnet: "",
+    router: defaultTarget?.router || "",
+    dnet: defaultTarget?.dnet == null ? "" : String(defaultTarget.dnet),
     device_timezone: "",
     mode: "sequence",
     reference: "1",
@@ -435,6 +438,10 @@ export function MultipleHistoryPanel({
       <input
         aria-label={label}
         value={fields[key]}
+        readOnly={
+          !!defaultTarget &&
+          ["address", "device", "router", "dnet"].includes(key)
+        }
         type={type}
         placeholder={placeholder}
         step={type === "datetime-local" ? "0.01" : undefined}

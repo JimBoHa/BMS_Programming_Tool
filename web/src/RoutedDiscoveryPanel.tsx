@@ -23,7 +23,12 @@ type WindowReport = {
   scope: string;
 };
 type NetworkReport = WindowReport & { networks: number[] };
-type RouterChoice = { router: string; networks: number[]; truncated?: boolean };
+type RouterChoice = {
+  router: string;
+  networks: number[];
+  truncated?: boolean;
+  cached?: boolean;
+};
 type RouterReport = {
   routers: RouterChoice[];
   complete: boolean;
@@ -44,6 +49,12 @@ type BindingReport = WindowReport & {
     cached: boolean;
     live_verified: boolean;
   }[];
+};
+type ScanName = {
+  name: string | null;
+  state: "reading" | "complete" | "unavailable";
+  finishedAt?: string;
+  error?: string;
 };
 type ScanRequest = {
   router: string;
@@ -79,6 +90,7 @@ export function RoutedDiscoveryPanel({
   connectorConfig = null,
   localDiscoveryAvailable = true,
   onSelectionCleared,
+  onNamesDiscovered,
 }: {
   connected: boolean;
   onSelect?: (device: RoutedDevice, router: string, dnet: number) => void;
@@ -88,6 +100,7 @@ export function RoutedDiscoveryPanel({
   connectorConfig?: unknown;
   localDiscoveryAvailable?: boolean;
   onSelectionCleared?: () => void;
+  onNamesDiscovered?: (devices: NamedScanTarget[]) => void;
 }) {
   const [router, setRouter] = useState("");
   const [dnet, setDnet] = useState("");
@@ -103,6 +116,20 @@ export function RoutedDiscoveryPanel({
   const [networks, setNetworks] = useState<NetworkReport | null>(null);
   const [scan, setScan] = useState<RoutedScanResult | null>(null);
   const [bindings, setBindings] = useState<BindingReport | null>(null);
+  const [nameResults, setNameResults] = useState<Record<string, ScanName>>({});
+  const [nameBusy, setNameBusy] = useState(false);
+  const [nameRetry, setNameRetry] = useState(0);
+  const [controllerQuery, setControllerQuery] = useState("");
+  const namesRef = useRef(nameResults);
+  const namedScan = useRef<RoutedScanResult | null>(null);
+  const nameEpoch = useRef(0);
+  const namesCallback = useRef(onNamesDiscovered);
+  namesCallback.current = onNamesDiscovered;
+  const connectedRef = useRef(connected);
+  connectedRef.current = connected;
+  const networkChoices = Array.from(
+    new Set([...(networks?.networks ?? []), ...(bindings?.networks ?? [])]),
+  ).sort((a, b) => a - b);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const [outcome, setOutcome] = useState("");
@@ -147,30 +174,149 @@ export function RoutedDiscoveryPanel({
         )
       : null;
   const currentConfig = configKey(connectorConfig);
-  const currentName = (item: NamedScanTarget) =>
-    !!interfaceIdentity &&
-    item.observedInterface === interfaceIdentity &&
-    currentConfig !== null &&
-    configKey(item.connectorConfig) === currentConfig;
-  const currentNames = knownDevices.filter(currentName);
+  const currentNames = knownDevices.filter(
+    (item) =>
+      !!interfaceIdentity &&
+      item.observedInterface === interfaceIdentity &&
+      currentConfig !== null &&
+      configKey(item.connectorConfig) === currentConfig,
+  );
   const routerName = (address: string) =>
     currentNames.find(
       (item) =>
         item.target.source === "ip" &&
         endpointKey(item.target.address) === endpointKey(address),
     )?.name;
+  const nameKey = (device: RoutedDevice, result: RoutedScanResult) =>
+    JSON.stringify([
+      endpointKey(result.report.router),
+      result.report.dnet,
+      device.address,
+      device.device,
+    ]);
   const controllerName = (device: RoutedDevice, result: RoutedScanResult) =>
-    currentNames.find(
-      (item) =>
-        item.target.source === "routed" &&
-        endpointKey(item.target.router ?? "") ===
-          endpointKey(result.report.router) &&
-        item.target.dnet === result.report.dnet &&
-        item.target.address === device.address &&
-        item.target.device === device.device,
-    )?.name;
+    nameResults[nameKey(device, result)]?.name;
+  const nameLabel = (device: RoutedDevice, result: RoutedScanResult) =>
+    controllerName(device, result) ||
+    (nameResults[nameKey(device, result)]?.state === "unavailable"
+      ? "Name unavailable"
+      : "Reading name…");
   const controllerKey = (device: RoutedDevice) =>
     JSON.stringify([device.address, device.device]);
+  useEffect(() => {
+    const owner = ++nameEpoch.current;
+    setNameBusy(false);
+    if (namedScan.current !== scan) {
+      namedScan.current = scan;
+      namesRef.current = {};
+      setNameResults({});
+      setControllerQuery("");
+    }
+    if (!connected || !scan) return;
+    const valid = () =>
+      mounted.current &&
+      connectedRef.current &&
+      nameEpoch.current === owner &&
+      currentScan.current === scan;
+    setNameBusy(true);
+    void (async () => {
+      try {
+        for (const device of scan.report.devices) {
+          if (!valid()) break;
+          const key = nameKey(device, scan);
+          if (
+            ["complete", "unavailable"].includes(namesRef.current[key]?.state)
+          )
+            continue;
+          namesRef.current = {
+            ...namesRef.current,
+            [key]: { name: null, state: "reading" },
+          };
+          setNameResults(namesRef.current);
+          try {
+            const report = await api("/bacnet/device-name", {
+              address: device.address,
+              device: device.device,
+              router: scan.report.router,
+              dnet: scan.report.dnet,
+            });
+            if (!valid()) break;
+            if (
+              !report.identity_verified ||
+              typeof report.name !== "string" ||
+              !report.name.trim() ||
+              report.address !== device.address ||
+              report.device !== device.device ||
+              endpointKey(report.router ?? "") !==
+                endpointKey(scan.report.router) ||
+              report.dnet !== scan.report.dnet
+            )
+              throw new Error(
+                report.errors?.map((item: any) => item.error).join(" ") ||
+                  "The device did not return a name verified for this exact scan identity.",
+              );
+            namesRef.current = {
+              ...namesRef.current,
+              [key]: {
+                name: report.name,
+                state: "complete",
+                finishedAt: report.finished_at,
+              },
+            };
+            setNameResults(namesRef.current);
+            namesCallback.current?.([
+              {
+                target: {
+                  source: "routed",
+                  address: device.address,
+                  device: device.device,
+                  router: scan.report.router,
+                  dnet: scan.report.dnet,
+                },
+                name: report.name,
+                observedInterface: interfaceIdentity,
+                connectorConfig: report.connector_config,
+              },
+            ]);
+          } catch (failure) {
+            if (!valid()) break;
+            namesRef.current = {
+              ...namesRef.current,
+              [key]: {
+                name: null,
+                state: "unavailable",
+                error: String(failure),
+              },
+            };
+            setNameResults(namesRef.current);
+          }
+        }
+      } finally {
+        if (valid()) setNameBusy(false);
+      }
+    })();
+    return () => {
+      nameEpoch.current++;
+    };
+  }, [scan, connected, nameRetry]);
+  const matchingControllers =
+    scan?.report.devices.filter((device) =>
+      [
+        controllerName(device, scan),
+        device.address,
+        device.device,
+        device.vendor,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(controllerQuery.trim().toLowerCase()),
+    ) ?? [];
+  const namesRead = Object.values(nameResults).filter(
+    (item) => item.state === "complete",
+  ).length;
+  const namesUnavailable = Object.values(nameResults).filter(
+    (item) => item.state === "unavailable",
+  ).length;
   function clearSelection() {
     setController("");
     onSelectionCleared?.();
@@ -235,6 +381,7 @@ export function RoutedDiscoveryPanel({
       if (!selectedRouter.trim())
         throw new Error("Enter an explicit router IPv4 address and UDP port.");
       setRouter(selectedRouter);
+      setRouterDevice("");
       setNetworks(null);
       setBindings(null);
       setScan(null);
@@ -254,6 +401,31 @@ export function RoutedDiscoveryPanel({
           ),
           { router: report.router, networks: report.networks },
         ]);
+        if (!report.networks.length) {
+          try {
+            const cached = await api("/bacnet/router-bindings", {
+              router: report.router,
+              max_bindings: 2048,
+            });
+            if (current(request)) {
+              setBindings(cached);
+              setRouterDevice(String(cached.device));
+              setRouters((choices) =>
+                choices.map((choice) =>
+                  endpointKey(choice.router) === endpointKey(cached.router)
+                    ? { ...choice, networks: cached.networks, cached: true }
+                    : choice,
+                ),
+              );
+            }
+          } catch (failure) {
+            if (current(request))
+              setError(
+                "The router did not advertise networks, and its cached network list could not be read. " +
+                  String(failure),
+              );
+          }
+        }
       }
     });
   }
@@ -286,7 +458,7 @@ export function RoutedDiscoveryPanel({
     setController(controllerKey(device));
     onSelect?.(device, result.report.router, result.report.dnet);
     setOutcome(
-      `Selected ${controllerName(device, result) || device.device} at ${device.address} via ${result.report.router}. Commissioning fields are filled below.`,
+      `Opening ${controllerName(device, result) || device.device} at ${device.address} via ${result.report.router}. Its identity will be read again before commissioning.`,
     );
     document
       .getElementById("controller-instance-commissioning")
@@ -296,19 +468,19 @@ export function RoutedDiscoveryPanel({
     await action(async (request) => {
       if (!router.trim())
         throw new Error("Enter an explicit router IPv4 address and UDP port.");
-      const device = integer(
-        routerDevice,
-        0,
-        4194302,
-        "Router device instance",
-      );
+      const device = routerDevice.trim()
+        ? integer(routerDevice, 0, 4194302, "Router device instance")
+        : undefined;
       setBindings(null);
       const report = await api("/bacnet/router-bindings", {
         router: router.trim(),
         device,
         max_bindings: 2048,
       });
-      if (current(request)) setBindings(report);
+      if (current(request)) {
+        setBindings(report);
+        setRouterDevice(String(report.device));
+      }
     });
   }
   async function exportBindings() {
@@ -360,6 +532,16 @@ export function RoutedDiscoveryPanel({
   async function exportScan() {
     if (!scan || active.current) return;
     const snapshot = scan;
+    const nameSnapshot = snapshot.report.devices.map((device) => ({
+      address: device.address,
+      device: device.device,
+      router: snapshot.report.router,
+      dnet: snapshot.report.dnet,
+      ...(namesRef.current[nameKey(device, snapshot)] ?? {
+        name: null,
+        state: "pending",
+      }),
+    }));
     active.current = true;
     setBusy(true);
     setError("");
@@ -369,6 +551,10 @@ export function RoutedDiscoveryPanel({
       const digest = await crypto.subtle.digest(
         "SHA-256",
         new TextEncoder().encode(raw),
+      );
+      const nameDigest = await crypto.subtle.digest(
+        "SHA-256",
+        new TextEncoder().encode(JSON.stringify(nameSnapshot)),
       );
       if (!mounted.current || currentScan.current !== snapshot) return;
       const sha = Array.from(new Uint8Array(digest), (v) =>
@@ -385,6 +571,11 @@ export function RoutedDiscoveryPanel({
                 report_sha256: sha,
                 hash_encoding: "UTF-8 JSON.stringify(report)",
                 report: snapshot.report,
+                device_names: nameSnapshot,
+                names_sha256: Array.from(new Uint8Array(nameDigest), (value) =>
+                  value.toString(16).padStart(2, "0"),
+                ).join(""),
+                names_hash_encoding: "UTF-8 JSON.stringify(device_names)",
               },
               null,
               2,
@@ -418,10 +609,10 @@ export function RoutedDiscoveryPanel({
       </div>
       <div className="card-body">
         <p>
-          Choose a router, select one of its advertised trunks, scan that trunk,
-          then choose a controller to modify. Devices that do not answer during
-          the response window can be absent. Discovery does not upload a
-          controller program.
+          Choose a router, select an advertised or cached network, scan that
+          network, then choose a controller to modify. Devices that do not
+          answer during the response window can be absent. Discovery does not
+          upload a controller program.
         </p>
         {!connected && (
           <p className="help-text">
@@ -452,6 +643,7 @@ export function RoutedDiscoveryPanel({
                     : ""}
                   {item.router} · networks{" "}
                   {item.networks.join(", ") || "none advertised"}
+                  {item.cached ? " (cached; scan required)" : ""}
                 </option>
               ))}
             </select>
@@ -512,142 +704,166 @@ export function RoutedDiscoveryPanel({
             </button>
           </div>
         </div>
-        <div className="form-grid">
-          <label>
-            Router device instance (optional cached-binding read)
-            <input
-              aria-label="Discovery router device instance"
-              type="number"
-              min={0}
-              max={4194302}
-              disabled={busy || !connected}
-              value={routerDevice}
-              onChange={(event) =>
-                edit(() => {
-                  setRouterDevice(event.target.value);
-                  setBindings(null);
-                })
-              }
-            />
-          </label>
-          <div className="routed-action">
-            <button
-              disabled={busy || !connected || !router.trim() || !routerDevice}
-              onClick={readBindings}
-            >
-              Read router cached bindings
-            </button>
-          </div>
-        </div>
-        {bindings && (
-          <div role="region" aria-label="Router cached address bindings">
-            <div className="routed-report-heading">
-              <b>Cached bindings from router device {bindings.device}</b>
-              <button disabled={busy} onClick={exportBindings}>
-                <Download size={14} /> Download cached bindings JSON
+        <details>
+          <summary>Router identity and cached address evidence</summary>
+          <div className="form-grid">
+            <label>
+              Router device instance (optional cached-binding read)
+              <input
+                aria-label="Discovery router device instance"
+                type="number"
+                min={0}
+                max={4194302}
+                disabled={busy || !connected}
+                value={routerDevice}
+                onChange={(event) =>
+                  edit(() => {
+                    setRouterDevice(event.target.value);
+                    setBindings(null);
+                  })
+                }
+              />
+            </label>
+            <div className="routed-action">
+              <button
+                disabled={busy || !connected || !router.trim()}
+                onClick={readBindings}
+              >
+                Read router cached bindings
               </button>
             </div>
-            <p>
-              Cached addresses are discovery leads. Liveness, manufacturer and
-              controller type have not been verified; unknown device instances
-              remain unknown.
-            </p>
-            <WindowDetails report={bindings} cached />
-            <div className="routed-networks">
-              {bindings.networks.map((network) => (
-                <button
-                  key={network}
-                  disabled={busy || !connected}
-                  onClick={() => edit(() => setDnet(String(network)))}
-                >
-                  Select cached network {network}
+          </div>
+          {bindings && (
+            <div role="region" aria-label="Router cached address bindings">
+              <div className="routed-report-heading">
+                <b>Cached bindings from router device {bindings.device}</b>
+                <button disabled={busy} onClick={exportBindings}>
+                  <Download size={14} /> Download cached bindings JSON
                 </button>
-              ))}
-            </div>
-            <div className="routed-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Cached address</th>
-                    <th>Network</th>
-                    <th>MAC bytes</th>
-                    <th>Device identity</th>
-                    <th>Evidence</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bindings.bindings.slice(0, 100).map((binding, index) => (
-                    <tr key={index}>
-                      <td>{binding.address}</td>
-                      <td>{binding.dnet}</td>
-                      <td>{binding.mac_hex}</td>
-                      <td>
-                        {binding.device ||
-                          (binding.device_instance === null
-                            ? "Unknown device instance"
-                            : `device,${binding.device_instance}`)}
-                      </td>
-                      <td>Cached · liveness unverified</td>
+              </div>
+              <p>
+                Cached addresses are discovery leads. Liveness, manufacturer and
+                controller type have not been verified; unknown device instances
+                remain unknown.
+              </p>
+              <WindowDetails report={bindings} cached />
+              <div className="routed-networks">
+                {bindings.networks.map((network) => (
+                  <button
+                    key={network}
+                    disabled={busy || !connected}
+                    onClick={() => edit(() => setDnet(String(network)))}
+                  >
+                    Select cached network {network}
+                  </button>
+                ))}
+              </div>
+              <div className="routed-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Cached address</th>
+                      <th>Network</th>
+                      <th>MAC bytes</th>
+                      <th>Device identity</th>
+                      <th>Evidence</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {bindings.bindings.slice(0, 100).map((binding, index) => (
+                      <tr key={index}>
+                        <td>{binding.address}</td>
+                        <td>{binding.dnet}</td>
+                        <td>{binding.mac_hex}</td>
+                        <td>
+                          {binding.device ||
+                            (binding.device_instance === null
+                              ? "Unknown device instance"
+                              : `device,${binding.device_instance}`)}
+                        </td>
+                        <td>Cached · liveness unverified</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {bindings.bindings.length > 100 && (
+                <p>
+                  Showing 100 of {bindings.bindings.length} cached bindings.
+                  Download JSON for the complete returned set.
+                </p>
+              )}
+              {!bindings.bindings.length && (
+                <p>
+                  No cached bindings were returned. This does not prove
+                  downstream networks are empty.
+                </p>
+              )}
             </div>
-            {bindings.bindings.length > 100 && (
-              <p>
-                Showing 100 of {bindings.bindings.length} cached bindings.
-                Download JSON for the complete returned set.
-              </p>
-            )}
-            {!bindings.bindings.length && (
-              <p>
-                No cached bindings were returned. This does not prove downstream
-                networks are empty.
-              </p>
-            )}
-          </div>
-        )}
+          )}
+        </details>
         {networks && (
-          <div role="region" aria-label="Router network response">
-            <WindowDetails report={networks} />
-            <div className="routed-networks">
-              {networks.networks.map((network) => (
-                <button
-                  key={network}
-                  disabled={busy || !connected}
-                  onClick={() => edit(() => setDnet(String(network)))}
-                >
-                  Select network {network}
-                </button>
-              ))}
+          <details>
+            <summary>Network advertisement evidence</summary>
+            <div role="region" aria-label="Router network response">
+              <WindowDetails report={networks} />
+              <div className="routed-networks">
+                {networks.networks.map((network) => (
+                  <button
+                    key={network}
+                    disabled={busy || !connected}
+                    onClick={() => edit(() => setDnet(String(network)))}
+                  >
+                    Select network {network}
+                  </button>
+                ))}
+              </div>
+              {!networks.networks.length && (
+                <p>No networks were received during this response window.</p>
+              )}
             </div>
-            {!networks.networks.length && (
-              <p>No networks were received during this response window.</p>
-            )}
-          </div>
+          </details>
+        )}
+        {busy && networks && !networks.networks.length && (
+          <p role="status">
+            No network advertisement arrived. Reading the selected router’s
+            cached network list…
+          </p>
+        )}
+        {bindings && !networks?.networks.length && (
+          <p role="status" aria-label="Cached network discovery">
+            Router Device {bindings.device}: {bindings.networks.length} cached
+            network choice(s). These are discovery leads; scan the selected
+            network to verify responding controllers.
+            {bindings.truncated ? " The cache result is partial." : ""}
+          </p>
         )}
         <h4>2. Select and scan a trunk</h4>
         <label>
           Trunk / BACnet network
           <select
             aria-label="Commissioning trunk"
-            disabled={busy || !connected || !networks?.networks.length}
-            value={networks?.networks.includes(Number(dnet)) ? dnet : ""}
+            disabled={busy || !connected || !networkChoices.length}
+            value={networkChoices.includes(Number(dnet)) ? dnet : ""}
             onChange={(event) => edit(() => setDnet(event.target.value))}
           >
             <option value="" disabled>
-              Choose an advertised network
+              Choose a discovered network
             </option>
-            {networks?.networks.map((network) => (
+            {networkChoices.map((network) => (
               <option key={network} value={String(network)}>
                 Network {network}
+                {networks?.networks.includes(network)
+                  ? " · advertised"
+                  : " · cached; scan required"}
               </option>
             ))}
           </select>
         </label>
         <p className="help-text">
-          These are advertised BACnet network numbers. Router advertisements do
-          not supply FC trunk names or verify the bus type.
+          Advertised and cached BACnet networks do not supply FC trunk names or
+          verify the bus type. Cached choices do not establish current routing
+          or controller liveness; a fresh scan is required.
         </p>
         <div className="form-grid">
           {(
@@ -685,6 +901,42 @@ export function RoutedDiscoveryPanel({
         {scan && (
           <div role="region" aria-label="Routed device response">
             <h4>3. Select a controller to modify</h4>
+            <p role="status" aria-label="Controller name lookup">
+              {namesRead} of {scan.report.devices.length} controller names read.
+              {nameBusy ? " Reading names sequentially…" : ""}
+              {namesUnavailable ? ` ${namesUnavailable} unavailable.` : ""}
+            </p>
+            <div className="button-row">
+              <label>
+                Find controller
+                <input
+                  aria-label="Find scanned controller"
+                  type="search"
+                  placeholder="Name, address or instance — e.g. TB-3-201"
+                  value={controllerQuery}
+                  onChange={(event) => {
+                    setControllerQuery(event.target.value);
+                    setController("");
+                  }}
+                />
+              </label>
+              {!!namesUnavailable && (
+                <button
+                  disabled={busy || nameBusy || !connected}
+                  onClick={() => {
+                    namesRef.current = Object.fromEntries(
+                      Object.entries(namesRef.current).filter(
+                        ([, item]) => item.state === "complete",
+                      ),
+                    );
+                    setNameResults(namesRef.current);
+                    setNameRetry((value) => value + 1);
+                  }}
+                >
+                  Retry unavailable names
+                </button>
+              )}
+            </div>
             <div className="form-grid">
               <label>
                 Controller
@@ -697,15 +949,13 @@ export function RoutedDiscoveryPanel({
                   <option value="" disabled>
                     Choose a controller from this scan
                   </option>
-                  {scan.report.devices.map((device) => (
+                  {matchingControllers.map((device) => (
                     <option
                       key={controllerKey(device)}
                       value={controllerKey(device)}
                     >
-                      {controllerName(device, scan)
-                        ? `${controllerName(device, scan)} · `
-                        : ""}
-                      {device.device} · {device.address}
+                      {nameLabel(device, scan)} · {device.address} ·{" "}
+                      {device.device}
                     </option>
                   ))}
                 </select>
@@ -720,15 +970,10 @@ export function RoutedDiscoveryPanel({
                     if (device) selectController(device, scan);
                   }}
                 >
-                  Modify selected controller
+                  Open controller
                 </button>
               </div>
             </div>
-            {onDiscovered && (
-              <p>
-                <a href="#bacnet-device-scan">View named Scan results</a>
-              </p>
-            )}
             <div className="routed-report-heading">
               <b>
                 Network {scan.report.dnet} via {scan.report.router}
@@ -747,7 +992,8 @@ export function RoutedDiscoveryPanel({
               <table>
                 <thead>
                   <tr>
-                    <th>Controller / address</th>
+                    <th>Controller name</th>
+                    <th>Address / MAC</th>
                     <th>Device</th>
                     <th>Vendor</th>
                     <th>Max APDU</th>
@@ -755,19 +1001,19 @@ export function RoutedDiscoveryPanel({
                   </tr>
                 </thead>
                 <tbody>
-                  {scan.report.devices.map((device, index) => (
+                  {matchingControllers.map((device, index) => (
                     <tr
                       key={device.address + ":" + device.device + ":" + index}
                     >
                       <td>
-                        {controllerName(device, scan) && (
-                          <>
-                            <strong>{controllerName(device, scan)}</strong>
-                            <br />
-                          </>
+                        <strong>{nameLabel(device, scan)}</strong>
+                        {nameResults[nameKey(device, scan)]?.error && (
+                          <small>
+                            {nameResults[nameKey(device, scan)].error}
+                          </small>
                         )}
-                        {device.address}
                       </td>
+                      <td>{device.address}</td>
                       <td>{device.device}</td>
                       <td>{device.vendor}</td>
                       <td>{device.max_apdu}</td>
@@ -780,7 +1026,8 @@ export function RoutedDiscoveryPanel({
                                 selectController(device, scan);
                             }}
                           >
-                            Use routed device {device.address}
+                            Open{" "}
+                            {controllerName(device, scan) || device.address}
                           </button>
                         ) : (
                           "Inspect only"
@@ -797,11 +1044,14 @@ export function RoutedDiscoveryPanel({
                 is empty.
               </p>
             )}
+            {!!scan.report.devices.length && !matchingControllers.length && (
+              <p>No controllers match this search.</p>
+            )}
             {onSelect && (
               <p className="help-text">
-                Select a controller to fill its exact router, network, MAC and
-                Device instance in the commissioning panel below. Selection
-                sends no writes.
+                Open a controller to verify its exact router, network, MAC and
+                Device instance before commissioning. Reading names and opening
+                a controller send no writes.
               </p>
             )}
           </div>
