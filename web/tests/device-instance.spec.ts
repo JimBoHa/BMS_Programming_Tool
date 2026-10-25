@@ -47,7 +47,9 @@ async def main():
   server.respond=tracked
   port=server.transport.get_extra_info('sockname')[1]
  else:
-  port=free_udp();server=instance_peer(port,mode)
+  port=free_udp();server=instance_peer(port,'reject' if mode=='reject-cct' else mode)
+  if mode=='reject-cct':
+   server.metadata.update({'model-name':'MS-VMA1630-0','firmware-revision':'6.2.0.1054'})
   original=server.asap.confirmation
   async def tracked(pdu):
    packet=APDU.decode(PDU(bytes(pdu.pduData)))
@@ -269,7 +271,7 @@ test("controller rejection stays explicit and does not report success", async ({
   page,
   request,
 }) => {
-  const server = await peer("reject");
+  const server = await peer("reject-cct");
   try {
     const panel = await open(page, request, server);
     await review(panel);
@@ -284,6 +286,71 @@ test("controller rejection stays explicit and does not report success", async ({
     });
     await expect(receipt).toContainText("Result: rejected");
     await expect(receipt).toContainText("manufacturer’s commissioning tool");
+    expect(server.packets()).toBe(1);
+    // A reload/reconnect must retain the denial. This is a real backend and
+    // authored UDP peer; neither capability nor rejected replies are mocked.
+    const restarted = await open(page, request, server);
+    const response = page.waitForResponse((value) =>
+      value.url().endsWith("/device-instance/preview"),
+    );
+    await restarted
+      .getByRole("button", { name: "Review instance change", exact: true })
+      .click();
+    const plan = await (await response).json();
+    expect(plan.can_apply).toBe(false);
+    expect(plan.method_assessment.state).toBe("write_access_denied");
+    const method = restarted.getByLabel("Instance write method", {
+      exact: true,
+    });
+    await expect(method).toContainText("Standard instance write blocked");
+    await expect(method).toContainText("Transfer to Device");
+    await expect(method).toContainText(
+      "Native application transfer is not implemented",
+    );
+    await expect(
+      restarted.getByRole("checkbox", {
+        name: "I reserved this new number",
+        exact: false,
+      }),
+    ).toBeDisabled();
+    await expect(
+      restarted.getByRole("button", {
+        name: "Apply controller instance change",
+        exact: true,
+      }),
+    ).toBeDisabled();
+    const saved = page.waitForEvent("download");
+    await method
+      .getByRole("button", {
+        name: "Download commissioning handoff (JSON)",
+        exact: true,
+      })
+      .click();
+    const downloaded = await saved;
+    const handoff = JSON.parse(
+      readFileSync((await downloaded.path())!, "utf8"),
+    );
+    expect(handoff.target.address).toBe(`127.0.0.1:${server.port}`);
+    expect(handoff.identity["model-name"]).toBe("MS-VMA1630-0");
+    expect(handoff.proposed_instance).toBe(15136);
+    expect(handoff.read_only).toBe(true);
+    expect(handoff.transfer_performed).toBe(false);
+    expect(handoff).not.toHaveProperty("token");
+    expect(handoff).not.toHaveProperty("review_sha256");
+    const headers = {
+      "X-Studio-Token": (await (await request.get("/api/session")).json())
+        .token,
+    };
+    const bypass = await request.post("/api/bacnet/device-instance/apply", {
+      headers,
+      data: {
+        operation_id: "browser-bypass-check",
+        token: plan.token,
+        review_sha256: plan.review_sha256,
+        allocation_confirmed: true,
+      },
+    });
+    expect(bypass.status()).toBe(422);
     expect(server.packets()).toBe(1);
   } finally {
     server.process.kill("SIGTERM");
