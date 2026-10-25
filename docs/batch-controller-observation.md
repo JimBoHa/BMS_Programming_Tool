@@ -12,6 +12,7 @@ Create `batch-settings.json` in a protected local directory outside Git. Supply:
 - `targets`: one entry per approved physical station, each containing `controller`,
   `new_instance`, the new `target` route, `keeper` route, `keeper_name`, and the full
   discovered `io_objects` list. No model or expansion-module count is assumed.
+  Its length must match the verified I/O count; verified zero-I/O devices are valid.
 - `verification_file` and `preservation_file` in each target entry: relative paths
   to that controller's verified-change and preservation-proof JSON. Unverified,
   mismatched or unexplained settings changes prevent observation from starting.

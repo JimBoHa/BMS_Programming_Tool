@@ -86,7 +86,7 @@ def settings(directory):
                 "A selected controller lacks matching verification/preservation evidence."
             )
         if (
-            not row["io_objects"]
+            not isinstance(row["io_objects"], list)
             or len(set(row["io_objects"])) != len(row["io_objects"])
             or len(row["io_objects"]) != verified.get("io_count")
         ):
