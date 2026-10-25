@@ -94,6 +94,7 @@ from .macros import (
 from .madd_mz_ahu import madd_mz_ahu_router
 from .masd_ahu import masd_ahu_router
 from .models import Program, StrictModel
+from .native_applications import NativeApplications, native_application_router
 from .native_schedule_library import (
     MAX_ARCHIVE_BYTES,
     CaptureAction,
@@ -533,13 +534,20 @@ def create_app(state_dir=None, *, operation_power=None):
         bacnet, store, native_readers=(controller_application,)
     )
 
+    native_applications = None
+
     def instance_activity_guard():
+        if native_applications is not None and native_applications.has_pending():
+            raise ValueError(
+                "Resolve the retained native application transfer before another instance change."
+            )
         if field_trends.status()["running_jobs"] or any(job["active"] for job in cov.jobs.values()):
             raise ValueError(
                 "Stop field polling and COV monitors before changing a device instance."
             )
 
     device_instances = DeviceInstances(bacnet, store, activity_guard=instance_activity_guard)
+    native_applications = NativeApplications(bacnet, store, device_instances)
     schedule_inventory = ScheduleInventory(bacnet, store)
     schedule_library = NativeScheduleLibrary(store.directory, schedule_inventory)
     schedule_writes = NativeWeeklyDayWrites(bacnet, store, schedule_library)
@@ -638,6 +646,7 @@ def create_app(state_dir=None, *, operation_power=None):
                                 finally:
                                     try:
                                         try:
+                                            await native_applications.close()
                                             await device_instances.close()
                                         finally:
                                             await event_ack.close()
@@ -677,6 +686,8 @@ def create_app(state_dir=None, *, operation_power=None):
     app.state.device_details = device_details
     app.state.controller_workspace = controller_workspace
     app.state.controller_application = controller_application
+    app.state.native_applications = native_applications
+    app.include_router(native_application_router(native_applications))
     app.state.device_instances = device_instances
     app.include_router(device_instance_router(device_instances))
     app.state.schedule_inventory = schedule_inventory
@@ -2132,6 +2143,7 @@ def create_app(state_dir=None, *, operation_power=None):
 
     @app.post("/api/bacnet/connect")
     async def bacnet_connect(body: BacnetConnect):
+        await native_applications.close()
         await device_instances.close()
         await schedule_writes.close()
         await event_ack.close()
@@ -2197,6 +2209,7 @@ def create_app(state_dir=None, *, operation_power=None):
 
     @app.post("/api/bacnet/connect-mstp")
     async def bacnet_connect_mstp(body: BacnetMstp):
+        await native_applications.close()
         await device_instances.close()
         await schedule_writes.close()
         await event_ack.close()
@@ -2207,6 +2220,7 @@ def create_app(state_dir=None, *, operation_power=None):
 
     @app.post("/api/bacnet/disconnect")
     async def bacnet_disconnect():
+        await native_applications.close()
         await device_instances.close()
         await schedule_writes.close()
         await event_ack.close()

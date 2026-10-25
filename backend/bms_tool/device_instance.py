@@ -43,7 +43,7 @@ MAX_RECORDS = 1024
 RECORD_BYTES = 32768
 SCOPE = (
     "Standard BACnet WriteProperty of the selected controller's Device.object-identifier. "
-    "Requires controller support; a read-only property requires the manufacturer's commissioning tool. "
+    "Requires controller property-write support; use a supported native application adapter when denied. "
     "Does not change the client instance, MAC, DNET, application, or supervisor references."
 )
 

@@ -5,17 +5,6 @@ Object_Identifier is writable. A matching explicit permission denial blocks that
 method; neither a timeout nor a generic Reject is a permission determination.
 """
 
-import re
-
-CCT_SOURCE = (
-    "https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Controller-Tool-Help/15.0/"
-    "Working-with-the-Trunk-Utilities/Working-with-the-Trunk-Utilities-Steps/"
-    "Reading-and-Writing-Attributes-Online"
-)
-CCT_SETTINGS = (
-    "https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Controller-Tool-Help/16.0/"
-    "Defining-Hardware/Hardware-Definition-Tabs/Network-Settings-Tab"
-)
 IDENTITY_FIELDS = (
     "object-name",
     "vendor-identifier",
@@ -86,20 +75,14 @@ def assess_method(identity, denied_attempt=None):
             "After external commissioning, use the retained receipt's Read back instance (no write) at its original station.",
         ],
     )
-    # Guidance only: this family match NEVER authorizes or blocks a field write.
-    # Other vendors/models get the same evidence-based permission assessment.
-    if identity["vendor-identifier"] == 5 and re.fullmatch(
-        r"(?:MS-(?:VMA|FEC|IOM)|FX-PC[AGVX])[0-9]+-[A-Za-z0-9]+", identity["model-name"]
-    ):
+    # A protocol-family adapter is a candidate. A successful capture and strict
+    # format/parameter validation decide whether that application can be edited.
+    if identity["vendor-identifier"] == 5:
+        assessment["native_application_adapter"] = "mce-native-application"
         assessment["next_steps"] = [
-            "Use a licensed, compatible CCT/PCT environment and controller package. Obtain and retain a verified original CAF; a BACnet File capture is not a full CAF backup.",
-            "In the manufacturer's tool, select this exact router, network and MAC. Resolve any duplicate-ID selection limitation before a transfer; do not select by instance alone.",
-            "Set Instance Number (BACnet ID) in Define Hardware > Network Settings and review Transfer to Device. Johnson Controls documents that the name and instance are written during transfer, not Read/Write Attributes Online.",
-            "A transfer can replace the running application. Review its contents, controller compatibility, interruption and dependent references before executing it outside this app.",
-            "Return to this receipt and choose Read back instance (no write). A verified new identity at this station is required before starting the observation period.",
-        ]
-        assessment["sources"] = [
-            {"title": "Johnson Controls: Reading and Writing Attributes Online", "url": CCT_SOURCE},
-            {"title": "Johnson Controls: Network Settings Tab", "url": CCT_SETTINGS},
+            "Choose Connected application transfer in this controller's instance editor.",
+            "Read and retain the controller's original application and both saved parameter files. The adapter validates the actual protocol and application format independently of the model name.",
+            "Enter the reserved instance, review the application change, and apply the reviewed transfer to this exact physical station.",
+            "Verify both the new Device identity and the application readback before starting the observation period.",
         ]
     return assessment
