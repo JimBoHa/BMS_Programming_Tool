@@ -103,6 +103,7 @@ export function ControllerOverview({
   controller,
   connected,
   onEditInstance,
+  onEditName,
   onRefresh,
   onConnect,
   busy,
@@ -110,6 +111,7 @@ export function ControllerOverview({
   controller: ControllerContext | null;
   connected: boolean;
   onEditInstance: () => void;
+  onEditName?: () => void;
   onRefresh: () => void;
   onConnect: () => void;
   busy: boolean;
@@ -165,13 +167,23 @@ export function ControllerOverview({
           </div>
         ))}
       </dl>
-      <button
-        className="primary"
-        disabled={busy || !controller.interfaceOpen}
-        onClick={onEditInstance}
-      >
-        Edit instance number
-      </button>
+      <div className="button-row">
+        <button
+          className="primary"
+          disabled={busy || !controller.interfaceOpen}
+          onClick={onEditInstance}
+        >
+          Edit instance number
+        </button>
+        {onEditName && (
+          <button
+            disabled={busy || !controller.interfaceOpen}
+            onClick={onEditName}
+          >
+            Edit controller name
+          </button>
+        )}
+      </div>
       <div className="workflow-capability" style={{ marginTop: 24 }}>
         Point values and supported settings are available in this workspace.
         Reading BACnet metadata does not establish native application upload or

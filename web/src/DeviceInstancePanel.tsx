@@ -7,6 +7,7 @@ type Target = { address: string; device: string; router: string; dnet: string };
 const base = "/bacnet/device-instance";
 
 export type DeviceInstanceProps = {
+  initialChange?: "instance" | "name";
   connected: boolean;
   interfaceIdentity: string;
   defaultAddress: string;
@@ -20,27 +21,52 @@ export type DeviceInstanceProps = {
 
 export function DeviceInstancePanel(props: DeviceInstanceProps) {
   const [method, setMethod] = useState("standard");
+  const [setting, setSetting] = useState(props.initialChange || "instance");
+  useEffect(
+    () => setSetting(props.initialChange || "instance"),
+    [props.initialChange],
+  );
   return (
     <>
       <label>
-        Instance change method
+        Identity setting
         <select
-          aria-label="Instance change method"
+          aria-label="Identity setting"
           disabled={props.parentBusy}
-          value={method}
-          onChange={(event) => setMethod(event.target.value)}
+          value={setting}
+          onChange={(event) =>
+            setSetting(event.target.value as "instance" | "name")
+          }
         >
-          <option value="standard">BACnet property write</option>
-          <option value="native">Connected application transfer</option>
+          <option value="instance">Device instance number</option>
+          <option value="name">Controller name</option>
         </select>
       </label>
-      {method === "native" ? (
-        <NativeInstancePanel {...props} />
+      {setting === "name" ? (
+        <NativeInstancePanel key="name" {...props} changeKind="name" />
       ) : (
-        <StandardInstancePanel
-          {...props}
-          onNative={() => setMethod("native")}
-        />
+        <>
+          <label>
+            Instance change method
+            <select
+              aria-label="Instance change method"
+              disabled={props.parentBusy}
+              value={method}
+              onChange={(event) => setMethod(event.target.value)}
+            >
+              <option value="standard">BACnet property write</option>
+              <option value="native">Connected application transfer</option>
+            </select>
+          </label>
+          {method === "native" ? (
+            <NativeInstancePanel {...props} />
+          ) : (
+            <StandardInstancePanel
+              {...props}
+              onNative={() => setMethod("native")}
+            />
+          )}
+        </>
       )}
     </>
   );
