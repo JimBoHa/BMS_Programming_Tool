@@ -116,7 +116,7 @@ async def main():
                     router, router["device"], ["object-name", "system-status"]
                 )
                 if sample["router"]["system-status"] != 0:
-                    raise ValueError("A2 NAE status failed")
+                    raise ValueError("Supervisory device status failed")
                 for obj in IO:
                     props = [
                         "object-name",
