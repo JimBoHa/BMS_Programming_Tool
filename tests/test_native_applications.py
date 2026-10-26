@@ -4,6 +4,7 @@ import asyncio
 import copy
 import socket
 import time
+from types import SimpleNamespace
 
 import pytest
 from bacpypes3.apdu import (
@@ -533,6 +534,39 @@ async def test_review_expiry_after_backup_prevents_dispatch(native_link, monkeyp
     result = await service.apply(**apply_request(plan))
     assert result["result"]["status"] == "not_sent" and not result["pending"]
     assert not any(e == ("state", "start-restore") or e[0] == "write" for e in peer.events)
+
+
+@pytest.mark.parametrize("backup_seconds,verified", [(240, True), (901, False)])
+async def test_slow_fresh_backup_obeys_the_bounded_review_window(
+    native_link, monkeypatch, backup_seconds, verified
+):
+    from bms_tool import native_applications as native
+
+    peer, _, _, service, _ = native_link
+    monotonic = time.monotonic
+    elapsed = 0
+    # Advance only this service's elapsed-time clock. The actual UDP peer and
+    # asyncio deadlines continue using their real clocks and real replies.
+    monkeypatch.setattr(native, "time", SimpleNamespace(monotonic=lambda: monotonic() + elapsed))
+    _, plan = await review(native_link)
+    original = service.capture_session
+
+    async def slow_backup(*args, **kwargs):
+        nonlocal elapsed
+        result = await original(*args, **kwargs)
+        elapsed += backup_seconds
+        return result
+
+    monkeypatch.setattr(service, "capture_session", slow_backup)
+    result = await service.apply(**apply_request(plan))
+    restores = sum(event == ("state", "start-restore") for event in peer.events)
+    if verified:
+        assert result["result"]["status"] == "verified" and not result["pending"]
+        assert restores == 1 and any(event[0] == "write" for event in peer.events)
+        assert result["result"]["preservation"]["application_identical_except_instance"]
+    else:
+        assert result["result"]["status"] == "not_sent" and not result["pending"]
+        assert restores == 0 and not any(event[0] == "write" for event in peer.events)
 
 
 async def test_another_instance_session_cannot_use_native_pending_receipt(native_link):
