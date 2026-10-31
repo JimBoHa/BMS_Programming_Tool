@@ -1312,5 +1312,14 @@
     "pdf_pages_or_section": "docs/device-instance-commissioning.md",
     "status": "implemented",
     "implementation_or_gap": "Guided local router discovery and router/trunk/controller selectors fill exact commissioning targets; verified names reuse the shared Scan inventory. Explicit standard Device.object-identifier WriteProperty to a pinned IPv4 or router/DNET/MAC station. One-use identity/configuration-bound review, scoped new-ID collision checks, site allocation confirmation, fresh preflight, single-attempt dispatch, durable intent/results, readback and restart reconciliation. Unsupported/read-only controllers require vendor tooling; no proprietary application transfer, reset, automatic retry/rollback or physical-controller acceptance claim. See docs/device-instance-commissioning.md."
+  },
+  {
+    "id": "COMM-NATIVE-EFFECTS-001",
+    "feature": "Explicit native backup and verification effects",
+    "acceptance_criterion": "Disclose native backup-state transitions before capture and readback; qualify new effect metadata as possible services, report these operations as not protocol-read-only, and preserve existing one-use transfer and historical evidence contracts.",
+    "evidence": "Actual authored UDP native application capture and instance/name readback, production status API and Chromium/WebKit workflows.",
+    "pdf_pages_or_section": "docs/native-application-transfer.md#backup-and-verification-effects",
+    "status": "implemented",
+    "implementation_or_gap": "Existing vendor-5 MCE/tagged-MOI backup phases expose ReinitializeDevice start-backup/end-backup and Files 11/12/3 as possible services, with writes_application false scoped to that phase. New native capture/verification read_only flags are false; legacy sealed evidence stays unchanged. Both instance/name controls link a visible effects description. Tests distinguish declared effects from early-preflight no-dispatch and verify readback never restores/reapplies. No extra protocol action, generic native compiler, serial/BTCVT acceptance or fresh physical-controller result."
   }
 ]

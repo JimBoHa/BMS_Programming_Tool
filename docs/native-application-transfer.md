@@ -37,6 +37,32 @@ unresolved durable receipt. Use **Read back application and instance**; do not
 resend the operation or assume an automatic rollback. The app retains the
 original bytes and transfer evidence across restarts.
 
+## Backup and verification effects
+
+**Read application backup** and **Read back application and instance/name** use
+the native backup service: ReinitializeDevice `start-backup`, bounded reads of
+Static/Dynamic/application Files 11, 12 and 3, then `end-backup`. A later readback
+checks the transferred application and saved parameters through this same
+service. It does not start restore or send application File writes. **Apply** is
+the separate reviewed application-transfer operation and includes its own fresh
+backup and verification phases.
+
+The interface explains backup-mode transitions beside these actions. New status,
+review, capture and verification data include `backup_effects`, profile
+`jci-native-backup-effects/1`. `possible_state_commands` and `file_reads` declare
+possible services for the backup phase; `writes_application: false` applies to
+that phase. They are not a dispatch log or proof that a command was acknowledged.
+An identity, operational-status or other preflight failure may stop before any
+backup-state command is sent.
+
+New native captures and verification results set `read_only: false` because they
+can send state-changing commands. Older sealed captures and receipt events may
+retain `read_only: true`, which historically meant no application reapply and
+did not describe those backup-state commands. Existing evidence is retained
+without rewriting its bytes or checksums. This correction changes presentation
+and effect declarations; it adds no state command, retry, restore, confirmation
+step or permission to transfer.
+
 ## Implemented protocol and format family
 
 The first native adapter covers vendor 5's MCE command envelope and tagged MOI

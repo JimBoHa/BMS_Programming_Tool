@@ -340,6 +340,64 @@ async def test_capture_review_compile_transfer_and_verify_all_use_owned_udp(nati
         await service.apply(**apply_request(plan))
 
 
+async def test_capture_declares_backup_state_effects_without_application_writes(native_link):
+    peer, _, _, service, target = native_link
+    capture = await service.capture(**target, operation_id="effect-capture")
+    assert [event for event in peer.events if event[0] == "state"] == [
+        ("state", "start-backup"),
+        ("state", "end-backup"),
+    ]
+    assert not any(event[0] == "write" for event in peer.events)
+    assert capture["read_only"] is False
+    effects = capture["backup_effects"]
+    assert effects["possible_state_commands"] == ["start-backup", "end-backup"]
+    assert effects["writes_application"] is False
+    stored, _ = service.storage.load(capture["id"])
+    assert stored["backup_effects"] == effects and stored["read_only"] is False
+
+
+@pytest.mark.parametrize("renaming", [False, True])
+async def test_readback_declares_backup_state_and_never_reapplies(native_link, renaming):
+    peer, _, _, service, _ = native_link
+    _, plan = await (name_review(native_link) if renaming else review(native_link))
+    request = apply_request(plan)
+    if renaming:
+        request.update(allocation_confirmed=False, name_change_confirmed=True)
+    transferred = await service.apply(**request)
+    peer.events.clear()
+    result = await service.reconcile(
+        operation_id="effect-readback", receipt_id=transferred["intent"]["id"]
+    )
+    assert [event for event in peer.events if event[0] == "state"] == [
+        ("state", "start-backup"),
+        ("state", "end-backup"),
+    ]
+    assert not any(event[0] == "write" for event in peer.events)
+    observed = result["events"][-1]["detail"]
+    assert observed["status"] == "verified" and observed["read_only"] is False
+    assert observed["backup_effects"]["possible_state_commands"] == ["start-backup", "end-backup"]
+    assert observed["backup_effects"]["writes_application"] is False
+    assert observed["backup_effects"]["declaration"] == "possible-services"
+    persisted = service.storage.receipt(transferred["intent"]["id"])
+    assert persisted["events"][-1]["detail"] == observed
+
+
+async def test_effect_declaration_does_not_claim_dispatch_before_readback_admission(native_link):
+    peer, _, _, service, _ = native_link
+    _, plan = await review(native_link)
+    transferred = await service.apply(**apply_request(plan))
+    peer.metadata["system-status"] = 2
+    peer.events.clear()
+    result = await service.reconcile(
+        operation_id="effect-unavailable", receipt_id=transferred["intent"]["id"]
+    )
+    observed = result["events"][-1]["detail"]
+    assert observed["status"] == "unknown" and not observed["operational"]
+    assert observed["backup_effects"]["declaration"] == "possible-services"
+    assert observed["backup_effects"]["possible_state_commands"]
+    assert not any(event[0] in ("state", "write") for event in peer.events)
+
+
 async def name_review(link):
     _, _, _, service, target = link
     capture = await service.capture(**target, operation_id="name-capture")

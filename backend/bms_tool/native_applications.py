@@ -43,8 +43,22 @@ RESTORE_PREPARATION_SECONDS = 5.0
 SCOPE = (
     "Edit the connected controller application Device identity. Capture the original application "
     "and parameter files; merge fresh saved parameters; transfer only the application File; "
-    "then verify the Device identity and application readback at the same physical station."
+    "then verify the Device identity and application readback at the same physical station. "
+    "Backup capture and application readback enter and end controller backup mode."
 )
+
+
+def backup_effects():
+    """Declare possible services for backup phases, not actual dispatch evidence."""
+    return {
+        "profile": "jci-native-backup-effects/1",
+        "scope": "application capture and readback backup phase",
+        "declaration": "possible-services",
+        "state_service": "ReinitializeDevice",
+        "possible_state_commands": ["start-backup", "end-backup"],
+        "file_reads": [11, 12, 3],
+        "writes_application": False,
+    }
 
 
 class NativeCapture(DeviceDetailsRequest):
@@ -104,6 +118,7 @@ class NativeApplications:
             "credentials_configured": self.credentials.configured(),
             "vendor_runtime_required": False,
             "scope": SCOPE,
+            "backup_effects": backup_effects(),
             "limits": {
                 "operation_seconds": self.operation_timeout,
                 "review_seconds": PLAN_SECONDS,
@@ -280,7 +295,8 @@ class NativeApplications:
                 "application": application,
                 "source_identity_matches": source_error is None,
                 "source_identity_error": source_error,
-                "read_only": True,
+                "read_only": False,
+                "backup_effects": backup_effects(),
                 "vendor_runtime_required": False,
             },
             files,
@@ -378,6 +394,7 @@ class NativeApplications:
                 "payload_sha256": sha(output),
                 "collision_check": collision,
                 "parameter_policy": "Immediately before transfer, capture and merge fresh saved parameters. The application and parameter directory must still match this review.",
+                "backup_effects": backup_effects(),
                 "scope": SCOPE,
                 "vendor_runtime_required": False,
                 "can_apply": not collision["devices"],
@@ -440,7 +457,8 @@ class NativeApplications:
         result = {
             "status": "unknown",
             "readback": observed,
-            "read_only": True,
+            "read_only": False,
+            "backup_effects": backup_effects(),
             "observed_at": utc(),
         }
         identity = observed.get("identity")

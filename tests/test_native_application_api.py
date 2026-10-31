@@ -6,6 +6,16 @@ from fastapi.testclient import TestClient
 BASE = "/api/bacnet/controller/native-application"
 
 
+def test_status_declares_backup_state_without_opening_a_field_interface(tmp_path):
+    with TestClient(create_app(tmp_path)) as client:
+        effects = client.get(BASE + "/status").json()["backup_effects"]
+        assert effects["state_service"] == "ReinitializeDevice"
+        assert effects["possible_state_commands"] == ["start-backup", "end-backup"]
+        assert effects["writes_application"] is False
+        assert effects["declaration"] == "possible-services"
+        assert client.get("/api/session").json()["field_network_open"] is False
+
+
 def test_session_token_required_and_credentials_are_never_returned(tmp_path):
     app = create_app(tmp_path)
     with TestClient(app) as client:
