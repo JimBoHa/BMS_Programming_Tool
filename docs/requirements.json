@@ -1312,5 +1312,14 @@
     "pdf_pages_or_section": "docs/device-instance-commissioning.md",
     "status": "implemented",
     "implementation_or_gap": "Guided local router discovery and router/trunk/controller selectors fill exact commissioning targets; verified names reuse the shared Scan inventory. Explicit standard Device.object-identifier WriteProperty to a pinned IPv4 or router/DNET/MAC station. One-use identity/configuration-bound review, scoped new-ID collision checks, site allocation confirmation, fresh preflight, single-attempt dispatch, durable intent/results, readback and restart reconciliation. Unsupported/read-only controllers require vendor tooling; no proprietary application transfer, reset, automatic retry/rollback or physical-controller acceptance claim. See docs/device-instance-commissioning.md."
+  },
+  {
+    "id": "UI-MONITOR-CTX-001",
+    "feature": "Selected-controller monitoring context",
+    "acceptance_criterion": "Reuse the selected address, Device, router, network and captured interface in field polling and single-log history; discover actual object choices, retire stale display results and retain original offline evidence without retargeting admitted jobs.",
+    "evidence": "Authored direct/routed UDP peers, source-pinned backend/API checks and Chromium/WebKit controller-workspace regressions.",
+    "pdf_pages_or_section": "docs/controller-monitoring-context.md; docs/workflow-style-guide.md; ROADMAP UX-01",
+    "status": "implemented",
+    "implementation_or_gap": "Implemented for direct/explicit-routed BACnet IPv4: paired controller target and original connector configuration, source/Device/object checks, staged polling samples, bounded discovered-object choices, per-context drafts, exact history response/source checks and original JSON capture exports. Legacy standalone API/report profiles remain. Selected-controller direct MS/TP and other unsupported profiles are explicitly refused pending separate work; no physical acceptance or native application changes."
   }
 ]

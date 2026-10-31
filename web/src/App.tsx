@@ -2393,12 +2393,16 @@ export function App() {
               ) : tab === "field-trends" ? (
                 <FieldTrends
                   defaultAddress={controller?.address}
+                  defaultTarget={controller}
+                  interfaceKey={controller?.interfaceKey}
                   controllerReady={controller?.interfaceOpen}
                 />
               ) : tab === "device-history" ? (
                 <DeviceHistory
                   defaultAddress={controller?.address}
                   defaultTarget={controller}
+                  interfaceKey={controller?.interfaceKey}
+                  controllerReady={controller?.interfaceOpen}
                 />
               ) : tab === "conformance" ? (
                 <ConformancePanel program={program} />

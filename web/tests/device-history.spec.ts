@@ -1,3 +1,4 @@
+import { openMonitoring } from "./monitoring-navigation";
 import { test, expect } from "@playwright/test";
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { createSocket } from "node:dgram";
@@ -143,9 +144,7 @@ test("device history uses real ReadRange, preserves unresolved clocks and saves 
   });
   try {
     await page.goto("/");
-    await page
-      .getByRole("button", { name: "Device history", exact: true })
-      .click();
+    await openMonitoring(page, "Controller history");
     await expect(
       page.getByRole("button", { name: "Read device history", exact: true }),
     ).toBeDisabled();
@@ -225,9 +224,7 @@ test("device history uses real ReadRange, preserves unresolved clocks and saves 
     ).json();
     expect(saved).toEqual(evidence);
     await page.reload();
-    await page
-      .getByRole("button", { name: "Device history", exact: true })
-      .click();
+    await openMonitoring(page, "Controller history");
     await page
       .getByLabel("Saved device history capture", { exact: true })
       .selectOption(evidence.id);
@@ -262,9 +259,7 @@ for (const kind of ["limited", "empty", "partial", "folded"] as const) {
         data: { local_address: `127.0.0.1:${await freePort()}` },
       });
       await page.goto("/");
-      await page
-        .getByRole("button", { name: "Device history", exact: true })
-        .click();
+      await openMonitoring(page, "Controller history");
       await page
         .getByLabel("History device address", { exact: true })
         .fill(`127.0.0.1:${server.port}`);

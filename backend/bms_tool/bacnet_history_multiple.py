@@ -77,6 +77,11 @@ class MultipleHistoryRequest(BacnetHistoryRequest, DeviceDetailsRequest):
 
     @model_validator(mode="after")
     def range_parameters(self):
+        if self.controller_target is not None:
+            raise ValueError(
+                "This history profile uses its explicit Device/route fields; "
+                "nested controller context is unsupported."
+            )
         if self.mode == "time" and self.device_timezone is None:
             raise ValueError("Time-based ranges require the explicit device clock timezone.")
         super().range_parameters()
