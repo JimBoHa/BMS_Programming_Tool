@@ -1312,5 +1312,14 @@
     "pdf_pages_or_section": "docs/device-instance-commissioning.md",
     "status": "implemented",
     "implementation_or_gap": "Guided local router discovery and router/trunk/controller selectors fill exact commissioning targets; verified names reuse the shared Scan inventory. Explicit standard Device.object-identifier WriteProperty to a pinned IPv4 or router/DNET/MAC station. One-use identity/configuration-bound review, scoped new-ID collision checks, site allocation confirmation, fresh preflight, single-attempt dispatch, durable intent/results, readback and restart reconciliation. Unsupported/read-only controllers require vendor tooling; no proprietary application transfer, reset, automatic retry/rollback or physical-controller acceptance claim. See docs/device-instance-commissioning.md."
+  },
+  {
+    "id": "UI-INSPECTOR-DRAFTS-001",
+    "feature": "Owned local graph parameter drafts",
+    "acceptance_criterion": "Retain unfinished numeric, numeric-array and unapplied JSON text with its graph, block, field, editor and exact accepted source across selection and task changes; retire it when that source changes and export accepted data only.",
+    "evidence": "Actual local application HTTP import/export and browser interaction in Chromium and WebKit; existing exact Program source contract.",
+    "pdf_pages_or_section": "docs/inspector-drafts.md; docs/workflow-style-guide.md",
+    "status": "implemented",
+    "implementation_or_gap": "App-owned transient cache qualifies graph/target/node/kind/definition/type/unit/field and exact numeric/JSON baseline. Selection, group inspection and task navigation restore only owned text/errors; accepted value/type/unit/target/source changes retire entries even while hidden and through undo/redo. Numeric acceptance and explicit JSON Apply remain unchanged. No new durable draft format, native CAF/Activity/force editing, controller reviews, field traffic or native JCI deployment."
   }
 ]

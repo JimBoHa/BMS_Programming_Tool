@@ -62,6 +62,7 @@ import {
 } from "./types";
 import { Canvas } from "./Canvas";
 import { Inspector, SimulationPanel } from "./Panels";
+import { ParameterDrafts } from "./inspectorDrafts";
 import { useSimulationClock } from "./useSimulationClock";
 import { persistDraftRecovery } from "./draftRecovery";
 import {
@@ -239,6 +240,7 @@ export function App() {
     [undoStack, setUndoStack] = useState<Program[]>([]),
     [redoStack, setRedoStack] = useState<Program[]>([]);
   const latestProgram = useRef(program);
+  const parameterDrafts = useRef(new ParameterDrafts()).current;
   const latestMacroEdit = useRef(macroEdit);
   const recoveryReady = useRef(false);
   const recoveryReadBlocked = useRef(false);
@@ -320,6 +322,7 @@ export function App() {
         "Program source projection refused; reopen the authoritative source.",
       );
     if (updated === latestProgram.current) return;
+    parameterDrafts.reconcile(updated, [...blocks, ...macroBlocks]);
     simulationEpoch.current++;
     detachSimulationSession();
     latestProgram.current = updated;
@@ -484,6 +487,9 @@ export function App() {
   }, [ready]);
   const flow = useReactFlow();
   const specs = [...blocks, ...macroBlocks];
+  useEffect(() => {
+    parameterDrafts.reconcile(program, [...blocks, ...macroBlocks]);
+  }, [blocks, macroBlocks]);
   const specKey = (b: Block) =>
     b.kind === "Macro"
       ? "macro:" + b.parameters.definition
@@ -2267,6 +2273,7 @@ export function App() {
                       />
                     ) : (
                       <Inspector
+                        parameterDrafts={parameterDrafts}
                         node={active}
                         block={specs.find((b) => matchesBlock(b, active))}
                         onEdit={edit}
