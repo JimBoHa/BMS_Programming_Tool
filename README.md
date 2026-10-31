@@ -34,6 +34,12 @@ For UI development, run `npm run dev` in `web/` alongside the Python server. The
 
 To prepare another computer without requiring Node.js on that computer, build an [installable wheel with the browser UI and public metadata](docs/portable-distribution.md). Its installed application uses the user's data directory and leaves field interfaces closed until explicitly connected. Native compiler toolchains, vendor licenses and Bluetooth drivers remain separate dependencies.
 
+## Development plan
+
+See the [development roadmap](ROADMAP.md) for the current GitHub baseline,
+preserved local ideas, interface requirements and prioritized remaining work.
+New features follow the [workflow style guide](docs/workflow-style-guide.md).
+
 ## Working features
 
 - Preview BACnet commands with exact integer-token refusal, preserved numeric intent and original server response text; native wire rounding remains explicit. See [command preview intent](docs/bacnet-command-intent.md).
