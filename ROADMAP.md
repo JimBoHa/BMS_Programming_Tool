@@ -1,6 +1,6 @@
 # BMS Studio development roadmap
 
-Updated: 2026-10-30. Planning baseline: GitHub `main` at
+Updated: 2026-10-31. Planning baseline: GitHub `main` at
 [`eee38367`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/eee38367aecd0b3f405809a76c500fe09ee2ad9f).
 
 ## Baseline and purpose
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 146 scoped criteria: 92
+The public requirement register currently records 149 scoped criteria: 95
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -197,7 +197,7 @@ inventory or an assertion that every release accepts the same application.
 
 | ID | Planned addition | Placement and acceptance |
 | --- | --- | --- |
-| BASE-01 | Reconcile current capability/validation statements and the old requirement gaps | Operation-level evidence ledger in Help/docs; credit native instance/name transfer and direct serial survey without claiming general logic download |
+| BASE-01 | Reconcile current capability/validation statements and the old requirement gaps | Delivered [JCI operation evidence ledger](docs/jci-operation-coverage.md), separate native capture/instance/name register credit, serial acquisition scope and historical-record labels. General logic/hardware deployment, broad restore, exact physical qualification and ongoing BASE-02/BASE-03 maintenance remain separate |
 | BASE-02 | Maintain the preferred GitHub baseline and preserve local source ideas | Private original backups plus reviewed idea mapping; no stale whole-tree merge, private data publication or graphics rollback |
 | BASE-03 | Keep requirement IDs, evidence classes and dependency/acceptance status current | Update the public register when an implemented slice is verified; distinguish code, simulation, loopback, reference-oracle and physical results |
 | UX-01 | Finish full target propagation to older trends and single-log history views | Trends & Alarms: use the complete authoritative ControllerTarget, discovered point choices and stale-result invalidation instead of repeated manual addresses |

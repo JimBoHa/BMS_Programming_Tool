@@ -33,7 +33,7 @@
     "evidence": "JCI Controller Tool Help 18.0 LIT-12011147",
     "pdf_pages_or_section": "286-290",
     "status": "partial",
-    "implementation_or_gap": "Separate point services, sandbox/Sox changes and Temco program-slot backup/replacement/readback workflows. Temco physical validation and JCI/ALC/Honeywell native loaders remain pending"
+    "implementation_or_gap": "Separate point, sandbox/Sox and Temco workflows remain distinct. Qualified JCI native application capture, typed instance/name compilation, fresh saved-parameter merge and one File-3 transfer/readback are implemented independently of a vendor runtime. General native logic/hardware deployment, broader restore and ALC/Honeywell adapters remain incomplete. See docs/jci-operation-coverage.md."
   },
   {
     "id": "OPS-002",
@@ -69,7 +69,7 @@
     "evidence": "OCT README and local CAF evidence",
     "pdf_pages_or_section": "Requirements; native container",
     "status": "partial",
-    "implementation_or_gap": "Observed native blocks/wires/order/positions can be inspected, compatible existing sources rewired and prototype-checked connections added offline. New block identities, complete semantics, packages, compiler and download adapter remain pending"
+    "implementation_or_gap": "Observed CAF scalar/wiring/terminal engineering and native diagram inspection remain scoped offline operations. Separate generation-1 tagged-MOI instance/name compilation and connected File-3 transfer are implemented for qualified vendor-5 MCE sources. New logic/block allocation, complete semantics, signed packages, hardware deployment and arbitrary CAF/MOI compilation remain incomplete. See docs/jci-operation-coverage.md."
   },
   {
     "id": "FMT-003",
@@ -78,7 +78,7 @@
     "evidence": "JCI FX Workbench guide LIT-12012256",
     "pdf_pages_or_section": "49-50; 243-244",
     "status": "partial",
-    "implementation_or_gap": "Both sample families inspected; cross-target compilation pending"
+    "implementation_or_gap": "Both observed CAF product families are inspected. Native identity/name operations use validated MCE/tagged-MOI framing and actual identity rather than a model-selected substitute. Cross-target/release logic compilation and complete family compatibility remain unverified. See docs/jci-operation-coverage.md."
   },
   {
     "id": "FMT-011",
@@ -213,7 +213,7 @@
     "evidence": "Honeywell Spyder Model 5 guide 31-00282-03",
     "pdf_pages_or_section": "8-9",
     "status": "partial",
-    "implementation_or_gap": "Generic node/I/O capacities; native model profiles pending"
+    "implementation_or_gap": "Portable node/I/O constraints, Temco compiled-byte limits, reviewed exact JCI physical-capacity evidence and native File-3 application-capacity checks are implemented in their own profiles. Complete per-controller RAM/flash/scan accounting and native allocation remain incomplete; published capacities do not create a live inventory. See docs/jci-operation-coverage.md."
   },
   {
     "id": "COMM-002",
@@ -294,7 +294,7 @@
     "evidence": "Niagara Module Signing guide",
     "pdf_pages_or_section": "Signing a third party module",
     "status": "pending",
-    "implementation_or_gap": "Native compiler/package plugin contract"
+    "implementation_or_gap": "The independent JCI identity/name compiler and connected transfer do not supply signed target packages. Compiler/module provenance, package trust and the general native package/plugin contract remain pending."
   },
   {
     "id": "DATA-001",
@@ -321,7 +321,7 @@
     "evidence": "JCI Flash Sheet LIT-2026F17, May 22 2026",
     "pdf_pages_or_section": "3-4; Installation and Verifying connections after an upgrade",
     "status": "pending",
-    "implementation_or_gap": "Versioned native hardware-package mappings, migration review and target acceptance tests; do not substitute package definitions silently"
+    "implementation_or_gap": "FMT-010 provides offline source-hashed hardware-definition migration review. Versioned native allocation/package mappings, preserved terminal relationships after deployment and target acceptance remain pending; existing identity/name transfer does not migrate hardware definitions."
   },
   {
     "id": "SCHED-001",
@@ -393,7 +393,7 @@
     "evidence": "User-authorized E2/F2 test",
     "pdf_pages_or_section": "Read-only NAE and downstream VMA identity/value access through approved Tailscale subnet route",
     "status": "pending",
-    "implementation_or_gap": "Authorized read-only checks identified both E2/F2 NAEs and genuine downstream VMAs on four trunks and read values. No controller changes. Native application adapter, exact unused input, verified backup/restoration and physical sensor test remain required; inventories and opaque File copies do not allocate native inputs"
+    "implementation_or_gap": "Historical read-only surveys, saved archive correlation, candidate spare/voltage/relocation plans and guarded offline CAF terminal edits support engineering. Native I/O allocation and full compile/transfer for an input change, exact terminal/electrical suitability, backup/restoration and the physical unused-input/open-circuit test remain required. Existing native instance/name transfer does not allocate an input. See docs/jci-operation-coverage.md."
   },
   {
     "id": "CODE-001",
@@ -1311,6 +1311,33 @@
     "evidence": "BACpypes3 typed WriteProperty; authored direct/routed UDP, production API and browser peers.",
     "pdf_pages_or_section": "docs/device-instance-commissioning.md",
     "status": "implemented",
-    "implementation_or_gap": "Guided local router discovery and router/trunk/controller selectors fill exact commissioning targets; verified names reuse the shared Scan inventory. Explicit standard Device.object-identifier WriteProperty to a pinned IPv4 or router/DNET/MAC station. One-use identity/configuration-bound review, scoped new-ID collision checks, site allocation confirmation, fresh preflight, single-attempt dispatch, durable intent/results, readback and restart reconciliation. Unsupported/read-only controllers require vendor tooling; no proprietary application transfer, reset, automatic retry/rollback or physical-controller acceptance claim. See docs/device-instance-commissioning.md."
+    "implementation_or_gap": "Guided verified selection and standard Device.object-identifier WriteProperty use exact IPv4/router-DNET-station context, one-use review, scoped collision checks, allocation confirmation, fresh preflight, single dispatch and durable readback/reconciliation. A retained denial continues to block this property method. The separate qualified native application method is recorded under COMM-NATIVE-INSTANCE-001; no reset, proprietary transfer or physical acceptance is inferred for the standard method. See docs/device-instance-commissioning.md and docs/jci-operation-coverage.md."
+  },
+  {
+    "id": "COMM-NATIVE-CAPTURE-001",
+    "feature": "Qualified JCI native application and saved-parameter capture",
+    "acceptance_criterion": "Capture the original application and supported saved-parameter files through the qualified native backup profile with exact source identity, bounded evidence and private original retention.",
+    "evidence": "Existing MCE/AtomicReadFile service; authored UDP peers; documented private field capture.",
+    "pdf_pages_or_section": "docs/native-application-transfer.md; docs/jci-operation-coverage.md",
+    "status": "implemented",
+    "implementation_or_gap": "Vendor-5 MCE/generation-1 tagged-MOI family; direct or pinned routed plain IPv4. Backup-state entry/end and identity checks capture original Files 3/11/12 and private ZIP evidence. This is a native backup-state operation, separate from passive advertised File copying. It excludes firmware/full-device settings, direct serial/BBMD application transfer and unsupported native layouts."
+  },
+  {
+    "id": "COMM-NATIVE-INSTANCE-001",
+    "feature": "Qualified native application Device instance compilation and transfer",
+    "acceptance_criterion": "Independently compile the reviewed instance edit of an existing qualified native application, merge fresh saved parameters, transfer once to its exact station and qualify application/identity/operational readback.",
+    "evidence": "Typed MOI compiler and authored UDP/API/browser peers; documented private reference-compiler comparison and one physical instance-transfer acceptance.",
+    "pdf_pages_or_section": "docs/native-application-transfer.md; docs/native-settings-preservation.md; docs/jci-operation-coverage.md",
+    "status": "implemented",
+    "implementation_or_gap": "Typed generation-1 root identity fields, supported native saved-parameter merge, capacity/source/interface/expiry/collision guards, one-use confirmed File-3 transfer, durable dispatch/uncertainty and explicit reconciliation. Existing 900-second review/1800-second operation/four-second individual File limits remain. Vendor runtime/VM is not required. One physical result does not qualify every model/release; arbitrary logic/CAF compilation and native I/O allocation remain incomplete."
+  },
+  {
+    "id": "COMM-NATIVE-NAME-001",
+    "feature": "Qualified native controller-name compilation and transfer",
+    "acceptance_criterion": "Review a separate bounded name-only edit that preserves the Device instance and application configuration, transfers once and requires qualified name/application/preservation readback.",
+    "evidence": "Existing typed MOI name compiler, authored name protocol cases and preservation tests.",
+    "pdf_pages_or_section": "docs/controller-name-commissioning.md; docs/native-settings-preservation.md; docs/jci-operation-coverage.md",
+    "status": "implemented",
+    "implementation_or_gap": "Root Device-name character encoding/framing is validated and preserved; mixed name/instance edits refuse. The same private original/fresh-parameter/capacity/one-use transfer and durable uncertainty contracts apply, with separately recorded permitted runtime outputs. No separate physical rename acceptance, unknown encoding support, general program edit or native hardware allocation is claimed."
   }
 ]

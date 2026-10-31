@@ -8,7 +8,7 @@ The editor's model selector records intended hardware. A target is executable on
 | Sedona | Real kit source/binary, SAX, SAB and SCode; supported foreign standard-kit conversion | Actual pinned compiler and experimental native Unix SVM, all 30 blocks | Real Sox structural changes on owned loopback VMs; physical platform ABI/kits unverified |
 | Temco Control Basic | Numbered BASIC and real native bytecode, explicit point mappings; checked authoring annotations | Actual manufacturer compiler/decode interpreter, all 30 blocks and nine examples over 60 scans | Native BACnet slot stop/backup/replace/readback/resume and compensating restore tested through real UDP and routed emulators; physical execution/flash/cadence unverified |
 | Niagara BOG | Real ZIP/XML, 23 graph kinds including Clamp, Scale and Convert, bounded foreign conversion, byte-exact opaque archive inspection | Independent pybog fixture plus genuine manufacturer module/API checks of types, inherited slots, links, palettes and units | Niagara station/Workbench import and native execution unverified; no deployment service |
-| JCI FX-PCV / Metasys VMA | Observed native CAF containers, scalar patches, saved simulation inputs, source rewires and prototype-checked new connections between existing blocks | Archive/XML preservation and relationship readback on seven authorized samples | New block identities, native compiler/packages, firmware acceptance and application loader missing |
+| JCI FX/Metasys observed CAF and vendor-5 MCE/tagged-MOI family | CAF scalar/wiring/terminal engineering; separate typed generation-1 MOI instance/name edits of an existing captured application | Archive preservation, typed compiler/parameter checks, authored direct/routed native peers and documented private instance-reference comparison | Connected IP application capture and reviewed instance/name File-3 transfer/readback; one physical instance result. General new logic, native I/O allocation/packages and firmware conversion remain incomplete |
 | ALC EIKON / WebCTRL | Public manuals and vendor-dependent Integration Builder workflow reviewed | No independent equipment compiler/runtime verified | Requires a supported licensed toolchain or an independently verified adapter |
 | Honeywell Spyder / CIPer | Public programming manuals and native dependencies reviewed; generic BOG inspection can preserve unknown types | No proprietary component semantics/compiler verified | Native application compiler/modules and loader missing |
 | External IEC PLC | ST and schema-valid PLCopen TC6 XML with an ST body | Real MatIEC → C → native host executable, all 30 blocks/nine examples with state and fault comparisons | Host memory I/O only; physical deployment requires a matching destination toolchain and adapter |
@@ -31,7 +31,14 @@ Six native 2025 Title 24 CAF applications have not been delivered. The nine VAV 
 
 The [native CAF comparison workspace](caf-comparison.md) reviews exact observed
 record identities, graph fields, simulation values and opaque XML evidence
-without modifying either source file. It does not close the JCI compiler,
-package, loader or hardware-validation gaps in the table above.
+without modifying either source file. It remains separate from the implemented
+native instance/name service and the remaining general logic/package/hardware
+work. [JCI operation coverage](jci-operation-coverage.md) distinguishes each
+operation, transport and evidence class.
 
-The approved Tailscale subnet route reaches both E2/F2 NAEs. Authorized read-only BACnet checks verified both engines as MS-NAE5510-2, firmware 11.0.7.40, identified genuine downstream VMA controllers on four trunks and read values. No controller changes occurred. Site results and current test counts are recorded separately; these identity/point reads do not validate native CAF upload, compilation, application replacement or the unused-input sensor test. The final GitHub push remains pending full completion.
+The [2026-10-20 read-only validation record](VALIDATION.md) documents NAE and
+downstream identity/value observations through the then-approved route. Those
+observations are historical; current reachability and inventory require a fresh
+explicit acquisition. They do not establish application programming or the
+unused-input sensor test. Later native identity transfer evidence is recorded
+separately in the operation ledger and native transfer contract above.
