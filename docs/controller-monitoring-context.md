@@ -32,9 +32,11 @@ action. An interface replacement or change faults the job instead of reconnectin
 **Read device history** acquires the selected Trend Log using the requested
 range and timezone. Bound replies are checked against the requested controller,
 log object and captured connector context. Partial or failed identity evidence
-is not presented as verified selected-controller records. Saving or reopening a
-local capture retains its original source and original JSON bytes; it does not
-relabel a capture as belonging to the currently selected controller. Saved
+is not presented as verified selected-controller records. Saved captures retain
+their sealed report and original source. JSON downloads retain the exact bytes
+of their current read or load HTTP response; reloading need not reproduce the
+initial response bytes. A capture is never relabelled as belonging to the
+currently selected controller. Saved
 captures and field samples remain available with the interface closed.
 
 ## Additive API contract
@@ -51,7 +53,7 @@ The existing polling and single-log history endpoints accept an optional pair:
   },
   "expected_connector_config": {
     "local_address": "127.0.0.1:47810",
-    "local_device": 4190001,
+    "instance": 4190001,
     "router": "127.0.0.1:47809",
     "dnet": 3001
   }
