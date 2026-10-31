@@ -37,6 +37,9 @@ interface. Treat it as the default design contract for new and revised workflows
 
 ## Implementation and verification
 
+- Read [the development roadmap](ROADMAP.md) before planning feature work. Start
+  from current GitHub main, credit existing supported scopes and preserve the
+  workflow style guide when implementing the next reviewed slice.
 - Carry authorized implementation through relevant checks and local verification.
 - Check both entry paths, navigation without losing drafts, target propagation,
   target-change invalidation, offline behavior and failure/uncertainty states.
