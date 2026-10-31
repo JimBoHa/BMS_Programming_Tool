@@ -167,6 +167,9 @@ const TruthTableReview = lazy(() =>
 const Notifications = lazy(() =>
   import("./Notifications").then((m) => ({ default: m.Notifications })),
 );
+const ChangeLedgerPanel = lazy(() =>
+  import("./ChangeLedgerPanel").then((m) => ({ default: m.ChangeLedgerPanel })),
+);
 
 export function App() {
   const [surface, setSurface] = useState<WorkspaceSurface>("start");
@@ -174,6 +177,17 @@ export function App() {
   const [mode, setMode] = useState<"edit" | "simulate" | "commission">("edit");
   const [controller, setController] = useState<ControllerContext | null>(null);
   const [workflowBusy, setWorkflowBusy] = useState(false);
+  const [requestedConnectionTool, setRequestedConnectionTool] = useState<{
+    view:
+      | "overview"
+      | "points"
+      | "schedules"
+      | "monitor"
+      | "changes"
+      | "settings";
+    tool: string;
+    revision: number;
+  } | null>(null);
   const [cafDocument, setCafDocument] = useState<CafDocument | null>(null);
   const [incomingCaf, setIncomingCaf] = useState<FileRequest | null>(null);
   const [cafSaveRequest, setCafSaveRequest] = useState("");
@@ -1510,7 +1524,11 @@ export function App() {
       setMode("commission");
       return;
     }
-    if (view === "caf-compare" || view === "conformance") {
+    if (
+      view === "change-ledger" ||
+      view === "caf-compare" ||
+      view === "conformance"
+    ) {
       setArea("changes");
       return;
     }
@@ -1552,14 +1570,8 @@ export function App() {
     setSurface("workspace");
     setArea(next);
     setConnectionSetup(false);
-    if (next === "changes" && sourceKind === "caf" && mode !== "commission") {
-      setCafView("changes");
-      setTab("caf");
-      setArea("changes");
-      return;
-    }
-    if (next === "changes" && sourceKind === "graph" && !controller) {
-      setTab("conformance");
+    if (next === "changes") {
+      setTab("change-ledger");
       return;
     }
     if (next === "program") {
@@ -1675,6 +1687,7 @@ export function App() {
                 ]
               : surface === "workspace" && area === "changes"
                 ? [
+                    { id: "change-ledger", label: "Recorded changes" },
                     { id: "connections", label: "Controller changes" },
                     { id: "caf", label: "CAF changes" },
                     { id: "caf-compare", label: "Compare applications" },
@@ -1701,6 +1714,35 @@ export function App() {
       setArea(previousArea);
     if (previousMode === "simulate" && previousArea === "program")
       setMode("simulate");
+  }
+  function openLedgerTool(source: string) {
+    if (workflowBusy || macroEdit) return;
+    if (source === "temco") {
+      setTab("temco-transfer");
+      return;
+    }
+    const destination = {
+      native: { view: "overview", tool: "instance" },
+      instance: { view: "overview", tool: "instance" },
+      schedule: { view: "schedules", tool: "schedules" },
+      event: { view: "monitor", tool: "events" },
+      command: { view: "changes", tool: "commands" },
+      bbmd: { view: "settings", tool: "bbmd-admin" },
+    }[source] as
+      | {
+          view: "overview" | "schedules" | "monitor" | "changes" | "settings";
+          tool: string;
+        }
+      | undefined;
+    if (!destination) return;
+    setConnectionSetup(false);
+    setTab("connections");
+    if (destination.view === "settings") setSurface("settings");
+    else setArea(destination.view);
+    setRequestedConnectionTool((current) => ({
+      ...destination,
+      revision: (current?.revision ?? 0) + 1,
+    }));
   }
   if (!ready)
     return (
@@ -1877,6 +1919,7 @@ export function App() {
                   }
                 >
                   <Connections
+                    requestedTool={requestedConnectionTool}
                     visible={tab === "connections"}
                     view={
                       surface === "settings"
@@ -2399,6 +2442,27 @@ export function App() {
                 <DeviceHistory
                   defaultAddress={controller?.address}
                   defaultTarget={controller}
+                />
+              ) : tab === "change-ledger" ? (
+                <ChangeLedgerPanel
+                  controller={controller}
+                  cafDocument={cafDocument}
+                  graph={
+                    sourceKind === "none"
+                      ? null
+                      : {
+                          id: program.id,
+                          name: program.name,
+                          revision: program.revision,
+                        }
+                  }
+                  onOpenDraft={(kind) => {
+                    if (kind === "caf") {
+                      setCafView("changes");
+                      chooseTool("caf");
+                    } else setTab("editor");
+                  }}
+                  onOpenTool={openLedgerTool}
                 />
               ) : tab === "conformance" ? (
                 <ConformancePanel program={program} />

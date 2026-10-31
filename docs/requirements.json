@@ -1312,5 +1312,14 @@
     "pdf_pages_or_section": "docs/device-instance-commissioning.md",
     "status": "implemented",
     "implementation_or_gap": "Guided local router discovery and router/trunk/controller selectors fill exact commissioning targets; verified names reuse the shared Scan inventory. Explicit standard Device.object-identifier WriteProperty to a pinned IPv4 or router/DNET/MAC station. One-use identity/configuration-bound review, scoped new-ID collision checks, site allocation confirmation, fresh preflight, single-attempt dispatch, durable intent/results, readback and restart reconciliation. Unsupported/read-only controllers require vendor tooling; no proprietary application transfer, reset, automatic retry/rollback or physical-controller acceptance claim. See docs/device-instance-commissioning.md."
+  },
+  {
+    "id": "UI-CHANGES-001",
+    "feature": "Read-only searchable Changes ledger",
+    "acceptance_criterion": "Review local drafts and source-qualified recorded changes, preserve exact original targets and adapter uncertainty, search bounded windows and open evidence/recovery tools without field dispatch.",
+    "evidence": "AGENTS.md; workflow style guide; actual local journals and authored API/browser peers.",
+    "pdf_pages_or_section": "docs/change-ledger.md",
+    "status": "implemented",
+    "implementation_or_gap": "Changes combines bounded audit/native/instance/schedule/BBMD/event/Temco/ownership snapshots. Exact route and serial interface matching, later-readback qualification, corruption visibility, strict cursors, local draft retention, stale-response retirement and original source-response Blob downloads. Existing tools own review/apply/recovery; unapplied transient reviews and providers without retained records remain outside this profile. No field requests or new physical/native capability claim."
   }
 ]

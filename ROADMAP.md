@@ -1,6 +1,6 @@
 # BMS Studio development roadmap
 
-Updated: 2026-10-30. Planning baseline: GitHub `main` at
+Updated: 2026-10-31. Planning baseline: GitHub `main` at
 [`eee38367`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/eee38367aecd0b3f405809a76c500fe09ee2ad9f).
 
 ## Baseline and purpose
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 146 scoped criteria: 92
+The public requirement register currently records 147 scoped criteria: 93
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -201,7 +201,7 @@ inventory or an assertion that every release accepts the same application.
 | BASE-02 | Maintain the preferred GitHub baseline and preserve local source ideas | Private original backups plus reviewed idea mapping; no stale whole-tree merge, private data publication or graphics rollback |
 | BASE-03 | Keep requirement IDs, evidence classes and dependency/acceptance status current | Update the public register when an implemented slice is verified; distinguish code, simulation, loopback, reference-oracle and physical results |
 | UX-01 | Finish full target propagation to older trends and single-log history views | Trends & Alarms: use the complete authoritative ControllerTarget, discovered point choices and stale-result invalidation instead of repeated manual addresses |
-| UX-02 | Consolidate a searchable change/receipt ledger | Changes: exact target, local-versus-field operation, state, review/dispatch/readback and links to recovery. Do not turn separate operations into an atomic batch |
+| UX-02 | Consolidate a searchable change/receipt ledger | Delivered [read-only recorded Changes ledger](docs/change-ledger.md): local drafts, eight evidence families, exact original route/interface, recorded outcomes/readback, bounded search and recovery navigation. Remaining: centralize unapplied transient reviews and add providers when they gain retained journals. Separate adapter transactions remain separate |
 | UX-03 | Implement responsive navigation and inspector drawers | Preserve desktop engineering tables and current teal design; keyboard/touch focus, labelled states and draft preservation on smaller screens |
 | UX-04 | Apply common source, unavailable-capability and recovery presentation | Existing task views retain one primary action, live/file/simulator labels and precise save/apply language; improve incomplete older integrations without a dashboard redesign |
 | QA-02 | Preserve the useful local real-wire acquisition and route-handoff test ideas | Existing browser suites: random independent peer, actual HTTP/UDP, changed later sensor reading, nondefault ports, no implicit connection/write and no duplicate fixture stack |

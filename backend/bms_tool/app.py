@@ -42,6 +42,7 @@ from .caf_instance import CafInstanceChange, CafInstanceEditor, CafInstanceExpor
 from .caf_scenarios import CafInputScenarios, CafScenarioStore
 from .caf_simulation import CafSimulationProfile
 from .cancelable_pulse_template import cancelable_pulse_template_router
+from .change_ledger import ChangeLedger, LedgerQuery
 from .co2_minimum_flow_template import co2_minimum_flow_template_router
 from .conformance import ConformancePlans, conformance_router
 from .connections import Bacnet, modbus_read, ports
@@ -556,6 +557,16 @@ def create_app(state_dir=None, *, operation_power=None):
     event_ack = EventAcknowledgements(bacnet, store, event_inventory)
     event_reception = EventReception(bacnet, store)
     hardware_workbench = HardwareWorkbench(bacnet, store, files)
+    change_ledger = ChangeLedger(
+        store,
+        native=native_applications,
+        instances=device_instances,
+        schedules=schedule_writes,
+        bbmd=bbmd_admin,
+        events=event_ack,
+        temco=temco_transfer,
+        bacnet=bacnet,
+    )
     supply_plans = SupplyPlans(store, hardware_workbench)
     notifications = None
     simulations = {}
@@ -673,6 +684,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.state.native = native
     app.state.field_trends = field_trends
     app.state.temco_transfer = temco_transfer
+    app.state.change_ledger = change_ledger
     app.state.operation_power = power
     app.state.bacnet_history = history
     app.state.multiple_history = multiple_history
@@ -2346,6 +2358,14 @@ def create_app(state_dir=None, *, operation_power=None):
     @app.get("/api/audit")
     def audit():
         return store.audit()
+
+    @app.post("/api/changes/query")
+    async def changes_query(body: LedgerQuery):
+        return await change_ledger.read(body)
+
+    @app.get("/api/changes/records/{source}/{identifier}")
+    async def changes_record(source: str, identifier: str):
+        return await change_ledger.detail(source, identifier)
 
     @app.get("/api/capabilities")
     def capabilities():

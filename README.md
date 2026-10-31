@@ -42,6 +42,7 @@ New features follow the [workflow style guide](docs/workflow-style-guide.md).
 
 ## Working features
 
+- Review local drafts and searchable, source-qualified operation receipts under **Changes → Recorded changes**. Exact original routes, uncertainty, owned commands, offline evidence and recovery links remain separate from controller writes. Search covers bounded windows. See [Changes ledger](docs/change-ledger.md).
 - Preview BACnet commands with exact integer-token refusal, preserved numeric intent and original server response text; native wire rounding remains explicit. See [command preview intent](docs/bacnet-command-intent.md).
 - Refuse unsupported or malformed browser history IDs before pruning, retrying, discarding, downloading, acknowledging or paging local records. Safe delivery downloads keep original server bytes. See [history identity bounds](docs/browser-history-identities.md).
 - Preserve validated live numeric tokens and types across simulation inputs, forces, timed stimuli and native local verifiers; exact last-scan values seed force defaults. See [live numeric intent](docs/live-numeric-intent.md).
