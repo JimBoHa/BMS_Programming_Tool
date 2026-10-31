@@ -148,6 +148,7 @@ export function Canvas({
   issues,
   selected,
   onSelect,
+  onInspect,
   onChange,
   onBeginDrag,
   onConnect,
@@ -161,6 +162,7 @@ export function Canvas({
   issues: any[];
   selected: string[];
   onSelect: (id: string | null) => void;
+  onInspect?: (id: string) => void;
   onChange: (changes: NodeChange[]) => void;
   onBeginDrag: () => void;
   onConnect: (c: Connection) => void;
@@ -283,6 +285,7 @@ export function Canvas({
         nodeTypes={nodeTypes}
         onNodesChange={onChange}
         onPaneClick={() => onSelect(null)}
+        onNodeClick={(_, node) => onInspect?.(node.id)}
         onNodeDragStart={onBeginDrag}
         onEdgeDoubleClick={(_, e) => onRemoveWire(e.id)}
         onConnect={onConnect}

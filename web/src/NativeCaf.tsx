@@ -13,6 +13,7 @@ import { CafInstancePanel } from "./CafInstancePanel";
 import { JciPreflight } from "./JciPreflight";
 import type { CafDocument, FileRequest } from "./workflow";
 import { WorkflowToolTabs } from "./WorkflowChrome";
+import { ResponsivePanel } from "./ResponsivePanel";
 
 export type CafView =
   | "objects"
@@ -460,7 +461,19 @@ export function NativeCaf({
                       >
                         <td>
                           <b>
-                            {o.name || o.description || o.ref.split(".").at(-1)}
+                            <button
+                              type="button"
+                              className="caf-object-inspect"
+                              aria-label={`Inspect CAF object ${o.name || o.description || o.ref}`}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void select(o);
+                              }}
+                            >
+                              {o.name ||
+                                o.description ||
+                                o.ref.split(".").at(-1)}
+                            </button>
                           </b>
                           <small>{o.description || o.ref}</small>
                         </td>
@@ -493,64 +506,81 @@ export function NativeCaf({
                 </button>
               </div>
             </section>
-            <section className="card">
-              <div className="card-header">
-                <h3>{selected?.name || "Object properties"}</h3>
-              </div>
-              {!selected ? (
-                <div className="empty-panel">
-                  Select an object to inspect scalar values and preserved
-                  structured data.
+            <ResponsivePanel
+              name="CAF properties"
+              panel="caf-properties"
+              side="right"
+              triggerText="Object properties"
+              triggerLabel="Open CAF properties"
+              closeLabel="Close CAF properties"
+              context={`Local CAF · ${filename}`}
+              error={error}
+              retireKey={`${caf.sha256}:${archiveGeneration}:${currentView}:${visible}`}
+              openSignal={
+                visible && currentView === "objects" && selected
+                  ? `${selected.ref}:${propertyRequest.current}`
+                  : null
+              }
+            >
+              <section className="card">
+                <div className="card-header">
+                  <h3>{selected?.name || "Object properties"}</h3>
                 </div>
-              ) : (
-                <div className="properties-list">
-                  <p className="mono ref">{selected.ref}</p>
-                  {loadingProperties && (
-                    <p role="status">Reading selected object properties…</p>
-                  )}
-                  {properties.map((p) => {
-                    const edited =
-                      p.editable &&
-                      changes.find(
-                        (c) => c.ref === selected.ref && c.property === p.id,
-                      );
-                    return (
-                      <div
-                        key={p.kind + ":" + p.id}
-                        className={"property-row " + (edited ? "edited" : "")}
-                      >
-                        <label>
-                          <b>{p.name || "Property " + p.id}</b>
-                          <small>
-                            {p.kind} {p.id} ·{" "}
-                            {p.scalar?.type || "structured data"}
-                          </small>
-                          {p.scalar ? (
-                            p.editable ? (
-                              <input
-                                aria-label={"CAF property " + p.id}
-                                disabled={opening}
-                                value={edited?.value ?? p.scalar.text}
-                                onChange={(e) => change(p, e.target.value)}
-                              />
+                {!selected ? (
+                  <div className="empty-panel">
+                    Select an object to inspect scalar values and preserved
+                    structured data.
+                  </div>
+                ) : (
+                  <div className="properties-list">
+                    <p className="mono ref">{selected.ref}</p>
+                    {loadingProperties && (
+                      <p role="status">Reading selected object properties…</p>
+                    )}
+                    {properties.map((p) => {
+                      const edited =
+                        p.editable &&
+                        changes.find(
+                          (c) => c.ref === selected.ref && c.property === p.id,
+                        );
+                      return (
+                        <div
+                          key={p.kind + ":" + p.id}
+                          className={"property-row " + (edited ? "edited" : "")}
+                        >
+                          <label>
+                            <b>{p.name || "Property " + p.id}</b>
+                            <small>
+                              {p.kind} {p.id} ·{" "}
+                              {p.scalar?.type || "structured data"}
+                            </small>
+                            {p.scalar ? (
+                              p.editable ? (
+                                <input
+                                  aria-label={"CAF property " + p.id}
+                                  disabled={opening}
+                                  value={edited?.value ?? p.scalar.text}
+                                  onChange={(e) => change(p, e.target.value)}
+                                />
+                              ) : (
+                                <span className="mono property-value">
+                                  {p.scalar.text || "(empty)"}
+                                </span>
+                              )
                             ) : (
-                              <span className="mono property-value">
-                                {p.scalar.text || "(empty)"}
-                              </span>
-                            )
-                          ) : (
-                            <details>
-                              <summary>Inspect preserved XML</summary>
-                              <pre>{p.xml}</pre>
-                            </details>
-                          )}
-                        </label>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
+                              <details>
+                                <summary>Inspect preserved XML</summary>
+                                <pre>{p.xml}</pre>
+                              </details>
+                            )}
+                          </label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            </ResponsivePanel>
           </div>
           {currentView === "changes" && (
             <section className="card" aria-label="Local CAF change review">

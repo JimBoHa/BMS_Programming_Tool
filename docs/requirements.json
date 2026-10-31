@@ -1312,5 +1312,14 @@
     "pdf_pages_or_section": "docs/device-instance-commissioning.md",
     "status": "implemented",
     "implementation_or_gap": "Guided local router discovery and router/trunk/controller selectors fill exact commissioning targets; verified names reuse the shared Scan inventory. Explicit standard Device.object-identifier WriteProperty to a pinned IPv4 or router/DNET/MAC station. One-use identity/configuration-bound review, scoped new-ID collision checks, site allocation confirmation, fresh preflight, single-attempt dispatch, durable intent/results, readback and restart reconciliation. Unsupported/read-only controllers require vendor tooling; no proprietary application transfer, reset, automatic retry/rollback or physical-controller acceptance claim. See docs/device-instance-commissioning.md."
+  },
+  {
+    "id": "UI-DRAWERS-001",
+    "feature": "Responsive controller and application workspace panels",
+    "acceptance_criterion": "Use compact labelled navigation and properties drawers with keyboard/touch focus, exact source context and retained local edits, while preserving desktop workspace structure and existing field action guards.",
+    "evidence": "AGENTS.md; workflow style guide; authored production-browser/controller peers.",
+    "pdf_pages_or_section": "docs/responsive-workspace.md",
+    "status": "implemented",
+    "implementation_or_gap": "Below 900 px, primary navigation, controller explorer, block palette/inspectors and CAF scalar properties use native modal presentation with explicit focus cycling/restoration and retained child instances. Task/tool selectors preserve existing choices and disabled guards. Explicit node activation, repeated selection, stale source retirement, visible property/catalog errors and labelled local/controller context remain distinct from field actions. Desktop layout, graph drag/wiring/undo and source/route acquisition are preserved. Other full-page engineering views keep their task layouts; no new compiler/transfer or physical acceptance claim."
   }
 ]

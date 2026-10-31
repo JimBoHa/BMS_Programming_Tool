@@ -42,6 +42,7 @@ New features follow the [workflow style guide](docs/workflow-style-guide.md).
 
 ## Working features
 
+- Use labelled navigation and properties drawers on compact screens while retaining desktop tabs and columns, local drafts, exact selected routes and keyboard focus. See [responsive workspace panels](docs/responsive-workspace.md).
 - Preview BACnet commands with exact integer-token refusal, preserved numeric intent and original server response text; native wire rounding remains explicit. See [command preview intent](docs/bacnet-command-intent.md).
 - Refuse unsupported or malformed browser history IDs before pruning, retrying, discarding, downloading, acknowledging or paging local records. Safe delivery downloads keep original server bytes. See [history identity bounds](docs/browser-history-identities.md).
 - Preserve validated live numeric tokens and types across simulation inputs, forces, timed stimuli and native local verifiers; exact last-scan values seed force defaults. See [live numeric intent](docs/live-numeric-intent.md).
