@@ -518,5 +518,10 @@
     "feature": "Recognized controller applications published as MOZ Files",
     "status": "implemented",
     "scope": "Case-insensitive .moi/.moz candidate labels share the unchanged bounded content decoder. Native model names never choose data. Mixed candidates require explicit File selection; optional configuration-files absence retains discovery fallback; wrong plain/gzip contents are rejected after original-byte capture and target/config guards remain. No new encoding or arbitrary MOZ conversion, native general-logic compiler, transfer permission or physical acceptance. See docs/moz-application-reading.md."
+  },
+  {
+    "feature": "Captured native engineering and metadata record explorer",
+    "status": "implemented",
+    "scope": "The tagged-MOI reader independently advertises record inspection; list/detail APIs default to 64 rows, bound pages/queries and retain metadata, source offsets/order, native scalar type/value or structured hashes. The existing Program view exposes search/property pages, captured-source labels, byte evidence, local scrolling and response identity/generation guards. Stored references never imply live values or a physical module inventory. Broader editable IR, native logic/resource compilation, deployment and physical/BT acceptance remain separate. See docs/native-record-explorer.md."
   }
 ]

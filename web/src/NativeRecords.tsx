@@ -1,0 +1,388 @@
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { api } from "./api";
+import { controllerKey, type ControllerContext } from "./workflow";
+
+type Data = Record<string, any>;
+const base = "/bacnet/controller/application/";
+const pageSize = 64;
+function scrollTable(event: KeyboardEvent<HTMLDivElement>) {
+  if (
+    event.target !== event.currentTarget ||
+    event.altKey ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.shiftKey
+  )
+    return;
+  if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+    event.preventDefault();
+    event.currentTarget.scrollBy({
+      left: event.key === "ArrowRight" ? 64 : -64,
+    });
+  }
+}
+const scalarText = (scalar: Data | null) => {
+  if (!scalar) return "Structured or undecoded value";
+  if (scalar.datatype === "Null") return "null";
+  return Object.is(scalar.value, -0) ? "-0.0" : String(scalar.value);
+};
+
+export function NativeRecords({
+  controller,
+  capture,
+}: {
+  controller: ControllerContext;
+  capture: { id: string; sha256: string };
+}) {
+  const [inventory, setInventory] = useState<Data | null>(null);
+  const [detail, setDetail] = useState<Data | null>(null);
+  const [query, setQuery] = useState("");
+  const [propertyQuery, setPropertyQuery] = useState("");
+  const [selected, setSelected] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [detailBusy, setDetailBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [detailError, setDetailError] = useState("");
+  const listEpoch = useRef(0),
+    detailEpoch = useRef(0);
+  useEffect(
+    () => () => {
+      listEpoch.current++;
+      detailEpoch.current++;
+    },
+    [],
+  );
+  const target = {
+    address: controller.address,
+    device: controller.device,
+    router: controller.router || null,
+    dnet: controller.dnet ?? null,
+    capture_id: capture.id,
+  };
+  function check(result: Data, search: string, offset: number) {
+    if (
+      result.profile !== "controller-native-records/1" ||
+      result.capture_id !== capture.id ||
+      result.sha256 !== capture.sha256 ||
+      controllerKey(result.target) !== controllerKey(controller) ||
+      result.read_only !== true ||
+      result.field_actions !== false ||
+      result.source_kind !== "controller-file-capture" ||
+      result.query !== search ||
+      result.offset !== offset
+    )
+      throw new Error(
+        "Native record response differs from the selected source or request.",
+      );
+  }
+  async function list(offset = 0, search = query) {
+    const epoch = ++listEpoch.current;
+    detailEpoch.current++;
+    setDetail(null);
+    setSelected("");
+    setPropertyQuery("");
+    setDetailError("");
+    setDetailBusy(false);
+    setBusy(true);
+    setError("");
+    try {
+      const result = await api(base + "records", {
+        ...target,
+        query: search,
+        offset,
+        limit: pageSize,
+      });
+      if (epoch !== listEpoch.current) return;
+      check(result, search, offset);
+      setInventory(result);
+    } catch (failure) {
+      if (epoch === listEpoch.current) setError(String(failure));
+    } finally {
+      if (epoch === listEpoch.current) setBusy(false);
+    }
+  }
+  async function inspect(record: string, offset = 0, search = "") {
+    const epoch = ++detailEpoch.current;
+    setSelected(record);
+    setDetail(null);
+    setDetailError("");
+    setDetailBusy(true);
+    try {
+      const result = await api(base + "record", {
+        ...target,
+        record_id: record,
+        query: search,
+        offset,
+        limit: pageSize,
+      });
+      if (epoch !== detailEpoch.current) return;
+      check(result, search, offset);
+      if (result.record?.id !== record)
+        throw new Error("Native property response names another record.");
+      setDetail(result);
+    } catch (failure) {
+      if (epoch === detailEpoch.current) setDetailError(String(failure));
+    } finally {
+      if (epoch === detailEpoch.current) setDetailBusy(false);
+    }
+  }
+  return (
+    <details
+      className="native-records"
+      aria-label="Captured native record explorer"
+      onToggle={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.currentTarget.open) {
+          if (!inventory && !busy) void list();
+        } else {
+          listEpoch.current++;
+          detailEpoch.current++;
+          setBusy(false);
+          setDetailBusy(false);
+        }
+      }}
+    >
+      <summary>Browse captured native records</summary>
+      <p>
+        Captured File records, including records outside diagrams. Values here
+        come from this snapshot; live values are acquired separately.
+      </p>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          void list();
+        }}
+      >
+        <label>
+          Search captured native records
+          <input
+            maxLength={256}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
+        <button disabled={busy}>Search records</button>
+      </form>
+      {busy && <p role="status">Loading captured records…</p>}
+      {error && (
+        <p role="alert">
+          {error} Previous results retain their recorded query.
+        </p>
+      )}
+      {inventory && (
+        <>
+          <p>
+            {inventory.recognized_record_count} recognized records ·{" "}
+            {inventory.total_matches} matches · query:{" "}
+            {inventory.query || "all records"}.
+          </p>
+          <p>
+            Framing:{" "}
+            {inventory.record_framing === "declared-lengths"
+              ? "declared native record lengths"
+              : "reference scan; other source regions are not enumerated"}
+            . {inventory.record_parse_errors} record parse errors. The original
+            source remains retained.
+          </p>
+          <div
+            className="native-record-table"
+            tabIndex={0}
+            role="region"
+            aria-label="Captured record list scroll area"
+            onKeyDown={scrollTable}
+          >
+            <table aria-label="Captured native records">
+              <thead>
+                <tr>
+                  <th>Record</th>
+                  <th>Reference and kind</th>
+                  <th>Native class / stored object</th>
+                  <th>Properties</th>
+                  <th>Inspect</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inventory.records.map((row: Data) => (
+                  <tr key={row.id}>
+                    <th scope="row">
+                      {row.name}
+                      <small>{row.id}</small>
+                    </th>
+                    <td>
+                      {row.ref || "No engineering reference"}
+                      <small>{row.kind}</small>
+                    </td>
+                    <td>
+                      {row.class_name} ({row.class_id})
+                      <small>
+                        {row.object || "No decoded object reference"}
+                      </small>
+                    </td>
+                    <td>{row.property_count}</td>
+                    <td>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        aria-pressed={selected === row.id}
+                        onClick={() => {
+                          setPropertyQuery("");
+                          void inspect(row.id);
+                        }}
+                      >
+                        Inspect record
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {!inventory.records.length && (
+            <p>No recognized records match this query.</p>
+          )}
+          <div className="button-row">
+            <button
+              type="button"
+              disabled={busy || inventory.offset === 0}
+              onClick={() =>
+                void list(
+                  Math.max(0, inventory.offset - pageSize),
+                  inventory.query,
+                )
+              }
+            >
+              Previous records
+            </button>
+            <button
+              type="button"
+              disabled={busy || inventory.next_offset == null}
+              onClick={() => void list(inventory.next_offset, inventory.query)}
+            >
+              Next records
+            </button>
+            <span>
+              Rows {inventory.records.length ? inventory.offset + 1 : 0}–
+              {inventory.offset + inventory.records.length} of{" "}
+              {inventory.total_matches}
+            </span>
+          </div>
+        </>
+      )}
+      {detailBusy && <p role="status">Loading captured properties…</p>}
+      {detailError && <p role="alert">{detailError}</p>}
+      {detail && (
+        <section aria-label="Captured native record properties">
+          <h4>
+            {detail.record.name} · {detail.record.id}
+          </h4>
+          <p>
+            {detail.record.ref ||
+              "Metadata record without an engineering reference"}
+            . Captured source values only.
+          </p>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void inspect(selected, 0, propertyQuery);
+            }}
+          >
+            <label>
+              Search captured properties
+              <input
+                maxLength={256}
+                value={propertyQuery}
+                onChange={(event) => setPropertyQuery(event.target.value)}
+              />
+            </label>
+            <button disabled={detailBusy}>Search properties</button>
+          </form>
+          <p>
+            {detail.total_matches} matching properties · query:{" "}
+            {detail.query || "all properties"}.
+          </p>
+          <div
+            className="native-record-table"
+            tabIndex={0}
+            role="region"
+            aria-label="Captured property table scroll area"
+            onKeyDown={scrollTable}
+          >
+            <table aria-label="Captured record properties">
+              <thead>
+                <tr>
+                  <th>Property</th>
+                  <th>Native datatype</th>
+                  <th>Stored value</th>
+                  <th>Encoding evidence</th>
+                </tr>
+              </thead>
+              <tbody>
+                {detail.properties.map((prop: Data) => (
+                  <tr key={prop.id}>
+                    <th scope="row">
+                      {prop.name} ({prop.id})
+                      <small>Source property order {prop.index + 1}</small>
+                    </th>
+                    <td>{prop.scalar?.datatype || "Structured / undecoded"}</td>
+                    <td>{scalarText(prop.scalar)}</td>
+                    <td>
+                      <details>
+                        <summary>Encoding evidence</summary>
+                        <p>
+                          {prop.encoded_bytes} bytes · expanded offsets{" "}
+                          {prop.value_start_offset}–{prop.value_end_offset}
+                        </p>
+                        <code>{prop.encoded_sha256}</code>
+                      </details>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {!detail.properties.length && (
+            <p>No captured properties match this query.</p>
+          )}
+          <div className="button-row">
+            <button
+              type="button"
+              disabled={detailBusy || detail.offset === 0}
+              onClick={() =>
+                void inspect(
+                  selected,
+                  Math.max(0, detail.offset - pageSize),
+                  detail.query,
+                )
+              }
+            >
+              Previous properties
+            </button>
+            <button
+              type="button"
+              disabled={detailBusy || detail.next_offset == null}
+              onClick={() =>
+                void inspect(selected, detail.next_offset, detail.query)
+              }
+            >
+              Next properties
+            </button>
+          </div>
+          <details>
+            <summary>Record byte evidence</summary>
+            <p>
+              {detail.record.expanded_bytes} bytes · expanded offsets{" "}
+              {detail.record.expanded_offset}–
+              {detail.record.expanded_end_offset}
+            </p>
+            <p>
+              Record SHA-256 <code>{detail.record.record_sha256}</code>
+            </p>
+            <p>
+              Original File SHA-256 <code>{capture.sha256}</code>
+            </p>
+          </details>
+        </section>
+      )}
+    </details>
+  );
+}

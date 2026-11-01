@@ -11,6 +11,7 @@ import { api } from "./api";
 import { NativeSignalDefaultCopy } from "./NativeSignalDefaultCopy";
 import { controllerKey, type ControllerContext } from "./workflow";
 import "./controller-application.css";
+import { NativeRecords } from "./NativeRecords";
 
 type RecordValue = Record<string, any>;
 const base = "/bacnet/controller/application/";
@@ -337,6 +338,16 @@ export function ControllerApplicationPanel({
               </div>
             </details>
           )}
+
+          {connected &&
+            controllerKey(report.target) === controllerKey(controller) &&
+            report.application.capabilities?.record_inspection && (
+              <NativeRecords
+                key={source + report.receipt.id}
+                controller={controller}
+                capture={report.receipt}
+              />
+            )}
           <label>
             Application diagram
             <select

@@ -16,7 +16,7 @@ async function controller(
   name: string,
   modules: number,
   value = 21,
-  native: boolean | "signal-default" | "identity" | "moz" = false,
+  native: boolean | "signal-default" | "identity" | "moz" | "records" = false,
 ) {
   const port = await freePort();
   const child = spawn(
@@ -34,7 +34,7 @@ async def main():
  app.device_object.objectName=sys.argv[2]
  point=app.get_object_id(ObjectIdentifier(('analog-input',1)))
  point.presentValue=float(sys.argv[4])
- if sys.argv[5] in ('true','signal-default','identity','moz'):
+ if sys.argv[5] in ('true','signal-default','identity','moz','records'):
   import types
   from tests.test_bacnet_files import FilePeer
   from tests.test_controller_application import authored_application
@@ -50,6 +50,12 @@ async def main():
    from bacpypes3.primitivedata import CharacterString,Unsigned
    record=native_record(194,4190090,[(32527,encoded(CharacterString('controller'))),(75,encoded(ObjectIdentifier(('device',4190090)))),(2390,encoded(CharacterString(sys.argv[2]))),(70,encoded(CharacterString(sys.argv[2]))),(4128,encoded(Unsigned(62))),(4129,encoded(Unsigned(62)))])
    app.payload=struct.pack('<6sHHI',bytes.fromhex('02004d4f4900'),194,1,1)+struct.pack('<H',len(record)+2)+record
+  elif sys.argv[5]=='records':
+   import struct
+   from tests.test_controller_application import native_record,encoded
+   from bacpypes3.primitivedata import CharacterString,OctetString,Real
+   records=[native_record(194,4190090,[(32527,encoded(CharacterString('controller'))),(75,encoded(ObjectIdentifier(('device',4190090)))),(2390,encoded(CharacterString(sys.argv[2]))),(70,encoded(CharacterString(sys.argv[2]))),(3113,encoded(Real(23.5)))]),native_record(127,1,[(65001,encoded(OctetString(b'retained metadata')))])]
+   app.payload=struct.pack('<6sHHI',bytes.fromhex('02004d4f4900'),194,1,len(records))+b''.join(struct.pack('<H',len(record)+2)+record for record in records)
   app.stream=FileObject(objectIdentifier=('file',31),objectName='Controller/Archive',description='Authored application file',fileType='.MoZ' if sys.argv[5]=='moz' else '.moi',fileSize=len(app.payload),modificationDate=DateTime('2026-01-05 12:00:00'),archive=False,readOnly=True,fileAccessMethod='stream-access')
   app.add_object(app.stream)
   app.device_object.configurationFiles=[app.stream.objectIdentifier]
@@ -317,80 +323,89 @@ test("one failed point read does not starve later points and its configuration i
 });
 
 for (const nativeKind of [true, "moz"] as const) {
-test(`Program reads ${nativeKind === "moz" ? ".moz" : ".moi"} native diagrams, configuration and live block data`, async ({
-  page,
-  request,
-}) => {
-  test.setTimeout(90000);
-  const device = await controller("Unlisted native format family", 0, 21, nativeKind);
-  await session(request);
-  try {
-    await interfaceSetup(page);
-    await openController(
-      page,
-      device.endpoint,
+  test(`Program reads ${nativeKind === "moz" ? ".moz" : ".moi"} native diagrams, configuration and live block data`, async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(90000);
+    const device = await controller(
       "Unlisted native format family",
+      0,
+      21,
+      nativeKind,
     );
-    await tasks(page)
-      .getByRole("button", { name: "Program", exact: true })
-      .click();
-    const native = page.getByRole("region", {
-      name: "Native controller application",
-      exact: true,
-    });
-    await native
-      .getByRole("button", { name: "Read controller application", exact: true })
-      .click();
-    await expect(native).toContainText("3 native records", { timeout: 30000 });
-    await expect(native).toContainText("Controller file snapshot");
-    const support = native.getByLabel(
-      "Controller application operation support",
-      { exact: true },
-    );
-    await support.locator("summary").click();
-    await expect(
-      support.locator('[data-operation="diagram-read"]'),
-    ).toContainText("source qualified");
-    await expect(
-      support.locator('[data-operation="identity-compile"]'),
-    ).toContainText("unsupported source");
-    await expect(
-      support.locator('[data-operation="general-logic"]'),
-    ).toContainText("unavailable");
-    await expect(
-      support.locator('[data-operation="physical-acceptance"]'),
-    ).toContainText("not inferred");
-    await expect(
-      native
-        .getByLabel("Actual native program diagram")
-        .locator(".react-flow__edge"),
-    ).toHaveCount(1);
-    await native
-      .getByLabel("Controller program block")
-      .selectOption("site/575_1.2_10");
-    const config = native.getByRole("region", {
-      name: "Actual native block configuration",
-      exact: true,
-    });
-    await expect(config).toContainText("23.5");
-    await expect(
-      config.getByRole("definition").filter({ hasText: /^21$/ }),
-    ).toBeVisible();
-    device.change(33.75);
-    await expect(
-      config.getByRole("definition").filter({ hasText: /^33.75$/ }),
-    ).toBeVisible({ timeout: 20000 });
-    await expect(page.getByLabel("Working context")).not.toContainText(
-      "Local graph",
-    );
-    await native.getByLabel("Actual native program diagram").screenshot({
-      path: test.info().outputPath("native-controller-application.png"),
-    });
-  } finally {
-    device.close();
-  }
-});
-
+    await session(request);
+    try {
+      await interfaceSetup(page);
+      await openController(
+        page,
+        device.endpoint,
+        "Unlisted native format family",
+      );
+      await tasks(page)
+        .getByRole("button", { name: "Program", exact: true })
+        .click();
+      const native = page.getByRole("region", {
+        name: "Native controller application",
+        exact: true,
+      });
+      await native
+        .getByRole("button", {
+          name: "Read controller application",
+          exact: true,
+        })
+        .click();
+      await expect(native).toContainText("3 native records", {
+        timeout: 30000,
+      });
+      await expect(native).toContainText("Controller file snapshot");
+      const support = native.getByLabel(
+        "Controller application operation support",
+        { exact: true },
+      );
+      await support.locator("summary").click();
+      await expect(
+        support.locator('[data-operation="diagram-read"]'),
+      ).toContainText("source qualified");
+      await expect(
+        support.locator('[data-operation="identity-compile"]'),
+      ).toContainText("unsupported source");
+      await expect(
+        support.locator('[data-operation="general-logic"]'),
+      ).toContainText("unavailable");
+      await expect(
+        support.locator('[data-operation="physical-acceptance"]'),
+      ).toContainText("not inferred");
+      await expect(
+        native
+          .getByLabel("Actual native program diagram")
+          .locator(".react-flow__edge"),
+      ).toHaveCount(1);
+      await native
+        .getByLabel("Controller program block")
+        .selectOption("site/575_1.2_10");
+      const config = native.getByRole("region", {
+        name: "Actual native block configuration",
+        exact: true,
+      });
+      await expect(config).toContainText("23.5");
+      await expect(
+        config.getByRole("definition").filter({ hasText: /^21$/ }),
+      ).toBeVisible();
+      device.change(33.75);
+      await expect(
+        config.getByRole("definition").filter({ hasText: /^33.75$/ }),
+      ).toBeVisible({ timeout: 20000 });
+      await expect(page.getByLabel("Working context")).not.toContainText(
+        "Local graph",
+      );
+      await native.getByLabel("Actual native program diagram").screenshot({
+        path: test.info().outputPath("native-controller-application.png"),
+      });
+    } finally {
+      device.close();
+    }
+  });
 }
 
 async function signalEditor(page: Page, endpoint: string, name: string) {
@@ -873,5 +888,258 @@ test("operation support rejects a response that names another capture", async ({
     ).toHaveCount(0);
   } finally {
     device.close();
+  }
+});
+
+async function readRecordApplication(
+  page: Page,
+  endpoint: string,
+  name: string,
+) {
+  await openController(page, endpoint, name);
+  await tasks(page)
+    .getByRole("button", { name: "Program", exact: true })
+    .click();
+  const native = page.getByRole("region", {
+    name: "Native controller application",
+    exact: true,
+  });
+  const pending = page.waitForResponse((response) =>
+    response.url().endsWith("/controller/application/read"),
+  );
+  await native
+    .getByRole("button", { name: "Read controller application", exact: true })
+    .click();
+  const result = await (await pending).json();
+  await expect(
+    native.getByLabel("Captured native record explorer", { exact: true }),
+  ).toBeVisible();
+  return { native, capture: result.receipt };
+}
+
+test("captured native records expose metadata, typed values and byte evidence outside diagrams", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(60000);
+  const device = await controller("Record capture A", 0, 21, "records");
+  await session(request);
+  try {
+    await interfaceSetup(page);
+    const { native, capture } = await readRecordApplication(
+      page,
+      device.endpoint,
+      "Record capture A",
+    );
+    const explorer = native.getByLabel("Captured native record explorer", {
+      exact: true,
+    });
+    await explorer.locator(":scope > summary").click();
+    const records = explorer.getByRole("table", {
+      name: "Captured native records",
+      exact: true,
+    });
+    await expect(records.getByRole("row")).toHaveCount(3);
+    await expect(explorer).toContainText("2 recognized records");
+    await explorer
+      .getByLabel("Search captured native records", { exact: true })
+      .fill("65001");
+    await explorer
+      .getByRole("button", { name: "Search records", exact: true })
+      .click();
+    await expect(records.getByRole("row")).toHaveCount(2);
+    await expect(records).toContainText("metadata");
+    await records
+      .getByRole("button", { name: "Inspect record", exact: true })
+      .click();
+    const properties = explorer.getByRole("region", {
+      name: "Captured native record properties",
+      exact: true,
+    });
+    await expect(properties).toContainText("Structured or undecoded value");
+    await properties
+      .getByText("Encoding evidence", { exact: true })
+      .last()
+      .click();
+    await expect(properties.locator("code").first()).toContainText(
+      /^[a-f0-9]{64}$/,
+    );
+    await properties.getByText("Record byte evidence", { exact: true }).click();
+    await expect(properties).toContainText(capture.sha256);
+    await explorer
+      .getByLabel("Search captured native records", { exact: true })
+      .fill("Record capture A");
+    await explorer
+      .getByRole("button", { name: "Search records", exact: true })
+      .click();
+    await expect(records.getByRole("row")).toHaveCount(2);
+    await records
+      .getByRole("button", { name: "Inspect record", exact: true })
+      .click();
+    await properties
+      .getByLabel("Search captured properties", { exact: true })
+      .fill("3113");
+    await properties
+      .getByRole("button", { name: "Search properties", exact: true })
+      .click();
+    const values = properties.getByRole("table", {
+      name: "Captured record properties",
+      exact: true,
+    });
+    await expect(values.getByRole("row")).toHaveCount(2);
+    await expect(
+      values.getByRole("cell", { name: "Real", exact: true }),
+    ).toBeVisible();
+    await expect(
+      values.getByRole("cell", { name: "23.5", exact: true }),
+    ).toBeVisible();
+    await expect(values.getByRole("rowheader").first()).toHaveCSS(
+      "font-size",
+      "14px",
+    );
+    await page.setViewportSize({ width: 500, height: 900 });
+    expect(
+      await values.evaluate(
+        (element) =>
+          element.parentElement!.getBoundingClientRect().right <=
+          window.innerWidth,
+      ),
+    ).toBe(true);
+    const scroll = properties.getByRole("region", {
+      name: "Captured property table scroll area",
+      exact: true,
+    });
+    await scroll.focus();
+    await expect(scroll).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+    await expect
+      .poll(() => scroll.evaluate((element) => element.scrollLeft))
+      .toBeGreaterThan(0);
+    await values.screenshot({
+      path: test.info().outputPath("captured-record-properties.png"),
+    });
+  } finally {
+    device.close();
+  }
+});
+
+test("a native record response cannot identify another captured file", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(60000);
+  const device = await controller("Record source guard", 0, 21, "records");
+  await session(request);
+  try {
+    await interfaceSetup(page);
+    const { native } = await readRecordApplication(
+      page,
+      device.endpoint,
+      "Record source guard",
+    );
+    await page.route(
+      "**/api/bacnet/controller/application/records",
+      async (route) => {
+        const response = await route.fetch();
+        expect(response.ok()).toBe(true);
+        const body = await response.json();
+        body.capture_id = "b".repeat(32);
+        await route.fulfill({ response, json: body });
+      },
+    );
+    const explorer = native.getByLabel("Captured native record explorer", {
+      exact: true,
+    });
+    await explorer.locator(":scope > summary").click();
+    await expect(explorer.getByRole("alert")).toContainText(
+      "differs from the selected source or request",
+    );
+    await expect(explorer.getByRole("table")).toHaveCount(0);
+  } finally {
+    device.close();
+  }
+});
+
+test("late native properties cannot return after selecting another controller with the same Device ID", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(60000);
+  const first = await controller("Record station A", 0, 21, "records"),
+    second = await controller("Record station B", 0, 21, "records");
+  await session(request);
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let received!: () => void;
+  const captured = new Promise<void>((resolve) => {
+    received = resolve;
+  });
+  let intercepted = false;
+  try {
+    await interfaceSetup(page);
+    const { native } = await readRecordApplication(
+      page,
+      first.endpoint,
+      "Record station A",
+    );
+    await page.route(
+      "**/api/bacnet/controller/application/record",
+      async (route) => {
+        if (intercepted) {
+          await route.continue();
+          return;
+        }
+        intercepted = true;
+        const response = await route.fetch();
+        expect(response.ok()).toBe(true);
+        received();
+        await held;
+        await route.fulfill({ response });
+      },
+    );
+    let explorer = native.getByLabel("Captured native record explorer", {
+      exact: true,
+    });
+    await explorer.locator(":scope > summary").click();
+    const root = explorer
+      .getByRole("table", { name: "Captured native records", exact: true })
+      .getByRole("row")
+      .filter({ hasText: "Record station A" });
+    await root
+      .getByRole("button", { name: "Inspect record", exact: true })
+      .click();
+    await captured;
+    await page
+      .getByRole("button", { name: "Change controller", exact: true })
+      .click();
+    await readRecordApplication(page, second.endpoint, "Record station B");
+    explorer = native.getByLabel("Captured native record explorer", {
+      exact: true,
+    });
+    await explorer.locator(":scope > summary").click();
+    await expect(
+      explorer.getByRole("table", {
+        name: "Captured native records",
+        exact: true,
+      }),
+    ).toContainText("Record station B");
+    const returned = page.waitForResponse((response) =>
+      response.url().endsWith("/controller/application/record"),
+    );
+    release();
+    await returned;
+    await expect(
+      explorer.getByRole("region", {
+        name: "Captured native record properties",
+        exact: true,
+      }),
+    ).toHaveCount(0);
+    await expect(explorer).not.toContainText("Record station A");
+  } finally {
+    release();
+    first.close();
+    second.close();
   }
 });

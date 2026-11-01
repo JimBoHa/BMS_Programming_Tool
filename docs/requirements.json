@@ -1366,5 +1366,14 @@
     "pdf_pages_or_section": "docs/moz-application-reading.md; Controller Tool Help18.0 LIT-12011147 PDF368 names MOI/MOZ generation errors but supplies no binary equivalence contract.",
     "status": "implemented",
     "implementation_or_gap": "Case-insensitive .moi/.moz candidate labels share the unchanged bounded content decoder. Native model names never choose data. Mixed candidates require explicit File selection; optional configuration-files absence retains discovery fallback; wrong plain/gzip contents are rejected after original-byte capture and target/config guards remain. No new encoding or arbitrary MOZ conversion, native general-logic compiler, transfer permission or physical acceptance."
+  },
+  {
+    "id": "FMT-NATIVE-RECORDS-001",
+    "feature": "Source-bound captured native record inspection",
+    "acceptance_criterion": "Search and page actual engineering/metadata records and stored properties outside diagrams, retaining source order, types, unknown encoding evidence and original/expanded byte identities while enforcing capture/target/interface ownership without field actions.",
+    "evidence": "Authored compressed/plain native records, actual UDP File acquisition with zero additional wire requests, local token/bounds/source API checks and Chromium/WebKit source/late-reply workflows.",
+    "pdf_pages_or_section": "docs/native-record-explorer.md",
+    "status": "implemented",
+    "implementation_or_gap": "The tagged-MOI reader independently advertises record inspection; list/detail APIs default to 64 rows, bound pages/queries and retain metadata, source offsets/order, native scalar type/value or structured hashes. The existing Program view exposes search/property pages, captured-source labels, byte evidence, local scrolling and response identity/generation guards. Stored references never imply live values or a physical module inventory. Broader editable IR, native logic/resource compilation, deployment and physical/BT acceptance remain separate."
   }
 ]

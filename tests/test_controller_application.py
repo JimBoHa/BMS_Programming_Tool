@@ -84,6 +84,7 @@ def test_real_recorded_fields_supply_graph_without_controller_model(root):
         "logic_read": True,
         "logic_write": False,
         "native_compile": False,
+        "record_inspection": True,
     }
     graph = app.diagram(root)
     assert graph["read_only"] and not graph["native_layout"]

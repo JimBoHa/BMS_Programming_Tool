@@ -49,6 +49,8 @@ from .controller_application import (
     ApplicationCaptureRequest,
     ApplicationDiagramRequest,
     ApplicationReadRequest,
+    ApplicationRecordRequest,
+    ApplicationRecordsRequest,
     ControllerApplication,
     SignalDefaultExportRequest,
     SignalDefaultPreviewRequest,
@@ -1839,6 +1841,14 @@ def create_app(state_dir=None, *, operation_power=None):
                 "X-Edit-Review-SHA256": review["review_sha256"],
             },
         )
+
+    @app.post("/api/bacnet/controller/application/records")
+    def controller_application_records(body: ApplicationRecordsRequest):
+        return controller_application.records(body.model_dump())
+
+    @app.post("/api/bacnet/controller/application/record")
+    def controller_application_record(body: ApplicationRecordRequest):
+        return controller_application.records(body.model_dump(), detail=True)
 
     @app.post("/api/enum-mapping/review")
     async def enum_mapping_review(body: EnumMappingRequest):
