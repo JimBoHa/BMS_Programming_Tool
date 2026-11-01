@@ -1,10 +1,65 @@
 import { test, expect, type Page, type Route } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = path.resolve("..");
+const root = fileURLToPath(new URL("../..", import.meta.url));
 const python = path.join(root, ".venv/bin/python");
+const pythonOptions = {
+  cwd: root,
+  env: { ...process.env, PYTHONPATH: path.join(root, "backend") },
+};
 const reference = "8-1/575_1";
+const fieldCalls = new WeakMap<Page, string[]>();
+test.beforeEach(async ({ page, request }) => {
+  const headers = {
+    "X-Studio-Token": (await (await request.get("/api/session")).json()).token,
+  };
+  expect(
+    (await request.post("/api/bacnet/disconnect", { headers, data: {} })).ok(),
+  ).toBe(true);
+  const calls: string[] = [];
+  fieldCalls.set(page, calls);
+  page.on("request", (request) => {
+    if (request.method() === "POST" && /\/api\/bacnet\//.test(request.url()))
+      calls.push(request.url());
+  });
+});
+test.afterEach(async ({ page, request }) => {
+  expect(fieldCalls.get(page)).toEqual([]);
+  expect(
+    (await (await request.get("/api/session")).json()).field_network_open,
+  ).toBe(false);
+});
+
+async function cafTask(page: Page, name: "Objects & parameters" | "Logic") {
+  await page
+    .getByRole("navigation", { name: "Workspace tasks" })
+    .getByRole("button", { name: "Program", exact: true })
+    .click();
+  await page
+    .getByRole("navigation", { name: "CAF application tasks" })
+    .getByRole("button", { name, exact: true })
+    .click();
+}
+
+async function compareAndReturn(
+  page: Page,
+  task: "Objects & parameters" | "Logic",
+) {
+  await page
+    .getByRole("navigation", { name: "Workspace tasks" })
+    .getByRole("button", { name: "Changes", exact: true })
+    .click();
+  await page
+    .getByRole("navigation", { name: "Current task tools" })
+    .getByRole("button", { name: "Compare applications", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Compare CAF files", exact: true }),
+  ).toBeVisible();
+  await cafTask(page, task);
+}
 
 function authored(title = "Authored example") {
   return execFileSync(
@@ -20,30 +75,41 @@ sys.stdout.buffer.write(pack(xml))
 `,
       title,
     ],
-    { cwd: root },
+    pythonOptions,
   );
 }
 
 async function choose(page: Page, name: string, title = "Authored example") {
-  await page.locator('input[type=file][accept=".caf"]').setInputFiles({
-    name,
-    mimeType: "application/octet-stream",
-    buffer: authored(title),
-  });
+  await page
+    .getByLabel("Open local CAF application", { exact: true })
+    .setInputFiles({
+      name,
+      mimeType: "application/octet-stream",
+      buffer: authored(title),
+    });
 }
 
 async function open(page: Page) {
   await page.goto("/");
-  await page.getByRole("button", { name: "CAF files", exact: true }).click();
-  await choose(page, "first.caf");
+  const choosing = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: /^Open a CAF file/ }).click();
+  await (
+    await choosing
+  ).setFiles({
+    name: "first.caf",
+    mimeType: "application/octet-stream",
+    buffer: authored(),
+  });
   await expect(
     page.getByLabel("Current CAF archive", { exact: true }),
   ).toHaveText("first.caf");
+  await cafTask(page, "Logic");
   await expect(
     page
       .getByRole("region", { name: "Native CAF graph", exact: true })
       .locator(".caf-graph-summary"),
   ).toContainText("4 blocks · 2 connections");
+  await cafTask(page, "Objects & parameters");
 }
 
 function object(page: Page, number: number) {
@@ -74,7 +140,7 @@ print(json.dumps({'values':{row['ref']:row['stored_value'] for row in caf.invent
 `,
         file,
       ],
-      { cwd: root, encoding: "utf8" },
+      { ...pythonOptions, encoding: "utf8" },
     ),
   );
 }
@@ -97,7 +163,7 @@ async function hold(
     if (held || !matches(route)) return route.continue();
     held = true;
     // Delay delivery of the actual API response; no backend semantic mocks.
-    const response = await route.fetch();
+    const response = await route.fetch({ maxRetries: 0 });
     ready();
     await gate;
     await route.fulfill({ response });
@@ -131,7 +197,7 @@ test("late properties cannot overwrite another selected object's values or edit 
     await page.getByLabel("CAF property 3113", { exact: true }).fill("42.5");
     const pending = page.waitForEvent("download");
     await page
-      .getByRole("button", { name: "Export CAF copy", exact: true })
+      .getByRole("button", { name: "Save CAF copy", exact: true })
       .click();
     const file = await pending;
     const result = inspect((await file.path())!);
@@ -146,7 +212,9 @@ test("latest selected archive wins even when an earlier upload completes later",
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "CAF files", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: /^Open a CAF file/ }),
+  ).toBeVisible();
   const held = await hold(page, "**/api/caf");
   try {
     await choose(page, "slow-first.caf");
@@ -155,6 +223,7 @@ test("latest selected archive wins even when an earlier upload completes later",
     await expect(
       page.getByLabel("Current CAF archive", { exact: true }),
     ).toHaveText("fast-second.caf");
+    await cafTask(page, "Logic");
     held.release();
     await page.waitForLoadState("networkidle");
     await expect(
@@ -173,8 +242,7 @@ test("unexported scalars survive refused file replacement and tab navigation; ex
 }) => {
   await open(page);
   await editScalar(page, "42");
-  await page.getByRole("button", { name: "CAF compare", exact: true }).click();
-  await page.getByRole("button", { name: "CAF files", exact: true }).click();
+  await compareAndReturn(page, "Objects & parameters");
   await expect(
     page.getByLabel("CAF property 3113", { exact: true }),
   ).toHaveValue("42");
@@ -191,7 +259,7 @@ test("unexported scalars survive refused file replacement and tab navigation; ex
   ).toHaveValue("42");
   const pending = page.waitForEvent("download");
   await page
-    .getByRole("button", { name: "Export CAF copy", exact: true })
+    .getByRole("button", { name: "Save CAF copy", exact: true })
     .click();
   const file = await pending;
   expect(inspect((await file.path())!).values[`${reference}.2_10`]).toBe("42");
@@ -219,9 +287,11 @@ test("scalar export keeps its snapshot outcome when the editable draft changes d
   try {
     const pending = page.waitForEvent("download");
     await page
-      .getByRole("button", { name: "Export CAF copy", exact: true })
+      .getByRole("button", { name: "Save CAF copy", exact: true })
       .click();
     await held.reached;
+    // Saving enters Changes; return to the editable task while delivery is held.
+    await cafTask(page, "Objects & parameters");
     await page.getByLabel("CAF property 3113", { exact: true }).fill("43");
     held.release();
     const file = await pending;
@@ -231,6 +301,10 @@ test("scalar export keeps its snapshot outcome when the editable draft changes d
     await expect(
       page.getByLabel("CAF property 3113", { exact: true }),
     ).toHaveValue("43");
+    await page
+      .getByRole("navigation", { name: "Workspace tasks" })
+      .getByRole("button", { name: "Changes", exact: true })
+      .click();
     await expect(
       page.getByText("Current scalar edits have not been exported.", {
         exact: true,
@@ -253,6 +327,7 @@ test("explicitly reopening the same CAF resets discarded native proposals and sc
   page,
 }) => {
   await open(page);
+  await cafTask(page, "Logic");
   const panel = page.getByRole("region", {
     name: "Native CAF graph",
     exact: true,
@@ -264,9 +339,11 @@ test("explicitly reopening the same CAF resets discarded native proposals and sc
     await dialog.accept();
   });
   await choose(page, "first.caf");
+  await cafTask(page, "Logic");
   await expect(
     panel.getByLabel("Native replacement source", { exact: true }),
   ).toHaveValue("");
+  await cafTask(page, "Objects & parameters");
   await editScalar(page, "42");
   page.once("dialog", async (dialog) => {
     await dialog.accept();
@@ -285,6 +362,7 @@ test("native proposal switching requires discard until exported, and outcome kee
   page,
 }) => {
   await open(page);
+  await cafTask(page, "Logic");
   const panel = page.getByRole("region", {
     name: "Native CAF graph",
     exact: true,
@@ -308,8 +386,7 @@ test("native proposal switching requires discard until exported, and outcome kee
   await expect(
     panel.getByLabel("Native replacement source", { exact: true }),
   ).toHaveValue(`${reference}.2_11`);
-  await page.getByRole("button", { name: "CAF compare", exact: true }).click();
-  await page.getByRole("button", { name: "CAF files", exact: true }).click();
+  await compareAndReturn(page, "Logic");
   await expect(
     panel.getByLabel("Native replacement source", { exact: true }),
   ).toHaveValue(`${reference}.2_11`);
@@ -343,10 +420,12 @@ for (const kind of ["scalar", "native"] as const) {
       exact: true,
     });
     if (kind === "scalar") await editScalar(page, "42");
-    else
+    else {
+      await cafTask(page, "Logic");
       await panel
         .getByLabel("Native replacement source", { exact: true })
         .selectOption(`${reference}.2_11`);
+    }
     const held = await hold(
       page,
       kind === "scalar" ? "**/api/caf/*/export" : "**/api/caf/*/rewire",
@@ -358,7 +437,7 @@ for (const kind of ["scalar", "native"] as const) {
         .getByRole("button", {
           name:
             kind === "scalar"
-              ? "Export CAF copy"
+              ? "Save CAF copy"
               : "Check and export native CAF rewire",
           exact: true,
         })
@@ -378,7 +457,12 @@ for (const kind of ["scalar", "native"] as const) {
         page.getByLabel("Scalar CAF export result", { exact: true }),
       ).toHaveCount(0);
       await expect(panel.locator(".caf-graph-exported")).toHaveCount(0);
-      await expect(page.getByRole("alert")).toHaveCount(0);
+      // This deliberately minimal graph has no root Device identity. Its
+      // independent instance editor reports that limitation; no export error
+      // may replace or accompany it after the old response arrives.
+      await expect(page.getByRole("alert")).toHaveText([
+        "Error: CAF instance editing requires one unambiguous root Device BACoid.",
+      ]);
     } finally {
       held.release();
     }
