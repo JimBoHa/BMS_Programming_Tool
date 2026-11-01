@@ -4,6 +4,7 @@ import io
 import json
 import os
 import secrets
+import stat
 import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
@@ -56,8 +57,10 @@ def private_write(path, data):
 
 
 def read_private(path, maximum):
-    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     with os.fdopen(fd, "rb") as stream:
+        if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+            raise ValueError("Private application evidence must be a regular file.")
         raw = stream.read(maximum + 1)
     if len(raw) > maximum:
         raise ValueError("Private application file exceeds its size limit.")
@@ -93,6 +96,21 @@ class ApplicationStore:
                 "CREATE TABLE IF NOT EXISTS application_transfer_events("
                 "sequence INTEGER PRIMARY KEY,receipt_id TEXT NOT NULL,body BLOB NOT NULL)"
             )
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS application_capture_lifecycle("
+                "capture_id TEXT NOT NULL,revision INTEGER NOT NULL,body BLOB NOT NULL,"
+                "PRIMARY KEY(capture_id,revision))"
+            )
+
+    def active_folders(self, db):
+        from .native_backup_lifecycle import lifecycle_states
+
+        states = lifecycle_states(db)
+        return [
+            path.parent
+            for path in self.directory.glob("*/manifest.json")
+            if not states.get(path.parent.name, {}).get("archived", False)
+        ]
 
     def save(self, metadata, files):
         if set(files) != {3, 11, 12} or any(
@@ -100,29 +118,35 @@ class ApplicationStore:
             for data in files.values()
         ):
             raise ValueError("A native snapshot requires its three bounded original backup files.")
-        if len(list(self.directory.glob("*/manifest.json"))) >= 128:
-            raise ValueError(
-                "Native backup storage is full; archive retained backups before capturing again."
+        with self.store.connect(timeout=0.25) as db:
+            db.execute("BEGIN IMMEDIATE")
+            if len(self.active_folders(db)) >= 128:
+                raise ValueError(
+                    "Native backup storage is full; archive retained backups before capturing again."
+                )
+            capture_id = secrets.token_hex(16)
+            folder = self.directory / capture_id
+            folder.mkdir(mode=0o700)
+            for file_id, data in files.items():
+                private_write(folder / f"file-{file_id}.bin", data)
+            manifest = evidence(
+                {
+                    **metadata,
+                    "profile": PROFILE,
+                    "id": capture_id,
+                    "captured_at": utc(),
+                    "files": {
+                        str(i): {"bytes": len(v), "sha256": sha(v)} for i, v in files.items()
+                    },
+                }
             )
-        capture_id = secrets.token_hex(16)
-        folder = self.directory / capture_id
-        folder.mkdir(mode=0o700)
-        for file_id, data in files.items():
-            private_write(folder / f"file-{file_id}.bin", data)
-        manifest = evidence(
-            {
-                **metadata,
-                "profile": PROFILE,
-                "id": capture_id,
-                "captured_at": utc(),
-                "files": {str(i): {"bytes": len(v), "sha256": sha(v)} for i, v in files.items()},
-            }
-        )
-        private_write(folder / "manifest.json", encoded(manifest))
+            private_write(folder / "manifest.json", encoded(manifest))
         return manifest
 
     def load(self, capture_id):
         folder = self.directory / identifier(capture_id)
+        if self.directory.is_symlink() or folder.is_symlink():
+            raise ValueError("Native backups must remain in their original storage folder.")
         manifest = checked(read_private(folder / "manifest.json", 128 * 1024))
         if manifest["id"] != capture_id or set(manifest["files"]) != {"3", "11", "12"}:
             raise ValueError("Native backup manifest does not match its retained source.")
@@ -135,8 +159,10 @@ class ApplicationStore:
         return manifest, files
 
     def captures(self):
+        with self.store.connect() as db:
+            folders = self.active_folders(db)
         return sorted(
-            (self.load(p.parent.name)[0] for p in self.directory.glob("*/manifest.json")),
+            (self.load(folder.name)[0] for folder in folders),
             key=lambda row: row["captured_at"],
             reverse=True,
         )

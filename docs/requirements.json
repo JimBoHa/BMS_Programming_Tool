@@ -1618,5 +1618,14 @@
     "pdf_pages_or_section": "docs/native-controller-instance-recovery.md; docs/native-application-transfer.md; docs/change-ledger.md",
     "status": "implemented",
     "implementation_or_gap": "Same-route unsigned22 instance-only recovery reconstructs confirmed original payload and historically verified-after source/preservation; current original-after image, identity and verified-after directory remain guarded. Only existing root-selector number bytes normalize for already-recorded evidence; no directory is written. Projected destination and fresh pre-intent checks refuse latent saved-root activation. A separate new confirmed reservation/review/transfer preserves fresh settings and records typed lineage for complete readback/restart without ancestor files or replay. Local source/ordinary drafts/exact evidence and source/receipt/task/target/interface/visibility ownership stay distinct from field actions. Recorded ObjectIdentifier metadata checks both number patches and source/directory bindings without loading sources or allocating numbers. General restore/authoring/packages and physical acceptance remain separate; JCI-10 stays partial."
+  },
+  {
+    "id": "BKP-NATIVE-LIFECYCLE-001",
+    "feature": "Reversible native backup archiving",
+    "acceptance_criterion": "Archive and restore local retained native captures within the unchanged active quota while preserving immutable original paths, files, hashes, transfer receipts and recovery references; reject stale catalog actions and serialize competing capacity claims.",
+    "evidence": "Bounded catalog/strict HTTP, exact retention and all typed recovery families after restart, concurrent capacity and substituted-source cases, actual direct/routed UDP recovery and uncertain readback, Chromium/WebKit workspace workflows.",
+    "pdf_pages_or_section": "docs/native-backup-lifecycle.md; docs/native-application-transfer.md",
+    "status": "implemented",
+    "implementation_or_gap": "History manages 128 active and 1024 archived snapshots with source-bound, append-only, sealed revision transitions. No original files move or change; explicit ID consumers and pending/recovery references remain available. Bounded searchable pages show original route/time/files and local ZIP export. Capture/restore capacity claims serialize across processes; stale/ABA actions, substituted evidence and active native operation management are refused. Catalog changes issue no controller requests and free no disk. General backup import/controller restore, whole-state portability and physical acceptance remain separate; JCI-09/10 and PORT-03 remain partial."
   }
 ]

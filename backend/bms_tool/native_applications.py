@@ -1252,7 +1252,24 @@ class NativeApplications:
 
 
 def native_application_router(service):
+    from .native_backup_lifecycle import (
+        BackupLibraryQuery,
+        BackupLifecycleChange,
+        NativeBackupLifecycle,
+    )
+
     router = APIRouter(prefix="/api/bacnet/controller/native-application")
+    library = NativeBackupLifecycle(service.storage)
+
+    @router.post("/backup-library/list")
+    def list_backups(body: BackupLibraryQuery):
+        return library.list(body.model_dump())
+
+    @router.post("/backup-library/change")
+    async def change_backup(body: BackupLifecycleChange):
+        if service.active:
+            raise ValueError("Finish the active native operation before managing retained backups.")
+        return library.change(body.model_dump())
 
     @router.get("/status")
     def status():
