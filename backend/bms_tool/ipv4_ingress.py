@@ -9,16 +9,19 @@ physical IP destination (which this native callback does not provide).
 from __future__ import annotations
 
 import contextvars
+from contextlib import contextmanager
 from dataclasses import dataclass
 
 from bacpypes3.ipv4 import IPv4DatagramProtocol
 from bacpypes3.npdu import NPDU
 from bacpypes3.pdu import PDU, IPv4Address, LocalBroadcast
 
+from .read_phase_trace import observe, observer_unavailable, udp_callback, wants_udp
 from .scoped_hooks import ScopedAttribute
 
 _CURRENT = contextvars.ContextVar("bms-owned-ipv4-datagram", default=None)
 MAX_DATAGRAM = 65507
+MAX_UDP_OBSERVERS = 8
 
 
 @dataclass(frozen=True)
@@ -35,13 +38,23 @@ class _Capture:
         self.endpoint = self.transport.get_extra_info("sockname")
         self.socket = self.transport.get_extra_info("socket")
         self.active = True
+        self.udp_observers = {}
         original = self.protocol.datagram_received
 
         def receive(data, peer):
             # Native datagram_received creates an async dispatch task. Its
             # context inherits this one frame; concurrent datagrams stay apart.
             frame = None
-            if self.valid() and isinstance(data, bytes) and 4 <= len(data) <= MAX_DATAGRAM:
+            valid = self.valid()
+            if valid and self.udp_observers:
+                # Observation never replaces this owned callback, rewrites its
+                # frame/context or decides native protocol acceptance.
+                for observer in tuple(self.udp_observers.values()):
+                    try:
+                        udp_callback(observer, data, peer, self.endpoint)
+                    except BaseException:
+                        observer_unavailable(observer, "owned_udp_callback_observation_error")
+            if valid and isinstance(data, bytes) and 4 <= len(data) <= MAX_DATAGRAM:
                 frame = _Frame(self, tuple(peer), data)
             token = _CURRENT.set(frame)
             try:
@@ -67,7 +80,49 @@ class _Capture:
 
     def close(self):
         self.active = False
+        self.udp_observers.clear()
         self.hook.close()
+
+
+@contextmanager
+def observe_owned_udp(app, layer, observer):
+    """Register bounded request observers on the existing provenance owner only."""
+    capture, token = None, None
+    if wants_udp(observer):
+        try:
+            capture = next(
+                (
+                    owned
+                    for owned in app.__dict__.get("_bms_ipv4_ingress_hooks", ())
+                    if owned.layer is layer and owned.valid()
+                ),
+                None,
+            )
+            if capture is None:
+                observer_unavailable(observer, "no_ready_owned_local_udp_callback")
+            elif len(capture.udp_observers) >= MAX_UDP_OBSERVERS:
+                observer_unavailable(observer, "owned_udp_observer_capacity")
+            else:
+                token = object()
+                capture.udp_observers[token] = observer
+                observe(
+                    observer,
+                    "owned_udp_observer_registered",
+                    local_ip=str(capture.endpoint[0]),
+                    local_port=int(capture.endpoint[1]),
+                    observer_capacity=MAX_UDP_OBSERVERS,
+                )
+        except BaseException:
+            observer_unavailable(observer, "owned_udp_observer_setup_error")
+    try:
+        yield
+    finally:
+        if capture is not None and token is not None:
+            try:
+                capture.udp_observers.pop(token, None)
+                observe(observer, "owned_udp_observer_retired")
+            except BaseException:
+                observer_unavailable(observer, "owned_udp_observer_cleanup_error")
 
 
 def install_ipv4_ingress(app):

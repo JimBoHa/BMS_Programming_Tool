@@ -1448,6 +1448,7 @@ export function Connections({
             </TaskMount>
             <TaskMount active={showTool("schedules")} preserve={false}>
               <ScheduleInventoryPanel
+                interfaceIdentity={interfaceIdentity}
                 connected={
                   visible &&
                   controllerReady &&
