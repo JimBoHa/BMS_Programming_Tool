@@ -1357,5 +1357,14 @@
     "pdf_pages_or_section": "docs/application-operation-capabilities.md",
     "status": "implemented",
     "implementation_or_gap": "The controller application read/capture response includes source ID/hash/Device/configuration-bound operation analysis. The existing typed compiler recognizes actual fully framed sources, including unknown models, while transfer remains gated by captured vendor/root coherence, plain IPv4 and its separate native protocol/parameter/capacity/review/readback workflow. Frontend retains exact source ownership and rejects another capture. General logic remains unavailable; release/packages and physical acceptance are not inferred. Wider JCI-01 package/release/result correlation and native-service-only acquisitions remain partial."
+  },
+  {
+    "id": "FMT-MOZ-READ-001",
+    "feature": "Recognized tagged-MOI content in published MOZ Files",
+    "acceptance_criterion": "Acquire and inspect published .moz application Files when their actual bytes satisfy the existing tagged-MOI reader, preserving content validation, explicit ambiguous-file selection, original rejected captures and exact source ownership.",
+    "evidence": "Authored actual UDP File reads, original-byte retention and Chromium/WebKit application/block/live-value workflows; existing content parser and native backup File-type allowlist.",
+    "pdf_pages_or_section": "docs/moz-application-reading.md; Controller Tool Help18.0 LIT-12011147 PDF368 names MOI/MOZ generation errors but supplies no binary equivalence contract.",
+    "status": "implemented",
+    "implementation_or_gap": "Case-insensitive .moi/.moz candidate labels share the unchanged bounded content decoder. Native model names never choose data. Mixed candidates require explicit File selection; optional configuration-files absence retains discovery fallback; wrong plain/gzip contents are rejected after original-byte capture and target/config guards remain. No new encoding or arbitrary MOZ conversion, native general-logic compiler, transfer permission or physical acceptance."
   }
 ]

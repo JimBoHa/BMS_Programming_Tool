@@ -16,7 +16,7 @@ async function controller(
   name: string,
   modules: number,
   value = 21,
-  native: boolean | "signal-default" | "identity" = false,
+  native: boolean | "signal-default" | "identity" | "moz" = false,
 ) {
   const port = await freePort();
   const child = spawn(
@@ -34,7 +34,7 @@ async def main():
  app.device_object.objectName=sys.argv[2]
  point=app.get_object_id(ObjectIdentifier(('analog-input',1)))
  point.presentValue=float(sys.argv[4])
- if sys.argv[5] in ('true','signal-default','identity'):
+ if sys.argv[5] in ('true','signal-default','identity','moz'):
   import types
   from tests.test_bacnet_files import FilePeer
   from tests.test_controller_application import authored_application
@@ -50,7 +50,7 @@ async def main():
    from bacpypes3.primitivedata import CharacterString,Unsigned
    record=native_record(194,4190090,[(32527,encoded(CharacterString('controller'))),(75,encoded(ObjectIdentifier(('device',4190090)))),(2390,encoded(CharacterString(sys.argv[2]))),(70,encoded(CharacterString(sys.argv[2]))),(4128,encoded(Unsigned(62))),(4129,encoded(Unsigned(62)))])
    app.payload=struct.pack('<6sHHI',bytes.fromhex('02004d4f4900'),194,1,1)+struct.pack('<H',len(record)+2)+record
-  app.stream=FileObject(objectIdentifier=('file',31),objectName='Controller/Archive',description='Authored application file',fileType='.moi',fileSize=len(app.payload),modificationDate=DateTime('2026-01-05 12:00:00'),archive=False,readOnly=True,fileAccessMethod='stream-access')
+  app.stream=FileObject(objectIdentifier=('file',31),objectName='Controller/Archive',description='Authored application file',fileType='.MoZ' if sys.argv[5]=='moz' else '.moi',fileSize=len(app.payload),modificationDate=DateTime('2026-01-05 12:00:00'),archive=False,readOnly=True,fileAccessMethod='stream-access')
   app.add_object(app.stream)
   app.device_object.configurationFiles=[app.stream.objectIdentifier]
   app.atomic_requests=[];app.all_requests=[];app.drop=False;app.mutation=None;app.callback=None
@@ -316,12 +316,13 @@ test("one failed point read does not starve later points and its configuration i
   }
 });
 
-test("Program reads a controller's published native application and displays actual diagrams, configuration and live block data", async ({
+for (const nativeKind of [true, "moz"] as const) {
+test(`Program reads ${nativeKind === "moz" ? ".moz" : ".moi"} native diagrams, configuration and live block data`, async ({
   page,
   request,
 }) => {
   test.setTimeout(90000);
-  const device = await controller("Unlisted native format family", 0, 21, true);
+  const device = await controller("Unlisted native format family", 0, 21, nativeKind);
   await session(request);
   try {
     await interfaceSetup(page);
@@ -389,6 +390,8 @@ test("Program reads a controller's published native application and displays act
     device.close();
   }
 });
+
+}
 
 async function signalEditor(page: Page, endpoint: string, name: string) {
   await openController(page, endpoint, name);
