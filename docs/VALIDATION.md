@@ -1,5 +1,11 @@
 # Validation record — 2026-10-20
 
+> Historical record. The counts, VM inventory, site observations and publication
+> statements below describe this record's date and source. They are retained as
+> evidence, not a current full-suite result or present network/tool installation
+> status. Later native identity/name implementation and the documented physical
+> instance-transfer result are qualified in [JCI operation coverage](jci-operation-coverage.md).
+
 This development build validates the stated local behavior. It does not establish universal native-controller compatibility. [Native target support](NATIVE_TARGETS.md) records the remaining compiler, format and field-deployment gaps.
 
 ## Automated checks

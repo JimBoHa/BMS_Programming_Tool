@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 169 scoped criteria: 115
+The public requirement register currently records 172 scoped criteria: 118
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -249,7 +249,7 @@ inventory or an assertion that every release accepts the same application.
 
 | ID | Planned addition | Placement and acceptance |
 | --- | --- | --- |
-| BASE-01 | Reconcile current capability/validation statements and the old requirement gaps | Operation-level evidence ledger in Help/docs; credit native instance/name transfer and direct serial survey without claiming general logic download |
+| BASE-01 | Reconcile current capability/validation statements and the old requirement gaps | Delivered [JCI operation evidence ledger](docs/jci-operation-coverage.md): native capture/instance/name credit, scoped Real/Boolean/wire profiles, serial acquisition and historical validation. General logic, hardware deployment, broad restore and exact physical qualification remain separate; BASE-02/BASE-03 continue |
 | BASE-02 | Maintain the preferred GitHub baseline and preserve local source ideas | Private original backups plus reviewed idea mapping; no stale whole-tree merge, private data publication or graphics rollback |
 | BASE-03 | Keep requirement IDs, evidence classes and dependency/acceptance status current | Update the public register when an implemented slice is verified; distinguish code, simulation, loopback, reference-oracle and physical results |
 | UX-01 | Finish full target propagation to older trends and single-log history views | Trends & Alarms: use the complete authoritative ControllerTarget, discovered point choices and stale-result invalidation instead of repeated manual addresses |
