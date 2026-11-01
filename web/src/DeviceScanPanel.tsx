@@ -195,6 +195,9 @@ export function DeviceScanPanel({
     request: Record<string, unknown>;
     report: ScanReport;
   } | null>(null);
+  const interfaceStamp = JSON.stringify([localAddress, interfaceIdentity]);
+  const [authorizedInterface, setAuthorizedInterface] =
+    useState(interfaceStamp);
   const [rows, setRows] = useState<Row[]>([]),
     [reports, setReports] = useState<Record<string, ScopeReports>>({});
   const [query, setQuery] = useState(""),
@@ -218,13 +221,24 @@ export function DeviceScanPanel({
     metadataActive = useRef(false),
     metadataEpoch = useRef(0),
     metadataContext = useRef("");
-  const pausedRef = useRef(paused);
-  pausedRef.current = paused;
+  const interfaceChanged =
+    authorizedInterface !== interfaceStamp &&
+    (rows.length > 0 || Object.keys(reports).length > 0);
+  const queuePaused = paused || interfaceChanged;
+  const pausedRef = useRef(queuePaused);
+  pausedRef.current = queuePaused;
   const connectedRef = useRef(connected);
   connectedRef.current = connected;
   const rowsRef = useRef(new Map<string, Row>()),
     reportsRef = useRef<Record<string, ScopeReports>>({}),
     seenRouted = useRef<RoutedScanResult | null>(null);
+  const currentInterface = useRef(interfaceStamp);
+  if (currentInterface.current !== interfaceStamp) {
+    currentInterface.current = interfaceStamp;
+    // Retire old owners before a late response can paint in the new context.
+    scanEpoch.current++;
+    metadataEpoch.current++;
+  }
   useEffect(() => {
     onInventory?.(
       rows.map((row) => ({
@@ -386,6 +400,7 @@ export function DeviceScanPanel({
     setMessage(
       "Discovery observations received. Device details are read sequentially for the shown page.",
     );
+    setAuthorizedInterface(interfaceStamp);
     setPaused(false);
     pausedRef.current = false;
     setKick((n) => n + 1);
@@ -480,7 +495,7 @@ export function DeviceScanPanel({
     }
     if (
       !connected ||
-      paused ||
+      queuePaused ||
       scanBusy ||
       metadataActive.current ||
       !shownRef.current.some((row) => row.state === "pending")
@@ -557,7 +572,7 @@ export function DeviceScanPanel({
     localAddress,
     visibleKey,
     interfaceIdentity,
-    paused,
+    queuePaused,
     scanBusy,
     kick,
   ]);
@@ -643,6 +658,7 @@ export function DeviceScanPanel({
     );
   }
   function resume() {
+    setAuthorizedInterface(interfaceStamp);
     pausedRef.current = false;
     setPaused(false);
     setKick((n) => n + 1);
@@ -1005,9 +1021,15 @@ export function DeviceScanPanel({
             page.
           </p>
         )}
-        {paused && (
+        {queuePaused && (
           <p role="status">
             Automatic device details paused. Pending rows remain unread.
+          </p>
+        )}
+        {interfaceChanged && (
+          <p role="status">
+            Earlier observations are retained from the previous interface.
+            Resume shown-page details or read them again explicitly.
           </p>
         )}
         {error && (
@@ -1086,7 +1108,7 @@ export function DeviceScanPanel({
           </label>
         </div>
         <div className="button-row">
-          <button disabled={!metadataBusy || paused} onClick={stop}>
+          <button disabled={!metadataBusy || queuePaused} onClick={stop}>
             <Square size={14} /> Stop device details
           </button>
           <button disabled={busy || !connected || !pending} onClick={resume}>

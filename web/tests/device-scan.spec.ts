@@ -76,30 +76,27 @@ async function scanPeer(count = 1) {
 }
 async function openScan(page: Page) {
   await page.goto("/");
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
-  const panel = page.getByRole("region", {
-    name: "BACnet device scan",
-    exact: true,
-  });
+  await page.getByRole("button", { name: /^Connect to a controller/ }).click();
   await expect(
-    panel.getByRole("button", { name: "Scan BACnet/IP devices", exact: true }),
+    page.getByRole("button", { name: "2 · Discover & select", exact: true }),
   ).toBeDisabled();
   await page
     .getByLabel("Local bind address / UDP port", { exact: true })
     .fill(`127.0.0.1:${await freePort()}`);
-  await page.getByLabel("Router IP (optional)", { exact: true }).fill("");
-  await page
-    .getByLabel("MS/TP destination network (optional)", { exact: true })
-    .fill("");
-  await page
-    .getByLabel("BBMD address / UDP port (optional)", { exact: true })
-    .fill("");
   await page
     .getByRole("button", { name: "Open interface", exact: true })
     .click();
   await expect(
     page.getByText("BACnet interface open", { exact: true }),
   ).toBeVisible();
+  await page
+    .getByRole("navigation", { name: "Discovery method" })
+    .getByRole("button", { name: "Direct BACnet/IP", exact: true })
+    .click();
+  const panel = page.getByRole("region", {
+    name: "BACnet device scan",
+    exact: true,
+  });
   await panel
     .getByLabel("Discovery response seconds", { exact: true })
     .fill("1");
@@ -238,6 +235,10 @@ test("Scan receives real IP/routed identities, reads actual names and Program ob
         exact: true,
       }),
     ).toBeEnabled();
+    await page
+      .getByRole("navigation", { name: "Discovery method" })
+      .getByRole("button", { name: "Router & trunk", exact: true })
+      .click();
     const routed = page.getByRole("region", {
       name: "Routed BACnet discovery",
       exact: true,
@@ -264,11 +265,12 @@ test("Scan receives real IP/routed identities, reads actual names and Program ob
       })
       .click();
     await expect(
-      routed.getByRole("link", {
-        name: "View named Scan results",
-        exact: true,
-      }),
-    ).toHaveAttribute("href", "#bacnet-device-scan");
+      routed.getByLabel("Controller name lookup", { exact: true }),
+    ).toContainText("of 2 controller names read");
+    await page
+      .getByRole("navigation", { name: "Discovery method" })
+      .getByRole("button", { name: "Direct BACnet/IP", exact: true })
+      .click();
     await expect(rows).toHaveCount(4);
     await expect(
       rows.filter({ hasText: "Routed named controller" }),
@@ -352,20 +354,30 @@ test("Scan receives real IP/routed identities, reads actual names and Program ob
     ).toBe("'=Named Controller 01");
     await panel
       .getByRole("button", {
-        name: `Use controller ${peer.router}/3001:7/device,4190090`,
+        name: `Open controller ${peer.router}/3001:7/device,4190090`,
         exact: true,
       })
       .click();
     await expect(
-      page.getByLabel("Unicast target", { exact: true }),
-    ).toHaveValue("3001:7");
-    await expect(
-      page.getByLabel("Router IP (optional)", { exact: true }),
-    ).toHaveValue(peer.router);
-    await expect(
-      page.getByLabel("MS/TP destination network (optional)", { exact: true }),
-    ).toHaveValue("3001");
-    expect(connections).toBe(1);
+      page.getByRole("region", { name: "Controller overview" }),
+    ).toContainText("Routed named controller");
+    await expect(page.getByLabel("Selected controller path")).toContainText(
+      "3001:7",
+    );
+    await expect(page.getByLabel("Selected controller path")).toContainText(
+      peer.router,
+    );
+    expect(connections).toBe(2);
+    await page
+      .getByRole("button", { name: "Change controller", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "2 · Discover & select", exact: true })
+      .click();
+    await page
+      .getByRole("navigation", { name: "Discovery method" })
+      .getByRole("button", { name: "Direct BACnet/IP", exact: true })
+      .click();
     await panel
       .getByLabel("Discovery source", { exact: true })
       .selectOption("all");
@@ -374,14 +386,17 @@ test("Scan receives real IP/routed identities, reads actual names and Program ob
       .fill("");
     await panel
       .getByRole("button", {
-        name: `Use controller IP/127.0.0.1:${peer.first}/device,4190090`,
+        name: `Open controller IP/127.0.0.1:${peer.first}/device,4190090`,
         exact: true,
       })
       .click();
+    await expect(page.getByLabel("Selected controller path")).toContainText(
+      `127.0.0.1:${peer.first}`,
+    );
     await expect(
-      page.getByLabel("Unicast target", { exact: true }),
-    ).toHaveValue(`127.0.0.1:${peer.first}`);
-    expect(connections).toBe(1);
+      page.getByRole("region", { name: "Controller overview" }),
+    ).toContainText("=Named Controller 01");
+    expect(connections).toBe(3);
   } finally {
     await request.post("/api/bacnet/disconnect", { headers, data: {} });
     const result = await peer.close();
@@ -527,7 +542,7 @@ test("a changed scan view suppresses a delayed real metadata result and no hidde
     await waiting;
     await expect(
       panel.getByRole("button", {
-        name: `Use controller IP/127.0.0.1:${peer.first}/device,4190090`,
+        name: `Open controller IP/127.0.0.1:${peer.first}/device,4190090`,
         exact: true,
       }),
     ).toBeDisabled();

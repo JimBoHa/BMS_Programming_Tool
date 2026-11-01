@@ -1312,5 +1312,14 @@
     "pdf_pages_or_section": "docs/device-instance-commissioning.md",
     "status": "implemented",
     "implementation_or_gap": "Guided local router discovery and router/trunk/controller selectors fill exact commissioning targets; verified names reuse the shared Scan inventory. Explicit standard Device.object-identifier WriteProperty to a pinned IPv4 or router/DNET/MAC station. One-use identity/configuration-bound review, scoped new-ID collision checks, site allocation confirmation, fresh preflight, single-attempt dispatch, durable intent/results, readback and restart reconciliation. Unsupported/read-only controllers require vendor tooling; no proprietary application transfer, reset, automatic retry/rollback or physical-controller acceptance claim. See docs/device-instance-commissioning.md."
+  },
+  {
+    "id": "QA-ACQUISITION-001",
+    "feature": "Actual scan and survey freshness with explicit interface resume",
+    "acceptance_criterion": "A real browser scan opens its randomly identified loopback controller; repeated explicit hardware surveys reflect an independently changed input; reconnecting retains observations without restarting metadata until explicit resume, with recorded proof of read-only services.",
+    "evidence": "Production HTTP, BACpypes3 loopback peer, randomized identities/values and Chromium/WebKit workspace tests without API interception.",
+    "pdf_pages_or_section": "docs/scan-survey-freshness.md; docs/workflow-style-guide.md",
+    "status": "implemented",
+    "implementation_or_gap": "Interface/bind/epoch ownership retires late scan and metadata results and pauses retained pending observations until explicit resume, reread or new scan. Same-interface shown-page behavior and completed source evidence remain. Actual browser/UDP scan-to-controller-to-survey tests prove changed snapshot values and same-configuration reopen behavior; peer joins and mutation-service rejection preserve evidence. No encoded site scans, physical device/adapter/route qualification, Bluetooth configuration or native program transfer."
   }
 ]
