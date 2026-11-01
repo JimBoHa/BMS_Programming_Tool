@@ -508,5 +508,10 @@
     "feature": "Native effective Real-default controller transfer",
     "status": "implemented",
     "scope": "Program controller-context capture/review/apply/readback for one existing class 526/527 Real default; fresh application/directory/selected-effective-value guards, preservation of other fresh merged values, capacity and credentials/expiry checks, one-use typed plans, readable durable intent, single File 3 restore, full native/effective-setting verification and restart/readback recovery without replay. Actual direct/routed UDP and browser qualification; no general graph/package/resource/hardware/BTCVT/physical acceptance claim. JCI-03/JCI-09 remain partial."
+  },
+  {
+    "feature": "Captured controller application operation support",
+    "status": "implemented",
+    "scope": "The controller application read/capture response includes source ID/hash/Device/configuration-bound operation analysis. The existing typed compiler recognizes actual fully framed sources, including unknown models, while transfer remains gated by captured vendor/root coherence, plain IPv4 and its separate native protocol/parameter/capacity/review/readback workflow. Frontend retains exact source ownership and rejects another capture. General logic remains unavailable; release/packages and physical acceptance are not inferred. Wider JCI-01 package/release/result correlation and native-service-only acquisitions remain partial. See docs/application-operation-capabilities.md."
   }
 ]

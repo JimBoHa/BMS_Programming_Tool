@@ -135,6 +135,11 @@ async def test_application_is_acquired_from_actual_file_and_cannot_be_reused_for
     result = await service.read_application(target)
     assert result["status"] == "read" and result["identity_verified"]
     assert result["application"]["diagrams"][0]["name"] == "Authored field sequence"
+    operations = result["operation_capabilities"]
+    assert operations["source"]["sha256"] == result["receipt"]["sha256"]
+    assert operations["source"]["capture_id"] == result["receipt"]["id"]
+    assert operations["source"]["device_identity"]["vendor-identifier"] == 999
+    assert not operations["can_apply"] and not operations["field_actions"]
     capture = result["receipt"]["id"]
     assert service.captures(target)[0]["id"] == capture
     graph = service.diagram({**target, "capture_id": capture, "ref": "site/575_1"})

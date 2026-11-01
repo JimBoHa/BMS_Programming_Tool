@@ -1348,5 +1348,14 @@
     "pdf_pages_or_section": "docs/native-default-transfer.md; docs/native-application-transfer.md",
     "status": "implemented",
     "implementation_or_gap": "Program controller-context capture/review/apply/readback for one existing class 526/527 Real default; fresh application/directory/selected-effective-value guards, preservation of other fresh merged values, capacity and credentials/expiry checks, one-use typed plans, readable durable intent, single File 3 restore, full native/effective-setting verification and restart/readback recovery without replay. Actual direct/routed UDP and browser qualification; no general graph/package/resource/hardware/BTCVT/physical acceptance claim. JCI-03/JCI-09 remain partial."
+  },
+  {
+    "id": "COMM-OPERATION-CAPS-001",
+    "feature": "Captured-source native operation capabilities",
+    "acceptance_criterion": "Derive operation support from an actual controller File and identity/interface evidence; distinguish diagram reading, narrow typed instance/name compilation, connected transfer preflight, general logic, package/release compatibility and physical acceptance without model-selected inventories or field actions.",
+    "evidence": "Actual MOI identity parser and authored UDP File acquisition; Chromium/WebKit controller application workflows.",
+    "pdf_pages_or_section": "docs/application-operation-capabilities.md",
+    "status": "implemented",
+    "implementation_or_gap": "The controller application read/capture response includes source ID/hash/Device/configuration-bound operation analysis. The existing typed compiler recognizes actual fully framed sources, including unknown models, while transfer remains gated by captured vendor/root coherence, plain IPv4 and its separate native protocol/parameter/capacity/review/readback workflow. Frontend retains exact source ownership and rejects another capture. General logic remains unavailable; release/packages and physical acceptance are not inferred. Wider JCI-01 package/release/result correlation and native-service-only acquisitions remain partial."
   }
 ]

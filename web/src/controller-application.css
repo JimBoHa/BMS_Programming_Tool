@@ -1,4 +1,5 @@
 .controller-application {
+  min-width: 0;
   margin-block: 1.5rem;
   border-block: 1px solid var(--border, #cedcdd);
   padding-block: 1rem;
@@ -71,6 +72,49 @@
 }
 .native-signal-copy details p {
   font-size: 12px;
+}
+.application-operation-support {
+  margin-block: 1rem;
+  min-width: 0;
+}
+.application-operation-support p {
+  font-size: 14px;
+  line-height: 1.5;
+}
+.application-operation-support summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.application-operation-table {
+  overflow-x: auto;
+  max-width: 100%;
+  min-width: 0;
+}
+.application-operation-table table {
+  width: 100%;
+  min-width: 38rem;
+  font-size: 14px;
+}
+.application-operation-table th,
+.application-operation-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 8px;
+  border-bottom: 1px solid var(--border, #cedcdd);
+  font-size: 14px;
+}
+.application-operation-table tbody th {
+  position: static;
+  color: var(--ink, #142b38);
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.application-operation-table thead th {
+  font-size: 12px;
+}
+.application-operation-table td p {
+  margin-block: 0 8px;
 }
 @media (max-width: 800px) {
   .native-application-heading {
