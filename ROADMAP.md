@@ -193,6 +193,21 @@ original timing and evidence; do not mark it fixed by widening a timeout or by
 asserting that newer native routed-transfer budgets repair unrelated Schedule
 capture behavior.
 
+The focused Calendar/Schedule diagnostic slice extends COMM-DIAG-001: an explicit
+single-property trace accompanies the ordinary inventory and its exact original
+export, without extra reads or timeout changes. Optional bounded observations at
+the existing owned local UDP callback can retain a reflected frame discarded
+before the native multiplexer, without changing source acceptance. Direct/routed
+deliberate reference loss retains incomplete edit eligibility. Earlier signed primitive success
+does not establish the historical Source41 cause; QA-01 remains open for that
+cause and the separate String Schedule/source-filter/host-start investigations.
+
+The focused Schedule and owned-UDP diagnostic branches are integrated with the
+native Real/Boolean default and existing-wire compiler/transfer workspace. This
+integration preserves the separate native capability profiles, source-bound
+drafts and durable recovery paths. It does not resolve any historical missing
+reply or promote local protocol qualification into physical acceptance.
+
 ### Deploy and verify JCI changes
 
 | ID | Planned addition | Workspace | Acceptance / dependency |

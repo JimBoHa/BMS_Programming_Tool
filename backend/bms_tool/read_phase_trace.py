@@ -26,11 +26,17 @@ LIMITS = {
     "largest_hashable_packet": MAX_DATAGRAM,
 }
 VISIBILITY = (
-    "APDU observations are owned native handoffs, not socket transmission. Receive bytes are "
+    "APDU observations are owned native handoffs, not socket transmission. Multiplexer bytes are "
     "observed at the native multiplexer, downstream of the UDP callback and server dispatch. "
     "This is not all UDP ingress, physical IP destination or device-processing timing. "
     "Nominal wait deadlines are call-site references, not actual timer firing observations. "
     "Activity after span/collector retirement is not observed."
+)
+UDP_VISIBILITY = (
+    " Optional owned_udp_callback_enter events observe this ready owned local UDP socket's "
+    "callback during the selected property read, before native server dispatch. Unrelated or "
+    "malformed datagrams can appear; temporal presence is not response association or acceptance. "
+    "This is not all network UDP, a physical destination or transmit capture."
 )
 _CURRENT = ContextVar("bms-read-phase-trace", default=None)
 
@@ -171,7 +177,9 @@ class Collector:
             else "complete",
             "started_at": self.started_at,
             "finished_elapsed_ms": self.finished_ms,
-            "visibility": VISIBILITY,
+            "visibility": VISIBILITY
+            + (UDP_VISIBILITY if getattr(self, "include_udp_ingress", False) else ""),
+            "udp_ingress_requested": getattr(self, "include_udp_ingress", False),
             "limits": dict(LIMITS),
             "counts": {
                 "reads": self.requests,
@@ -251,6 +259,8 @@ def start_span(obj, prop, index, timeout):
     if collector is None:
         return None
     try:
+        if getattr(collector, "focus", None) is not None and (obj, prop, index) != collector.focus:
+            return None
         return collector.span(obj, prop, index, timeout)
     except BaseException:
         try:
@@ -273,9 +283,11 @@ def retire(span, **fields):
 
 
 @contextmanager
-def capture():
+def capture(*, focus=None, include_udp_ingress=False):
     try:
         collector = Collector()
+        collector.focus = focus
+        collector.include_udp_ingress = include_udp_ingress
     except BaseException:
         collector = None
     token = _CURRENT.set(collector)
@@ -321,3 +333,38 @@ def wait_started(span, timeout):
             )
         except BaseException:
             _error(span)
+
+
+def wants_udp(span):
+    try:
+        return (
+            span is not None
+            and span.active
+            and span.collector.active
+            and getattr(span.collector, "include_udp_ingress", False)
+        )
+    except BaseException:
+        _error(span)
+        return False
+
+
+def observer_unavailable(span, reason):
+    if span is not None:
+        _error(span)
+        observe(span, "owned_udp_observer_unavailable", reason=reason)
+
+
+def udp_callback(span, data, peer, endpoint):
+    try:
+        if wants_udp(span):
+            span.packet(
+                "owned_udp_callback_enter",
+                data,
+                peer_ip=str(peer[0]),
+                peer_port=int(peer[1]),
+                local_ip=str(endpoint[0]),
+                local_port=int(endpoint[1]),
+                association="Observed during read; not a matched response.",
+            )
+    except BaseException:
+        _error(span)

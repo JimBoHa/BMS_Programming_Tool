@@ -32,7 +32,7 @@ from bacpypes3.primitivedata import (
 from .bacnet_exchange import confirmed_exchange
 from .bacnet_values import json_value
 from .device_details import _InterfaceChanged
-from .ipv4_ingress import raw_ingress
+from .ipv4_ingress import observe_owned_udp, raw_ingress
 from .read_phase_trace import multiplexer_packet, observe, retire, start_span, wait_started
 from .scoped_hooks import ScopedAttribute
 
@@ -269,7 +269,8 @@ class PropertyEvidence:
 
         hook = ScopedAttribute(mux, "confirmation", receive)
         try:
-            yield evidence
+            with observe_owned_udp(session["app"], layer, observer):
+                yield evidence
         finally:
             listening = False
             hook.close()
