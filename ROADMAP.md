@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 168 scoped criteria: 114
+The public requirement register currently records 169 scoped criteria: 115
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -254,7 +254,7 @@ inventory or an assertion that every release accepts the same application.
 | BASE-03 | Keep requirement IDs, evidence classes and dependency/acceptance status current | Update the public register when an implemented slice is verified; distinguish code, simulation, loopback, reference-oracle and physical results |
 | UX-01 | Finish full target propagation to older trends and single-log history views | Trends & Alarms: use the complete authoritative ControllerTarget, discovered point choices and stale-result invalidation instead of repeated manual addresses |
 | UX-02 | Consolidate a searchable change/receipt ledger | Delivered [read-only recorded Changes ledger](docs/change-ledger.md): local drafts, eight evidence families, exact original route/interface, recorded outcomes/readback, bounded search and recovery navigation. Remaining: centralize unapplied transient reviews and add providers when they gain retained journals. Separate adapter transactions remain separate |
-| UX-03 | Implement responsive navigation and inspector drawers | Preserve desktop engineering tables and current teal design; keyboard/touch focus, labelled states and draft preservation on smaller screens |
+| UX-03 | Implement responsive navigation and inspector drawers | Delivered [primary responsive workspace panels](docs/responsive-workspace.md): labelled menu/task/tool controls, controller explorer, graph and CAF properties; touch/keyboard focus, repeated selection, retained drafts and resize. Desktop teal tabs/columns remain; full-page manufacturer engineering forms keep their existing task layouts |
 | UX-04 | Apply common source, unavailable-capability and recovery presentation | Partial: [native backup and readback effects](docs/native-application-transfer.md#backup-and-verification-effects) are explicit in controls and new evidence. Complete source/capability/recovery presentation and draft ownership in remaining older task views |
 | QA-02 | Preserve the useful local real-wire acquisition and route-handoff test ideas | Existing browser suites: random independent peer, actual HTTP/UDP, changed later sensor reading, nondefault ports, no implicit connection/write and no duplicate fixture stack. [CAF race/draft regressions](docs/caf-workflow-validation.md) now follow the current entry/task/save workflow and pin fixture imports; their original eight scenarios remain intact |
 | SCH-01 | Complete native Calendar/exception/context editing and source-safe destination linking | Schedules: preserve existing guarded weekly-day and qualified String Schedule Apply; add typed special events and actual target/time/priority semantics |

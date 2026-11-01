@@ -1,4 +1,8 @@
 import {
+  openNativeCompiler,
+  expectWorkspaceNavigationLocked,
+} from "./workspace-navigation";
+import {
   test,
   expect,
   type Page,
@@ -72,14 +76,7 @@ async function open(page: Page, endpoint: string, routed: boolean) {
   await expect(
     page.getByRole("region", { name: "Controller overview" }),
   ).toContainText("Authored controller");
-  await page
-    .getByRole("navigation", { name: "Workspace tasks" })
-    .getByRole("button", { name: "Program", exact: true })
-    .click();
-  await page
-    .getByRole("navigation", { name: "Current task tools" })
-    .getByRole("button", { name: "Native backup defaults", exact: true })
-    .click();
+  await openNativeCompiler(page);
   const panel = page.getByRole("region", {
     name: "Native default controller transfer",
     exact: true,
@@ -273,11 +270,7 @@ with zipfile.ZipFile(sys.argv[1]) as z:
         "**/signal-default/transfer/apply",
       );
       await apply.click();
-      await expect(
-        page
-          .getByRole("navigation", { name: "Main navigation" })
-          .getByRole("button", { name: "Library", exact: true }),
-      ).toBeDisabled();
+      await expectWorkspaceNavigationLocked(page);
       await expect(
         page
           .getByLabel("Working context")
@@ -415,14 +408,7 @@ test("lost commit acknowledgement recovers retained web receipt after reload wit
       .getByRole("region", { name: "Known controller connection" })
       .getByRole("button", { name: "Open controller", exact: true })
       .click();
-    await page
-      .getByRole("navigation", { name: "Workspace tasks" })
-      .getByRole("button", { name: "Program", exact: true })
-      .click();
-    await page
-      .getByRole("navigation", { name: "Current task tools" })
-      .getByRole("button", { name: "Native backup defaults", exact: true })
-      .click();
+    await openNativeCompiler(page);
     const recovered = page.getByRole("region", {
       name: "Native default controller transfer",
       exact: true,
@@ -546,14 +532,7 @@ test("changing the selected station retires transfer review and retains the orig
       .getByRole("region", { name: "Known controller connection" })
       .getByRole("button", { name: "Open controller", exact: true })
       .click();
-    await page
-      .getByRole("navigation", { name: "Workspace tasks" })
-      .getByRole("button", { name: "Program", exact: true })
-      .click();
-    await page
-      .getByRole("navigation", { name: "Current task tools" })
-      .getByRole("button", { name: "Native backup defaults", exact: true })
-      .click();
+    await openNativeCompiler(page);
     await expect(
       panel.getByRole("region", {
         name: "Reviewed controller default transfer",

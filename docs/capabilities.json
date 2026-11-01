@@ -593,5 +593,10 @@
     "feature": "Read-only Changes ledger",
     "status": "implemented",
     "scope": "Changes combines bounded audit/native/instance/schedule/BBMD/event/Temco/ownership snapshots. Exact route and serial interface matching, later-readback qualification, corruption visibility, strict cursors, local draft retention, stale-response retirement and original source-response Blob downloads. Existing tools own review/apply/recovery; unapplied transient reviews and providers without retained records remain outside this profile. No field requests or new physical/native capability claim. See docs/change-ledger.md. Native transfer rows distinguish instance/name, Real/Boolean defaults and existing-wire source edits, preserve engineering references and original-attempt dispatch facts separately from later readback, and open matching Program or identity tools. Unknown kinds retain evidence without guessed tool actions."
+  },
+  {
+    "feature": "Responsive workspace navigation and properties",
+    "status": "implemented",
+    "scope": "Below 900 px, primary navigation, controller explorer, block palette/inspectors and CAF scalar properties use native modal presentation with explicit focus cycling/restoration and retained child instances. Task/tool selectors preserve existing choices and disabled guards. Explicit node activation, repeated selection, stale source retirement, visible property/catalog errors and labelled local/controller context remain distinct from field actions. Desktop layout, graph drag/wiring/undo and source/route acquisition are preserved. Other full-page engineering views keep their task layouts; no new compiler/transfer or physical acceptance claim. See docs/responsive-workspace.md."
   }
 ]

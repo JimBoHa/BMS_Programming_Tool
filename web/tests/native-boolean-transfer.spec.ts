@@ -1,4 +1,8 @@
 import {
+  openNativeCompiler,
+  expectWorkspaceNavigationLocked,
+} from "./workspace-navigation";
+import {
   test,
   expect,
   type Page,
@@ -43,14 +47,7 @@ async function selectController(page: Page, endpoint: string, routed: boolean) {
   await expect(
     page.getByRole("region", { name: "Controller overview", exact: true }),
   ).toContainText("Authored controller");
-  await page
-    .getByRole("navigation", { name: "Workspace tasks" })
-    .getByRole("button", { name: "Program", exact: true })
-    .click();
-  await page
-    .getByRole("navigation", { name: "Current task tools" })
-    .getByRole("button", { name: "Native backup defaults", exact: true })
-    .click();
+  await openNativeCompiler(page);
 }
 async function fields(page: Page) {
   const compiler = page.getByRole("region", {
@@ -243,11 +240,7 @@ for (const routed of [false, true]) {
           .getByRole("button", { name: "Inspect record", exact: true })
           .first(),
       ).toBeDisabled();
-      await expect(
-        page
-          .getByRole("navigation", { name: "Main navigation" })
-          .getByRole("button", { name: "Library", exact: true }),
-      ).toBeDisabled();
+      await expectWorkspaceNavigationLocked(page);
       await expect(
         panel.getByRole("button", {
           name: "Stop native operation",

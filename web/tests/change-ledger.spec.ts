@@ -1,3 +1,4 @@
+import { chooseWorkspaceTask } from "./workspace-navigation";
 import {
   test,
   expect,
@@ -69,10 +70,11 @@ async function session(request: APIRequestContext) {
 }
 async function openLedger(page: Page) {
   await page.goto("/");
-  await page.getByRole("button", { name: "Program", exact: true }).click();
-  await tasks(page)
-    .getByRole("button", { name: "Changes", exact: true })
+  await page
+    .getByRole("region", { name: "Continue local work", exact: true })
+    .getByRole("button", { name: "Program", exact: true })
     .click();
+  await chooseWorkspaceTask(page, "Changes");
   await expect(ledger(page)).toBeVisible();
 }
 

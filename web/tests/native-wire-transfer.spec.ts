@@ -1,3 +1,7 @@
+import {
+  openNativeCompiler,
+  expectWorkspaceNavigationLocked,
+} from "./workspace-navigation";
 import { test, expect, type Page, type Locator } from "@playwright/test";
 import { nativeDefaultPeer } from "./native-default-peer";
 import { freePort } from "./workflow-peer";
@@ -28,14 +32,7 @@ async function select(page: Page, endpoint: string, routed: boolean) {
   await expect(
     page.getByRole("region", { name: "Controller overview", exact: true }),
   ).toContainText("Authored native wire controller");
-  await page
-    .getByRole("navigation", { name: "Workspace tasks", exact: true })
-    .getByRole("button", { name: "Program", exact: true })
-    .click();
-  await page
-    .getByRole("navigation", { name: "Current task tools", exact: true })
-    .getByRole("button", { name: "Native backup defaults", exact: true })
-    .click();
+  await openNativeCompiler(page);
 }
 async function open(
   page: Page,
@@ -212,11 +209,7 @@ for (const routed of [false, true]) {
           exact: true,
         }),
       ).toBeDisabled();
-      await expect(
-        page
-          .getByRole("navigation", { name: "Main navigation", exact: true })
-          .getByRole("button", { name: "Library", exact: true }),
-      ).toBeDisabled();
+      await expectWorkspaceNavigationLocked(page);
       await expect(
         panel.getByRole("button", {
           name: "Stop native operation",
