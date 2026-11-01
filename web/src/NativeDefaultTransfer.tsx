@@ -8,6 +8,11 @@ import {
 } from "./api";
 import { controllerKey, type ControllerContext } from "./workflow";
 import {
+  previousRealDefaultMatches,
+  realRecoveryProfile,
+  type NativeDefaultRecoveryDocument,
+} from "./nativeDefaultRecoveryContract";
+import {
   wireTransferReviewMatches,
   wireTransferReceiptMatches,
 } from "./nativeWireTransferContract";
@@ -49,6 +54,8 @@ export function NativeDefaultTransfer({
   booleanDefault = false,
   wireSource = false,
   otherOperationBusy = false,
+  recoveryDraft = null,
+  onRecoveryPrepared,
 }: {
   controller?: ControllerContext | null;
   source: Data | null;
@@ -61,6 +68,8 @@ export function NativeDefaultTransfer({
   booleanDefault?: boolean;
   wireSource?: boolean;
   otherOperationBusy?: boolean;
+  recoveryDraft?: NativeDefaultRecoveryDocument | null;
+  onRecoveryPrepared?: (document: NativeDefaultRecoveryDocument) => void;
 }) {
   const operationProfile = wireSource
     ? "native-effective-wire-source-transfer/1"
@@ -91,6 +100,8 @@ export function NativeDefaultTransfer({
   const [receipt, setReceipt] = useState<{ data: Data; blob: Blob } | null>(
     null,
   );
+  const receiptNow = useRef(receipt);
+  receiptNow.current = receipt;
   const [backup, setBackup] = useState(""),
     [restore, setRestore] = useState("");
   const [confirmed, setConfirmed] = useState(false),
@@ -117,6 +128,7 @@ export function NativeDefaultTransfer({
     ],
     source?.snapshot_sha256,
     proposal,
+    recoveryDraft?.data.origin_sha256,
   ]);
   const ownerNow = useRef(owner);
   if (ownerNow.current !== owner) {
@@ -247,6 +259,13 @@ export function NativeDefaultTransfer({
         const result = await apiJsonDocument(base + transferPath + "/preview", {
           ...targetOf(controller!),
           ...proposal,
+          ...(recoveryDraft?.data.proposal
+            ? {
+                recovery_parent_receipt:
+                  recoveryDraft.data.origin.parent_receipt_id,
+                recovery_origin_sha256: recoveryDraft.data.origin_sha256,
+              }
+            : {}),
           operation_id: id,
         });
         const data = result.data,
@@ -259,6 +278,13 @@ export function NativeDefaultTransfer({
           !sameTarget(data.target || {}, controller!) ||
           data.identity?.device !== controller!.device ||
           data.capture_id !== source!.capture_id ||
+          (recoveryDraft?.data.proposal
+            ? data.recovery_origin_sha256 !==
+                recoveryDraft.data.origin_sha256 ||
+              JSON.stringify(data.recovery_origin) !==
+                JSON.stringify(recoveryDraft.data.origin)
+            : data.recovery_origin !== undefined ||
+              data.recovery_origin_sha256 !== undefined) ||
           (wireSource
             ? !wireTransferReviewMatches(data, source!, proposal!, field!)
             : ![
@@ -394,6 +420,53 @@ export function NativeDefaultTransfer({
     } catch (failure) {
       if (alive.current && ticket === receiptTicket.current)
         setError(String(failure));
+    }
+  }
+  async function preparePreviousDefault() {
+    if (
+      localLocked ||
+      operation.current ||
+      !source ||
+      !receipt ||
+      !onRecoveryPrepared
+    )
+      return;
+    const selectedReceipt = receipt,
+      key = ownerNow.current,
+      ticket = ++epoch.current,
+      receiptEpoch = receiptTicket.current;
+    cancel();
+    setPlan(null);
+    setError("");
+    setBusy(true);
+    try {
+      const document = await apiJsonDocument(
+        base + "/signal-default/recovery/prepare",
+        {
+          receipt_id: receipt.data.intent.id,
+          capture_id: source.capture_id,
+          snapshot_sha256: source.snapshot_sha256,
+        },
+      );
+      if (!previousRealDefaultMatches(document.data, source, receipt.data))
+        throw new Error(
+          "The previous-value proposal does not match this receipt and retained source.",
+        );
+      if (
+        current(key, ticket) &&
+        receiptTicket.current === receiptEpoch &&
+        receiptNow.current === selectedReceipt
+      )
+        onRecoveryPrepared(document);
+    } catch (failure) {
+      if (
+        current(key, ticket) &&
+        receiptTicket.current === receiptEpoch &&
+        receiptNow.current === selectedReceipt
+      )
+        setError(String(failure));
+    } finally {
+      if (alive.current) setBusy(false);
     }
   }
   async function saveBackup() {
@@ -559,6 +632,13 @@ export function NativeDefaultTransfer({
               ? "Review controller wire transfer"
               : "Review controller default transfer"}
           </h3>
+          {shown.data.recovery_origin && (
+            <p>
+              New transfer to the previous effective value from receipt{" "}
+              <code>{shown.data.recovery_origin.parent_receipt_id}</code>. This
+              review does not replay the earlier operation.
+            </p>
+          )}
           {wireSource ? (
             <p>
               {shown.data.wire_edit.diagram_ref} · connection{" "}
@@ -648,8 +728,14 @@ export function NativeDefaultTransfer({
       )}
       {busy && (
         <div role="status">
-          Native operation in progress.{" "}
-          <button onClick={cancel}>Stop native operation</button>
+          {operation.current ? (
+            <>
+              Native operation in progress.{" "}
+              <button onClick={cancel}>Stop native operation</button>
+            </>
+          ) : (
+            "Preparing the previous value from retained local evidence."
+          )}
         </div>
       )}
       {!!receipts.length && (
@@ -741,6 +827,15 @@ export function NativeDefaultTransfer({
             </p>
           )}
           <p>{observed?.error || observed?.errors?.join(" ")}</p>
+          {receipt.data.intent?.recovery_origin && (
+            <p>
+              New previous-value transfer from receipt{" "}
+              <code>
+                {receipt.data.intent.recovery_origin.parent_receipt_id}
+              </code>
+              . Original attempt and verification history remain retained.
+            </p>
+          )}
           {observed?.status === "verified" ? (
             <p>
               Native application bytes and effective saved settings verified.
@@ -775,7 +870,27 @@ export function NativeDefaultTransfer({
                   : "Read back native default transfer"}
               </button>
             )}
+            {!booleanDefault && !wireSource && onRecoveryPrepared && (
+              <button
+                disabled={
+                  localLocked ||
+                  !source ||
+                  status?.real_default_recovery_profile !== realRecoveryProfile
+                }
+                onClick={() => void preparePreviousDefault()}
+              >
+                Prepare previous Real default
+              </button>
+            )}
           </div>
+          {!booleanDefault && !wireSource && onRecoveryPrepared && (
+            <p className="muted">
+              Preparation uses this receipt and the selected retained backup
+              locally. Read a current backup first when connected. A new review
+              and confirmed transfer are required; this action sends no
+              controller request.
+            </p>
+          )}
           <details>
             <summary>Transfer and preservation evidence</summary>
             <pre>{JSON.stringify(receipt.data, null, 2)}</pre>
