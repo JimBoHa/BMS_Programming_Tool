@@ -1840,6 +1840,7 @@ export function App() {
                 >
                   <NativeCaf
                     embedded
+                    controller={controller}
                     visible={tab === "caf"}
                     incomingFile={incomingCaf}
                     onDocumentChange={setCafDocument}

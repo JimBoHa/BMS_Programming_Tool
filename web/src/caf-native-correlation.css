@@ -1,0 +1,58 @@
+.caf-native-correlation label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  min-width: 0;
+}
+.caf-native-correlation input,
+.caf-native-correlation select {
+  min-height: 36px;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+  font-size: 14px;
+}
+.caf-native-correlation .table-scroll {
+  margin: 16px 0;
+}
+.caf-native-correlation td {
+  overflow-wrap: anywhere;
+}
+.caf-native-correlation .card-body,
+.caf-native-correlation .card-body p,
+.caf-native-correlation table,
+.caf-native-correlation label {
+  font-size: 14px;
+  line-height: 1.5;
+}
+.caf-native-correlation h3 {
+  font-size: 16px;
+}
+.caf-native-correlation summary.card-header {
+  cursor: pointer;
+}
+.caf-native-correlation > details:not([open]) > summary > svg {
+  transform: rotate(-90deg);
+}
+.caf-native-correlation h4 {
+  margin: 16px 0;
+  font-size: 16px;
+}
+.caf-native-select {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+.caf-native-select select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 36px;
+}
+.caf-native-select svg {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}

@@ -23,13 +23,20 @@ const sha = (value: Buffer) => createHash("sha256").update(value).digest("hex");
 
 async function open(page: Page) {
   await page.goto("/");
-  await page.getByRole("button", { name: "CAF files", exact: true }).click();
+  const choosing = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: /^Open a CAF file/ }).click();
   const original = caf();
-  await page.locator('input[type=file][accept=".caf"]').setInputFiles({
+  await (
+    await choosing
+  ).setFiles({
     name: "authored-target.caf",
     mimeType: "application/octet-stream",
     buffer: original,
   });
+  await page
+    .getByRole("navigation", { name: "CAF application tasks", exact: true })
+    .getByRole("button", { name: "Compatibility", exact: true })
+    .click();
   const panel = page.getByRole("region", {
     name: "JCI target readiness",
     exact: true,

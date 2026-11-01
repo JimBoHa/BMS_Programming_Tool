@@ -1429,5 +1429,14 @@
     "pdf_pages_or_section": "docs/native-boolean-default-transfer.md",
     "status": "implemented",
     "implementation_or_gap": "Separate class530/531 Boolean DefaultValue3113 controller review/apply/readback profile. Fresh selected-effective-value and original application/static-directory guards, merge other fresh Boolean/numeric settings, actual capacity and identity/route/config/credential/expiry checks, one-use typed plans, durable original/payload/intent before one File3 restore, full native/effective preservation and operational verification. Uncertain/cancelled/lost-ack outcomes retain pending receipts and reconcile without replay. Web controls share the authoritative target, lock source/record/mode/navigation during operations, retain exact evidence, reject altered reviews and retire cross-profile plans without discarding drafts. Local direct/routed UDP and browser qualification; no site/BTCVT/general logic/new hardware/physical acceptance. See docs/native-boolean-default-transfer.md."
+  },
+  {
+    "id": "FMT-CAF-NATIVE-CORRELATION-001",
+    "feature": "Original CAF and retained native source identity comparison",
+    "acceptance_criterion": "Compare actual Device/root and engineering-record identities from an original CAF and immutable native backup, preserve source/route/coverage and contradictions, and never infer complete program equivalence or field permission.",
+    "evidence": "Authored literal CAF/native archives and immutable backup framing; JCI-07 source-association plan",
+    "pdf_pages_or_section": "docs/caf-native-source-correlation.md",
+    "status": "implemented",
+    "implementation_or_gap": "Read-only original CAF/native File3 comparison with immutable Files3/11/12 and manifest checks. Literal root Device/reference/class/instance/name/model and record-class/native-ID observations retain missing, duplicate, unavailable and conflicting references plus metadata/coverage. Exact target/source/query/paging and before-paint/ABA guards, original-baseline proposal exclusion and byte-verified original JSON export. Offline and selected routed-controller entries; no additional BACnet requests. Semantic logic/parameter/saved/live comparison, release/package/hardware/resource compatibility, persistent application association and physical acceptance remain separate; JCI-07 remains partial."
   }
 ]

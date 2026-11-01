@@ -39,6 +39,7 @@ from .caf_compare import compare_cafs
 from .caf_graph import CafGraph
 from .caf_hardware import CafHardwareBindings, HardwareExportRequest, HardwareMoveRequest
 from .caf_instance import CafInstanceChange, CafInstanceEditor, CafInstanceExport
+from .caf_native_correlation import CafNativeCorrelationRequest, correlate
 from .caf_scenarios import CafInputScenarios, CafScenarioStore
 from .caf_simulation import CafSimulationProfile
 from .cancelable_pulse_template import cancelable_pulse_template_router
@@ -1419,6 +1420,16 @@ def create_app(state_dir=None, *, operation_power=None):
         if id not in caf_files:
             raise ValueError("Open the CAF file first.")
         return caf_files[id]
+
+    @app.post("/api/caf/{id}/native-correlation")
+    def caf_native_correlation(id: str, body: CafNativeCorrelationRequest):
+        report = correlate(get_caf(id), backup_records, body)
+        raw = json.dumps(report, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
+        return Response(
+            raw,
+            media_type="application/json",
+            headers={"X-Studio-Artifact-Sha256": hashlib.sha256(raw).hexdigest()},
+        )
 
     @app.get("/api/jci/preflight/release-rules")
     def preflight_release_rules():
