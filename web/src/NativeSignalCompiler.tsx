@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { api, apiJsonDocument, apiBlobDocument, saveBlob } from "./api";
 import { controllerKey, type ControllerContext } from "./workflow";
@@ -6,6 +6,7 @@ import { NativeDefaultTransfer } from "./NativeDefaultTransfer";
 import { NativeBackupInspection } from "./NativeBackupInspection";
 import { NativeBackupComparison } from "./NativeBackupComparison";
 import { NativeBooleanTransferContext } from "./NativeBooleanTransferContext";
+import type { NativeDefaultRecoveryDocument } from "./nativeDefaultRecoveryContract";
 import "./native-signal-compiler.css";
 
 const base = "/bacnet/controller/native-application/signal-default";
@@ -73,6 +74,10 @@ export function NativeSignalCompiler({
     onBusyChange?.(busyOwners.current.size > 0);
   }
   const [pendingSource, setPendingSource] = useState("");
+  const [recovery, setRecovery] =
+    useState<NativeDefaultRecoveryDocument | null>(null);
+  const recoveryPanel = useRef<HTMLElement>(null),
+    pendingRecoveryFocus = useRef<string | null>(null);
   const busy = localBusy || transferBusy || booleanTransferBusy || parentBusy;
   const alive = useRef(true),
     epoch = useRef(0),
@@ -89,6 +94,26 @@ export function NativeSignalCompiler({
   }
   const source = loaded?.capture_id === choice ? loaded : null;
   const field = source?.fields.find((row: Data) => row.ref === fieldRef);
+  const shownRecovery =
+    recovery &&
+    source &&
+    recovery.data.origin.current_capture_id === source.capture_id &&
+    recovery.data.origin.current_snapshot_sha256 === source.snapshot_sha256 &&
+    recovery.data.origin.record_ref === fieldRef
+      ? recovery
+      : null;
+  const activeRecovery = shownRecovery?.data.proposal ? shownRecovery : null;
+  useLayoutEffect(() => {
+    const pending = pendingRecoveryFocus.current;
+    pendingRecoveryFocus.current = null;
+    if (pending && visible && shownRecovery?.data.origin_sha256 === pending) {
+      recoveryPanel.current?.focus({ preventScroll: true });
+      recoveryPanel.current?.scrollIntoView({
+        block: "nearest",
+        inline: "nearest",
+      });
+    }
+  });
   const fieldTransferSourceActive =
     !!controller?.interfaceOpen &&
     !!source &&
@@ -103,8 +128,9 @@ export function NativeSignalCompiler({
           field.encoded_sha256,
         ])
       : "";
-  const value =
-    draftKey && drafts[draftKey] !== undefined
+  const value = activeRecovery
+    ? activeRecovery.data.proposal.value_text
+    : draftKey && drafts[draftKey] !== undefined
       ? drafts[draftKey]
       : field
         ? numberText(field.effective_value)
@@ -116,6 +142,7 @@ export function NativeSignalCompiler({
     fieldRef,
     field?.encoded_sha256,
     value,
+    shownRecovery?.data.origin_sha256,
   ]);
   const ownerNow = useRef(owner);
   if (ownerNow.current !== owner) {
@@ -280,6 +307,10 @@ export function NativeSignalCompiler({
     epoch.current++;
     setReview(null);
     setError("");
+    if (shownRecovery) {
+      setRecovery(null);
+      return;
+    }
     setDrafts((previous) => {
       const copy = { ...previous };
       delete copy[draftKey];
@@ -539,6 +570,7 @@ export function NativeSignalCompiler({
                     <input
                       aria-label="Proposed native Real default"
                       value={value}
+                      readOnly={!!activeRecovery}
                       maxLength={128}
                       disabled={
                         transferBusy || booleanTransferBusy || parentBusy
@@ -546,6 +578,50 @@ export function NativeSignalCompiler({
                       onChange={(event) => edit(event.target.value)}
                     />
                   </label>
+                  {shownRecovery && (
+                    <section
+                      className="native-compiler-source"
+                      aria-label="Prepared previous Real default"
+                      ref={recoveryPanel}
+                      tabIndex={-1}
+                    >
+                      <h3>
+                        {shownRecovery.data.already_recorded
+                          ? "Previous value already recorded in this backup"
+                          : "Previous effective value prepared locally"}
+                      </h3>
+                      <p>
+                        Receipt{" "}
+                        <code>
+                          {shownRecovery.data.origin.parent_receipt_id}
+                        </code>{" "}
+                        · {field.ref} ·{" "}
+                        {numberText(shownRecovery.data.current_effective_value)}{" "}
+                        to{" "}
+                        {numberText(
+                          shownRecovery.data.previous_effective_value,
+                        )}
+                        .
+                      </p>
+                      <p>
+                        {shownRecovery.data.already_recorded
+                          ? "No transfer proposal was created. This retained backup does not establish current live state."
+                          : "A fresh controller review and both transfer confirmations are required. Other current saved settings remain current."}{" "}
+                        Your ordinary field draft remains retained separately.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          saveBlob(
+                            shownRecovery.blob,
+                            "native-previous-real-default-proposal.json",
+                          )
+                        }
+                      >
+                        Export exact previous-value proposal
+                      </button>
+                    </section>
+                  )}
                   <button
                     className={fieldTransferSourceActive ? "" : "primary"}
                     type="submit"
@@ -558,7 +634,9 @@ export function NativeSignalCompiler({
                     onClick={discard}
                     disabled={transferBusy || booleanTransferBusy || parentBusy}
                   >
-                    Discard selected field draft
+                    {shownRecovery
+                      ? "Discard previous-value proposal"
+                      : "Discard selected field draft"}
                   </button>
                 </>
               )}
@@ -662,6 +740,16 @@ export function NativeSignalCompiler({
         visible={visible}
         parentBusy={parentBusy || booleanTransferBusy}
         otherOperationBusy={booleanTransferBusy}
+        recoveryDraft={activeRecovery}
+        onRecoveryPrepared={(document) => {
+          pendingRecoveryFocus.current = document.data.origin_sha256;
+          epoch.current++;
+          setReview(null);
+          setError("");
+          setSearch("");
+          setFieldRef(document.data.origin.record_ref);
+          setRecovery(document);
+        }}
         onBusy={(value) => transferBusyChanged("real", value)}
         onCaptured={(id) => {
           setChoice(id);

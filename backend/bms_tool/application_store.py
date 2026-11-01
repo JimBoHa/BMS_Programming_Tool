@@ -272,6 +272,24 @@ class ApplicationStore:
             ).fetchall()
         return [self.receipt(r[0], include_events=include_events) for r in rows]
 
+    def verified_readback(self, receipt_id):
+        """Find the first immutable verified readback without materializing all events."""
+        identifier(receipt_id)
+        with self.store.connect() as db:
+            for (body,) in db.execute(
+                "SELECT body FROM application_transfer_events WHERE receipt_id=? ORDER BY sequence",
+                (receipt_id,),
+            ):
+                event = checked(body)
+                detail = event.get("detail")
+                if (
+                    event.get("stage") == "readback"
+                    and isinstance(detail, dict)
+                    and detail.get("status") == "verified"
+                ):
+                    return event
+        return None
+
     def resolve(self, receipt_id, readback):
         self.event(receipt_id, "readback", readback)
         if readback["status"] == "verified":

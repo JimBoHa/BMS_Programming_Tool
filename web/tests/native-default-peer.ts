@@ -34,6 +34,10 @@ async def main():
   line=sys.stdin.readline().strip()
   if not line:return
   if line=='selected43':real_slot(app.files,-10,struct.pack('>f',43))
+  elif line=='restore42':
+   import types
+   app.do_ReinitializeDeviceRequest=types.MethodType(NativePeer.do_ReinitializeDeviceRequest,app);controller_storage(app,bits='42280000')
+  elif line=='second17':real_slot(app.files,-5,struct.pack('>f',17.5))
   elif line=='wire-other-fresh':
    real_slot(app.files,0,struct.pack('>f',45));raw=bytearray(app.files[12]);raw[10:12]=b'\\x00'+bytes([header_crc(b'\\x00')^255]);app.files[12]=bytes(raw)
   elif line=='wire-application-changed':

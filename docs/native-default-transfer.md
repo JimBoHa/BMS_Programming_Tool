@@ -86,6 +86,10 @@ lists default receipts. No site data or controller archives belong in Git.
 
 ## API and qualification
 
+[Previous effective Real-default recovery](native-real-default-recovery.md)
+adds a local receipt-derived proposal and explicitly linked new review/transfer.
+It retains the guards above and does not replay an old operation or restore a ZIP.
+
 Token-admitted endpoints are
 `POST /api/bacnet/controller/native-application/signal-default/transfer/preview`
 and `/apply`. They use the same native operation lock, one-use plans, capture store,

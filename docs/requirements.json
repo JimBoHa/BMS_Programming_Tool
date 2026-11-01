@@ -1564,5 +1564,14 @@
     "pdf_pages_or_section": "docs/native-backup-comparison.md",
     "status": "implemented",
     "implementation_or_gap": "Original Files 3/11/12 remain manifest/hash-bound. Compare unique engineering references only within the same class; metadata hash multisets, missing/opaque/ambiguous records, preview/paging/scan budgets and acquisition limitations stay explicit. Local JSON retains original bytes and source/query/target/interface/ABA ownership. No saved-setting merge, semantic equivalence, compatibility migration, restore plan, controller query/write or physical acceptance. General JCI-02/JCI-09 scope remains partial."
+  },
+  {
+    "id": "COMM-NATIVE-REAL-RECOVERY-001",
+    "feature": "Receipt-derived previous effective native Real default",
+    "acceptance_criterion": "Prepare the exact previous effective value from verified original receipt/backup evidence without field traffic, then require a new source-bound confirmed transfer, current-setting preservation, durable lineage and full readback without replaying the old attempt.",
+    "evidence": "Authored native/saved-byte fixtures, strict local HTTP, actual direct/routed UDP peers and Chromium/WebKit workflow checks.",
+    "pdf_pages_or_section": "docs/native-real-default-recovery.md; docs/native-default-transfer.md; docs/workflow-style-guide.md",
+    "status": "implemented",
+    "implementation_or_gap": "Original possible-dispatch/historical-verification, manifest/payload/field/identity/route and exact current application/static-directory guards; finite float32 previous bits including signed zero; current other settings merged, lineage revalidated before durable new intent, one confirmed existing File-3 transfer and explicit uncertain readback after restart. Local drafts and exact evidence stay separate from field actions; late source/task/receipt replies retire. Boolean/wire/name/instance/general restore and physical acceptance remain separate; JCI-10 stays partial."
   }
 ]
