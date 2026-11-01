@@ -533,5 +533,10 @@
     "feature": "Offline native backup archive record inspection",
     "status": "implemented",
     "scope": "Offline Program inspection of original native backup File 3 records/properties with immutable capture/manifest/archive hash and original-station provenance. Reuses bounded record UI; unknown saved schemas and acquisition identity errors do not suppress readable archive evidence or grant compilation. All retained file hashes are checked; original values remain distinct from saved/live values; pending source/target/interface/ABA results retire before paint and compiler drafts survive. HTTP and authored UDP/disconnected/browser qualification; no queries, backup commands, new writes or physical/BTCVT claim."
+  },
+  {
+    "feature": "Retained native backup operation capabilities",
+    "status": "implemented",
+    "scope": "Source-bound offline operation analysis of actual retained Files3/11/12 separates archive/diagram reading, typed identity/name copies, saved merging, archive/effective Real defaults and connected transfer preflight. Recomputes retained root/vendor identity, shares exact effective-compiler qualification, retains unknown-schema errors and distinguishes captured transport from offline compilation. Twelve bounded rows and qualification evidence remain local; browser guards capture/manifest/archive/station, flags and stale ABA replies while drafts survive. General logic, packages and physical acceptance remain separate. No field queries, backup commands or write intent. See docs/native-backup-operation-capabilities.md."
   }
 ]

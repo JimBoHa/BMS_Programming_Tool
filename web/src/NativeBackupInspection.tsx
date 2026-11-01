@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import { NativeRecords, type NativeArchiveSource } from "./NativeRecords";
+import { NativeBackupCapabilities } from "./NativeBackupCapabilities";
 import {
   controllerKey,
   type ControllerContext,
@@ -157,6 +158,10 @@ export function NativeBackupInspection({
                 "Keep its original source evidence; no compilation or transfer is qualified by inspection."}
             </p>
           )}
+          <NativeBackupCapabilities
+            key={owner + source.snapshot_sha256}
+            source={source as NativeArchiveSource}
+          />
           <NativeRecords
             key={owner + source.sha256}
             kind="native-backup"

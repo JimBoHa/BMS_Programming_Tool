@@ -49,7 +49,7 @@ controller/interface before rendering, while existing request generations retire
 late replies. Changing targets or closing the interface hides the prior source.
 
 `COMM-OPERATION-CAPS-001` implements this captured-source slice. The wider JCI-01
-matrix remains partial: native-service-only acquisitions, offline CAF/package
+matrix remains partial: offline CAF/package
 provenance and release rules, retained transfer-result correlation, additional
 protocol/format families and independent physical qualification need further
 integration. A newly parsed source never grants a field write. Program’s separate
@@ -57,6 +57,11 @@ integration. A newly parsed source never grants a field write. Program’s separ
 but prepares its own operation-specific backup/review/transfer evidence. The
 [record explorer](native-record-explorer.md), operation table and local file-copy
 editor can inspect the same immutable source without discarding its local draft.
+
+[Native backup analysis](native-backup-operation-capabilities.md) now covers
+retained native-service-only File 3/11/12 sources separately. It evaluates the
+actual saved merge and shares source qualification with the effective-default
+compiler; a published-File capture is still not substituted for that snapshot.
 
 ## Local checks
 

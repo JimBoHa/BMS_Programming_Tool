@@ -713,6 +713,10 @@ def create_app(state_dir=None, *, operation_power=None):
     def native_backup_inspection_source(body: BackupInspectionSource):
         return backup_records.source(body.model_dump())
 
+    @app.post("/api/bacnet/controller/native-application/inspection/capabilities")
+    def native_backup_operation_capabilities(body: BackupInspectionSource):
+        return backup_records.capabilities(body.model_dump())
+
     @app.post("/api/bacnet/controller/native-application/inspection/records")
     def native_backup_record_list(body: BackupRecordsRequest):
         return backup_records.records(body.model_dump())
