@@ -1,0 +1,70 @@
+.native-backup-library {
+  padding: 24px;
+  min-width: 0;
+}
+.native-backup-library p,
+.native-backup-library td {
+  overflow-wrap: anywhere;
+}
+.native-backup-library form {
+  display: flex;
+  gap: 16px;
+  align-items: end;
+  flex-wrap: wrap;
+  margin-block: 24px;
+}
+.native-backup-library label {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.native-backup-library input,
+.native-backup-library select {
+  font-size: 14px;
+  min-width: 0;
+}
+.native-backup-list-scroll {
+  overflow-x: auto;
+  margin-block: 16px;
+}
+.native-backup-library table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.native-backup-library th,
+.native-backup-library td {
+  text-align: left;
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.native-backup-library caption {
+  text-align: left;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.native-backup-selection {
+  margin-top: 24px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.native-backup-library pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+@media (max-width: 600px) {
+  .native-backup-library {
+    padding: 16px;
+  }
+  .native-backup-library form,
+  .native-backup-library label {
+    width: 100%;
+  }
+  .native-backup-library th,
+  .native-backup-library td {
+    min-width: 120px;
+  }
+}

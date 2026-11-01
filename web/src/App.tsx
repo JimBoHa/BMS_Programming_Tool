@@ -155,6 +155,11 @@ const EquipmentWizard = lazy(() =>
 const DeviceHistory = lazy(() =>
   import("./DeviceHistory").then((m) => ({ default: m.DeviceHistory })),
 );
+const NativeBackupLibrary = lazy(() =>
+  import("./NativeBackupLibrary").then((m) => ({
+    default: m.NativeBackupLibrary,
+  })),
+);
 const NativeSignalCompiler = lazy(() =>
   import("./NativeSignalCompiler").then((m) => ({
     default: m.NativeSignalCompiler,
@@ -1534,7 +1539,7 @@ export function App() {
       setSurface("settings");
       return;
     }
-    if (view === "observations") {
+    if (view === "observations" || view === "native-backups") {
       setSurface("history");
       return;
     }
@@ -1680,6 +1685,7 @@ export function App() {
         ? [
             { id: "observations", label: "Recorded trends & alarms" },
             { id: "device-history", label: "Controller history" },
+            { id: "native-backups", label: "Native backups" },
           ]
         : surface === "settings"
           ? [
@@ -2552,6 +2558,8 @@ export function App() {
                 <SystemSimulation program={program} />
               ) : tab === "observations" ? (
                 <Observations />
+              ) : tab === "native-backups" ? (
+                <NativeBackupLibrary />
               ) : tab === "notifications" ? (
                 <Notifications />
               ) : tab === "field-trends" ? (

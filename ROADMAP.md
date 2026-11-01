@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-01. Implementation baseline: GitHub `main` at
-[`6daadc9c`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/6daadc9cc5eb1f9523ccac72168fe02f45e7d492).
+[`a826a2ec`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/a826a2ec28e598c0fd9c87067b53bc18038b41f1).
 
 ## Baseline and purpose
 
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 180 scoped criteria: 126
+The public requirement register currently records 181 scoped criteria: 127
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -255,6 +255,12 @@ The [read-only retained-backup comparison](docs/native-backup-comparison.md)
 compares original Files 3/11/12 and bounded recognized record/property evidence
 without a controller query. It does not merge saved values, infer semantic
 compatibility or supply the general restore operation still required by JCI-09.
+
+The [native backup catalog](docs/native-backup-lifecycle.md) adds reversible local
+archiving within the unchanged 128 active-capture limit. Original files and
+transfer/recovery references remain available, including across restart. This
+implements a bounded retention workflow; general controller restore and whole-state
+portability under JCI-09/10 and PORT-03 remain separate.
 
 ## Workspace and shared features
 
