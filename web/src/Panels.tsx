@@ -28,6 +28,12 @@ import type { Block, BmsNode, Program, Scan } from "./types";
 import { showValue } from "./types";
 import type { ActivityBindings } from "./activityContracts";
 import { programApi, saveBlob } from "./api";
+import {
+  ParameterDrafts,
+  parameterOwner,
+  parameterBaseline,
+  useParameterDraft,
+} from "./inspectorDrafts";
 
 export function Inspector({
   node,
@@ -45,6 +51,7 @@ export function Inspector({
   onActivityForceChange,
   sourceEpoch,
   onRefreshActivityPorts,
+  parameterDrafts,
 }: {
   node?: BmsNode;
   block?: Block;
@@ -61,6 +68,7 @@ export function Inspector({
   onActivityForceChange?: (forces: Record<string, ExecutionValue>) => void;
   sourceEpoch?: number;
   onRefreshActivityPorts?: () => void;
+  parameterDrafts: ParameterDrafts;
 }) {
   if (!node || !block)
     return (
@@ -176,7 +184,12 @@ export function Inspector({
                 onChange={(e) => param(key, e.target.checked)}
               />
             ) : Array.isArray(value) && key === "exceptions" ? (
-              <JsonParameter value={value} onChange={(v) => param(key, v)} />
+              <JsonParameter
+                value={value}
+                onChange={(v) => param(key, v)}
+                drafts={parameterDrafts}
+                owner={parameterOwner(program, node, key, "json")}
+              />
             ) : Array.isArray(value) &&
               value.every(
                 (item) => typeof item === "number" || isSourceNumber(item),
@@ -185,14 +198,23 @@ export function Inspector({
                 value={value}
                 onChange={(v) => param(key, v)}
                 array
+                drafts={parameterDrafts}
+                owner={parameterOwner(program, node, key, "numbers")}
               />
             ) : typeof value === "number" || isSourceNumber(value) ? (
-              <NumericParameter value={value} onChange={(v) => param(key, v)} />
+              <NumericParameter
+                value={value}
+                onChange={(v) => param(key, v)}
+                drafts={parameterDrafts}
+                owner={parameterOwner(program, node, key, "number")}
+              />
             ) : value === null || typeof value === "object" ? (
               <JsonParameter
                 value={value}
                 onChange={(v) => param(key, v)}
                 label={key + " parameter JSON"}
+                drafts={parameterDrafts}
+                owner={parameterOwner(program, node, key, "json")}
               />
             ) : (
               <input
@@ -366,20 +388,18 @@ function NumericParameter({
   value,
   onChange,
   array = false,
+  drafts,
+  owner,
 }: {
   value: any;
   onChange: (v: any) => void;
   array?: boolean;
+  drafts: ParameterDrafts;
+  owner: ReturnType<typeof parameterOwner>;
 }) {
-  const render = () =>
-    array ? value.map(numericToken).join(",") : numericToken(value);
-  const key = render();
-  const [text, setText] = useState(key),
-    [error, setError] = useState("");
-  useEffect(() => {
-    setText(key);
-    setError("");
-  }, [key]);
+  const editor = array ? "numbers" : "number";
+  const key = parameterBaseline(editor, value);
+  const { text, error, write } = useParameterDraft(drafts, owner, key, key);
   return (
     <>
       <input
@@ -387,7 +407,6 @@ function NumericParameter({
         value={text}
         onChange={(event) => {
           const next = event.target.value;
-          setText(next);
           try {
             const parsed = array
               ? next
@@ -396,9 +415,10 @@ function NumericParameter({
                   .map(sourceNumber)
               : sourceNumber(next);
             onChange(parsed);
-            setError("");
+            const accepted = parameterBaseline(editor, parsed);
+            write(accepted === key ? next : accepted, "", accepted, accepted);
           } catch (e) {
-            setError("Edit not applied: " + String(e));
+            write(next, "Edit not applied: " + String(e));
           }
         }}
       />
@@ -411,24 +431,29 @@ function JsonParameter({
   value,
   onChange,
   label = "Calendar exception JSON",
+  drafts,
+  owner,
 }: {
   value: unknown;
   onChange: (v: any) => void;
   label?: string;
+  drafts: ParameterDrafts;
+  owner: ReturnType<typeof parameterOwner>;
 }) {
-  const [text, setText] = useState(sourceStringify(value, 2));
-  const [error, setError] = useState("");
-  useEffect(() => {
-    setText(sourceStringify(value, 2));
-    setError("");
-  }, [sourceStringify(value)]);
+  const key = parameterBaseline("json", value);
+  const { text, error, write } = useParameterDraft(
+    drafts,
+    owner,
+    key,
+    sourceStringify(value, 2),
+  );
   return (
     <>
       <textarea
         aria-label={label}
         rows={7}
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => write(e.target.value, error)}
       />
       <button
         type="button"
@@ -438,9 +463,11 @@ function JsonParameter({
             if (Array.isArray(value) && !Array.isArray(parsed))
               throw new Error("Use a JSON array for this parameter.");
             onChange(parsed);
-            setError("");
+            const accepted = parameterBaseline("json", parsed);
+            const display = sourceStringify(parsed, 2);
+            write(accepted === key ? text : display, "", accepted, display);
           } catch (e) {
-            setError(String(e));
+            write(text, String(e));
           }
         }}
       >
