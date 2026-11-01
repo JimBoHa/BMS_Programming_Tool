@@ -1352,11 +1352,11 @@
   {
     "id": "COMM-OPERATION-CAPS-001",
     "feature": "Captured-source native operation capabilities",
-    "acceptance_criterion": "Derive operation support from an actual controller File and identity/interface evidence; distinguish diagram reading, narrow typed instance/name compilation, connected transfer preflight, general logic, package/release compatibility and physical acceptance without model-selected inventories or field actions.",
+    "acceptance_criterion": "Derive operation support from an actual controller File and identity/interface evidence; distinguish diagram reading, narrow typed identity/default copies and native-backup-required effective compilation, connected transfer preflight, general logic, package/release compatibility and physical acceptance without model-selected inventories or field actions.",
     "evidence": "Actual MOI identity parser and authored UDP File acquisition; Chromium/WebKit controller application workflows.",
     "pdf_pages_or_section": "docs/application-operation-capabilities.md",
     "status": "implemented",
-    "implementation_or_gap": "The controller application read/capture response includes source ID/hash/Device/configuration-bound operation analysis. The existing typed compiler recognizes actual fully framed sources, including unknown models, while transfer remains gated by captured vendor/root coherence, plain IPv4 and its separate native protocol/parameter/capacity/review/readback workflow. Frontend retains exact source ownership and rejects another capture. General logic remains unavailable; release/packages and physical acceptance are not inferred. Wider JCI-01 package/release/result correlation and native-service-only acquisitions remain partial."
+    "implementation_or_gap": "The controller application read/capture response includes source ID/hash/Device/configuration-bound operation analysis. The existing typed compiler recognizes actual fully framed sources, including unknown models, while transfer remains gated by captured vendor/root coherence, plain IPv4 and its separate native protocol/parameter/capacity/review/readback workflow. Frontend retains exact source ownership and rejects another capture. General logic remains unavailable; release/packages and physical acceptance are not inferred. Wider JCI-01 package/release/result correlation and native-service-only acquisitions remain partial. Integrated source analysis also credits actual Real-default file copies, requires a separate verified native saved-setting snapshot for effective compilation, and points to operation-specific default-transfer preflight without granting a field action."
   },
   {
     "id": "FMT-MOZ-READ-001",

@@ -274,7 +274,9 @@ export function ControllerApplicationPanel({
             changes.
           </p>
           <p>
-            {report.application.record_count} native records ·{" "}
+            {report.application.record_count} native records with engineering
+            references · {report.application.metadata_records} metadata record
+            {report.application.metadata_records === 1 ? "" : "s"} ·{" "}
             {report.application.diagrams.length} readable diagrams. General
             native logic generation remains unavailable. Supported local edits
             appear beside the captured property.

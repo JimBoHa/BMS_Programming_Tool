@@ -512,7 +512,7 @@
   {
     "feature": "Captured controller application operation support",
     "status": "implemented",
-    "scope": "The controller application read/capture response includes source ID/hash/Device/configuration-bound operation analysis. The existing typed compiler recognizes actual fully framed sources, including unknown models, while transfer remains gated by captured vendor/root coherence, plain IPv4 and its separate native protocol/parameter/capacity/review/readback workflow. Frontend retains exact source ownership and rejects another capture. General logic remains unavailable; release/packages and physical acceptance are not inferred. Wider JCI-01 package/release/result correlation and native-service-only acquisitions remain partial. See docs/application-operation-capabilities.md."
+    "scope": "The controller application read/capture response includes source ID/hash/Device/configuration-bound operation analysis. The existing typed compiler recognizes actual fully framed sources, including unknown models, while transfer remains gated by captured vendor/root coherence, plain IPv4 and its separate native protocol/parameter/capacity/review/readback workflow. Frontend retains exact source ownership and rejects another capture. General logic remains unavailable; release/packages and physical acceptance are not inferred. Wider JCI-01 package/release/result correlation and native-service-only acquisitions remain partial. See docs/application-operation-capabilities.md. Native Real-default copies, separate File 3/11/12 snapshot requirements and operation-specific default-transfer preflight are distinguished; no field action is granted by this analysis."
   },
   {
     "feature": "Recognized controller applications published as MOZ Files",

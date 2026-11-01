@@ -1,6 +1,7 @@
 """Operation support from actual captured bytes; no field or vendor-tool actions."""
 
 from .moi_identity import MoiIdentity
+from .moi_signal_defaults import MoiSignalDefaults
 
 PROFILE = "controller-application-operation-capabilities/1"
 
@@ -95,11 +96,51 @@ def operation_capabilities(receipt, data, application):
         basis,
         "Use the separate Overview commissioning workflow: native credentials, fresh backup/parameter layout, capacity, one-use review and exact readback remain required. Backup and readback use backup-state commands.",
     )
+    try:
+        defaults = MoiSignalDefaults(data).capabilities()
+        eligible = defaults["available"]
+        default_basis = (
+            f"This source contains {defaults['candidate_count']} recognized existing Real defaults."
+            if eligible
+            else "This source contains no supported existing Real default fields."
+        )
+    except ValueError as exc:
+        eligible, default_basis = False, str(exc)[:256]
+    add(
+        "signal-default-copy",
+        "Review and save a native Real-default file copy",
+        "source-qualified" if eligible else "unsupported-source",
+        default_basis,
+        "Select the actual captured field. The local file-copy review changes one known Real payload and performs no controller transfer.",
+    )
+    effective_status = (
+        "unsupported-source"
+        if not eligible
+        else "protocol-unconfirmed"
+        if not family
+        else "source-mismatch"
+        if not matches
+        else "native-backup-required"
+    )
+    add(
+        "effective-default-compile",
+        "Compile an effective Real default from native saved settings",
+        effective_status,
+        default_basis + " A published File capture does not supply verified native Files 3/11/12.",
+        "Program → Native backup defaults opens a separate identity-verified native snapshot, merges saved application values and reviews a local compiled copy. Current interface transport does not restrict offline snapshot compilation.",
+    )
+    add(
+        "default-transfer",
+        "Transfer one reviewed effective native default",
+        status if eligible else "unsupported-source",
+        basis if eligible else default_basis,
+        "Program → Native backup defaults requires its own native backup, fresh selected-value guard, other-setting preservation, capacity, one-use operation review and full native/effective-setting readback. No transfer is prepared by this capture analysis.",
+    )
     add(
         "general-logic",
         "Edit/compile arbitrary native blocks and wires",
         "unavailable",
-        "The diagram reader and identity/name compiler do not generate arbitrary controller logic.",
+        "The reader and typed identity/default compilers do not generate arbitrary controller logic.",
         "Retain the original source; a separately qualified logic writer and native resource contract are required.",
     )
     add(

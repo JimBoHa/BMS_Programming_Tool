@@ -466,6 +466,41 @@ test("native signal copies retain source-bound drafts and download exact reviewe
       ).body(),
     );
     await editor.getByLabel("Proposed signal default").fill("1e-");
+    const native = page.getByRole("region", {
+      name: "Native controller application",
+      exact: true,
+    });
+    const support = native.getByLabel(
+      "Controller application operation support",
+      { exact: true },
+    );
+    await support.locator(":scope > summary").click();
+    await expect(
+      support.locator('[data-operation="signal-default-copy"]'),
+    ).toContainText("source qualified");
+    await expect(
+      support.locator('[data-operation="default-transfer"]'),
+    ).toContainText("protocol unconfirmed");
+    const explorer = native.getByLabel("Captured native record explorer", {
+      exact: true,
+    });
+    await explorer.locator(":scope > summary").click();
+    await expect(
+      explorer
+        .getByRole("table", { name: "Captured native records", exact: true })
+        .getByRole("row"),
+    ).toHaveCount(original.readUInt32LE(10) + 1);
+    await expect(
+      explorer.getByRole("table", {
+        name: "Captured native records",
+        exact: true,
+      }),
+    ).toContainText("metadata");
+    await expect(editor.getByLabel("Proposed signal default")).toHaveValue(
+      "1e-",
+    );
+    await explorer.locator(":scope > summary").click();
+    await support.locator(":scope > summary").click();
     await page
       .getByLabel("Controller program block")
       .selectOption("site/575_1.2_11");

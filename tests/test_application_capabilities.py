@@ -8,6 +8,7 @@ from bms_tool.moi_application import MoiApplication
 
 from .test_controller_application import authored_application
 from .test_moi_identity import source
+from .test_native_signal_compiler import signal_files
 
 
 def captured(data, *, vendor=5, model="UNLISTED-CONTROLLER", config=None, **identity):
@@ -89,3 +90,45 @@ def test_vendor_identity_is_not_inferred_from_a_readable_moi_file():
     report = captured(source(), vendor=999)
     assert row(report, "identity-compile")["status"] == "source-qualified"
     assert row(report, "identity-transfer")["status"] == "protocol-unconfirmed"
+
+
+@pytest.mark.parametrize("compressed", [False, True])
+def test_actual_real_fields_credit_local_copy_but_never_invent_native_saved_settings(compressed):
+    report = captured(signal_files(compressed=compressed)[3], model="UNLISTED-MODEL")
+    assert row(report, "signal-default-copy")["status"] == "source-qualified"
+    assert "2 recognized" in row(report, "signal-default-copy")["basis"]
+    assert row(report, "effective-default-compile")["status"] == "native-backup-required"
+    assert row(report, "default-transfer")["status"] == "preflight-required"
+    assert not report["can_apply"] and not report["field_actions"]
+
+
+@pytest.mark.parametrize("profile", ["mstp", "bbmd", "vendor", "mismatch"])
+def test_default_capabilities_keep_offline_compilation_and_field_preflight_independent(profile):
+    options = {"model": "UNLISTED-MODEL"}
+    if profile == "mstp":
+        options["config"] = {"transport": "mstp", "port": "authored-port"}
+    elif profile == "bbmd":
+        options["config"] = {"local_address": "127.0.0.1:49290", "bbmd_address": "127.0.0.1:49292"}
+    elif profile == "vendor":
+        options["vendor"] = 999
+    else:
+        options["object-name"] = "Other controller"
+    report = captured(signal_files()[3], **options)
+    assert row(report, "signal-default-copy")["status"] == "source-qualified"
+    assert row(report, "effective-default-compile")["status"] == (
+        {"vendor": "protocol-unconfirmed", "mismatch": "source-mismatch"}.get(
+            profile, "native-backup-required"
+        )
+    )
+    assert row(report, "default-transfer")["status"] == (
+        {"vendor": "protocol-unconfirmed", "mismatch": "source-mismatch"}.get(
+            profile, "transport-unavailable"
+        )
+    )
+    assert not report["can_apply"] and not report["field_actions"]
+
+
+def test_identity_source_without_real_defaults_does_not_gain_default_authoring_by_model():
+    report = captured(source())
+    for key in ("signal-default-copy", "effective-default-compile", "default-transfer"):
+        assert row(report, key)["status"] == "unsupported-source"
