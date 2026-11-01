@@ -10,6 +10,7 @@ import {
 import { api } from "./api";
 import { controllerKey, type ControllerContext } from "./workflow";
 import "./controller-application.css";
+import { NativeRecords } from "./NativeRecords";
 
 type RecordValue = Record<string, any>;
 const base = "/bacnet/controller/application/";
@@ -262,6 +263,15 @@ export function ControllerApplicationPanel({
             application editing, compilation and download are unavailable for
             this format.
           </p>
+          {connected &&
+            controllerKey(report.target) === controllerKey(controller) &&
+            report.application.capabilities?.record_inspection && (
+              <NativeRecords
+                key={source + report.receipt.id}
+                controller={controller}
+                capture={report.receipt}
+              />
+            )}
           <label>
             Application diagram
             <select

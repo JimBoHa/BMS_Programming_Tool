@@ -1312,5 +1312,14 @@
     "pdf_pages_or_section": "docs/device-instance-commissioning.md",
     "status": "implemented",
     "implementation_or_gap": "Guided local router discovery and router/trunk/controller selectors fill exact commissioning targets; verified names reuse the shared Scan inventory. Explicit standard Device.object-identifier WriteProperty to a pinned IPv4 or router/DNET/MAC station. One-use identity/configuration-bound review, scoped new-ID collision checks, site allocation confirmation, fresh preflight, single-attempt dispatch, durable intent/results, readback and restart reconciliation. Unsupported/read-only controllers require vendor tooling; no proprietary application transfer, reset, automatic retry/rollback or physical-controller acceptance claim. See docs/device-instance-commissioning.md."
+  },
+  {
+    "id": "FMT-NATIVE-RECORDS-001",
+    "feature": "Source-bound captured native record inspection",
+    "acceptance_criterion": "Search and page actual engineering/metadata records and stored properties outside diagrams, retaining source order, types, unknown encoding evidence and original/expanded byte identities while enforcing capture/target/interface ownership without field actions.",
+    "evidence": "Authored compressed/plain native records, actual UDP File acquisition with zero additional wire requests, local token/bounds/source API checks and Chromium/WebKit source/late-reply workflows.",
+    "pdf_pages_or_section": "docs/native-record-explorer.md",
+    "status": "implemented",
+    "implementation_or_gap": "The tagged-MOI reader independently advertises record inspection; list/detail APIs default to 64 rows, bound pages/queries and retain metadata, source offsets/order, native scalar type/value or structured hashes. The existing Program view exposes search/property pages, captured-source labels, byte evidence, local scrolling and response identity/generation guards. Stored references never imply live values or a physical module inventory. Broader editable IR, native logic/resource compilation, deployment and physical/BT acceptance remain separate."
   }
 ]

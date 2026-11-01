@@ -161,6 +161,9 @@ class MoiApplication:
         self.data, self.records, self.errors = data, {}, []
         self.metadata_records = []
         frames = native_frames(data)
+        self.record_framing = (
+            "declared-lengths" if frames is not None else "scanned-reference-records"
+        )
         if frames is None:
             pattern = rb"(?P<class>.{2})\x02\x00\x0e\x1c(?P<oid>.{4})\x0f\x1e"
             candidates = [
@@ -261,6 +264,115 @@ class MoiApplication:
     @staticmethod
     def scalar(record, pid):
         return (record["properties"].get(pid, {}).get("scalar") or {}).get("value")
+
+    def _ordered_records(self):
+        return sorted(
+            [*self.records.values(), *self.metadata_records], key=lambda record: record["offset"]
+        )
+
+    def _record_summary(self, record):
+        name = self.scalar(record, 2390)
+        identity = record["properties"].get(75, {}).get("scalar")
+        return {
+            "id": f"record:{record['offset']}",
+            "ref": record.get("ref"),
+            "kind": "engineering" if record.get("ref") else "metadata",
+            "name": name if isinstance(name, str) and name else record["class_name"],
+            "class_id": record["class_id"],
+            "class_name": record["class_name"],
+            "object": identity["value"]
+            if identity and identity["datatype"] == "ObjectIdentifier"
+            else None,
+            "expanded_offset": record["offset"],
+            "expanded_end_offset": record["end_offset"],
+            "expanded_bytes": record["end_offset"] - record["offset"],
+            "record_sha256": record["sha256"],
+            "property_count": len(record["properties"]),
+        }
+
+    @staticmethod
+    def _property_matches(prop, query):
+        scalar = prop["scalar"]
+        return any(
+            query in str(value).casefold()
+            for value in (
+                prop["id"],
+                prop["name"],
+                scalar["datatype"] if scalar else "",
+                scalar["value"] if scalar else "",
+            )
+        )
+
+    def record_inventory(self, *, query="", offset=0, limit=64):
+        needle = query.strip().casefold()
+        records = self._ordered_records()
+        matches = []
+        for record in records:
+            row = self._record_summary(record)
+            if (
+                not needle
+                or any(
+                    needle in str(row[key] or "").casefold()
+                    for key in (
+                        "id",
+                        "ref",
+                        "name",
+                        "class_id",
+                        "class_name",
+                        "object",
+                        "kind",
+                    )
+                )
+                or any(
+                    self._property_matches(prop, needle) for prop in record["properties"].values()
+                )
+            ):
+                matches.append(row)
+        return {
+            "records": matches[offset : offset + limit],
+            "recognized_record_count": len(records),
+            "total_matches": len(matches),
+            "query": query,
+            "offset": offset,
+            "limit": limit,
+            "next_offset": offset + limit if offset + limit < len(matches) else None,
+            "coverage": "recognized-records-only",
+            "record_framing": self.record_framing,
+            "record_parse_errors": len(self.errors),
+        }
+
+    def record_details(self, record_id, *, query="", offset=0, limit=64):
+        record = next(
+            (
+                record
+                for record in self._ordered_records()
+                if f"record:{record['offset']}" == record_id
+            ),
+            None,
+        )
+        if record is None:
+            raise ValueError("Select an actual record from this native application capture.")
+        needle = query.strip().casefold()
+        properties = [
+            {
+                "index": index,
+                **{key: value for key, value in prop.items() if key != "tags"},
+                "encoded_bytes": prop["value_end_offset"] - prop["value_start_offset"],
+            }
+            for index, prop in enumerate(record["properties"].values())
+            if not needle or self._property_matches(prop, needle)
+        ]
+        return {
+            "record": self._record_summary(record),
+            "properties": properties[offset : offset + limit],
+            "total_matches": len(properties),
+            "query": query,
+            "offset": offset,
+            "limit": limit,
+            "next_offset": offset + limit if offset + limit < len(properties) else None,
+            "offset_scope": "expanded application bytes",
+            "read_only": True,
+        }
 
     def _block(self, record, index):
         return {
@@ -366,5 +478,6 @@ class MoiApplication:
                 "logic_read": bool(diagrams),
                 "logic_write": False,
                 "native_compile": False,
+                "record_inspection": True,
             },
         }

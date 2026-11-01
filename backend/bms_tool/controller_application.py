@@ -34,6 +34,16 @@ class ApplicationDiagramRequest(ApplicationCaptureRequest):
     ref: str = Field(min_length=1, max_length=512)
 
 
+class ApplicationRecordsRequest(ApplicationCaptureRequest):
+    query: str = Field(default="", max_length=256)
+    offset: int = Field(default=0, ge=0, le=100000, strict=True)
+    limit: int = Field(default=64, ge=1, le=128, strict=True)
+
+
+class ApplicationRecordRequest(ApplicationRecordsRequest):
+    record_id: str = Field(pattern=r"^record:[0-9]{1,8}$")
+
+
 class ControllerApplication:
     id = "bacnet-file-application"
 
@@ -134,6 +144,40 @@ class ControllerApplication:
             "diagram": self._application(receipt, data).diagram(options.ref),
             "sha256": receipt["sha256"],
             "read_only": True,
+        }
+
+    def records(self, request, *, detail=False):
+        kind = ApplicationRecordRequest if detail else ApplicationRecordsRequest
+        options = kind.model_validate(request)
+        receipt, data = self.files.capture_data(options.capture_id)
+        if not self._matches(receipt, options):
+            raise ValueError(
+                "The native records belong to a different controller route or interface."
+            )
+        application = self._application(receipt, data)
+        paging = options.model_dump(include={"query", "offset", "limit"})
+        if not callable(getattr(application, "record_inventory", None)) or not callable(
+            getattr(application, "record_details", None)
+        ):
+            raise ValueError(
+                "Native record inspection is unavailable in this installed format reader."
+            )
+        result = (
+            application.record_details(options.record_id, **paging)
+            if detail
+            else application.record_inventory(**paging)
+        )
+        return {
+            **result,
+            "profile": "controller-native-records/1",
+            "target": self._target(options),
+            "capture_id": receipt["id"],
+            "sha256": receipt["sha256"],
+            "received_at": receipt["received_at"],
+            "source_kind": "controller-file-capture",
+            "read_only": True,
+            "field_actions": False,
+            "identity_verified": False,
         }
 
     async def read_application(self, target, profile=None, *, file_object=None):

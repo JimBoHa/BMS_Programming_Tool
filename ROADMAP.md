@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
-Updated: 2026-10-30. Planning baseline: GitHub `main` at
-[`eee38367`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/eee38367aecd0b3f405809a76c500fe09ee2ad9f).
+Updated: 2026-10-31. Implementation baseline: GitHub `main` at
+[`c2088bad`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/c2088bade321a471a515f8d004fe232437637f88).
 
 ## Baseline and purpose
 
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 146 scoped criteria: 92
+The public requirement register currently records 147 scoped criteria: 93
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -143,7 +143,7 @@ Bluetooth physical acceptance remains deferred until the adapter is available.
 | ID | Planned addition | Workspace | Acceptance / dependency |
 | --- | --- | --- | --- |
 | JCI-01 | Build an operation-specific protocol/format/release capability matrix from discovered identity, application structure, packages and retained evidence | Overview / Program; Settings for toolchains | Credit current identity operations; distinguish read, edit, compile, transfer and physical acceptance; unsupported formats explain why |
-| JCI-02 | Extend real CAF/MOI inspection and loss-preserving editable intermediate representation | Program | Preserve unknown records, references, execution order, positions, units and original bytes; supported edits have typed golden cases |
+| JCI-02 | Extend real CAF/MOI inspection and loss-preserving editable intermediate representation | Program | Partial: [captured native record explorer](docs/native-record-explorer.md) adds metadata/property inspection, source order and unknown encoding evidence beyond diagrams. Complete the wider editable representation, additional structures and typed golden edits; no general native logic/deployment is inferred |
 | JCI-03 | Implement general native logic authoring: typed parameters, new block identities, links, ordering and full compile/resource validation | Program / Library | First native graph-editing slice independently compiles and reopens/readbacks on its exact supported format; identity-only compiler is not credited as general logic generation |
 | JCI-04 | Extend FX/Metasys and cross-release conversion with explicit semantics and package migrations | Program → conversion review | Every supported source/target pair has a loss report and round-trip/behavior evidence; reject unresolved semantics instead of dropping logic |
 | JCI-05 | Implement executable native Enum/reliability/type mappings and restart/retention rules | Program / Library | Verify codes, fallback, units, precision and state; labels or manual named sets alone do not supply native numeric bindings |
