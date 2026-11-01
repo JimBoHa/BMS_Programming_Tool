@@ -54,11 +54,26 @@ and CAF simulation workspaces use their separate existing boundaries.
 
 Three deterministic regressions hold both an actual capture response and the
 next workspace module, finish the capture while the loading fallback is visible,
-then return before releasing the module. Each history profile must start without
-the previous capture or export. These pass on Chromium and WebKit with pinned
-React 19.1.1. This follows React's documented
+then return before releasing the module. The current shell reaches Controller
+history through Workspace → Trends & Alarms and already visits Connections along
+that path. The regressions therefore suspend the still-unvisited Library module
+in the same document. They retain the original actual-response, visible-fallback
+and return-before-module-release assertions; an earlier Connections request from
+another document does not establish that race. Each history profile must start
+without the previous capture or export. These pass on Chromium and WebKit with
+pinned React 19.1.1. This follows React's documented
 [Suspense boundary reset on navigation](https://react.dev/reference/react/Suspense#resetting-suspense-boundaries-on-navigation).
 
 These checks establish local serialization and capture integrity. Physical
 controller support, native JCI application transfer and proprietary historian
 formats retain their existing limitations.
+
+The history evidence harness also closes each owned UDP peer in a `finally`
+block even when HTTP disconnection fails. Its private peer handles SIGTERM by
+closing the BACnet application and exiting normally; the browser test waits for
+process and pipe closure and checks that exit. A five-second forced cleanup
+bound affects only that test process, not controller reads, HTTP operations or
+application timeouts. Original raw-byte, numeric, seal, partial-cancellation,
+wrong-capture and delayed-response assertions remain in place. This qualification
+covers the retained legacy unbound history profiles; selected-controller single-log
+history and serial acquisition retain their separate context/transport checks.

@@ -1,3 +1,4 @@
+import { openMonitoring } from "./monitoring-navigation";
 import {
   expect,
   test,
@@ -81,7 +82,7 @@ for (const profile of Object.keys(profiles) as Profile[]) {
       const moduleGate = new Promise<void>((resolve) => {
         releaseModule = resolve;
       });
-      await page.route("**/assets/Connections-*.js", async (route) => {
+      await page.route("**/assets/ReusableLibrary-*.js", async (route) => {
         const response = await route.fetch();
         moduleEntered();
         await moduleGate;
@@ -95,9 +96,7 @@ for (const profile of Object.keys(profiles) as Profile[]) {
       });
       expect(saved.ok()).toBe(true);
       await page.reload();
-      await page
-        .getByRole("button", { name: "Device history", exact: true })
-        .click();
+      await openMonitoring(page, "Controller history");
       await page
         .getByLabel(profiles[profile].capture, { exact: true })
         .selectOption(report.id);
@@ -119,7 +118,13 @@ for (const profile of Object.keys(profiles) as Profile[]) {
         .getByRole("button", { name: profiles[profile].load, exact: true })
         .click();
       await requestedCapture;
-      await page.getByRole("button", { name: "Connect", exact: true }).click();
+      // Trends & Alarms already visits Connections in the current shell.
+      // Hold the still-unvisited Library module to retain the same real
+      // navigation-before-module-resolution race in this document.
+      await page
+        .getByRole("navigation", { name: "Main navigation", exact: true })
+        .getByRole("button", { name: "Library", exact: true })
+        .click();
       await requestedModule;
       await expect(
         page.getByText("Opening workspace…", { exact: true }),
@@ -134,9 +139,7 @@ for (const profile of Object.keys(profiles) as Profile[]) {
       const response = await completedLoad;
       expect(response.ok()).toBe(true);
       await response.finished();
-      await page
-        .getByRole("button", { name: "Device history", exact: true })
-        .click();
+      await openMonitoring(page, "Controller history");
       await expect(
         page.getByLabel(profiles[profile].capture, { exact: true }),
       ).toHaveValue("");
@@ -153,23 +156,26 @@ for (const profile of Object.keys(profiles) as Profile[]) {
     } finally {
       releaseCapture();
       releaseModule();
-      if (Object.keys(headers).length)
-        await request.post("/api/bacnet/disconnect", { headers, data: {} });
-      server.child.kill();
+      await closePeer(server, request, headers);
     }
   });
 }
 async function peer(
   profile: Profile,
   behavior = "normal",
-): Promise<{ child: ChildProcess; port: number; reads: () => number }> {
+): Promise<{
+  child: ChildProcess;
+  port: number;
+  reads: () => number;
+  close: () => Promise<void>;
+}> {
   const child = spawn(
     path.join(root, ".venv/bin/python"),
     [
       "-u",
       "-c",
       `
-import asyncio,sys
+import asyncio,sys,signal
 from tests.history_evidence_fixtures import numeric_peer
 from tests.test_connections import free_udp
 from bms_tool.bacnet_read import close_application
@@ -179,8 +185,11 @@ async def main():
  async def tracked(request):
   print('RANGE',flush=True);await original(request)
  server.do_ReadRangeRequest=tracked
+ loop=asyncio.get_running_loop(); task=asyncio.current_task()
+ loop.add_signal_handler(signal.SIGTERM,task.cancel)
  print(port,flush=True)
  try: await asyncio.Event().wait()
+ except asyncio.CancelledError: pass
  finally: close_application(server)
 asyncio.run(main())
 `,
@@ -192,6 +201,12 @@ asyncio.run(main())
       env: { ...process.env, PYTHONPATH: path.join(root, "backend") },
       stdio: ["ignore", "pipe", "pipe"],
     },
+  );
+  const stopped = new Promise<{
+    code: number | null;
+    signal: NodeJS.Signals | null;
+  }>((resolve) =>
+    child.once("close", (code, signal) => resolve({ code, signal })),
   );
   let reads = 0;
   const port = await new Promise<number>((resolve, reject) => {
@@ -224,7 +239,36 @@ asyncio.run(main())
       if (!ready) reject(new Error(`Numeric peer ${code}: ${errors}`));
     });
   });
-  return { child, port, reads: () => reads };
+  return {
+    child,
+    port,
+    reads: () => reads,
+    async close() {
+      if (child.exitCode === null && child.signalCode === null)
+        child.kill("SIGTERM");
+      const deadline = setTimeout(() => child.kill("SIGKILL"), 5000);
+      try {
+        expect(
+          await stopped,
+          "The owned numeric peer must close cleanly",
+        ).toEqual({ code: 0, signal: null });
+      } finally {
+        clearTimeout(deadline);
+      }
+    },
+  };
+}
+async function closePeer(
+  server: Awaited<ReturnType<typeof peer>>,
+  request: APIRequestContext,
+  headers: Record<string, string>,
+) {
+  try {
+    if (Object.keys(headers).length)
+      await request.post("/api/bacnet/disconnect", { headers, data: {} });
+  } finally {
+    await server.close();
+  }
 }
 async function open(
   page: Page,
@@ -242,9 +286,7 @@ async function open(
   });
   expect(response.ok()).toBe(true);
   await page.goto("/");
-  await page
-    .getByRole("button", { name: "Device history", exact: true })
-    .click();
+  await openMonitoring(page, "Controller history");
   await expect(
     page.getByRole("button", { name: config.read, exact: true }),
   ).toBeEnabled();
@@ -365,9 +407,7 @@ for (const profile of Object.keys(profiles) as Profile[]) {
       const summary = await saved.json();
       await request.post("/api/bacnet/disconnect", { headers, data: {} });
       await page.reload();
-      await page
-        .getByRole("button", { name: "Device history", exact: true })
-        .click();
+      await openMonitoring(page, "Controller history");
       const select = page.getByLabel(profiles[profile].capture, {
         exact: true,
       });
@@ -407,8 +447,7 @@ for (const profile of Object.keys(profiles) as Profile[]) {
           }),
         ).toBeDisabled();
     } finally {
-      await request.post("/api/bacnet/disconnect", { headers, data: {} });
-      server.child.kill();
+      await closePeer(server, request, headers);
     }
   });
 
@@ -440,8 +479,7 @@ for (const profile of Object.keys(profiles) as Profile[]) {
         await download(page, profile, original);
         expect(server.reads()).toBe(2);
       } finally {
-        await request.post("/api/bacnet/disconnect", { headers, data: {} });
-        server.child.kill();
+        await closePeer(server, request, headers);
       }
     });
 
@@ -542,9 +580,7 @@ for (const profile of Object.keys(profiles) as Profile[]) {
         await page.unroute(url);
       }
       await page.reload();
-      await page
-        .getByRole("button", { name: "Device history", exact: true })
-        .click();
+      await openMonitoring(page, "Controller history");
       await page
         .getByLabel(profiles[profile].capture, { exact: true })
         .selectOption(report.id);
@@ -585,9 +621,7 @@ for (const profile of Object.keys(profiles) as Profile[]) {
       release();
       await completed;
       await page.unroute(captureUrl);
-      await page
-        .getByRole("button", { name: "Device history", exact: true })
-        .click();
+      await openMonitoring(page, "Controller history");
       if (profile === "history")
         await expect(
           page.getByRole("button", {
@@ -607,8 +641,7 @@ for (const profile of Object.keys(profiles) as Profile[]) {
       ).toHaveValue("");
     } finally {
       release();
-      await request.post("/api/bacnet/disconnect", { headers, data: {} });
-      server.child.kill();
+      await closePeer(server, request, headers);
     }
   });
 }
