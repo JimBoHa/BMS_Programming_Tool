@@ -51,6 +51,9 @@ export function NativeSignalCompiler({
     new Map<string, NativeDefaultRecoveryDocument>(),
   );
   const wireDrafts = useRef(new Map<string, string>());
+  const wireRecoveries = useRef(
+    new Map<string, NativeDefaultRecoveryDocument>(),
+  );
   const [loaded, setLoaded] = useState<Data | null>(null),
     [fieldRef, setFieldRef] = useState("");
   const [search, setSearch] = useState(""),
@@ -655,6 +658,7 @@ export function NativeSignalCompiler({
           parentBusy: parentBusy || transferBusy,
           otherOperationBusy: transferBusy,
           recoveryDrafts: booleanRecoveries.current,
+          wireRecoveryDrafts: wireRecoveries.current,
           onBusy: transferBusyChanged,
           onCaptured: (id) => {
             setChoice(id);

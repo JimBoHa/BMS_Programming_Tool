@@ -4,7 +4,7 @@ import path from "node:path";
 const root = path.resolve("..");
 export async function nativeDefaultPeer(
   mode = "consume",
-  datatype: "real" | "boolean" | "wire" = "real",
+  datatype: "real" | "boolean" | "wire" | "wire-recovery" = "real",
 ) {
   const child = spawn(
     path.join(root, ".venv/bin/python"),
@@ -24,7 +24,10 @@ from bacpypes3.local.device import DeviceObject
 from bacpypes3.local.networkport import NetworkPortObject
 async def main():
  p=port();app=NativePeer.from_object_list([DeviceObject(objectIdentifier=('device',5136),objectName='Authored controller',vendorIdentifier=5),NetworkPortObject(f'127.0.0.1:{p}',objectIdentifier=('network-port',1),objectName='Owned native default peer')]);app.setup()
- if sys.argv[2]=='wire':
+ if sys.argv[2]=='wire-recovery':
+  from tests.test_native_wire_recovery import FANOUT
+  app.files=wire_files(target_class=538,wires=FANOUT);app.metadata['object-name']='Authored native wire controller';app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
+ elif sys.argv[2]=='wire':
   app.files=wire_files(target_class=538);app.metadata['object-name']='Authored native wire controller';app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
  elif sys.argv[2]=='boolean':app.files=boolean_files();storage_outcome(app,mode=sys.argv[1])
  else:app.files=signal_files();controller_storage(app,mode=sys.argv[1])

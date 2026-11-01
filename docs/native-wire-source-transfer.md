@@ -91,3 +91,11 @@ No site controller or Bluetooth adapter is used for this qualification. CCT/PCT
 reopening, native execution/sequence behavior, release/packages/resources,
 hardware allocation, full-program authoring and physical control acceptance
 remain separate. JCI-03 and JCI-09 remain partial overall.
+
+## Previous-source proposals
+
+[Receipt-derived wire recovery](native-wire-source-recovery.md) is a separate local
+preparation profile. It reconstructs verified original/current evidence and keeps
+the existing current observed-pin, configuration, order, cycle and width guards.
+It requires a new reviewed transfer; exporting a backup or reusing a receipt does
+not authorize a restore. Historical-only output pins remain separate work.

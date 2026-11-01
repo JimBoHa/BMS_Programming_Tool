@@ -20,6 +20,10 @@ import {
   wireTransferReviewMatches,
   wireTransferReceiptMatches,
 } from "./nativeWireTransferContract";
+import {
+  previousWireSourceMatches,
+  wireRecoveryProfile,
+} from "./nativeWireRecoveryContract";
 
 type Data = Record<string, any>;
 const base = "/bacnet/controller/native-application";
@@ -60,6 +64,7 @@ export function NativeDefaultTransfer({
   otherOperationBusy = false,
   recoveryDraft = null,
   onRecoveryPrepared,
+  wireSelection,
 }: {
   controller?: ControllerContext | null;
   source: Data | null;
@@ -74,6 +79,7 @@ export function NativeDefaultTransfer({
   otherOperationBusy?: boolean;
   recoveryDraft?: NativeDefaultRecoveryDocument | null;
   onRecoveryPrepared?: (document: NativeDefaultRecoveryDocument) => void;
+  wireSelection?: { diagram_ref: string; wire_index: number; class_id: number };
 }) {
   const operationProfile = wireSource
     ? "native-effective-wire-source-transfer/1"
@@ -133,6 +139,7 @@ export function NativeDefaultTransfer({
     source?.snapshot_sha256,
     proposal,
     recoveryDraft?.data.origin_sha256,
+    wireSelection,
   ]);
   const ownerNow = useRef(owner);
   if (ownerNow.current !== owner) {
@@ -440,6 +447,14 @@ export function NativeDefaultTransfer({
       receipt.data.intent?.default_edit?.record_ref !== field?.ref
     )
       return;
+    if (
+      wireSource &&
+      (receipt.data.intent?.wire_edit?.diagram_ref !==
+        wireSelection?.diagram_ref ||
+        receipt.data.intent?.wire_edit?.wire_index !==
+          wireSelection?.wire_index)
+    )
+      return;
     const selectedReceipt = receipt,
       key = ownerNow.current,
       ticket = ++epoch.current,
@@ -451,9 +466,11 @@ export function NativeDefaultTransfer({
     try {
       const document = await apiJsonDocument(
         base +
-          (booleanDefault
-            ? "/boolean-default/recovery/prepare"
-            : "/signal-default/recovery/prepare"),
+          (wireSource
+            ? "/wire-source/recovery/prepare"
+            : booleanDefault
+              ? "/boolean-default/recovery/prepare"
+              : "/signal-default/recovery/prepare"),
         {
           receipt_id: receipt.data.intent.id,
           capture_id: source.capture_id,
@@ -461,14 +478,21 @@ export function NativeDefaultTransfer({
         },
       );
       if (
-        !(booleanDefault
-          ? previousBooleanDefaultMatches(
+        !(wireSource
+          ? previousWireSourceMatches(
               document.data,
               source,
               receipt.data,
-              field!,
+              wireSelection!,
             )
-          : previousRealDefaultMatches(document.data, source, receipt.data))
+          : booleanDefault
+            ? previousBooleanDefaultMatches(
+                document.data,
+                source,
+                receipt.data,
+                field!,
+              )
+            : previousRealDefaultMatches(document.data, source, receipt.data))
       )
         throw new Error(
           "The previous-value proposal does not match this receipt and retained source.",
@@ -655,7 +679,8 @@ export function NativeDefaultTransfer({
           </h3>
           {shown.data.recovery_origin && (
             <p>
-              New transfer to the previous effective value from receipt{" "}
+              New transfer to the previous{" "}
+              {wireSource ? "wire source" : "effective value"} from receipt{" "}
               <code>{shown.data.recovery_origin.parent_receipt_id}</code>. This
               review does not replay the earlier operation.
             </p>
@@ -891,33 +916,49 @@ export function NativeDefaultTransfer({
                   : "Read back native default transfer"}
               </button>
             )}
-            {!wireSource && onRecoveryPrepared && (
+            {onRecoveryPrepared && (
               <button
                 disabled={
                   localLocked ||
                   !source ||
-                  (booleanDefault
-                    ? status?.boolean_default_recovery_profile !==
-                        booleanRecoveryProfile ||
-                      receipt.data.intent?.default_edit?.record_ref !==
-                        field?.ref
-                    : status?.real_default_recovery_profile !==
-                      realRecoveryProfile)
+                  (wireSource
+                    ? status?.wire_source_recovery_profile !==
+                        wireRecoveryProfile ||
+                      receipt.data.intent?.wire_edit?.diagram_ref !==
+                        wireSelection?.diagram_ref ||
+                      receipt.data.intent?.wire_edit?.wire_index !==
+                        wireSelection?.wire_index
+                    : booleanDefault
+                      ? status?.boolean_default_recovery_profile !==
+                          booleanRecoveryProfile ||
+                        receipt.data.intent?.default_edit?.record_ref !==
+                          field?.ref
+                      : status?.real_default_recovery_profile !==
+                        realRecoveryProfile)
                 }
                 onClick={() => void preparePreviousDefault()}
               >
-                {booleanDefault
-                  ? "Prepare previous Boolean default"
-                  : "Prepare previous Real default"}
+                {wireSource
+                  ? "Prepare previous wire source"
+                  : booleanDefault
+                    ? "Prepare previous Boolean default"
+                    : "Prepare previous Real default"}
               </button>
             )}
           </div>
-          {!wireSource && onRecoveryPrepared && (
+          {onRecoveryPrepared && (
             <p className="muted">
               Preparation uses this receipt and the selected retained backup
               locally. Read a current backup first when connected. A new review
               and confirmed transfer are required; this action sends no
               controller request.
+              {wireSource && (
+                <>
+                  {" "}
+                  Open its recorded diagram and connection first. The previous
+                  source must still have an observed compatible output pin.
+                </>
+              )}
               {booleanDefault &&
                 receipt.data.intent?.default_edit?.record_ref !==
                   field?.ref && (

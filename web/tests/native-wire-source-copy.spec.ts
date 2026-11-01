@@ -1,3 +1,4 @@
+import { openNativeCompiler } from "./workspace-navigation";
 import { test, expect, type Page, type Locator } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -87,10 +88,7 @@ async function enter(page: Page, id: string, expectedWire = true) {
   await page
     .getByRole("button", { name: "New application", exact: true })
     .click();
-  await page
-    .getByRole("navigation", { name: "Current task tools" })
-    .getByRole("button", { name: "Native backup defaults", exact: true })
-    .click();
+  await openNativeCompiler(page);
   const compiler = page.getByRole("region", {
     name: "Native backup default compiler",
     exact: true,
@@ -216,10 +214,7 @@ test("wire proposal survives navigation in its original graph while review retir
     .getByRole("navigation", { name: "Main navigation" })
     .getByRole("button", { name: "Workspace", exact: true })
     .click();
-  await page
-    .getByRole("navigation", { name: "Current task tools" })
-    .getByRole("button", { name: "Native backup defaults", exact: true })
-    .click();
+  await openNativeCompiler(page);
   const reopened = await record(page, compiler);
   await expect(
     reopened.getByLabel("Replacement native source", { exact: true }),
@@ -592,10 +587,7 @@ test("connected routed entry keeps archive copying local and route changes retir
       .getByRole("navigation", { name: "Workspace tasks", exact: true })
       .getByRole("button", { name: "Program", exact: true })
       .click();
-    await page
-      .getByRole("navigation", { name: "Current task tools", exact: true })
-      .getByRole("button", { name: "Native backup defaults", exact: true })
-      .click();
+    await openNativeCompiler(page);
     const compiler = page.getByRole("region", {
       name: "Native backup default compiler",
       exact: true,

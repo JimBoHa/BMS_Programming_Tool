@@ -55,6 +55,8 @@ from .native_default_transfer import (
     verify_default_preservation,
 )
 from .native_wire_compiler import EffectiveWirePreview
+from .native_wire_recovery import PROFILE as WIRE_RECOVERY_PROFILE
+from .native_wire_recovery import NativeWireRecovery
 from .native_wire_transfer import PROFILE as WIRE_PROFILE
 from .native_wire_transfer import SCOPE as WIRE_SCOPE
 from .native_wire_transfer import (
@@ -142,6 +144,7 @@ class NativeApplications:
         self.storage = ApplicationStore(store)
         self.default_recovery = NativeDefaultRecovery(NativeBackupRecords(self.storage))
         self.boolean_recovery = NativeBooleanRecovery(NativeBackupRecords(self.storage))
+        self.wire_recovery = NativeWireRecovery(NativeBackupRecords(self.storage))
         self.credentials = ApplicationCredentials(store.directory)
         self.operation_timeout = operation_timeout
         self.active, self.plans, self.cancelled = None, OrderedDict(), set()
@@ -158,6 +161,7 @@ class NativeApplications:
             "default_transfer_scope": DEFAULT_SCOPE,
             "real_default_recovery_profile": RECOVERY_PROFILE,
             "boolean_default_recovery_profile": BOOLEAN_RECOVERY_PROFILE,
+            "wire_source_recovery_profile": WIRE_RECOVERY_PROFILE,
             "boolean_default_transfer_profile": BOOLEAN_DEFAULT_PROFILE,
             "boolean_default_transfer_scope": BOOLEAN_DEFAULT_SCOPE,
             "wire_source_transfer_profile": WIRE_PROFILE,
@@ -496,6 +500,7 @@ class NativeApplications:
             output, compilation = compile_wire(files, edit)
             if not compilation["wire_edit"]["changed"]:
                 raise ValueError("Choose a different existing native wire source before transfer.")
+            recovery = self.wire_recovery_origin(options, compilation)
             config, app = copy.deepcopy(self.bacnet.config), self.bacnet.require()
             async with self.path._path(options) as session:
                 PropertyEvidence.pin(session, options.router)
@@ -534,6 +539,7 @@ class NativeApplications:
                 "connector_config": config,
                 "created_at": utc(),
                 "expires_at": (datetime.now(UTC) + timedelta(seconds=PLAN_SECONDS)).isoformat(),
+                **recovery,
             }
             return self.retain_plan(body, options, app, config)
 
@@ -625,6 +631,32 @@ class NativeApplications:
             or not matches_value
         ):
             raise ValueError("The previous-value proposal changed; prepare and review it again.")
+        return {
+            "recovery_origin": prepared["origin"],
+            "recovery_origin_sha256": prepared["origin_sha256"],
+        }
+
+    def wire_recovery_origin(self, options, compilation):
+        """Recheck an exact local wire proposal; a parent receipt is not write authority."""
+        if options.recovery_parent_receipt is None:
+            return {}
+        prepared = self.wire_recovery.prepare(
+            {
+                "receipt_id": options.recovery_parent_receipt,
+                "capture_id": options.capture_id,
+                "snapshot_sha256": options.snapshot_sha256,
+            }
+        )
+        proposal = prepared["proposal"]
+        if (
+            proposal is None
+            or prepared["origin_sha256"] != options.recovery_origin_sha256
+            or seal({key: proposal[key] for key in EffectiveWirePreview.model_fields})
+            != seal(options.model_dump(include=set(EffectiveWirePreview.model_fields)))
+            or seal(compilation["wire_edit"]["new"]) != seal(prepared["origin"]["previous_tuple"])
+            or compilation["wire_edit"]["source_ref"] != prepared["origin"]["previous_source_ref"]
+        ):
+            raise ValueError("The previous wire proposal changed; prepare and review it again.")
         return {
             "recovery_origin": prepared["origin"],
             "recovery_origin_sha256": prepared["origin_sha256"],
@@ -935,7 +967,9 @@ class NativeApplications:
                             "Native application review or credentials changed during preflight. Review again."
                         )
                     recovery = (
-                        self.recovery_origin(options, compilation, boolean=boolean_edit)
+                        self.wire_recovery_origin(options, compilation)
+                        if wire_edit
+                        else self.recovery_origin(options, compilation, boolean=boolean_edit)
                         if default_edit
                         else {}
                     )
@@ -1142,6 +1176,10 @@ def native_application_router(service):
     @router.post("/wire-source/transfer/preview")
     async def preview_wire(body: WireTransferPreview):
         return await service.preview_wire(**body.model_dump())
+
+    @router.post("/wire-source/recovery/prepare")
+    def prepare_wire_recovery(body: DefaultRecoveryPrepare):
+        return service.wire_recovery.prepare(body.model_dump())
 
     @router.post("/wire-source/transfer/apply")
     async def apply_wire(body: WireTransferApply):

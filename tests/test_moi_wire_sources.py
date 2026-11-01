@@ -21,6 +21,7 @@ def source(
     config=False,
     source_class=551,
     target_class=527,
+    diagram_class=575,
     order=(0, 1, 2, 3),
     wires=None,
     positions=True,
@@ -45,7 +46,7 @@ def source(
     ]
     props = [
         (32527, encoded(CharacterString(REF))),
-        (75, encoded(ObjectIdentifier((575, 1)))),
+        (75, encoded(ObjectIdentifier((diagram_class, 1)))),
         (2390, encoded(CharacterString("Authored native sequence"))),
         (3375, b"".join(encoded(ObjectIdentifier(("analog-value", n))) for n in (10, 11, 12, 13))),
         (3117, b"".join(encoded(Unsigned(v)) for v in order)),
@@ -71,7 +72,7 @@ def source(
                 ),
             )
         )
-    objects.append(native_record(575, 1, props))
+    objects.append(native_record(diagram_class, 1, props))
     for i, ref in enumerate((A, B, C, D)):
         cid = 551 if i == 0 else source_class if i == 1 else target_class
         objects.append(
