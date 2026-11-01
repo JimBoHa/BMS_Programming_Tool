@@ -11,7 +11,8 @@ import { CafGraphPanel } from "./CafGraphPanel";
 import { CafHardwarePanel } from "./CafHardwarePanel";
 import { CafInstancePanel } from "./CafInstancePanel";
 import { JciPreflight } from "./JciPreflight";
-import type { CafDocument, FileRequest } from "./workflow";
+import { CafNativeCorrelation } from "./CafNativeCorrelation";
+import type { CafDocument, ControllerContext, FileRequest } from "./workflow";
 import { WorkflowToolTabs } from "./WorkflowChrome";
 
 export type CafView =
@@ -39,6 +40,7 @@ export function NativeCaf({
   view,
   onViewChange,
   saveRequest,
+  controller,
 }: {
   embedded?: boolean;
   visible?: boolean;
@@ -47,6 +49,7 @@ export function NativeCaf({
   view?: CafView;
   onViewChange?: (view: CafView) => void;
   saveRequest?: string;
+  controller?: ControllerContext | null;
 }) {
   const [localView, setLocalView] = useState<CafView>("objects");
   const currentView = view || localView;
@@ -401,6 +404,19 @@ export function NativeCaf({
             />
           </div>
           <div hidden={currentView !== "compatibility"}>
+            <CafNativeCorrelation
+              key={`correlation:${caf.sha256}:${archiveGeneration}`}
+              id={caf.sha256}
+              filename={filename}
+              visible={!opening && visible && currentView === "compatibility"}
+              controller={controller}
+              hasLocalProposals={
+                changes.length > 0 ||
+                graphDirty ||
+                hardwareDirty ||
+                instanceDirty
+              }
+            />
             <JciPreflight
               key={`preflight:${caf.sha256}:${archiveGeneration}`}
               id={caf.sha256}
