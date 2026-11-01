@@ -85,3 +85,8 @@ This completes one local compilation operation. Current live-setting checks,
 controller review/restore/readback, full-program authoring, allocation, package/
 release/resources, native runtime behavior, CCT/PCT reopening and physical/BTCVT
 acceptance remain separate. JCI-02, JCI-03 and JCI-09 remain partial overall.
+
+A separate [existing-wire transfer profile](native-wire-source-transfer.md) now
+reviews and applies this edit through the connected native adapter, with fresh
+configuration/settings guards and full readback/recovery. Local compilation alone
+does not prepare that transfer.

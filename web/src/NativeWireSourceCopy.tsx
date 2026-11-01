@@ -1,10 +1,11 @@
-import { useContext, useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useId, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import "./native-wire-copy.css";
 import { api, apiJsonDocument, apiBlobDocument, saveBlob } from "./api";
 import { sha256Blob } from "./activityContracts";
 import { controllerKey, type ControllerContext } from "./workflow";
 import { NativeBooleanTransferContext } from "./NativeBooleanTransferContext";
+import { NativeDefaultTransfer } from "./NativeDefaultTransfer";
 import type { NativeArchiveSource } from "./NativeRecords";
 import { rememberWireDraft, type WireCopyDrafts } from "./nativeWireDrafts";
 export type { WireCopyDrafts } from "./nativeWireDrafts";
@@ -37,8 +38,10 @@ export function NativeWireSourceCopy({
   visible: boolean;
   drafts: WireCopyDrafts;
 }) {
-  const fieldBusy =
-    useContext(NativeBooleanTransferContext)?.fieldBusy ?? false;
+  const transferContext = useContext(NativeBooleanTransferContext);
+  const fieldBusy = transferContext?.fieldBusy ?? false;
+  const transferOwner = useId();
+  const [ownedBusy, setOwnedBusy] = useState(false);
   const archiveKey = JSON.stringify([
     source.capture_id,
     source.snapshot_sha256,
@@ -73,7 +76,7 @@ export function NativeWireSourceCopy({
   const context = JSON.stringify([
     graphKey,
     visible,
-    fieldBusy,
+    fieldBusy && !ownedBusy,
     controller && [
       controllerKey(controller),
       controller.interfaceKey,
@@ -112,6 +115,14 @@ export function NativeWireSourceCopy({
   const candidate = selection?.candidates.find(
     (row: Data) => row.ref === sourceRef,
   );
+  const fieldTransferActive =
+    effective &&
+    !!transferContext?.controller?.interfaceOpen &&
+    transferContext.controller.ownedCommands === 0 &&
+    controllerKey(transferContext.controller) ===
+      controllerKey(source.target) &&
+    !!candidate &&
+    sourceRef !== wire?.source_ref;
   const request = {
     capture_id: source.capture_id,
     snapshot_sha256: source.snapshot_sha256,
@@ -595,7 +606,9 @@ export function NativeWireSourceCopy({
               )}
               <div className="button-row">
                 <button
-                  className={shown ? undefined : "primary"}
+                  className={
+                    shown || fieldTransferActive ? undefined : "primary"
+                  }
                   disabled={busy || fieldBusy || !visible || !candidate}
                   onClick={() => void prepare()}
                 >
@@ -679,6 +692,36 @@ export function NativeWireSourceCopy({
       )}
       {saved?.owner === owner && saved.ticket === epoch.current && (
         <p role="status">{saved.text}</p>
+      )}
+      {effective && data && wire && transferContext?.controller && (
+        <NativeDefaultTransfer
+          wireSource
+          controller={transferContext.controller}
+          source={{ ...data, device: source.target.device }}
+          proposal={body}
+          field={
+            candidate && sourceRef !== wire.source_ref
+              ? {
+                  ref: record.ref,
+                  encoded_sha256: selection.property_sha256,
+                  wire_index: wireIndex,
+                  old: wire.old,
+                  old_source_ref: wire.source_ref,
+                  target_ref: wire.target_ref,
+                  source_index: candidate.index,
+                  source_class: candidate.class_id,
+                }
+              : undefined
+          }
+          visible={visible}
+          parentBusy={transferContext.parentBusy}
+          otherOperationBusy={transferContext.otherOperationBusy}
+          onBusy={(busy) => {
+            setOwnedBusy(busy);
+            transferContext.onBusy(transferOwner, busy);
+          }}
+          onCaptured={transferContext.onCaptured}
+        />
       )}
     </details>
   );
