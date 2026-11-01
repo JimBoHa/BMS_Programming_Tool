@@ -7,8 +7,9 @@ from typing import Annotated, Literal
 
 from pydantic import Field, field_validator
 
+from .application_store import PROFILE as TRANSFER_PROFILE
 from .models import StrictModel
-from .moi_identity import seal
+from .moi_identity import controller_name, seal
 from .native_boolean_recovery import PROFILE as BOOLEAN_RECOVERY_PROFILE
 from .native_boolean_recovery import tag as boolean_tag
 from .native_boolean_transfer import PROFILE as BOOLEAN_TRANSFER_PROFILE
@@ -16,6 +17,7 @@ from .native_default_recovery import PROFILE as RECOVERY_PROFILE
 from .native_default_transfer import PROFILE as DEFAULT_PROFILE
 from .native_historical_pin import RecordedWirePin, recorded_pin_matches
 from .native_historical_wire_recovery import PROFILE as HISTORICAL_WIRE_PROFILE
+from .native_name_recovery import PROFILE as NAME_RECOVERY_PROFILE
 from .native_wire_copies import UInt
 from .native_wire_recovery import PROFILE as WIRE_RECOVERY_PROFILE
 from .native_wire_transfer import PROFILE as WIRE_TRANSFER_PROFILE
@@ -128,6 +130,33 @@ class RecordedHistoricalWireOrigin(RecordedWireOrigin):
     historical_pin_sha256: Digest
 
 
+class RecordedNameOrigin(StrictModel):
+    profile: Literal[NAME_RECOVERY_PROFILE]
+    parent_receipt_id: Identifier
+    parent_intent_sha256: Digest
+    original_dispatch: Literal["possible"]
+    verified_proof: RecordedProof
+    original_backup_id: Identifier
+    original_snapshot_sha256: Digest
+    original_after_native_sha256: Digest
+    current_capture_id: Identifier
+    current_snapshot_sha256: Digest
+    current_archive_sha256: Digest
+    root_ref: str = Field(strict=True, min_length=1, max_length=512)
+    root_class: int = Field(strict=True, ge=0, le=65535)
+    instance: int = Field(strict=True, ge=0, le=4194302)
+    property: int = Field(strict=True, ge=2390, le=2390)
+    previous_name: str = Field(strict=True)
+    recorded_after_name: str = Field(strict=True)
+    current_name: str = Field(strict=True)
+    proposal_name: str = Field(strict=True)
+
+    @field_validator("previous_name", "recorded_after_name", "current_name", "proposal_name")
+    @classmethod
+    def qualified_name(cls, value):
+        return controller_name(value)
+
+
 def native_reference(kind, selection):
     """Read canonical native keys; retain a legacy alias only when unambiguous."""
     if kind not in {"signal-default", "boolean-default", "wire-source"}:
@@ -168,6 +197,8 @@ def recovery_lineage(body, kind, reference):
         return boolean_recovery_lineage(body, reference)
     if kind == "wire-source":
         return wire_recovery_lineage(body, reference)
+    if kind == "name":
+        return name_recovery_lineage(body)
     unavailable = {
         "state": "unavailable",
         "scope": "Recorded recovery metadata is incomplete or inconsistent; inspect original evidence.",
@@ -217,6 +248,65 @@ def recovery_lineage(body, kind, reference):
             "Recorded origin seal and child-receipt bindings only. This projection does not "
             "revalidate the parent receipt or backup files, authorize recovery or establish live state."
         ),
+    }
+
+
+def name_recovery_lineage(body):
+    unavailable = {
+        "state": "unavailable",
+        "scope": "Recorded recovery metadata is incomplete or inconsistent; inspect original evidence.",
+    }
+    try:
+        origin = RecordedNameOrigin.model_validate(body.get("recovery_origin"))
+    except ValueError:
+        return unavailable
+    compilation = body.get("compilation")
+    selected = compilation.get("identity_edit") if isinstance(compilation, dict) else None
+    if (
+        not isinstance(selected, dict)
+        or body.get("profile") != TRANSFER_PROFILE
+        or body.get("change_kind") != "name"
+        or body.get("name_change_confirmed") is not True
+        or body.get("application_transfer_confirmed") is not True
+        or body.get("recovery_origin_sha256") != seal(body["recovery_origin"])
+        or body.get("review_capture_id") != origin.current_capture_id
+        or origin.parent_receipt_id == body.get("id")
+        or origin.original_backup_id == body.get("backup_id")
+        or origin.previous_name == origin.recorded_after_name
+        or origin.current_name != origin.recorded_after_name
+        or origin.proposal_name != origin.previous_name
+        or body.get("old_name") != origin.current_name
+        or body.get("new_name") != origin.previous_name
+        or type(body.get("old_instance")) is not int
+        or type(body.get("new_instance")) is not int
+        or body["old_instance"] != origin.instance
+        or body["new_instance"] != origin.instance
+        or selected.get("change_kind") != "name"
+        or selected.get("root_ref") != origin.root_ref
+        or type(selected.get("root_class")) is not int
+        or selected["root_class"] != origin.root_class
+        or selected.get("old_name") != origin.current_name
+        or selected.get("new_name") != origin.previous_name
+        or type(selected.get("old_instance")) is not int
+        or type(selected.get("new_instance")) is not int
+        or selected["old_instance"] != origin.instance
+        or selected["new_instance"] != origin.instance
+    ):
+        return unavailable
+    return {
+        "state": "recorded",
+        "profile": NAME_RECOVERY_PROFILE,
+        "datatype": "CharacterString",
+        "parent_receipt_id": origin.parent_receipt_id,
+        "record_ref": origin.root_ref,
+        "instance": origin.instance,
+        "before_value": origin.current_name,
+        "after_value": origin.previous_name,
+        "verified_proof": origin.verified_proof.model_dump(),
+        "original_backup_id": origin.original_backup_id,
+        "current_capture_id": origin.current_capture_id,
+        "origin_sha256": body["recovery_origin_sha256"],
+        "scope": "Recorded origin seal and child-receipt bindings only. This projection does not revalidate the parent receipt or backup files, authorize recovery or establish live state.",
     }
 
 

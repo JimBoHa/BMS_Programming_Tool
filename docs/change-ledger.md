@@ -157,3 +157,14 @@ child bindings. The list loads no source/parent files and grants no new write
 authority. Original-payload/readback reconstruction can use that sealed typed
 child evidence with its own retained backup; new transfer admission reconstructs
 the verified receipt and actual original/current sources independently.
+
+## Recorded controller-name recovery
+
+The [previous-name profile](native-controller-name-recovery.md) adds recorded
+CharacterString lineage for name-only native recovery. Changes shows the original
+parent, current-to-previous name, unchanged instance and historical verification
+separately from the new child outcome. Strict typed origin/child bindings and the
+recorded seal are checked without loading sources or revalidating a parent. This
+metadata cannot authorize another transfer. Inconsistent metadata stays unavailable
+while the original receipt remains readable. Existing Real, Boolean and wire
+lineage contracts remain unchanged.
