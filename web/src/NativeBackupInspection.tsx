@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import { NativeRecords, type NativeArchiveSource } from "./NativeRecords";
 import { NativeBackupCapabilities } from "./NativeBackupCapabilities";
+import type { BooleanCopyDrafts } from "./NativeBooleanDefaultCopy";
 import {
   controllerKey,
   type ControllerContext,
@@ -15,6 +16,7 @@ export function NativeBackupInspection({
   selection,
   controller,
   visible,
+  booleanDrafts,
 }: {
   selection: {
     id: string;
@@ -23,6 +25,7 @@ export function NativeBackupInspection({
   } | null;
   controller?: ControllerContext | null;
   visible: boolean;
+  booleanDrafts: BooleanCopyDrafts;
 }) {
   const owner = JSON.stringify([
     visible,
@@ -168,6 +171,7 @@ export function NativeBackupInspection({
             source={source as NativeArchiveSource}
             controller={controller}
             visible={visible}
+            booleanDrafts={booleanDrafts}
           />
           <details>
             <summary>Archive provenance</summary>

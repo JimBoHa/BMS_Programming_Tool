@@ -1,11 +1,12 @@
 """Operation evidence from one immutable native backup, with no field actions."""
 
+from .moi_boolean_defaults import MoiBooleanDefaults
 from .moi_identity import MoiIdentity
 from .moi_parameters import ParameterApplication
 from .moi_signal_defaults import MoiSignalDefaults
 from .native_signal_compiler import compiler_from_snapshot
 
-PROFILE = "native-backup-operation-capabilities/1"
+PROFILE = "native-backup-operation-capabilities/2"
 
 
 def backup_capabilities(snapshot, files, application):
@@ -37,6 +38,11 @@ def backup_capabilities(snapshot, files, application):
         defaults = len(MoiSignalDefaults(files[3]).candidates)
     except ValueError as exc:
         defaults_error = str(exc)[:512]
+    boolean_count, boolean_error = 0, None
+    try:
+        boolean_count = len(MoiBooleanDefaults(files[3]).candidates)
+    except ValueError as exc:
+        boolean_error = str(exc)[:512]
     parameters, parameters_error = None, None
     try:
         merged, parameters = ParameterApplication(files[3], files[11], files[12]).compile()
@@ -104,6 +110,15 @@ def backup_capabilities(snapshot, files, application):
         if defaults
         else defaults_error or "No supported class 526/527 Real Default Value was found.",
         "An archive-only copy does not merge saved values or qualify a controller transfer.",
+    )
+    add(
+        "boolean-default-copy",
+        "Save an archive Boolean-default copy",
+        "source-qualified" if boolean_count else "unsupported-source",
+        f"The archive contains {boolean_count} supported existing Boolean defaults."
+        if boolean_count
+        else boolean_error or "No canonical class 530/531 Boolean Default Value was found.",
+        "Inspect the actual record and review a separate archive copy. Saved values are not merged and no Boolean field transfer is prepared.",
     )
     add(
         "effective-default-compile",
@@ -182,6 +197,7 @@ def backup_capabilities(snapshot, files, application):
             "recorded_identity_verified": bool(verified),
             "captured_plain_ipv4": bool(plain_ip),
             "archive_real_default_count": defaults,
+            "archive_boolean_default_count": boolean_count,
             "effective_real_default_count": len(fields),
             "parameter_merge": parameters,
             "parameter_merge_error": parameters_error,

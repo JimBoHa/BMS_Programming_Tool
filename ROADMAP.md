@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 156 scoped criteria: 102
+The public requirement register currently records 157 scoped criteria: 103
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -171,7 +171,7 @@ hardware reassignment remain separate. JCI-03 and JCI-09 remain partial overall.
 | ID | Planned addition | Workspace | Acceptance / dependency |
 | --- | --- | --- | --- |
 | JCI-01 | Build an operation-specific protocol/format/release capability matrix from discovered identity, application structure, packages and retained evidence | Overview / Program; Settings for toolchains | Partial: [captured-source operation support](docs/application-operation-capabilities.md) and [native backup analysis](docs/native-backup-operation-capabilities.md) credit actual readers, saved merging and typed compilers while separating transfer preflight, general logic, packages and physical acceptance. Continue package/release evidence, CAF correlation and retained transfer outcomes |
-| JCI-02 | Extend real CAF/MOI inspection and loss-preserving editable intermediate representation | Program | Partial: [actual MOI/MOZ reading](docs/moz-application-reading.md) and [native record explorer](docs/native-record-explorer.md) expose recorded engineering/metadata properties, typed values and exact byte evidence. Continue the broader editable representation, references/order/positions/units and typed golden edits; no general logic generation is inferred |
+| JCI-02 | Extend real CAF/MOI inspection and loss-preserving editable intermediate representation | Program | Partial: [actual MOI/MOZ reading](docs/moz-application-reading.md), [native record explorer](docs/native-record-explorer.md) and [Boolean archive copies](docs/native-boolean-default-copies.md) expose recorded properties, exact bytes and another narrow typed local edit. Continue the broader editable representation, references/order/positions/units and typed golden edits; no general logic generation is inferred |
 | JCI-03 | Implement general native logic authoring: typed parameters, new block identities, links, ordering and full compile/resource validation | Program / Library | First native graph-editing slice independently compiles and reopens/readbacks on its exact supported format; typed identity/default compilers are not credited as general logic generation |
 | JCI-04 | Extend FX/Metasys and cross-release conversion with explicit semantics and package migrations | Program → conversion review | Every supported source/target pair has a loss report and round-trip/behavior evidence; reject unresolved semantics instead of dropping logic |
 | JCI-05 | Implement executable native Enum/reliability/type mappings and restart/retention rules | Program / Library | Verify codes, fallback, units, precision and state; labels or manual named sets alone do not supply native numeric bindings |
