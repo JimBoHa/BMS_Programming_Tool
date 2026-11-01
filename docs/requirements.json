@@ -1546,5 +1546,14 @@
     "pdf_pages_or_section": "docs/controller-name-commissioning.md; docs/native-settings-preservation.md; docs/jci-operation-coverage.md",
     "status": "implemented",
     "implementation_or_gap": "Root Device-name character encoding/framing is validated and preserved; mixed name/instance edits refuse. The same private original/fresh-parameter/capacity/one-use transfer and durable uncertainty contracts apply, with separately recorded permitted runtime outputs. No separate physical rename acceptance, unknown encoding support, general program edit or native hardware allocation is claimed."
+  },
+  {
+    "id": "UI-INSPECTOR-DRAFTS-001",
+    "feature": "Owned local graph parameter drafts",
+    "acceptance_criterion": "Retain unfinished numeric, numeric-array and unapplied JSON text with its graph, block, field, editor and exact accepted source across selection and task changes; retire it when that source changes and export accepted data only.",
+    "evidence": "Actual local application HTTP import/export and browser interaction in Chromium and WebKit; existing exact Program source contract.",
+    "pdf_pages_or_section": "docs/inspector-drafts.md; docs/workflow-style-guide.md",
+    "status": "implemented",
+    "implementation_or_gap": "App-owned transient cache qualifies graph/target/node/kind/definition/type/unit/field and exact numeric/JSON baseline. Selection, group inspection and task navigation restore only owned text/errors; accepted value/type/unit/target/source changes retire entries even while hidden and through undo/redo. Numeric acceptance and explicit JSON Apply remain unchanged. No new durable draft format, native CAF/Activity/force editing, controller reviews, field traffic or native JCI deployment."
   }
 ]
