@@ -35,6 +35,7 @@ export function ScheduleInventoryPanel({
     [maximum, setMaximum] = useState("4"),
     [clock, setClock] = useState(false),
     [includeTrace, setIncludeTrace] = useState(false),
+    [includeUdpIngress, setIncludeUdpIngress] = useState(false),
     [traceObject, setTraceObject] = useState(""),
     [traceProperty, setTraceProperty] = useState(
       "list-of-object-property-references",
@@ -73,6 +74,7 @@ export function ScheduleInventoryPanel({
       maximum,
       clock,
       includeTrace,
+      includeUdpIngress,
       traceObject,
       traceProperty,
       traceIndex,
@@ -184,10 +186,19 @@ export function ScheduleInventoryPanel({
         };
         const document = await apiJsonDocument(
           "/bacnet/schedules/read-diagnostics",
-          { request: body, trace_focus: focus },
+          {
+            request: body,
+            trace_focus: focus,
+            include_udp_ingress: includeUdpIngress,
+          },
           true,
         );
-        const result = await scheduleDiagnostic(document, body, focus);
+        const result = await scheduleDiagnostic(
+          document,
+          body,
+          focus,
+          includeUdpIngress,
+        );
         if (current(ticket, source, draft))
           setRetained({
             report: result.report,
@@ -396,6 +407,15 @@ export function ScheduleInventoryPanel({
         </label>
         {includeTrace && (
           <>
+            <label className="schedule-trace-enable">
+              <input
+                type="checkbox"
+                checked={includeUdpIngress}
+                disabled={busy}
+                onChange={(e) => setIncludeUdpIngress(e.target.checked)}
+              />
+              Include owned UDP callback observations
+            </label>
             <p>
               Explicitly select the object above, then choose one property to
               observe during the same inventory read. No extra queries or
@@ -499,9 +519,12 @@ export function ScheduleInventoryPanel({
             · {diagnostic.trace?.state ?? "unavailable"}
           </p>
           <p>
-            Native handoff and multiplexer observations; not socket transmission
-            or all UDP ingress. Trace limits are separate from the complete
-            evidence report.
+            {diagnostic.includeUdpIngress
+              ? "Owned UDP callback observations requested for this property. Consult the trace for retained events or observation gaps. Unrelated datagrams do not prove a matching response."
+              : "Native handoff and multiplexer observations."}{" "}
+            Not socket transmission, physical destination or all network
+            traffic. Trace limits are separate from the complete evidence
+            report.
           </p>
           {diagnostic.trace?.counts && (
             <p>

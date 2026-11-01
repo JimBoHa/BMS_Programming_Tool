@@ -32,6 +32,7 @@ export async function scheduleDiagnostic(
     dnet: number | null;
   },
   focus: ScheduleTraceFocus,
+  includeUdpIngress = false,
 ) {
   const value = document.data;
   let core: any,
@@ -53,6 +54,9 @@ export async function scheduleDiagnostic(
       value.trace_focus.object_id !== object(focus.object_id) ||
       value.trace_focus.property !== focus.property ||
       value.trace_focus.array_index !== focus.array_index ||
+      value.include_udp_ingress !== includeUdpIngress ||
+      (value.trace.state !== "unavailable" &&
+        value.trace.udp_ingress_requested !== includeUdpIngress) ||
       (await sha256(value.core_report_json)) !== value.core_report_sha256
     )
       throw new Error(
@@ -88,5 +92,12 @@ export async function scheduleDiagnostic(
     core.objects.length > 16
   )
     throw new Error("Schedule diagnostic core does not match this inspection.");
-  return { report: core, envelope, core: blob, trace, focus };
+  return {
+    report: core,
+    envelope,
+    core: blob,
+    trace,
+    focus,
+    includeUdpIngress,
+  };
 }

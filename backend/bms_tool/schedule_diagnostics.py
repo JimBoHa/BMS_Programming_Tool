@@ -58,6 +58,7 @@ class ScheduleTraceFocus(StrictModel):
 class ScheduleDiagnosticRequest(StrictModel):
     request: ScheduleReadRequest
     trace_focus: ScheduleTraceFocus
+    include_udp_ingress: bool = Field(default=False, strict=True)
 
     @model_validator(mode="after")
     def explicit_selection(self):

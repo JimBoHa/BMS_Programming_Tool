@@ -1889,7 +1889,9 @@ def create_app(state_dir=None, *, operation_power=None):
     async def bacnet_schedules_read_diagnostics(body: ScheduleDiagnosticRequest):
         # Focus observations on one already-selected property. Earlier inventory
         # reads cannot exhaust its independent trace; no read is added or retried.
-        with capture_read_trace(focus=body.trace_focus.reference()) as collector:
+        with capture_read_trace(
+            focus=body.trace_focus.reference(), include_udp_ingress=body.include_udp_ingress
+        ) as collector:
             report = await schedule_inventory.read(**body.request.model_dump())
         core = await bacnet_schedules_export(ScheduleExport(id=report["id"]))
         try:
@@ -1901,6 +1903,7 @@ def create_app(state_dir=None, *, operation_power=None):
                 "core_report_sha256": hashlib.sha256(core_bytes).hexdigest(),
                 "trace_profile": "studio-readproperty-phase-trace/1",
                 "trace_focus": body.trace_focus.model_dump(),
+                "include_udp_ingress": body.include_udp_ingress,
                 "trace": freeze_read_trace(collector),
             }
             response = JSONResponse(document)

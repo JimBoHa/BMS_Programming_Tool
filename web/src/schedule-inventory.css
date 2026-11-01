@@ -28,6 +28,9 @@
   flex-shrink: 0;
   margin: 0;
 }
+.schedule-read-diagnostics .schedule-trace-enable + .schedule-trace-enable {
+  margin-top: 8px;
+}
 .schedule-read-diagnostics .form-grid {
   margin-top: 16px;
   gap: 16px;
