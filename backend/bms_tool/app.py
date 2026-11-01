@@ -132,6 +132,7 @@ from .native_signal_compiler import (
     SignalCompilerSource,
 )
 from .native_simulator import NativeSimulator
+from .native_wire_copies import NativeWireCopies, native_wire_router
 from .network_number_plan import network_plan_router
 from .niagara import NiagaraArchive
 from .observability import ObservabilityStore
@@ -573,6 +574,7 @@ def create_app(state_dir=None, *, operation_power=None):
     backup_records = NativeBackupRecords(native_applications.storage)
     boolean_copies = NativeBooleanCopies(backup_records)
     boolean_compiler = EffectiveBooleanService(backup_records)
+    wire_copies = NativeWireCopies(backup_records)
     schedule_inventory = ScheduleInventory(bacnet, store)
     schedule_library = NativeScheduleLibrary(store.directory, schedule_inventory)
     schedule_writes = NativeWeeklyDayWrites(bacnet, store, schedule_library)
@@ -717,6 +719,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.state.native_boolean_copies = boolean_copies
     app.state.native_boolean_compiler = boolean_compiler
     app.include_router(native_application_router(native_applications))
+    app.include_router(native_wire_router(wire_copies))
 
     @app.post("/api/bacnet/controller/native-application/inspection/source")
     def native_backup_inspection_source(body: BackupInspectionSource):

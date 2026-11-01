@@ -7,6 +7,10 @@ import {
 } from "react";
 import { NativeBooleanTransferContext } from "./NativeBooleanTransferContext";
 import { api } from "./api";
+import {
+  NativeWireSourceCopy,
+  type WireCopyDrafts,
+} from "./NativeWireSourceCopy";
 import { controllerKey, type ControllerContext } from "./workflow";
 import {
   NativeBooleanDefaultCopy,
@@ -38,6 +42,7 @@ type RecordSource =
       controller?: ControllerContext | null;
       visible: boolean;
       booleanDrafts?: BooleanCopyDrafts;
+      wireDrafts?: WireCopyDrafts;
     };
 function scrollTable(event: KeyboardEvent<HTMLDivElement>) {
   if (
@@ -482,6 +487,24 @@ export function NativeRecords(props: RecordSource) {
               drafts={props.booleanDrafts}
             />
           )}
+          {native &&
+            props.wireDrafts &&
+            [536, 575].includes(detail.record.class_id) &&
+            typeof detail.record.ref === "string" && (
+              <NativeWireSourceCopy
+                key={JSON.stringify([
+                  owner,
+                  ownerGeneration.current,
+                  detail.record.ref,
+                  detail.record.record_sha256,
+                ])}
+                source={props.source}
+                record={detail.record}
+                controller={controller}
+                visible={props.visible}
+                drafts={props.wireDrafts}
+              />
+            )}
           <div className="button-row">
             <button
               type="button"

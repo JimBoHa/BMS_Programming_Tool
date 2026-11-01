@@ -99,8 +99,8 @@ def test_actual_saved_merge_and_compiler_are_distinct_from_captured_transport(
     before = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in folder.iterdir()}
     report = service.capabilities(request)
     rows, qualification = operations(report), report["qualification"]
-    assert report["capability_profile"] == "native-backup-operation-capabilities/4"
-    assert len(rows) == len(report["operations"]) == 15
+    assert report["capability_profile"] == "native-backup-operation-capabilities/5"
+    assert len(rows) == len(report["operations"]) == 16
     assert report["read_only"] and not report["can_apply"] and not report["field_actions"]
     assert not report["controller_queries"] and not report["current_identity_verified"]
     assert qualification["recorded_identity_verified"]
@@ -200,6 +200,43 @@ def test_any_substituted_file_blocks_analysis(tmp_path, file_id):
     (storage.directory / request["capture_id"] / f"file-{file_id}.bin").write_bytes(b"Changed")
     with pytest.raises(ValueError, match="integrity"):
         service.capabilities(request)
+
+
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        {},
+        {"connector_config": {"transport": "mstp", "serial_port": "/dev/authored-only"}},
+        {"source_identity_matches": False},
+    ],
+)
+def test_archive_wire_copy_qualification_is_independent_of_saved_schema_and_current_transport(
+    tmp_path, metadata
+):
+    from .test_moi_wire_sources import source as graph_source
+
+    files = {3: graph_source(), 11: b"Unknown selectors", 12: b"Opaque saved values"}
+    storage, service, request = source(tmp_path, files, **metadata)
+    report = service.capabilities(request)
+    rows = operations(report)
+    assert rows["wire-source-copy"]["status"] == "source-qualified"
+    assert report["qualification"]["archive_wire_source_copy"]["candidate_count"] == 1
+    assert rows["general-logic"]["status"] == "unavailable"
+    assert rows["saved-settings"]["status"] == "unsupported-source"
+    assert (
+        not report["can_apply"] and not report["field_actions"] and not report["controller_queries"]
+    )
+    assert storage.load(request["capture_id"])[1] == files and not storage.receipts()
+
+
+def test_readable_native_graph_without_a_compatible_wire_source_has_no_copy_qualification(tmp_path):
+    from .test_moi_wire_sources import source as graph_source
+
+    files = {3: graph_source(config=True), 11: b"Unknown selectors", 12: b"Opaque saved values"}
+    _, service, request = source(tmp_path, files)
+    rows = operations(service.capabilities(request))
+    assert rows["diagram-read"]["status"] == "source-qualified"
+    assert rows["wire-source-copy"]["status"] == "unsupported-source"
 
 
 def test_source_seal_and_local_http_contract_are_strict(tmp_path):

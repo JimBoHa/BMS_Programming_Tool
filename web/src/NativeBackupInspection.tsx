@@ -4,6 +4,7 @@ import { api } from "./api";
 import { NativeRecords, type NativeArchiveSource } from "./NativeRecords";
 import { NativeBackupCapabilities } from "./NativeBackupCapabilities";
 import type { BooleanCopyDrafts } from "./NativeBooleanDefaultCopy";
+import type { WireCopyDrafts } from "./NativeWireSourceCopy";
 import {
   controllerKey,
   type ControllerContext,
@@ -18,6 +19,7 @@ export function NativeBackupInspection({
   controller,
   visible,
   booleanDrafts,
+  wireDrafts,
 }: {
   selection: {
     id: string;
@@ -27,6 +29,7 @@ export function NativeBackupInspection({
   controller?: ControllerContext | null;
   visible: boolean;
   booleanDrafts: BooleanCopyDrafts;
+  wireDrafts: WireCopyDrafts;
 }) {
   const fieldBusy =
     useContext(NativeBooleanTransferContext)?.fieldBusy ?? false;
@@ -176,6 +179,7 @@ export function NativeBackupInspection({
             controller={controller}
             visible={visible}
             booleanDrafts={booleanDrafts}
+            wireDrafts={wireDrafts}
           />
           <details>
             <summary>Archive provenance</summary>

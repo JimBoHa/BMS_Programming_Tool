@@ -5,9 +5,10 @@ from .moi_effective_boolean import compiler_from_snapshot as boolean_compiler_fr
 from .moi_identity import MoiIdentity
 from .moi_parameters import ParameterApplication
 from .moi_signal_defaults import MoiSignalDefaults
+from .moi_wire_sources import MoiWireSources
 from .native_signal_compiler import compiler_from_snapshot
 
-PROFILE = "native-backup-operation-capabilities/4"
+PROFILE = "native-backup-operation-capabilities/5"
 
 
 def backup_capabilities(snapshot, files, application):
@@ -60,6 +61,27 @@ def backup_capabilities(snapshot, files, application):
         fields = compiler_from_snapshot(snapshot, files).fields()
     except ValueError as exc:
         compiler_error = str(exc)[:512]
+
+    wire_copy, wire_copy_error = None, None
+    try:
+        wire_editor = MoiWireSources(files[3])
+        for diagram in wire_editor.reader.summary()["diagrams"]:
+            try:
+                for index in range(diagram["connections"]):
+                    info = wire_editor.inspect(diagram["ref"], index)
+                    if info["available"]:
+                        wire_copy = {
+                            "diagram_ref": diagram["ref"],
+                            "wire_index": index,
+                            "candidate_count": len(info["candidates"]) - 1,
+                        }
+                        break
+            except ValueError as exc:
+                wire_copy_error = str(exc)[:512]
+            if wire_copy:
+                break
+    except ValueError as exc:
+        wire_copy_error = str(exc)[:512]
 
     rows = []
 
@@ -125,6 +147,16 @@ def backup_capabilities(snapshot, files, application):
         if boolean_count
         else boolean_error or "No canonical class 530/531 Boolean Default Value was found.",
         "Inspect the actual record and review a separate archive copy. Saved values are not merged and no Boolean field transfer is prepared.",
+    )
+    add(
+        "wire-source-copy",
+        "Save an existing native wire source copy",
+        "source-qualified" if wire_copy else "unsupported-source",
+        "At least one existing wire has a same-class/configuration observed source pin, earlier execution, no introduced diagram cycle and a fitting index width."
+        if wire_copy
+        else wire_copy_error
+        or "No alternate existing source passes the recorded wire-copy profile.",
+        "Inspect the actual activity/control-sequence record and review a local archive copy. Saved settings are not merged; no block/I/O allocation, general logic compiler, field transfer or physical acceptance is granted.",
     )
     add(
         "effective-boolean-compile",
@@ -194,7 +226,7 @@ def backup_capabilities(snapshot, files, application):
         "general-logic",
         "Compile arbitrary native blocks and wires",
         "unavailable",
-        "Installed native compilers cover typed identity and existing Real/Boolean defaults, not arbitrary logic generation.",
+        "Installed native compilers cover typed identity, existing Real/Boolean defaults and a scoped existing-wire source archive copy, not arbitrary logic generation.",
         "Retain original bytes; broader writers require independently qualified native references and resource allocation.",
     )
     add(
@@ -222,6 +254,8 @@ def backup_capabilities(snapshot, files, application):
             "captured_plain_ipv4": bool(plain_ip),
             "archive_real_default_count": defaults,
             "archive_boolean_default_count": boolean_count,
+            "archive_wire_source_copy": wire_copy,
+            "archive_wire_source_copy_error": wire_copy_error,
             "effective_boolean_default_count": len(effective_booleans),
             "effective_real_default_count": len(fields),
             "parameter_merge": parameters,
