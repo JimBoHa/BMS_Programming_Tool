@@ -1474,5 +1474,14 @@
     "pdf_pages_or_section": "docs/native-wire-source-transfer.md",
     "status": "implemented",
     "implementation_or_gap": "Separate native-effective-wire-source-transfer/1 operation for one existing connection source. Exact captured route/interface/root identity and original/effective archive/record/property/tuple guards; fresh File3/static-directory equality, saved-value merging and selected diagram/old-source/new-source/target opaque configuration signatures. Existing Real/Boolean default values may refresh; source type/configuration, observed pin, execution order, cycle and width remain guarded. Shared capacity/credentials/expiry/cancellation/one-use plan, durable originals/payload/intent before one File3 restore, full native and effective saved-wire/settings/operational readback. Unknown outcomes retain pending receipts and reconcile after restart without replay. Program retains original drafts, locks source/record/mode/navigation during owned operations, rejects altered review/receipt evidence and exports original JSON. Profile7 separately qualifies transfer preflight; no instance scan/allocation, new objects/connections/I/O, general compiler/resource/package/runtime or CCT/physical/BTCVT acceptance. Authored direct/routed UDP and browser qualification; no site testing."
+  },
+  {
+    "id": "QA-ACQUISITION-001",
+    "feature": "Actual scan and survey freshness with explicit interface resume",
+    "acceptance_criterion": "A real browser scan opens its randomly identified loopback controller; repeated explicit hardware surveys reflect an independently changed input; reconnecting retains observations without restarting metadata until explicit resume, with recorded proof of read-only services.",
+    "evidence": "Production HTTP, BACpypes3 loopback peer, randomized identities/values and Chromium/WebKit workspace tests without API interception.",
+    "pdf_pages_or_section": "docs/scan-survey-freshness.md; docs/workflow-style-guide.md",
+    "status": "implemented",
+    "implementation_or_gap": "Interface/bind/epoch ownership retires late scan and metadata results and pauses retained pending observations until explicit resume, reread or new scan. Same-interface shown-page behavior and completed source evidence remain. Actual browser/UDP scan-to-controller-to-survey tests prove changed snapshot values and same-configuration reopen behavior; peer joins and mutation-service rejection preserve evidence. No encoded site scans, physical device/adapter/route qualification, Bluetooth configuration or native program transfer."
   }
 ]
