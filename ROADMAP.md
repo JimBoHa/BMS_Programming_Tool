@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 164 scoped criteria: 110
+The public requirement register currently records 165 scoped criteria: 111
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -331,3 +331,19 @@ widths/structures. It grants no additional write or general logic capability.
 [Native backup archive inspection](docs/native-backup-record-inspection.md) extends
 JCI-02 to retained File 3 sources without a connection or recognized saved schema.
 It retains acquisition identity errors and does not grant a compiler or field action.
+
+
+## 2026-10-31 QA-02 delivery: actual scan/survey freshness
+
+`QA-ACQUISITION-001` qualifies the real browser → production HTTP → actual UDP
+peer path with random identity and changed input values. The peer reuses existing
+workspace fixtures; no saved scan or mocked acquisition supplies the results.
+The same-configuration reopen test exposed pending metadata automatically
+restarting. The scan workspace now retires old owners and requires explicit
+resume/reread/new scan after an interface/bind/epoch change, while retaining
+original observations. Read-only peer request evidence and owned cleanup are
+checked. Current controller-centered navigation and hidden target fields remain.
+
+This implements a concrete part of QA-02 and preserves the original local ideas
+without restoring older layout or dated source files. Other operation/transport
+and physical acceptance remain independent. See [the scope and tests](docs/scan-survey-freshness.md).

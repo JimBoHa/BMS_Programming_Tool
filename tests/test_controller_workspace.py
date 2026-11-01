@@ -19,8 +19,8 @@ from .test_point_status import make_point_peer
 from .test_schedule_inventory import text, unsigned
 
 
-def workspace_device(port, *, model="Unlisted controller", vendor=999, modules=5):
-    app = details_device(port, programs=1)
+def workspace_device(port, *, model="Unlisted controller", vendor=999, modules=5, instance=4190090):
+    app = details_device(port, programs=1, instance=instance)
     app.device_object.modelName = model
     app.device_object.vendorIdentifier = vendor
     for number in range(1, modules + 2):
