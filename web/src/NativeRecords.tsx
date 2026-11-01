@@ -23,6 +23,7 @@ export type NativeArchiveSource = {
   capture_id: string;
   snapshot_sha256: string;
   sha256: string;
+  files: Record<"3" | "11" | "12", { sha256: string; bytes: number }>;
   target: {
     address: string;
     device: string;
