@@ -58,9 +58,13 @@ def validate_wire_evidence(edit, guard):
     WireConfigurationGuard.model_validate(guard)
 
 
-def compile_wire(files, edit, *, fresh=False, expected_guard=None):
+def compile_wire(files, edit, *, fresh=False, expected_guard=None, _compiler=None):
     options = EffectiveWirePreview.model_validate(edit)
-    compiler = EffectiveWireCompiler(files)
+    compiler = EffectiveWireCompiler(files) if _compiler is None else _compiler
+    if _compiler is not None and compiler.files != {
+        str(key): {"bytes": len(value), "sha256": sha(value)} for key, value in files.items()
+    }:
+        raise ValueError("The private wire compiler belongs to a different native snapshot.")
     record = compiler.archive.reader.records.get(options.diagram_ref)
     if (
         options.source_sha256 != sha(files[3])
@@ -107,10 +111,12 @@ def compile_wire(files, edit, *, fresh=False, expected_guard=None):
     return output, {**compilation, "wire_guard": guard}
 
 
-def verify_wire_preservation(before, after, edit, guard):
+def verify_wire_preservation(before, after, edit, guard, *, _compiler=None):
     if set(after) != {3, 11, 12}:
         raise ValueError("Wire verification requires a complete native readback snapshot.")
-    expected, compilation = compile_wire(before, edit, fresh=True, expected_guard=guard)
+    expected, compilation = compile_wire(
+        before, edit, fresh=True, expected_guard=guard, _compiler=_compiler
+    )
     expected_native, observed = MoiIdentity(expected), MoiIdentity(after[3])
     if observed.data != expected_native.data:
         raise ValueError("Native application bytes differ from the one reviewed wire edit.")
@@ -128,6 +134,11 @@ def verify_wire_preservation(before, after, edit, guard):
     old_identity, actual_identity = MoiIdentity(before[3]).summary(), observed.summary()
     return {
         "profile": "native-effective-wire-source-preservation/1",
+        **(
+            {"historical_pin_evidence_sha256": compilation["historical_pin_evidence_sha256"]}
+            if "historical_pin_evidence_sha256" in compilation
+            else {}
+        ),
         "application_identical_except_selected_wire": True,
         "identity_unchanged": all(
             actual_identity[key] == old_identity[key]

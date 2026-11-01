@@ -47,11 +47,12 @@ JCI-10 remains partial; this is not a general application restore.
   the current diagram. Preserve the other three tuple fields, destination, ports,
   membership, execution order, layout, original source-index width and every
   other expanded byte. Check execution order and introduced cycles independently.
-- **Historical-only pin recovery remains unsupported.** If the earlier edit
-  removed the source's only outgoing connection, the current diagram no longer
-  supplies an observed compatible pin. Preparation explains the refusal instead
-  of inventing a pin from the model/name or bypassing the compiler. Qualifying
-  retained historical pin evidence is separate roadmap work.
+- **The v1 profile requires a current observed pin.** When the earlier edit
+  removed the source's only outgoing connection, the separate
+  [verified original-pin profile](native-historical-wire-pin-recovery.md)
+  qualifies that actual original connection and unchanged current non-default
+  source configuration. It retains the other compiler guards. Ordinary v1
+  behavior remains unchanged; no pin is invented from a name/model.
 - Other current saved values remain current. Review and pre-intent Apply
   reconstruct the parent/current-source lineage. Apply takes a fresh backup,
   rechecks application/directory and the selected graph/source/target signatures,
@@ -85,5 +86,6 @@ metadata stays unavailable while original receipt evidence remains readable.
 
 Qualification includes literal graph/saved-byte cases, strict local HTTP,
 independent direct/routed UDP peers, lost-commit/restart and Chromium/WebKit
-offline/connected workflows. Name/instance recovery, historical-only pin proof,
-general restore and equipment acceptance remain distinct work.
+offline/connected workflows. Name/instance recovery, general restore and
+equipment acceptance remain future work.
+The separate original-pin profile has its own proof and local-copy contract.

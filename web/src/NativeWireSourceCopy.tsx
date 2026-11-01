@@ -16,6 +16,7 @@ import { NativeDefaultTransfer } from "./NativeDefaultTransfer";
 import type { NativeArchiveSource } from "./NativeRecords";
 import { rememberWireDraft, type WireCopyDrafts } from "./nativeWireDrafts";
 import type { NativeDefaultRecoveryDocument } from "./nativeDefaultRecoveryContract";
+import { historicalWireRecoveryProfile } from "./nativeWireRecoveryContract";
 export type { WireCopyDrafts } from "./nativeWireDrafts";
 
 type Data = Record<string, any>;
@@ -155,9 +156,14 @@ export function NativeWireSourceCopy({
       });
     }
   });
-  const candidate = selection?.candidates.find(
-    (row: Data) => row.ref === sourceRef,
-  );
+  const historical =
+    activeRecovery?.data.profile === historicalWireRecoveryProfile;
+  const candidates: Data[] = selection
+    ? historical
+      ? [...selection.candidates, activeRecovery!.data.proposal_candidate]
+      : selection.candidates
+    : [];
+  const candidate = candidates.find((row: Data) => row.ref === sourceRef);
   const fieldTransferActive =
     effective &&
     !!transferContext?.controller?.interfaceOpen &&
@@ -188,6 +194,18 @@ export function NativeWireSourceCopy({
           : {}),
       }
     : null;
+  const copyBody =
+    historical && body
+      ? {
+          ...body,
+          recovery_parent_receipt:
+            activeRecovery!.data.origin.parent_receipt_id,
+          recovery_origin_sha256: activeRecovery!.data.origin_sha256,
+        }
+      : body;
+  const copyBase = historical
+    ? "/bacnet/controller/native-application/inspection/historical-wire-source"
+    : base;
   const owner = JSON.stringify([
     context,
     contextEpoch.current,
@@ -406,7 +424,7 @@ export function NativeWireSourceCopy({
     setSaved(null);
     setPending({ owner: key, ticket });
     try {
-      const result = await apiJsonDocument(base + "/preview", body),
+      const result = await apiJsonDocument(copyBase + "/preview", copyBody),
         value = result.data,
         compilation = value.compilation,
         copy = effective ? compilation?.wire_edit : compilation;
@@ -415,8 +433,8 @@ export function NativeWireSourceCopy({
         !matches(value) ||
         !value.request ||
         Object.keys(value.request).sort().join() !==
-          Object.keys(body).sort().join() ||
-        Object.entries(body).some(([key, value]) =>
+          Object.keys(copyBody!).sort().join() ||
+        Object.entries(copyBody!).some(([key, value]) =>
           key === "old"
             ? !tuple(result.data.request[key], value as number[])
             : result.data.request[key] !== value,
@@ -475,7 +493,17 @@ export function NativeWireSourceCopy({
               copy.output_native_sha256)) ||
         value.output_sha256 !== copy.output_sha256 ||
         value.controller_write !== false ||
-        !hash(value.review_sha256)
+        !hash(value.review_sha256) ||
+        (historical &&
+          (value.recovery_profile !== historicalWireRecoveryProfile ||
+            value.recovery_origin_sha256 !==
+              activeRecovery!.data.origin_sha256 ||
+            JSON.stringify(value.recovery_origin) !==
+              JSON.stringify(activeRecovery!.data.origin) ||
+            compilation.historical_pin_evidence_sha256 !==
+              activeRecovery!.data.origin.historical_pin_sha256 ||
+            JSON.stringify(compilation.historical_pin_evidence) !==
+              JSON.stringify(activeRecovery!.data.origin.historical_pin)))
       )
         throw new Error(
           "Native wire review differs from this source, tuple and proposed connection.",
@@ -496,8 +524,8 @@ export function NativeWireSourceCopy({
     setError(null);
     setSaved(null);
     try {
-      const result = await apiBlobDocument(base + "/export", {
-        ...body,
+      const result = await apiBlobDocument(copyBase + "/export", {
+        ...copyBody,
         review_sha256: shown.data.review_sha256,
       });
       if (
@@ -662,7 +690,7 @@ export function NativeWireSourceCopy({
                         Unqualified retained draft: {sourceRef}
                       </option>
                     )}
-                    {selection.candidates.map((row: Data) => (
+                    {candidates.map((row: Data) => (
                       <option key={row.ref} value={row.ref}>
                         {row.name} · {row.ref} · class {row.class_id}
                         {row.current_source ? " · current source" : ""}
@@ -678,7 +706,7 @@ export function NativeWireSourceCopy({
                   profile. Choose an observed candidate or discard it.
                 </p>
               )}
-              {!selection.available && (
+              {!selection.available && !historical && (
                 <p>
                   No alternate source passes this recorded prototype, pin,
                   order, cycle and width profile.
@@ -709,6 +737,13 @@ export function NativeWireSourceCopy({
                       : "A new controller review and both transfer confirmations are required. Other current saved settings remain current."}{" "}
                     Your ordinary wire draft remains retained separately.
                   </p>
+                  {historical && (
+                    <p>
+                      The previous output pin comes from the verified original
+                      program. Its current native configuration still matches
+                      that evidence.
+                    </p>
+                  )}
                   <div className="button-row">
                     <button
                       onClick={() =>

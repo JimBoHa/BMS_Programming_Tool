@@ -54,9 +54,10 @@ from .native_default_transfer import (
     compile_default,
     verify_default_preservation,
 )
+from .native_historical_wire_recovery import PROFILE as HISTORICAL_WIRE_RECOVERY_PROFILE
+from .native_historical_wire_recovery import NativeHistoricalWireRecovery
 from .native_wire_compiler import EffectiveWirePreview
 from .native_wire_recovery import PROFILE as WIRE_RECOVERY_PROFILE
-from .native_wire_recovery import NativeWireRecovery
 from .native_wire_transfer import PROFILE as WIRE_PROFILE
 from .native_wire_transfer import SCOPE as WIRE_SCOPE
 from .native_wire_transfer import (
@@ -144,7 +145,7 @@ class NativeApplications:
         self.storage = ApplicationStore(store)
         self.default_recovery = NativeDefaultRecovery(NativeBackupRecords(self.storage))
         self.boolean_recovery = NativeBooleanRecovery(NativeBackupRecords(self.storage))
-        self.wire_recovery = NativeWireRecovery(NativeBackupRecords(self.storage))
+        self.wire_recovery = NativeHistoricalWireRecovery(NativeBackupRecords(self.storage))
         self.credentials = ApplicationCredentials(store.directory)
         self.operation_timeout = operation_timeout
         self.active, self.plans, self.cancelled = None, OrderedDict(), set()
@@ -162,6 +163,7 @@ class NativeApplications:
             "real_default_recovery_profile": RECOVERY_PROFILE,
             "boolean_default_recovery_profile": BOOLEAN_RECOVERY_PROFILE,
             "wire_source_recovery_profile": WIRE_RECOVERY_PROFILE,
+            "historical_wire_pin_recovery_profile": HISTORICAL_WIRE_RECOVERY_PROFILE,
             "boolean_default_transfer_profile": BOOLEAN_DEFAULT_PROFILE,
             "boolean_default_transfer_scope": BOOLEAN_DEFAULT_SCOPE,
             "wire_source_transfer_profile": WIRE_PROFILE,
@@ -497,7 +499,9 @@ class NativeApplications:
             if captured["evidence_sha256"] != options.snapshot_sha256:
                 raise ValueError("The native snapshot changed; reopen and review again.")
             edit = options.model_dump(include=set(EffectiveWirePreview.model_fields))
-            output, compilation = compile_wire(files, edit)
+            output, compilation = compile_wire(
+                files, edit, _compiler=self.wire_recovery.reviewed_compiler(options, files)
+            )
             if not compilation["wire_edit"]["changed"]:
                 raise ValueError("Choose a different existing native wire source before transfer.")
             recovery = self.wire_recovery_origin(options, compilation)
@@ -779,7 +783,11 @@ class NativeApplications:
                 )
                 result["preservation"] = (
                     verify_wire_preservation(
-                        original_files, files, intent["wire_edit"], intent["wire_guard"]
+                        original_files,
+                        files,
+                        intent["wire_edit"],
+                        intent["wire_guard"],
+                        _compiler=self.wire_recovery.recorded_compiler(intent, original_files),
                     )
                     if wire_edit
                     else (
@@ -911,7 +919,11 @@ class NativeApplications:
                         )
                     output, compilation = (
                         compile_wire(
-                            files, body["wire_edit"], fresh=True, expected_guard=body["wire_guard"]
+                            files,
+                            body["wire_edit"],
+                            fresh=True,
+                            expected_guard=body["wire_guard"],
+                            _compiler=self.wire_recovery.reviewed_compiler(options, files),
                         )
                         if wire_edit
                         else (

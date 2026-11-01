@@ -150,3 +150,10 @@ retirement, exact downloads, offline failures, navigation and narrow/desktop tab
 Authored direct/routed peers validate source propagation without physical device
 writes. These checks do not establish new native compilation/transfer, electrical
 allocation, physical acceptance or Bluetooth support.
+
+The separate [original-pin recovery profile](native-historical-wire-pin-recovery.md)
+can project recorded original source/class/port, backup and proof hash with strict
+child bindings. The list loads no source/parent files and grants no new write
+authority. Original-payload/readback reconstruction can use that sealed typed
+child evidence with its own retained backup; new transfer admission reconstructs
+the verified receipt and actual original/current sources independently.

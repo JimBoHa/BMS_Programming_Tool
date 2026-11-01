@@ -23,6 +23,7 @@ import {
 import {
   previousWireSourceMatches,
   wireRecoveryProfile,
+  historicalWireRecoveryProfile,
 } from "./nativeWireRecoveryContract";
 
 type Data = Record<string, any>;
@@ -478,6 +479,10 @@ export function NativeDefaultTransfer({
         },
       );
       if (
+        (wireSource &&
+          document.data.profile === historicalWireRecoveryProfile &&
+          status?.historical_wire_pin_recovery_profile !==
+            historicalWireRecoveryProfile) ||
         !(wireSource
           ? previousWireSourceMatches(
               document.data,
@@ -955,8 +960,11 @@ export function NativeDefaultTransfer({
               {wireSource && (
                 <>
                   {" "}
-                  Open its recorded diagram and connection first. The previous
-                  source must still have an observed compatible output pin.
+                  Open its recorded diagram and connection first.{" "}
+                  {status?.historical_wire_pin_recovery_profile ===
+                  historicalWireRecoveryProfile
+                    ? "A missing current output pin requires verified original pin evidence and matching current configuration."
+                    : "The previous source must still have an observed compatible output pin."}
                 </>
               )}
               {booleanDefault &&

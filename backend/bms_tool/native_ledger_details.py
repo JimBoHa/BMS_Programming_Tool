@@ -14,6 +14,8 @@ from .native_boolean_recovery import tag as boolean_tag
 from .native_boolean_transfer import PROFILE as BOOLEAN_TRANSFER_PROFILE
 from .native_default_recovery import PROFILE as RECOVERY_PROFILE
 from .native_default_transfer import PROFILE as DEFAULT_PROFILE
+from .native_historical_pin import RecordedWirePin, recorded_pin_matches
+from .native_historical_wire_recovery import PROFILE as HISTORICAL_WIRE_PROFILE
 from .native_wire_copies import UInt
 from .native_wire_recovery import PROFILE as WIRE_RECOVERY_PROFILE
 from .native_wire_transfer import PROFILE as WIRE_TRANSFER_PROFILE
@@ -118,6 +120,12 @@ class RecordedWireOrigin(StrictModel):
         if value not in (536, 575):
             raise ValueError("A recorded wire recovery requires an actual native diagram class.")
         return value
+
+
+class RecordedHistoricalWireOrigin(RecordedWireOrigin):
+    profile: Literal[HISTORICAL_WIRE_PROFILE]
+    historical_pin: RecordedWirePin
+    historical_pin_sha256: Digest
 
 
 def native_reference(kind, selection):
@@ -286,7 +294,13 @@ def wire_recovery_lineage(body, reference):
     if body.get("operation_profile") != WIRE_TRANSFER_PROFILE:
         return unavailable
     try:
-        origin = RecordedWireOrigin.model_validate(body.get("recovery_origin"))
+        historical = (
+            isinstance(body.get("recovery_origin"), dict)
+            and body["recovery_origin"].get("profile") == HISTORICAL_WIRE_PROFILE
+        )
+        origin = (
+            RecordedHistoricalWireOrigin if historical else RecordedWireOrigin
+        ).model_validate(body.get("recovery_origin"))
     except ValueError:
         return unavailable
     compilation = body.get("compilation")
@@ -325,11 +339,27 @@ def wire_recovery_lineage(body, reference):
         or max(origin.previous_tuple[0], origin.current_tuple[0])
         >= 1 << (8 * origin.source_index_bytes)
         or "native_reference_issue" in reference
+        or historical
+        and not recorded_pin_matches(origin, body)
     ):
         return unavailable
     return {
         "state": "recorded",
         "datatype": "Wire",
+        **(
+            {
+                "historical_pin": {
+                    "source_ref": origin.historical_pin.source_ref,
+                    "source_port": origin.historical_pin.old[1],
+                    "source_class": origin.historical_pin.source_class,
+                    "original_capture_id": origin.historical_pin.original_capture_id,
+                    "evidence_sha256": origin.historical_pin_sha256,
+                    "scope": "Recorded verified-original pin evidence; no current outgoing connection is inferred.",
+                }
+            }
+            if historical
+            else {}
+        ),
         "parent_receipt_id": origin.parent_receipt_id,
         "parent_intent_sha256": origin.parent_intent_sha256,
         "record_ref": origin.diagram_ref,
