@@ -1,0 +1,14 @@
+.controller-object-picker {
+  min-width: 0;
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.controller-object-picker legend {
+  padding: 0 8px;
+  font-weight: 600;
+}
+.controller-object-picker .button-row {
+  margin-top: 16px;
+}

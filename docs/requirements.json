@@ -1483,5 +1483,14 @@
     "pdf_pages_or_section": "docs/scan-survey-freshness.md; docs/workflow-style-guide.md",
     "status": "implemented",
     "implementation_or_gap": "Interface/bind/epoch ownership retires late scan and metadata results and pauses retained pending observations until explicit resume, reread or new scan. Same-interface shown-page behavior and completed source evidence remain. Actual browser/UDP scan-to-controller-to-survey tests prove changed snapshot values and same-configuration reopen behavior; peer joins and mutation-service rejection preserve evidence. No encoded site scans, physical device/adapter/route qualification, Bluetooth configuration or native program transfer."
+  },
+  {
+    "id": "UI-MONITOR-CTX-001",
+    "feature": "Selected-controller monitoring context",
+    "acceptance_criterion": "Reuse the selected address, Device, router, network and captured interface in field polling and single-log history; discover actual object choices, retire stale display results and retain original offline evidence without retargeting admitted jobs.",
+    "evidence": "Authored direct/routed UDP peers, source-pinned backend/API checks and Chromium/WebKit controller-workspace regressions.",
+    "pdf_pages_or_section": "docs/controller-monitoring-context.md; docs/workflow-style-guide.md; ROADMAP UX-01",
+    "status": "implemented",
+    "implementation_or_gap": "Implemented for direct/explicit-routed BACnet IPv4: paired controller target and original connector configuration, source/Device/object checks, staged polling samples, bounded discovered-object choices, per-context drafts, exact history response/source checks and original JSON capture exports. Legacy standalone API/report profiles remain. Selected-controller direct MS/TP and other unsupported profiles are explicitly refused pending separate work; no physical acceptance or native application changes."
   }
 ]

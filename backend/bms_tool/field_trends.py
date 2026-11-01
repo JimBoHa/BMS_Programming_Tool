@@ -23,6 +23,13 @@ from bacpypes3.basetypes import PropertyIdentifier, Reliability
 from bacpypes3.primitivedata import ObjectIdentifier
 from pydantic import Field, field_validator, model_validator
 
+from .bacnet_read import read_property
+from .controller_read_context import (
+    ControllerReadContext,
+    check_connector_context,
+    selected_address,
+)
+from .device_details import DeviceDetails, _InterfaceChanged
 from .models import StrictModel
 from .observability import ObservabilityStore, _clock, _text
 
@@ -57,7 +64,7 @@ class FieldTrendPoint(StrictModel):
         return value
 
 
-class FieldTrendStart(StrictModel):
+class FieldTrendStart(ControllerReadContext):
     points: list[FieldTrendPoint] = Field(min_length=1, max_length=32)
     interval_seconds: float = Field(default=10, ge=5, le=3600, strict=True)
     verify_quality: bool = Field(default=False, strict=True)
@@ -75,6 +82,9 @@ class FieldTrendStart(StrictModel):
     def unique_signals(self):
         if len({p.signal for p in self.points}) != len(self.points):
             raise ValueError("Field trend signals must be unique within a job.")
+        if self.controller_target is not None:
+            for point in self.points:
+                point.address = selected_address(point.address, self.controller_target)
         return self
 
 
@@ -254,12 +264,22 @@ class FieldTrends:
             )
         self.bacnet.require()
 
-    async def start(self, points, interval_seconds=10, verify_quality=False, name=""):
+    async def start(
+        self,
+        points,
+        interval_seconds=10,
+        verify_quality=False,
+        name="",
+        controller_target=None,
+        expected_connector_config=None,
+    ):
         config = FieldTrendStart(
             points=points,
             interval_seconds=interval_seconds,
             verify_quality=verify_quality,
             name=name,
+            controller_target=controller_target,
+            expected_connector_config=expected_connector_config,
         )
         async with self._jobs_lock:
             if self._closed:
@@ -278,8 +298,10 @@ class FieldTrends:
                 raise ValueError(
                     "Connect the intended BACnet interface before starting field trends."
                 )
-            for point in config.points:
-                self.bacnet.target_address(point.address)
+            check_connector_context(config, status["config"])
+            if config.controller_target is None:
+                for point in config.points:
+                    self.bacnet.target_address(point.address)
             identifier = "poll-" + secrets.token_hex(12)
             job = _Job(
                 identifier,
@@ -346,6 +368,8 @@ class FieldTrends:
         self._event(job, event, signal=record["signal"], error=message, clock=clock)
 
     async def _poll(self, job):
+        if job.config.controller_target is not None:
+            return await self._poll_selected(job)
         self._check_interface(job)
         job.polls += 1
         job.last_poll = _clock(datetime.now(UTC))
@@ -402,6 +426,125 @@ class FieldTrends:
                 raise
             except Exception as exc:
                 self._failure(job, point, exc)
+
+    async def _poll_selected(self, job):
+        """Publish only after this cycle's exact Device and object checks finish."""
+        self._check_interface(job)
+        job.polls += 1
+        job.last_poll = _clock(datetime.now(UTC))
+        target = job.config.controller_target
+        path = DeviceDetails(self.bacnet, self.audit_store)
+        staged = []
+        last_clock = job.last_clock
+        async with self._read_lock:
+            async with path._path(target) as session:
+                self._check_interface(job)
+                check_connector_context(job.config, session["config"])
+
+                async def read(obj, prop, index=None):
+                    self._check_interface(job)
+                    path._guard(session)
+                    gap = self.min_request_gap - (time.monotonic() - self._last_read)
+                    if gap > 0:
+                        await asyncio.sleep(gap)
+                    self._check_interface(job)
+                    path._guard(session)
+                    try:
+                        value = await asyncio.wait_for(
+                            read_property(session["app"], session["target"], obj, prop, index),
+                            self.request_timeout,
+                        )
+                    finally:
+                        self._last_read = time.monotonic()
+                    self._check_interface(job)
+                    path._guard(session)
+                    return value
+
+                async def identity(obj):
+                    try:
+                        actual = await read(obj, "object-identifier")
+                    except (ValueError, TimeoutError) as exc:
+                        raise InterfaceChanged(
+                            "Selected controller/object identity unavailable."
+                        ) from exc
+                    if actual != ObjectIdentifier(obj):
+                        raise InterfaceChanged("Selected controller/object identity changed.")
+
+                await identity(target.device)
+                for point in job.config.points:
+                    await identity(point.object_id)
+                    try:
+                        value = _scalar(
+                            await read(point.object_id, point.property_id, point.array_index),
+                            point.value_type,
+                        )
+                        try:
+                            acquired = _clock(self.clock())
+                        except (ValueError, OverflowError) as exc:
+                            raise AcquisitionClockError(
+                                "Acquisition clock must be timezone-aware and representable in UTC."
+                            ) from exc
+                        if last_clock is not None and acquired <= last_clock:
+                            raise AcquisitionClockError("Acquisition clock did not advance.")
+                        quality = "unknown"
+                        if job.config.verify_quality:
+                            try:
+                                quality = _quality(
+                                    await read(point.object_id, "reliability"),
+                                    await read(point.object_id, "status-flags"),
+                                    await read(point.object_id, "out-of-service"),
+                                )
+                            except (_InterfaceChanged, InterfaceChanged):
+                                raise
+                            except Exception as exc:
+                                self._failure(job, point, exc, "quality-unavailable", acquired)
+                        staged.append((point, value, acquired, quality))
+                        last_clock = acquired
+                    except (AcquisitionClockError, _InterfaceChanged, InterfaceChanged):
+                        raise
+                    except Exception as exc:
+                        self._failure(job, point, exc)
+                for obj in dict.fromkeys(point.object_id for point in job.config.points):
+                    await identity(obj)
+                await identity(target.device)
+                self._check_interface(job)
+                for point, value, acquired, quality in staged:
+                    try:
+                        result = self.store.record_scan(
+                            job.source,
+                            acquired,
+                            {point.signal: value},
+                            qualities={point.signal: quality},
+                            units={point.signal: point.unit},
+                        )
+                        with self.store.connect() as db:
+                            db.execute(
+                                "INSERT OR IGNORE INTO observation_provenance(source,metadata) VALUES(?,?)",
+                                (
+                                    job.source,
+                                    json.dumps(
+                                        {
+                                            "acquisition_kind": "bacnet-poll",
+                                            "clock_basis": "host acquisition time; not the device clock",
+                                            "source_clock": None,
+                                            "controller_target": target.model_dump(),
+                                            "connector_config": job.connector_config,
+                                            "points": [p.model_dump() for p in job.config.points],
+                                        },
+                                        allow_nan=False,
+                                    ),
+                                ),
+                            )
+                    except Exception as exc:
+                        raise FieldPersistenceError("Bound sample persistence failed.") from exc
+                    job.last_clock = acquired
+                    job.samples += result["samples"]
+                    job.latest[point.signal] = {
+                        "value": value,
+                        "quality": quality,
+                        "clock": acquired,
+                        "unit": point.unit,
+                    }
 
     async def _run(self, job):
         reason = "Polling stopped explicitly."

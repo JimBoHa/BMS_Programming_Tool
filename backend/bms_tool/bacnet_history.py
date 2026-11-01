@@ -18,7 +18,7 @@ import secrets
 import threading
 import time
 from collections import OrderedDict
-from contextlib import contextmanager
+from contextlib import asynccontextmanager, contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
@@ -39,8 +39,14 @@ from bacpypes3.primitivedata import ObjectIdentifier
 from pydantic import AwareDatetime, Field, field_validator, model_validator
 
 from .bacnet_exchange import confirmed_exchange
+from .bacnet_read import read_property
+from .controller_read_context import (
+    ControllerReadContext,
+    check_connector_context,
+    selected_address,
+)
+from .device_details import DeviceDetails
 from .file_access import file_lock, open_regular, regular_file, storage_profile, sync_directory
-from .models import StrictModel
 
 SCOPE = "Read-only BACnet Trend Log history; device timestamps interpreted in the operator-selected IANA timezone"
 PROFILE = "bacnet-trend-log-history/1"
@@ -78,7 +84,7 @@ def _timezone_provenance(name):
     return result
 
 
-class BacnetHistoryRequest(StrictModel):
+class BacnetHistoryRequest(ControllerReadContext):
     address: str = Field(min_length=1, max_length=256)
     object_id: str = Field(min_length=1, max_length=80)
     device_timezone: str = Field(min_length=1, max_length=128)
@@ -110,6 +116,8 @@ class BacnetHistoryRequest(StrictModel):
 
     @model_validator(mode="after")
     def range_parameters(self):
+        if self.controller_target is not None:
+            self.address = selected_address(self.address, self.controller_target)
         if self.mode == "time":
             if self.reference is not None or self.reference_time is None:
                 raise ValueError("Time ranges require reference_time and omit reference.")
@@ -284,6 +292,30 @@ class BacnetHistory:
         self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
         self._lock = threading.RLock()
         self._reports = OrderedDict()
+        self.path = DeviceDetails(bacnet, self.store)
+
+    @asynccontextmanager
+    async def _source(self, request):
+        if request.controller_target is None:
+            async with self.bacnet.lock:
+                yield self.bacnet.require(), copy.deepcopy(self.bacnet.config), None
+            return
+        check_connector_context(request, self.bacnet.config)
+        async with self.path._path(request.controller_target) as session:
+            check_connector_context(request, session["config"])
+            yield session["app"], session["config"], session
+            self.path._guard(session)
+
+    async def _selected_identities(self, request, session):
+        for obj in (request.controller_target.device, request.object_id):
+            self.path._guard(session)
+            value = await asyncio.wait_for(
+                read_property(session["app"], session["target"], obj, "object-identifier"),
+                self.timeout,
+            )
+            self.path._guard(session)
+            if value != ObjectIdentifier(obj):
+                raise ValueError("Selected controller/history object identity mismatch.")
 
     def status(self):
         return {
@@ -313,7 +345,19 @@ class BacnetHistory:
             "captures": self.captures(),
         }
 
-    async def _page(self, app, config, address, object_id, mode, reference, reference_time, count):
+    async def _page(
+        self,
+        app,
+        config,
+        address,
+        object_id,
+        mode,
+        reference,
+        reference_time,
+        count,
+        *,
+        session=None,
+    ):
         if self.bacnet.require() is not app or self.bacnet.config != config:
             raise ValueError("BACnet interface changed during history retrieval.")
         selection = (
@@ -327,7 +371,9 @@ class BacnetHistory:
             if mode == "sequence"
             else Range(byTime=RangeByTime(referenceTime=DateTime(reference_time), count=count))
         )
-        target = self.bacnet.target_address(address)
+        if session is not None:
+            self.path._guard(session)
+        target = session["target"] if session is not None else self.bacnet.target_address(address)
         request = ReadRangeRequest(
             objectIdentifier=object_id,
             propertyIdentifier="log-buffer",
@@ -336,6 +382,8 @@ class BacnetHistory:
         )
         try:
             reply = await asyncio.wait_for(confirmed_exchange(app, request), self.timeout)
+            if session is not None:
+                self.path._guard(session)
             if isinstance(reply, ErrorRejectAbortNack):
                 raise ValueError("BACnet history read rejected: " + str(reply))
             if (
@@ -409,15 +457,25 @@ class BacnetHistory:
             "next_cursor": None,
             "consistency": "Sequence-anchored when available; device clock changes are preserved without sorting.",
         }
+        if request.controller_target is not None:
+            report.update(
+                controller_target=request.controller_target.model_dump(), identity_verified=False
+            )
+            report["target"].update(request.controller_target.model_dump())
         deadline = time.monotonic() + self.operation_timeout
         expected_sequence = None
         encoded_record_bytes = 0
         try:
             async with asyncio.timeout(self.operation_timeout):
-                async with self.bacnet.lock:
-                    app, config = self.bacnet.require(), copy.deepcopy(self.bacnet.config)
+                async with self._source(request) as (app, config, session):
                     report["connector_config"] = config
-                    report["target"]["address"] = str(self.bacnet.target_address(request.address))
+                    report["target"]["address"] = str(
+                        session["target"]
+                        if session is not None
+                        else self.bacnet.target_address(request.address)
+                    )
+                    if session is not None:
+                        await self._selected_identities(request, session)
                     while (
                         len(report["records"]) < request.count and len(report["pages"]) < MAX_PAGES
                     ):
@@ -433,7 +491,10 @@ class BacnetHistory:
                             reference,
                             reference_time,
                             count,
+                            **({"session": session} if session is not None else {}),
                         )
+                        if session is not None:
+                            await self._selected_identities(request, session)
                         receipt = datetime.now(UTC).isoformat()
                         report["received_at"] = receipt
                         gap = (
@@ -525,6 +586,9 @@ class BacnetHistory:
                         report["errors"].append(
                             "History page limit reached; use next_cursor for a separate explicit read."
                         )
+                    if session is not None:
+                        await self._selected_identities(request, session)
+                        report["identity_verified"] = True
         except (ValueError, TimeoutError) as exc:
             if not report["pages"]:
                 raise ValueError(
@@ -532,6 +596,9 @@ class BacnetHistory:
                 ) from exc
             report["errors"].append(str(exc) or type(exc).__name__)
             report["truncated"] = True
+            if request.controller_target is not None:
+                report["identity_verified"] = False
+                report["complete"] = False
         with self._lock:
             self._reports[report["id"]] = copy.deepcopy(report)
             while len(self._reports) > 8:
