@@ -42,7 +42,7 @@ New features follow the [workflow style guide](docs/workflow-style-guide.md).
 
 ## Working features
 
-- Reuse the selected controller and captured interface in **Trends & Alarms → Field recording / Controller history**. Discover actual point/log choices, retain original source labels and offline captures, and refuse contradictory or delayed results. The selected-controller profile covers direct/routed BACnet IPv4; legacy standalone profiles remain separate. See [monitoring context](docs/controller-monitoring-context.md).
+- Reuse the selected controller and captured interface in **Trends & Alarms → Field recording / Controller history**. Discover actual point/log choices, retain original source labels and offline captures, and refuse contradictory or delayed results. Selected profiles cover direct/routed BACnet IPv4 and explicit direct serial MS/TP, with physical serial/BTCVT acceptance still pending. Legacy standalone profiles remain separate. See [monitoring context](docs/controller-monitoring-context.md).
 
 - Preview BACnet commands with exact integer-token refusal, preserved numeric intent and original server response text; native wire rounding remains explicit. See [command preview intent](docs/bacnet-command-intent.md).
 - Refuse unsupported or malformed browser history IDs before pruning, retrying, discarding, downloading, acknowledging or paging local records. Safe delivery downloads keep original server bytes. See [history identity bounds](docs/browser-history-identities.md).

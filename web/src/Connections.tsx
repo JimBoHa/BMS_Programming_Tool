@@ -306,8 +306,9 @@ export function Connections({
     setPlan(null);
     await action(async () => {
       let next = status;
-      const route = candidate.router || null,
-        dnet = candidate.dnet ?? null;
+      const serial = status.config?.transport === "mstp";
+      const route = serial ? null : candidate.router || null,
+        dnet = serial ? null : (candidate.dnet ?? null);
       if (
         status.config?.transport !== "mstp" &&
         (routerKey(status.config?.router) !== routerKey(route || "") ||
@@ -737,28 +738,32 @@ export function Connections({
                     disabled={busy}
                   />
                 </label>
-                <label>
-                  Router for routed target
-                  <input
-                    aria-label="Known router"
-                    value={config.router}
-                    onChange={(event) =>
-                      setConfig({ ...config, router: event.target.value })
-                    }
-                    disabled={busy}
-                  />
-                </label>
-                <label>
-                  Network for routed target
-                  <input
-                    aria-label="Known network"
-                    value={config.dnet}
-                    onChange={(event) =>
-                      setConfig({ ...config, dnet: event.target.value })
-                    }
-                    disabled={busy}
-                  />
-                </label>
+                {status.config?.transport !== "mstp" && (
+                  <>
+                    <label>
+                      Router for routed target
+                      <input
+                        aria-label="Known router"
+                        value={config.router}
+                        onChange={(event) =>
+                          setConfig({ ...config, router: event.target.value })
+                        }
+                        disabled={busy}
+                      />
+                    </label>
+                    <label>
+                      Network for routed target
+                      <input
+                        aria-label="Known network"
+                        value={config.dnet}
+                        onChange={(event) =>
+                          setConfig({ ...config, dnet: event.target.value })
+                        }
+                        disabled={busy}
+                      />
+                    </label>
+                  </>
+                )}
                 <button
                   className="primary"
                   disabled={busy || !target}

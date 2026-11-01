@@ -6,12 +6,21 @@ import json
 
 from pydantic import model_serializer, model_validator
 
-from .device_details import DeviceDetailsRequest
+from .hardware_target import HardwareTargetRequest, serial_identity
 from .models import StrictModel
 
 
+class AcquisitionTargetRequest(HardwareTargetRequest):
+    @model_serializer(mode="wrap")
+    def legacy_ip_shape(self, handler):
+        data = handler(self)
+        if self.transport == "bacnet-ip":
+            data.pop("transport", None)
+        return data
+
+
 class ControllerReadContext(StrictModel):
-    controller_target: DeviceDetailsRequest | None = None
+    controller_target: AcquisitionTargetRequest | None = None
     expected_connector_config: dict | None = None
 
     @model_validator(mode="after")
@@ -37,7 +46,7 @@ class ControllerReadContext(StrictModel):
 
 
 def selected_address(address, target):
-    candidate = DeviceDetailsRequest(**(target.model_dump() | {"address": address}))
+    candidate = type(target)(**(target.model_dump() | {"address": address}))
     if candidate.address != target.address:
         raise ValueError("The acquisition address differs from the selected controller.")
     return target.address
@@ -48,5 +57,12 @@ def check_connector_context(request, config):
         return
     if config != request.expected_connector_config:
         raise ValueError("The selected controller interface changed; reopen the controller.")
-    if config is None or config.get("transport") == "mstp":
-        raise ValueError("Selected-controller acquisition supports BACnet/IPv4 routes only.")
+    if config is None:
+        raise ValueError("Open the selected controller's matching interface first.")
+    if request.controller_target.transport == "direct-mstp":
+        # Python equality alone equates False/0 and 38400.0/38400. Validate
+        # the caller's original serial identity with strict native types too.
+        serial_identity(request.expected_connector_config, request.controller_target)
+        serial_identity(config, request.controller_target)
+    elif config.get("transport") == "mstp":
+        raise ValueError("Selected serial acquisition requires an explicit direct-MS/TP target.")

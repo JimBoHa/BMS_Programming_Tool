@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 147 scoped criteria: 93
+The public requirement register currently records 148 scoped criteria: 94
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -271,3 +271,21 @@ loss report or refusal, never a plausible but incorrect exported program.
 
 This roadmap publishes the plan and preserved ideas only. Application source,
 graphics and current field behavior are unchanged by its publication.
+
+
+## 2026-10-31 UX-01 delivery: selected serial monitoring
+
+`UI-MONITOR-SERIAL-001` adds explicit selected-controller direct-MS/TP field
+recording and single-log history to the earlier IPv4 context work. Actual
+object-list/name choices, full original serial interface identity, before/after
+Device/object checks, staged samples and exact historical byte evidence use the
+existing open master. Changing source/cursor retires visible old pages, and a
+newly admitted recording remains selectable before its first catalog entry.
+Irrelevant IP route fields are hidden/cleared for serial controller selection.
+
+This is an extension of the earlier selected-monitoring feature and is delivered
+as a separate dependent PR. The broader UX-01/PORT-01 work remains partial:
+physical RS-485/adapter/controller and BTCVT acceptance, other monitoring profiles
+and additional native operations retain separate gates. No native application
+write, generic API widening, automatic reconnect/resume, extra retry or timeout
+expansion is added. See [the serial profile](docs/controller-monitoring-context.md).

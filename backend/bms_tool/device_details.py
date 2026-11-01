@@ -184,7 +184,7 @@ class DeviceDetails:
             config = copy.deepcopy(self.bacnet.config)
             adapter = app.nsap.local_adapter
             if getattr(options, "transport", "bacnet-ip") == "direct-mstp":
-                # Hardware-only request models opt in; the public DeviceDetailsRequest
+                # Explicit read-profile models opt in; the public DeviceDetailsRequest
                 # and event/COV requests retain their existing IPv4 profile.
                 from .hardware_target import serial_identity
 

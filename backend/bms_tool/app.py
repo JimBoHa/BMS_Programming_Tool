@@ -51,6 +51,7 @@ from .controller_application import (
     ApplicationReadRequest,
     ControllerApplication,
 )
+from .controller_monitoring_choices import ControllerMonitoringChoices, MonitoringChoicesRequest
 from .controller_workspace import (
     ControllerInventoryRequest,
     ControllerPropertiesRequest,
@@ -530,6 +531,7 @@ def create_app(state_dir=None, *, operation_power=None):
     device_details = DeviceDetails(bacnet, store)
     files = BacnetFiles(bacnet, store)
     controller_application = ControllerApplication(bacnet, store, files)
+    monitoring_choices = ControllerMonitoringChoices(bacnet, store)
     controller_workspace = ControllerWorkspace(
         bacnet, store, native_readers=(controller_application,)
     )
@@ -1761,6 +1763,10 @@ def create_app(state_dir=None, *, operation_power=None):
     @app.post("/api/bacnet/controller/inventory")
     async def controller_inventory(body: ControllerInventoryRequest):
         return await controller_workspace.inventory(**body.model_dump())
+
+    @app.post("/api/bacnet/controller/monitoring/choices")
+    async def controller_monitoring_choices(body: MonitoringChoicesRequest):
+        return await monitoring_choices.read(body.model_dump())
 
     @app.post("/api/bacnet/controller/properties")
     async def controller_properties(body: ControllerPropertiesRequest):
