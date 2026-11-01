@@ -3,6 +3,7 @@ import { ChevronDown } from "lucide-react";
 import { api, apiJsonDocument, apiBlobDocument, saveBlob } from "./api";
 import { controllerKey, type ControllerContext } from "./workflow";
 import { NativeDefaultTransfer } from "./NativeDefaultTransfer";
+import { NativeBackupInspection } from "./NativeBackupInspection";
 import "./native-signal-compiler.css";
 
 const base = "/bacnet/controller/native-application/signal-default";
@@ -544,6 +545,23 @@ export function NativeSignalCompiler({
           )}
         </>
       )}
+      <NativeBackupInspection
+        selection={
+          sources.some((row) => row.id === choice)
+            ? {
+                id: choice,
+                snapshot_sha256: sources.find((row) => row.id === choice)!
+                  .evidence_sha256,
+                target: {
+                  ...sources.find((row) => row.id === choice)!.target,
+                  device: sources.find((row) => row.id === choice)!.device,
+                },
+              }
+            : null
+        }
+        controller={controller}
+        visible={visible}
+      />
       {storageError && <p role="status">{storageError}</p>}
       {error && <p role="alert">{error}</p>}
       {shown && (

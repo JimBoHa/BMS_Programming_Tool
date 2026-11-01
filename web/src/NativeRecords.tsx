@@ -3,8 +3,30 @@ import { api } from "./api";
 import { controllerKey, type ControllerContext } from "./workflow";
 
 type Data = Record<string, any>;
-const base = "/bacnet/controller/application/";
 const pageSize = 64;
+export type NativeArchiveSource = {
+  capture_id: string;
+  snapshot_sha256: string;
+  sha256: string;
+  target: {
+    address: string;
+    device: string;
+    router?: string | null;
+    dnet?: number | null;
+  };
+};
+type RecordSource =
+  | {
+      kind?: "controller-file";
+      controller: ControllerContext;
+      capture: { id: string; sha256: string };
+    }
+  | {
+      kind: "native-backup";
+      source: NativeArchiveSource;
+      controller?: ControllerContext | null;
+      visible: boolean;
+    };
 function scrollTable(event: KeyboardEvent<HTMLDivElement>) {
   if (
     event.target !== event.currentTarget ||
@@ -27,15 +49,25 @@ const scalarText = (scalar: Data | null) => {
   return Object.is(scalar.value, -0) ? "-0.0" : String(scalar.value);
 };
 
-export function NativeRecords({
-  controller,
-  capture,
-}: {
-  controller: ControllerContext;
-  capture: { id: string; sha256: string };
-}) {
-  const [inventory, setInventory] = useState<Data | null>(null);
-  const [detail, setDetail] = useState<Data | null>(null);
+export function NativeRecords(props: RecordSource) {
+  const native = props.kind === "native-backup";
+  const controller = props.controller;
+  const capture = native
+    ? { id: props.source.capture_id, sha256: props.source.sha256 }
+    : props.capture;
+  const base = native
+    ? "/bacnet/controller/native-application/inspection/"
+    : "/bacnet/controller/application/";
+  const [inventoryState, setInventory] = useState<{
+    data: Data;
+    owner: string;
+    generation: number;
+  } | null>(null);
+  const [detailState, setDetail] = useState<{
+    data: Data;
+    owner: string;
+    generation: number;
+  } | null>(null);
   const [query, setQuery] = useState("");
   const [propertyQuery, setPropertyQuery] = useState("");
   const [selected, setSelected] = useState("");
@@ -45,6 +77,45 @@ export function NativeRecords({
   const [detailError, setDetailError] = useState("");
   const listEpoch = useRef(0),
     detailEpoch = useRef(0);
+  const owner = JSON.stringify([
+    native
+      ? ["native-backup", props.source.snapshot_sha256, props.visible]
+      : "controller-file",
+    capture.id,
+    capture.sha256,
+    controller && [
+      controllerKey(controller),
+      controller.interfaceKey,
+      controller.interfaceOpen,
+    ],
+  ]);
+  const ownerNow = useRef(owner);
+  const ownerGeneration = useRef(0);
+  if (ownerNow.current !== owner) {
+    ownerNow.current = owner;
+    ownerGeneration.current++;
+    listEpoch.current++;
+    detailEpoch.current++;
+  }
+  const inventory =
+    inventoryState?.owner === owner &&
+    inventoryState.generation === ownerGeneration.current
+      ? inventoryState.data
+      : null;
+  const detail =
+    detailState?.owner === owner &&
+    detailState.generation === ownerGeneration.current
+      ? detailState.data
+      : null;
+  useEffect(() => {
+    setBusy(false);
+    setDetailBusy(false);
+    setError("");
+    setDetailError("");
+    setQuery("");
+    setPropertyQuery("");
+    setSelected("");
+  }, [owner]);
   useEffect(
     () => () => {
       listEpoch.current++;
@@ -52,22 +123,35 @@ export function NativeRecords({
     },
     [],
   );
-  const target = {
-    address: controller.address,
-    device: controller.device,
-    router: controller.router || null,
-    dnet: controller.dnet ?? null,
-    capture_id: capture.id,
-  };
+  const target = native
+    ? {
+        capture_id: capture.id,
+        snapshot_sha256: props.source.snapshot_sha256,
+      }
+    : {
+        address: controller!.address,
+        device: controller!.device,
+        router: controller!.router || null,
+        dnet: controller!.dnet ?? null,
+        capture_id: capture.id,
+      };
   function check(result: Data, search: string, offset: number) {
     if (
-      result.profile !== "controller-native-records/1" ||
+      result.profile !==
+        (native
+          ? "native-backup-record-inspection/1"
+          : "controller-native-records/1") ||
       result.capture_id !== capture.id ||
       result.sha256 !== capture.sha256 ||
-      controllerKey(result.target) !== controllerKey(controller) ||
+      controllerKey(result.target) !==
+        controllerKey(native ? props.source.target : controller!) ||
       result.read_only !== true ||
       result.field_actions !== false ||
-      result.source_kind !== "controller-file-capture" ||
+      result.source_kind !==
+        (native ? "native-backup-archive" : "controller-file-capture") ||
+      (native &&
+        (result.snapshot_sha256 !== props.source.snapshot_sha256 ||
+          result.controller_queries !== false)) ||
       result.query !== search ||
       result.offset !== offset
     )
@@ -94,7 +178,11 @@ export function NativeRecords({
       });
       if (epoch !== listEpoch.current) return;
       check(result, search, offset);
-      setInventory(result);
+      setInventory({
+        data: result,
+        owner,
+        generation: ownerGeneration.current,
+      });
     } catch (failure) {
       if (epoch === listEpoch.current) setError(String(failure));
     } finally {
@@ -119,7 +207,7 @@ export function NativeRecords({
       check(result, search, offset);
       if (result.record?.id !== record)
         throw new Error("Native property response names another record.");
-      setDetail(result);
+      setDetail({ data: result, owner, generation: ownerGeneration.current });
     } catch (failure) {
       if (epoch === detailEpoch.current) setDetailError(String(failure));
     } finally {
@@ -143,6 +231,12 @@ export function NativeRecords({
       }}
     >
       <summary>Browse captured native records</summary>
+      {native && (
+        <p>
+          Original retained File 3 archive. Stored properties are not merged
+          saved settings or current live values.
+        </p>
+      )}
       <p>
         Captured File records, including records outside diagrams. Values here
         come from this snapshot; live values are acquired separately.
