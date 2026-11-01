@@ -1,3 +1,4 @@
+import { openNativeCompiler } from "./workspace-navigation";
 import { test, expect, type Page, type Locator } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
@@ -76,10 +77,7 @@ async function enter(
   await page
     .getByRole("button", { name: "New application", exact: true })
     .click();
-  await page
-    .getByRole("navigation", { name: "Current task tools", exact: true })
-    .getByRole("button", { name: "Native backup defaults", exact: true })
-    .click();
+  await openNativeCompiler(page);
   const compiler = page.getByRole("region", {
     name: "Native backup default compiler",
     exact: true,
@@ -276,10 +274,7 @@ test("effective wire basis and draft survive navigation while the review retires
     .getByRole("navigation", { name: "Main navigation", exact: true })
     .getByRole("button", { name: "Workspace", exact: true })
     .click();
-  await page
-    .getByRole("navigation", { name: "Current task tools", exact: true })
-    .getByRole("button", { name: "Native backup defaults", exact: true })
-    .click();
+  await openNativeCompiler(page);
   const reopened = await editor(page, compiler);
   await expect(
     reopened.getByLabel("Native wire source basis", { exact: true }),

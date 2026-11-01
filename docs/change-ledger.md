@@ -88,11 +88,13 @@ bound; search can find their tails. Wire rows separately show the recorded
 zero-based index and its one-based connection number. Invalid indices are not
 coerced or invented.
 
-For a previous effective [Real-default](native-real-default-recovery.md) or
-[Boolean-default transfer](native-boolean-default-recovery.md),
+For a previous effective [Real-default](native-real-default-recovery.md),
+[Boolean-default](native-boolean-default-recovery.md) or
+[existing-wire-source transfer](native-wire-source-recovery.md),
 the list can project the recorded origin seal and its bindings to the child
 receipt. Details shows the parent receipt, recorded values and type-specific
-float32 bits or literal Boolean tags
+float32 bits, literal Boolean tags, or wire source references and exact four-Unsigned
+tuples with their zero-based connection index and unchanged destination
 and historical result/readback proof. This is recorded lineage: the projection
 does not revalidate the parent receipt or backup files, authorize another
 transfer or establish live state. Original dispatch and later observations keep

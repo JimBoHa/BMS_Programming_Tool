@@ -42,6 +42,15 @@ type NativeRecovery =
       before_value: boolean;
       after_value: boolean;
     })
+  | (RecordedRecovery & {
+      datatype: "Wire";
+      wire_index: number;
+      before_source_ref: string;
+      after_source_ref: string;
+      before_tuple: number[];
+      after_tuple: number[];
+      target_ref: string;
+    })
   | { state: "unavailable"; scope: string };
 type Row = {
   key: string;
@@ -528,7 +537,7 @@ export function ChangeLedgerPanel({
                       {row.native_recovery && (
                         <span>
                           {row.native_recovery.state === "recorded"
-                            ? `Previous-value recovery · parent ${row.native_recovery.parent_receipt_id}`
+                            ? `${row.native_recovery.datatype === "Wire" ? "Previous wire source recovery" : "Previous-value recovery"} · parent ${row.native_recovery.parent_receipt_id}`
                             : "Recovery metadata unavailable"}
                         </span>
                       )}
@@ -658,13 +667,24 @@ export function ChangeLedgerPanel({
                     <dt>Parent receipt</dt>
                     <dd>{choice.native_recovery.parent_receipt_id}</dd>
                     <dt>
-                      {choice.native_recovery.datatype === "Boolean"
-                        ? "Recorded Boolean change"
-                        : "Recorded Real change"}
+                      {choice.native_recovery.datatype === "Wire"
+                        ? "Recorded wire change"
+                        : choice.native_recovery.datatype === "Boolean"
+                          ? "Recorded Boolean change"
+                          : "Recorded Real change"}
                     </dt>
                     <dd>
                       {choice.native_recovery.record_ref} ·{" "}
-                      {choice.native_recovery.datatype === "Boolean" ? (
+                      {choice.native_recovery.datatype === "Wire" ? (
+                        <>
+                          Connection {choice.native_recovery.wire_index + 1}:{" "}
+                          {choice.native_recovery.before_source_ref} to{" "}
+                          {choice.native_recovery.after_source_ref} · tuples{" "}
+                          {choice.native_recovery.before_tuple.join(", ")} to{" "}
+                          {choice.native_recovery.after_tuple.join(", ")} ·
+                          destination {choice.native_recovery.target_ref}
+                        </>
+                      ) : choice.native_recovery.datatype === "Boolean" ? (
                         <>
                           {String(choice.native_recovery.before_value)} to{" "}
                           {String(choice.native_recovery.after_value)} · tags{" "}

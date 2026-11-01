@@ -1,4 +1,11 @@
-import { useContext, useEffect, useId, useRef, useState } from "react";
+import {
+  useContext,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { ChevronDown } from "lucide-react";
 import "./native-wire-copy.css";
 import { api, apiJsonDocument, apiBlobDocument, saveBlob } from "./api";
@@ -8,6 +15,7 @@ import { NativeBooleanTransferContext } from "./NativeBooleanTransferContext";
 import { NativeDefaultTransfer } from "./NativeDefaultTransfer";
 import type { NativeArchiveSource } from "./NativeRecords";
 import { rememberWireDraft, type WireCopyDrafts } from "./nativeWireDrafts";
+import type { NativeDefaultRecoveryDocument } from "./nativeDefaultRecoveryContract";
 export type { WireCopyDrafts } from "./nativeWireDrafts";
 
 type Data = Record<string, any>;
@@ -108,10 +116,45 @@ export function NativeWireSourceCopy({
   const [choice, setChoice] = useState<{ key: string; value: string } | null>(
     null,
   );
-  const sourceRef =
+  const recoveryKey = candidateKey + "/" + (selection?.property_sha256 ?? "");
+  const [recovery, setRecovery] = useState<{
+    key: string;
+    document: NativeDefaultRecoveryDocument | null;
+  } | null>(null);
+  const recoveryDocument =
+    recovery?.key === recoveryKey
+      ? recovery.document
+      : (transferContext?.wireRecoveryDrafts.get(recoveryKey) ?? null);
+  const shownRecovery =
+    effective &&
+    selection &&
+    recoveryDocument &&
+    recoveryDocument.data.origin.current_capture_id === source.capture_id &&
+    recoveryDocument.data.origin.current_snapshot_sha256 ===
+      source.snapshot_sha256 &&
+    recoveryDocument.data.origin.diagram_ref === record.ref &&
+    recoveryDocument.data.origin.wire_index === wireIndex
+      ? recoveryDocument
+      : null;
+  const activeRecovery = shownRecovery?.data.proposal ? shownRecovery : null;
+  const ordinarySourceRef =
     choice?.key === candidateKey
       ? choice.value
       : (drafts.get(candidateKey) ?? wire?.source_ref ?? "");
+  const sourceRef =
+    activeRecovery?.data.proposal.source_ref ?? ordinarySourceRef;
+  const recoveryPanel = useRef<HTMLElement>(null),
+    pendingRecoveryFocus = useRef(false);
+  useLayoutEffect(() => {
+    if (pendingRecoveryFocus.current && visible && shownRecovery) {
+      pendingRecoveryFocus.current = false;
+      recoveryPanel.current?.focus({ preventScroll: true });
+      recoveryPanel.current?.scrollIntoView({
+        block: "nearest",
+        inline: "nearest",
+      });
+    }
+  });
   const candidate = selection?.candidates.find(
     (row: Data) => row.ref === sourceRef,
   );
@@ -151,6 +194,7 @@ export function NativeWireSourceCopy({
     wireIndex,
     selection?.property_sha256,
     sourceRef,
+    shownRecovery?.data.origin_sha256,
   ]);
   const ownerNow = useRef(owner),
     epoch = useRef(0);
@@ -201,6 +245,42 @@ export function NativeWireSourceCopy({
     error?.owner === owner && error.ticket === epoch.current ? error.text : "";
   const current = (key: string, ticket: number) =>
     alive.current && ownerNow.current === key && epoch.current === ticket;
+  function receiveRecovery(document: NativeDefaultRecoveryDocument) {
+    const cache = transferContext?.wireRecoveryDrafts,
+      origin = document.data.origin;
+    if (
+      !effective ||
+      !selection ||
+      origin.current_capture_id !== source.capture_id ||
+      origin.current_snapshot_sha256 !== source.snapshot_sha256 ||
+      origin.diagram_ref !== record.ref ||
+      origin.wire_index !== wireIndex
+    )
+      return;
+    if (cache && !cache.has(recoveryKey) && cache.size >= 256) {
+      setError({
+        owner: ownerNow.current,
+        ticket: epoch.current,
+        text: "256 wire recovery drafts are retained. Discard an older proposal before preparing another.",
+      });
+      return;
+    }
+    cache?.set(recoveryKey, document);
+    epoch.current++;
+    setReview(null);
+    setError(null);
+    setSaved(null);
+    pendingRecoveryFocus.current = true;
+    setRecovery({ key: recoveryKey, document });
+  }
+  function discardRecovery() {
+    transferContext?.wireRecoveryDrafts.delete(recoveryKey);
+    epoch.current++;
+    setReview(null);
+    setError(null);
+    setSaved(null);
+    setRecovery({ key: recoveryKey, document: null });
+  }
   useEffect(() => {
     alive.current = true;
     return () => {
@@ -553,7 +633,7 @@ export function NativeWireSourceCopy({
                   <select
                     aria-label="Replacement native source"
                     value={sourceRef}
-                    disabled={fieldBusy || !visible}
+                    disabled={fieldBusy || !visible || !!activeRecovery}
                     onChange={(event) => {
                       if (event.target.value === wire.source_ref)
                         drafts.delete(candidateKey);
@@ -604,6 +684,51 @@ export function NativeWireSourceCopy({
                   order, cycle and width profile.
                 </p>
               )}
+              {shownRecovery && (
+                <section
+                  className="native-compiler-source"
+                  aria-label="Prepared previous wire source"
+                  ref={recoveryPanel}
+                  tabIndex={-1}
+                >
+                  <h3>
+                    {shownRecovery.data.already_recorded
+                      ? "Previous wire source already recorded in this backup"
+                      : "Previous wire source prepared locally"}
+                  </h3>
+                  <p>
+                    Receipt{" "}
+                    <code>{shownRecovery.data.origin.parent_receipt_id}</code> ·{" "}
+                    {record.ref} · connection {wireIndex + 1}:{" "}
+                    {shownRecovery.data.origin.current_source_ref} to{" "}
+                    {shownRecovery.data.origin.previous_source_ref}.
+                  </p>
+                  <p>
+                    {shownRecovery.data.already_recorded
+                      ? "No transfer proposal was created. This retained backup does not establish current live state."
+                      : "A new controller review and both transfer confirmations are required. Other current saved settings remain current."}{" "}
+                    Your ordinary wire draft remains retained separately.
+                  </p>
+                  <div className="button-row">
+                    <button
+                      onClick={() =>
+                        saveBlob(
+                          shownRecovery.blob,
+                          "native-previous-wire-source-proposal.json",
+                        )
+                      }
+                    >
+                      Export exact previous wire proposal
+                    </button>
+                    <button
+                      disabled={fieldBusy || !visible}
+                      onClick={discardRecovery}
+                    >
+                      Discard wire recovery proposal
+                    </button>
+                  </div>
+                </section>
+              )}
               <div className="button-row">
                 <button
                   className={
@@ -617,7 +742,7 @@ export function NativeWireSourceCopy({
                     : "Review native wire copy"}
                 </button>
                 <button
-                  disabled={fieldBusy || !visible}
+                  disabled={fieldBusy || !visible || !!activeRecovery}
                   onClick={() => {
                     drafts.delete(candidateKey);
                     setChoice({ key: candidateKey, value: wire.source_ref });
@@ -693,7 +818,7 @@ export function NativeWireSourceCopy({
       {saved?.owner === owner && saved.ticket === epoch.current && (
         <p role="status">{saved.text}</p>
       )}
-      {effective && data && wire && transferContext?.controller && (
+      {effective && data && wire && transferContext && (
         <NativeDefaultTransfer
           wireSource
           controller={transferContext.controller}
@@ -721,6 +846,13 @@ export function NativeWireSourceCopy({
             transferContext.onBusy(transferOwner, busy);
           }}
           onCaptured={transferContext.onCaptured}
+          wireSelection={{
+            diagram_ref: record.ref,
+            wire_index: wireIndex,
+            class_id: record.class_id,
+          }}
+          recoveryDraft={activeRecovery}
+          onRecoveryPrepared={receiveRecovery}
         />
       )}
     </details>

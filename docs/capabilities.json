@@ -633,5 +633,10 @@
     "feature": "Previous effective native Boolean-default recovery",
     "status": "implemented",
     "scope": "Local previous effective strict Boolean proposal for one verified class-530/531 receipt/current retained source; literal 10/11 tags and true/false values, with numeric aliases rejected. Separate confirmed new review/transfer reconstructs lineage, preserves other fresh saved settings and requires full native/effective readback. Source/field-owned transient drafts, exact exports, explicit uncertainty/no replay and recorded Boolean lineage in Changes. General restore, wire/name/instance recovery and physical/BTCVT acceptance remain separate. See docs/native-boolean-default-recovery.md."
+  },
+  {
+    "feature": "Previous existing native wire-source recovery",
+    "status": "implemented",
+    "scope": "Local previous-source proposal for one resolved, historically verified native connection receipt and exact current retained source, with current compatible observed pin and original tuple/width/order/cycle/configuration guards. A new confirmed one-use wire transfer preserves fresh other settings, records parent lineage and verifies the full image/effective settings; explicit uncertain readback never replays the old attempt. Bounded transient drafts, offline preparation and exact evidence remain distinct from field actions. Missing historical-only pin proof, new blocks/ports/wires, name/instance/general restore and physical acceptance are separate. See docs/native-wire-source-recovery.md. General JCI-10 remains partial."
   }
 ]
