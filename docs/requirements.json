@@ -1348,5 +1348,32 @@
     "pdf_pages_or_section": "docs/native-default-transfer.md; docs/native-application-transfer.md",
     "status": "implemented",
     "implementation_or_gap": "Program controller-context capture/review/apply/readback for one existing class 526/527 Real default; fresh application/directory/selected-effective-value guards, preservation of other fresh merged values, capacity and credentials/expiry checks, one-use typed plans, readable durable intent, single File 3 restore, full native/effective-setting verification and restart/readback recovery without replay. Actual direct/routed UDP and browser qualification; no general graph/package/resource/hardware/BTCVT/physical acceptance claim. JCI-03/JCI-09 remain partial."
+  },
+  {
+    "id": "COMM-OPERATION-CAPS-001",
+    "feature": "Captured-source native operation capabilities",
+    "acceptance_criterion": "Derive operation support from an actual controller File and identity/interface evidence; distinguish diagram reading, narrow typed identity/default copies and native-backup-required effective compilation, connected transfer preflight, general logic, package/release compatibility and physical acceptance without model-selected inventories or field actions.",
+    "evidence": "Actual MOI identity parser and authored UDP File acquisition; Chromium/WebKit controller application workflows.",
+    "pdf_pages_or_section": "docs/application-operation-capabilities.md",
+    "status": "implemented",
+    "implementation_or_gap": "The controller application read/capture response includes source ID/hash/Device/configuration-bound operation analysis. The existing typed compiler recognizes actual fully framed sources, including unknown models, while transfer remains gated by captured vendor/root coherence, plain IPv4 and its separate native protocol/parameter/capacity/review/readback workflow. Frontend retains exact source ownership and rejects another capture. General logic remains unavailable; release/packages and physical acceptance are not inferred. Wider JCI-01 package/release/result correlation and native-service-only acquisitions remain partial. Integrated source analysis also credits actual Real-default file copies, requires a separate verified native saved-setting snapshot for effective compilation, and points to operation-specific default-transfer preflight without granting a field action."
+  },
+  {
+    "id": "FMT-MOZ-READ-001",
+    "feature": "Recognized tagged-MOI content in published MOZ Files",
+    "acceptance_criterion": "Acquire and inspect published .moz application Files when their actual bytes satisfy the existing tagged-MOI reader, preserving content validation, explicit ambiguous-file selection, original rejected captures and exact source ownership.",
+    "evidence": "Authored actual UDP File reads, original-byte retention and Chromium/WebKit application/block/live-value workflows; existing content parser and native backup File-type allowlist.",
+    "pdf_pages_or_section": "docs/moz-application-reading.md; Controller Tool Help18.0 LIT-12011147 PDF368 names MOI/MOZ generation errors but supplies no binary equivalence contract.",
+    "status": "implemented",
+    "implementation_or_gap": "Case-insensitive .moi/.moz candidate labels share the unchanged bounded content decoder. Native model names never choose data. Mixed candidates require explicit File selection; optional configuration-files absence retains discovery fallback; wrong plain/gzip contents are rejected after original-byte capture and target/config guards remain. No new encoding or arbitrary MOZ conversion, native general-logic compiler, transfer permission or physical acceptance."
+  },
+  {
+    "id": "FMT-NATIVE-RECORDS-001",
+    "feature": "Source-bound captured native record inspection",
+    "acceptance_criterion": "Search and page actual engineering/metadata records and stored properties outside diagrams, retaining source order, types, unknown encoding evidence and original/expanded byte identities while enforcing capture/target/interface ownership without field actions.",
+    "evidence": "Authored compressed/plain native records, actual UDP File acquisition with zero additional wire requests, local token/bounds/source API checks and Chromium/WebKit source/late-reply workflows.",
+    "pdf_pages_or_section": "docs/native-record-explorer.md",
+    "status": "implemented",
+    "implementation_or_gap": "The tagged-MOI reader independently advertises record inspection; list/detail APIs default to 64 rows, bound pages/queries and retain metadata, source offsets/order, native scalar type/value or structured hashes. The existing Program view exposes search/property pages, captured-source labels, byte evidence, local scrolling and response identity/generation guards. Stored references never imply live values or a physical module inventory. Broader editable IR, native logic/resource compilation, deployment and physical/BT acceptance remain separate."
   }
 ]

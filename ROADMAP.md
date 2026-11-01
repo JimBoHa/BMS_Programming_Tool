@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 147 scoped criteria: 93
+The public requirement register currently records 153 scoped criteria: 99
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -153,6 +153,13 @@ Real default after merging the retained native saved settings. Program shows
 archive versus effective values and exports a source-bound compiled copy; no new
 field-transfer operation is enabled. JCI-03 and JCI-09 remain partial overall.
 
+The [native workspace integration](docs/jci-native-workspace-integration.md)
+combines source capabilities, actual MOI/MOZ reading and native record inspection
+with the default editors/compiler/transfer. Capability analysis distinguishes
+local copies, a required native saved-setting snapshot and separately reviewed
+transfer, while preserving draft and target ownership. These credits do not
+complete general native logic or package/resource validation.
+
 `COMM-NATIVE-DEFAULT-TRANSFER-001` adds a separate one-default transfer operation
 with fresh selected-value checks, merging of other fresh saved settings, durable
 single-attempt restore and full native/effective-setting verification. Its web
@@ -163,9 +170,9 @@ hardware reassignment remain separate. JCI-03 and JCI-09 remain partial overall.
 
 | ID | Planned addition | Workspace | Acceptance / dependency |
 | --- | --- | --- | --- |
-| JCI-01 | Build an operation-specific protocol/format/release capability matrix from discovered identity, application structure, packages and retained evidence | Overview / Program; Settings for toolchains | Credit current identity operations; distinguish read, edit, compile, transfer and physical acceptance; unsupported formats explain why |
-| JCI-02 | Extend real CAF/MOI inspection and loss-preserving editable intermediate representation | Program | Preserve unknown records, references, execution order, positions, units and original bytes; supported edits have typed golden cases |
-| JCI-03 | Implement general native logic authoring: typed parameters, new block identities, links, ordering and full compile/resource validation | Program / Library | First native graph-editing slice independently compiles and reopens/readbacks on its exact supported format; identity-only compiler is not credited as general logic generation |
+| JCI-01 | Build an operation-specific protocol/format/release capability matrix from discovered identity, application structure, packages and retained evidence | Overview / Program; Settings for toolchains | Partial: [captured-source operation support](docs/application-operation-capabilities.md) credits the typed compiler and separates transfer preflight, general logic, packages and physical acceptance. Integrate native-service-only sources, package/release evidence and retained transfer outcomes |
+| JCI-02 | Extend real CAF/MOI inspection and loss-preserving editable intermediate representation | Program | Partial: [actual MOI/MOZ reading](docs/moz-application-reading.md) and [native record explorer](docs/native-record-explorer.md) expose recorded engineering/metadata properties, typed values and exact byte evidence. Continue the broader editable representation, references/order/positions/units and typed golden edits; no general logic generation is inferred |
+| JCI-03 | Implement general native logic authoring: typed parameters, new block identities, links, ordering and full compile/resource validation | Program / Library | First native graph-editing slice independently compiles and reopens/readbacks on its exact supported format; typed identity/default compilers are not credited as general logic generation |
 | JCI-04 | Extend FX/Metasys and cross-release conversion with explicit semantics and package migrations | Program → conversion review | Every supported source/target pair has a loss report and round-trip/behavior evidence; reject unresolved semantics instead of dropping logic |
 | JCI-05 | Implement executable native Enum/reliability/type mappings and restart/retention rules | Program / Library | Verify codes, fallback, units, precision and state; labels or manual named sets alone do not supply native numeric bindings |
 | JCI-06 | Add versioned package provenance, native schema migrations and destination resource accounting | Settings / Program validation | Source/package/runtime compatibility and actual RAM/flash/scan/I/O limits are explicit; no silent hardware-definition substitution |

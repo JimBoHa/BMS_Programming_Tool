@@ -508,5 +508,20 @@
     "feature": "Native effective Real-default controller transfer",
     "status": "implemented",
     "scope": "Program controller-context capture/review/apply/readback for one existing class 526/527 Real default; fresh application/directory/selected-effective-value guards, preservation of other fresh merged values, capacity and credentials/expiry checks, one-use typed plans, readable durable intent, single File 3 restore, full native/effective-setting verification and restart/readback recovery without replay. Actual direct/routed UDP and browser qualification; no general graph/package/resource/hardware/BTCVT/physical acceptance claim. JCI-03/JCI-09 remain partial."
+  },
+  {
+    "feature": "Captured controller application operation support",
+    "status": "implemented",
+    "scope": "The controller application read/capture response includes source ID/hash/Device/configuration-bound operation analysis. The existing typed compiler recognizes actual fully framed sources, including unknown models, while transfer remains gated by captured vendor/root coherence, plain IPv4 and its separate native protocol/parameter/capacity/review/readback workflow. Frontend retains exact source ownership and rejects another capture. General logic remains unavailable; release/packages and physical acceptance are not inferred. Wider JCI-01 package/release/result correlation and native-service-only acquisitions remain partial. See docs/application-operation-capabilities.md. Native Real-default copies, separate File 3/11/12 snapshot requirements and operation-specific default-transfer preflight are distinguished; no field action is granted by this analysis."
+  },
+  {
+    "feature": "Recognized controller applications published as MOZ Files",
+    "status": "implemented",
+    "scope": "Case-insensitive .moi/.moz candidate labels share the unchanged bounded content decoder. Native model names never choose data. Mixed candidates require explicit File selection; optional configuration-files absence retains discovery fallback; wrong plain/gzip contents are rejected after original-byte capture and target/config guards remain. No new encoding or arbitrary MOZ conversion, native general-logic compiler, transfer permission or physical acceptance. See docs/moz-application-reading.md."
+  },
+  {
+    "feature": "Captured native engineering and metadata record explorer",
+    "status": "implemented",
+    "scope": "The tagged-MOI reader independently advertises record inspection; list/detail APIs default to 64 rows, bound pages/queries and retain metadata, source offsets/order, native scalar type/value or structured hashes. The existing Program view exposes search/property pages, captured-source labels, byte evidence, local scrolling and response identity/generation guards. Stored references never imply live values or a physical module inventory. Broader editable IR, native logic/resource compilation, deployment and physical/BT acceptance remain separate. See docs/native-record-explorer.md."
   }
 ]
