@@ -19,6 +19,7 @@ from bacpypes3.primitivedata import (
     CharacterString,
     Double,
     Enumerated,
+    Integer,
     Null,
     ObjectIdentifier,
     Real,
@@ -51,6 +52,7 @@ def _atomic(tag, datatype):
             Null: 0,
             Boolean: 1,
             Unsigned: 2,
+            Integer: 3,
             Real: 4,
             Double: 5,
             CharacterString: 7,
@@ -58,7 +60,7 @@ def _atomic(tag, datatype):
             ObjectIdentifier: 12,
         }[datatype],
     )
-    if datatype in (Unsigned, Enumerated) and not 1 <= len(tag.tag_data) <= 4:
+    if datatype in (Unsigned, Integer, Enumerated) and not 1 <= len(tag.tag_data) <= 4:
         raise ValueError("Native integer exceeds its recognized width.")
     widths = {Real: 4, Double: 8, ObjectIdentifier: 4, Null: 0, Boolean: 0}
     if datatype in widths and len(tag.tag_data) != widths[datatype]:
@@ -83,6 +85,7 @@ def _value(tags):
         0: Null,
         1: Boolean,
         2: Unsigned,
+        3: Integer,
         4: Real,
         5: Double,
         7: CharacterString,
@@ -104,7 +107,7 @@ def _value(tags):
             else float(value)
             if datatype in (Real, Double)
             else int(value)
-            if datatype in (Unsigned, Enumerated)
+            if datatype in (Unsigned, Integer, Enumerated)
             else str(value),
         }
     except (ValueError, TypeError, AttributeError, InvalidTag):

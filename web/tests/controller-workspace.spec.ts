@@ -54,7 +54,7 @@ async def main():
    import struct
    from tests.test_controller_application import native_record,encoded
    from bacpypes3.primitivedata import CharacterString,OctetString,Real
-   records=[native_record(194,4190090,[(32527,encoded(CharacterString('controller'))),(75,encoded(ObjectIdentifier(('device',4190090)))),(2390,encoded(CharacterString(sys.argv[2]))),(70,encoded(CharacterString(sys.argv[2]))),(3113,encoded(Real(23.5)))]),native_record(127,1,[(65001,encoded(OctetString(b'retained metadata')))])]
+   records=[native_record(194,4190090,[(32527,encoded(CharacterString('controller'))),(75,encoded(ObjectIdentifier(('device',4190090)))),(2390,encoded(CharacterString(sys.argv[2]))),(70,encoded(CharacterString(sys.argv[2]))),(3113,encoded(Real(23.5))),(65002,bytes.fromhex('32fed4')),(65003,bytes.fromhex('3480000000')),(65004,bytes.fromhex('347fffffff'))]),native_record(127,1,[(65001,encoded(OctetString(b'retained metadata')))])]
    app.payload=struct.pack('<6sHHI',bytes.fromhex('02004d4f4900'),194,1,len(records))+b''.join(struct.pack('<H',len(record)+2)+record for record in records)
   app.stream=FileObject(objectIdentifier=('file',31),objectName='Controller/Archive',description='Authored application file',fileType='.MoZ' if sys.argv[5]=='moz' else '.moi',fileSize=len(app.payload),modificationDate=DateTime('2026-01-05 12:00:00'),archive=False,readOnly=True,fileAccessMethod='stream-access')
   app.add_object(app.stream)
@@ -951,6 +951,65 @@ async function readRecordApplication(
   ).toBeVisible();
   return { native, capture: result.receipt };
 }
+
+test("captured native signed settings retain exact Integer values and signed32 limits", async ({
+  page,
+  request,
+}, info) => {
+  test.setTimeout(60000);
+  const device = await controller("Signed record source", 0, 21, "records");
+  await session(request);
+  try {
+    await interfaceSetup(page);
+    await openController(page, device.endpoint, "Signed record source");
+    await tasks(page)
+      .getByRole("button", { name: "Program", exact: true })
+      .click();
+    const native = page.getByRole("region", {
+      name: "Native controller application",
+      exact: true,
+    });
+    await native
+      .getByRole("button", { name: "Read controller application", exact: true })
+      .click();
+    const explorer = native.getByLabel("Captured native record explorer", {
+      exact: true,
+    });
+    await explorer.locator(":scope > summary").click();
+    await explorer
+      .getByRole("table", { name: "Captured native records", exact: true })
+      .getByRole("row")
+      .filter({ hasText: "Signed record source" })
+      .getByRole("button", { name: "Inspect record", exact: true })
+      .click();
+    const properties = explorer.getByRole("region", {
+      name: "Captured native record properties",
+      exact: true,
+    });
+    await properties
+      .getByLabel("Search captured properties", { exact: true })
+      .fill("6500");
+    await properties
+      .getByRole("button", { name: "Search properties", exact: true })
+      .click();
+    const table = properties.getByRole("table", {
+      name: "Captured record properties",
+      exact: true,
+    });
+    await expect(
+      table.getByRole("cell", { name: "Integer", exact: true }),
+    ).toHaveCount(3);
+    for (const value of ["-300", "-2147483648", "2147483647"])
+      await expect(
+        table.getByRole("cell", { name: value, exact: true }),
+      ).toBeVisible();
+    await table.screenshot({
+      path: info.outputPath("native-signed-settings.png"),
+    });
+  } finally {
+    device.close();
+  }
+});
 
 test("captured native records expose metadata, typed values and byte evidence outside diagrams", async ({
   page,

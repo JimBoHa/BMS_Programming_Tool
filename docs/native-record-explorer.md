@@ -71,3 +71,7 @@ loss-preserving native editing, broader structure/format coverage, full editable
 IR, general native logic compilation and controller deployment require separate
 typed contracts and acceptance. These local authored checks do not establish
 physical-controller or Bluetooth acceptance.
+
+Signed Integer application tags with one-to-four-byte payloads are decoded by the
+[bounded signed32 reader](native-signed-integer-reading.md). Wider/structured
+encodings remain opaque with their original evidence; no write is implied.
