@@ -372,7 +372,7 @@
   {
     "feature": "Native property dispatch diagnostics",
     "status": "implemented",
-    "scope": "Shared source-pinned read receipts retain guarded handoff/completion timing and existing candidate/filter facts. Opt-in PointStatus phase traces pair separately bounded handoff/multiplexer/callback/retirement observations with exact original core-export bytes and Blob downloads; diagnostics never consume native property/query budgets, change eligibility, add controller requests/retries or persist a recorder. No all-UDP/socket-transmit/device-latency proof; original missing-reply causes remain unresolved. See docs/property-dispatch-diagnostics.md."
+    "scope": "Shared source-pinned read receipts retain guarded handoff/completion timing and existing candidate/filter facts. Opt-in PointStatus phase traces pair separately bounded handoff/multiplexer/callback/retirement observations with exact original core-export bytes and Blob downloads; diagnostics never consume native property/query budgets, change eligibility, add controller requests/retries or persist a recorder. No all-UDP/socket-transmit/device-latency proof; original missing-reply causes remain unresolved. See docs/property-dispatch-diagnostics.md. Calendar/Schedule diagnostics additionally focus one explicitly selected native property/index during the original inventory, preserve its exact core export and focus/operation/target-bound browser downloads, and report no observed read when unreached. Missing references remain ineligible; Source41 original cause remains unresolved."
   },
   {
     "feature": "Source-bound distributed plant signal engineering",

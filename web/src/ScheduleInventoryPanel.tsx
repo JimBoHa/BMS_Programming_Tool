@@ -1,9 +1,16 @@
 import { TargetFields } from "./ControllerWorkspace";
 import { useEffect, useRef, useState } from "react";
-import { api, download } from "./api";
+import { ChevronDown } from "lucide-react";
+import { api, apiJsonDocument, download, saveBlob } from "./api";
 import { ScheduleLibraryPanel } from "./ScheduleLibraryPanel";
+import {
+  scheduleDiagnostic,
+  type ScheduleTraceFocus,
+} from "./scheduleDiagnostic";
+import "./schedule-inventory.css";
 type Props = {
   connected: boolean;
+  interfaceIdentity: string;
   defaultAddress: string;
   defaultDevice: string;
   defaultRouter?: string;
@@ -11,6 +18,7 @@ type Props = {
 };
 export function ScheduleInventoryPanel({
   connected,
+  interfaceIdentity,
   defaultAddress,
   defaultDevice,
   defaultRouter = "",
@@ -25,9 +33,20 @@ export function ScheduleInventoryPanel({
     [offset, setOffset] = useState("0"),
     [limit, setLimit] = useState("64"),
     [maximum, setMaximum] = useState("4"),
-    [clock, setClock] = useState(false);
+    [clock, setClock] = useState(false),
+    [includeTrace, setIncludeTrace] = useState(false),
+    [traceObject, setTraceObject] = useState(""),
+    [traceProperty, setTraceProperty] = useState(
+      "list-of-object-property-references",
+    ),
+    [traceIndex, setTraceIndex] = useState("1");
   const [busy, setBusy] = useState(false),
-    [report, setReport] = useState<any>(null),
+    [retained, setRetained] = useState<{
+      report: any;
+      diagnostic: Awaited<ReturnType<typeof scheduleDiagnostic>> | null;
+      owner: string;
+      ticket: number;
+    } | null>(null),
     [profile, setProfile] = useState<any>(null),
     [error, setError] = useState("");
   const alive = useRef(true),
@@ -35,6 +54,7 @@ export function ScheduleInventoryPanel({
     active = useRef<string | null>(null);
   const defaultsKey = JSON.stringify([
       connected,
+      interfaceIdentity,
       defaultAddress,
       defaultDevice,
       defaultRouter,
@@ -52,9 +72,38 @@ export function ScheduleInventoryPanel({
       limit,
       maximum,
       clock,
+      includeTrace,
+      traceObject,
+      traceProperty,
+      traceIndex,
     ]),
     formNow = useRef(formKey);
   formNow.current = formKey;
+  const owner = JSON.stringify([defaultsKey, formKey]),
+    ownerNow = useRef(owner);
+  if (ownerNow.current !== owner) {
+    ownerNow.current = owner;
+    selection.current++;
+  }
+  // A form/target/interface change retires both views and downloads before paint,
+  // including an A -> B -> A return while an earlier request is still pending.
+  const record =
+    retained?.owner === owner && retained.ticket === selection.current
+      ? retained
+      : null;
+  const report = record?.report,
+    diagnostic = record?.diagnostic;
+  const setReport = (value: any) =>
+    setRetained(
+      value
+        ? {
+            report: value,
+            diagnostic: null,
+            owner: ownerNow.current,
+            ticket: selection.current,
+          }
+        : null,
+    );
   useEffect(() => {
     alive.current = true;
     return () => {
@@ -78,7 +127,14 @@ export function ScheduleInventoryPanel({
       void api("/bacnet/schedules/cancel", {
         operation_id: active.current,
       }).catch(() => {});
-  }, [connected, defaultAddress, defaultDevice, defaultRouter, defaultDnet]);
+  }, [
+    connected,
+    interfaceIdentity,
+    defaultAddress,
+    defaultDevice,
+    defaultRouter,
+    defaultDnet,
+  ]);
   useEffect(() => {
     selection.current++;
     setReport(null);
@@ -99,7 +155,7 @@ export function ScheduleInventoryPanel({
     setError("");
     setReport(null);
     try {
-      const result = await api("/bacnet/schedules/read", {
+      const body = {
         operation_id: operation,
         address: address.trim(),
         device: device.trim(),
@@ -115,8 +171,34 @@ export function ScheduleInventoryPanel({
         object_list_limit: Number(limit),
         max_objects: Number(maximum),
         include_device_clock: clock,
-      });
-      if (current(ticket, source, draft)) setReport(result);
+      };
+      if (includeTrace) {
+        const focus: ScheduleTraceFocus = {
+          object_id: traceObject.trim(),
+          property: traceProperty,
+          array_index: ["weekly-schedule", "exception-schedule"].includes(
+            traceProperty,
+          )
+            ? Number(traceIndex)
+            : null,
+        };
+        const document = await apiJsonDocument(
+          "/bacnet/schedules/read-diagnostics",
+          { request: body, trace_focus: focus },
+          true,
+        );
+        const result = await scheduleDiagnostic(document, body, focus);
+        if (current(ticket, source, draft))
+          setRetained({
+            report: result.report,
+            diagnostic: result,
+            owner: ownerNow.current,
+            ticket,
+          });
+      } else {
+        const result = await api("/bacnet/schedules/read", body);
+        if (current(ticket, source, draft)) setReport(result);
+      }
     } catch (failure) {
       if (current(ticket, source, draft)) setError(String(failure));
     } finally {
@@ -155,6 +237,14 @@ export function ScheduleInventoryPanel({
   }
   async function exportReport() {
     if (!report) return;
+    if (diagnostic) {
+      if (
+        record?.owner === ownerNow.current &&
+        record.ticket === selection.current
+      )
+        saveBlob(diagnostic.core, `bacnet-schedules-${report.id}.json`);
+      return;
+    }
     const ticket = selection.current,
       source = defaultsNow.current,
       draft = formNow.current,
@@ -293,8 +383,94 @@ export function ScheduleInventoryPanel({
           Read raw Device clock fields
         </label>
       </div>
+      <details className="schedule-read-diagnostics">
+        <summary>Read diagnostics</summary>
+        <label className="schedule-trace-enable">
+          <input
+            type="checkbox"
+            checked={includeTrace}
+            disabled={busy}
+            onChange={(e) => setIncludeTrace(e.target.checked)}
+          />
+          Include one-property Schedule trace
+        </label>
+        {includeTrace && (
+          <>
+            <p>
+              Explicitly select the object above, then choose one property to
+              observe during the same inventory read. No extra queries or
+              retries. Unreached properties produce an empty trace.
+            </p>
+            <div className="form-grid">
+              <label>
+                Trace Calendar/Schedule object
+                <input
+                  aria-label="Trace Calendar/Schedule object"
+                  value={traceObject}
+                  disabled={busy}
+                  onChange={(e) => setTraceObject(e.target.value)}
+                  placeholder="schedule,1"
+                />
+              </label>
+              <label>
+                Trace native property
+                <span className="schedule-trace-select">
+                  <select
+                    aria-label="Trace native property"
+                    value={traceProperty}
+                    disabled={busy}
+                    onChange={(e) => setTraceProperty(e.target.value)}
+                  >
+                    {[
+                      "object-identifier",
+                      "object-name",
+                      "description",
+                      "present-value",
+                      "date-list",
+                      "effective-period",
+                      "schedule-default",
+                      "priority-for-writing",
+                      "list-of-object-property-references",
+                      "status-flags",
+                      "reliability",
+                      "out-of-service",
+                      "weekly-schedule",
+                      "exception-schedule",
+                    ].map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={16} aria-hidden="true" />
+                </span>
+              </label>
+              {["weekly-schedule", "exception-schedule"].includes(
+                traceProperty,
+              ) && (
+                <label>
+                  Trace array index (0 reads count)
+                  <input
+                    aria-label="Schedule trace array index"
+                    type="number"
+                    min={0}
+                    max={traceProperty === "weekly-schedule" ? 7 : 32}
+                    value={traceIndex}
+                    disabled={busy}
+                    onChange={(e) => setTraceIndex(e.target.value)}
+                  />
+                </label>
+              )}
+            </div>
+          </>
+        )}
+      </details>
       <div className="toolbar">
-        <button disabled={!connected || busy} onClick={() => void read()}>
+        <button
+          className="primary"
+          disabled={!connected || busy}
+          onClick={() => void read()}
+        >
           Read native schedules
         </button>
         <button disabled={!busy} onClick={() => void cancel()}>
@@ -309,6 +485,53 @@ export function ScheduleInventoryPanel({
       </div>
       {busy && <p role="status">Reading finite native schedule evidence…</p>}
       {error && <p role="alert">{error}</p>}
+      {diagnostic && (
+        <section
+          className="schedule-property-trace"
+          aria-label="Schedule property diagnostic trace"
+        >
+          <h3>Schedule property trace</h3>
+          <p>
+            {diagnostic.focus.object_id} · {diagnostic.focus.property}
+            {diagnostic.focus.array_index == null
+              ? ""
+              : ` [${diagnostic.focus.array_index}]`}{" "}
+            · {diagnostic.trace?.state ?? "unavailable"}
+          </p>
+          <p>
+            Native handoff and multiplexer observations; not socket transmission
+            or all UDP ingress. Trace limits are separate from the complete
+            evidence report.
+          </p>
+          {diagnostic.trace?.counts && (
+            <p>
+              {diagnostic.trace.counts.reads} observed reads ·{" "}
+              {diagnostic.trace.counts.retained_events} retained events ·{" "}
+              {diagnostic.trace.counts.dropped_events} dropped events.
+            </p>
+          )}
+          {diagnostic.envelope && (
+            <button
+              onClick={() => {
+                if (
+                  record?.owner === ownerNow.current &&
+                  record.ticket === selection.current
+                )
+                  saveBlob(
+                    diagnostic.envelope!,
+                    `schedule-diagnostics-${report.id}.json`,
+                  );
+              }}
+            >
+              Download original Schedule diagnostic bundle
+            </button>
+          )}
+          <details>
+            <summary>Bounded Schedule phases and visibility</summary>
+            <pre>{JSON.stringify(diagnostic.trace, null, 2)}</pre>
+          </details>
+        </section>
+      )}
       {profile && (
         <details>
           <summary>Retained reports and limits</summary>

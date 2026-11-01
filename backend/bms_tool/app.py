@@ -136,6 +136,7 @@ from .routed_discovery import (
 )
 from .router_discovery import RouterDiscovery, RouterDiscoveryRequest
 from .schedule_coordination import schedule_coordination_router
+from .schedule_diagnostics import ScheduleDiagnosticRequest
 from .schedule_inventory import (
     ScheduleAction,
     ScheduleExport,
@@ -1883,6 +1884,36 @@ def create_app(state_dir=None, *, operation_power=None):
     @app.post("/api/bacnet/schedules/read")
     async def bacnet_schedules_read(body: ScheduleReadRequest):
         return await schedule_inventory.read(**body.model_dump())
+
+    @app.post("/api/bacnet/schedules/read-diagnostics")
+    async def bacnet_schedules_read_diagnostics(body: ScheduleDiagnosticRequest):
+        # Focus observations on one already-selected property. Earlier inventory
+        # reads cannot exhaust its independent trace; no read is added or retried.
+        with capture_read_trace(focus=body.trace_focus.reference()) as collector:
+            report = await schedule_inventory.read(**body.request.model_dump())
+        core = await bacnet_schedules_export(ScheduleExport(id=report["id"]))
+        try:
+            core_bytes = core.body
+            document = {
+                "format": "bms.native-read-diagnostic-envelope/1",
+                "core_report_id": report["id"],
+                "core_report_json": core_bytes.decode("utf-8"),
+                "core_report_sha256": hashlib.sha256(core_bytes).hexdigest(),
+                "trace_profile": "studio-readproperty-phase-trace/1",
+                "trace_focus": body.trace_focus.model_dump(),
+                "trace": freeze_read_trace(collector),
+            }
+            response = JSONResponse(document)
+            wrapper_limit = 4 * 1024 * 1024 + READ_TRACE_MAX_BYTES + 4096
+            if len(response.body) > wrapper_limit:
+                document["trace"] = unavailable_read_trace("Diagnostic wrapper capacity reached.")
+                response = JSONResponse(document)
+            if len(response.body) <= wrapper_limit:
+                return response
+        except BaseException:
+            pass
+        core.headers["X-Studio-Diagnostics"] = "unavailable"
+        return core
 
     @app.post("/api/bacnet/schedules/cancel")
     async def bacnet_schedules_cancel(body: ScheduleAction):

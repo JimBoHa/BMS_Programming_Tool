@@ -251,6 +251,8 @@ def start_span(obj, prop, index, timeout):
     if collector is None:
         return None
     try:
+        if getattr(collector, "focus", None) is not None and (obj, prop, index) != collector.focus:
+            return None
         return collector.span(obj, prop, index, timeout)
     except BaseException:
         try:
@@ -273,9 +275,10 @@ def retire(span, **fields):
 
 
 @contextmanager
-def capture():
+def capture(*, focus=None):
     try:
         collector = Collector()
+        collector.focus = focus
     except BaseException:
         collector = None
     token = _CURRENT.set(collector)

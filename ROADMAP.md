@@ -165,6 +165,13 @@ original timing and evidence; do not mark it fixed by widening a timeout or by
 asserting that newer native routed-transfer budgets repair unrelated Schedule
 capture behavior.
 
+The focused Calendar/Schedule diagnostic slice extends COMM-DIAG-001: an explicit
+single-property trace accompanies the ordinary inventory and its exact original
+export, without extra reads or timeout changes. Direct/routed deliberate reference
+loss retains incomplete edit eligibility. Current-main signed primitive success
+does not establish the historical Source41 cause; QA-01 remains open for that
+cause and the separate String Schedule/source-filter/host-start investigations.
+
 ### Deploy and verify JCI changes
 
 | ID | Planned addition | Workspace | Acceptance / dependency |
