@@ -77,8 +77,9 @@ Its report and original JSON bytes can be exported from the web workflow.
 The existing Real-default `/transfer/preview` accepts the optional paired fields
 `recovery_parent_receipt` and `recovery_origin_sha256`. It independently reconstructs
 the prepared origin; caller-supplied lineage cannot authorize an arbitrary value.
-Ordinary Real requests retain their previous body/evidence shape. Boolean, wire,
-name and instance recovery are separate future profiles. General restore,
+Ordinary Real requests retain their previous body/evidence shape. The separate
+[Boolean recovery profile](native-boolean-default-recovery.md) preserves strict
+values/tags. Wire, name and instance recovery remain future profiles. General restore,
 application allocation, firmware migration, native hardware reassignment and
 physical controller/BTCVT acceptance remain unimplemented by this slice.
 

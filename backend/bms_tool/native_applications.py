@@ -31,6 +31,8 @@ from .models import StrictModel
 from .moi_identity import MoiIdentity, controller_name, seal, sha
 from .moi_parameters import ParameterApplication
 from .native_backup_records import NativeBackupRecords
+from .native_boolean_recovery import PROFILE as BOOLEAN_RECOVERY_PROFILE
+from .native_boolean_recovery import NativeBooleanRecovery
 from .native_boolean_transfer import PROFILE as BOOLEAN_DEFAULT_PROFILE
 from .native_boolean_transfer import SCOPE as BOOLEAN_DEFAULT_SCOPE
 from .native_boolean_transfer import (
@@ -139,6 +141,7 @@ class NativeApplications:
         self.wire.transport.timeout = request_timeout
         self.storage = ApplicationStore(store)
         self.default_recovery = NativeDefaultRecovery(NativeBackupRecords(self.storage))
+        self.boolean_recovery = NativeBooleanRecovery(NativeBackupRecords(self.storage))
         self.credentials = ApplicationCredentials(store.directory)
         self.operation_timeout = operation_timeout
         self.active, self.plans, self.cancelled = None, OrderedDict(), set()
@@ -154,6 +157,7 @@ class NativeApplications:
             "default_transfer_profile": DEFAULT_PROFILE,
             "default_transfer_scope": DEFAULT_SCOPE,
             "real_default_recovery_profile": RECOVERY_PROFILE,
+            "boolean_default_recovery_profile": BOOLEAN_RECOVERY_PROFILE,
             "boolean_default_transfer_profile": BOOLEAN_DEFAULT_PROFILE,
             "boolean_default_transfer_scope": BOOLEAN_DEFAULT_SCOPE,
             "wire_source_transfer_profile": WIRE_PROFILE,
@@ -551,7 +555,7 @@ class NativeApplications:
             )
             if not compilation["selected_edit"]["changed"]:
                 raise ValueError("Choose a different effective native default before transfer.")
-            recovery = {} if boolean else self.recovery_origin(options, compilation)
+            recovery = self.recovery_origin(options, compilation, boolean=boolean)
             config, app = copy.deepcopy(self.bacnet.config), self.bacnet.require()
             async with self.path._path(options) as session:
                 PropertyEvidence.pin(session, options.router)
@@ -593,11 +597,12 @@ class NativeApplications:
             }
             return self.retain_plan(body, options, app, config)
 
-    def recovery_origin(self, options, compilation):
+    def recovery_origin(self, options, compilation, *, boolean=False):
         """Reconstruct local lineage; a caller-supplied parent is never write authority."""
         if options.recovery_parent_receipt is None:
             return {}
-        prepared = self.default_recovery.prepare(
+        service = self.boolean_recovery if boolean else self.default_recovery
+        prepared = service.prepare(
             {
                 "receipt_id": options.recovery_parent_receipt,
                 "capture_id": options.capture_id,
@@ -605,13 +610,19 @@ class NativeApplications:
             }
         )
         proposal = prepared["proposal"]
+        selected = compilation["selected_edit"]
+        matches_value = (
+            type(selected.get("after_value")) is bool
+            and selected["after_value"] is prepared["origin"]["previous_effective_value"]
+            if boolean
+            else selected["after_bits"] == prepared["origin"]["previous_effective_bits"]
+        )
         if (
             proposal is None
             or prepared["origin_sha256"] != options.recovery_origin_sha256
             or proposal["record_ref"] != options.record_ref
             or proposal["encoded_sha256"] != options.encoded_sha256
-            or compilation["selected_edit"]["after_bits"]
-            != prepared["origin"]["previous_effective_bits"]
+            or not matches_value
         ):
             raise ValueError("The previous-value proposal changed; prepare and review it again.")
         return {
@@ -924,8 +935,8 @@ class NativeApplications:
                             "Native application review or credentials changed during preflight. Review again."
                         )
                     recovery = (
-                        self.recovery_origin(options, compilation)
-                        if default_edit and not boolean_edit
+                        self.recovery_origin(options, compilation, boolean=boolean_edit)
+                        if default_edit
                         else {}
                     )
                     if recovery and any(body.get(key) != value for key, value in recovery.items()):
@@ -1119,6 +1130,10 @@ def native_application_router(service):
     @router.post("/boolean-default/transfer/preview")
     async def preview_boolean_default(body: BooleanTransferPreview):
         return await service.preview_boolean_default(**body.model_dump())
+
+    @router.post("/boolean-default/recovery/prepare")
+    def prepare_boolean_recovery(body: DefaultRecoveryPrepare):
+        return service.boolean_recovery.prepare(body.model_dump())
 
     @router.post("/boolean-default/transfer/apply")
     async def apply_boolean_default(body: DefaultTransferApply):

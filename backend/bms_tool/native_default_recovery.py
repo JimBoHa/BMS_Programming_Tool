@@ -41,7 +41,7 @@ def _bits(value):
     return number
 
 
-def _verified_proof(receipt, storage, receipt_id):
+def _verified_proof(receipt, storage, receipt_id, *, label="Real-default"):
     if receipt["pending"]:
         raise ValueError("Reconcile the original transfer before preparing a previous-value edit.")
     intent, result = receipt["intent"], receipt["result"]
@@ -67,7 +67,7 @@ def _verified_proof(receipt, storage, receipt_id):
             "sha256": event["evidence_sha256"],
             "time": event["created_at"],
         }
-    raise ValueError("The original Real-default transfer has no retained verified outcome.")
+    raise ValueError(f"The original {label} transfer has no retained verified outcome.")
 
 
 class NativeDefaultRecovery:

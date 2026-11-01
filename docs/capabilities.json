@@ -628,5 +628,10 @@
     "feature": "Previous effective native Real-default recovery",
     "status": "implemented",
     "scope": "Local proposal from one resolved, historically verified class-526/527 Real-default receipt and exact current retained native source, preserving prior effective float32 bits and other current saved settings. A separately confirmed new one-use Real transfer rechecks lineage, fresh configuration/settings, ownership/capacity/credentials and full readback. Original attempt and uncertainty history remain unchanged; no old-token/payload replay, automatic rollback, whole-backup/Boolean/wire/name/instance restore or physical acceptance. See docs/native-real-default-recovery.md. General JCI-10 remains partial."
+  },
+  {
+    "feature": "Previous effective native Boolean-default recovery",
+    "status": "implemented",
+    "scope": "Local previous effective strict Boolean proposal for one verified class-530/531 receipt/current retained source; literal 10/11 tags and true/false values, with numeric aliases rejected. Separate confirmed new review/transfer reconstructs lineage, preserves other fresh saved settings and requires full native/effective readback. Source/field-owned transient drafts, exact exports, explicit uncertainty/no replay and recorded Boolean lineage in Changes. General restore, wire/name/instance recovery and physical/BTCVT acceptance remain separate. See docs/native-boolean-default-recovery.md."
   }
 ]

@@ -9,6 +9,9 @@ from pydantic import Field, field_validator
 
 from .models import StrictModel
 from .moi_identity import seal
+from .native_boolean_recovery import PROFILE as BOOLEAN_RECOVERY_PROFILE
+from .native_boolean_recovery import tag as boolean_tag
+from .native_boolean_transfer import PROFILE as BOOLEAN_TRANSFER_PROFILE
 from .native_default_recovery import PROFILE as RECOVERY_PROFILE
 from .native_default_transfer import PROFILE as DEFAULT_PROFILE
 
@@ -58,6 +61,29 @@ class RecordedOrigin(StrictModel):
         return value
 
 
+class RecordedBooleanOrigin(StrictModel):
+    profile: Literal[BOOLEAN_RECOVERY_PROFILE]
+    parent_receipt_id: Identifier
+    parent_intent_sha256: Digest
+    original_dispatch: Literal["possible"]
+    verified_proof: RecordedProof
+    original_backup_id: Identifier
+    original_snapshot_sha256: Digest
+    current_capture_id: Identifier
+    current_snapshot_sha256: Digest
+    record_ref: str = Field(strict=True, min_length=1, max_length=512)
+    class_id: int = Field(strict=True, ge=530, le=531)
+    property: int = Field(strict=True, ge=3113, le=3113)
+    previous_effective_value: bool = Field(strict=True)
+    recorded_after_value: bool = Field(strict=True)
+    current_effective_value: bool = Field(strict=True)
+    proposal_value: bool = Field(strict=True)
+    previous_tag: Literal["10", "11"]
+    recorded_after_tag: Literal["10", "11"]
+    current_tag: Literal["10", "11"]
+    proposal_tag: Literal["10", "11"]
+
+
 def native_reference(kind, selection):
     """Read canonical native keys; retain a legacy alias only when unambiguous."""
     if kind not in {"signal-default", "boolean-default", "wire-source"}:
@@ -94,6 +120,8 @@ def recovery_lineage(body, kind, reference):
     """Project recorded lineage, never assert present parent/source availability."""
     if "recovery_origin" not in body and "recovery_origin_sha256" not in body:
         return None
+    if kind == "boolean-default":
+        return boolean_recovery_lineage(body, reference)
     unavailable = {
         "state": "unavailable",
         "scope": "Recorded recovery metadata is incomplete or inconsistent; inspect original evidence.",
@@ -135,6 +163,72 @@ def recovery_lineage(body, kind, reference):
         "after_bits": origin.previous_effective_bits,
         "before_value": struct.unpack(">f", bytes.fromhex(origin.current_effective_bits))[0],
         "after_value": struct.unpack(">f", bytes.fromhex(origin.previous_effective_bits))[0],
+        "verified_proof": origin.verified_proof.model_dump(),
+        "original_backup_id": origin.original_backup_id,
+        "current_capture_id": origin.current_capture_id,
+        "origin_sha256": body["recovery_origin_sha256"],
+        "scope": (
+            "Recorded origin seal and child-receipt bindings only. This projection does not "
+            "revalidate the parent receipt or backup files, authorize recovery or establish live state."
+        ),
+    }
+
+
+def boolean_recovery_lineage(body, reference):
+    unavailable = {
+        "state": "unavailable",
+        "scope": "Recorded recovery metadata is incomplete or inconsistent; inspect original evidence.",
+    }
+    if body.get("operation_profile") != BOOLEAN_TRANSFER_PROFILE:
+        return unavailable
+    try:
+        origin = RecordedBooleanOrigin.model_validate(body.get("recovery_origin"))
+    except ValueError:
+        return unavailable
+    compilation = body.get("compilation")
+    selected = compilation.get("selected_edit") if isinstance(compilation, dict) else None
+    edit = body.get("default_edit")
+    if (
+        not isinstance(selected, dict)
+        or not isinstance(edit, dict)
+        or body.get("recovery_origin_sha256") != seal(body["recovery_origin"])
+        or origin.parent_receipt_id == body.get("id")
+        or origin.current_capture_id != body.get("review_capture_id")
+        or origin.record_ref != reference.get("object")
+        or origin.record_ref != edit.get("record_ref")
+        or type(edit.get("value")) is not bool
+        or edit["value"] is not origin.previous_effective_value
+        or origin.record_ref != selected.get("record_ref")
+        or type(selected.get("class_id")) is not int
+        or origin.class_id != selected["class_id"]
+        or selected.get("datatype") != "Boolean"
+        or selected.get("property") != 3113
+        or type(selected.get("before_value")) is not bool
+        or type(selected.get("after_value")) is not bool
+        or origin.current_effective_value is not origin.recorded_after_value
+        or origin.proposal_value is not origin.previous_effective_value
+        or origin.previous_effective_value is origin.recorded_after_value
+        or selected["before_value"] is not origin.current_effective_value
+        or selected["after_value"] is not origin.previous_effective_value
+        or origin.previous_tag != boolean_tag(origin.previous_effective_value)
+        or origin.recorded_after_tag != boolean_tag(origin.recorded_after_value)
+        or origin.current_tag != boolean_tag(origin.current_effective_value)
+        or origin.proposal_tag != boolean_tag(origin.proposal_value)
+        or selected.get("before_tag") != origin.current_tag
+        or selected.get("after_tag") != origin.previous_tag
+        or "native_reference_issue" in reference
+    ):
+        return unavailable
+    return {
+        "state": "recorded",
+        "datatype": "Boolean",
+        "parent_receipt_id": origin.parent_receipt_id,
+        "parent_intent_sha256": origin.parent_intent_sha256,
+        "record_ref": origin.record_ref,
+        "before_value": origin.current_effective_value,
+        "after_value": origin.previous_effective_value,
+        "before_tag": origin.current_tag,
+        "after_tag": origin.previous_tag,
         "verified_proof": origin.verified_proof.model_dump(),
         "original_backup_id": origin.original_backup_id,
         "current_capture_id": origin.current_capture_id,

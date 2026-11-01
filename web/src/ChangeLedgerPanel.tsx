@@ -20,18 +20,28 @@ type Cursor = {
   before: Partial<Record<LedgerSource, string>>;
   exhausted: LedgerSource[];
 };
+type RecordedRecovery = {
+  state: "recorded";
+  parent_receipt_id: string;
+  record_ref: string;
+  verified_proof: { kind: "result" | "readback-event"; time: string };
+  scope: string;
+};
 type NativeRecovery =
-  | {
-      state: "recorded";
-      parent_receipt_id: string;
-      record_ref: string;
+  | (RecordedRecovery & {
+      datatype?: "Real";
       before_bits: string;
       after_bits: string;
       before_value: number;
       after_value: number;
-      verified_proof: { kind: "result" | "readback-event"; time: string };
-      scope: string;
-    }
+    })
+  | (RecordedRecovery & {
+      datatype: "Boolean";
+      before_tag: string;
+      after_tag: string;
+      before_value: boolean;
+      after_value: boolean;
+    })
   | { state: "unavailable"; scope: string };
 type Row = {
   key: string;
@@ -647,13 +657,28 @@ export function ChangeLedgerPanel({
                   <dl>
                     <dt>Parent receipt</dt>
                     <dd>{choice.native_recovery.parent_receipt_id}</dd>
-                    <dt>Recorded Real change</dt>
+                    <dt>
+                      {choice.native_recovery.datatype === "Boolean"
+                        ? "Recorded Boolean change"
+                        : "Recorded Real change"}
+                    </dt>
                     <dd>
                       {choice.native_recovery.record_ref} ·{" "}
-                      {realText(choice.native_recovery.before_value)} to{" "}
-                      {realText(choice.native_recovery.after_value)} · bits{" "}
-                      {choice.native_recovery.before_bits} to{" "}
-                      {choice.native_recovery.after_bits}
+                      {choice.native_recovery.datatype === "Boolean" ? (
+                        <>
+                          {String(choice.native_recovery.before_value)} to{" "}
+                          {String(choice.native_recovery.after_value)} · tags{" "}
+                          {choice.native_recovery.before_tag} to{" "}
+                          {choice.native_recovery.after_tag}
+                        </>
+                      ) : (
+                        <>
+                          {realText(choice.native_recovery.before_value)} to{" "}
+                          {realText(choice.native_recovery.after_value)} · bits{" "}
+                          {choice.native_recovery.before_bits} to{" "}
+                          {choice.native_recovery.after_bits}
+                        </>
+                      )}
                     </dd>
                     <dt>Historical verification</dt>
                     <dd>

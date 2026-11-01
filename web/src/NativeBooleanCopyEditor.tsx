@@ -1,9 +1,17 @@
-import { useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { NativeBooleanTransferContext } from "./NativeBooleanTransferContext";
 import { apiBlobDocument, apiJsonDocument, saveBlob } from "./api";
 import { sha256Blob } from "./activityContracts";
 import { controllerKey } from "./workflow";
 import type { NativeArchiveSource } from "./NativeRecords";
+import type { NativeDefaultRecoveryDocument } from "./nativeDefaultRecoveryContract";
 
 export type BooleanCopyDrafts = Map<string, boolean>;
 type Data = Record<string, any>;
@@ -23,7 +31,13 @@ export function BooleanCopyEditor({
   };
   drafts: BooleanCopyDrafts;
   effective?: { source_sha256: string; archive_value: boolean };
-  renderTransfer?: (proposal: Data) => ReactNode;
+  renderTransfer?: (
+    proposal: Data,
+    recovery: {
+      recoveryDraft: NativeDefaultRecoveryDocument | null;
+      onRecoveryPrepared: (document: NativeDefaultRecoveryDocument) => void;
+    },
+  ) => ReactNode;
 }) {
   const transferContext = useContext(NativeBooleanTransferContext);
   const fieldBusy = transferContext?.fieldBusy ?? false;
@@ -38,7 +52,6 @@ export function BooleanCopyEditor({
     ? "native-effective-boolean-default-compiler/1"
     : "native-backup-boolean-default-copy/1";
   const label = effective ? "Boolean compilation" : "Boolean archive copy";
-  const owner = JSON.stringify([source, field, effective]);
   const draftKey = JSON.stringify([
     effective ? "effective" : "archive",
     source.capture_id,
@@ -46,7 +59,44 @@ export function BooleanCopyEditor({
     field.ref,
     field.encoded_sha256,
   ]);
-  const [value, setValue] = useState(drafts.get(draftKey) ?? field.value);
+  const [draftValue, setValue] = useState(drafts.get(draftKey) ?? field.value);
+  const [recovery, setRecovery] =
+    useState<NativeDefaultRecoveryDocument | null>(
+      effective
+        ? (transferContext?.recoveryDrafts.get(draftKey) ?? null)
+        : null,
+    );
+  const recoveryPanel = useRef<HTMLElement>(null),
+    pendingRecoveryFocus = useRef(false);
+  const shownRecovery =
+    effective &&
+    recovery &&
+    recovery.data.origin.current_capture_id === source.capture_id &&
+    recovery.data.origin.current_snapshot_sha256 === source.snapshot_sha256 &&
+    recovery.data.origin.record_ref === field.ref
+      ? recovery
+      : null;
+  const activeRecovery = shownRecovery?.data.proposal ? shownRecovery : null;
+  const value: boolean = activeRecovery
+    ? activeRecovery.data.proposal.value
+    : draftValue;
+  const owner = JSON.stringify([
+    source,
+    field,
+    effective,
+    shownRecovery?.data.origin_sha256,
+  ]);
+  useLayoutEffect(() => {
+    const pending = pendingRecoveryFocus.current;
+    pendingRecoveryFocus.current = false;
+    if (pending && shownRecovery && (transferContext?.visible ?? true)) {
+      recoveryPanel.current?.focus({ preventScroll: true });
+      recoveryPanel.current?.scrollIntoView({
+        block: "nearest",
+        inline: "nearest",
+      });
+    }
+  });
   const [review, setReview] = useState<{
     data: Data;
     blob: Blob;
@@ -85,6 +135,35 @@ export function BooleanCopyEditor({
     setValue(next);
     setError("");
     setBusy(false);
+  }
+  function receiveRecovery(document: NativeDefaultRecoveryDocument) {
+    const cache = transferContext?.recoveryDrafts;
+    if (
+      !effective ||
+      document.data.origin.record_ref !== field.ref ||
+      document.data.origin.current_capture_id !== source.capture_id ||
+      document.data.origin.current_snapshot_sha256 !== source.snapshot_sha256
+    )
+      return;
+    if (cache && !cache.has(draftKey) && cache.size >= 256) {
+      setError(
+        "256 Boolean recovery drafts are retained. Discard an older proposal before preparing another.",
+      );
+      return;
+    }
+    cache?.set(draftKey, document);
+    epoch.current++;
+    setReview(null);
+    setError("");
+    pendingRecoveryFocus.current = true;
+    setRecovery(document);
+  }
+  function discardRecovery() {
+    transferContext?.recoveryDrafts.delete(draftKey);
+    epoch.current++;
+    setReview(null);
+    setError("");
+    setRecovery(null);
   }
   const body = {
     capture_id: source.capture_id,
@@ -222,7 +301,7 @@ export function BooleanCopyEditor({
       <label>
         <input
           type="checkbox"
-          disabled={fieldBusy}
+          disabled={fieldBusy || !!activeRecovery}
           aria-label={
             effective
               ? "Proposed effective Boolean default"
@@ -233,6 +312,42 @@ export function BooleanCopyEditor({
         />
         Proposed default: {String(value)}
       </label>
+      {shownRecovery && (
+        <section
+          className="native-compiler-source"
+          aria-label="Prepared previous Boolean default"
+          ref={recoveryPanel}
+          tabIndex={-1}
+        >
+          <h3>
+            {shownRecovery.data.already_recorded
+              ? "Previous Boolean value already recorded in this backup"
+              : "Previous effective Boolean value prepared locally"}
+          </h3>
+          <p>
+            Receipt <code>{shownRecovery.data.origin.parent_receipt_id}</code> ·{" "}
+            {field.ref} · {String(shownRecovery.data.current_effective_value)}{" "}
+            to {String(shownRecovery.data.previous_effective_value)}.
+          </p>
+          <p>
+            {shownRecovery.data.already_recorded
+              ? "No transfer proposal was created. This retained backup does not establish current live state."
+              : "A new controller review and both transfer confirmations are required. Other current saved settings remain current."}{" "}
+            Your ordinary Boolean draft remains retained separately.
+          </p>
+          <button
+            type="button"
+            onClick={() =>
+              saveBlob(
+                shownRecovery.blob,
+                "native-previous-boolean-default-proposal.json",
+              )
+            }
+          >
+            Export exact previous Boolean proposal
+          </button>
+        </section>
+      )}
       <div className="button-row">
         <button
           className={shown || transferActive ? undefined : "primary"}
@@ -245,11 +360,15 @@ export function BooleanCopyEditor({
         </button>
         <button
           disabled={busy || fieldBusy}
-          onClick={() => change(field.value)}
+          onClick={() =>
+            shownRecovery ? discardRecovery() : change(field.value)
+          }
         >
-          {effective
-            ? "Discard effective Boolean draft"
-            : "Discard Boolean copy draft"}
+          {shownRecovery
+            ? "Discard previous Boolean proposal"
+            : effective
+              ? "Discard effective Boolean draft"
+              : "Discard Boolean copy draft"}
         </button>
       </div>
       {busy && <p role="status">Preparing local {label}…</p>}
@@ -302,7 +421,10 @@ export function BooleanCopyEditor({
           </button>
         </section>
       )}
-      {renderTransfer?.(body)}
+      {renderTransfer?.(body, {
+        recoveryDraft: activeRecovery,
+        onRecoveryPrepared: receiveRecovery,
+      })}
     </details>
   );
 }

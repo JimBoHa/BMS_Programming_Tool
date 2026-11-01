@@ -44,6 +44,10 @@ async def main():
    import gzip
    app.files[3]=gzip.compress(gzip.decompress(app.files[3]).replace(b'Opaque metadata retained',b'Unsafe metadata retained'),mtime=0)
   elif line=='boolean-selected-false':boolean_slot(app.files,FIRST,False)
+  elif line=='boolean-restore-true':
+   import types
+   app.do_ReinitializeDeviceRequest=types.MethodType(NativePeer.do_ReinitializeDeviceRequest,app);storage_outcome(app,value=True)
+  elif line=='boolean-second-true':boolean_slot(app.files,'controller/boolean-21',True)
   elif line=='repair':
    if sys.argv[2]=='boolean':boolean_slot(app.files,FIRST,False)
    else:real_slot(app.files,-10,bytes.fromhex('3dcccccd'))

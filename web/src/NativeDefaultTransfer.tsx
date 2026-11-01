@@ -13,6 +13,10 @@ import {
   type NativeDefaultRecoveryDocument,
 } from "./nativeDefaultRecoveryContract";
 import {
+  booleanRecoveryProfile,
+  previousBooleanDefaultMatches,
+} from "./nativeBooleanRecoveryContract";
+import {
   wireTransferReviewMatches,
   wireTransferReceiptMatches,
 } from "./nativeWireTransferContract";
@@ -431,6 +435,11 @@ export function NativeDefaultTransfer({
       !onRecoveryPrepared
     )
       return;
+    if (
+      booleanDefault &&
+      receipt.data.intent?.default_edit?.record_ref !== field?.ref
+    )
+      return;
     const selectedReceipt = receipt,
       key = ownerNow.current,
       ticket = ++epoch.current,
@@ -441,14 +450,26 @@ export function NativeDefaultTransfer({
     setBusy(true);
     try {
       const document = await apiJsonDocument(
-        base + "/signal-default/recovery/prepare",
+        base +
+          (booleanDefault
+            ? "/boolean-default/recovery/prepare"
+            : "/signal-default/recovery/prepare"),
         {
           receipt_id: receipt.data.intent.id,
           capture_id: source.capture_id,
           snapshot_sha256: source.snapshot_sha256,
         },
       );
-      if (!previousRealDefaultMatches(document.data, source, receipt.data))
+      if (
+        !(booleanDefault
+          ? previousBooleanDefaultMatches(
+              document.data,
+              source,
+              receipt.data,
+              field!,
+            )
+          : previousRealDefaultMatches(document.data, source, receipt.data))
+      )
         throw new Error(
           "The previous-value proposal does not match this receipt and retained source.",
         );
@@ -870,25 +891,45 @@ export function NativeDefaultTransfer({
                   : "Read back native default transfer"}
               </button>
             )}
-            {!booleanDefault && !wireSource && onRecoveryPrepared && (
+            {!wireSource && onRecoveryPrepared && (
               <button
                 disabled={
                   localLocked ||
                   !source ||
-                  status?.real_default_recovery_profile !== realRecoveryProfile
+                  (booleanDefault
+                    ? status?.boolean_default_recovery_profile !==
+                        booleanRecoveryProfile ||
+                      receipt.data.intent?.default_edit?.record_ref !==
+                        field?.ref
+                    : status?.real_default_recovery_profile !==
+                      realRecoveryProfile)
                 }
                 onClick={() => void preparePreviousDefault()}
               >
-                Prepare previous Real default
+                {booleanDefault
+                  ? "Prepare previous Boolean default"
+                  : "Prepare previous Real default"}
               </button>
             )}
           </div>
-          {!booleanDefault && !wireSource && onRecoveryPrepared && (
+          {!wireSource && onRecoveryPrepared && (
             <p className="muted">
               Preparation uses this receipt and the selected retained backup
               locally. Read a current backup first when connected. A new review
               and confirmed transfer are required; this action sends no
               controller request.
+              {booleanDefault &&
+                receipt.data.intent?.default_edit?.record_ref !==
+                  field?.ref && (
+                  <>
+                    {" "}
+                    Open its recorded Boolean field{" "}
+                    <code>
+                      {receipt.data.intent?.default_edit?.record_ref}
+                    </code>{" "}
+                    before preparing.
+                  </>
+                )}
             </p>
           )}
           <details>
