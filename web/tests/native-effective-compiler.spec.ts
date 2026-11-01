@@ -12,6 +12,17 @@ if (!state)
   throw new Error(
     "The Playwright runner must provide its isolated BMS_TEST_COMPILER_STATE.",
   );
+test.beforeEach(async ({ request }) => {
+  const headers = {
+    "X-Studio-Token": (await (await request.get("/api/session")).json()).token,
+  };
+  expect(
+    (await request.post("/api/bacnet/disconnect", { headers, data: {} })).ok(),
+  ).toBe(true);
+  expect(
+    (await (await request.get("/api/session")).json()).field_network_open,
+  ).toBe(false);
+});
 function python(code: string, ...args: string[]) {
   return execFileSync(
     path.join(root, ".venv/bin/python"),

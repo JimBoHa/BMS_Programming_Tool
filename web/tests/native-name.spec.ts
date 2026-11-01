@@ -82,6 +82,8 @@ asyncio.run(main())
     await page
       .getByLabel("Known Device object", { exact: true })
       .fill("device,5136");
+    await page.getByLabel("Known router", { exact: true }).fill("");
+    await page.getByLabel("Known network", { exact: true }).fill("");
     await page
       .getByRole("region", { name: "Known controller connection" })
       .getByRole("button", { name: "Open controller", exact: true })

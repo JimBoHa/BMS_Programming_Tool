@@ -105,9 +105,30 @@ def verify_preservation(before, after, *, old_instance, new_instance, old_name=N
             raise ValueError("A saved application parameter changed during the instance edit.")
 
     post = ParameterApplication(after[3], after[11], after[12])
+    current, counters, calculated = runtime_parameter_changes(observed, post)
+    return {
+        "profile": "native-application-preservation/1",
+        "application_identical_except_instance": not renaming,
+        "application_identical_except_name": renaming,
+        "allowed_identity_changes": ["name"] if renaming else ["instance"],
+        "saved_application_parameters_verified": len(parameters.parameters),
+        "post_saved_parameters": current["matched_parameters"],
+        "runtime_counter_changes": counters,
+        "device_calculated_changes": calculated,
+        "source_application_sha256": sha(before[3]),
+        "source_saved_parameters_sha256": sha(before[11] + before[12]),
+        "verified_application_sha256": sha(after[3]),
+        "preserved_native_sha256": sha(saved.data),
+        "controller_writes": False,
+    }
+
+
+def runtime_parameter_changes(observed, post):
+    """Classify only the existing documented runtime-output exceptions."""
     current_archive, current = post.compile()
     current_app = MoiIdentity(current_archive)
     current_records = _records(current_app)
+    actual_records = _records(observed)
     by_class, names = _property_names()
     counters, calculated = [], []
     for parameter in current["changed_parameters"]:
@@ -147,18 +168,4 @@ def verify_preservation(before, after, *, old_instance, new_instance, old_name=N
                 "retain the snapshots and review before another write."
             )
         counters.append({**parameter, "property_name": label})
-    return {
-        "profile": "native-application-preservation/1",
-        "application_identical_except_instance": not renaming,
-        "application_identical_except_name": renaming,
-        "allowed_identity_changes": ["name"] if renaming else ["instance"],
-        "saved_application_parameters_verified": len(parameters.parameters),
-        "post_saved_parameters": current["matched_parameters"],
-        "runtime_counter_changes": counters,
-        "device_calculated_changes": calculated,
-        "source_application_sha256": sha(before[3]),
-        "source_saved_parameters_sha256": sha(before[11] + before[12]),
-        "verified_application_sha256": sha(after[3]),
-        "preserved_native_sha256": sha(saved.data),
-        "controller_writes": False,
-    }
+    return current, counters, calculated

@@ -252,6 +252,10 @@ export function NativeInstancePanel(
     }
   }
   const fresh = plan?.can_apply && now < Date.parse(plan.expires_at);
+  const receipts =
+    status?.receipts?.filter((row: any) =>
+      ["instance", "name"].includes(row.change_kind || "instance"),
+    ) ?? [];
   const observed =
     receipt?.latest_readback ||
     receipt?.events?.filter((e: any) => e.stage === "readback").at(-1)
@@ -559,7 +563,7 @@ export function NativeInstancePanel(
             )}
           </div>
         )}
-        {!!status?.receipts?.length && (
+        {!!receipts.length && (
           <label>
             Retained native transfer receipts
             <select
@@ -571,7 +575,7 @@ export function NativeInstancePanel(
               <option value="" disabled>
                 Choose a transfer
               </option>
-              {status.receipts.map((r: any) => (
+              {receipts.map((r: any) => (
                 <option key={r.id} value={r.id}>
                   {r.created_at} · {r.target.address} →{" "}
                   {r.change_kind === "name" ? r.new_name : r.new_instance} ·{" "}

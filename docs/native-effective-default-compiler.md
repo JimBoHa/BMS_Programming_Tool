@@ -34,13 +34,15 @@ are never replaced. An unchanged selected value can still produce a different
 archive because other saved parameters have been merged; the review identifies
 these two facts separately.
 
-This local compiler has no Apply route or controller write. Its output is not a
+The local compiler endpoints have no Apply route or controller write. Their output is not a
 current-setting guarantee, general native graph compiler, vendor package/resource
-validation, CCT reopening result or physical controller acceptance. A subsequent
-transfer operation must acquire fresh saved values, guard the selected prior value,
-retain the original application and settings, use a one-use reviewed intent, and
-verify both application bytes and effective settings after transfer. Existing
-identity-only transfer support is unchanged.
+validation, CCT reopening result or physical controller acceptance. The separate
+[controller transfer workflow](native-default-transfer.md), shown below local
+compilation in the same Program view, acquires fresh saved values, guards the
+selected prior value, retains original files and uses a one-use reviewed intent.
+It verifies both application bytes and effective settings after transfer. Saving
+a local compiled copy never invokes that operation. Existing identity-transfer
+support remains independently available.
 
 The current CAF/local graph remains independent. Navigating away retains local
 native drafts, while transient reviews and pending downloads retire. Source,

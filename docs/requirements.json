@@ -1339,5 +1339,14 @@
     "pdf_pages_or_section": "docs/native-effective-default-compiler.md;docs/native-application-transfer.md",
     "status": "implemented",
     "implementation_or_gap": "Program subview for retained identity-verified vendor 5 backups; actual class 526/527 property 3113 fields, saved-value/identity/reference/CRC guards, exact four-byte edit after saved merge, rounding/signed-zero review and immutable source/digest-qualified exports. Per-source drafts survive navigation; pending results/downloads retire before paint; no silent draft eviction. No current-setting, new field-transfer, general native logic/package/resource/CCT/physical acceptance claim. JCI-03/JCI-09 remain partial."
+  },
+  {
+    "id": "COMM-NATIVE-DEFAULT-TRANSFER-001",
+    "feature": "Native effective Real-default controller transfer",
+    "acceptance_criterion": "Capture and review one actual supported native default, refuse selected saved-value drift before restore, preserve other fresh saved application settings, transfer once and verify native bytes plus effective values; retain uncertainty for explicit readback without replay.",
+    "evidence": "Existing MCE/native application service; literal authored records/saved slots and expected Real bytes; production HTTP; actual UDP peer and independent routed BVLC/NPDU proxy.",
+    "pdf_pages_or_section": "docs/native-default-transfer.md; docs/native-application-transfer.md",
+    "status": "implemented",
+    "implementation_or_gap": "Program controller-context capture/review/apply/readback for one existing class 526/527 Real default; fresh application/directory/selected-effective-value guards, preservation of other fresh merged values, capacity and credentials/expiry checks, one-use typed plans, readable durable intent, single File 3 restore, full native/effective-setting verification and restart/readback recovery without replay. Actual direct/routed UDP and browser qualification; no general graph/package/resource/hardware/BTCVT/physical acceptance claim. JCI-03/JCI-09 remain partial."
   }
 ]

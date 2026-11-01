@@ -547,11 +547,11 @@ def create_app(state_dir=None, *, operation_power=None):
     def instance_activity_guard():
         if native_applications is not None and native_applications.has_pending():
             raise ValueError(
-                "Resolve the retained native application transfer before another instance change."
+                "Resolve the retained native application transfer before another engineering change."
             )
         if field_trends.status()["running_jobs"] or any(job["active"] for job in cov.jobs.values()):
             raise ValueError(
-                "Stop field polling and COV monitors before changing a device instance."
+                "Stop field polling and COV monitors before native application or device identity changes."
             )
 
     device_instances = DeviceInstances(bacnet, store, activity_guard=instance_activity_guard)

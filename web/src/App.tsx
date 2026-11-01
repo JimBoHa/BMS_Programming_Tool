@@ -178,7 +178,9 @@ export function App() {
   const [area, setArea] = useState<WorkspaceArea>("program");
   const [mode, setMode] = useState<"edit" | "simulate" | "commission">("edit");
   const [controller, setController] = useState<ControllerContext | null>(null);
-  const [workflowBusy, setWorkflowBusy] = useState(false);
+  const [connectionBusy, setConnectionBusy] = useState(false);
+  const [nativeCompilerBusy, setNativeCompilerBusy] = useState(false);
+  const workflowBusy = connectionBusy || nativeCompilerBusy;
   const [cafDocument, setCafDocument] = useState<CafDocument | null>(null);
   const [incomingCaf, setIncomingCaf] = useState<FileRequest | null>(null);
   const [cafSaveRequest, setCafSaveRequest] = useState("");
@@ -1897,7 +1899,7 @@ export function App() {
                           : area
                     }
                     onControllerChange={setController}
-                    onBusyChange={setWorkflowBusy}
+                    onBusyChange={setConnectionBusy}
                     onConnectionSetup={beginConnect}
                     onOpenLocalFile={openCafPicker}
                     onControllerOpened={() => {
@@ -1925,6 +1927,8 @@ export function App() {
                 >
                   <NativeSignalCompiler
                     controller={controller}
+                    parentBusy={workflowBusy}
+                    onBusyChange={setNativeCompilerBusy}
                     visible={
                       tab === "native-compiler" &&
                       surface === "workspace" &&

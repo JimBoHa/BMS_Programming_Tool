@@ -161,6 +161,8 @@ class ApplicationStore:
                 "created_at": utc(),
             }
         )
+        if len(encoded(row)) > 128 * 1024:
+            raise ValueError("Native transfer intent exceeds its readable evidence limit.")
         with self.store.connect(timeout=0.25) as db:
             db.execute("PRAGMA synchronous=FULL")
             db.execute("BEGIN IMMEDIATE")

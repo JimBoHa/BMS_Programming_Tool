@@ -73,6 +73,25 @@
   overflow: auto;
   font-size: 12px;
 }
+.native-effective-compiler .native-transfer-check {
+  flex-direction: row;
+  align-items: center;
+}
+.native-effective-compiler .native-transfer-check input {
+  width: 20px;
+  min-height: 20px;
+  flex: 0 0 20px;
+}
+.native-default-transfer > .button-row,
+.native-default-transfer > details,
+.native-default-transfer > button,
+.native-default-transfer > section {
+  margin-top: 16px;
+}
+.native-default-transfer h3 {
+  margin: 16px 0;
+  font-size: 16px;
+}
 @media (max-width: 900px) {
   .native-compiler-fields {
     grid-template-columns: minmax(0, 1fr);
