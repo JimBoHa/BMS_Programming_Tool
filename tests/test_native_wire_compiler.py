@@ -379,10 +379,19 @@ def test_capabilities_use_actual_effective_candidates_independently_of_transport
         {"capture_id": snapshot["id"], "snapshot_sha256": snapshot["evidence_sha256"]}
     )
     rows = {r["id"]: r for r in report["operations"]}
-    assert report["capability_profile"] == "native-backup-operation-capabilities/6"
-    assert len(rows) == 17
+    assert report["capability_profile"] == "native-backup-operation-capabilities/7"
+    assert len(rows) == 18
     assert rows["wire-source-copy"]["status"] == "source-qualified"
     assert rows["effective-wire-compile"]["status"] == expected
+    assert rows["wire-source-transfer"]["status"] == (
+        "preflight-required"
+        if case == "plain"
+        else "transport-unavailable"
+        if case == "serial"
+        else "source-mismatch"
+        if case == "unverified"
+        else "unsupported-source"
+    )
     assert rows["general-logic"]["status"] == "unavailable"
     assert (
         not report["field_actions"] and not report["controller_queries"] and not storage.receipts()

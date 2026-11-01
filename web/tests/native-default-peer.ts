@@ -4,7 +4,7 @@ import path from "node:path";
 const root = path.resolve("..");
 export async function nativeDefaultPeer(
   mode = "consume",
-  datatype: "real" | "boolean" = "real",
+  datatype: "real" | "boolean" | "wire" = "real",
 ) {
   const child = spawn(
     path.join(root, ".venv/bin/python"),
@@ -18,11 +18,15 @@ from tests.test_native_signal_compiler import signal_files
 from tests.test_native_default_transfer import controller_storage,real_slot,NativeRouter
 from tests.test_native_boolean_copies import boolean_files,FIRST
 from tests.test_native_boolean_transfer import storage_outcome,boolean_slot
+from tests.test_native_wire_compiler import wire_files
+from bms_tool.mstp import header_crc
 from bacpypes3.local.device import DeviceObject
 from bacpypes3.local.networkport import NetworkPortObject
 async def main():
  p=port();app=NativePeer.from_object_list([DeviceObject(objectIdentifier=('device',5136),objectName='Authored controller',vendorIdentifier=5),NetworkPortObject(f'127.0.0.1:{p}',objectIdentifier=('network-port',1),objectName='Owned native default peer')]);app.setup()
- if sys.argv[2]=='boolean':app.files=boolean_files();storage_outcome(app,mode=sys.argv[1])
+ if sys.argv[2]=='wire':
+  app.files=wire_files(target_class=538);app.metadata['object-name']='Authored native wire controller';app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
+ elif sys.argv[2]=='boolean':app.files=boolean_files();storage_outcome(app,mode=sys.argv[1])
  else:app.files=signal_files();controller_storage(app,mode=sys.argv[1])
  transport,proxy=await asyncio.get_running_loop().create_datagram_endpoint(lambda:NativeRouter(('127.0.0.1',p)),local_addr=('127.0.0.1',0))
  print('READY '+json.dumps({'direct':f'127.0.0.1:{p}','router':proxy.endpoint}),flush=True)
@@ -30,6 +34,11 @@ async def main():
   line=sys.stdin.readline().strip()
   if not line:return
   if line=='selected43':real_slot(app.files,-10,struct.pack('>f',43))
+  elif line=='wire-other-fresh':
+   real_slot(app.files,0,struct.pack('>f',45));raw=bytearray(app.files[12]);raw[10:12]=b'\\x00'+bytes([header_crc(b'\\x00')^255]);app.files[12]=bytes(raw)
+  elif line=='wire-application-changed':
+   import gzip
+   app.files[3]=gzip.compress(gzip.decompress(app.files[3]).replace(b'Opaque metadata retained',b'Unsafe metadata retained'),mtime=0)
   elif line=='boolean-selected-false':boolean_slot(app.files,FIRST,False)
   elif line=='repair':
    if sys.argv[2]=='boolean':boolean_slot(app.files,FIRST,False)

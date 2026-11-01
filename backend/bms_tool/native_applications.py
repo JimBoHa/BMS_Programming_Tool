@@ -49,6 +49,16 @@ from .native_default_transfer import (
     compile_default,
     verify_default_preservation,
 )
+from .native_wire_compiler import EffectiveWirePreview
+from .native_wire_transfer import PROFILE as WIRE_PROFILE
+from .native_wire_transfer import SCOPE as WIRE_SCOPE
+from .native_wire_transfer import (
+    WireTransferApply,
+    WireTransferPreview,
+    compile_wire,
+    validate_wire_evidence,
+    verify_wire_preservation,
+)
 from .property_evidence import PropertyEvidence
 
 # A routed native backup consists of many separately acknowledged File chunks.
@@ -141,6 +151,8 @@ class NativeApplications:
             "default_transfer_scope": DEFAULT_SCOPE,
             "boolean_default_transfer_profile": BOOLEAN_DEFAULT_PROFILE,
             "boolean_default_transfer_scope": BOOLEAN_DEFAULT_SCOPE,
+            "wire_source_transfer_profile": WIRE_PROFILE,
+            "wire_source_transfer_scope": WIRE_SCOPE,
             "backup_effects": backup_effects(),
             "limits": {
                 "operation_seconds": self.operation_timeout,
@@ -160,6 +172,11 @@ class NativeApplications:
                     "old_name": r["intent"].get("old_name"),
                     "new_name": r["intent"].get("new_name"),
                     "default_edit": r["intent"].get("default_edit"),
+                    **(
+                        {"wire_edit": r["intent"].get("wire_edit")}
+                        if r["intent"].get("change_kind") == "wire-source"
+                        else {}
+                    ),
                     "status": (r.get("latest_readback") or r["result"] or r["intent"])["status"],
                     "pending": r["pending"],
                     "created_at": r["intent"]["created_at"],
@@ -457,6 +474,60 @@ class NativeApplications:
         options = BooleanTransferPreview(**arguments)
         return await self.preview_typed_default(options, boolean=True)
 
+    async def preview_wire(self, **arguments):
+        options = WireTransferPreview(**arguments)
+        async with self.operation(options.operation_id, "review-wire"):
+            self.available(options)
+            if (self.storage.directory / options.capture_id).is_symlink():
+                raise ValueError("Native wire sources must stay in their original folder.")
+            captured, files = self.check_capture(options)
+            if captured["evidence_sha256"] != options.snapshot_sha256:
+                raise ValueError("The native snapshot changed; reopen and review again.")
+            edit = options.model_dump(include=set(EffectiveWirePreview.model_fields))
+            output, compilation = compile_wire(files, edit)
+            if not compilation["wire_edit"]["changed"]:
+                raise ValueError("Choose a different existing native wire source before transfer.")
+            config, app = copy.deepcopy(self.bacnet.config), self.bacnet.require()
+            async with self.path._path(options) as session:
+                PropertyEvidence.pin(session, options.router)
+                actual, _ = await self.identity(session, options.device)
+            if actual != captured["identity"]:
+                raise ValueError("Controller identity changed after backup; capture again.")
+            body = {
+                "profile": PROFILE,
+                "operation_profile": WIRE_PROFILE,
+                "target": self.target(options),
+                "identity": actual,
+                "old_instance": ObjectIdentifier(options.device)[1],
+                "new_instance": ObjectIdentifier(options.device)[1],
+                "change_kind": "wire-source",
+                "old_name": actual["object-name"],
+                "new_name": actual["object-name"],
+                "capture_id": options.capture_id,
+                "snapshot_sha256": captured["evidence_sha256"],
+                "application_sha256": sha(files[3]),
+                "static_parameters_sha256": sha(files[11]),
+                "wire_edit": edit,
+                "wire_guard": compilation["wire_guard"],
+                "compilation": compilation,
+                "payload_sha256": sha(output),
+                "collision_check": self.wire_scope(),
+                "parameter_policy": (
+                    "Capture fresh application/settings before restore. Application, saved "
+                    "directory and selected graph/source/target configuration must match. "
+                    "Merge other fresh saved values; the final payload may differ from preview. "
+                    "Verify the full native application, effective wire and saved settings."
+                ),
+                "backup_effects": backup_effects(),
+                "scope": WIRE_SCOPE,
+                "vendor_runtime_required": False,
+                "can_apply": True,
+                "connector_config": config,
+                "created_at": utc(),
+                "expires_at": (datetime.now(UTC) + timedelta(seconds=PLAN_SECONDS)).isoformat(),
+            }
+            return self.retain_plan(body, options, app, config)
+
     async def preview_typed_default(self, options, *, boolean):
         async with self.operation(options.operation_id, "review-default"):
             self.available(options)
@@ -525,6 +596,15 @@ class NativeApplications:
         }
 
     @staticmethod
+    def wire_scope():
+        return {
+            "scope": "One existing wire-source edit at the selected physical station",
+            "devices": [],
+            "checked_at": utc(),
+            "limitation": "Device and native object identities are retained; no number is allocated.",
+        }
+
+    @staticmethod
     def name_scope():
         return {
             "scope": "Name-only edit at the selected physical station",
@@ -551,13 +631,25 @@ class NativeApplications:
     async def verify(self, session, intent):
         self.phase("reading back the physical station")
         change_kind = intent.get("change_kind", "instance")
-        if change_kind not in ("instance", "name", "signal-default", "boolean-default"):
+        if change_kind not in (
+            "instance",
+            "name",
+            "signal-default",
+            "boolean-default",
+            "wire-source",
+        ):
             raise ValueError("Unrecognized native transfer operation; retain its evidence.")
         boolean_edit = change_kind == "boolean-default"
         default_edit = change_kind in ("signal-default", "boolean-default")
+        wire_edit = change_kind == "wire-source"
+        program_edit = default_edit or wire_edit
         expected_profile = BOOLEAN_DEFAULT_PROFILE if boolean_edit else DEFAULT_PROFILE
         if default_edit and intent.get("operation_profile") != expected_profile:
             raise ValueError("Unsupported native default transfer evidence version; retain it.")
+        if wire_edit and intent.get("operation_profile") != WIRE_PROFILE:
+            raise ValueError("Unsupported native wire transfer evidence version; retain it.")
+        if wire_edit:
+            validate_wire_evidence(intent.get("wire_edit"), intent.get("wire_guard"))
         renaming = intent.get("change_kind") == "name"
         observed = (
             await self.observe_name(session, intent)
@@ -572,7 +664,7 @@ class NativeApplications:
             "observed_at": utc(),
         }
         identity = observed.get("identity")
-        if default_edit and identity is not None and identity != intent["identity"]:
+        if program_edit and identity is not None and identity != intent["identity"]:
             result["error"] = "Controller identity changed during the native default transfer."
             return result
         if identity is not None:
@@ -610,23 +702,31 @@ class NativeApplications:
                     else {}
                 )
                 result["preservation"] = (
-                    (verify_boolean_preservation if boolean_edit else verify_default_preservation)(
-                        original_files, files, intent["default_edit"]
+                    verify_wire_preservation(
+                        original_files, files, intent["wire_edit"], intent["wire_guard"]
                     )
-                    if default_edit
-                    else verify_preservation(
-                        original_files,
-                        files,
-                        old_instance=intent["old_instance"],
-                        new_instance=intent["new_instance"],
-                        **name_policy,
+                    if wire_edit
+                    else (
+                        (
+                            verify_boolean_preservation
+                            if boolean_edit
+                            else verify_default_preservation
+                        )(original_files, files, intent["default_edit"])
+                        if default_edit
+                        else verify_preservation(
+                            original_files,
+                            files,
+                            old_instance=intent["old_instance"],
+                            new_instance=intent["new_instance"],
+                            **name_policy,
+                        )
                     )
                 )
                 status = int(await self.path._read(session, options.device, "system-status"))
                 result.update(system_status=status, operational=status == 0)
                 if status == 0:
                     result["status"] = "verified"
-                    if not default_edit:
+                    if not program_edit:
                         self.instances._forget_old_address(session)
                 else:
                     result["error"] = (
@@ -652,7 +752,14 @@ class NativeApplications:
         request = DefaultTransferApply(**arguments)
         return await self.apply_reviewed(request, default_edit=True, boolean_edit=True)
 
-    async def apply_reviewed(self, request, *, default_edit, boolean_edit=False):
+    async def apply_wire(self, **arguments):
+        request = WireTransferApply(**arguments)
+        return await self.apply_reviewed(request, default_edit=False, wire_edit=True)
+
+    async def apply_reviewed(self, request, *, default_edit, boolean_edit=False, wire_edit=False):
+        if wire_edit and (default_edit or boolean_edit):
+            raise ValueError("Choose one native transfer operation.")
+        program_edit = default_edit or wire_edit
         plan = self.plans.pop(request.token, None)
         if not plan or plan["digest"] != request.review_sha256 or not plan["body"]["can_apply"]:
             raise ValueError(
@@ -660,18 +767,23 @@ class NativeApplications:
             )
         renaming = plan["body"].get("change_kind") == "name"
         kind = plan["body"].get("change_kind", "instance")
-        expected_kind = "boolean-default" if boolean_edit else "signal-default"
-        if kind not in ((expected_kind,) if default_edit else ("instance", "name")):
+        expected_kind = (
+            "wire-source" if wire_edit else "boolean-default" if boolean_edit else "signal-default"
+        )
+        if kind not in ((expected_kind,) if program_edit else ("instance", "name")):
             raise ValueError("This review belongs to a different native transfer operation.")
         if default_edit and plan["body"].get("operation_profile") != (
             BOOLEAN_DEFAULT_PROFILE if boolean_edit else DEFAULT_PROFILE
         ):
             raise ValueError("Unsupported native default transfer evidence version; retain it.")
+        if wire_edit and plan["body"].get("operation_profile") != WIRE_PROFILE:
+            raise ValueError("Unsupported native wire transfer evidence version; retain it.")
         if (
             not request.application_transfer_confirmed
+            or (wire_edit and not request.wire_change_confirmed)
             or (default_edit and not request.default_change_confirmed)
-            or (not default_edit and renaming and not request.name_change_confirmed)
-            or (not default_edit and not renaming and not request.allocation_confirmed)
+            or (not program_edit and renaming and not request.name_change_confirmed)
+            or (not program_edit and not renaming and not request.allocation_confirmed)
         ):
             raise ValueError("Confirm the reviewed change and application transfer.")
         body, options = plan["body"], plan["options"]
@@ -694,7 +806,9 @@ class NativeApplications:
                 if seal(self.credentials.get()) != plan["credentials_digest"]:
                     raise ValueError("Transfer credentials changed; review again.")
                 collision = (
-                    self.default_scope()
+                    self.wire_scope()
+                    if wire_edit
+                    else self.default_scope()
                     if default_edit
                     else self.name_scope()
                     if renaming
@@ -720,25 +834,31 @@ class NativeApplications:
                             "Application or saved parameter directory changed after review. Capture and review again."
                         )
                     output, compilation = (
-                        (compile_boolean_default if boolean_edit else compile_default)(
-                            files,
-                            body["default_edit"],
-                            **(
-                                {
-                                    "expected_prior_value": body["compilation"]["selected_edit"][
-                                        "before_value"
-                                    ]
-                                }
-                                if boolean_edit
-                                else {
-                                    "expected_prior_bits": body["compilation"]["selected_edit"][
-                                        "before_bits"
-                                    ]
-                                }
-                            ),
+                        compile_wire(
+                            files, body["wire_edit"], fresh=True, expected_guard=body["wire_guard"]
                         )
-                        if default_edit
-                        else self.compile(files, options.new_instance, options.new_name)
+                        if wire_edit
+                        else (
+                            (compile_boolean_default if boolean_edit else compile_default)(
+                                files,
+                                body["default_edit"],
+                                **(
+                                    {
+                                        "expected_prior_value": body["compilation"][
+                                            "selected_edit"
+                                        ]["before_value"]
+                                    }
+                                    if boolean_edit
+                                    else {
+                                        "expected_prior_bits": body["compilation"]["selected_edit"][
+                                            "before_bits"
+                                        ]
+                                    }
+                                ),
+                            )
+                            if default_edit
+                            else self.compile(files, options.new_instance, options.new_name)
+                        )
                     )
                     capacity_request = ReadPropertyRequest(
                         objectIdentifier=(10, 3), propertyIdentifier=3380
@@ -794,6 +914,16 @@ class NativeApplications:
                             "native_payload_sha256": sha(MoiIdentity(output).data),
                             "compilation": compilation,
                             "collision_check": collision,
+                            **(
+                                {
+                                    "wire_edit": body["wire_edit"],
+                                    "wire_guard": body["wire_guard"],
+                                    "operation_profile": WIRE_PROFILE,
+                                    "wire_change_confirmed": request.wire_change_confirmed,
+                                }
+                                if wire_edit
+                                else {}
+                            ),
                             **(
                                 {
                                     "default_edit": body["default_edit"],
@@ -948,6 +1078,14 @@ def native_application_router(service):
     @router.post("/boolean-default/transfer/apply")
     async def apply_boolean_default(body: DefaultTransferApply):
         return await service.apply_boolean_default(**body.model_dump())
+
+    @router.post("/wire-source/transfer/preview")
+    async def preview_wire(body: WireTransferPreview):
+        return await service.preview_wire(**body.model_dump())
+
+    @router.post("/wire-source/transfer/apply")
+    async def apply_wire(body: WireTransferApply):
+        return await service.apply_wire(**body.model_dump())
 
     @router.post("/cancel")
     async def cancel(body: InstanceCancel):

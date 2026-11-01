@@ -9,7 +9,7 @@ from .moi_signal_defaults import MoiSignalDefaults
 from .moi_wire_sources import MoiWireSources
 from .native_signal_compiler import compiler_from_snapshot
 
-PROFILE = "native-backup-operation-capabilities/6"
+PROFILE = "native-backup-operation-capabilities/7"
 
 
 def eligible_wire(editor):
@@ -242,6 +242,22 @@ def backup_capabilities(snapshot, files, application):
             effective_boolean_error or "No supported effective Boolean defaults were found.",
         ),
         "Use the separate Boolean controller review/apply/readback workflow. Fresh selected-value and other-setting checks, capacity, credentials, one-use typed review and uncertainty recovery remain mandatory. Capture/readback use backup-state commands; Apply can interrupt control.",
+    )
+    add(
+        "wire-source-transfer",
+        "Transfer an existing native wire source",
+        "source-mismatch"
+        if not verified
+        else "unsupported-source"
+        if not effective_wire
+        else "preflight-required"
+        if plain_ip
+        else "transport-unavailable",
+        "Retained identity, an effective existing-wire candidate and captured plain IPv4 separately qualify a connected transfer preflight."
+        if verified and effective_wire and plain_ip
+        else effective_wire_error
+        or "A qualified effective wire source and native IPv4 route are required.",
+        "Review the exact connected station, original/effective wire and application interruption separately. Fresh graph/source/target configuration, saved settings, capacity, credentials, one-use intent and full native/effective readback remain required. No field action is prepared here.",
     )
     add(
         "general-logic",
