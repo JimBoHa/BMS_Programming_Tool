@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { api, apiJsonDocument, apiBlobDocument, saveBlob } from "./api";
 import { controllerKey, type ControllerContext } from "./workflow";
+import { NativeDefaultTransfer } from "./NativeDefaultTransfer";
 import "./native-signal-compiler.css";
 
 const base = "/bacnet/controller/native-application/signal-default";
@@ -21,9 +22,13 @@ type Data = Record<string, any>;
 export function NativeSignalCompiler({
   controller,
   visible = true,
+  parentBusy = false,
+  onBusyChange,
 }: {
   controller?: ControllerContext | null;
   visible?: boolean;
+  parentBusy?: boolean;
+  onBusyChange?: (busy: boolean) => void;
 }) {
   const context = JSON.stringify([
     visible,
@@ -49,7 +54,10 @@ export function NativeSignalCompiler({
   } | null>(null);
   const [error, setError] = useState(""),
     [storageError, setStorageError] = useState(""),
-    [busy, setBusy] = useState(false);
+    [localBusy, setBusy] = useState(false);
+  const [transferBusy, setTransferBusy] = useState(false);
+  const [pendingSource, setPendingSource] = useState("");
+  const busy = localBusy || transferBusy || parentBusy;
   const alive = useRef(true),
     epoch = useRef(0),
     contextNow = useRef(context),
@@ -65,6 +73,11 @@ export function NativeSignalCompiler({
   }
   const source = loaded?.capture_id === choice ? loaded : null;
   const field = source?.fields.find((row: Data) => row.ref === fieldRef);
+  const fieldTransferSourceActive =
+    !!controller?.interfaceOpen &&
+    !!source &&
+    controllerKey(controller) ===
+      controllerKey({ ...source.target, device: source.device });
   const draftKey =
     source && field
       ? prefix +
@@ -126,6 +139,12 @@ export function NativeSignalCompiler({
   useEffect(() => {
     if (visible) void refresh();
   }, [context, visible]);
+  useEffect(() => {
+    if (visible && pendingSource && pendingSource === choice) {
+      setPendingSource("");
+      void open();
+    }
+  }, [visible, pendingSource, choice]);
   async function open() {
     const selected = choice,
       key = contextNow.current,
@@ -505,10 +524,15 @@ export function NativeSignalCompiler({
                       aria-label="Proposed native Real default"
                       value={value}
                       maxLength={128}
+                      disabled={transferBusy || parentBusy}
                       onChange={(event) => edit(event.target.value)}
                     />
                   </label>
-                  <button className="primary" type="submit" disabled={busy}>
+                  <button
+                    className={fieldTransferSourceActive ? "" : "primary"}
+                    type="submit"
+                    disabled={busy}
+                  >
                     Review native compilation
                   </button>
                   <button type="button" onClick={discard}>
@@ -567,6 +591,23 @@ export function NativeSignalCompiler({
           </details>
         </section>
       )}
+      <NativeDefaultTransfer
+        controller={controller}
+        source={source}
+        proposal={body}
+        field={field}
+        visible={visible}
+        parentBusy={parentBusy}
+        onBusy={(value) => {
+          setTransferBusy(value);
+          onBusyChange?.(value);
+        }}
+        onCaptured={(id) => {
+          setChoice(id);
+          setPendingSource(id);
+          void refresh();
+        }}
+      />
     </section>
   );
 }

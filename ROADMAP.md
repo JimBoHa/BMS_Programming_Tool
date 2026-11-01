@@ -153,6 +153,14 @@ Real default after merging the retained native saved settings. Program shows
 archive versus effective values and exports a source-bound compiled copy; no new
 field-transfer operation is enabled. JCI-03 and JCI-09 remain partial overall.
 
+`COMM-NATIVE-DEFAULT-TRANSFER-001` adds a separate one-default transfer operation
+with fresh selected-value checks, merging of other fresh saved settings, durable
+single-attempt restore and full native/effective-setting verification. Its web
+workflow stays in Program and retains uncertain receipts for readback without
+replay. Direct and explicit routed IP are qualified against authored protocol
+peers; physical acceptance, arbitrary graph edits, package/resource validation and
+hardware reassignment remain separate. JCI-03 and JCI-09 remain partial overall.
+
 | ID | Planned addition | Workspace | Acceptance / dependency |
 | --- | --- | --- | --- |
 | JCI-01 | Build an operation-specific protocol/format/release capability matrix from discovered identity, application structure, packages and retained evidence | Overview / Program; Settings for toolchains | Credit current identity operations; distinguish read, edit, compile, transfer and physical acceptance; unsupported formats explain why |

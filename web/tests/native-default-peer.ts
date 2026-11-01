@@ -1,0 +1,113 @@
+import { spawn } from "node:child_process";
+import path from "node:path";
+
+const root = path.resolve("..");
+export async function nativeDefaultPeer(mode = "consume") {
+  const child = spawn(
+    path.join(root, ".venv/bin/python"),
+    [
+      "-u",
+      "-c",
+      `
+import asyncio,json,sys,struct
+from tests.test_native_applications import NativePeer,port
+from tests.test_native_signal_compiler import signal_files
+from tests.test_native_default_transfer import controller_storage,real_slot,NativeRouter
+from bacpypes3.local.device import DeviceObject
+from bacpypes3.local.networkport import NetworkPortObject
+async def main():
+ p=port();app=NativePeer.from_object_list([DeviceObject(objectIdentifier=('device',5136),objectName='Authored controller',vendorIdentifier=5),NetworkPortObject(f'127.0.0.1:{p}',objectIdentifier=('network-port',1),objectName='Owned native default peer')]);app.setup();app.files=signal_files();controller_storage(app,mode=sys.argv[1])
+ transport,proxy=await asyncio.get_running_loop().create_datagram_endpoint(lambda:NativeRouter(('127.0.0.1',p)),local_addr=('127.0.0.1',0))
+ print('READY '+json.dumps({'direct':f'127.0.0.1:{p}','router':proxy.endpoint}),flush=True)
+ def command():
+  line=sys.stdin.readline().strip()
+  if not line:return
+  if line=='selected43':real_slot(app.files,-10,struct.pack('>f',43))
+  elif line=='repair':real_slot(app.files,-10,bytes.fromhex('3dcccccd'))
+  elif line.startswith('mode '):app.mode=line[5:]
+  elif line!='stats':raise AssertionError('Unknown authored command')
+  print('RESULT '+json.dumps({'command':line,'events':app.events,'instance':app.instance,'router_errors':proxy.errors,'request_types':[r['type'] for r in proxy.requests]}),flush=True)
+ asyncio.get_running_loop().add_reader(sys.stdin.fileno(),command)
+ try:await asyncio.Event().wait()
+ finally:transport.close();app.close()
+asyncio.run(main())
+`,
+      mode,
+    ],
+    {
+      cwd: root,
+      env: { ...process.env, PYTHONPATH: path.join(root, "backend") },
+      stdio: ["pipe", "pipe", "pipe"],
+    },
+  );
+  let stderr = "",
+    output = "";
+  const replies: {
+    command: string;
+    resolve: (data: any) => void;
+    reject: (error: Error) => void;
+    timer: ReturnType<typeof setTimeout>;
+  }[] = [];
+  child.stderr!.on("data", (value) => {
+    stderr = (stderr + String(value)).slice(-8192);
+  });
+  const endpoints = await new Promise<{ direct: string; router: string }>(
+    (resolve, reject) => {
+      let ready = false;
+      const timer = setTimeout(() => {
+        child.kill();
+        reject(new Error("Native peer startup: " + stderr));
+      }, 10000);
+      child.stdout!.on("data", (value) => {
+        output += String(value);
+        while (output.includes("\n")) {
+          const end = output.indexOf("\n"),
+            line = output.slice(0, end);
+          output = output.slice(end + 1);
+          if (line.startsWith("READY ") && !ready) {
+            ready = true;
+            clearTimeout(timer);
+            resolve(JSON.parse(line.slice(6)));
+          } else if (line.startsWith("RESULT ")) {
+            const data = JSON.parse(line.slice(7)),
+              index = replies.findIndex(
+                (item) => item.command === data.command,
+              );
+            if (index >= 0) {
+              const [reply] = replies.splice(index, 1);
+              clearTimeout(reply.timer);
+              reply.resolve(data);
+            }
+          }
+        }
+      });
+      child.once("error", reject);
+      child.once("exit", (code) => {
+        clearTimeout(timer);
+        if (!ready) reject(new Error(`Native peer exited ${code}: ${stderr}`));
+        for (const reply of replies.splice(0)) {
+          clearTimeout(reply.timer);
+          reply.reject(new Error("Native peer exited: " + stderr));
+        }
+      });
+    },
+  );
+  return {
+    ...endpoints,
+    command: (command: string): Promise<any> =>
+      new Promise((resolve, reject) => {
+        const timer = setTimeout(
+          () =>
+            reject(
+              new Error(
+                "Native peer command timeout: " + command + ": " + stderr,
+              ),
+            ),
+          5000,
+        );
+        replies.push({ command, resolve, reject, timer });
+        child.stdin!.write(command + "\n");
+      }),
+    close: () => child.kill("SIGTERM"),
+  };
+}

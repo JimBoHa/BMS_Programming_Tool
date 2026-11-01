@@ -30,6 +30,18 @@ from .mce_wire import VENDOR, MceWire, controller_info
 from .models import StrictModel
 from .moi_identity import MoiIdentity, controller_name, seal, sha
 from .moi_parameters import ParameterApplication
+from .native_default_transfer import (
+    PROFILE as DEFAULT_PROFILE,
+)
+from .native_default_transfer import (
+    SCOPE as DEFAULT_SCOPE,
+)
+from .native_default_transfer import (
+    DefaultTransferApply,
+    DefaultTransferPreview,
+    compile_default,
+    verify_default_preservation,
+)
 from .property_evidence import PropertyEvidence
 
 # A routed native backup consists of many separately acknowledged File chunks.
@@ -118,6 +130,8 @@ class NativeApplications:
             "credentials_configured": self.credentials.configured(),
             "vendor_runtime_required": False,
             "scope": SCOPE,
+            "default_transfer_profile": DEFAULT_PROFILE,
+            "default_transfer_scope": DEFAULT_SCOPE,
             "backup_effects": backup_effects(),
             "limits": {
                 "operation_seconds": self.operation_timeout,
@@ -136,6 +150,7 @@ class NativeApplications:
                     "change_kind": r["intent"].get("change_kind", "instance"),
                     "old_name": r["intent"].get("old_name"),
                     "new_name": r["intent"].get("new_name"),
+                    "default_edit": r["intent"].get("default_edit"),
                     "status": (r.get("latest_readback") or r["result"] or r["intent"])["status"],
                     "pending": r["pending"],
                     "created_at": r["intent"]["created_at"],
@@ -402,25 +417,90 @@ class NativeApplications:
                 "created_at": utc(),
                 "expires_at": (datetime.now(UTC) + timedelta(seconds=PLAN_SECONDS)).isoformat(),
             }
-            token, digest = secrets.token_urlsafe(24), seal(body)
-            self.plans = OrderedDict(
-                (k, p)
-                for k, p in self.plans.items()
-                if p["body"]["target"] != body["target"] and p["expires"] > time.monotonic()
-            )
-            self.plans[token] = {
-                "body": body,
-                "options": options,
-                "app": app,
-                "config": config,
-                "expires": time.monotonic() + PLAN_SECONDS,
-                "digest": digest,
-                "credentials_digest": seal(self.credentials.get()),
-                "operation_id": options.operation_id,
+            return self.retain_plan(body, options, app, config)
+
+    def retain_plan(self, body, options, app, config):
+        token, digest = secrets.token_urlsafe(24), seal(body)
+        self.plans = OrderedDict(
+            (k, p)
+            for k, p in self.plans.items()
+            if p["body"]["target"] != body["target"] and p["expires"] > time.monotonic()
+        )
+        self.plans[token] = {
+            "body": body,
+            "options": options,
+            "app": app,
+            "config": config,
+            "expires": time.monotonic() + PLAN_SECONDS,
+            "digest": digest,
+            "credentials_digest": seal(self.credentials.get()),
+            "operation_id": options.operation_id,
+        }
+        while len(self.plans) > 16:
+            self.plans.popitem(last=False)
+        return {**body, "token": token, "review_sha256": digest}
+
+    async def preview_default(self, **arguments):
+        options = DefaultTransferPreview(**arguments)
+        async with self.operation(options.operation_id, "review-default"):
+            self.available(options)
+            if (self.storage.directory / options.capture_id).is_symlink():
+                raise ValueError("Native default sources must stay in their original folder.")
+            captured, files = self.check_capture(options)
+            if captured["evidence_sha256"] != options.snapshot_sha256:
+                raise ValueError("The native snapshot changed; reopen and review again.")
+            edit = options.model_dump(include={"record_ref", "encoded_sha256", "value_text"})
+            output, compilation = compile_default(files, edit)
+            if not compilation["selected_field_changed"]:
+                raise ValueError("Choose a different effective native default before transfer.")
+            config, app = copy.deepcopy(self.bacnet.config), self.bacnet.require()
+            async with self.path._path(options) as session:
+                PropertyEvidence.pin(session, options.router)
+                actual, _ = await self.identity(session, options.device)
+            if actual != captured["identity"]:
+                raise ValueError("Controller identity changed after backup; capture again.")
+            body = {
+                "profile": PROFILE,
+                "operation_profile": DEFAULT_PROFILE,
+                "target": self.target(options),
+                "identity": actual,
+                "old_instance": ObjectIdentifier(options.device)[1],
+                "new_instance": ObjectIdentifier(options.device)[1],
+                "change_kind": "signal-default",
+                "old_name": actual["object-name"],
+                "new_name": actual["object-name"],
+                "capture_id": options.capture_id,
+                "snapshot_sha256": captured["evidence_sha256"],
+                "application_sha256": sha(files[3]),
+                "static_parameters_sha256": sha(files[11]),
+                "default_edit": edit,
+                "compilation": compilation,
+                "payload_sha256": sha(output),
+                "collision_check": self.default_scope(),
+                "parameter_policy": (
+                    "Capture fresh application/settings before restore. Application and saved "
+                    "directory must match; the selected effective prior value must still match. "
+                    "Merge other fresh saved values, so the final payload may differ from the "
+                    "preview. Verify both full native application and effective settings."
+                ),
+                "backup_effects": backup_effects(),
+                "scope": DEFAULT_SCOPE,
+                "vendor_runtime_required": False,
+                "can_apply": True,
+                "connector_config": config,
+                "created_at": utc(),
+                "expires_at": (datetime.now(UTC) + timedelta(seconds=PLAN_SECONDS)).isoformat(),
             }
-            while len(self.plans) > 16:
-                self.plans.popitem(last=False)
-            return {**body, "token": token, "review_sha256": digest}
+            return self.retain_plan(body, options, app, config)
+
+    @staticmethod
+    def default_scope():
+        return {
+            "scope": "One default edit at the selected physical station",
+            "devices": [],
+            "checked_at": utc(),
+            "limitation": "Device instance and name are unchanged; no number is allocated.",
+        }
 
     @staticmethod
     def name_scope():
@@ -448,6 +528,12 @@ class NativeApplications:
 
     async def verify(self, session, intent):
         self.phase("reading back the physical station")
+        change_kind = intent.get("change_kind", "instance")
+        if change_kind not in ("instance", "name", "signal-default"):
+            raise ValueError("Unrecognized native transfer operation; retain its evidence.")
+        default_edit = change_kind == "signal-default"
+        if default_edit and intent.get("operation_profile") != DEFAULT_PROFILE:
+            raise ValueError("Unsupported native default transfer evidence version; retain it.")
         renaming = intent.get("change_kind") == "name"
         observed = (
             await self.observe_name(session, intent)
@@ -462,6 +548,9 @@ class NativeApplications:
             "observed_at": utc(),
         }
         identity = observed.get("identity")
+        if default_edit and identity is not None and identity != intent["identity"]:
+            result["error"] = "Controller identity changed during the native default transfer."
+            return result
         if identity is not None:
             try:
                 status = int(await self.path._read(session, identity["device"], "system-status"))
@@ -496,18 +585,23 @@ class NativeApplications:
                     if renaming
                     else {}
                 )
-                result["preservation"] = verify_preservation(
-                    original_files,
-                    files,
-                    old_instance=intent["old_instance"],
-                    new_instance=intent["new_instance"],
-                    **name_policy,
+                result["preservation"] = (
+                    verify_default_preservation(original_files, files, intent["default_edit"])
+                    if default_edit
+                    else verify_preservation(
+                        original_files,
+                        files,
+                        old_instance=intent["old_instance"],
+                        new_instance=intent["new_instance"],
+                        **name_policy,
+                    )
                 )
                 status = int(await self.path._read(session, options.device, "system-status"))
                 result.update(system_status=status, operational=status == 0)
                 if status == 0:
                     result["status"] = "verified"
-                    self.instances._forget_old_address(session)
+                    if not default_edit:
+                        self.instances._forget_old_address(session)
                 else:
                     result["error"] = (
                         "Application bytes match, but the controller is not operational."
@@ -522,18 +616,29 @@ class NativeApplications:
 
     async def apply(self, **arguments):
         request = NativeApply(**arguments)
+        return await self.apply_reviewed(request, default_edit=False)
+
+    async def apply_default(self, **arguments):
+        request = DefaultTransferApply(**arguments)
+        return await self.apply_reviewed(request, default_edit=True)
+
+    async def apply_reviewed(self, request, *, default_edit):
         plan = self.plans.pop(request.token, None)
         if not plan or plan["digest"] != request.review_sha256 or not plan["body"]["can_apply"]:
             raise ValueError(
                 "Native application review is changed, blocked, expired or already consumed."
             )
         renaming = plan["body"].get("change_kind") == "name"
+        kind = plan["body"].get("change_kind", "instance")
+        if kind not in (("signal-default",) if default_edit else ("instance", "name")):
+            raise ValueError("This review belongs to a different native transfer operation.")
         if (
             not request.application_transfer_confirmed
-            or (renaming and not request.name_change_confirmed)
-            or (not renaming and not request.allocation_confirmed)
+            or (default_edit and not request.default_change_confirmed)
+            or (not default_edit and renaming and not request.name_change_confirmed)
+            or (not default_edit and not renaming and not request.allocation_confirmed)
         ):
-            raise ValueError("Confirm the reserved number and reviewed application transfer.")
+            raise ValueError("Confirm the reviewed change and application transfer.")
         body, options = plan["body"], plan["options"]
         receipt_id, intent, dispatched = secrets.token_hex(16), None, False
         result = {
@@ -554,7 +659,11 @@ class NativeApplications:
                 if seal(self.credentials.get()) != plan["credentials_digest"]:
                     raise ValueError("Transfer credentials changed; review again.")
                 collision = (
-                    self.name_scope() if renaming else await self.instances._collision(options)
+                    self.default_scope()
+                    if default_edit
+                    else self.name_scope()
+                    if renaming
+                    else await self.instances._collision(options)
                 )
                 if collision["devices"]:
                     raise ValueError(
@@ -575,8 +684,14 @@ class NativeApplications:
                         raise ValueError(
                             "Application or saved parameter directory changed after review. Capture and review again."
                         )
-                    output, compilation = self.compile(
-                        files, options.new_instance, options.new_name
+                    output, compilation = (
+                        compile_default(
+                            files,
+                            body["default_edit"],
+                            expected_prior_bits=body["compilation"]["selected_edit"]["before_bits"],
+                        )
+                        if default_edit
+                        else self.compile(files, options.new_instance, options.new_name)
                     )
                     capacity_request = ReadPropertyRequest(
                         objectIdentifier=(10, 3), propertyIdentifier=3380
@@ -632,8 +747,19 @@ class NativeApplications:
                             "native_payload_sha256": sha(MoiIdentity(output).data),
                             "compilation": compilation,
                             "collision_check": collision,
-                            "allocation_confirmed": request.allocation_confirmed,
-                            "name_change_confirmed": request.name_change_confirmed,
+                            **(
+                                {
+                                    "default_edit": body["default_edit"],
+                                    "operation_profile": DEFAULT_PROFILE,
+                                    "default_change_confirmed": request.default_change_confirmed,
+                                }
+                                if default_edit
+                                else {}
+                            ),
+                            "allocation_confirmed": getattr(request, "allocation_confirmed", False),
+                            "name_change_confirmed": getattr(
+                                request, "name_change_confirmed", False
+                            ),
                             "application_transfer_confirmed": True,
                         }
                     )
@@ -757,6 +883,14 @@ def native_application_router(service):
     @router.post("/apply")
     async def apply(body: NativeApply):
         return await service.apply(**body.model_dump())
+
+    @router.post("/signal-default/transfer/preview")
+    async def preview_default(body: DefaultTransferPreview):
+        return await service.preview_default(**body.model_dump())
+
+    @router.post("/signal-default/transfer/apply")
+    async def apply_default(body: DefaultTransferApply):
+        return await service.apply_default(**body.model_dump())
 
     @router.post("/cancel")
     async def cancel(body: InstanceCancel):
