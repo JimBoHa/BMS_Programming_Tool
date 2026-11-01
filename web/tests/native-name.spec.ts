@@ -96,6 +96,19 @@ asyncio.run(main())
       name: "Native application name commissioning",
       exact: true,
     });
+    const effects = panel.getByRole("note", {
+      name: "Backup and readback effects",
+      exact: true,
+    });
+    await expect(effects).toContainText(
+      "enter and end the controller’s backup mode",
+    );
+    await expect(
+      panel.getByRole("button", {
+        name: "Read application backup",
+        exact: true,
+      }),
+    ).toHaveAttribute("aria-describedby", (await effects.getAttribute("id"))!);
     await panel.getByText(/^Transfer credentials/).click();
     await panel
       .getByLabel("Backup credential", { exact: true })
@@ -199,6 +212,29 @@ asyncio.run(main())
     await expect(
       page.getByLabel("Selected controller path", { exact: true }),
     ).toContainText("Renamed controller");
+    const readback = panel.getByRole("button", {
+      name: "Read back application and name",
+      exact: true,
+    });
+    await expect(readback).toHaveAttribute(
+      "aria-describedby",
+      (await effects.getAttribute("id"))!,
+    );
+    reply = page.waitForResponse((response) =>
+      response.url().endsWith("/native-application/readback"),
+    );
+    await readback.click();
+    const reread = await (await reply).json();
+    const observed = reread.events
+      .filter((event: any) => event.stage === "readback")
+      .at(-1).detail;
+    expect(observed.status).toBe("verified");
+    expect(observed.read_only).toBe(false);
+    expect(observed.backup_effects.possible_state_commands).toEqual([
+      "start-backup",
+      "end-backup",
+    ]);
+    expect(observed.backup_effects.writes_application).toBe(false);
     await panel.screenshot({
       path: test.info().outputPath("native-name-verified.png"),
     });

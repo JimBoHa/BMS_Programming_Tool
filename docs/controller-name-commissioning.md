@@ -39,3 +39,9 @@ The existing one-use plan, owned transactions and durable transfer receipt apply
 A lost acknowledgement or an unverified name/application keeps the result
 uncertain and blocks another transfer. Use **Read back application and name**;
 do not resend a transfer to resolve an uncertain outcome.
+
+Reading a backup or verifying a name transfer enters and ends the controller's
+backup mode to read the application and saved parameters. The interface and new
+evidence records distinguish these state commands from application transfer;
+see [backup and verification effects](native-application-transfer.md#backup-and-verification-effects)
+for the API declaration and historical receipt interpretation.

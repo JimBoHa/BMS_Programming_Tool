@@ -70,21 +70,36 @@ asyncio.run(main())
       String(value),
       String(native),
     ],
-    { cwd: root, stdio: ["pipe", "pipe", "pipe"] },
+    {
+      cwd: root,
+      env: { ...process.env, PYTHONPATH: path.join(root, "backend") },
+      stdio: ["pipe", "pipe", "pipe"],
+    },
   );
+  let stderr = "";
+  child.stderr!.on("data", (data) => {
+    stderr = (stderr + String(data)).slice(-8192);
+  });
   await new Promise<void>((resolve, reject) => {
-    const timer = setTimeout(
-      () => reject(new Error("Controller fixture startup timed out")),
-      10000,
-    );
-    child.stdout!.once("data", () => {
-      clearTimeout(timer);
-      resolve();
+    let output = "",
+      ready = false;
+    const timer = setTimeout(() => {
+      child.kill();
+      reject(new Error("Controller fixture startup timed out: " + stderr));
+    }, 10000);
+    child.stdout!.on("data", (data) => {
+      output += String(data);
+      if (!ready && output.split(/\r?\n/).includes("READY")) {
+        ready = true;
+        clearTimeout(timer);
+        resolve();
+      }
     });
     child.once("error", reject);
     child.once("exit", (code) => {
       clearTimeout(timer);
-      if (code) reject(new Error("Controller fixture exited: " + code));
+      if (!ready)
+        reject(new Error("Controller fixture exited: " + code + ": " + stderr));
     });
   });
   return {

@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
-Updated: 2026-10-30. Planning baseline: GitHub `main` at
-[`eee38367`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/eee38367aecd0b3f405809a76c500fe09ee2ad9f).
+Updated: 2026-10-31. Implementation baseline: GitHub `main` at
+[`c2088bad`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/c2088bade321a471a515f8d004fe232437637f88).
 
 ## Baseline and purpose
 
@@ -140,6 +140,14 @@ Bluetooth physical acceptance remains deferred until the adapter is available.
 
 ## Johnson Controls FX and Metasys: configure first
 
+The native editing prerequisite integration combines the supported local Real-default
+file-copy editor (`FMT-SIGNAL-DEFAULT-COPY-001`) with explicit backup/readback
+state effects (`COMM-NATIVE-EFFECTS-001`). Both criteria and scopes remain intact.
+This integration enables no new default-value transfer. A separate operation
+must review the effective saved value, merge fresh settings, preserve other
+application bytes, and verify the edited application and effective settings after
+transfer. General logic generation and physical acceptance remain separate.
+
 | ID | Planned addition | Workspace | Acceptance / dependency |
 | --- | --- | --- | --- |
 | JCI-01 | Build an operation-specific protocol/format/release capability matrix from discovered identity, application structure, packages and retained evidence | Overview / Program; Settings for toolchains | Credit current identity operations; distinguish read, edit, compile, transfer and physical acceptance; unsupported formats explain why |
@@ -203,7 +211,7 @@ inventory or an assertion that every release accepts the same application.
 | UX-01 | Finish full target propagation to older trends and single-log history views | Trends & Alarms: use the complete authoritative ControllerTarget, discovered point choices and stale-result invalidation instead of repeated manual addresses |
 | UX-02 | Consolidate a searchable change/receipt ledger | Changes: exact target, local-versus-field operation, state, review/dispatch/readback and links to recovery. Do not turn separate operations into an atomic batch |
 | UX-03 | Implement responsive navigation and inspector drawers | Preserve desktop engineering tables and current teal design; keyboard/touch focus, labelled states and draft preservation on smaller screens |
-| UX-04 | Apply common source, unavailable-capability and recovery presentation | Existing task views retain one primary action, live/file/simulator labels and precise save/apply language; improve incomplete older integrations without a dashboard redesign |
+| UX-04 | Apply common source, unavailable-capability and recovery presentation | Partial: [native backup and readback effects](docs/native-application-transfer.md#backup-and-verification-effects) are explicit in controls and new evidence. Complete source/capability/recovery presentation and draft ownership in remaining older task views |
 | QA-02 | Preserve the useful local real-wire acquisition and route-handoff test ideas | Existing browser suites: random independent peer, actual HTTP/UDP, changed later sensor reading, nondefault ports, no implicit connection/write and no duplicate fixture stack |
 | SCH-01 | Complete native Calendar/exception/context editing and source-safe destination linking | Schedules: preserve existing guarded weekly-day and qualified String Schedule Apply; add typed special events and actual target/time/priority semantics |
 | SCH-02 | Complete occupancy/supervisory schedule integration | Schedules / Program: warmup/cooldown, countdown, exceptions, group requests and qualified native mappings |

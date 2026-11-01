@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   api,
   apiBlobDocument,
@@ -14,6 +14,7 @@ export function NativeInstancePanel(
   props: DeviceInstanceProps & { changeKind?: "name" | "instance" },
 ) {
   const renaming = props.changeKind === "name";
+  const backupEffectsId = useId();
   const [capture, setCapture] = useState<any>(null);
   const [plan, setPlan] = useState<any>(null);
   const [receipt, setReceipt] = useState<any>(null);
@@ -289,6 +290,16 @@ export function NativeInstancePanel(
           {props.defaultDevice}. Support is determined from the actual protocol
           and application format.
         </p>
+        <p
+          id={backupEffectsId}
+          role="note"
+          aria-label="Backup and readback effects"
+          className="help-text"
+        >
+          Backup and readback enter and end the controller’s backup mode. They
+          read the application and saved parameters without applying an
+          application. Apply sends the reviewed application separately.
+        </p>
         <details>
           <summary>
             Transfer credentials{" "}
@@ -331,6 +342,7 @@ export function NativeInstancePanel(
         <div className="button-row" style={{ marginTop: 16 }}>
           <button
             className={!capture ? "primary" : ""}
+            aria-describedby={backupEffectsId}
             disabled={!ready || locked || !status?.credentials_configured}
             onClick={() => void run("capture")}
           >
@@ -530,6 +542,7 @@ export function NativeInstancePanel(
               <div className="button-row">
                 <button
                   disabled={!props.connected || locked}
+                  aria-describedby={backupEffectsId}
                   onClick={() => void run("readback")}
                 >
                   {renaming
