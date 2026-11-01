@@ -99,6 +99,12 @@ from .madd_mz_ahu import madd_mz_ahu_router
 from .masd_ahu import masd_ahu_router
 from .models import Program, StrictModel
 from .native_applications import NativeApplications, native_application_router
+from .native_backup_records import (
+    BackupInspectionSource,
+    BackupRecordRequest,
+    BackupRecordsRequest,
+    NativeBackupRecords,
+)
 from .native_schedule_library import (
     MAX_ARCHIVE_BYTES,
     CaptureAction,
@@ -559,6 +565,7 @@ def create_app(state_dir=None, *, operation_power=None):
     device_instances = DeviceInstances(bacnet, store, activity_guard=instance_activity_guard)
     native_applications = NativeApplications(bacnet, store, device_instances)
     signal_compiler = SignalCompilerService(native_applications.storage)
+    backup_records = NativeBackupRecords(native_applications.storage)
     schedule_inventory = ScheduleInventory(bacnet, store)
     schedule_library = NativeScheduleLibrary(store.directory, schedule_inventory)
     schedule_writes = NativeWeeklyDayWrites(bacnet, store, schedule_library)
@@ -699,7 +706,20 @@ def create_app(state_dir=None, *, operation_power=None):
     app.state.controller_application = controller_application
     app.state.native_applications = native_applications
     app.state.native_signal_compiler = signal_compiler
+    app.state.native_backup_records = backup_records
     app.include_router(native_application_router(native_applications))
+
+    @app.post("/api/bacnet/controller/native-application/inspection/source")
+    def native_backup_inspection_source(body: BackupInspectionSource):
+        return backup_records.source(body.model_dump())
+
+    @app.post("/api/bacnet/controller/native-application/inspection/records")
+    def native_backup_record_list(body: BackupRecordsRequest):
+        return backup_records.records(body.model_dump())
+
+    @app.post("/api/bacnet/controller/native-application/inspection/record")
+    def native_backup_record_detail(body: BackupRecordRequest):
+        return backup_records.records(body.model_dump(), detail=True)
 
     @app.get("/api/bacnet/controller/native-application/signal-default/sources")
     def native_signal_compiler_sources():
