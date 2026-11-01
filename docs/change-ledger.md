@@ -168,3 +168,12 @@ recorded seal are checked without loading sources or revalidating a parent. This
 metadata cannot authorize another transfer. Inconsistent metadata stays unavailable
 while the original receipt remains readable. Existing Real, Boolean and wire
 lineage contracts remain unchanged.
+
+## Recorded controller instance recovery
+
+The [previous-instance profile](native-controller-instance-recovery.md) adds strict
+ObjectIdentifier lineage. Changes shows the parent, current to previous number,
+unchanged name and historical verification independently of the child outcome.
+It checks origin/child/source-directory bindings and both recorded four-byte
+patches without loading sources or historical proofs, allocating a number or
+authorizing another transfer. Other native lineage profiles remain unchanged.

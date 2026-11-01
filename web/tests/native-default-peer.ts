@@ -4,7 +4,7 @@ import path from "node:path";
 const root = path.resolve("..");
 export async function nativeDefaultPeer(
   mode = "consume",
-  datatype: "real" | "boolean" | "wire" | "wire-recovery" = "real",
+  datatype: "real" | "boolean" | "wire" | "wire-recovery" | "instance" = "real",
 ) {
   const child = spawn(
     path.join(root, ".venv/bin/python"),
@@ -29,9 +29,16 @@ async def main():
   app.files=wire_files(target_class=538,wires=FANOUT);app.metadata['object-name']='Authored native wire controller';app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
  elif sys.argv[2]=='wire':
   app.files=wire_files(target_class=538);app.metadata['object-name']='Authored native wire controller';app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
+ elif sys.argv[2]=='instance':
+  from tests.test_native_instance_recovery_transfer import controller_storage as instance_storage
+  app.files=signal_files();instance_storage(app);app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
  elif sys.argv[2]=='boolean':app.files=boolean_files();storage_outcome(app,mode=sys.argv[1])
  else:app.files=signal_files();controller_storage(app,mode=sys.argv[1])
- transport,proxy=await asyncio.get_running_loop().create_datagram_endpoint(lambda:NativeRouter(('127.0.0.1',p)),local_addr=('127.0.0.1',0))
+ router_type=NativeRouter
+ if sys.argv[2]=='instance':
+  from tests.test_native_instance_recovery_transfer import InstanceRouter
+  router_type=InstanceRouter
+ transport,proxy=await asyncio.get_running_loop().create_datagram_endpoint(lambda:router_type(('127.0.0.1',p)),local_addr=('127.0.0.1',0))
  print('READY '+json.dumps({'direct':f'127.0.0.1:{p}','router':proxy.endpoint}),flush=True)
  def command():
   line=sys.stdin.readline().strip()
@@ -56,7 +63,7 @@ async def main():
    else:real_slot(app.files,-10,bytes.fromhex('3dcccccd'))
   elif line.startswith('mode '):app.mode=line[5:]
   elif line!='stats':raise AssertionError('Unknown authored command')
-  print('RESULT '+json.dumps({'command':line,'events':app.events,'instance':app.instance,'router_errors':proxy.errors,'request_types':[r['type'] for r in proxy.requests]}),flush=True)
+  print('RESULT '+json.dumps({'command':line,'events':app.events,'instance':app.instance,'router_errors':proxy.errors,'request_types':[r['type'] for r in proxy.requests]}|({'discovery_requests':proxy.discovery_requests,'discovery_responses':proxy.discovery_responses} if sys.argv[2]=='instance' else {})),flush=True)
  asyncio.get_running_loop().add_reader(sys.stdin.fileno(),command)
  try:await asyncio.Event().wait()
  finally:transport.close();app.close()

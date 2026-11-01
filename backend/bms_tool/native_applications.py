@@ -56,6 +56,8 @@ from .native_default_transfer import (
 )
 from .native_historical_wire_recovery import PROFILE as HISTORICAL_WIRE_RECOVERY_PROFILE
 from .native_historical_wire_recovery import NativeHistoricalWireRecovery
+from .native_instance_recovery import PROFILE as INSTANCE_RECOVERY_PROFILE
+from .native_instance_recovery import NativeInstanceRecovery
 from .native_name_recovery import PROFILE as NAME_RECOVERY_PROFILE
 from .native_name_recovery import NativeNameRecovery
 from .native_wire_compiler import EffectiveWirePreview
@@ -126,6 +128,13 @@ class NativeNameRecoveryPreview(NativePreview):
     recovery_origin_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
+class NativeInstanceRecoveryPreview(NativePreview):
+    new_name: None = None
+    snapshot_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    recovery_parent_receipt: str = Field(pattern=r"^[0-9a-f]{32}$")
+    recovery_origin_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class NativeCredentials(StrictModel):
     backup: SecretStr
     restore: SecretStr
@@ -156,6 +165,9 @@ class NativeApplications:
         self.boolean_recovery = NativeBooleanRecovery(NativeBackupRecords(self.storage))
         self.wire_recovery = NativeHistoricalWireRecovery(NativeBackupRecords(self.storage))
         self.name_recovery = NativeNameRecovery(NativeBackupRecords(self.storage), self.compile)
+        self.instance_recovery = NativeInstanceRecovery(
+            NativeBackupRecords(self.storage), self.compile
+        )
         self.credentials = ApplicationCredentials(store.directory)
         self.operation_timeout = operation_timeout
         self.active, self.plans, self.cancelled = None, OrderedDict(), set()
@@ -175,6 +187,7 @@ class NativeApplications:
             "wire_source_recovery_profile": WIRE_RECOVERY_PROFILE,
             "historical_wire_pin_recovery_profile": HISTORICAL_WIRE_RECOVERY_PROFILE,
             "controller_name_recovery_profile": NAME_RECOVERY_PROFILE,
+            "controller_instance_recovery_profile": INSTANCE_RECOVERY_PROFILE,
             "boolean_default_transfer_profile": BOOLEAN_DEFAULT_PROFILE,
             "boolean_default_transfer_scope": BOOLEAN_DEFAULT_SCOPE,
             "wire_source_transfer_profile": WIRE_PROFILE,
@@ -429,6 +442,10 @@ class NativeApplications:
         options = NativeNameRecoveryPreview(**arguments)
         return await self.preview_identity(options)
 
+    async def preview_instance_recovery(self, **arguments):
+        options = NativeInstanceRecoveryPreview(**arguments)
+        return await self.preview_identity(options)
+
     async def preview_identity(self, options):
         renaming = options.new_name is not None
         old_instance = ObjectIdentifier(options.device)[1]
@@ -442,7 +459,7 @@ class NativeApplications:
             if renaming and options.new_name == captured["identity"]["object-name"]:
                 raise ValueError("Choose a different controller name.")
             output, compilation = self.compile(files, options.new_instance, options.new_name)
-            recovery = self.name_recovery_origin(options, compilation)
+            recovery = self.identity_recovery_origin(options, compilation, files)
             config, app = copy.deepcopy(self.bacnet.config), self.bacnet.require()
             if options.new_instance == config["instance"]:
                 raise ValueError("The proposed instance belongs to this engineering client.")
@@ -479,6 +496,48 @@ class NativeApplications:
                 **recovery,
             }
             return self.retain_plan(body, options, app, config)
+
+    def identity_recovery_origin(self, options, compilation, files):
+        if not isinstance(options, NativeInstanceRecoveryPreview):
+            return self.name_recovery_origin(options, compilation)
+        prepared = self.instance_recovery.prepare(
+            {
+                "receipt_id": options.recovery_parent_receipt,
+                "capture_id": options.capture_id,
+                "snapshot_sha256": options.snapshot_sha256,
+            }
+        )
+        proposal = prepared["proposal"]
+        selected = compilation["identity_edit"]
+        if (
+            proposal is None
+            or prepared["origin_sha256"] != options.recovery_origin_sha256
+            or any(
+                proposal[key] != getattr(options, key)
+                for key in (
+                    "capture_id",
+                    "snapshot_sha256",
+                    "new_instance",
+                    "recovery_parent_receipt",
+                )
+            )
+            or selected.get("change_kind") is not None
+            or selected.get("old_instance") != prepared["current_instance"]
+            or selected.get("new_instance") != prepared["previous_instance"]
+            or selected.get("name") != prepared["unchanged_name"]
+            or selected.get("root_ref") != prepared["origin"]["root_ref"]
+            or selected.get("root_class") != prepared["origin"]["root_class"]
+        ):
+            raise ValueError("The previous-instance proposal changed; prepare and review it again.")
+        _, expected, _ = self.instance_recovery.qualified_inverse(files, options.new_instance)
+        if seal(compilation) != seal(expected):
+            raise ValueError(
+                "The fresh instance compilation differs from its qualified destination."
+            )
+        return {
+            "recovery_origin": prepared["origin"],
+            "recovery_origin_sha256": prepared["origin_sha256"],
+        }
 
     def name_recovery_origin(self, options, compilation):
         if not isinstance(options, NativeNameRecoveryPreview):
@@ -1042,7 +1101,7 @@ class NativeApplications:
                         if wire_edit
                         else self.recovery_origin(options, compilation, boolean=boolean_edit)
                         if default_edit
-                        else self.name_recovery_origin(options, compilation)
+                        else self.identity_recovery_origin(options, compilation, files)
                     )
                     if recovery and any(body.get(key) != value for key, value in recovery.items()):
                         raise ValueError("The recovery origin changed after review. Prepare again.")
@@ -1231,6 +1290,18 @@ def native_application_router(service):
     @router.post("/name/recovery/preview")
     async def preview_name_recovery(body: NativeNameRecoveryPreview):
         return await service.preview_name_recovery(**body.model_dump())
+
+    @router.post("/instance/recovery/source")
+    def instance_recovery_source(body: BackupInspectionSource):
+        return service.instance_recovery.source(body.model_dump())
+
+    @router.post("/instance/recovery/prepare")
+    def prepare_instance_recovery(body: DefaultRecoveryPrepare):
+        return service.instance_recovery.prepare(body.model_dump())
+
+    @router.post("/instance/recovery/preview")
+    async def preview_instance_recovery(body: NativeInstanceRecoveryPreview):
+        return await service.preview_instance_recovery(**body.model_dump())
 
     @router.post("/signal-default/transfer/preview")
     async def preview_default(body: DefaultTransferPreview):
