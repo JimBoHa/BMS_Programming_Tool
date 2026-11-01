@@ -255,7 +255,7 @@ def test_boolean_copy_capability_does_not_expand_real_effective_compilation_or_t
         {"capture_id": snapshot["id"], "snapshot_sha256": snapshot["evidence_sha256"]}
     )
     rows = {row["id"]: row for row in report["operations"]}
-    assert report["capability_profile"] == "native-backup-operation-capabilities/7"
+    assert report["capability_profile"] == "native-backup-operation-capabilities/8"
     assert report["qualification"]["archive_boolean_default_count"] == 2
     assert rows["boolean-default-copy"]["status"] == "source-qualified"
     assert "no Boolean field transfer" in rows["boolean-default-copy"]["next_step"]

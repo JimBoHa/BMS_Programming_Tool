@@ -34,7 +34,7 @@ class NativeBackupRecords:
     def __init__(self, storage):
         self.storage = storage
 
-    def load(self, request):
+    def load_files(self, request):
         options = BackupInspectionSource.model_validate(request)
         if (self.storage.directory / options.capture_id).is_symlink():
             raise ValueError("Inspect native backups in their original storage folder.")
@@ -44,6 +44,10 @@ class NativeBackupRecords:
             raise ValueError("The retained native backup is unavailable.") from exc
         if snapshot["evidence_sha256"] != options.snapshot_sha256:
             raise ValueError("Native backup evidence changed; select its current source again.")
+        return snapshot, files
+
+    def load(self, request):
+        snapshot, files = self.load_files(request)
         # Readability does not require a recognized saved directory or matching
         # Device root. Keep such acquisition errors visible without inventing a
         # replacement source or granting an operation to the compiler.

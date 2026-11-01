@@ -58,3 +58,23 @@ export async function expectWorkspaceNavigationLocked(page: Page) {
     if (await select.isVisible()) await expect(select).toBeDisabled();
   }
 }
+
+/** Choose the same workspace surface through the visible rail or compact menu. */
+export async function chooseWorkspaceSurface(page: Page, label: string) {
+  const opener = page.getByRole("button", {
+    name: "Open navigation",
+    exact: true,
+  });
+  if (await opener.isVisible()) {
+    await opener.click();
+    await page
+      .getByRole("dialog", { name: "Navigation", exact: true })
+      .getByRole("button", { name: label, exact: true })
+      .click();
+  } else {
+    await page
+      .getByRole("navigation", { name: "Main navigation", exact: true })
+      .getByRole("button", { name: label, exact: true })
+      .click();
+  }
+}

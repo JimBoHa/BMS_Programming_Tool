@@ -4,6 +4,7 @@ import { api, apiJsonDocument, apiBlobDocument, saveBlob } from "./api";
 import { controllerKey, type ControllerContext } from "./workflow";
 import { NativeDefaultTransfer } from "./NativeDefaultTransfer";
 import { NativeBackupInspection } from "./NativeBackupInspection";
+import { NativeBackupComparison } from "./NativeBackupComparison";
 import { NativeBooleanTransferContext } from "./NativeBooleanTransferContext";
 import "./native-signal-compiler.css";
 
@@ -580,6 +581,12 @@ export function NativeSignalCompiler({
           },
         }}
       >
+        <NativeBackupComparison
+          selection={choice}
+          sources={sources}
+          controller={controller}
+          visible={visible}
+        />
         <NativeBackupInspection
           selection={
             sources.some((row) => row.id === choice)

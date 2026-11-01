@@ -1555,5 +1555,14 @@
     "pdf_pages_or_section": "docs/inspector-drafts.md; docs/workflow-style-guide.md",
     "status": "implemented",
     "implementation_or_gap": "App-owned transient cache qualifies graph/target/node/kind/definition/type/unit/field and exact numeric/JSON baseline. Selection, group inspection and task navigation restore only owned text/errors; accepted value/type/unit/target/source changes retire entries even while hidden and through undo/redo. Numeric acceptance and explicit JSON Apply remain unchanged. No new durable draft format, native CAF/Activity/force editing, controller reviews, field traffic or native JCI deployment."
+  },
+  {
+    "id": "COMM-NATIVE-BACKUP-COMPARE-001",
+    "feature": "Read-only retained native backup comparison",
+    "acceptance_criterion": "Compare exact original snapshot files and unambiguously matched native record/property encodings with bounded partial evidence, exact source ownership and original JSON export, without a field query or restore.",
+    "evidence": "Authored plain/gzip/opaque tagged-MOI sources; independent byte/type/hash checks, strict token API and actual Chromium/WebKit local responses/downloads.",
+    "pdf_pages_or_section": "docs/native-backup-comparison.md",
+    "status": "implemented",
+    "implementation_or_gap": "Original Files 3/11/12 remain manifest/hash-bound. Compare unique engineering references only within the same class; metadata hash multisets, missing/opaque/ambiguous records, preview/paging/scan budgets and acquisition limitations stay explicit. Local JSON retains original bytes and source/query/target/interface/ABA ownership. No saved-setting merge, semantic equivalence, compatibility migration, restore plan, controller query/write or physical acceptance. General JCI-02/JCI-09 scope remains partial."
   }
 ]
