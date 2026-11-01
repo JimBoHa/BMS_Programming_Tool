@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   Download,
@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import { api, saveBlob } from "./api";
 import { showValue } from "./types";
+import { ControllerObjectPicker } from "./ControllerObjectPicker";
+import { controllerKey, type ControllerTarget } from "./workflow";
 
 type Point = {
   signal: string;
@@ -18,28 +20,97 @@ type Point = {
   unit: string;
   value_type: string;
 };
-const point = (index: number, address = "127.0.0.1:47808"): Point => ({
+const point = (
+  index: number,
+  address = "127.0.0.1:47808",
+  bound = false,
+): Point => ({
   signal: `point_${index}`,
   address,
-  object_id: `analog-input,${index}`,
+  object_id: bound ? "" : `analog-input,${index}`,
   property_id: "present-value",
   unit: "",
   value_type: "number",
 });
 
+type Draft = {
+  owner: string;
+  points: Point[];
+  name: string;
+  interval: number;
+  verifyQuality: boolean;
+  selectedPoint: number;
+};
+// Retain local choices across task navigation in this browser document only.
+// Exact target and interface keys keep another controller's draft separate.
+const fieldDrafts = new Map<string, Draft>();
+function newDraft(owner: string, address?: string, bound = false): Draft {
+  return {
+    owner,
+    points: [point(1, address, bound)],
+    name: "",
+    interval: 10,
+    verifyQuality: true,
+    selectedPoint: 0,
+  };
+}
+function configKey(value: unknown): string {
+  if (Array.isArray(value)) return "[" + value.map(configKey).join(",") + "]";
+  if (value !== null && typeof value === "object")
+    return (
+      "{" +
+      Object.entries(value)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, item]) => JSON.stringify(key) + ":" + configKey(item))
+        .join(",") +
+      "}"
+    );
+  return JSON.stringify(value) ?? "null";
+}
+function jobTarget(job: any): string {
+  const target = job?.controller_target;
+  if (target)
+    return [
+      target.router ? `${target.router} / network ${target.dnet}` : "Direct",
+      target.address,
+      target.device,
+    ].join(" · ");
+  return (job?.points || []).map((item: Point) => item.address).join(", ");
+}
+
 export function FieldTrends({
   defaultAddress,
   controllerReady,
+  defaultTarget,
+  interfaceKey,
 }: {
   defaultAddress?: string;
   controllerReady?: boolean;
+  defaultTarget?: ControllerTarget | null;
+  interfaceKey?: string;
 }) {
-  const [points, setPoints] = useState<Point[]>([point(1, defaultAddress)]);
-  const [name, setName] = useState("");
-  const [interval, setIntervalSeconds] = useState(10);
-  const [verifyQuality, setVerifyQuality] = useState(true);
+  const bound = !!defaultTarget;
+  const address = defaultTarget?.address || defaultAddress;
+  const targetIdentity = defaultTarget
+    ? controllerKey(defaultTarget)
+    : JSON.stringify(["standalone", defaultAddress || null]);
+  const draftIdentity = JSON.stringify([targetIdentity, interfaceKey || null]);
+  const draftCache = useRef(fieldDrafts);
+  const [editingDraft, setEditingDraft] = useState(
+    () =>
+      draftCache.current.get(draftIdentity) ||
+      newDraft(draftIdentity, address, bound),
+  );
+  const draft =
+    editingDraft.owner === draftIdentity
+      ? editingDraft
+      : draftCache.current.get(draftIdentity) ||
+        newDraft(draftIdentity, address, bound);
+  const { points, name, interval, verifyQuality } = draft;
+  const selectedPoint = Math.min(draft.selectedPoint, points.length - 1);
   const [status, setStatus] = useState<any>({ jobs: [], running_jobs: 0 });
   const [connected, setConnected] = useState(false);
+  const [connectorConfig, setConnectorConfig] = useState<any>(null);
   const [sources, setSources] = useState<any[]>([]);
   const [source, setSource] = useState("");
   const [samples, setSamples] = useState<any[]>([]);
@@ -48,9 +119,77 @@ export function FieldTrends({
   const [pages, setPages] = useState<number[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const selectionIdentity = JSON.stringify([source, after]);
+  const currentSelection = useRef(selectionIdentity);
+  currentSelection.current = selectionIdentity;
+  const mounted = useRef(false);
   const request = useRef(0);
+  const operation = useRef(0);
+  const expectedConnector = useMemo(() => {
+    if (!bound || !interfaceKey) return null;
+    try {
+      const value = JSON.parse(interfaceKey);
+      return value && typeof value === "object" && !Array.isArray(value)
+        ? value
+        : null;
+    } catch {
+      return null;
+    }
+  }, [bound, interfaceKey]);
+  const connectorMatches =
+    !!expectedConnector &&
+    configKey(expectedConnector) === configKey(connectorConfig);
+  const serialBound = bound && expectedConnector?.transport === "mstp";
+  const ready =
+    connected &&
+    controllerReady !== false &&
+    (!bound || (connectorMatches && !serialBound));
+  const contextIdentity = JSON.stringify([
+    draftIdentity,
+    controllerReady !== false,
+    connected,
+    configKey(connectorConfig),
+  ]);
+  const currentContext = useRef(contextIdentity);
+  if (currentContext.current !== contextIdentity) {
+    currentContext.current = contextIdentity;
+    operation.current++;
+  }
+  useEffect(() => {
+    setBusy(false);
+  }, [contextIdentity]);
+  useEffect(() => {
+    draftCache.current.set(editingDraft.owner, editingDraft);
+  }, [editingDraft]);
+  useEffect(() => {
+    setEditingDraft((previous) => {
+      draftCache.current.set(previous.owner, previous);
+      return (
+        draftCache.current.get(draftIdentity) ||
+        newDraft(draftIdentity, address, bound)
+      );
+    });
+    setSource("");
+    setAfter(0);
+    setPages([]);
+    setError("");
+    setBusy(false);
+  }, [draftIdentity, address, bound]);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      operation.current++;
+      request.current++;
+    };
+  }, []);
   const refresh = useCallback(async () => {
+    const selection = JSON.stringify([source, after]);
+    // A completed action can hold an older refresh callback. It must not issue
+    // a newer request for a source/cursor the operator has already left.
+    if (!mounted.current || selection !== currentSelection.current) return;
     const current = ++request.current;
+    const context = currentContext.current;
     const query = new URLSearchParams({ after: String(after), limit: "100" });
     if (source) query.set("source", source);
     try {
@@ -66,16 +205,29 @@ export function FieldTrends({
             ),
         ),
       ]);
-      if (current !== request.current) return;
+      if (
+        !mounted.current ||
+        current !== request.current ||
+        context !== currentContext.current ||
+        selection !== currentSelection.current
+      )
+        return;
       setStatus(state);
-      setConnected(link.connected && controllerReady !== false);
+      setConnected(!!link.connected);
+      setConnectorConfig(link.config || null);
       setSources(streams);
       setSamples(data);
       setEvents(log);
     } catch (e) {
-      if (current === request.current) setError(String(e));
+      if (
+        mounted.current &&
+        current === request.current &&
+        context === currentContext.current &&
+        selection === currentSelection.current
+      )
+        setError(String(e));
     }
-  }, [source, after, controllerReady]);
+  }, [source, after, controllerReady, draftIdentity]);
   useEffect(() => {
     void refresh();
     const timer = window.setInterval(() => {
@@ -86,22 +238,41 @@ export function FieldTrends({
       window.clearInterval(timer);
     };
   }, [refresh]);
-  async function action(work: () => Promise<void>) {
+  function editDraft(change: (value: Draft) => Draft) {
+    setEditingDraft((current) =>
+      change(
+        current.owner === draftIdentity
+          ? current
+          : draftCache.current.get(draftIdentity) ||
+              newDraft(draftIdentity, address, bound),
+      ),
+    );
+  }
+  async function action(work: (current: () => boolean) => Promise<void>) {
+    const generation = ++operation.current;
+    const context = currentContext.current;
+    const current = () =>
+      mounted.current &&
+      generation === operation.current &&
+      context === currentContext.current;
     setBusy(true);
     setError("");
     try {
-      await work();
-      await refresh();
+      await work(current);
+      if (current()) await refresh();
     } catch (e) {
-      setError(String(e));
+      if (current()) setError(String(e));
     } finally {
-      setBusy(false);
+      if (current()) setBusy(false);
     }
   }
   function update(index: number, key: keyof Point, value: string) {
-    setPoints((old) =>
-      old.map((p, i) => (i === index ? { ...p, [key]: value } : p)),
-    );
+    editDraft((old) => ({
+      ...old,
+      points: old.points.map((p, i) =>
+        i === index ? { ...p, [key]: value } : p,
+      ),
+    }));
   }
   function csv() {
     const columns = [
@@ -155,11 +326,15 @@ export function FieldTrends({
             recorded COV numeric receipts also appear with their own provenance.
           </p>
         </div>
-        <span className={"connection-badge " + (connected ? "connected" : "")}>
+        <span className={"connection-badge " + (ready ? "connected" : "")}>
           <span className="status-dot" />
-          {connected
-            ? "BACnet interface open"
-            : "Open a BACnet interface in Connect"}
+          {bound
+            ? ready
+              ? "Selected controller ready for sampling"
+              : "Selected controller sampling unavailable"
+            : connected
+              ? "BACnet interface open"
+              : "Open a BACnet interface in Connect"}
         </span>
       </div>
       <section className="card" aria-label="Field trend acquisition">
@@ -184,7 +359,9 @@ export function FieldTrends({
                 aria-label="Trend job name"
                 value={name}
                 maxLength={120}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) =>
+                  editDraft((old) => ({ ...old, name: e.target.value }))
+                }
               />
             </label>
             <label>
@@ -195,7 +372,12 @@ export function FieldTrends({
                 min={5}
                 max={3600}
                 value={interval}
-                onChange={(e) => setIntervalSeconds(Number(e.target.value))}
+                onChange={(e) =>
+                  editDraft((old) => ({
+                    ...old,
+                    interval: Number(e.target.value),
+                  }))
+                }
               />
             </label>
             <label className="full">
@@ -203,7 +385,12 @@ export function FieldTrends({
                 <input
                   type="checkbox"
                   checked={verifyQuality}
-                  onChange={(e) => setVerifyQuality(e.target.checked)}
+                  onChange={(e) =>
+                    editDraft((old) => ({
+                      ...old,
+                      verifyQuality: e.target.checked,
+                    }))
+                  }
                 />{" "}
                 Verify BACnet reliability, status flags and out-of-service
               </span>
@@ -214,6 +401,60 @@ export function FieldTrends({
             succeed. Read failures appear in the acquisition log; no zero value
             is substituted. Units are operator labels, not device conversions.
           </p>
+          {defaultTarget && (
+            <>
+              <p className="help-text" aria-label="Field sampling target">
+                Selected controller: {defaultTarget.address} ·{" "}
+                {defaultTarget.device}
+                {defaultTarget.router &&
+                  ` · router ${defaultTarget.router} · network ${defaultTarget.dnet}`}
+                . Sampling choices belong to this target and interface; earlier
+                drafts remain separate. Existing jobs keep their original target
+                until explicitly stopped.
+              </p>
+              {!ready && (
+                <p className="help-text" role="status">
+                  {serialBound
+                    ? "Selected-controller sampling over direct MS/TP is not supported by this identity-verified profile. Saved history and existing job controls remain available."
+                    : "Verify the selected controller on its matching BACnet interface before choosing points or starting sampling. Saved history remains available."}
+                </p>
+              )}
+              <div className="form-grid">
+                <label>
+                  Sampling point to choose
+                  <select
+                    aria-label="Sampling point to choose"
+                    value={selectedPoint}
+                    disabled={busy}
+                    onChange={(e) =>
+                      editDraft((old) => ({
+                        ...old,
+                        selectedPoint: Number(e.target.value),
+                      }))
+                    }
+                  >
+                    {points.map((p, i) => (
+                      <option key={i} value={i}>
+                        {i + 1} · {p.signal}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <ControllerObjectPicker
+                  target={defaultTarget}
+                  interfaceKey={interfaceKey}
+                  connected={ready}
+                  value={points[selectedPoint]?.object_id || ""}
+                  onChange={(objectId) =>
+                    update(selectedPoint, "object_id", objectId)
+                  }
+                  kind="value"
+                  label="Field discovered object"
+                  disabled={busy}
+                />
+              </div>
+            </>
+          )}
           <div className="table-scroll">
             <table>
               <thead>
@@ -237,7 +478,11 @@ export function FieldTrends({
                         <input
                           aria-label={`Field ${{ object_id: "object identifier", property_id: "property identifier", signal: "signal", address: "address" }[key]} ${i + 1}`}
                           value={p[key]}
-                          readOnly={key === "address" && !!defaultAddress}
+                          readOnly={
+                            (key === "address" &&
+                              (!!defaultTarget || !!defaultAddress)) ||
+                            (key === "object_id" && bound)
+                          }
                           onChange={(e) => update(i, key, e.target.value)}
                         />
                       </td>
@@ -264,9 +509,19 @@ export function FieldTrends({
                     <td>
                       <button
                         aria-label={`Remove field point ${i + 1}`}
-                        disabled={points.length === 1}
+                        disabled={busy || points.length === 1}
                         onClick={() =>
-                          setPoints(points.filter((_, j) => j !== i))
+                          editDraft((old) => ({
+                            ...old,
+                            points: old.points.filter((_, j) => j !== i),
+                            selectedPoint: Math.max(
+                              0,
+                              Math.min(
+                                old.selectedPoint,
+                                old.points.length - 2,
+                              ),
+                            ),
+                          }))
                         }
                       >
                         <Trash2 size={15} />
@@ -279,24 +534,58 @@ export function FieldTrends({
           </div>
           <div className="button-row">
             <button
-              disabled={points.length >= 16}
+              disabled={busy || points.length >= 16}
               onClick={() =>
-                setPoints([...points, point(points.length + 1, defaultAddress)])
+                editDraft((old) => ({
+                  ...old,
+                  points: [
+                    ...old.points,
+                    point(old.points.length + 1, address, bound),
+                  ],
+                  selectedPoint: old.points.length,
+                }))
               }
             >
               <Plus size={15} /> Add field point
             </button>
             <button
               className="primary"
-              disabled={busy || !connected}
+              disabled={
+                busy || !ready || (bound && points.some((p) => !p.object_id))
+              }
               onClick={() =>
-                action(async () => {
+                action(async (current) => {
                   const job = await api("/field-trends/start", {
                     points,
                     name,
                     interval_seconds: interval,
                     verify_quality: verifyQuality,
+                    ...(defaultTarget
+                      ? {
+                          controller_target: {
+                            address: defaultTarget.address,
+                            device: defaultTarget.device,
+                            router: defaultTarget.router || null,
+                            dnet: defaultTarget.dnet ?? null,
+                          },
+                          expected_connector_config: expectedConnector,
+                        }
+                      : {}),
                   });
+                  // A job stays bound to its original target. A late admission
+                  // is visible in global jobs, never selected for a new target.
+                  if (!current()) return;
+                  if (
+                    defaultTarget &&
+                    (!job.controller_target ||
+                      controllerKey(job.controller_target) !==
+                        controllerKey(defaultTarget) ||
+                      configKey(job.connector_config) !==
+                        configKey(expectedConnector))
+                  )
+                    throw new Error(
+                      "The sampling job response does not match the selected controller and interface. Refresh sampling jobs to inspect its original target; no source was selected.",
+                    );
                   setSource(job.source);
                   setAfter(0);
                   setPages([]);
@@ -311,7 +600,7 @@ export function FieldTrends({
       <section className="card" aria-label="Field sampling jobs">
         <div className="card-header">
           <h3>Sampling jobs</h3>
-          <button onClick={() => action(refresh)} disabled={busy}>
+          <button onClick={() => action(async () => {})} disabled={busy}>
             <RefreshCw size={15} /> Refresh field trends
           </button>
         </div>
@@ -325,6 +614,7 @@ export function FieldTrends({
               <thead>
                 <tr>
                   <th>Job</th>
+                  <th>Original target</th>
                   <th>State</th>
                   <th>Polls</th>
                   <th>Samples</th>
@@ -347,6 +637,7 @@ export function FieldTrends({
                         {job.name || job.id}
                       </button>
                     </td>
+                    <td>{jobTarget(job) || "Original target unavailable"}</td>
                     <td>{job.state}</td>
                     <td>{job.polls}</td>
                     <td>{job.samples}</td>
@@ -379,6 +670,11 @@ export function FieldTrends({
           </button>
         </div>
         <div className="card-body">
+          <p className="help-text">
+            Saved samples retain their original source across controllers and
+            remain available offline. Selecting a controller does not retarget
+            existing jobs or turn these saved observations into live values.
+          </p>
           <label>
             Field source
             <select
@@ -398,6 +694,8 @@ export function FieldTrends({
                     ? "COV receipts · "
                     : ""}
                   {stream.samples} samples
+                  {stream.provenance?.controller_target &&
+                    ` · ${jobTarget(stream.provenance)}`}
                 </option>
               ))}
             </select>
@@ -412,8 +710,11 @@ export function FieldTrends({
                 )
               }
               onClick={() =>
-                action(async () => {
+                action(async (current) => {
+                  const selection = currentSelection.current;
                   const result = await api("/field-trends/retire", { source });
+                  if (!current() || selection !== currentSelection.current)
+                    return;
                   if (result.audit_error) setError(result.audit_error);
                   setSource("");
                   setAfter(0);
@@ -449,6 +750,12 @@ export function FieldTrends({
                     {sample.source}
                     <br />
                     {sample.signal}
+                    {sample.provenance?.controller_target && (
+                      <>
+                        <br />
+                        {jobTarget(sample.provenance)}
+                      </>
+                    )}
                     {sample.acquisition_kind === "bacnet-cov" && (
                       <>
                         <br />

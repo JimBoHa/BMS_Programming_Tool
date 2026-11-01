@@ -1,3 +1,4 @@
+import { openMonitoring } from "./monitoring-navigation";
 import {
   expect,
   test,
@@ -95,9 +96,7 @@ async function open(page: Page, request: APIRequestContext, port: number) {
     ).ok(),
   ).toBe(true);
   await page.goto("/");
-  await page
-    .getByRole("button", { name: "Device history", exact: true })
-    .click();
+  await openMonitoring(page, "Controller history");
   const panel = page.getByRole("region", {
     name: "BACnet Trend Log Multiple history",
     exact: true,
@@ -308,7 +307,10 @@ test("leaving Device history cancels the owned native request without delayed tr
       })
       .click();
     await expect.poll(server.reads).toBe(2);
-    await page.getByRole("button", { name: "Program", exact: true }).click();
+    await page
+      .getByRole("navigation", { name: "Workspace tasks" })
+      .getByRole("button", { name: "Program", exact: true })
+      .click();
     await expect
       .poll(
         async () =>
@@ -360,9 +362,7 @@ test("late initial metadata cannot replace refreshed connector state", async ({
   });
   try {
     await page.goto("/");
-    await page
-      .getByRole("button", { name: "Device history", exact: true })
-      .click();
+    await openMonitoring(page, "Controller history");
     const panel = page.getByRole("region", {
       name: "BACnet Trend Log Multiple history",
       exact: true,

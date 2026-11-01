@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 165 scoped criteria: 111
+The public requirement register currently records 166 scoped criteria: 112
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -32,6 +32,14 @@ overlap reusable primitives, or describe already implemented subsets. They are
 an evidence inventory, not 2,343 missing features. Reassess before adding work.
 
 ## Keep the current interface contract
+
+Implementation progress: **UX-01 has a verified first IPv4 slice** under
+[UI-MONITOR-CTX-001](docs/controller-monitoring-context.md): selected-controller
+field recording and single-log history now retain the complete target and
+captured interface, discovered objects and original saved evidence. Direct MS/TP
+and other bound transport profiles remain separate work under PORT-01. The
+following work packages retain their remaining scope; this does not mark the
+broader monitoring/transport roadmap complete.
 
 [AGENTS.md](AGENTS.md) and the [workflow style guide](docs/workflow-style-guide.md)
 remain the design authority. The deliberate changes in `32d0887`, `dff2273`,

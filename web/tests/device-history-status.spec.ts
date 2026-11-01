@@ -1,3 +1,4 @@
+import { openMonitoring } from "./monitoring-navigation";
 import { test, expect } from "@playwright/test";
 import { createSocket } from "node:dgram";
 
@@ -43,9 +44,7 @@ test("a delayed initial history status cannot replace the refreshed real connect
   });
   try {
     await page.goto("/");
-    await page
-      .getByRole("button", { name: "Device history", exact: true })
-      .click();
+    await openMonitoring(page, "Controller history");
     await received;
     const connected = await request.post("/api/bacnet/connect", {
       headers,

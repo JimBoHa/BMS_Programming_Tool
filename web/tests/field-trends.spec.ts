@@ -3,6 +3,8 @@ import { spawn, type ChildProcess } from "node:child_process";
 import path from "node:path";
 import { readFileSync } from "node:fs";
 import { createSocket } from "node:dgram";
+import { randomUUID } from "node:crypto";
+import { openMonitoring } from "./monitoring-navigation";
 
 const root = path.resolve("..");
 async function freePort(): Promise<number> {
@@ -68,29 +70,27 @@ test("field sampling persists actual loopback BACnet values and CSV with verifie
   request,
 }) => {
   const server = await controller();
+  const jobName = `Browser loopback temperature ${randomUUID()}`;
   const token = (await (await request.get("/api/session")).json()).token;
   const headers = { "X-Studio-Token": token };
   let jobId = "";
   try {
     await page.goto("/");
-    await page
-      .getByRole("button", { name: "Field trends", exact: true })
-      .click();
+    await openMonitoring(page, "Field recording");
     await expect(
       page.getByRole("button", { name: "Start field sampling", exact: true }),
     ).toBeDisabled();
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
+    await page
+      .getByLabel("Working context")
+      .getByRole("button", { name: "Connect", exact: true })
+      .click();
     const opened = await request.post("/api/bacnet/connect", {
       headers,
       data: { local_address: `127.0.0.1:${await freePort()}` },
     });
     expect(opened.ok()).toBeTruthy();
-    await page
-      .getByRole("button", { name: "Field trends", exact: true })
-      .click();
-    await page
-      .getByLabel("Trend job name", { exact: true })
-      .fill("Browser loopback temperature");
+    await openMonitoring(page, "Field recording");
+    await page.getByLabel("Trend job name", { exact: true }).fill(jobName);
     await page
       .getByLabel("Field signal 1", { exact: true })
       .fill("zone_temperature");
@@ -114,6 +114,7 @@ test("field sampling persists actual loopback BACnet values and CSV with verifie
     expect(response.ok()).toBeTruthy();
     const job = await response.json();
     jobId = job.id;
+    expect(job.name).toBe(jobName);
     await page
       .getByLabel("Field trend source", { exact: true })
       .selectOption(job.source);
@@ -134,16 +135,19 @@ test("field sampling persists actual loopback BACnet values and CSV with verifie
     expect(csv).toContain('"field"');
     expect(csv).toContain('"12.5"');
     expect(csv).toContain('"good"');
-    await page
+    const jobRow = page
+      .getByRole("region", { name: "Field sampling jobs" })
+      .getByRole("row")
+      .filter({
+        has: page.getByRole("button", { name: jobName, exact: true }),
+      });
+    await expect(jobRow).toContainText(`127.0.0.1:${server.port}`);
+    await jobRow
       .getByRole("button", { name: "Stop sampling", exact: true })
       .click();
-    await expect(
-      page.getByRole("region", { name: "Field sampling jobs" }),
-    ).toContainText("stopped");
+    await expect(jobRow).toContainText("stopped");
     await page.reload();
-    await page
-      .getByRole("button", { name: "Field trends", exact: true })
-      .click();
+    await openMonitoring(page, "Field recording");
     // Reentry starts with the bounded All-sources page, which can contain only
     // older COV receipts. Select this job's persisted polling source explicitly.
     await page
@@ -199,9 +203,7 @@ test("invalid field target fails visibly and does not start acquisition", async 
     });
     expect(opened.ok()).toBeTruthy();
     await page.goto("/");
-    await page
-      .getByRole("button", { name: "Field trends", exact: true })
-      .click();
+    await openMonitoring(page, "Field recording");
     await page.getByLabel("Field address 1", { exact: true }).fill("*");
     await page
       .getByRole("button", { name: "Start field sampling", exact: true })

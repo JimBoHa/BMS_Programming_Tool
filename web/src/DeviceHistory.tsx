@@ -3,7 +3,8 @@ import { Database, Download, History, RefreshCw, Save } from "lucide-react";
 import { api, saveBlob, type JsonDocument } from "./api";
 import { historyEvidence, historyVisible } from "./historyEvidence";
 import { MultipleHistoryPanel } from "./MultipleHistoryPanel";
-import type { ControllerTarget } from "./workflow";
+import { ControllerObjectPicker } from "./ControllerObjectPicker";
+import { controllerKey, type ControllerTarget } from "./workflow";
 import "./temco-simulator.css";
 
 type RecordValue = {
@@ -21,7 +22,13 @@ type RecordValue = {
 };
 type Report = {
   id: string;
-  target: { address: string; object_id: string };
+  target: {
+    address: string;
+    object_id: string;
+    device?: string;
+    router?: string | null;
+    dnet?: number | null;
+  };
   request: Record<string, unknown>;
   source_kind: string;
   records: RecordValue[];
@@ -48,16 +55,51 @@ function csvCell(value: unknown) {
   return '"' + text.replaceAll('"', '""') + '"';
 }
 
+function targetMatches(value: unknown, expected: ControllerTarget) {
+  if (!value || typeof value !== "object") return false;
+  const target = value as ControllerTarget;
+  return (
+    typeof target.address === "string" &&
+    typeof target.device === "string" &&
+    controllerKey(target) === controllerKey(expected)
+  );
+}
+
+function configKey(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return JSON.stringify(
+    Object.entries(value).sort(([a], [b]) => a.localeCompare(b)),
+  );
+}
+
 export function DeviceHistory({
   defaultAddress,
   defaultTarget,
+  controllerReady,
+  interfaceKey,
 }: {
   defaultAddress?: string;
   defaultTarget?: ControllerTarget | null;
+  controllerReady?: boolean;
+  interfaceKey?: string;
 }) {
+  const contextKey = JSON.stringify([
+    defaultTarget ? controllerKey(defaultTarget) : null,
+    defaultAddress ?? null,
+    interfaceKey ?? null,
+    controllerReady ?? null,
+  ]);
+  let connectorConfig: Record<string, unknown> | null = null;
+  try {
+    const parsed = JSON.parse(interfaceKey || "null");
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed))
+      connectorConfig = parsed;
+  } catch {
+    // A selected controller without its original interface cannot authorize a read.
+  }
   const [status, setStatus] = useState<any>(null);
   const [address, setAddress] = useState(defaultAddress || "");
-  const [objectId, setObjectId] = useState("trend-log,1");
+  const [objectId, setObjectId] = useState(defaultTarget ? "" : "trend-log,1");
   const [zone, setZone] = useState("");
   const [mode, setMode] = useState("sequence");
   const [reference, setReference] = useState("1");
@@ -65,7 +107,12 @@ export function DeviceHistory({
   const [count, setCount] = useState("100");
   const [pageSize, setPageSize] = useState("25");
   const [fold, setFold] = useState("");
-  const [document, setDocument] = useState<JsonDocument<Report> | null>(null);
+  const [evidence, setEvidence] = useState<{
+    document: JsonDocument<Report>;
+    context: string;
+    origin: "read" | "capture";
+  } | null>(null);
+  const document = evidence?.context === contextKey ? evidence.document : null;
   const report = document?.data ?? null;
   const [capture, setCapture] = useState("");
   const [offset, setOffset] = useState(0);
@@ -74,51 +121,98 @@ export function DeviceHistory({
   const [message, setMessage] = useState("");
   const mounted = useRef(false);
   const generation = useRef(0);
+  const currentContext = useRef(contextKey);
+  const active = useRef(false);
   const statusRequest = useRef(0);
   const panel = useRef<HTMLDivElement>(null);
+  if (currentContext.current !== contextKey) {
+    currentContext.current = contextKey;
+    generation.current++;
+  }
   useEffect(() => {
     mounted.current = true;
-    refresh().catch((e) => {
-      if (mounted.current) setError(String(e));
-    });
     return () => {
       mounted.current = false;
       generation.current++;
       statusRequest.current++;
     };
   }, []);
+  useEffect(() => {
+    setEvidence(null);
+    setMessage("");
+    setError("");
+    setOffset(0);
+    setStatus(null);
+    if (defaultTarget) setObjectId("");
+    else if (defaultAddress !== undefined) setAddress(defaultAddress);
+    const owner = generation.current;
+    refresh().catch((e) => {
+      if (mounted.current && owner === generation.current) setError(String(e));
+    });
+  }, [contextKey]);
   function invalidate() {
     generation.current++;
-    setDocument(null);
+    setEvidence(null);
     setMessage("");
     setError("");
     setOffset(0);
   }
   async function refresh() {
     const request = ++statusRequest.current;
+    const source = contextKey;
     try {
       const value = await api("/bacnet/history/status");
-      if (mounted.current && request === statusRequest.current)
+      if (
+        mounted.current &&
+        request === statusRequest.current &&
+        source === currentContext.current
+      )
         setStatus(value);
     } catch (e) {
-      if (mounted.current && request === statusRequest.current) throw e;
+      if (
+        mounted.current &&
+        request === statusRequest.current &&
+        source === currentContext.current
+      )
+        throw e;
     }
   }
   async function action(kind: "read" | "save" | "load" | "refresh") {
-    if (busy) return;
+    if (active.current) return;
+    active.current = true;
     const current = generation.current;
+    const source = contextKey;
+    const valid = () =>
+      mounted.current &&
+      current === generation.current &&
+      source === currentContext.current;
     setBusy(true);
     setError("");
     setMessage("");
     try {
       let next: JsonDocument<Report> | null = null;
       if (kind === "read") {
+        const selected: ControllerTarget | null = defaultTarget
+          ? {
+              address: defaultTarget.address,
+              device: defaultTarget.device,
+              router: defaultTarget.router ?? null,
+              dnet: defaultTarget.dnet ?? null,
+            }
+          : null;
+        const requestedAddress = selected?.address ?? address.trim();
         const requested = Number(count),
           size = Number(pageSize),
           anchor = Number(reference);
-        if (!address.trim() || !zone.trim())
+        if (!requestedAddress || !zone.trim())
           throw new Error(
             "Enter the target address and the timezone used by the device clock.",
+          );
+        if (!objectId.trim())
+          throw new Error("Choose a discovered Trend Log object.");
+        if (selected && (!controllerReady || !connectorConfig))
+          throw new Error(
+            "Open the selected controller on its verified interface before reading history.",
           );
         if (
           !Number.isInteger(requested) ||
@@ -142,12 +236,18 @@ export function DeviceHistory({
           throw new Error(
             "Enter a valid range reference for the selected mode.",
           );
-        setDocument(null);
+        setEvidence(null);
         next = await historyEvidence<Report>(
           "/bacnet/history/read",
           "trend-log",
           {
-            address: address.trim(),
+            address: requestedAddress,
+            ...(selected
+              ? {
+                  controller_target: selected,
+                  expected_connector_config: connectorConfig,
+                }
+              : {}),
             object_id: objectId.trim(),
             device_timezone: zone.trim(),
             mode,
@@ -159,16 +259,31 @@ export function DeviceHistory({
             ...(fold ? { fold: Number(fold) } : {}),
           },
         );
+        if (
+          selected &&
+          (!targetMatches(next.data.target, selected) ||
+            next.data.target.object_id !== objectId.trim() ||
+            !targetMatches(next.data.controller_target, selected) ||
+            !targetMatches(next.data.request.controller_target, selected) ||
+            configKey(next.data.connector_config) !==
+              configKey(connectorConfig) ||
+            configKey(next.data.request.expected_connector_config) !==
+              configKey(connectorConfig) ||
+            typeof next.data.identity_verified !== "boolean")
+        )
+          throw new Error(
+            "History response does not identify the selected controller route and Trend Log.",
+          );
       } else if (kind === "save") {
         if (!report) throw new Error("Read history before saving a capture.");
         await api("/bacnet/history/save", { id: report.id });
-        if (mounted.current)
+        if (valid())
           setMessage(
             "Saved an immutable local device-history capture. Repeated save retains the original evidence.",
           );
       } else if (kind === "load") {
         if (!capture) throw new Error("Choose a saved capture.");
-        setDocument(null);
+        setEvidence(null);
         next = await historyEvidence<Report>(
           "/bacnet/history/captures/" + capture,
           "trend-log",
@@ -176,16 +291,20 @@ export function DeviceHistory({
           capture,
         );
       }
-      if (!mounted.current || current !== generation.current) return;
+      if (!valid()) return;
       if (next) {
-        setDocument(next);
+        setEvidence({
+          document: next,
+          context: source,
+          origin: kind === "load" ? "capture" : "read",
+        });
         setOffset(0);
       }
       await refresh();
     } catch (e) {
-      if (mounted.current && current === generation.current)
-        setError(String(e));
+      if (valid()) setError(String(e));
     } finally {
+      active.current = false;
       if (mounted.current) setBusy(false);
     }
   }
@@ -197,7 +316,8 @@ export function DeviceHistory({
       );
   }
   function csvDownload() {
-    if (!report) return;
+    if (!report || busy || !mounted.current || !historyVisible(panel.current))
+      return;
     const recordColumns = [
       "source_kind",
       "address",
@@ -338,8 +458,8 @@ export function DeviceHistory({
             <input
               aria-label="History device address"
               placeholder="e.g. 192.0.2.10 or 2001:5"
-              value={address}
-              readOnly={!!defaultAddress}
+              value={defaultTarget?.address ?? address}
+              readOnly={!!defaultTarget || !!defaultAddress}
               disabled={busy}
               onChange={(e) => {
                 invalidate();
@@ -347,18 +467,34 @@ export function DeviceHistory({
               }}
             />
           </label>
-          <label style={{ maxWidth: 190 }}>
-            Trend Log object
-            <input
-              aria-label="History Trend Log object"
+          {defaultTarget ? (
+            <ControllerObjectPicker
+              target={defaultTarget}
+              interfaceKey={interfaceKey}
+              connected={!!status?.connected && !!controllerReady}
               value={objectId}
+              kind="trend-log"
+              label="History Trend Log object"
               disabled={busy}
-              onChange={(e) => {
+              onChange={(value) => {
                 invalidate();
-                setObjectId(e.target.value);
+                setObjectId(value);
               }}
             />
-          </label>
+          ) : (
+            <label style={{ maxWidth: 190 }}>
+              Trend Log object
+              <input
+                aria-label="History Trend Log object"
+                value={objectId}
+                disabled={busy}
+                onChange={(e) => {
+                  invalidate();
+                  setObjectId(e.target.value);
+                }}
+              />
+            </label>
+          )}
           <label style={{ maxWidth: 240 }}>
             Device clock timezone
             <input
@@ -373,6 +509,15 @@ export function DeviceHistory({
             />
           </label>
         </div>
+        {defaultTarget && (
+          <p className="temco-scope" aria-label="History selected controller">
+            {defaultTarget.device} · {defaultTarget.address}
+            {defaultTarget.router
+              ? ` · router ${defaultTarget.router} · network ${defaultTarget.dnet}`
+              : " · direct endpoint"}
+            {!controllerReady && " · controller interface unavailable"}
+          </p>
+        )}
         <div className="temco-actions">
           <label>
             Range mode
@@ -479,7 +624,12 @@ export function DeviceHistory({
           </button>
           <button
             className="primary"
-            disabled={busy || !status?.connected}
+            disabled={
+              busy ||
+              !status?.connected ||
+              (!!defaultTarget &&
+                (!controllerReady || !connectorConfig || !objectId))
+            }
             onClick={() => action("read")}
           >
             <History size={15} />
@@ -540,6 +690,17 @@ export function DeviceHistory({
       {report && (
         <section className="temco-card" aria-label="Device history records">
           <h2>{report.records.length} device-history records</h2>
+          <p className="temco-muted">
+            {evidence?.origin === "capture"
+              ? "Saved local capture: historical evidence, usable without a field connection."
+              : "Explicit read-only controller history capture; this is not a live polling view."}
+          </p>
+          {report.identity_verified === false && (
+            <p className="temco-result-held" role="status">
+              Controller identity was not fully verified. Review this partial
+              historical evidence before another read.
+            </p>
+          )}
           <p
             className={
               report.complete &&
@@ -559,7 +720,11 @@ export function DeviceHistory({
                   : "Requested record limit reached; additional history may exist."}
           </p>
           <p>
-            {report.target.address} · {report.target.object_id} · captured{" "}
+            {report.target.address} · {report.target.object_id}
+            {report.target.device && ` · ${report.target.device}`}
+            {report.target.router &&
+              ` · router ${report.target.router} · network ${report.target.dnet}`}
+            {" · captured "}
             {report.received_at}.{" "}
             {report.records.filter((row) => row.sample).length} sample records,{" "}
             {report.records.filter((row) => !row.sample).length} non-sample or
@@ -587,7 +752,7 @@ export function DeviceHistory({
               <Download size={15} />
               Download device history JSON
             </button>
-            <button onClick={csvDownload}>
+            <button disabled={busy} onClick={csvDownload}>
               <Download size={15} />
               Download device history CSV
             </button>

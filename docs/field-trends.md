@@ -6,6 +6,10 @@ Start and stop are explicit actions. Restarting the application preserves sample
 
 ## Configure a job
 
+Within the controller workspace, Field recording reuses the selected controller
+and offers discovered value objects. Its additional source checks and the
+preserved standalone profile are described in [monitoring context](controller-monitoring-context.md).
+
 First connect the intended BACnet/IP, routed BACnet/IP or direct MS/TP interface. Then add explicit unicast points in Field trends, choose the interval and start polling. Targets use the same address rules as Connections. No broadcast acquisition is supported.
 
 The local HTTP entry point is `POST /api/field-trends/start`, with the standard `X-Studio-Token` header:
