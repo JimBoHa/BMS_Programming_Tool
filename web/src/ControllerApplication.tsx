@@ -31,6 +31,13 @@ const text = (value: any): string =>
 function check(report: RecordValue, controller: ControllerContext) {
   if (controllerKey(report.target) !== controllerKey(controller))
     throw new Error("Application source differs from the selected controller.");
+  const capabilities = report.operation_capabilities;
+  if (
+    capabilities &&
+    (capabilities.source?.capture_id !== report.receipt?.id ||
+      capabilities.source?.sha256 !== report.receipt?.sha256)
+  )
+    throw new Error("Operation support differs from the application capture.");
 }
 
 export function ControllerApplicationPanel({
@@ -42,7 +49,10 @@ export function ControllerApplicationPanel({
   connected: boolean;
   onVerified?: (when: string) => void;
 }) {
-  const [report, setReport] = useState<RecordValue | null>(null);
+  const [storedReport, setReport] = useState<{
+    owner: string;
+    value: RecordValue;
+  } | null>(null);
   const [diagram, setDiagram] = useState<RecordValue | null>(null);
   const [ref, setRef] = useState(""),
     [selected, setSelected] = useState("");
@@ -56,9 +66,11 @@ export function ControllerApplicationPanel({
   const verified = useRef(onVerified);
   verified.current = onVerified;
   const source = controllerKey(controller) + controller.interfaceKey;
+  const report =
+    connected && storedReport?.owner === source ? storedReport.value : null;
   const accept = (result: RecordValue) => {
     check(result, controller);
-    setReport(result);
+    setReport({ owner: source, value: result });
     setRef(result.application?.diagrams[0]?.ref ?? "");
     setDiagram(null);
     setSelected("");
@@ -258,10 +270,67 @@ export function ControllerApplicationPanel({
           </p>
           <p>
             {report.application.record_count} native records ·{" "}
-            {report.application.diagrams.length} readable diagrams. Native
-            application editing, compilation and download are unavailable for
-            this format.
+            {report.application.diagrams.length} readable diagrams.
           </p>
+          {report.operation_capabilities && (
+            <details
+              className="application-operation-support"
+              aria-label="Controller application operation support"
+            >
+              <summary>Operation support for this capture</summary>
+              <p>
+                Source-qualified means installed software recognizes this file.
+                Connected changes require their separate commissioning review.
+                This inspection prepares no controller write.
+              </p>
+              <p>
+                Captured firmware:{" "}
+                {text(report.receipt.device_identity["firmware-revision"])}.
+                {report.operation_capabilities.native_identity && (
+                  <>
+                    {" "}
+                    Native ACS code:{" "}
+                    {text(
+                      report.operation_capabilities.native_identity
+                        .format_versions.acs,
+                    )}
+                    . Native DMCS code:{" "}
+                    {text(
+                      report.operation_capabilities.native_identity
+                        .format_versions.dmcs,
+                    )}
+                    .
+                  </>
+                )}{" "}
+                These version namespaces are separate.
+              </p>
+              <div className="application-operation-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Operation</th>
+                      <th>Support</th>
+                      <th>Evidence and next step</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.operation_capabilities.operations.map(
+                      (row: RecordValue) => (
+                        <tr key={row.id} data-operation={row.id}>
+                          <th scope="row">{row.operation}</th>
+                          <td>{row.status.replaceAll("-", " ")}</td>
+                          <td>
+                            <p>{row.basis}</p>
+                            <p>{row.next_step}</p>
+                          </td>
+                        </tr>
+                      ),
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          )}
           <label>
             Application diagram
             <select

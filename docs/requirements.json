@@ -1312,5 +1312,14 @@
     "pdf_pages_or_section": "docs/device-instance-commissioning.md",
     "status": "implemented",
     "implementation_or_gap": "Guided local router discovery and router/trunk/controller selectors fill exact commissioning targets; verified names reuse the shared Scan inventory. Explicit standard Device.object-identifier WriteProperty to a pinned IPv4 or router/DNET/MAC station. One-use identity/configuration-bound review, scoped new-ID collision checks, site allocation confirmation, fresh preflight, single-attempt dispatch, durable intent/results, readback and restart reconciliation. Unsupported/read-only controllers require vendor tooling; no proprietary application transfer, reset, automatic retry/rollback or physical-controller acceptance claim. See docs/device-instance-commissioning.md."
+  },
+  {
+    "id": "COMM-OPERATION-CAPS-001",
+    "feature": "Captured-source native operation capabilities",
+    "acceptance_criterion": "Derive operation support from an actual controller File and identity/interface evidence; distinguish diagram reading, narrow typed instance/name compilation, connected transfer preflight, general logic, package/release compatibility and physical acceptance without model-selected inventories or field actions.",
+    "evidence": "Actual MOI identity parser and authored UDP File acquisition; Chromium/WebKit controller application workflows.",
+    "pdf_pages_or_section": "docs/application-operation-capabilities.md",
+    "status": "implemented",
+    "implementation_or_gap": "The controller application read/capture response includes source ID/hash/Device/configuration-bound operation analysis. The existing typed compiler recognizes actual fully framed sources, including unknown models, while transfer remains gated by captured vendor/root coherence, plain IPv4 and its separate native protocol/parameter/capacity/review/readback workflow. Frontend retains exact source ownership and rejects another capture. General logic remains unavailable; release/packages and physical acceptance are not inferred. Wider JCI-01 package/release/result correlation and native-service-only acquisitions remain partial."
   }
 ]

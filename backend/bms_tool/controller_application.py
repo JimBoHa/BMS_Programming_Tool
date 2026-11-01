@@ -8,6 +8,7 @@ from collections import OrderedDict
 from bacpypes3.primitivedata import ObjectIdentifier
 from pydantic import Field, field_validator
 
+from .application_capabilities import operation_capabilities
 from .device_details import DeviceDetails, DeviceDetailsRequest
 from .moi_application import MoiApplication
 
@@ -101,11 +102,13 @@ class ControllerApplication:
                 "The application capture belongs to a different controller route or interface."
             )
         application = self._application(receipt, data)
+        summary = application.summary()
         return {
             "target": self._target(options),
             "connector_config": receipt["connector_config"],
             "receipt": receipt,
-            "application": application.summary(),
+            "application": summary,
+            "operation_capabilities": operation_capabilities(receipt, data, summary),
             "source_kind": "controller-file-capture",
             "read_only": True,
             "identity_verified": False,
