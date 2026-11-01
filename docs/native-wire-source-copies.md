@@ -91,3 +91,9 @@ resource/package/release compatibility, controller transfer, native execution,
 CCT/PCT reopening, hardware reassignment or physical/BTCVT acceptance. JCI-02,
 JCI-03 and JCI-09 remain partial overall. Each broader operation needs its own
 contract and independent evidence.
+
+**Saved effective snapshot** now selects a separate
+[effective wire compiler](native-effective-wire-compiler.md). It merges and checks
+the retained saved settings before the same scoped byte edit. The original
+archive mode described above keeps its existing contract and does not merge
+settings or prepare a field transfer.

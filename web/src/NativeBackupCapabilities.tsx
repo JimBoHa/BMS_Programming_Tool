@@ -24,6 +24,7 @@ const operationIds = [
   "signal-default-copy",
   "boolean-default-copy",
   "wire-source-copy",
+  "effective-wire-compile",
   "effective-boolean-compile",
   "effective-default-compile",
   "identity-transfer",
@@ -97,7 +98,7 @@ export function NativeBackupCapabilities({
       );
       if (
         data.profile !== "native-backup-record-inspection/1" ||
-        data.capability_profile !== "native-backup-operation-capabilities/5" ||
+        data.capability_profile !== "native-backup-operation-capabilities/6" ||
         data.source_kind !== "native-backup-archive" ||
         data.capture_id !== source.capture_id ||
         data.snapshot_sha256 !== source.snapshot_sha256 ||

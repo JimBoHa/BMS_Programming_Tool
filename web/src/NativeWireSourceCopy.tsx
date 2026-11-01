@@ -10,8 +10,10 @@ import { rememberWireDraft, type WireCopyDrafts } from "./nativeWireDrafts";
 export type { WireCopyDrafts } from "./nativeWireDrafts";
 
 type Data = Record<string, any>;
-const base = "/bacnet/controller/native-application/inspection/wire-source";
-const profile = "native-archive-wire-source-copy/1";
+const archiveBase =
+  "/bacnet/controller/native-application/inspection/wire-source";
+const archiveProfile = "native-archive-wire-source-copy/1";
+const effectiveProfile = "native-effective-wire-source-compiler/1";
 const compilerProfile = "tagged-moi-wire-source-copy/1";
 const hash = (value: unknown) =>
   typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
@@ -37,7 +39,7 @@ export function NativeWireSourceCopy({
 }) {
   const fieldBusy =
     useContext(NativeBooleanTransferContext)?.fieldBusy ?? false;
-  const graphKey = JSON.stringify([
+  const archiveKey = JSON.stringify([
     source.capture_id,
     source.snapshot_sha256,
     source.sha256,
@@ -45,6 +47,15 @@ export function NativeWireSourceCopy({
     record.ref,
     record.record_sha256,
   ]);
+  const [basis, setBasis] = useState<"archive" | "effective">(() =>
+    drafts.get(archiveKey + "/basis") === "effective" ? "effective" : "archive",
+  );
+  const effective = basis === "effective";
+  const base = effective
+    ? "/bacnet/controller/native-application/inspection/effective-wire-source"
+    : archiveBase;
+  const profile = effective ? effectiveProfile : archiveProfile;
+  const graphKey = archiveKey + "/" + basis;
   const cachedIndex = Number(drafts.get(graphKey + "/wire") || "0");
   const [chosen, setChosen] = useState({
     key: graphKey,
@@ -53,7 +64,12 @@ export function NativeWireSourceCopy({
         ? cachedIndex
         : 0,
   });
-  const wireIndex = chosen.key === graphKey ? chosen.index : 0;
+  const wireIndex =
+    chosen.key === graphKey
+      ? chosen.index
+      : Number.isInteger(cachedIndex) && cachedIndex >= 0 && cachedIndex <= 4095
+        ? cachedIndex
+        : 0;
   const context = JSON.stringify([
     graphKey,
     visible,
@@ -110,6 +126,12 @@ export function NativeWireSourceCopy({
         property_sha256: selection.property_sha256,
         old: wire.old,
         source_ref: sourceRef,
+        ...(effective
+          ? {
+              effective_sha256: data?.effective_sha256,
+              effective_record_sha256: selection.record_sha256,
+            }
+          : {}),
       }
     : null;
   const owner = JSON.stringify([
@@ -133,6 +155,9 @@ export function NativeWireSourceCopy({
   } | null>(null);
   const shown =
     review?.owner === owner && review.ticket === epoch.current ? review : null;
+  const shownEdit =
+    shown &&
+    (effective ? shown.data.compilation.wire_edit : shown.data.compilation);
   const [pending, setPending] = useState<{
     owner: string;
     ticket: number;
@@ -189,7 +214,17 @@ export function NativeWireSourceCopy({
       result.controller_queries === false &&
       result.field_actions === false &&
       result.identity_verified === false &&
-      result.saved_settings_merged === false &&
+      result.saved_settings_merged === effective &&
+      (!effective ||
+        (result.current_identity_verified === false &&
+          result.source_immutable === true &&
+          result.archive_record_sha256 === record.record_sha256 &&
+          (["11", "12"] as const).every(
+            (key) =>
+              result.files?.[key]?.sha256 === source.files[key]?.sha256 &&
+              result.files?.[key]?.bytes === source.files[key]?.bytes,
+          ) &&
+          hash(result.effective_sha256))) &&
       result.field_transfer_enabled === false &&
       result.can_apply === false
     );
@@ -220,7 +255,8 @@ export function NativeWireSourceCopy({
         !matches(result) ||
         !info ||
         info.diagram_ref !== record.ref ||
-        info.record_sha256 !== record.record_sha256 ||
+        (!effective && info.record_sha256 !== record.record_sha256) ||
+        !hash(info.record_sha256) ||
         info.wire_index !== index ||
         !hash(info.property_sha256) ||
         !Array.isArray(info.wires) ||
@@ -281,7 +317,8 @@ export function NativeWireSourceCopy({
     try {
       const result = await apiJsonDocument(base + "/preview", body),
         value = result.data,
-        copy = value.compilation;
+        compilation = value.compilation,
+        copy = effective ? compilation?.wire_edit : compilation;
       const expected = [candidate.index, ...wire.old.slice(1)];
       if (
         !matches(value) ||
@@ -295,9 +332,10 @@ export function NativeWireSourceCopy({
         ) ||
         !copy ||
         copy.profile !== compilerProfile ||
-        copy.source_sha256 !== source.sha256 ||
+        copy.source_sha256 !==
+          (effective ? data?.effective_sha256 : source.sha256) ||
         copy.diagram_ref !== record.ref ||
-        copy.record_sha256 !== record.record_sha256 ||
+        copy.record_sha256 !== selection.record_sha256 ||
         copy.property_sha256 !== selection.property_sha256 ||
         copy.wire_index !== wireIndex ||
         !tuple(copy.old, wire.old) ||
@@ -320,6 +358,30 @@ export function NativeWireSourceCopy({
         !hash(copy.output_sha256) ||
         !hash(copy.output_native_sha256) ||
         !hash(copy.compilation_sha256) ||
+        (effective &&
+          (value.effective_sha256 !== data?.effective_sha256 ||
+            compilation.profile !== effectiveProfile ||
+            compilation.archive_sha256 !== source.sha256 ||
+            compilation.effective_sha256 !== data?.effective_sha256 ||
+            (["3", "11", "12"] as const).some(
+              (key) =>
+                compilation.files?.[key]?.sha256 !==
+                  source.files[key]?.sha256 ||
+                compilation.files?.[key]?.bytes !== source.files[key]?.bytes,
+            ) ||
+            compilation.parameter_merge?.static_sha256 !==
+              source.files["11"]?.sha256 ||
+            compilation.parameter_merge?.dynamic_sha256 !==
+              source.files["12"]?.sha256 ||
+            compilation.parameter_merge?.output_sha256 !==
+              data?.effective_sha256 ||
+            compilation.other_merged_bytes_preserved !== true ||
+            compilation.saved_settings_merged !== true ||
+            compilation.controller_write !== false ||
+            compilation.field_transfer_enabled !== false ||
+            compilation.compiled_sha256 !== copy.output_sha256 ||
+            compilation.compiled_native_sha256 !==
+              copy.output_native_sha256)) ||
         value.output_sha256 !== copy.output_sha256 ||
         value.controller_write !== false ||
         !hash(value.review_sha256)
@@ -360,11 +422,18 @@ export function NativeWireSourceCopy({
           "Native wire output bytes differ from the reviewed copy.",
         );
       if (current(key, ticket)) {
-        saveBlob(result.blob, "native-wire-source-copy.moi");
+        saveBlob(
+          result.blob,
+          effective
+            ? "native-effective-wire-source.moi"
+            : "native-wire-source-copy.moi",
+        );
         setSaved({
           owner: key,
           ticket,
-          text: "Saved reviewed native wire source copy.",
+          text: effective
+            ? "Saved reviewed effective native wire compilation."
+            : "Saved reviewed native wire source copy.",
         });
       }
     } catch (failure) {
@@ -377,23 +446,65 @@ export function NativeWireSourceCopy({
   return (
     <details
       className="native-wire-copy"
-      aria-label="Native archive wire source copy"
+      aria-label={
+        effective
+          ? "Effective native wire compilation"
+          : "Native archive wire source copy"
+      }
     >
-      <summary>Copy an existing native wire source</summary>
+      <summary>
+        {effective
+          ? "Compile an existing effective wire source"
+          : "Copy an existing native wire source"}
+      </summary>
+      <label>
+        Native wire source basis
+        <span className="wire-copy-select">
+          <select
+            aria-label="Native wire source basis"
+            value={basis}
+            disabled={fieldBusy || !visible}
+            onChange={(event) => {
+              const value = event.target.value as "archive" | "effective";
+              if (value === "archive") drafts.delete(archiveKey + "/basis");
+              else if (
+                !rememberWireDraft(drafts, archiveKey + "/basis", value)
+              ) {
+                setLoadError({ context: contextNow.current, text: fullDrafts });
+                return;
+              }
+              setBasis(value);
+            }}
+          >
+            <option value="archive">Original archive</option>
+            <option value="effective">Saved effective snapshot</option>
+          </select>
+          <ChevronDown size={16} aria-hidden="true" />
+        </span>
+      </label>
       <p>
-        Original retained archive only. Paired saved settings are not merged.
+        {effective
+          ? "Merge this retained snapshot's saved application values before the wire edit. These are captured effective values, not current controller readings."
+          : "Original retained archive only. Paired saved settings are not merged."}{" "}
         Saving this copy does not send a program to a controller.
       </p>
       <button
         disabled={fieldBusy || !visible || loading}
         onClick={() => void load(wireIndex)}
       >
-        Open native wire sources
+        {effective ? "Open saved wire sources" : "Open native wire sources"}
       </button>
       {loading && <p role="status">Inspecting recorded wire sources…</p>}
       {loadError?.context === context && <p role="alert">{loadError.text}</p>}
       {data && (
         <>
+          {effective && (
+            <p role="status">
+              {data.parameter_merge?.matched_parameters} saved application
+              parameters merged. The original graph membership, connections,
+              order and layout remain unchanged before the selected edit.
+            </p>
+          )}
           <label>
             Existing native connection
             <span className="wire-copy-select">
@@ -488,7 +599,9 @@ export function NativeWireSourceCopy({
                   disabled={busy || fieldBusy || !visible || !candidate}
                   onClick={() => void prepare()}
                 >
-                  Review native wire copy
+                  {effective
+                    ? "Review effective wire compilation"
+                    : "Review native wire copy"}
                 </button>
                 <button
                   disabled={fieldBusy || !visible}
@@ -506,16 +619,29 @@ export function NativeWireSourceCopy({
       )}
       {failure && <p role="alert">{failure}</p>}
       {shown && (
-        <section aria-label="Reviewed native wire copy">
-          <h4>Reviewed local connection copy</h4>
+        <section
+          aria-label={
+            effective
+              ? "Reviewed effective native wire compilation"
+              : "Reviewed native wire copy"
+          }
+        >
+          <h4>
+            {effective
+              ? "Reviewed effective wire compilation"
+              : "Reviewed local connection copy"}
+          </h4>
           <p>
-            {shown.data.compilation.old.join(", ")} →{" "}
-            {shown.data.compilation.new.join(", ")}.
+            {shownEdit.old.join(", ")} → {shownEdit.new.join(", ")}.
           </p>
           <p>
-            {shown.data.compilation.changed
+            {shownEdit.changed
               ? "Only the existing source-index payload changes."
-              : "No wire change; the original archive bytes are retained."}{" "}
+              : effective
+                ? "No wire change; the merged snapshot bytes are retained."
+                : "No wire change; the original archive bytes are retained."}{" "}
+            {effective &&
+              "Other saved values are merged before this wire edit. "}
             Other expanded bytes, identities, order, layout and metadata are
             preserved. Native runtime and CCT/physical acceptance remain
             unverified.
@@ -526,14 +652,23 @@ export function NativeWireSourceCopy({
               disabled={busy || fieldBusy || !visible}
               onClick={() => void save()}
             >
-              Save native wire copy
+              {effective
+                ? "Save compiled native wire"
+                : "Save native wire copy"}
             </button>
             <button
               onClick={() =>
-                saveBlob(shown.blob, "native-wire-source-review.json")
+                saveBlob(
+                  shown.blob,
+                  effective
+                    ? "native-effective-wire-review.json"
+                    : "native-wire-source-review.json",
+                )
               }
             >
-              Save exact native wire review
+              {effective
+                ? "Save exact effective wire review"
+                : "Save exact native wire review"}
             </button>
           </div>
           <details>

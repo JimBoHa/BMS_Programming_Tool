@@ -98,6 +98,13 @@ export function NativeBackupInspection({
         data.snapshot_sha256 !== selection.snapshot_sha256 ||
         !/^[a-f0-9]{64}$/.test(data.sha256 || "") ||
         data.files?.["3"]?.sha256 !== data.sha256 ||
+        ["3", "11", "12"].some(
+          (key) =>
+            !/^[a-f0-9]{64}$/.test(data.files?.[key]?.sha256 || "") ||
+            !Number.isInteger(data.files?.[key]?.bytes) ||
+            data.files[key].bytes < 1 ||
+            data.files[key].bytes > 2097152,
+        ) ||
         typeof data.target?.address !== "string" ||
         typeof data.target?.device !== "string" ||
         controllerKey(data.target) !== controllerKey(selection.target) ||

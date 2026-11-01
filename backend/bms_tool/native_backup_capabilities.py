@@ -2,13 +2,31 @@
 
 from .moi_boolean_defaults import MoiBooleanDefaults
 from .moi_effective_boolean import compiler_from_snapshot as boolean_compiler_from_snapshot
+from .moi_effective_wire import compiler_from_snapshot as wire_compiler_from_snapshot
 from .moi_identity import MoiIdentity
 from .moi_parameters import ParameterApplication
 from .moi_signal_defaults import MoiSignalDefaults
 from .moi_wire_sources import MoiWireSources
 from .native_signal_compiler import compiler_from_snapshot
 
-PROFILE = "native-backup-operation-capabilities/5"
+PROFILE = "native-backup-operation-capabilities/6"
+
+
+def eligible_wire(editor):
+    failure = None
+    for diagram in editor.reader.summary()["diagrams"]:
+        try:
+            for index in range(diagram["connections"]):
+                info = editor.inspect(diagram["ref"], index)
+                if info["available"]:
+                    return {
+                        "diagram_ref": diagram["ref"],
+                        "wire_index": index,
+                        "candidate_count": len(info["candidates"]) - 1,
+                    }, failure
+        except ValueError as exc:
+            failure = str(exc)[:512]
+    return None, failure
 
 
 def backup_capabilities(snapshot, files, application):
@@ -64,24 +82,17 @@ def backup_capabilities(snapshot, files, application):
 
     wire_copy, wire_copy_error = None, None
     try:
-        wire_editor = MoiWireSources(files[3])
-        for diagram in wire_editor.reader.summary()["diagrams"]:
-            try:
-                for index in range(diagram["connections"]):
-                    info = wire_editor.inspect(diagram["ref"], index)
-                    if info["available"]:
-                        wire_copy = {
-                            "diagram_ref": diagram["ref"],
-                            "wire_index": index,
-                            "candidate_count": len(info["candidates"]) - 1,
-                        }
-                        break
-            except ValueError as exc:
-                wire_copy_error = str(exc)[:512]
-            if wire_copy:
-                break
+        wire_copy, wire_copy_error = eligible_wire(MoiWireSources(files[3]))
     except ValueError as exc:
         wire_copy_error = str(exc)[:512]
+
+    effective_wire, effective_wire_error = None, None
+    try:
+        effective_wire, effective_wire_error = eligible_wire(
+            wire_compiler_from_snapshot(snapshot, files).effective
+        )
+    except ValueError as exc:
+        effective_wire_error = str(exc)[:512]
 
     rows = []
 
@@ -157,6 +168,16 @@ def backup_capabilities(snapshot, files, application):
         else wire_copy_error
         or "No alternate existing source passes the recorded wire-copy profile.",
         "Inspect the actual activity/control-sequence record and review a local archive copy. Saved settings are not merged; no block/I/O allocation, general logic compiler, field transfer or physical acceptance is granted.",
+    )
+    add(
+        "effective-wire-compile",
+        "Compile an effective native wire source",
+        "source-qualified" if effective_wire else "unsupported-source",
+        "The identity-qualified saved merge preserves the original graph structure and admits an existing source under the wire-copy profile."
+        if effective_wire
+        else effective_wire_error
+        or "No alternate existing source passes the saved-effective wire profile.",
+        "Open saved wire sources in the recorded diagram and review a separate compiled file. Retained settings are not current live values; no field transfer, new blocks/connections or general compiler is granted.",
     )
     add(
         "effective-boolean-compile",
@@ -256,6 +277,8 @@ def backup_capabilities(snapshot, files, application):
             "archive_boolean_default_count": boolean_count,
             "archive_wire_source_copy": wire_copy,
             "archive_wire_source_copy_error": wire_copy_error,
+            "effective_wire_source_compilation": effective_wire,
+            "effective_wire_source_compilation_error": effective_wire_error,
             "effective_boolean_default_count": len(effective_booleans),
             "effective_real_default_count": len(fields),
             "parameter_merge": parameters,

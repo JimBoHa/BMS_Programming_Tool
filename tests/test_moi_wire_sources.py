@@ -20,6 +20,7 @@ def source(
     extended=False,
     config=False,
     source_class=551,
+    target_class=527,
     order=(0, 1, 2, 3),
     wires=None,
     positions=True,
@@ -72,7 +73,7 @@ def source(
         )
     objects.append(native_record(575, 1, props))
     for i, ref in enumerate((A, B, C, D)):
-        cid = 551 if i == 0 else source_class if i == 1 else 527
+        cid = 551 if i == 0 else source_class if i == 1 else target_class
         objects.append(
             native_record(
                 cid,

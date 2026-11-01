@@ -7,7 +7,7 @@ not open a connection, issue backup-state commands, create an edit or transfer
 intent, or qualify the currently running controller. Original acquisition effects
 and evidence remain unchanged.
 
-The table separates sixteen operations. Archive and diagram reading use actual
+The table separates seventeen operations. Archive and diagram reading use actual
 recognized content. Typed instance/name copies require the stricter native
 identity framing; name copies also require a typed Device name. Archive Real
 copies require actual existing supported fields. Saved-setting merging requires
@@ -41,7 +41,7 @@ The token-admitted `POST
 /api/bacnet/controller/native-application/inspection/capabilities` accepts only
 capture ID and manifest hash. All retained files and the manifest are verified
 before analysis. It returns inspection provenance plus capability profile
-`native-backup-operation-capabilities/5`, sixteen ordered rows and detailed local
+`native-backup-operation-capabilities/6`, seventeen ordered rows and detailed local
 qualification evidence. It returns `read_only: true`, `controller_queries: false`,
 `can_apply: false` and `current_identity_verified: false`.
 
@@ -70,3 +70,8 @@ Qualification uses the actual graph, opaque source configuration, observed pin,
 execution order, cycle and original payload width. This local operation remains
 independent of saved-setting schema and acquisition transport; it does not merge
 saved settings, allocate blocks/connections or qualify a field transfer.
+
+Profile 6 separately qualifies [effective wire compilation](native-effective-wire-compiler.md).
+The identity-qualified saved merge must preserve the original graph structure;
+actual effective candidates must pass the existing source/pin/order/cycle/width
+profile. Local archive copying remains independent. No wire transfer is prepared.
