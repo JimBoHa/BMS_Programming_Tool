@@ -44,9 +44,7 @@ class NativeWireRecovery(NativeDefaultRecovery):
         before, original_files = self._original(intent.get("backup_id"))
         old_compiler = compiler_from_snapshot(before, original_files)
         edit = EffectiveWirePreview.model_validate(intent["wire_edit"]).model_dump()
-        expected, compilation = compile_wire(
-            original_files, edit, fresh=True, expected_guard=intent.get("wire_guard")
-        )
+        expected, compilation = self._forward(original_files, edit, intent=intent)
         selected = compilation["wire_edit"]
         recorded = intent["compilation"]["wire_edit"]
         keys = (
@@ -122,7 +120,9 @@ class NativeWireRecovery(NativeDefaultRecovery):
         }
         # Re-run the existing compiler's pin/configuration/order/cycle/width checks.
         # Knowing a prior source does not authorize an otherwise unsupported edit.
-        _, inverse = compile_wire(files, proposal)
+        _, inverse = self._inverse(
+            files, proposal, original=(before, old_compiler), selected=selected
+        )
         if seal(inverse["wire_edit"]["new"]) != seal(selected["old"]):
             raise ValueError("The previous source no longer has its original connection index.")
         origin = {
@@ -166,4 +166,13 @@ class NativeWireRecovery(NativeDefaultRecovery):
             "can_apply": False,
             "new_review_required": not already,
         }
+        return self._report(body, inverse, compiler)
+
+    def _inverse(self, files, proposal, *, original, selected):
+        return compile_wire(files, proposal)
+
+    def _forward(self, files, edit, *, intent):
+        return compile_wire(files, edit, fresh=True, expected_guard=intent.get("wire_guard"))
+
+    def _report(self, body, inverse, compiler):
         return {**body, "evidence_sha256": seal(body)}

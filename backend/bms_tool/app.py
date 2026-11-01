@@ -112,6 +112,7 @@ from .native_backup_records import (
 )
 from .native_boolean_compiler import EffectiveBooleanService
 from .native_boolean_copies import BooleanCopyExport, BooleanCopyPreview, NativeBooleanCopies
+from .native_historical_wire_copies import NativeHistoricalWireCopies, historical_wire_copy_router
 from .native_schedule_library import (
     MAX_ARCHIVE_BYTES,
     CaptureAction,
@@ -583,6 +584,9 @@ def create_app(state_dir=None, *, operation_power=None):
     boolean_compiler = EffectiveBooleanService(backup_records)
     wire_copies = NativeWireCopies(backup_records)
     wire_compiler = EffectiveWireService(backup_records)
+    historical_wire_copies = NativeHistoricalWireCopies(
+        backup_records, native_applications.wire_recovery
+    )
     schedule_inventory = ScheduleInventory(bacnet, store)
     schedule_library = NativeScheduleLibrary(store.directory, schedule_inventory)
     schedule_writes = NativeWeeklyDayWrites(bacnet, store, schedule_library)
@@ -741,6 +745,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.include_router(native_application_router(native_applications))
     app.include_router(native_wire_router(wire_copies))
     app.include_router(effective_wire_router(wire_compiler))
+    app.include_router(historical_wire_copy_router(historical_wire_copies))
 
     @app.post("/api/bacnet/controller/native-application/inspection/source")
     def native_backup_inspection_source(body: BackupInspectionSource):

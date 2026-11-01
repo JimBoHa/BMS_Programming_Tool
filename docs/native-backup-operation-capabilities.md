@@ -97,3 +97,9 @@ receipt-and-current-source workflows. A source's existing effective typed
 compiler support alone does not qualify recovery: immutable verified outcome,
 original backup/payload, exact current image/directory and selected-value evidence
 are additionally required. The source-only capability profile is unchanged.
+
+[Verified original-pin recovery](native-historical-wire-pin-recovery.md) additionally
+requires the original verified receipt/connection and unchanged current source
+configuration. A source-only candidate list supplies no historical pin. Its
+separate local compiler/export and new confirmed transfer do not broaden the
+ordinary source-only capability profile.

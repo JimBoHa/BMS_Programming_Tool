@@ -33,10 +33,12 @@ IDENTITY = {
 FANOUT = [(0, 85, 2, 7000), (1, 85, 3, 7000), (0, 85, 3, 7001), (1, 85, 2, 7001)]
 
 
-def setup(tmp_path, *, index=0, outcome="verified", possible=True, change=None, **file_options):
+def setup(
+    tmp_path, *, index=0, outcome="verified", possible=True, change=None, files=None, **file_options
+):
     storage = ApplicationStore(Store(tmp_path))
     file_options.setdefault("wires", FANOUT)
-    files = wire_files(target_class=538, **file_options)
+    files = wire_files(target_class=538, **file_options) if files is None else files
     before = retained(storage, files, identity=IDENTITY)
     service = EffectiveWireService(NativeBackupRecords(storage))
     edit = proposal(service, query(service, before, index=index), source_ref=B if index == 0 else A)

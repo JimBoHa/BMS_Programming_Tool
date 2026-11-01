@@ -98,4 +98,6 @@ remain separate. JCI-03 and JCI-09 remain partial overall.
 preparation profile. It reconstructs verified original/current evidence and keeps
 the existing current observed-pin, configuration, order, cycle and width guards.
 It requires a new reviewed transfer; exporting a backup or reusing a receipt does
-not authorize a restore. Historical-only output pins remain separate work.
+not authorize a restore. [Verified original-pin recovery](native-historical-wire-pin-recovery.md) separately
+qualifies an actual retained pin when no current outgoing connection remains,
+while preserving current source configuration and the other compiler guards.

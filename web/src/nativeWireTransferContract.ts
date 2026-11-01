@@ -1,4 +1,5 @@
 type Data = Record<string, any>;
+const historicalProfile = "native-historical-pin-wire-recovery-draft/1";
 const hash = (value: unknown) =>
   typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
 const tuple = (a: unknown, b: unknown) =>
@@ -7,6 +8,13 @@ const tuple = (a: unknown, b: unknown) =>
   a.length === 4 &&
   b.length === 4 &&
   a.every((v, i) => Number.isInteger(v) && v === b[i]);
+const historicalMatches = (data: Data) =>
+  data.recovery_origin?.profile !== historicalProfile ||
+  (hash(data.recovery_origin.historical_pin_sha256) &&
+    data.compilation?.historical_pin_evidence_sha256 ===
+      data.recovery_origin.historical_pin_sha256 &&
+    JSON.stringify(data.compilation.historical_pin_evidence) ===
+      JSON.stringify(data.recovery_origin.historical_pin));
 
 export function wireTransferReviewMatches(
   data: Data,
@@ -30,6 +38,7 @@ export function wireTransferReviewMatches(
   )
     return false;
   return (
+    historicalMatches(data) &&
     data.default_edit === undefined &&
     data.old_instance === device &&
     data.new_instance === device &&
@@ -106,6 +115,7 @@ export function wireTransferReceiptMatches(data: Data, reference?: Data) {
   const edit = intent.wire_edit,
     compiled = intent.compilation?.wire_edit;
   if (
+    !historicalMatches(intent) ||
     intent.change_kind !== "wire-source" ||
     intent.operation_profile !== "native-effective-wire-source-transfer/1" ||
     !edit ||
@@ -135,7 +145,13 @@ export function wireTransferReceiptMatches(data: Data, reference?: Data) {
       ) ||
       intent.review_sha256 !== reference.review_sha256 ||
       intent.wire_guard.configuration_sha256 !==
-        reference.wire_guard?.configuration_sha256
+        reference.wire_guard?.configuration_sha256 ||
+      (reference.recovery_origin &&
+        (intent.recovery_origin_sha256 !== reference.recovery_origin_sha256 ||
+          intent.recovery_origin?.parent_receipt_id !==
+            reference.recovery_origin.parent_receipt_id ||
+          intent.recovery_origin?.historical_pin_sha256 !==
+            reference.recovery_origin.historical_pin_sha256))
     )
       return false;
   }
@@ -155,6 +171,9 @@ export function wireTransferReceiptMatches(data: Data, reference?: Data) {
     proof?.profile === "native-effective-wire-source-preservation/1" &&
     proof.application_identical_except_selected_wire === true &&
     proof.identity_unchanged === true &&
+    (intent.recovery_origin?.profile !== historicalProfile ||
+      proof.historical_pin_evidence_sha256 ===
+        intent.recovery_origin.historical_pin_sha256) &&
     wire?.diagram_ref === edit.diagram_ref &&
     wire.wire_index === edit.wire_index &&
     wire.source_ref === edit.source_ref &&

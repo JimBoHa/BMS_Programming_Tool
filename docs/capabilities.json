@@ -638,5 +638,10 @@
     "feature": "Previous existing native wire-source recovery",
     "status": "implemented",
     "scope": "Local previous-source proposal for one resolved, historically verified native connection receipt and exact current retained source, with current compatible observed pin and original tuple/width/order/cycle/configuration guards. A new confirmed one-use wire transfer preserves fresh other settings, records parent lineage and verifies the full image/effective settings; explicit uncertain readback never replays the old attempt. Bounded transient drafts, offline preparation and exact evidence remain distinct from field actions. Missing historical-only pin proof, new blocks/ports/wires, name/instance/general restore and physical acceptance are separate. See docs/native-wire-source-recovery.md. General JCI-10 remains partial."
+  },
+  {
+    "feature": "Native recovery using a verified original output pin",
+    "status": "implemented",
+    "scope": "One previous native connection can use its actual output pin retained in a verified original program when the current diagram no longer contains an outgoing pin. Exact original/current image, directory, identity, route, tuple and current non-default source configuration remain guarded, along with inherited class/order/cycle/width checks. A separate pure local compiler/export and new confirmed one-use transfer retain provenance and full native/effective readback, including after restart. Ordinary candidate lists and compiler defaults are unchanged. No arbitrary caller pins, block/port allocation, new write authority from ledger metadata, general restore or physical acceptance. See docs/native-historical-wire-pin-recovery.md."
   }
 ]

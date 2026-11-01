@@ -18,10 +18,12 @@ from .test_native_wire_recovery import FANOUT, IDENTITY
 from .test_native_wire_transfer import applying
 
 
-async def recovery_review(link, *, index=0, target=None, diagram_class=575):
+async def recovery_review(link, *, index=0, target=None, diagram_class=575, wires=None):
     peer, _, _, native, original_target = link
     target = target or original_target
-    peer.files = wire_files(target_class=538, wires=FANOUT, diagram_class=diagram_class)
+    peer.files = wire_files(
+        target_class=538, wires=FANOUT if wires is None else wires, diagram_class=diagram_class
+    )
     peer.metadata["object-name"] = IDENTITY["object-name"]
     peer.mode = "normal"
 

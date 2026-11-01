@@ -1,5 +1,7 @@
 type Data = Record<string, any>;
 export const wireRecoveryProfile = "native-wire-source-recovery-draft/1";
+export const historicalWireRecoveryProfile =
+  "native-historical-pin-wire-recovery-draft/1";
 const hash = (value: unknown) =>
   typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
 const tuple = (a: unknown, b: unknown) =>
@@ -30,12 +32,13 @@ export function previousWireSourceMatches(
     edit = parent?.compilation?.wire_edit,
     wire = source.selection?.selected_wire,
     proof = origin?.verified_proof;
+  const historical = data.profile === historicalWireRecoveryProfile;
   if (
-    data.profile !== wireRecoveryProfile ||
+    (!historical && data.profile !== wireRecoveryProfile) ||
     !hash(data.evidence_sha256) ||
     !hash(data.origin_sha256) ||
     !origin ||
-    origin.profile !== wireRecoveryProfile ||
+    origin.profile !== data.profile ||
     !parent ||
     !edit ||
     !wire ||
@@ -101,6 +104,43 @@ export function previousWireSourceMatches(
             event.created_at === proof.time,
         );
   if (!verified) return false;
+  if (historical) {
+    const pin = origin.historical_pin,
+      candidate = data.proposal_candidate;
+    if (
+      !pin ||
+      !candidate ||
+      pin.profile !== "native-recorded-wire-pin/1" ||
+      !hash(origin.historical_pin_sha256) ||
+      pin.original_capture_id !== origin.original_backup_id ||
+      pin.original_snapshot_sha256 !== origin.original_snapshot_sha256 ||
+      pin.original_native_sha256 !== edit.source_native_sha256 ||
+      pin.after_native_sha256 !== parent.native_payload_sha256 ||
+      pin.current_archive_sha256 !== source.source_sha256 ||
+      pin.diagram_ref !== origin.diagram_ref ||
+      pin.diagram_class !== origin.class_id ||
+      pin.wire_index !== origin.wire_index ||
+      !tuple(pin.old, origin.previous_tuple) ||
+      pin.source_ref !== origin.previous_source_ref ||
+      pin.source_class !== edit.source_class ||
+      pin.target_ref !== origin.target_ref ||
+      pin.source_index_bytes !== origin.source_index_bytes ||
+      !hash(pin.source_configuration_sha256) ||
+      typeof pin.source_object !== "string" ||
+      candidate.ref !== pin.source_ref ||
+      candidate.index !== pin.old[0] ||
+      candidate.class_id !== pin.source_class ||
+      candidate.object !== pin.source_object ||
+      typeof candidate.name !== "string" ||
+      candidate.current_source !== false ||
+      source.selection.wires?.some(
+        (row: Data) =>
+          row.source_ref === pin.source_ref && row.source_port === pin.old[1],
+      ) ||
+      data.already_recorded
+    )
+      return false;
+  }
   if (data.already_recorded)
     return (
       data.proposal === null &&
@@ -125,10 +165,13 @@ export function previousWireSourceMatches(
     tuple(proposal.old, wire.old) &&
     proposal.source_ref === edit.old_source_ref &&
     proposal.recovery_parent_receipt === parent.id &&
-    source.selection.candidates?.some(
-      (candidate: Data) =>
-        candidate.ref === proposal.source_ref &&
-        candidate.index === edit.old[0],
-    )
+    (historical
+      ? data.proposal_candidate.ref === proposal.source_ref &&
+        data.proposal_candidate.index === edit.old[0]
+      : source.selection.candidates?.some(
+          (candidate: Data) =>
+            candidate.ref === proposal.source_ref &&
+            candidate.index === edit.old[0],
+        ))
   );
 }

@@ -22,6 +22,7 @@ def source(
     source_class=551,
     target_class=527,
     diagram_class=575,
+    source_index_width=None,
     order=(0, 1, 2, 3),
     wires=None,
     positions=True,
@@ -53,7 +54,15 @@ def source(
         (
             3118,
             b"".join(
-                b"\x3e" + b"".join(encoded(Unsigned(v)) for v in row) + b"\x3f" for row in wires
+                b"\x3e"
+                + b"".join(
+                    bytes([0x20 | source_index_width]) + v.to_bytes(source_index_width, "big")
+                    if index == 0 and source_index_width is not None
+                    else encoded(Unsigned(v))
+                    for index, v in enumerate(row)
+                )
+                + b"\x3f"
+                for row in wires
             ),
         ),
         (65001, bytes.fromhex("4e21014f")),

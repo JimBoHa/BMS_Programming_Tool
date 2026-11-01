@@ -50,6 +50,13 @@ type NativeRecovery =
       before_tuple: number[];
       after_tuple: number[];
       target_ref: string;
+      historical_pin?: {
+        source_ref: string;
+        source_port: number;
+        source_class: number;
+        original_capture_id: string;
+        scope: string;
+      };
     })
   | { state: "unavailable"; scope: string };
 type Row = {
@@ -707,6 +714,25 @@ export function ChangeLedgerPanel({
                         : "Later readback event"}{" "}
                       · {choice.native_recovery.verified_proof.time}
                     </dd>
+                    {choice.native_recovery.datatype === "Wire" &&
+                      choice.native_recovery.historical_pin && (
+                        <>
+                          <dt>Retained original output pin</dt>
+                          <dd>
+                            {choice.native_recovery.historical_pin.source_ref} ·
+                            port{" "}
+                            {choice.native_recovery.historical_pin.source_port}{" "}
+                            · class{" "}
+                            {choice.native_recovery.historical_pin.source_class}{" "}
+                            · backup{" "}
+                            {
+                              choice.native_recovery.historical_pin
+                                .original_capture_id
+                            }
+                            . {choice.native_recovery.historical_pin.scope}
+                          </dd>
+                        </>
+                      )}
                   </dl>
                   <button
                     onClick={() => {

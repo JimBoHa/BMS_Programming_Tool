@@ -1591,5 +1591,14 @@
     "pdf_pages_or_section": "docs/native-wire-source-recovery.md; docs/native-wire-source-transfer.md; docs/change-ledger.md",
     "status": "implemented",
     "implementation_or_gap": "One existing class-536/575 property-3118 connection only, with current observed output pin, same source class/configuration, unchanged destination/ports/order/layout, no introduced cycle and original index width. Original possible-dispatch/historical proof, exact backup/payload/current expanded image/static directory/route/identity required; fresh other settings merge into a separately confirmed one-use File-3 transfer and full readback. Transient source/diagram/connection-bound proposals retain ordinary drafts, keyboard focus and exact evidence, and retire stale/ABA replies. Changes projects recorded wire tuples/refs without authorizing recovery. Missing historical-only pins, name/instance/general restore, allocation and physical acceptance remain separate; JCI-10 stays partial."
+  },
+  {
+    "id": "COMM-NATIVE-WIRE-HISTORY-PIN-001",
+    "feature": "Native wire recovery from verified original output-pin evidence",
+    "acceptance_criterion": "Qualify one previous wire source when no current outgoing pin remains, using its actual verified original connection and unchanged current source configuration; compile local copies and require a fresh confirmed transfer/full readback without granting arbitrary pin support.",
+    "evidence": "Authored literal native graphs, current-setting/configuration/cycle/order/width cases, local HTTP, actual direct/routed UDP, restart and Chromium/WebKit checks.",
+    "pdf_pages_or_section": "docs/native-historical-wire-pin-recovery.md; docs/native-wire-source-recovery.md; docs/change-ledger.md",
+    "status": "implemented",
+    "implementation_or_gap": "A separate historical-pin profile reconstructs the original verified forward payload and actual pre-transfer connection. Current original-after image/static directory/route/identity and prior-source non-default signature remain exact; inherited class/prototype/order/cycle/width checks still run. Only the exact previous connection is qualified; ordinary candidate lists/compilers stay unchanged. Local source-bound copies retain exact reviews/bytes and ordinary drafts. New transfer rechecks proof before intent, preserves fresh other settings and records typed provenance for full readback/restart without replay or requiring grandparent files. Recorded ledger metadata alone grants no new write authority. General allocation/packages/restore, name/instance recovery and physical acceptance remain separate; JCI-10 stays partial."
   }
 ]
