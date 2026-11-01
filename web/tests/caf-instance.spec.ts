@@ -4,6 +4,22 @@ import path from "node:path";
 
 const root = path.resolve("..");
 const python = path.join(root, ".venv/bin/python");
+const pythonOptions = {
+  cwd: root,
+  env: { ...process.env, PYTHONPATH: path.join(root, "backend") },
+};
+
+test.beforeEach(async ({ request }) => {
+  const headers = {
+    "X-Studio-Token": (await (await request.get("/api/session")).json()).token,
+  };
+  expect(
+    (await request.post("/api/bacnet/disconnect", { headers, data: {} })).ok(),
+  ).toBe(true);
+  expect(
+    (await (await request.get("/api/session")).json()).field_network_open,
+  ).toBe(false);
+});
 function fixture() {
   return execFileSync(
     python,
@@ -11,7 +27,7 @@ function fixture() {
       "-c",
       "from tests.test_caf_hardware import fixture; import sys; sys.stdout.buffer.write(fixture(model='Other-Controller-Family').original)",
     ],
-    { cwd: root },
+    pythonOptions,
   );
 }
 
@@ -58,7 +74,7 @@ test("CAF instance review saves both native identity fields and preserves the ap
         "from pathlib import Path; import sys,json; from bms_tool.caf import CafArchive; from bms_tool.caf_instance import CafInstanceEditor; from tests.test_caf_hardware import fixture; a=CafArchive(Path(sys.argv[1]).read_bytes()); original=fixture(model='Other-Controller-Family'); expected=original.xml.replace(b'objectid=\"99\"',b'objectid=\"5336\"').replace(b'<BACoid id=\"8\">99</BACoid>',b'<BACoid id=\"8\">5336</BACoid>'); print(json.dumps({'exact_xml':a.xml==expected,'instance':CafInstanceEditor(a).current,'same_refs':list(a.objects)==list(original.objects)}))",
         (await downloaded.path())!,
       ],
-      { cwd: root },
+      pythonOptions,
     ).toString(),
   );
   expect(readback).toEqual({

@@ -148,6 +148,11 @@ must review the effective saved value, merge fresh settings, preserve other
 application bytes, and verify the edited application and effective settings after
 transfer. General logic generation and physical acceptance remain separate.
 
+`FMT-NATIVE-EFFECTIVE-DEFAULT-001` adds snapshot-based compilation of one existing
+Real default after merging the retained native saved settings. Program shows
+archive versus effective values and exports a source-bound compiled copy; no new
+field-transfer operation is enabled. JCI-03 and JCI-09 remain partial overall.
+
 | ID | Planned addition | Workspace | Acceptance / dependency |
 | --- | --- | --- | --- |
 | JCI-01 | Build an operation-specific protocol/format/release capability matrix from discovered identity, application structure, packages and retained evidence | Overview / Program; Settings for toolchains | Credit current identity operations; distinguish read, edit, compile, transfer and physical acceptance; unsupported formats explain why |
