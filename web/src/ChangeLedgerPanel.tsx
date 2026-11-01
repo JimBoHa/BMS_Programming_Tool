@@ -20,12 +20,28 @@ type Cursor = {
   before: Partial<Record<LedgerSource, string>>;
   exhausted: LedgerSource[];
 };
+type NativeRecovery =
+  | {
+      state: "recorded";
+      parent_receipt_id: string;
+      record_ref: string;
+      before_bits: string;
+      after_bits: string;
+      before_value: number;
+      after_value: number;
+      verified_proof: { kind: "result" | "readback-event"; time: string };
+      scope: string;
+    }
+  | { state: "unavailable"; scope: string };
 type Row = {
   key: string;
   source: LedgerSource;
   id: string;
   label: string;
   native_change_kind?: string | null;
+  native_reference_issue?: string;
+  native_wire_index?: number;
+  native_recovery?: NativeRecovery;
   created_at: string;
   state: string;
   outcome: "attention" | "verified" | "other";
@@ -80,6 +96,8 @@ const outcomeText = (row: Row) =>
     : row.outcome === "verified"
       ? "Observed / verified"
       : "Recorded outcome";
+const realText = (value: number) =>
+  Object.is(value, -0) ? "-0" : String(value);
 function Target({ row }: { row: Row }) {
   if (!row.target)
     return (
@@ -271,6 +289,15 @@ export function ChangeLedgerPanel({
     !!toolLabel &&
     !nativeProgram &&
     ["native", "instance", "schedule", "event"].includes(choice.source);
+  function searchParent(id: string) {
+    setSource("native");
+    setOutcome("all");
+    setScope("all");
+    setSearch(id);
+    setText(id);
+    setPage({ filterKey: "", cursor: null, trail: [] });
+    setRefresh((value) => value + 1);
+  }
   return (
     <section className="panel change-ledger" aria-label="Change ledger">
       <header className="change-ledger-heading">
@@ -479,6 +506,22 @@ export function ChangeLedgerPanel({
                         {row.source} · {row.kind} · {row.id}
                       </span>
                       {row.object && <span>{row.object}</span>}
+                      {row.native_wire_index !== undefined && (
+                        <span>
+                          Connection {row.native_wire_index + 1} · wire index{" "}
+                          {row.native_wire_index}
+                        </span>
+                      )}
+                      {row.native_reference_issue && (
+                        <span>{row.native_reference_issue}</span>
+                      )}
+                      {row.native_recovery && (
+                        <span>
+                          {row.native_recovery.state === "recorded"
+                            ? `Previous-value recovery · parent ${row.native_recovery.parent_receipt_id}`
+                            : "Recovery metadata unavailable"}
+                        </span>
+                      )}
                       {row.session_scoped && (
                         <span>Session-scoped receipt</span>
                       )}
@@ -557,6 +600,25 @@ export function ChangeLedgerPanel({
             <dd>
               {choice.source} · {choice.id}
             </dd>
+            {nativeProgram && (
+              <>
+                <dt>Native edit reference</dt>
+                <dd>
+                  {choice.object ||
+                    choice.native_reference_issue ||
+                    "Not recorded"}
+                </dd>
+              </>
+            )}
+            {choice.native_wire_index !== undefined && (
+              <>
+                <dt>Native wire index</dt>
+                <dd>
+                  {choice.native_wire_index} · connection{" "}
+                  {choice.native_wire_index + 1}
+                </dd>
+              </>
+            )}
             <dt>Recorded outcome</dt>
             <dd>
               {outcomeText(choice)} · {choice.state}
@@ -574,6 +636,47 @@ export function ChangeLedgerPanel({
             <dt>Integrity scope</dt>
             <dd>{choice.integrity}</dd>
           </dl>
+          {choice.native_reference_issue && (
+            <p>{choice.native_reference_issue}</p>
+          )}
+          {choice.native_recovery && (
+            <section aria-label="Recorded native recovery lineage">
+              <h4>Recorded recovery origin</h4>
+              {choice.native_recovery.state === "recorded" && (
+                <>
+                  <dl>
+                    <dt>Parent receipt</dt>
+                    <dd>{choice.native_recovery.parent_receipt_id}</dd>
+                    <dt>Recorded Real change</dt>
+                    <dd>
+                      {choice.native_recovery.record_ref} ·{" "}
+                      {realText(choice.native_recovery.before_value)} to{" "}
+                      {realText(choice.native_recovery.after_value)} · bits{" "}
+                      {choice.native_recovery.before_bits} to{" "}
+                      {choice.native_recovery.after_bits}
+                    </dd>
+                    <dt>Historical verification</dt>
+                    <dd>
+                      {choice.native_recovery.verified_proof.kind === "result"
+                        ? "Original result"
+                        : "Later readback event"}{" "}
+                      · {choice.native_recovery.verified_proof.time}
+                    </dd>
+                  </dl>
+                  <button
+                    onClick={() => {
+                      const origin = choice.native_recovery;
+                      if (origin?.state === "recorded")
+                        searchParent(origin.parent_receipt_id);
+                    }}
+                  >
+                    Search recorded parent receipt
+                  </button>
+                </>
+              )}
+              <p>{choice.native_recovery.scope}</p>
+            </section>
+          )}
           <p>
             Evidence belongs to this original target. Opening a tool keeps the
             current workspace target and never applies, releases, retries or

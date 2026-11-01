@@ -20,6 +20,7 @@ from bacpypes3.pdu import Address, IPv4Address
 from pydantic import Field, field_validator, model_validator
 
 from .models import StrictModel
+from .native_ledger_details import native_reference, recovery_lineage
 
 Source = Literal["audit", "native", "instance", "schedule", "bbmd", "event", "temco", "command"]
 SOURCES = ("audit", "native", "instance", "schedule", "bbmd", "event", "temco", "command")
@@ -324,7 +325,7 @@ class ChangeLedger:
     def _summary(self, source, identifier, record):
         pending = False
         native_kind = None
-        selected_object = ""
+        native_metadata = {}
         if source == "audit":
             body = record["detail"]
             label, state = record["operation"], body.get("status", "recorded")
@@ -347,14 +348,10 @@ class ChangeLedger:
             )
             label = labels.get(native_kind, "Native application transfer (unsupported operation)")
             selection = body.get("wire_edit" if native_kind == "wire-source" else "default_edit")
-            if isinstance(selection, dict) and native_kind in (
-                "signal-default",
-                "boolean-default",
-                "wire-source",
-            ):
-                selected_object = _text(
-                    selection.get("diagram_ref" if native_kind == "wire-source" else "ref"), 100
-                )
+            native_metadata = native_reference(native_kind, selection)
+            recovery = recovery_lineage(body, native_kind, native_metadata)
+            if recovery is not None:
+                native_metadata["native_recovery"] = recovery
             state, created = latest["status"], body["created_at"]
         elif source == "instance":
             body = record["attempt"]
@@ -444,7 +441,7 @@ class ChangeLedger:
             if source == "command"
             else "receipt",
             "target": target,
-            "object": selected_object or _text(body.get("object_id", body.get("object")), 100),
+            "object": _text(body.get("object_id", body.get("object")), 100),
             "local_source": _text(
                 body.get("source_sha256", body.get("original_sha256", body.get("id", ""))), 100
             )
@@ -465,6 +462,7 @@ class ChangeLedger:
             "review_recorded": bool(body.get("review_sha256") or review.get("review_sha256")),
             "dispatch": dispatch,
             "readback": _text(readback.get("status"), 100) or "not recorded",
+            **native_metadata,
         }
 
     def memory(self, request=None, *, only=None):

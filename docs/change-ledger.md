@@ -80,6 +80,35 @@ Missing legacy kind retains the original instance-change meaning. An unknown or
 invalid kind is labelled unsupported and receives no guessed tool link, while its
 original evidence remains readable.
 
+Default rows read the actual `default_edit.record_ref` key. A legacy `ref` is
+accepted only when the canonical key is absent or both agree. Missing, invalid
+or conflicting references remain unavailable rather than falling back to an
+unrelated object. Native references retain their full supported 512-character
+bound; search can find their tails. Wire rows separately show the recorded
+zero-based index and its one-based connection number. Invalid indices are not
+coerced or invented.
+
+For a [previous effective Real-default transfer](native-real-default-recovery.md),
+the list can project the recorded origin seal and its bindings to the child
+receipt. Details shows the parent receipt, recorded values/exact float32 bits
+and historical result/readback proof. This is recorded lineage: the projection
+does not revalidate the parent receipt or backup files, authorize another
+transfer or establish live state. Original dispatch and later observations keep
+their separate meanings. Malformed, unknown or inconsistent origin metadata is
+labelled unavailable while the receipt and its original download remain readable.
+Older ordinary receipts acquire no invented recovery parent.
+
+**Search recorded parent receipt** clears the local family/outcome/target filters
+and searches native records by the recorded parent ID. The workspace controller
+stays selected. This is the same bounded text search: related children can also
+match the parent ID, and older windows can contain the parent. Select its exact
+receipt ID to inspect its own original evidence. The action performs no field
+request, readback, replay, restore or review-token operation.
+
+The existing `local-change-ledger/1` response gains optional native-only fields
+for reference issues, wire index and recovery metadata. Unrelated families,
+journal documents, acquisition limits and adapter operations are unchanged.
+
 Real/Boolean defaults and wire-source rows open **Program → Native backup
 defaults**, including offline retained work. Instance/name rows open the existing
 identity tools. These links select the matching workspace navigation and preserve
