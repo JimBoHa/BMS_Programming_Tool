@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { api } from "./api";
 import { controllerKey, type ControllerContext } from "./workflow";
+import {
+  NativeBooleanDefaultCopy,
+  type BooleanCopyDrafts,
+} from "./NativeBooleanDefaultCopy";
 
 type Data = Record<string, any>;
 const pageSize = 64;
@@ -26,6 +30,7 @@ type RecordSource =
       source: NativeArchiveSource;
       controller?: ControllerContext | null;
       visible: boolean;
+      booleanDrafts?: BooleanCopyDrafts;
     };
 function scrollTable(event: KeyboardEvent<HTMLDivElement>) {
   if (
@@ -106,6 +111,15 @@ export function NativeRecords(props: RecordSource) {
     detailState?.owner === owner &&
     detailState.generation === ownerGeneration.current
       ? detailState.data
+      : null;
+  const booleanDefault =
+    native && detail?.record.ref && [530, 531].includes(detail.record.class_id)
+      ? detail.properties.find(
+          (prop: Data) =>
+            prop.id === 3113 &&
+            prop.scalar?.datatype === "Boolean" &&
+            typeof prop.scalar.value === "boolean",
+        )
       : null;
   useEffect(() => {
     setBusy(false);
@@ -436,6 +450,24 @@ export function NativeRecords(props: RecordSource) {
           </div>
           {!detail.properties.length && (
             <p>No captured properties match this query.</p>
+          )}
+          {native && props.booleanDrafts && booleanDefault && (
+            <NativeBooleanDefaultCopy
+              key={JSON.stringify([
+                owner,
+                ownerGeneration.current,
+                detail.record.ref,
+                booleanDefault.encoded_sha256,
+              ])}
+              source={props.source}
+              field={{
+                ref: detail.record.ref,
+                class_id: detail.record.class_id,
+                encoded_sha256: booleanDefault.encoded_sha256,
+                value: booleanDefault.scalar.value,
+              }}
+              drafts={props.booleanDrafts}
+            />
           )}
           <div className="button-row">
             <button

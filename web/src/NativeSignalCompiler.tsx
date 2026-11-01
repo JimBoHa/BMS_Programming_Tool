@@ -43,6 +43,7 @@ export function NativeSignalCompiler({
   ]);
   const [sources, setSources] = useState<Data[]>([]),
     [choice, setChoice] = useState("");
+  const booleanDrafts = useRef(new Map<string, boolean>());
   const [loaded, setLoaded] = useState<Data | null>(null),
     [fieldRef, setFieldRef] = useState("");
   const [search, setSearch] = useState(""),
@@ -561,6 +562,7 @@ export function NativeSignalCompiler({
         }
         controller={controller}
         visible={visible}
+        booleanDrafts={booleanDrafts.current}
       />
       {storageError && <p role="status">{storageError}</p>}
       {error && <p role="alert">{error}</p>}

@@ -7,7 +7,7 @@ not open a connection, issue backup-state commands, create an edit or transfer
 intent, or qualify the currently running controller. Original acquisition effects
 and evidence remain unchanged.
 
-The table separates twelve operations. Archive and diagram reading use actual
+The table separates thirteen operations. Archive and diagram reading use actual
 recognized content. Typed instance/name copies require the stricter native
 identity framing; name copies also require a typed Device name. Archive Real
 copies require actual existing supported fields. Saved-setting merging requires
@@ -41,7 +41,7 @@ The token-admitted `POST
 /api/bacnet/controller/native-application/inspection/capabilities` accepts only
 capture ID and manifest hash. All retained files and the manifest are verified
 before analysis. It returns inspection provenance plus capability profile
-`native-backup-operation-capabilities/1`, twelve ordered rows and detailed local
+`native-backup-operation-capabilities/2`, thirteen ordered rows and detailed local
 qualification evidence. It returns `read_only: true`, `controller_queries: false`,
 `can_apply: false` and `current_identity_verified: false`.
 
@@ -57,3 +57,7 @@ foreign-device acquisition profiles. An actual UDP native backup is disconnected
 before analysis, with zero additional peer requests and no transfer journal entry.
 Chromium/WebKit checks cover offline statuses, drafts, altered responses and held
 replies. These checks do not establish physical controller or Bluetooth acceptance.
+
+Profile 2 adds a separate [Boolean default archive copy](native-boolean-default-copies.md)
+row. Actual canonical class 530/531 Boolean fields qualify that local copy;
+effective-default compilation and connected default transfer remain Real-only.

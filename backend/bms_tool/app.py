@@ -105,6 +105,7 @@ from .native_backup_records import (
     BackupRecordsRequest,
     NativeBackupRecords,
 )
+from .native_boolean_copies import BooleanCopyExport, BooleanCopyPreview, NativeBooleanCopies
 from .native_schedule_library import (
     MAX_ARCHIVE_BYTES,
     CaptureAction,
@@ -566,6 +567,7 @@ def create_app(state_dir=None, *, operation_power=None):
     native_applications = NativeApplications(bacnet, store, device_instances)
     signal_compiler = SignalCompilerService(native_applications.storage)
     backup_records = NativeBackupRecords(native_applications.storage)
+    boolean_copies = NativeBooleanCopies(backup_records)
     schedule_inventory = ScheduleInventory(bacnet, store)
     schedule_library = NativeScheduleLibrary(store.directory, schedule_inventory)
     schedule_writes = NativeWeeklyDayWrites(bacnet, store, schedule_library)
@@ -707,6 +709,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.state.native_applications = native_applications
     app.state.native_signal_compiler = signal_compiler
     app.state.native_backup_records = backup_records
+    app.state.native_boolean_copies = boolean_copies
     app.include_router(native_application_router(native_applications))
 
     @app.post("/api/bacnet/controller/native-application/inspection/source")
@@ -716,6 +719,24 @@ def create_app(state_dir=None, *, operation_power=None):
     @app.post("/api/bacnet/controller/native-application/inspection/capabilities")
     def native_backup_operation_capabilities(body: BackupInspectionSource):
         return backup_records.capabilities(body.model_dump())
+
+    @app.post("/api/bacnet/controller/native-application/inspection/boolean-default/preview")
+    def native_boolean_copy_preview(body: BooleanCopyPreview):
+        return boolean_copies.preview(body.model_dump())[1]
+
+    @app.post("/api/bacnet/controller/native-application/inspection/boolean-default/export")
+    def native_boolean_copy_export(body: BooleanCopyExport):
+        output, review = boolean_copies.export(body.model_dump())
+        return Response(
+            output,
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": 'attachment; filename="native-boolean-default-copy.moi"',
+                "X-Studio-Artifact-Sha256": review["output_sha256"],
+                "X-Studio-Review-Sha256": review["review_sha256"],
+                "X-Studio-Snapshot-Sha256": body.snapshot_sha256,
+            },
+        )
 
     @app.post("/api/bacnet/controller/native-application/inspection/records")
     def native_backup_record_list(body: BackupRecordsRequest):
