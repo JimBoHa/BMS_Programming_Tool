@@ -2,7 +2,10 @@ import { defineConfig } from "@playwright/test";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-const stateDirectory = mkdtempSync(join(tmpdir(), "bms-studio-e2e-"));
+const stateDirectory =
+  process.env.BMS_TEST_COMPILER_STATE ||
+  mkdtempSync(join(tmpdir(), "bms-studio-e2e-"));
+process.env.BMS_TEST_COMPILER_STATE = stateDirectory;
 export default defineConfig({
   testDir: "./tests",
   fullyParallel: false,

@@ -66,6 +66,7 @@ export const controllerKey = (target: ControllerTarget) =>
 export const programTools = [
   { id: "editor", label: "Graph editor" },
   { id: "caf", label: "CAF file" },
+  { id: "native-compiler", label: "Native backup defaults" },
   { id: "truth-tables", label: "Truth tables" },
   { id: "bog", label: "Niagara application" },
 ];

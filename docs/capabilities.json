@@ -498,5 +498,10 @@
     "feature": "Native backup and readback effect disclosure",
     "status": "implemented",
     "scope": "Existing vendor-5 MCE/tagged-MOI backup phases expose ReinitializeDevice start-backup/end-backup and Files 11/12/3 as possible services, with writes_application false scoped to that phase. New native capture/verification read_only flags are false; legacy sealed evidence stays unchanged. Both instance/name controls link a visible effects description. Tests distinguish declared effects from early-preflight no-dispatch and verify readback never restores/reapplies. No extra protocol action, generic native compiler, serial/BTCVT acceptance or fresh physical-controller result. See docs/native-application-transfer.md."
+  },
+  {
+    "feature": "Native effective Real-default snapshot compiler",
+    "status": "implemented",
+    "scope": "Program subview for retained identity-verified vendor 5 backups; actual class 526/527 property 3113 fields, saved-value/identity/reference/CRC guards, exact four-byte edit after saved merge, rounding/signed-zero review and immutable source/digest-qualified exports. Per-source drafts survive navigation; pending results/downloads retire before paint; no silent draft eviction. No current-setting, new field-transfer, general native logic/package/resource/CCT/physical acceptance claim. JCI-03/JCI-09 remain partial. Source values are retained archive/effective application defaults, not live I/O. Unmatched non-application slots stay in the original backup; exported native bytes do not invent them."
   }
 ]

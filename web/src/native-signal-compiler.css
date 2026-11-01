@@ -1,0 +1,80 @@
+.native-effective-compiler {
+  padding: 24px;
+  overflow: auto;
+  font-size: 14px;
+  min-width: 0;
+}
+.native-effective-compiler h1 {
+  margin: 0 0 16px;
+  font-size: 22px;
+}
+.native-effective-compiler h2 {
+  font-size: 18px;
+  margin: 0 0 16px;
+}
+.native-effective-compiler p {
+  line-height: 1.5;
+  margin: 8px 0 16px;
+  overflow-wrap: anywhere;
+}
+.native-compiler-source {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+}
+.native-compiler-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.native-effective-compiler label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+.native-effective-compiler input,
+.native-effective-compiler select {
+  width: 100%;
+  font-size: 14px;
+  min-height: 36px;
+}
+.native-compiler-select {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+.native-compiler-select select {
+  appearance: none;
+  padding-right: 32px;
+}
+.native-compiler-select svg {
+  pointer-events: none;
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.native-effective-compiler table {
+  width: 100%;
+  margin: 16px 0;
+  text-align: left;
+  border-collapse: collapse;
+}
+.native-effective-compiler th,
+.native-effective-compiler td {
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.native-effective-compiler pre {
+  max-height: 24rem;
+  overflow: auto;
+  font-size: 12px;
+}
+@media (max-width: 900px) {
+  .native-compiler-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

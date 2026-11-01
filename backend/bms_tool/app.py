@@ -113,6 +113,12 @@ from .native_schedule_write import (
 from .native_schedule_write import (
     encoded as native_write_json,
 )
+from .native_signal_compiler import (
+    SignalCompilerExport,
+    SignalCompilerPreview,
+    SignalCompilerService,
+    SignalCompilerSource,
+)
 from .native_simulator import NativeSimulator
 from .network_number_plan import network_plan_router
 from .niagara import NiagaraArchive
@@ -550,6 +556,7 @@ def create_app(state_dir=None, *, operation_power=None):
 
     device_instances = DeviceInstances(bacnet, store, activity_guard=instance_activity_guard)
     native_applications = NativeApplications(bacnet, store, device_instances)
+    signal_compiler = SignalCompilerService(native_applications.storage)
     schedule_inventory = ScheduleInventory(bacnet, store)
     schedule_library = NativeScheduleLibrary(store.directory, schedule_inventory)
     schedule_writes = NativeWeeklyDayWrites(bacnet, store, schedule_library)
@@ -689,7 +696,36 @@ def create_app(state_dir=None, *, operation_power=None):
     app.state.controller_workspace = controller_workspace
     app.state.controller_application = controller_application
     app.state.native_applications = native_applications
+    app.state.native_signal_compiler = signal_compiler
     app.include_router(native_application_router(native_applications))
+
+    @app.get("/api/bacnet/controller/native-application/signal-default/sources")
+    def native_signal_compiler_sources():
+        return signal_compiler.sources()
+
+    @app.post("/api/bacnet/controller/native-application/signal-default/source")
+    def native_signal_compiler_source(body: SignalCompilerSource):
+        return signal_compiler.source(body.capture_id)
+
+    @app.post("/api/bacnet/controller/native-application/signal-default/preview")
+    def native_signal_compiler_preview(body: SignalCompilerPreview):
+        _, review = signal_compiler.preview(body.model_dump())
+        return review
+
+    @app.post("/api/bacnet/controller/native-application/signal-default/export")
+    def native_signal_compiler_export(body: SignalCompilerExport):
+        output, review = signal_compiler.export(body.model_dump())
+        return Response(
+            output,
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": 'attachment; filename="native-effective-default.moi"',
+                "X-Studio-Snapshot-Sha256": body.snapshot_sha256,
+                "X-Studio-Review-Sha256": review["review_sha256"],
+                "X-Studio-Artifact-Sha256": review["compilation"]["compiled_sha256"],
+            },
+        )
+
     app.state.device_instances = device_instances
     app.include_router(device_instance_router(device_instances))
     app.state.schedule_inventory = schedule_inventory

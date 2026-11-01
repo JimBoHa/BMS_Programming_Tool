@@ -153,6 +153,11 @@ const EquipmentWizard = lazy(() =>
 const DeviceHistory = lazy(() =>
   import("./DeviceHistory").then((m) => ({ default: m.DeviceHistory })),
 );
+const NativeSignalCompiler = lazy(() =>
+  import("./NativeSignalCompiler").then((m) => ({
+    default: m.NativeSignalCompiler,
+  })),
+);
 const ConformancePanel = lazy(() =>
   import("./ConformancePanel").then((m) => ({ default: m.ConformancePanel })),
 );
@@ -182,6 +187,7 @@ export function App() {
     "none",
   );
   const [connectionsVisited, setConnectionsVisited] = useState(false);
+  const [nativeCompilerVisited, setNativeCompilerVisited] = useState(false);
   const [connectionSetup, setConnectionSetup] = useState(false);
   const cafPicker = useRef<HTMLInputElement>(null);
   const [cafVisited, setCafVisited] = useState(false);
@@ -1521,6 +1527,11 @@ export function App() {
       return;
     }
     setArea("program");
+    if (view === "native-compiler") {
+      setNativeCompilerVisited(true);
+      setMode("edit");
+      return;
+    }
     if (view === "caf-simulation") {
       setCafSimulationVisited(true);
       setSourceKind("caf");
@@ -1900,6 +1911,29 @@ export function App() {
                 </Suspense>
               </div>
             )}
+            {nativeCompilerVisited && (
+              <div
+                className="workflow-persistent-view"
+                hidden={tab !== "native-compiler"}
+              >
+                <Suspense
+                  fallback={
+                    <div className="loading">
+                      Opening retained native backup…
+                    </div>
+                  }
+                >
+                  <NativeSignalCompiler
+                    controller={controller}
+                    visible={
+                      tab === "native-compiler" &&
+                      surface === "workspace" &&
+                      area === "program"
+                    }
+                  />
+                </Suspense>
+              </div>
+            )}
             <Suspense
               key={tab}
               fallback={<div className="loading">Opening workspace…</div>}
@@ -1921,6 +1955,7 @@ export function App() {
                 />
               ) : tab === "connections" ||
                 tab === "caf" ||
+                tab === "native-compiler" ||
                 tab === "caf-simulation" ? null : tab === "editor" ? (
                 <>
                   {macroEdit && (
