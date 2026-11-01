@@ -6,6 +6,9 @@ import {
 } from "@playwright/test";
 import { spawn } from "node:child_process";
 import path from "node:path";
+import { readFileSync } from "node:fs";
+import { gunzipSync } from "node:zlib";
+import { createHash } from "node:crypto";
 import { freePort } from "./workflow-peer";
 
 const root = path.resolve("..");
@@ -13,7 +16,7 @@ async function controller(
   name: string,
   modules: number,
   value = 21,
-  native = false,
+  native: boolean | "signal-default" = false,
 ) {
   const port = await freePort();
   const child = spawn(
@@ -31,13 +34,16 @@ async def main():
  app.device_object.objectName=sys.argv[2]
  point=app.get_object_id(ObjectIdentifier(('analog-input',1)))
  point.presentValue=float(sys.argv[4])
- if sys.argv[5]=='true':
+ if sys.argv[5] in ('true','signal-default'):
   import types
   from tests.test_bacnet_files import FilePeer
   from tests.test_controller_application import authored_application
   from bacpypes3.object import FileObject,AnalogValueObject
   from bacpypes3.basetypes import DateTime
   app.payload=authored_application()
+  if sys.argv[5]=='signal-default':
+   from tests.test_moi_signal_defaults import source
+   app.payload=source(compressed=True)
   app.stream=FileObject(objectIdentifier=('file',31),objectName='Controller/Archive',description='Authored application file',fileType='.moi',fileSize=len(app.payload),modificationDate=DateTime('2026-01-05 12:00:00'),archive=False,readOnly=True,fileAccessMethod='stream-access')
   app.add_object(app.stream)
   app.device_object.configurationFiles=[app.stream.objectIdentifier]
@@ -338,6 +344,330 @@ test("Program reads a controller's published native application and displays act
     await native.getByLabel("Actual native program diagram").screenshot({
       path: test.info().outputPath("native-controller-application.png"),
     });
+  } finally {
+    device.close();
+  }
+});
+
+async function signalEditor(page: Page, endpoint: string, name: string) {
+  await openController(page, endpoint, name);
+  await tasks(page)
+    .getByRole("button", { name: "Program", exact: true })
+    .click();
+  const native = page.getByRole("region", {
+    name: "Native controller application",
+    exact: true,
+  });
+  await native
+    .getByRole("button", { name: "Read controller application", exact: true })
+    .click();
+  await expect(native).toContainText("4 native records", { timeout: 30000 });
+  await native
+    .getByLabel("Controller program block")
+    .selectOption("site/575_1.2_10");
+  return page.getByRole("region", {
+    name: "Native signal default file copy",
+    exact: true,
+  });
+}
+
+test("native signal copies retain source-bound drafts and download exact reviewed Real bytes", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(90000);
+  const device = await controller(
+    "Authored native defaults",
+    0,
+    21,
+    "signal-default",
+  );
+  await session(request);
+  try {
+    await interfaceSetup(page);
+    const response = page.waitForResponse(
+      "**/api/bacnet/controller/application/read",
+    );
+    const editor = await signalEditor(
+      page,
+      device.endpoint,
+      "Authored native defaults",
+    );
+    await expect(editor.locator("p").first()).toHaveCSS("font-size", "14px");
+    await expect(editor.getByLabel("Proposed signal default")).toHaveCSS(
+      "font-size",
+      "14px",
+    );
+    const report = await (await response).json();
+    const original = gunzipSync(
+      await (
+        await request.get(
+          `/api/bacnet/files/captures/${report.receipt.id}/export`,
+        )
+      ).body(),
+    );
+    await editor.getByLabel("Proposed signal default").fill("1e-");
+    await page
+      .getByLabel("Controller program block")
+      .selectOption("site/575_1.2_11");
+    await expect(editor.getByLabel("Proposed signal default")).toHaveValue(
+      "24.5",
+    );
+    await editor.getByLabel("Proposed signal default").fill("27.5");
+    await tasks(page)
+      .getByRole("button", { name: "Points & I/O", exact: true })
+      .click();
+    await tasks(page)
+      .getByRole("button", { name: "Program", exact: true })
+      .click();
+    await page
+      .getByLabel("Controller program block")
+      .selectOption("site/575_1.2_10");
+    await expect(editor.getByLabel("Proposed signal default")).toHaveValue(
+      "1e-",
+    );
+    await editor
+      .getByRole("button", { name: "Review file copy", exact: true })
+      .click();
+    await expect(editor.getByRole("alert")).toContainText(
+      "finite decimal text",
+    );
+    await editor.getByLabel("Proposed signal default").fill("0.1");
+    const reviewed = page.waitForResponse("**/signal-default/preview");
+    await editor
+      .getByRole("button", { name: "Review file copy", exact: true })
+      .click();
+    const review = await (await reviewed).json();
+    await expect(editor).toContainText("0.10000000149011612");
+    await expect(editor).toContainText("rounds to the displayed float32");
+    await editor
+      .getByText("File-copy review evidence", { exact: true })
+      .click();
+    await expect(editor).toContainText("3dcccccd");
+    const download = page.waitForEvent("download");
+    await editor
+      .getByRole("button", { name: "Save edited File copy", exact: true })
+      .click();
+    const saved = await download;
+    expect(saved.suggestedFilename()).toBe(
+      "controller-signal-default-copy.moi",
+    );
+    const bytes = gunzipSync(readFileSync((await saved.path())!));
+    const expected = Buffer.from(original);
+    expected.writeUInt32BE(0x3dcccccd, review.edit.native_byte_offset);
+    expect(bytes.equals(expected)).toBeTruthy();
+    expect(createHash("sha256").update(original).digest("hex")).toBe(
+      review.edit.native_source_sha256,
+    );
+    const unchanged = await (
+      await request.get(
+        `/api/bacnet/files/captures/${report.receipt.id}/export`,
+      )
+    ).body();
+    expect(createHash("sha256").update(unchanged).digest("hex")).toBe(
+      report.receipt.sha256,
+    );
+    await expect(editor).toContainText("no controller write");
+    await page
+      .getByLabel("Controller program block")
+      .selectOption("site/575_1.2_11");
+    await expect(editor.getByLabel("Proposed signal default")).toHaveValue(
+      "27.5",
+    );
+    await page.screenshot({
+      path: test.info().outputPath("native-default-copy.png"),
+      fullPage: true,
+    });
+  } finally {
+    device.close();
+  }
+});
+
+test("native signal copy retires late reviews and rejects an altered download digest", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(90000);
+  const device = await controller(
+    "Authored source guards",
+    0,
+    21,
+    "signal-default",
+  );
+  await session(request);
+  try {
+    await interfaceSetup(page);
+    const editor = await signalEditor(
+      page,
+      device.endpoint,
+      "Authored source guards",
+    );
+    let release: (() => void) | undefined;
+    await page.route("**/signal-default/preview", async (route) => {
+      const response = await route.fetch();
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      await route.fulfill({ response });
+    });
+    await editor.getByLabel("Proposed signal default").fill("25");
+    const latePreview = page.waitForResponse("**/signal-default/preview");
+    await editor
+      .getByRole("button", { name: "Review file copy", exact: true })
+      .click();
+    await expect.poll(() => Boolean(release)).toBeTruthy();
+    await editor.getByLabel("Proposed signal default").fill("26");
+    release!();
+    await latePreview;
+    await page.unroute("**/signal-default/preview");
+    await expect(
+      editor.getByRole("button", {
+        name: "Save edited File copy",
+        exact: true,
+      }),
+    ).toHaveCount(0);
+    await editor
+      .getByRole("button", { name: "Review file copy", exact: true })
+      .click();
+    await expect(editor).toContainText("Proposed text: 26");
+    const downloads: string[] = [];
+    page.on("download", (download) =>
+      downloads.push(download.suggestedFilename()),
+    );
+    await page.route("**/signal-default/export", async (route) => {
+      const response = await route.fetch();
+      await route.fulfill({
+        response,
+        headers: { ...response.headers(), "x-output-sha256": "0".repeat(64) },
+      });
+    });
+    await editor
+      .getByRole("button", { name: "Save edited File copy", exact: true })
+      .click();
+    await expect(editor.getByRole("alert")).toContainText(
+      "File evidence does not match",
+    );
+    expect(downloads).toEqual([]);
+    await expect(editor.getByLabel("Proposed signal default")).toHaveValue(
+      "26",
+    );
+    await expect(
+      editor.getByRole("button", { name: "Review file copy", exact: true }),
+    ).toBeEnabled();
+  } finally {
+    device.close();
+  }
+});
+
+test("native signal draft and pending export cannot move to a different controller with the same Device ID", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(90000);
+  const first = await controller("Default owner A", 0, 21, "signal-default"),
+    second = await controller("Default owner B", 0, 33, "signal-default");
+  await session(request);
+  let release: (() => void) | undefined;
+  try {
+    await interfaceSetup(page);
+    const editor = await signalEditor(page, first.endpoint, "Default owner A");
+    await editor.getByLabel("Proposed signal default").fill("28");
+    await editor
+      .getByRole("button", { name: "Review file copy", exact: true })
+      .click();
+    await expect(
+      editor.getByRole("button", {
+        name: "Save edited File copy",
+        exact: true,
+      }),
+    ).toBeVisible();
+    const downloads: string[] = [];
+    page.on("download", (download) =>
+      downloads.push(download.suggestedFilename()),
+    );
+    const lateExport = page.waitForResponse("**/signal-default/export");
+    await page.route("**/signal-default/export", async (route) => {
+      const response = await route.fetch();
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      await route.fulfill({ response });
+    });
+    await editor
+      .getByRole("button", { name: "Save edited File copy", exact: true })
+      .click();
+    await expect.poll(() => Boolean(release)).toBeTruthy();
+    await page
+      .getByRole("button", { name: "Change controller", exact: true })
+      .click();
+    await signalEditor(page, second.endpoint, "Default owner B");
+    await expect(editor.getByLabel("Proposed signal default")).toHaveValue(
+      "23.5",
+    );
+    release!();
+    await lateExport;
+    await page.unroute("**/signal-default/export");
+    await page
+      .getByRole("button", { name: "Change controller", exact: true })
+      .click();
+    await signalEditor(page, first.endpoint, "Default owner A");
+    await expect(editor.getByLabel("Proposed signal default")).toHaveValue(
+      "28",
+    );
+    await expect(
+      editor.getByRole("button", {
+        name: "Save edited File copy",
+        exact: true,
+      }),
+    ).toHaveCount(0);
+    expect(downloads).toEqual([]);
+  } finally {
+    release?.();
+    first.close();
+    second.close();
+  }
+});
+
+test("native signal storage failure remains visible and keyboard review still works", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(90000);
+  const device = await controller(
+    "Default storage failure",
+    0,
+    21,
+    "signal-default",
+  );
+  await session(request);
+  await page.addInitScript(() => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key.startsWith("bms-native-signal-copy/1/"))
+        throw new DOMException(
+          "Authored storage failure",
+          "QuotaExceededError",
+        );
+      return original.call(this, key, value);
+    };
+  });
+  try {
+    await interfaceSetup(page);
+    const editor = await signalEditor(
+      page,
+      device.endpoint,
+      "Default storage failure",
+    );
+    await editor.getByLabel("Proposed signal default").fill("-0");
+    await expect(editor.getByRole("status")).toContainText(
+      "Keep this view open to retain this draft",
+    );
+    await editor.getByLabel("Proposed signal default").press("Enter");
+    await expect(editor).toContainText("Stored Real: -0");
+    await editor
+      .getByText("File-copy review evidence", { exact: true })
+      .click();
+    await expect(editor).toContainText("80000000");
   } finally {
     device.close();
   }

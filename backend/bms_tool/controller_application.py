@@ -10,6 +10,9 @@ from pydantic import Field, field_validator
 
 from .device_details import DeviceDetails, DeviceDetailsRequest
 from .moi_application import MoiApplication
+from .moi_identity import seal
+from .moi_signal_defaults import PROFILE as SIGNAL_COPY_PROFILE
+from .moi_signal_defaults import MoiSignalDefaults
 
 
 class ApplicationReadRequest(DeviceDetailsRequest):
@@ -32,6 +35,17 @@ class ApplicationCaptureRequest(DeviceDetailsRequest):
 
 class ApplicationDiagramRequest(ApplicationCaptureRequest):
     ref: str = Field(min_length=1, max_length=512)
+
+
+class SignalDefaultPreviewRequest(ApplicationCaptureRequest):
+    source_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    record_ref: str = Field(min_length=1, max_length=512)
+    encoded_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    value_text: str = Field(min_length=1, max_length=128)
+
+
+class SignalDefaultExportRequest(SignalDefaultPreviewRequest):
+    review_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
 
 
 class ControllerApplication:
@@ -101,16 +115,55 @@ class ControllerApplication:
                 "The application capture belongs to a different controller route or interface."
             )
         application = self._application(receipt, data)
+        try:
+            signal_copy = MoiSignalDefaults(data).capabilities()
+        except ValueError as failure:
+            signal_copy = {
+                "profile": SIGNAL_COPY_PROFILE,
+                "available": False,
+                "reason": str(failure)[:256],
+            }
         return {
             "target": self._target(options),
             "connector_config": receipt["connector_config"],
             "receipt": receipt,
             "application": application.summary(),
+            "signal_default_copy": signal_copy,
             "source_kind": "controller-file-capture",
             "read_only": True,
             "identity_verified": False,
             "status": "recorded",
         }
+
+    def signal_default_copy(self, request, *, export=False):
+        dto = SignalDefaultExportRequest if export else SignalDefaultPreviewRequest
+        options = dto.model_validate(request)
+        receipt, data = self.files.capture_data(options.capture_id)
+        if not self._matches(receipt, options):
+            raise ValueError(
+                "The signal source belongs to a different controller route or interface."
+            )
+        edit_request = options.model_dump(
+            include={"source_sha256", "record_ref", "encoded_sha256", "value_text"}
+        )
+        compiler = MoiSignalDefaults(data)
+        edit = compiler.preview(**edit_request)
+        body = {
+            "profile": SIGNAL_COPY_PROFILE,
+            "capture_id": options.capture_id,
+            "target": self._target(options),
+            "connector_sha256": seal(receipt["connector_config"]),
+            "edit": edit,
+            "field_actions": False,
+            "controller_write": False,
+        }
+        review = {**body, "review_sha256": seal(body)}
+        if not export:
+            return review
+        if options.review_sha256 != review["review_sha256"]:
+            raise ValueError("The local file review changed; review again before saving a copy.")
+        output, evidence = compiler.export(plan_sha256=edit["plan_sha256"], **edit_request)
+        return output, {**review, "output": evidence}
 
     def captures(self, request):
         options = DeviceDetailsRequest.model_validate(request)
