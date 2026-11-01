@@ -1312,5 +1312,14 @@
     "pdf_pages_or_section": "docs/device-instance-commissioning.md",
     "status": "implemented",
     "implementation_or_gap": "Guided local router discovery and router/trunk/controller selectors fill exact commissioning targets; verified names reuse the shared Scan inventory. Explicit standard Device.object-identifier WriteProperty to a pinned IPv4 or router/DNET/MAC station. One-use identity/configuration-bound review, scoped new-ID collision checks, site allocation confirmation, fresh preflight, single-attempt dispatch, durable intent/results, readback and restart reconciliation. Unsupported/read-only controllers require vendor tooling; no proprietary application transfer, reset, automatic retry/rollback or physical-controller acceptance claim. See docs/device-instance-commissioning.md."
+  },
+  {
+    "id": "FMT-SIGNAL-DEFAULT-COPY-001",
+    "feature": "Reviewed native Real signal default file copies",
+    "acceptance_criterion": "Review and save a separate captured tagged-MOI copy changing only an eligible existing Input/Output Float Real Default Value payload, preserving every other expanded byte and the original source.",
+    "evidence": "Retained native JCI class/attribute dictionaries; independently authored native records, BACnet Real encoder, production HTTP and actual UDP peers.",
+    "pdf_pages_or_section": "docs/native-signal-default-copies.md",
+    "status": "implemented",
+    "implementation_or_gap": "Profile tagged-moi-signal-default-copy/1 supports classes 526/527, property 3113, ordinary finite four-byte Real in fully framed native sources. Source/property/route/configuration/review guards, explicit float32 rounding/bits, signed zero, exact no-op, unknown-record preservation, source-bound browser drafts and digest-verified copies. No field requests, saved-parameter edit, general logic generation, CCT reopening, release/package/firmware compatibility, deployment or physical acceptance claim."
   }
 ]

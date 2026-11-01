@@ -8,6 +8,7 @@ import {
   ReactFlowProvider,
 } from "@xyflow/react";
 import { api } from "./api";
+import { NativeSignalDefaultCopy } from "./NativeSignalDefaultCopy";
 import { controllerKey, type ControllerContext } from "./workflow";
 import "./controller-application.css";
 
@@ -134,6 +135,9 @@ export function ControllerApplicationPanel({
   const block = diagram?.blocks.find(
     (entry: RecordValue) => entry.ref === selected,
   );
+  const defaultProperty = block?.properties.find(
+    (prop: RecordValue) => prop.id === 3113 && prop.scalar?.datatype === "Real",
+  );
   useEffect(() => {
     const epoch = ++valueGeneration.current;
     let timer: number | undefined;
@@ -258,9 +262,9 @@ export function ControllerApplicationPanel({
           </p>
           <p>
             {report.application.record_count} native records ·{" "}
-            {report.application.diagrams.length} readable diagrams. Native
-            application editing, compilation and download are unavailable for
-            this format.
+            {report.application.diagrams.length} readable diagrams. General
+            native logic generation remains unavailable. Supported local edits
+            appear beside the captured property.
           </p>
           <label>
             Application diagram
@@ -355,6 +359,24 @@ export function ControllerApplicationPanel({
                       ))}
                     </tbody>
                   </table>
+                  {report.signal_default_copy?.candidate_refs?.includes(
+                    block.ref,
+                  ) &&
+                    defaultProperty && (
+                      <NativeSignalDefaultCopy
+                        key={JSON.stringify([
+                          source,
+                          capture,
+                          block.ref,
+                          defaultProperty.encoded_sha256,
+                        ])}
+                        controller={controller}
+                        capture={capture}
+                        sha256={report.receipt.sha256}
+                        block={block}
+                        property={defaultProperty}
+                      />
+                    )}
                   <h4>Live BACnet value</h4>
                   <p>
                     Read from the selected controller when this block exposes a

@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 146 scoped criteria: 92
+The public requirement register currently records 147 scoped criteria: 93
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -263,3 +263,20 @@ loss report or refusal, never a plausible but incorrect exported program.
 
 This roadmap publishes the plan and preserved ideas only. Application source,
 graphics and current field behavior are unchanged by its publication.
+
+
+## 2026-10-31 JCI-02/JCI-03 delivery: signal default file copies
+
+The new scoped `FMT-SIGNAL-DEFAULT-COPY-001` criterion is implemented. Program
+provides reviewed local copies of existing finite Real Default Value fields in
+fully framed native Input Float/Output Float records. Only the four expanded
+payload bytes may change; originals, unknown records and metadata are retained.
+Exact source/property/route/configuration/review ownership and explicit rounding
+are checked before a digest-verified download. Draft text remains attached to its
+original source and station. See [the profile](docs/native-signal-default-copies.md).
+
+JCI-02 and JCI-03 remain partial overall. This delivery adds no field write or
+native-file upload entry path, saved-parameter update, arbitrary parameter/logic
+compiler, resource/package/release qualification, CCT reopen result or physical
+controller acceptance. The current operation family does not require a vendor
+runtime; general native compilation still needs independent acceptance evidence.

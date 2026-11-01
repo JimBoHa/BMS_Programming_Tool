@@ -48,6 +48,30 @@
   max-height: 18rem;
   overflow: auto;
 }
+.native-signal-copy {
+  margin-block: 24px;
+  padding: 16px;
+  border: 1px solid var(--border, #cedcdd);
+  border-left: 4px solid #247e82;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.native-signal-copy input {
+  width: min(100%, 24rem);
+  box-sizing: border-box;
+}
+.native-signal-copy p,
+.native-signal-copy label,
+.native-signal-copy input {
+  font-size: 14px;
+}
+.native-signal-copy details {
+  margin-block: 16px;
+  font-size: 12px;
+}
+.native-signal-copy details p {
+  font-size: 12px;
+}
 @media (max-width: 800px) {
   .native-application-heading {
     flex-direction: column;

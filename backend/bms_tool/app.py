@@ -50,6 +50,8 @@ from .controller_application import (
     ApplicationDiagramRequest,
     ApplicationReadRequest,
     ControllerApplication,
+    SignalDefaultExportRequest,
+    SignalDefaultPreviewRequest,
 )
 from .controller_workspace import (
     ControllerInventoryRequest,
@@ -1783,6 +1785,24 @@ def create_app(state_dir=None, *, operation_power=None):
     @app.post("/api/bacnet/controller/application/diagram")
     def controller_application_diagram(body: ApplicationDiagramRequest):
         return controller_application.diagram(body.model_dump())
+
+    @app.post("/api/bacnet/controller/application/signal-default/preview")
+    def controller_signal_default_preview(body: SignalDefaultPreviewRequest):
+        return controller_application.signal_default_copy(body.model_dump())
+
+    @app.post("/api/bacnet/controller/application/signal-default/export")
+    def controller_signal_default_export(body: SignalDefaultExportRequest):
+        content, review = controller_application.signal_default_copy(body.model_dump(), export=True)
+        return Response(
+            content,
+            media_type="application/octet-stream",
+            headers={
+                "Content-Disposition": 'attachment; filename="controller-signal-default-copy.moi"',
+                "X-Source-SHA256": review["edit"]["source_sha256"],
+                "X-Output-SHA256": review["output"]["output_sha256"],
+                "X-Edit-Review-SHA256": review["review_sha256"],
+            },
+        )
 
     @app.post("/api/enum-mapping/review")
     async def enum_mapping_review(body: EnumMappingRequest):
