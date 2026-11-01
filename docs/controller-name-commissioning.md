@@ -1,5 +1,10 @@
 # Change a connected controller name
 
+The separate [previous-name recovery profile](native-controller-name-recovery.md)
+derives a local previous name from verified immutable transfer/source evidence.
+It requires a fresh confirmed name-only review, transfer and readback; the old
+receipt cannot authorize another write.
+
 Open the exact controller from its router/trunk scan or verified direct address.
 Choose **Overview → Edit controller name**, read its application backup, enter the
 new name and select **Review name change**. Confirm the name-only change and the

@@ -7,8 +7,22 @@ import {
   saveBlob,
 } from "./api";
 import type { DeviceInstanceProps } from "./DeviceInstancePanel";
+import {
+  nameRecoveryProfile,
+  nameRecoveryReceiptMatches,
+  nameRecoveryReviewMatches,
+  previousNameMatches,
+  sameNameTarget,
+} from "./nativeNameRecoveryContract";
 
 const base = "/bacnet/controller/native-application";
+type LocalNameWork = {
+  capture: any;
+  receipt: any;
+  newName: string;
+  recovery: any;
+};
+const localNameWork = new Map<string, LocalNameWork>();
 
 export function NativeInstancePanel(
   props: DeviceInstanceProps & { changeKind?: "name" | "instance" },
@@ -21,6 +35,10 @@ export function NativeInstancePanel(
   const [status, setStatus] = useState<any>(null);
   const [number, setNumber] = useState("");
   const [newName, setNewName] = useState("");
+  const [recovery, setRecovery] = useState<any>(null);
+  const [nameSources, setNameSources] = useState<any[]>([]);
+  const [localBusy, setLocalBusy] = useState(false);
+  const recoveryFocus = useRef<HTMLElement | null>(null);
   const [allocated, setAllocated] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [backup, setBackup] = useState("");
@@ -43,6 +61,26 @@ export function NativeInstancePanel(
     props.changeKind,
   ]);
   const [hydrated, setHydrated] = useState("");
+  const localReady = hydrated === selection;
+  const recoveryActive =
+    renaming &&
+    localReady &&
+    recovery &&
+    capture &&
+    receipt &&
+    previousNameMatches(recovery.data, capture, receipt);
+  const proposedName =
+    recoveryActive && recovery.data.proposal
+      ? recovery.data.proposal.new_name
+      : newName;
+  const captureMatchesTarget =
+    capture &&
+    sameNameTarget(capture.target ?? {}, {
+      address: props.defaultAddress,
+      router: props.defaultRouter || null,
+      dnet: props.defaultDnet,
+    }) &&
+    capture.identity?.device === props.defaultDevice;
   const ready =
     props.connected &&
     hydrated === selection &&
@@ -81,12 +119,36 @@ export function NativeInstancePanel(
     setCapture(null);
     setPlan(null);
     setNumber("");
-    setNewName("");
+    const saved = renaming ? localNameWork.get(selection) : null;
+    setNewName(saved?.newName ?? "");
+    if (renaming) {
+      setCapture(saved?.capture ?? null);
+      setReceipt(saved?.receipt ?? null);
+    }
+    setRecovery(saved?.recovery ?? null);
+    setNameSources([]);
+    setLocalBusy(false);
     setAllocated(false);
     setConfirmed(false);
     setError("");
     setHydrated(selection);
   }, [selection]);
+  useEffect(() => {
+    if (!renaming || !localReady) return;
+    localNameWork.delete(selection);
+    localNameWork.set(selection, { capture, receipt, newName, recovery });
+    while (localNameWork.size > 32)
+      localNameWork.delete(localNameWork.keys().next().value!);
+  }, [selection, renaming, localReady, capture, receipt, newName, recovery]);
+  useEffect(() => {
+    if (!renaming) return;
+    const retire = () => {
+      generation.current++;
+      setLocalBusy(false);
+    };
+    document.addEventListener("visibilitychange", retire);
+    return () => document.removeEventListener("visibilitychange", retire);
+  }, [renaming]);
   useEffect(() => {
     if (!plan && !busy) return;
     const timer = window.setInterval(() => {
@@ -112,6 +174,103 @@ export function NativeInstancePanel(
     setNewName(value);
   }
 
+  function discardRecovery() {
+    cancel();
+    generation.current++;
+    setPlan(null);
+    setRecovery(null);
+    setAllocated(false);
+    setConfirmed(false);
+    setLocalBusy(false);
+  }
+  async function nameLocal(
+    kind: "sources" | "source" | "prepare",
+    sourceId = "",
+  ) {
+    if (!renaming || locked || !localReady) return;
+    cancel();
+    setPlan(null);
+    setAllocated(false);
+    setConfirmed(false);
+    const epoch = ++generation.current,
+      receiptGeneration = receiptEpoch.current;
+    setLocalBusy(true);
+    setError("");
+    if (kind !== "sources") setRecovery(null);
+    try {
+      if (kind === "sources") {
+        const data = await api(base + "/signal-default/sources");
+        if (mounted.current && epoch === generation.current)
+          setNameSources(data.sources ?? []);
+      } else if (kind === "source") {
+        const row = nameSources.find((item) => item.id === sourceId);
+        if (!row) throw new Error("Choose a retained name source again.");
+        setCapture(null);
+        const data = await api(base + "/name/recovery/source", {
+          capture_id: row.id,
+          snapshot_sha256: row.evidence_sha256,
+        });
+        if (
+          data.profile !== "native-controller-name-recovery-source/1" ||
+          data.read_only !== true ||
+          data.controller_queries !== false ||
+          data.field_actions !== false ||
+          data.files?.["3"]?.sha256 !== data.sha256 ||
+          data.capture_id !== row.id ||
+          data.snapshot_sha256 !== row.evidence_sha256 ||
+          !sameNameTarget(data.target ?? {}, row.target ?? {}) ||
+          data.target?.device !== row.device ||
+          data.identity?.["object-name"] !== row.identity?.["object-name"]
+        )
+          throw new Error("The retained name source changed; select it again.");
+        if (mounted.current && epoch === generation.current)
+          setCapture({
+            ...data,
+            id: data.capture_id,
+            snapshot_evidence_sha256: data.snapshot_sha256,
+            identity: { ...data.identity, device: data.target.device },
+          });
+      } else {
+        if (
+          !capture ||
+          !receipt ||
+          status?.controller_name_recovery_profile !== nameRecoveryProfile
+        )
+          throw new Error(
+            "Select a retained name transfer and complete backup.",
+          );
+        const document = await apiJsonDocument(
+          base + "/name/recovery/prepare",
+          {
+            receipt_id: receipt.intent.id,
+            capture_id: capture.id,
+            snapshot_sha256: capture.snapshot_evidence_sha256,
+          },
+        );
+        if (!previousNameMatches(document.data, capture, receipt))
+          throw new Error(
+            "The previous-name evidence does not match this backup and receipt.",
+          );
+        if (
+          mounted.current &&
+          epoch === generation.current &&
+          receiptGeneration === receiptEpoch.current
+        ) {
+          setRecovery(document);
+          requestAnimationFrame(() => {
+            if (mounted.current && epoch === generation.current)
+              recoveryFocus.current?.focus();
+          });
+        }
+      }
+    } catch (failure) {
+      if (mounted.current && epoch === generation.current)
+        setError(String(failure));
+    } finally {
+      if (mounted.current && epoch === generation.current) setLocalBusy(false);
+    }
+  }
+
   async function run(
     kind: "capture" | "preview" | "apply" | "readback" | "credentials",
   ) {
@@ -122,6 +281,10 @@ export function NativeInstancePanel(
     )
       return;
     if (["capture", "preview", "apply"].includes(kind) && !ready) return;
+    if (renaming && ["capture", "preview"].includes(kind)) {
+      generation.current++;
+      setLocalBusy(false);
+    }
     const id = "native-" + crypto.randomUUID(),
       epoch = generation.current,
       receiptGeneration = ++receiptEpoch.current;
@@ -142,6 +305,7 @@ export function NativeInstancePanel(
         setRestore("");
         setPlan(null);
       } else if (kind === "capture") {
+        setRecovery(null);
         setPlan(null);
         setCapture(null);
         setAllocated(false);
@@ -157,7 +321,7 @@ export function NativeInstancePanel(
           (!/^(0|[1-9][0-9]*)$/.test(number) || Number(number) > 4194302)
         )
           throw new Error("Enter a Device instance from 0 through 4194302.");
-        if (renaming && (!newName || newName.trim() !== newName))
+        if (renaming && (!proposedName || proposedName.trim() !== proposedName))
           throw new Error(
             "Enter the controller name without surrounding whitespace.",
           );
@@ -165,15 +329,40 @@ export function NativeInstancePanel(
         setAllocated(false);
         setConfirmed(false);
         review.current = id;
-        const result = await api(base + "/preview", {
-          ...target,
-          operation_id: id,
-          capture_id: capture.id,
-          new_instance: renaming
-            ? Number(capture.identity.device.split(",")[1])
-            : Number(number),
-          ...(renaming ? { new_name: newName } : {}),
-        });
+        const result = await api(
+          base +
+            (recoveryActive && recovery.data.proposal
+              ? "/name/recovery/preview"
+              : "/preview"),
+          {
+            ...target,
+            operation_id: id,
+            capture_id: capture.id,
+            new_instance: renaming
+              ? Number(capture.identity.device.split(",")[1])
+              : Number(number),
+            ...(renaming ? { new_name: proposedName } : {}),
+            ...(recoveryActive && recovery.data.proposal
+              ? {
+                  snapshot_sha256: capture.snapshot_evidence_sha256,
+                  recovery_parent_receipt:
+                    recovery.data.origin.parent_receipt_id,
+                  recovery_origin_sha256: recovery.data.origin_sha256,
+                }
+              : {}),
+          },
+        );
+        if (
+          recoveryActive &&
+          !nameRecoveryReviewMatches(result, recovery.data, capture)
+        ) {
+          void apiKeepalive(base + "/cancel", { operation_id: id }).catch(
+            () => {},
+          );
+          throw new Error(
+            "The name-recovery review differs from its prepared source.",
+          );
+        }
         if (mounted.current && epoch === generation.current) {
           setPlan(result);
           setNow(Date.now());
@@ -197,17 +386,33 @@ export function NativeInstancePanel(
             name_change_confirmed: renaming && allocated,
             application_transfer_confirmed: confirmed,
           });
+          if (
+            p.recovery_origin?.profile === nameRecoveryProfile &&
+            !nameRecoveryReceiptMatches(result, p)
+          )
+            throw new Error(
+              "The name-recovery receipt differs from the reviewed transfer. Open its retained evidence before readback.",
+            );
         } else
           result = await api(base + "/readback", {
             operation_id: id,
             receipt_id: receipt.intent.id,
           });
         if (mounted.current && receiptGeneration === receiptEpoch.current) {
+          if (
+            kind === "readback" &&
+            receipt.intent.recovery_origin?.profile === nameRecoveryProfile &&
+            !nameRecoveryReceiptMatches(result, receipt.intent)
+          )
+            throw new Error(
+              "The name-recovery readback differs from its retained receipt.",
+            );
           setReceipt(result);
           const observed =
             result.events?.filter((e: any) => e.stage === "readback").at(-1)
               ?.detail || result.result;
           if (epoch === generation.current && observed?.status === "verified") {
+            setRecovery(null);
             setCapture(null);
             setNumber("");
             setNewName("");
@@ -228,6 +433,7 @@ export function NativeInstancePanel(
     }
   }
   async function loadReceipt(id: string) {
+    if (renaming) discardRecovery();
     const epoch = ++receiptEpoch.current;
     try {
       const result = await api(base + "/receipts/" + id);
@@ -358,6 +564,119 @@ export function NativeInstancePanel(
             </button>
           )}
         </div>
+        {renaming && localReady && (
+          <details>
+            <summary>Previous controller name</summary>
+            <p className="help-text">
+              Compare a resolved name-transfer receipt with an explicitly
+              selected retained backup. Preparation works offline and creates a
+              local proposal. Applying it requires another confirmed review and
+              transfer.
+            </p>
+            <div className="button-row">
+              <button
+                disabled={locked || localBusy}
+                onClick={() => void nameLocal("sources")}
+              >
+                Load retained name backups
+              </button>
+              <button
+                disabled={
+                  locked ||
+                  localBusy ||
+                  !capture ||
+                  !receipt ||
+                  receipt.pending ||
+                  receipt.intent?.change_kind !== "name" ||
+                  status?.controller_name_recovery_profile !==
+                    nameRecoveryProfile
+                }
+                onClick={() => void nameLocal("prepare")}
+              >
+                Prepare previous controller name
+              </button>
+            </div>
+            {!!nameSources.length && (
+              <label>
+                Name recovery backup
+                <select
+                  aria-label="Name recovery backup"
+                  value={
+                    nameSources.some((row) => row.id === capture?.id)
+                      ? capture?.id
+                      : ""
+                  }
+                  disabled={locked || localBusy}
+                  onChange={(event) =>
+                    void nameLocal("source", event.target.value)
+                  }
+                >
+                  <option value="" disabled>
+                    Choose a retained backup
+                  </option>
+                  {nameSources.map((row) => (
+                    <option key={row.id} value={row.id}>
+                      {row.captured_at} · {row.identity?.["object-name"]} ·{" "}
+                      {row.target.address}
+                      {row.target.router
+                        ? ` via ${row.target.router}`
+                        : ""} · {row.device}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {localBusy && <p role="status">Reading retained name evidence…</p>}
+          </details>
+        )}
+        {recoveryActive && (
+          <section
+            aria-label="Previous controller name proposal"
+            tabIndex={-1}
+            ref={recoveryFocus}
+          >
+            <h3>Previous controller name</h3>
+            <p>
+              {recovery.data.current_name} → {recovery.data.previous_name} ·
+              Device {recovery.data.origin.instance}
+            </p>
+            <p>
+              {recovery.data.already_recorded
+                ? "This retained backup already records the previous name. It does not verify the current controller."
+                : "Local proposal only. Other current saved settings remain current. Review and confirm a new transfer to apply this name."}
+            </p>
+            <p className="help-text">
+              Source: {capture.target.address}
+              {capture.target.router ? ` via ${capture.target.router}` : ""} ·
+              captured {capture.captured_at}
+            </p>
+            <div className="button-row">
+              <button disabled={locked} onClick={discardRecovery}>
+                Return to ordinary name draft
+              </button>
+              <button
+                disabled={locked}
+                onClick={() =>
+                  saveBlob(
+                    recovery.blob,
+                    `native-name-recovery-${receipt.intent.id}.json`,
+                  )
+                }
+              >
+                Save exact name recovery evidence
+              </button>
+            </div>
+            <details>
+              <summary>Name recovery details</summary>
+              <p>
+                Parent receipt {recovery.data.origin.parent_receipt_id}. Current
+                backup {capture.id}. Original backup{" "}
+                {recovery.data.origin.original_backup_id}.
+              </p>
+              <p>{recovery.data.scope}</p>
+            </details>
+          </section>
+        )}
         {capture && (
           <div aria-label="Captured native application">
             <p>
@@ -378,8 +697,9 @@ export function NativeInstancePanel(
                   <label>
                     New controller name
                     <input
-                      disabled={!ready || locked}
-                      value={newName}
+                      disabled={!localReady || locked}
+                      value={proposedName}
+                      readOnly={!!recoveryActive && !!recovery.data.proposal}
                       maxLength={128}
                       onChange={(event) => editName(event.target.value)}
                     />
@@ -397,7 +717,13 @@ export function NativeInstancePanel(
                 )}
                 <button
                   className={!plan ? "primary" : ""}
-                  disabled={!ready || locked || !(renaming ? newName : number)}
+                  disabled={
+                    !ready ||
+                    locked ||
+                    localBusy ||
+                    (renaming && !captureMatchesTarget) ||
+                    !(renaming ? proposedName : number)
+                  }
                   onClick={() => void run("preview")}
                 >
                   {renaming

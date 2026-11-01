@@ -158,6 +158,7 @@ export function Connections({
     (view === "setup" ||
       view === "settings" ||
       !!controller ||
+      (view === "overview" && tool === "instance") ||
       (view === "changes" && tool === "commands"));
   const discoverActive =
     visible && view === "setup" && setupStep === "discovery";

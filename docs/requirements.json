@@ -1600,5 +1600,14 @@
     "pdf_pages_or_section": "docs/native-historical-wire-pin-recovery.md; docs/native-wire-source-recovery.md; docs/change-ledger.md",
     "status": "implemented",
     "implementation_or_gap": "A separate historical-pin profile reconstructs the original verified forward payload and actual pre-transfer connection. Current original-after image/static directory/route/identity and prior-source non-default signature remain exact; inherited class/prototype/order/cycle/width checks still run. Only the exact previous connection is qualified; ordinary candidate lists/compilers stay unchanged. Local source-bound copies retain exact reviews/bytes and ordinary drafts. New transfer rechecks proof before intent, preserves fresh other settings and records typed provenance for full readback/restart without replay or requiring grandparent files. Recorded ledger metadata alone grants no new write authority. General allocation/packages/restore, name/instance recovery and physical acceptance remain separate; JCI-10 stays partial."
+  },
+  {
+    "id": "COMM-NATIVE-NAME-RECOVERY-001",
+    "feature": "Verified previous controller-name recovery",
+    "acceptance_criterion": "Prepare the exact previous name locally from verified original native receipt/backup evidence, preserve instance and other fresh settings, and require a new confirmed name-only transfer with durable lineage and complete readback without replay.",
+    "evidence": "Authored exact-name/native/saved-byte cases, strict local HTTP, actual direct/routed UDP, restart and Chromium/WebKit workflows.",
+    "pdf_pages_or_section": "docs/native-controller-name-recovery.md; docs/controller-name-commissioning.md; docs/change-ledger.md",
+    "status": "implemented",
+    "implementation_or_gap": "Same-instance name-only operation from resolved historical verification and original payload/manifest/identity/route proof. Current name-normalized original-after image and static directory remain exact; fresh other saved values merge. Separate qualified offline source reader, explicit proposal/ordinary draft, bounded context cache, exact evidence and source/receipt/task/target/interface/visibility ABA guards. New preview/Apply reprepare original proof before intent and preserve native one-use/credential/capacity/ownership/uncertainty/readback behavior. Changes projects recorded typed CharacterString lineage without loading source/parent files or authorizing a write. Instance/general restore and physical acceptance remain separate; JCI-10 stays partial."
   }
 ]

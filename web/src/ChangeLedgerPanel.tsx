@@ -29,6 +29,12 @@ type RecordedRecovery = {
 };
 type NativeRecovery =
   | (RecordedRecovery & {
+      datatype: "CharacterString";
+      instance: number;
+      before_value: string;
+      after_value: string;
+    })
+  | (RecordedRecovery & {
       datatype?: "Real";
       before_bits: string;
       after_bits: string;
@@ -544,7 +550,7 @@ export function ChangeLedgerPanel({
                       {row.native_recovery && (
                         <span>
                           {row.native_recovery.state === "recorded"
-                            ? `${row.native_recovery.datatype === "Wire" ? "Previous wire source recovery" : "Previous-value recovery"} · parent ${row.native_recovery.parent_receipt_id}`
+                            ? `${row.native_recovery.datatype === "Wire" ? "Previous wire source recovery" : row.native_recovery.datatype === "CharacterString" ? "Previous controller name recovery" : "Previous-value recovery"} · parent ${row.native_recovery.parent_receipt_id}`
                             : "Recovery metadata unavailable"}
                         </span>
                       )}
@@ -676,9 +682,11 @@ export function ChangeLedgerPanel({
                     <dt>
                       {choice.native_recovery.datatype === "Wire"
                         ? "Recorded wire change"
-                        : choice.native_recovery.datatype === "Boolean"
-                          ? "Recorded Boolean change"
-                          : "Recorded Real change"}
+                        : choice.native_recovery.datatype === "CharacterString"
+                          ? "Recorded controller name change"
+                          : choice.native_recovery.datatype === "Boolean"
+                            ? "Recorded Boolean change"
+                            : "Recorded Real change"}
                     </dt>
                     <dd>
                       {choice.native_recovery.record_ref} ·{" "}
@@ -690,6 +698,13 @@ export function ChangeLedgerPanel({
                           {choice.native_recovery.before_tuple.join(", ")} to{" "}
                           {choice.native_recovery.after_tuple.join(", ")} ·
                           destination {choice.native_recovery.target_ref}
+                        </>
+                      ) : choice.native_recovery.datatype ===
+                        "CharacterString" ? (
+                        <>
+                          {choice.native_recovery.before_value} to{" "}
+                          {choice.native_recovery.after_value} · Device{" "}
+                          {choice.native_recovery.instance}
                         </>
                       ) : choice.native_recovery.datatype === "Boolean" ? (
                         <>

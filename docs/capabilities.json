@@ -643,5 +643,10 @@
     "feature": "Native recovery using a verified original output pin",
     "status": "implemented",
     "scope": "One previous native connection can use its actual output pin retained in a verified original program when the current diagram no longer contains an outgoing pin. Exact original/current image, directory, identity, route, tuple and current non-default source configuration remain guarded, along with inherited class/order/cycle/width checks. A separate pure local compiler/export and new confirmed one-use transfer retain provenance and full native/effective readback, including after restart. Ordinary candidate lists and compiler defaults are unchanged. No arbitrary caller pins, block/port allocation, new write authority from ledger metadata, general restore or physical acceptance. See docs/native-historical-wire-pin-recovery.md."
+  },
+  {
+    "feature": "Previous native controller-name recovery",
+    "status": "implemented",
+    "scope": "Local exact previous-name proposal from a resolved verified original name-only receipt and complete current retained backup. Require same instance/route/other identity, original payload reconstruction, name-normalized original-after native image and exact static directory. A qualified local source reader supports offline work; source-owned proposals retain ordinary drafts and exact evidence. A separate new confirmed review/Apply revalidates proof, merges fresh other settings and verifies name-only preservation/full native readback. Durable typed lineage and explicit restart readback never replay the old transfer. General restore, instance recovery, allocation/packages and physical acceptance remain separate. See docs/native-controller-name-recovery.md."
   }
 ]
