@@ -97,7 +97,7 @@
   {
     "feature": "CAF application editing",
     "status": "partial",
-    "scope": "Narrow offline scalar patches plus observed native block/wire/order/position inspection, guarded rewires and prototype-checked added connections between existing blocks. Exact old tuple/count, opaque native configuration, proven ports, unused destinations and execution ordering are checked. New block identities, complete application semantics, target compilation and native validation remain pending."
+    "scope": "Narrow offline scalar patches plus observed native block/wire/order/position inspection, guarded rewires and prototype-checked added connections between existing blocks. Exact old tuple/count, opaque native configuration, proven ports, unused destinations and execution ordering are checked. New block allocation, complete application semantics and general native logic compilation/validation remain pending. Separate qualified native instance/name compilation and application transfer are implemented in the MCE/tagged-MOI family; they do not complete general CAF logic generation or hardware deployment. See docs/jci-operation-coverage.md."
   },
   {
     "feature": "Native CAF saved simulation profiles",
@@ -177,7 +177,7 @@
   {
     "feature": "Ethernet and USB serial",
     "status": "partial",
-    "scope": "BACnet/IP, optional IPv4 BBMD foreign-device registration, direct serial legacy MS/TP master, Modbus TCP and Modbus RTU with enumerated serial interfaces. Real UDP/TCP and test-owned OS pseudoterminals verify framed point services. Physical USB/RS485 hardware remains untested. Bluetooth is excluded from the current verification scope."
+    "scope": "BACnet/IP, optional IPv4 BBMD foreign-device registration, direct serial legacy MS/TP master, Modbus TCP and Modbus RTU with enumerated serial interfaces. Real UDP/TCP and test-owned OS pseudoterminals verify framed point services. Physical USB/RS485 hardware remains untested. Bluetooth is excluded from the current verification scope. Direct serial hardware/input survey and existing advertised .moi archive acquisition are supported in their separate read profile, with exact connector/source evidence and real PTY tests. This does not add BTCVT or serial native application transfer. See docs/jci-direct-serial-survey.md."
   },
   {
     "feature": "Direct MS/TP and BTCVT Bluetooth",
@@ -487,7 +487,7 @@
   {
     "feature": "Reviewed controller Device instance commissioning",
     "status": "implemented",
-    "scope": "Guided local router discovery and router/trunk/controller selectors fill exact commissioning targets; verified names reuse the shared Scan inventory. Explicit standard Device.object-identifier WriteProperty to a pinned IPv4 or router/DNET/MAC station. One-use identity/configuration-bound review, scoped new-ID collision checks, site allocation confirmation, fresh preflight, single-attempt dispatch, durable intent/results, readback and restart reconciliation. Unsupported/read-only controllers require vendor tooling; no proprietary application transfer, reset, automatic retry/rollback or physical-controller acceptance claim. See docs/device-instance-commissioning.md."
+    "scope": "Guided verified selection and standard Device.object-identifier WriteProperty use exact IPv4/router-DNET-station context, one-use review, scoped collision checks, allocation confirmation, fresh preflight, single dispatch and durable readback/reconciliation. A retained denial continues to block this property method. The separate qualified native application method is recorded under COMM-NATIVE-INSTANCE-001; no reset, proprietary transfer or physical acceptance is inferred for the standard method. See docs/device-instance-commissioning.md and docs/jci-operation-coverage.md."
   },
   {
     "feature": "Reviewed native Real signal default file copies",
@@ -598,5 +598,20 @@
     "feature": "Responsive workspace navigation and properties",
     "status": "implemented",
     "scope": "Below 900 px, primary navigation, controller explorer, block palette/inspectors and CAF scalar properties use native modal presentation with explicit focus cycling/restoration and retained child instances. Task/tool selectors preserve existing choices and disabled guards. Explicit node activation, repeated selection, stale source retirement, visible property/catalog errors and labelled local/controller context remain distinct from field actions. Desktop layout, graph drag/wiring/undo and source/route acquisition are preserved. Other full-page engineering views keep their task layouts; no new compiler/transfer or physical acceptance claim. See docs/responsive-workspace.md."
+  },
+  {
+    "feature": "Qualified JCI native application and saved-parameter capture",
+    "status": "implemented",
+    "scope": "Vendor-5 MCE/generation-1 tagged-MOI family; direct or pinned routed plain IPv4. Backup-state entry/end and identity checks capture original Files 3/11/12 and private ZIP evidence. This is a native backup-state operation, separate from passive advertised File copying. It excludes firmware/full-device settings, direct serial/BBMD application transfer and unsupported native layouts. See docs/jci-operation-coverage.md."
+  },
+  {
+    "feature": "Qualified native application Device instance compilation and transfer",
+    "status": "implemented",
+    "scope": "Typed generation-1 root identity fields, supported native saved-parameter merge, capacity/source/interface/expiry/collision guards, one-use confirmed File-3 transfer, durable dispatch/uncertainty and explicit reconciliation. Existing 900-second review/1800-second operation/four-second individual File limits remain. Vendor runtime/VM is not required. One physical result does not qualify every model/release; arbitrary logic/CAF compilation and native I/O allocation remain incomplete. See docs/jci-operation-coverage.md."
+  },
+  {
+    "feature": "Qualified native controller-name compilation and transfer",
+    "status": "implemented",
+    "scope": "Root Device-name character encoding/framing is validated and preserved; mixed name/instance edits refuse. The same private original/fresh-parameter/capacity/one-use transfer and durable uncertainty contracts apply, with separately recorded permitted runtime outputs. No separate physical rename acceptance, unknown encoding support, general program edit or native hardware allocation is claimed. See docs/jci-operation-coverage.md."
   }
 ]
