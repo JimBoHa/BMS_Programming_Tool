@@ -199,6 +199,10 @@ def recovery_lineage(body, kind, reference):
         return wire_recovery_lineage(body, reference)
     if kind == "name":
         return name_recovery_lineage(body)
+    if kind == "instance":
+        from .native_instance_ledger import instance_recovery_lineage
+
+        return instance_recovery_lineage(body)
     unavailable = {
         "state": "unavailable",
         "scope": "Recorded recovery metadata is incomplete or inconsistent; inspect original evidence.",

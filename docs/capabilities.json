@@ -648,5 +648,10 @@
     "feature": "Previous native controller-name recovery",
     "status": "implemented",
     "scope": "Local exact previous-name proposal from a resolved verified original name-only receipt and complete current retained backup. Require same instance/route/other identity, original payload reconstruction, name-normalized original-after native image and exact static directory. A qualified local source reader supports offline work; source-owned proposals retain ordinary drafts and exact evidence. A separate new confirmed review/Apply revalidates proof, merges fresh other settings and verifies name-only preservation/full native readback. Durable typed lineage and explicit restart readback never replay the old transfer. General restore, instance recovery, allocation/packages and physical acceptance remain separate. See docs/native-controller-name-recovery.md."
+  },
+  {
+    "feature": "Previous native controller instance recovery",
+    "status": "implemented",
+    "scope": "Local previous unsigned22 Device number from confirmed original and verified-after native sources, unchanged name/route/other identity, exact current original-after image and verified static bindings. Typed root aliases support already-recorded evidence only; projected destination/fresh checks guard latent saved-root activation. Offline sources/drafts/exact reports lead to a separate new confirmed reservation, fresh bounded collision checks, one-use native transfer and complete preservation/readback, with durable ObjectIdentifier lineage and restart without replay. Metadata alone grants no allocation/write. General restore/authoring/packages, physical/BTCVT and whole-internetwork acceptance remain separate. See docs/native-controller-instance-recovery.md."
   }
 ]

@@ -29,6 +29,12 @@ type RecordedRecovery = {
 };
 type NativeRecovery =
   | (RecordedRecovery & {
+      datatype: "ObjectIdentifier";
+      before_instance: number;
+      after_instance: number;
+      unchanged_name: string;
+    })
+  | (RecordedRecovery & {
       datatype: "CharacterString";
       instance: number;
       before_value: string;
@@ -550,7 +556,7 @@ export function ChangeLedgerPanel({
                       {row.native_recovery && (
                         <span>
                           {row.native_recovery.state === "recorded"
-                            ? `${row.native_recovery.datatype === "Wire" ? "Previous wire source recovery" : row.native_recovery.datatype === "CharacterString" ? "Previous controller name recovery" : "Previous-value recovery"} · parent ${row.native_recovery.parent_receipt_id}`
+                            ? `${row.native_recovery.datatype === "Wire" ? "Previous wire source recovery" : row.native_recovery.datatype === "ObjectIdentifier" ? "Previous controller instance recovery" : row.native_recovery.datatype === "CharacterString" ? "Previous controller name recovery" : "Previous-value recovery"} · parent ${row.native_recovery.parent_receipt_id}`
                             : "Recovery metadata unavailable"}
                         </span>
                       )}
@@ -682,11 +688,14 @@ export function ChangeLedgerPanel({
                     <dt>
                       {choice.native_recovery.datatype === "Wire"
                         ? "Recorded wire change"
-                        : choice.native_recovery.datatype === "CharacterString"
-                          ? "Recorded controller name change"
-                          : choice.native_recovery.datatype === "Boolean"
-                            ? "Recorded Boolean change"
-                            : "Recorded Real change"}
+                        : choice.native_recovery.datatype === "ObjectIdentifier"
+                          ? "Recorded controller instance change"
+                          : choice.native_recovery.datatype ===
+                              "CharacterString"
+                            ? "Recorded controller name change"
+                            : choice.native_recovery.datatype === "Boolean"
+                              ? "Recorded Boolean change"
+                              : "Recorded Real change"}
                     </dt>
                     <dd>
                       {choice.native_recovery.record_ref} ·{" "}
@@ -698,6 +707,13 @@ export function ChangeLedgerPanel({
                           {choice.native_recovery.before_tuple.join(", ")} to{" "}
                           {choice.native_recovery.after_tuple.join(", ")} ·
                           destination {choice.native_recovery.target_ref}
+                        </>
+                      ) : choice.native_recovery.datatype ===
+                        "ObjectIdentifier" ? (
+                        <>
+                          Device {choice.native_recovery.before_instance} to{" "}
+                          {choice.native_recovery.after_instance} ·{" "}
+                          {choice.native_recovery.unchanged_name}
                         </>
                       ) : choice.native_recovery.datatype ===
                         "CharacterString" ? (

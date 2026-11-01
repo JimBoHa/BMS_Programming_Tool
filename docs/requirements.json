@@ -1609,5 +1609,14 @@
     "pdf_pages_or_section": "docs/native-controller-name-recovery.md; docs/controller-name-commissioning.md; docs/change-ledger.md",
     "status": "implemented",
     "implementation_or_gap": "Same-instance name-only operation from resolved historical verification and original payload/manifest/identity/route proof. Current name-normalized original-after image and static directory remain exact; fresh other saved values merge. Separate qualified offline source reader, explicit proposal/ordinary draft, bounded context cache, exact evidence and source/receipt/task/target/interface/visibility ABA guards. New preview/Apply reprepare original proof before intent and preserve native one-use/credential/capacity/ownership/uncertainty/readback behavior. Changes projects recorded typed CharacterString lineage without loading source/parent files or authorizing a write. Instance/general restore and physical acceptance remain separate; JCI-10 stays partial."
+  },
+  {
+    "id": "COMM-NATIVE-INSTANCE-RECOVERY-001",
+    "feature": "Verified previous controller instance recovery",
+    "acceptance_criterion": "Derive a local previous Device number from original and verified-after native sources; preserve name and other fresh settings and require a new reserved-number confirmation, fresh collision checks, one-use transfer and full readback without replay.",
+    "evidence": "Literal native/source/directory/alias cases, strict local HTTP, actual direct/routed UDP, real Who-Is/I-Am, restart and Chromium/WebKit workflows.",
+    "pdf_pages_or_section": "docs/native-controller-instance-recovery.md; docs/native-application-transfer.md; docs/change-ledger.md",
+    "status": "implemented",
+    "implementation_or_gap": "Same-route unsigned22 instance-only recovery reconstructs confirmed original payload and historically verified-after source/preservation; current original-after image, identity and verified-after directory remain guarded. Only existing root-selector number bytes normalize for already-recorded evidence; no directory is written. Projected destination and fresh pre-intent checks refuse latent saved-root activation. A separate new confirmed reservation/review/transfer preserves fresh settings and records typed lineage for complete readback/restart without ancestor files or replay. Local source/ordinary drafts/exact evidence and source/receipt/task/target/interface/visibility ownership stay distinct from field actions. Recorded ObjectIdentifier metadata checks both number patches and source/directory bindings without loading sources or allocating numbers. General restore/authoring/packages and physical acceptance remain separate; JCI-10 stays partial."
   }
 ]
