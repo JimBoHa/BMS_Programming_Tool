@@ -1,12 +1,13 @@
 """Operation evidence from one immutable native backup, with no field actions."""
 
 from .moi_boolean_defaults import MoiBooleanDefaults
+from .moi_effective_boolean import compiler_from_snapshot as boolean_compiler_from_snapshot
 from .moi_identity import MoiIdentity
 from .moi_parameters import ParameterApplication
 from .moi_signal_defaults import MoiSignalDefaults
 from .native_signal_compiler import compiler_from_snapshot
 
-PROFILE = "native-backup-operation-capabilities/2"
+PROFILE = "native-backup-operation-capabilities/3"
 
 
 def backup_capabilities(snapshot, files, application):
@@ -43,6 +44,11 @@ def backup_capabilities(snapshot, files, application):
         boolean_count = len(MoiBooleanDefaults(files[3]).candidates)
     except ValueError as exc:
         boolean_error = str(exc)[:512]
+    effective_booleans, effective_boolean_error = [], None
+    try:
+        effective_booleans = boolean_compiler_from_snapshot(snapshot, files).fields()
+    except ValueError as exc:
+        effective_boolean_error = str(exc)[:512]
     parameters, parameters_error = None, None
     try:
         merged, parameters = ParameterApplication(files[3], files[11], files[12]).compile()
@@ -119,6 +125,15 @@ def backup_capabilities(snapshot, files, application):
         if boolean_count
         else boolean_error or "No canonical class 530/531 Boolean Default Value was found.",
         "Inspect the actual record and review a separate archive copy. Saved values are not merged and no Boolean field transfer is prepared.",
+    )
+    add(
+        "effective-boolean-compile",
+        "Compile an effective native Boolean default",
+        "source-qualified" if effective_booleans else "unsupported-source",
+        f"The saved-setting compiler qualified {len(effective_booleans)} existing Boolean defaults and the retained Device identity."
+        if effective_booleans
+        else effective_boolean_error or "No supported effective Boolean defaults were found.",
+        "Inspect the actual Boolean record, select Merge retained saved settings and review/save a local compiled copy. This separate compiler prepares no Boolean field transfer.",
     )
     add(
         "effective-default-compile",
@@ -198,6 +213,7 @@ def backup_capabilities(snapshot, files, application):
             "captured_plain_ipv4": bool(plain_ip),
             "archive_real_default_count": defaults,
             "archive_boolean_default_count": boolean_count,
+            "effective_boolean_default_count": len(effective_booleans),
             "effective_real_default_count": len(fields),
             "parameter_merge": parameters,
             "parameter_merge_error": parameters_error,
