@@ -1,6 +1,6 @@
 # Local CAF input scenarios
 
-The **CAF simulation** workspace now saves named local input scenarios with elapsed-time value and quality events. These scenarios prepare and review repeatable input stimuli. They do not execute native CAF logic, calculate controller outputs, or implement CCT's proprietary simulation engine.
+Open a local CAF and choose **Simulate** to save named local input scenarios with elapsed-time value and quality events. These scenarios prepare and review repeatable input stimuli. They do not execute native CAF logic, calculate controller outputs, or implement CCT's proprietary simulation engine.
 
 This workflow is separate from the existing [native saved simulation scalar editor](caf-simulation-profiles.md). Its JSON format is `bms.caf-local-input-scenario`, version 1, rather than a claimed native CCT scenario format. Audit item IA-de934811c5 remains incomplete for native JCI execution and native trajectory encoding.
 
@@ -66,3 +66,11 @@ All routes below use `/api/caf/{source_sha256}/local-scenarios`. Source CAFs mus
 Mutations require the existing local session token and retain the application's loopback/origin protections. Preview JSON has its own `bms.caf-local-input-preview` format, source/profile/scenario hashes and explicit scope/semantics.
 
 Authored public fixtures cover exact input selection, native unit preservation, source/semantic/input guard rejection, negative/zero values, event boundaries/hold behavior, local quality, malformed/bounded requests, native startup scalar readback, byte-preserved cached sources, SQLite restart/reopen, optimistic conflicts, corruption refusal and atomic quota failures. Browser tests cover complete save/reopen/import/export/preview/startup-copy workflows, faulty-frame refusal, stale revisions, draft retention and hidden-workspace download suppression. The source CAF and field interfaces remain unchanged throughout.
+
+The current browser qualification uses the shared **Open CAF → Simulate** entry
+and returns from Connect through the same working-mode control. It retains all
+three original scenario bodies: exact JSON/startup scalar checks, local quality,
+optimistic revision conflicts, confirmed replacement and hidden late-download
+suppression. All six Chromium/WebKit cases pass with zero retries and unchanged
+limits. Production source and scenario semantics are unchanged. Broader software
+results and unresolved observations are recorded [separately](software-validation-2026-11-01.md).

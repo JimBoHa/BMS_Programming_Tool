@@ -19,13 +19,16 @@ function synthetic() {
 async function open(page: Page) {
   await page.goto("/");
   await page
-    .getByRole("button", { name: "CAF simulation", exact: true })
-    .click();
-  await page.getByLabel("Simulation CAF file", { exact: true }).setInputFiles({
-    name: "authored.caf",
-    mimeType: "application/octet-stream",
-    buffer: synthetic(),
-  });
+    .getByLabel("Open local CAF application", { exact: true })
+    .setInputFiles({
+      name: "authored.caf",
+      mimeType: "application/octet-stream",
+      buffer: synthetic(),
+    });
+  await expect(page.getByLabel("Working context")).toContainText(
+    "authored.caf",
+  );
+  await page.getByRole("button", { name: "Simulate", exact: true }).click();
   await expect(
     page.getByRole("region", { name: "Local CAF input scenarios" }),
   ).toContainText("2 supported inputs");
@@ -330,9 +333,7 @@ test("hidden workspace suppresses a late startup CAF download and leaves the sce
   await page.getByRole("button", { name: "Connect", exact: true }).click();
   release();
   await page.unrouteAll({ behavior: "wait" });
-  await page
-    .getByRole("button", { name: "CAF simulation", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Simulate", exact: true }).click();
   await expect(
     panel.getByRole("button", { name: "Save local scenario", exact: true }),
   ).toBeEnabled();
