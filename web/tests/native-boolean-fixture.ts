@@ -2,6 +2,7 @@ import { expect, type Page, type Locator } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { openNativeCompiler } from "./workspace-navigation";
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
 export function python(code: string, ...args: string[]) {
@@ -76,10 +77,7 @@ export async function enter(page: Page, id: string, expectedRows = 12) {
   await page
     .getByRole("button", { name: "New application", exact: true })
     .click();
-  await page
-    .getByRole("navigation", { name: "Current task tools" })
-    .getByRole("button", { name: "Native backup defaults", exact: true })
-    .click();
+  await openNativeCompiler(page);
   const compiler = page.getByRole("region", {
     name: "Native backup default compiler",
     exact: true,

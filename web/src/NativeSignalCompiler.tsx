@@ -47,6 +47,9 @@ export function NativeSignalCompiler({
   const [sources, setSources] = useState<Data[]>([]),
     [choice, setChoice] = useState("");
   const booleanDrafts = useRef(new Map<string, boolean>());
+  const booleanRecoveries = useRef(
+    new Map<string, NativeDefaultRecoveryDocument>(),
+  );
   const wireDrafts = useRef(new Map<string, string>());
   const [loaded, setLoaded] = useState<Data | null>(null),
     [fieldRef, setFieldRef] = useState("");
@@ -651,6 +654,7 @@ export function NativeSignalCompiler({
           fieldBusy: parentBusy || transferBusy || booleanTransferBusy,
           parentBusy: parentBusy || transferBusy,
           otherOperationBusy: transferBusy,
+          recoveryDrafts: booleanRecoveries.current,
           onBusy: transferBusyChanged,
           onCaptured: (id) => {
             setChoice(id);

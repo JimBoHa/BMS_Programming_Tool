@@ -1,5 +1,9 @@
 # Native Boolean default controller transfer
 
+[Previous effective Boolean-default recovery](native-boolean-default-recovery.md)
+adds an offline receipt-derived proposal and a separately confirmed new transfer.
+It preserves this operation's fresh-setting, one-use and full-readback guards.
+
 The effective Boolean editor now has a separate connected **Controller transfer**
 workflow for one existing class 530/531 Boolean Default Value (3113). It reuses
 the authoritative workspace controller and exact direct or explicit routed

@@ -90,8 +90,9 @@ requires unambiguous declared records on both sides. Byte equality, recognized
 record/property encodings, unaligned metadata and budget/reader limits remain
 separate. The table does not prepare a pair, semantic migration or restore.
 
-[Previous effective Real-default recovery](native-real-default-recovery.md) is a
-separate receipt-and-current-source workflow. A source's existing effective Real
+[Real-default recovery](native-real-default-recovery.md) and
+[Boolean-default recovery](native-boolean-default-recovery.md) are separate
+receipt-and-current-source workflows. A source's existing effective typed
 compiler support alone does not qualify recovery: immutable verified outcome,
 original backup/payload, exact current image/directory and selected-value evidence
 are additionally required. The source-only capability profile is unchanged.

@@ -78,6 +78,9 @@
 .change-ledger-table table {
   min-width: 820px;
 }
+.change-ledger-table button {
+  white-space: nowrap;
+}
 .change-ledger-state {
   font-weight: 600;
 }

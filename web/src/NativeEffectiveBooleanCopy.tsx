@@ -137,11 +137,13 @@ export function NativeEffectiveBooleanCopy({
             source_sha256: data.effective_sha256,
             archive_value: data.selected.archive_value,
           }}
-          renderTransfer={(proposal) => (
+          renderTransfer={(proposal, recovery) => (
             <NativeBooleanTransfer
               source={data}
               field={data.selected}
               proposal={proposal}
+              recoveryDraft={recovery.recoveryDraft}
+              onRecoveryPrepared={recovery.onRecoveryPrepared}
             />
           )}
         />

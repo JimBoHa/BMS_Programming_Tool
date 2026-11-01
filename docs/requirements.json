@@ -1573,5 +1573,14 @@
     "pdf_pages_or_section": "docs/native-real-default-recovery.md; docs/native-default-transfer.md; docs/workflow-style-guide.md",
     "status": "implemented",
     "implementation_or_gap": "Original possible-dispatch/historical-verification, manifest/payload/field/identity/route and exact current application/static-directory guards; finite float32 previous bits including signed zero; current other settings merged, lineage revalidated before durable new intent, one confirmed existing File-3 transfer and explicit uncertain readback after restart. Local drafts and exact evidence stay separate from field actions; late source/task/receipt replies retire. Boolean/wire/name/instance/general restore and physical acceptance remain separate; JCI-10 stays partial."
+  },
+  {
+    "id": "COMM-NATIVE-BOOLEAN-RECOVERY-001",
+    "feature": "Receipt-derived previous effective native Boolean default",
+    "acceptance_criterion": "Prepare the previous strict effective Boolean from verified original receipt/backup evidence without field traffic, then require a new confirmed source-bound transfer, current-setting preservation, durable lineage and full readback without replaying the old attempt.",
+    "evidence": "Authored native/saved-byte cases, strict local HTTP, actual direct/routed UDP and Chromium/WebKit workflows.",
+    "pdf_pages_or_section": "docs/native-boolean-default-recovery.md; docs/native-boolean-default-transfer.md; docs/change-ledger.md",
+    "status": "implemented",
+    "implementation_or_gap": "Known classes 530/531 and literal Boolean tags 10/11 only; numeric 0/1 aliases refuse. Original possible-dispatch/historical-verification, manifest/payload/field/identity/route and exact current application/static-directory guards; other fresh saved values merge into one separately confirmed existing File-3 transfer with full readback and explicit restart reconciliation. Transient source/field-bound recovery proposals preserve ordinary drafts, focus local results and retire stale/ABA replies. Changes projects only recorded strict Boolean lineage without revalidating parent/source or authorizing transfer. Real, wire/name/instance/general restore and physical acceptance retain separate contracts; JCI-10 stays partial."
   }
 ]
