@@ -558,5 +558,10 @@
     "feature": "CAF/native source identity comparison",
     "status": "implemented",
     "scope": "Read-only original CAF/native File3 comparison with immutable Files3/11/12 and manifest checks. Literal root Device/reference/class/instance/name/model and record-class/native-ID observations retain missing, duplicate, unavailable and conflicting references plus metadata/coverage. Exact target/source/query/paging and before-paint/ABA guards, original-baseline proposal exclusion and byte-verified original JSON export. Offline and selected routed-controller entries; no additional BACnet requests. Semantic logic/parameter/saved/live comparison, release/package/hardware/resource compatibility, persistent application association and physical acceptance remain separate; JCI-07 remains partial."
+  },
+  {
+    "feature": "CAF/native captured File comparison",
+    "status": "implemented",
+    "scope": "Separate File receipt/payload/source profile, actual native framing recognition independent of extension hints, original File integrity/boundary checks, recorded device agreement, exact route/interface/capture provenance and no fake native backup or saved settings. Reused literal Device/record comparison preserves v1 backup reports exactly; source-type selections, before-paint/ABA/draft guards and byte-verified original JSON export remain independent. Offline direct/routed/serial-recorded sources and zero extra BACnet requests; no full-program/compiler/package/hardware equivalence, persistent association, field action or physical acceptance."
   }
 ]

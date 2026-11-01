@@ -40,6 +40,7 @@ from .caf_graph import CafGraph
 from .caf_hardware import CafHardwareBindings, HardwareExportRequest, HardwareMoveRequest
 from .caf_instance import CafInstanceChange, CafInstanceEditor, CafInstanceExport
 from .caf_native_correlation import CafNativeCorrelationRequest, correlate
+from .caf_native_file_correlation import CafNativeFileCorrelationRequest, NativeFileCorrelation
 from .caf_scenarios import CafInputScenarios, CafScenarioStore
 from .caf_simulation import CafSimulationProfile
 from .cancelable_pulse_template import cancelable_pulse_template_router
@@ -548,6 +549,7 @@ def create_app(state_dir=None, *, operation_power=None):
         bbmd_admin_error = "BBMD administration unavailable: " + str(exc)[:1000]
     device_details = DeviceDetails(bacnet, store)
     files = BacnetFiles(bacnet, store)
+    caf_native_files = NativeFileCorrelation(files)
     controller_application = ControllerApplication(bacnet, store, files)
     controller_workspace = ControllerWorkspace(
         bacnet, store, native_readers=(controller_application,)
@@ -1424,6 +1426,20 @@ def create_app(state_dir=None, *, operation_power=None):
     @app.post("/api/caf/{id}/native-correlation")
     def caf_native_correlation(id: str, body: CafNativeCorrelationRequest):
         report = correlate(get_caf(id), backup_records, body)
+        raw = json.dumps(report, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
+        return Response(
+            raw,
+            media_type="application/json",
+            headers={"X-Studio-Artifact-Sha256": hashlib.sha256(raw).hexdigest()},
+        )
+
+    @app.get("/api/caf/native-file-sources")
+    def caf_native_file_sources():
+        return caf_native_files.sources()
+
+    @app.post("/api/caf/{id}/native-file-correlation")
+    def caf_native_file_correlation(id: str, body: CafNativeFileCorrelationRequest):
+        report = caf_native_files.compare(get_caf(id), body)
         raw = json.dumps(report, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
         return Response(
             raw,

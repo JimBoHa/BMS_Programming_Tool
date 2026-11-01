@@ -61,3 +61,7 @@ further peer requests. Chromium/WebKit checks cover both entry paths, exact byte
 drafts, source/file/navigation changes, delayed/altered replies, routed context,
 zero additional BACnet requests, keyboard use and an 820-pixel layout.
 No site, Bluetooth, CCT reopening or physical acceptance is inferred.
+
+The separate [retained File source profile](caf-native-file-correlation.md) extends
+the same literal comparison to existing BACnet File captures. The native-backup
+version-1 contract and its immutable three-file checks remain unchanged.

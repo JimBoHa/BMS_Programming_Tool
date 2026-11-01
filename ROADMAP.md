@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 160 scoped criteria: 106
+The public requirement register currently records 161 scoped criteria: 107
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -176,7 +176,7 @@ hardware reassignment remain separate. JCI-03 and JCI-09 remain partial overall.
 | JCI-04 | Extend FX/Metasys and cross-release conversion with explicit semantics and package migrations | Program → conversion review | Every supported source/target pair has a loss report and round-trip/behavior evidence; reject unresolved semantics instead of dropping logic |
 | JCI-05 | Implement executable native Enum/reliability/type mappings and restart/retention rules | Program / Library | Verify codes, fallback, units, precision and state; labels or manual named sets alone do not supply native numeric bindings |
 | JCI-06 | Add versioned package provenance, native schema migrations and destination resource accounting | Settings / Program validation | Source/package/runtime compatibility and actual RAM/flash/scan/I/O limits are explicit; no silent hardware-definition substitution |
-| JCI-07 | Associate a local CAF/project with a connected application using actual identity and compatibility evidence | Program / Changes | Partial: [original CAF/native identity comparison](docs/caf-native-source-correlation.md) retains actual root/record IDs, source/route/coverage and contradictions without granting full program or compiler equivalence. Continue semantic/package compatibility and persistent association; local files never supply live data implicitly |
+| JCI-07 | Associate a local CAF/project with a connected application using actual identity and compatibility evidence | Program / Changes | Partial: [original CAF/native identity comparison](docs/caf-native-source-correlation.md) and [retained File comparison](docs/caf-native-file-correlation.md) retain actual root/record IDs, separate source families, source/route/coverage and contradictions without granting full program or compiler equivalence. Continue semantic/package compatibility and persistent association; local files never supply live data implicitly |
 
 ### Test before JCI deployment
 
