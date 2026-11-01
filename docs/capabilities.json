@@ -588,5 +588,10 @@
     "feature": "Selected-controller direct serial monitoring",
     "status": "implemented",
     "scope": "Software-qualified explicit direct-mstp nested targets for paired-context field sampling and single-log position/sequence/time history. Strict complete original/actual serial identities, bounded observed-object/name choices, staged samples and before/after identity checks, application-generation pinning, exact history bytes/captures, per-interface drafts and source/cursor-owned visible pages. No physical RS-485/controller or BTCVT acceptance, native application change, widened COV/multiple/event/generic inventory APIs, automatic collector restart, retry or timeout expansion."
+  },
+  {
+    "feature": "Read-only Changes ledger",
+    "status": "implemented",
+    "scope": "Changes combines bounded audit/native/instance/schedule/BBMD/event/Temco/ownership snapshots. Exact route and serial interface matching, later-readback qualification, corruption visibility, strict cursors, local draft retention, stale-response retirement and original source-response Blob downloads. Existing tools own review/apply/recovery; unapplied transient reviews and providers without retained records remain outside this profile. No field requests or new physical/native capability claim. See docs/change-ledger.md. Native transfer rows distinguish instance/name, Real/Boolean defaults and existing-wire source edits, preserve engineering references and original-attempt dispatch facts separately from later readback, and open matching Program or identity tools. Unknown kinds retain evidence without guessed tool actions."
   }
 ]

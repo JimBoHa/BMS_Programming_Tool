@@ -171,6 +171,10 @@ with TestClient(create_app(sys.argv[2])) as client:
     assert client.get('/api/session').json()['field_network_open'] is False
     headers={'X-Studio-Token':client.get('/api/session').json()['token']}
     assert client.get('/api/blocks').status_code==200
+    ledger=client.post('/api/changes/query',headers=headers,json={})
+    assert ledger.status_code==200, ledger.text
+    assert ledger.json()['read_only'] is True
+    assert ledger.json()['field_requests']==0 and ledger.json()['rows']==[]
 print(json.dumps({'installed_from':str(Path(bms_tool.__file__).parent),'ui_and_metadata_served':True}))
 """
     env = os.environ.copy()

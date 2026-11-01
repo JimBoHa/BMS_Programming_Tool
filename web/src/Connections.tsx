@@ -62,6 +62,7 @@ export function Connections({
   onBusyChange,
   onConnectionSetup,
   onOpenLocalFile,
+  requestedTool,
 }: {
   visible?: boolean;
   view?: ConnectionView;
@@ -71,6 +72,11 @@ export function Connections({
   onBusyChange?: (busy: boolean) => void;
   onConnectionSetup?: () => void;
   onOpenLocalFile?: () => void;
+  requestedTool?: {
+    view: ConnectionView;
+    tool: string;
+    revision: number;
+  } | null;
 }) {
   const [controller, setController] = useState<ControllerContext | null>(null);
   const [setupStep, setSetupStep] = useState<
@@ -131,6 +137,20 @@ export function Connections({
       : toolChoice.view === view && toolChoice.tool
         ? toolChoice.tool
         : groups[view][0].id;
+  const toolRequestSeen = useRef<number | null>(null);
+  useEffect(() => {
+    if (
+      !visible ||
+      !requestedTool ||
+      requestedTool.view !== view ||
+      toolRequestSeen.current === requestedTool.revision
+    )
+      return;
+    if (!groups[view].some((tool) => tool.id === requestedTool.tool)) return;
+    toolRequestSeen.current = requestedTool.revision;
+    // This is navigation only. The existing panel owns all target/review checks.
+    setToolChoice({ view, tool: requestedTool.tool });
+  }, [visible, view, requestedTool]);
   const showTool = (tool: string) =>
     visible &&
     currentTool === tool &&
