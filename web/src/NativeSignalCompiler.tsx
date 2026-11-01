@@ -4,6 +4,7 @@ import { api, apiJsonDocument, apiBlobDocument, saveBlob } from "./api";
 import { controllerKey, type ControllerContext } from "./workflow";
 import { NativeDefaultTransfer } from "./NativeDefaultTransfer";
 import { NativeBackupInspection } from "./NativeBackupInspection";
+import { NativeBooleanTransferContext } from "./NativeBooleanTransferContext";
 import "./native-signal-compiler.css";
 
 const base = "/bacnet/controller/native-application/signal-default";
@@ -58,8 +59,19 @@ export function NativeSignalCompiler({
     [storageError, setStorageError] = useState(""),
     [localBusy, setBusy] = useState(false);
   const [transferBusy, setTransferBusy] = useState(false);
+  const [booleanTransferBusy, setBooleanTransferBusy] = useState(false);
+  const busyOwners = useRef(new Set<string>());
+  function transferBusyChanged(owner: string, value: boolean) {
+    if (value) busyOwners.current.add(owner);
+    else busyOwners.current.delete(owner);
+    setTransferBusy(busyOwners.current.has("real"));
+    setBooleanTransferBusy(
+      [...busyOwners.current].some((key) => key !== "real"),
+    );
+    onBusyChange?.(busyOwners.current.size > 0);
+  }
   const [pendingSource, setPendingSource] = useState("");
-  const busy = localBusy || transferBusy || parentBusy;
+  const busy = localBusy || transferBusy || booleanTransferBusy || parentBusy;
   const alive = useRef(true),
     epoch = useRef(0),
     contextNow = useRef(context),
@@ -526,7 +538,9 @@ export function NativeSignalCompiler({
                       aria-label="Proposed native Real default"
                       value={value}
                       maxLength={128}
-                      disabled={transferBusy || parentBusy}
+                      disabled={
+                        transferBusy || booleanTransferBusy || parentBusy
+                      }
                       onChange={(event) => edit(event.target.value)}
                     />
                   </label>
@@ -537,7 +551,11 @@ export function NativeSignalCompiler({
                   >
                     Review native compilation
                   </button>
-                  <button type="button" onClick={discard}>
+                  <button
+                    type="button"
+                    onClick={discard}
+                    disabled={transferBusy || booleanTransferBusy || parentBusy}
+                  >
                     Discard selected field draft
                   </button>
                 </>
@@ -546,24 +564,40 @@ export function NativeSignalCompiler({
           )}
         </>
       )}
-      <NativeBackupInspection
-        selection={
-          sources.some((row) => row.id === choice)
-            ? {
-                id: choice,
-                snapshot_sha256: sources.find((row) => row.id === choice)!
-                  .evidence_sha256,
-                target: {
-                  ...sources.find((row) => row.id === choice)!.target,
-                  device: sources.find((row) => row.id === choice)!.device,
-                },
-              }
-            : null
-        }
-        controller={controller}
-        visible={visible}
-        booleanDrafts={booleanDrafts.current}
-      />
+      <NativeBooleanTransferContext.Provider
+        value={{
+          controller,
+          visible,
+          fieldBusy: parentBusy || transferBusy || booleanTransferBusy,
+          parentBusy: parentBusy || transferBusy,
+          otherOperationBusy: transferBusy,
+          onBusy: transferBusyChanged,
+          onCaptured: (id) => {
+            setChoice(id);
+            setPendingSource(id);
+            void refresh();
+          },
+        }}
+      >
+        <NativeBackupInspection
+          selection={
+            sources.some((row) => row.id === choice)
+              ? {
+                  id: choice,
+                  snapshot_sha256: sources.find((row) => row.id === choice)!
+                    .evidence_sha256,
+                  target: {
+                    ...sources.find((row) => row.id === choice)!.target,
+                    device: sources.find((row) => row.id === choice)!.device,
+                  },
+                }
+              : null
+          }
+          controller={controller}
+          visible={visible}
+          booleanDrafts={booleanDrafts.current}
+        />
+      </NativeBooleanTransferContext.Provider>
       {storageError && <p role="status">{storageError}</p>}
       {error && <p role="alert">{error}</p>}
       {shown && (
@@ -617,11 +651,9 @@ export function NativeSignalCompiler({
         proposal={body}
         field={field}
         visible={visible}
-        parentBusy={parentBusy}
-        onBusy={(value) => {
-          setTransferBusy(value);
-          onBusyChange?.(value);
-        }}
+        parentBusy={parentBusy || booleanTransferBusy}
+        otherOperationBusy={booleanTransferBusy}
+        onBusy={(value) => transferBusyChanged("real", value)}
         onCaptured={(id) => {
           setChoice(id);
           setPendingSource(id);

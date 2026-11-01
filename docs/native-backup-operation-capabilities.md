@@ -7,7 +7,7 @@ not open a connection, issue backup-state commands, create an edit or transfer
 intent, or qualify the currently running controller. Original acquisition effects
 and evidence remain unchanged.
 
-The table separates fourteen operations. Archive and diagram reading use actual
+The table separates fifteen operations. Archive and diagram reading use actual
 recognized content. Typed instance/name copies require the stricter native
 identity framing; name copies also require a typed Device name. Archive Real
 copies require actual existing supported fields. Saved-setting merging requires
@@ -41,7 +41,7 @@ The token-admitted `POST
 /api/bacnet/controller/native-application/inspection/capabilities` accepts only
 capture ID and manifest hash. All retained files and the manifest are verified
 before analysis. It returns inspection provenance plus capability profile
-`native-backup-operation-capabilities/3`, fourteen ordered rows and detailed local
+`native-backup-operation-capabilities/4`, fifteen ordered rows and detailed local
 qualification evidence. It returns `read_only: true`, `controller_queries: false`,
 `can_apply: false` and `current_identity_verified: false`.
 
@@ -61,4 +61,6 @@ replies. These checks do not establish physical controller or Bluetooth acceptan
 Profile 2 added a separate [Boolean default archive copy](native-boolean-default-copies.md)
 row. Profile 3 adds [effective Boolean compilation](native-effective-boolean-compiler.md)
 with separate retained identity/saved-setting qualification. Actual canonical
-fields qualify those respective operations; connected default transfer remains Real-only.
+fields qualify those respective operations. Profile 4 adds a separately
+preflighted [Boolean controller transfer](native-boolean-default-transfer.md).
+Neither a local compile nor this table prepares a field change.

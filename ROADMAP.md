@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 158 scoped criteria: 104
+The public requirement register currently records 159 scoped criteria: 105
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -197,7 +197,7 @@ capture behavior.
 
 | ID | Planned addition | Workspace | Acceptance / dependency |
 | --- | --- | --- | --- |
-| JCI-09 | Extend existing native backup/compile/transfer into each additional supported application edit and full-program workflow | Changes | Preserve original application and saved parameters, capacity checks, fresh preflight, exact one-use intent and readback; support is declared per operation/format, not all controllers |
+| JCI-09 | Extend existing native backup/compile/transfer into each additional supported application edit and full-program workflow | Changes | Narrow Real and [Boolean default transfers](docs/native-boolean-default-transfer.md) preserve original application/settings, capacity, fresh selected-value guards, one-use typed intent and full readback/recovery. Extend additional edits and full-program workflows separately; support is per operation/format, not all controllers |
 | JCI-10 | Add supported restore/recovery operations and a broader post-change verification package | Changes / History | Read-only reconciliation first for uncertain outcomes; no automatic replay or assumed inverse write. A restore requires its own verified contract and application/settings/operational checks |
 | IO-01 | Strengthen discovered hardware/live/archive correlation and candidate spare-input evidence | Points & I/O | Distinguish configured records, exposed objects, published capacities and physical wiring; missing points do not prove unused terminals |
 | IO-02 | Extend validated terminal reassignment, electrical modes and cross-module/native allocation | Points & I/O / Program; Changes | Verify electrical capabilities, native references, package/resource limits, original settings and independent readback; current narrow same-controller CAF edits remain supported |

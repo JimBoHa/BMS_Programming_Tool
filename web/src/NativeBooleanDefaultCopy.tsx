@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useContext, useState } from "react";
+import { NativeBooleanTransferContext } from "./NativeBooleanTransferContext";
 import { ChevronDown } from "lucide-react";
 import {
   BooleanCopyEditor,
@@ -19,6 +20,8 @@ export function NativeBooleanDefaultCopy(props: {
   drafts: BooleanCopyDrafts;
 }) {
   const [mode, setMode] = useState("archive");
+  const fieldBusy =
+    useContext(NativeBooleanTransferContext)?.fieldBusy ?? false;
   return (
     <div className="native-boolean-copy-source">
       <label>
@@ -27,6 +30,7 @@ export function NativeBooleanDefaultCopy(props: {
           <select
             aria-label="Boolean default source"
             value={mode}
+            disabled={fieldBusy}
             onChange={(event) => setMode(event.target.value)}
           >
             <option value="archive">Original archive value</option>

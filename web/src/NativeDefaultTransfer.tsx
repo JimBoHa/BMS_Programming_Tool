@@ -10,7 +10,6 @@ import { controllerKey, type ControllerContext } from "./workflow";
 
 type Data = Record<string, any>;
 const base = "/bacnet/controller/native-application";
-const operationProfile = "native-effective-default-transfer/1";
 const floatBits = (value: number) => {
   const bytes = new DataView(new ArrayBuffer(4));
   bytes.setFloat32(0, value, false);
@@ -36,6 +35,8 @@ export function NativeDefaultTransfer({
   parentBusy = false,
   onBusy,
   onCaptured,
+  booleanDefault = false,
+  otherOperationBusy = false,
 }: {
   controller?: ControllerContext | null;
   source: Data | null;
@@ -45,8 +46,20 @@ export function NativeDefaultTransfer({
   parentBusy?: boolean;
   onBusy: (busy: boolean) => void;
   onCaptured: (id: string) => void;
+  booleanDefault?: boolean;
+  otherOperationBusy?: boolean;
 }) {
+  const operationProfile = booleanDefault
+    ? "native-effective-boolean-default-transfer/1"
+    : "native-effective-default-transfer/1";
+  const changeKind = booleanDefault ? "boolean-default" : "signal-default";
+  const transferPath = booleanDefault
+    ? "/boolean-default/transfer"
+    : "/signal-default/transfer";
   const [status, setStatus] = useState<Data | null>(null);
+  const adapterAvailable =
+    !booleanDefault ||
+    status?.boolean_default_transfer_profile === operationProfile;
   const [plan, setPlan] = useState<{
     data: Data;
     blob: Blob;
@@ -70,6 +83,8 @@ export function NativeDefaultTransfer({
   const operation = useRef<string | null>(null),
     reviewId = useRef<string | null>(null);
   const owner = JSON.stringify([
+    booleanDefault,
+    otherOperationBusy,
     visible,
     controller && [
       controllerKey(controller),
@@ -146,7 +161,7 @@ export function NativeDefaultTransfer({
     if (kind !== "credentials" && (!controller || !connected)) return;
     if (
       (kind === "preview" || kind === "apply") &&
-      (!sourceMatches || !proposal || !field)
+      (!sourceMatches || !proposal || !field || !adapterAvailable)
     )
       return;
     const selectedPlan = shown;
@@ -203,34 +218,48 @@ export function NativeDefaultTransfer({
         setConfirmed(false);
         setInterruption(false);
         reviewId.current = id;
-        const result = await apiJsonDocument(
-          base + "/signal-default/transfer/preview",
-          {
-            ...targetOf(controller!),
-            ...proposal,
-            operation_id: id,
-          },
-        );
+        const result = await apiJsonDocument(base + transferPath + "/preview", {
+          ...targetOf(controller!),
+          ...proposal,
+          operation_id: id,
+        });
         const data = result.data,
           edit = data.compilation?.selected_edit;
         if (
           data.operation_profile !== operationProfile ||
-          data.change_kind !== "signal-default" ||
+          data.change_kind !== changeKind ||
           data.can_apply !== true ||
           data.snapshot_sha256 !== source!.snapshot_sha256 ||
           !sameTarget(data.target || {}, controller!) ||
           data.identity?.device !== controller!.device ||
           data.capture_id !== source!.capture_id ||
-          !["record_ref", "encoded_sha256", "value_text"].every(
-            (name) => data.default_edit?.[name] === proposal![name],
-          ) ||
-          edit?.before_bits !== field!.effective_bits ||
+          ![
+            "record_ref",
+            "encoded_sha256",
+            booleanDefault ? "value" : "value_text",
+          ].every((name) => data.default_edit?.[name] === proposal![name]) ||
           edit?.record_ref !== field!.ref ||
           edit?.encoded_sha256 !== field!.encoded_sha256 ||
-          !Number.isFinite(edit?.stored_value) ||
-          edit?.after_bits !== floatBits(Number(proposal!.value_text)) ||
-          edit?.after_bits !== floatBits(edit.stored_value) ||
-          !/^[a-f0-9]{8}$/.test(edit?.after_bits || "") ||
+          (booleanDefault
+            ? data.application_sha256 !== proposal!.source_sha256 ||
+              data.compilation?.profile !==
+                "native-effective-boolean-default-compiler/1" ||
+              data.compilation.other_merged_bytes_preserved !== true ||
+              data.compilation.saved_settings_merged !== true ||
+              edit?.datatype !== "Boolean" ||
+              edit?.property !== 3113 ||
+              edit?.class_id !== field!.class_id ||
+              typeof edit?.before_value !== "boolean" ||
+              typeof edit?.after_value !== "boolean" ||
+              edit.before_value !== field!.effective_value ||
+              edit.after_value !== proposal!.value ||
+              edit.before_tag !== (field!.effective_value ? "11" : "10") ||
+              edit.after_tag !== (proposal!.value ? "11" : "10")
+            : edit?.before_bits !== field!.effective_bits ||
+              !Number.isFinite(edit?.stored_value) ||
+              edit?.after_bits !== floatBits(Number(proposal!.value_text)) ||
+              edit?.after_bits !== floatBits(edit.stored_value) ||
+              !/^[a-f0-9]{8}$/.test(edit?.after_bits || "")) ||
           !/^[A-Za-z0-9_-]{32}$/.test(data.token || "") ||
           !/^[a-f0-9]{64}$/.test(data.review_sha256 || "") ||
           !Number.isFinite(Date.parse(data.expires_at))
@@ -254,8 +283,7 @@ export function NativeDefaultTransfer({
           setInterruption(false);
         }
         const result = await apiJsonDocument(
-          base +
-            (kind === "apply" ? "/signal-default/transfer/apply" : "/readback"),
+          base + (kind === "apply" ? transferPath + "/apply" : "/readback"),
           kind === "apply"
             ? {
                 operation_id: id,
@@ -269,7 +297,7 @@ export function NativeDefaultTransfer({
         const intent = result.data.intent;
         if (
           intent &&
-          (intent.change_kind !== "signal-default" ||
+          (intent.change_kind !== changeKind ||
             intent.operation_profile !== operationProfile ||
             !sameTarget(intent.target, controller!) ||
             intent.identity.device !== controller!.device)
@@ -310,7 +338,7 @@ export function NativeDefaultTransfer({
       const result = await apiJsonDocument(base + "/receipts/" + id);
       if (
         result.data.intent?.id !== id ||
-        result.data.intent?.change_kind !== "signal-default" ||
+        result.data.intent?.change_kind !== changeKind ||
         result.data.intent?.operation_profile !== operationProfile
       )
         throw new Error("This is not a native default transfer receipt.");
@@ -347,13 +375,16 @@ export function NativeDefaultTransfer({
   const fresh =
     shown?.data.can_apply && now < Date.parse(shown.data.expires_at);
   const receipts =
-    status?.receipts?.filter(
-      (row: Data) => row.change_kind === "signal-default",
-    ) ?? [];
+    status?.receipts?.filter((row: Data) => row.change_kind === changeKind) ??
+    [];
   return (
     <section
       className="native-compiler-source native-default-transfer"
-      aria-label="Native default controller transfer"
+      aria-label={
+        booleanDefault
+          ? "Native Boolean default controller transfer"
+          : "Native default controller transfer"
+      }
     >
       <h2>Controller transfer</h2>
       {controller ? (
@@ -376,6 +407,12 @@ export function NativeDefaultTransfer({
         native application and can interrupt controller operation. Device
         identity stays unchanged.
       </p>
+      {!adapterAvailable && (
+        <p>
+          The installed native Boolean transfer profile is unavailable. Retain
+          this local compilation; no transfer review is prepared.
+        </p>
+      )}
       <details>
         <summary>Native backup and restore credentials</summary>
         <p>
@@ -442,7 +479,7 @@ export function NativeDefaultTransfer({
       {sourceMatches && field && (
         <button
           className={shown ? "" : "primary"}
-          disabled={localLocked || !connected || !proposal}
+          disabled={localLocked || !connected || !proposal || !adapterAvailable}
           onClick={() => void run("preview")}
         >
           Review controller default transfer
@@ -456,11 +493,19 @@ export function NativeDefaultTransfer({
           <h3>Review controller default transfer</h3>
           <p>
             {shown.data.default_edit.record_ref} ·{" "}
-            {shown.data.compilation.selected_edit.before_bits} →{" "}
-            {shown.data.compilation.selected_edit.after_bits} · stored value{" "}
-            {Object.is(shown.data.compilation.selected_edit.stored_value, -0)
-              ? "-0"
-              : String(shown.data.compilation.selected_edit.stored_value)}
+            {booleanDefault
+              ? String(shown.data.compilation.selected_edit.before_value)
+              : shown.data.compilation.selected_edit.before_bits}{" "}
+            →{" "}
+            {booleanDefault
+              ? String(shown.data.compilation.selected_edit.after_value)
+              : shown.data.compilation.selected_edit.after_bits}{" "}
+            · stored value{" "}
+            {booleanDefault
+              ? String(shown.data.compilation.selected_edit.after_value)
+              : Object.is(shown.data.compilation.selected_edit.stored_value, -0)
+                ? "-0"
+                : String(shown.data.compilation.selected_edit.stored_value)}
             .
           </p>
           <p>{shown.data.parameter_policy}</p>

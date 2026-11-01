@@ -32,6 +32,49 @@ def operations(report):
 
 
 @pytest.mark.parametrize(
+    "case,expected",
+    [
+        ("plain", "preflight-required"),
+        ("serial", "transport-unavailable"),
+        ("missing-interface", "transport-unavailable"),
+        ("unknown-saved", "unsupported-source"),
+        ("unverified", "source-mismatch"),
+        ("wrong-vendor", "source-mismatch"),
+        ("no-boolean", "unsupported-source"),
+    ],
+)
+def test_boolean_transfer_qualification_is_independent_of_real_fields(tmp_path, case, expected):
+    from .test_native_boolean_copies import boolean_files
+
+    files = boolean_files(real_signals=False)
+    metadata = {"connector_config": {"local_address": "127.0.0.1:47818"}}
+    if case == "serial":
+        metadata["connector_config"] = {"transport": "mstp", "serial_port": "/dev/authored"}
+    elif case == "missing-interface":
+        metadata["connector_config"] = {}
+    elif case == "unknown-saved":
+        files[11], files[12] = b"Unknown directory", b"Opaque saved values"
+    elif case == "unverified":
+        metadata["source_identity_matches"] = False
+    elif case == "wrong-vendor":
+        metadata["identity"] = {
+            "vendor-identifier": 99,
+            "object-name": "Authored controller",
+            "model-name": "UNLISTED-MODEL",
+        }
+    elif case == "no-boolean":
+        files = dict(zip((3, 11, 12), parameters_source(), strict=True))
+    storage, service, request = source(tmp_path, files, **metadata)
+    report = service.capabilities(request)
+    rows = operations(report)
+    assert rows["boolean-default-transfer"]["status"] == expected
+    assert report["qualification"]["effective_real_default_count"] == 0
+    assert rows["default-transfer"]["status"] != "preflight-required"
+    assert report["read_only"] and not report["field_actions"] and not report["can_apply"]
+    assert storage.load(request["capture_id"])[1] == files and not storage.receipts()
+
+
+@pytest.mark.parametrize(
     "config,target,plain",
     [
         ({"local_address": "127.0.0.1:47818"}, {}, True),
@@ -56,8 +99,8 @@ def test_actual_saved_merge_and_compiler_are_distinct_from_captured_transport(
     before = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in folder.iterdir()}
     report = service.capabilities(request)
     rows, qualification = operations(report), report["qualification"]
-    assert report["capability_profile"] == "native-backup-operation-capabilities/3"
-    assert len(rows) == len(report["operations"]) == 14
+    assert report["capability_profile"] == "native-backup-operation-capabilities/4"
+    assert len(rows) == len(report["operations"]) == 15
     assert report["read_only"] and not report["can_apply"] and not report["field_actions"]
     assert not report["controller_queries"] and not report["current_identity_verified"]
     assert qualification["recorded_identity_verified"]

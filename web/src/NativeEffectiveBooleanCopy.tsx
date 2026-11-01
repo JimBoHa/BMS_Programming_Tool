@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
+import { NativeBooleanTransferContext } from "./NativeBooleanTransferContext";
+import { NativeBooleanTransfer } from "./NativeBooleanTransfer";
 import { api } from "./api";
 import { controllerKey } from "./workflow";
 import {
@@ -22,6 +24,8 @@ export function NativeEffectiveBooleanCopy({
   };
   drafts: BooleanCopyDrafts;
 }) {
+  const fieldBusy =
+    useContext(NativeBooleanTransferContext)?.fieldBusy ?? false;
   const owner = JSON.stringify([source, field]),
     ownerNow = useRef(owner),
     epoch = useRef(0),
@@ -108,7 +112,11 @@ export function NativeEffectiveBooleanCopy({
         recognized complete saved format. This prepares no controller transfer.
       </p>
       {!data && (
-        <button className="primary" disabled={busy} onClick={() => void load()}>
+        <button
+          className="primary"
+          disabled={busy || fieldBusy}
+          onClick={() => void load()}
+        >
           Open saved Boolean defaults
         </button>
       )}
@@ -129,6 +137,13 @@ export function NativeEffectiveBooleanCopy({
             source_sha256: data.effective_sha256,
             archive_value: data.selected.archive_value,
           }}
+          renderTransfer={(proposal) => (
+            <NativeBooleanTransfer
+              source={data}
+              field={data.selected}
+              proposal={proposal}
+            />
+          )}
         />
       )}
     </section>

@@ -7,7 +7,7 @@ from .moi_parameters import ParameterApplication
 from .moi_signal_defaults import MoiSignalDefaults
 from .native_signal_compiler import compiler_from_snapshot
 
-PROFILE = "native-backup-operation-capabilities/3"
+PROFILE = "native-backup-operation-capabilities/4"
 
 
 def backup_capabilities(snapshot, files, application):
@@ -182,10 +182,19 @@ def backup_capabilities(snapshot, files, application):
         "Use the separate Program capture/review/apply/readback workflow. Fresh selected-value and other-setting checks, capacity, credentials, one-use review and uncertainty recovery remain mandatory. Backup/readback use backup-state commands.",
     )
     add(
+        "boolean-default-transfer",
+        "Transfer one effective native Boolean default",
+        *transfer_status(
+            bool(effective_booleans),
+            effective_boolean_error or "No supported effective Boolean defaults were found.",
+        ),
+        "Use the separate Boolean controller review/apply/readback workflow. Fresh selected-value and other-setting checks, capacity, credentials, one-use typed review and uncertainty recovery remain mandatory. Capture/readback use backup-state commands; Apply can interrupt control.",
+    )
+    add(
         "general-logic",
         "Compile arbitrary native blocks and wires",
         "unavailable",
-        "Installed native compilers cover typed identity and existing Real defaults, not arbitrary logic generation.",
+        "Installed native compilers cover typed identity and existing Real/Boolean defaults, not arbitrary logic generation.",
         "Retain original bytes; broader writers require independently qualified native references and resource allocation.",
     )
     add(
