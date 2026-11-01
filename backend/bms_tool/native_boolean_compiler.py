@@ -21,6 +21,8 @@ class EffectiveBooleanService:
             "profile": PROFILE,
             "scope": SCOPE,
             "capture_id": snapshot["id"],
+            "device": snapshot["device"],
+            "identity": snapshot["identity"],
             "snapshot_sha256": snapshot["evidence_sha256"],
             "source_sha256": compiler.archive.editor.source_sha256,
             "effective_sha256": compiler.effective.editor.source_sha256,

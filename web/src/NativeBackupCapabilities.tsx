@@ -27,6 +27,7 @@ const operationIds = [
   "effective-default-compile",
   "identity-transfer",
   "default-transfer",
+  "boolean-default-transfer",
   "general-logic",
   "release-packages",
   "physical-acceptance",
@@ -95,7 +96,7 @@ export function NativeBackupCapabilities({
       );
       if (
         data.profile !== "native-backup-record-inspection/1" ||
-        data.capability_profile !== "native-backup-operation-capabilities/3" ||
+        data.capability_profile !== "native-backup-operation-capabilities/4" ||
         data.source_kind !== "native-backup-archive" ||
         data.capture_id !== source.capture_id ||
         data.snapshot_sha256 !== source.snapshot_sha256 ||

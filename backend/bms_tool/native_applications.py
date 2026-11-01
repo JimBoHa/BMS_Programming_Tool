@@ -30,6 +30,13 @@ from .mce_wire import VENDOR, MceWire, controller_info
 from .models import StrictModel
 from .moi_identity import MoiIdentity, controller_name, seal, sha
 from .moi_parameters import ParameterApplication
+from .native_boolean_transfer import PROFILE as BOOLEAN_DEFAULT_PROFILE
+from .native_boolean_transfer import SCOPE as BOOLEAN_DEFAULT_SCOPE
+from .native_boolean_transfer import (
+    BooleanTransferPreview,
+    compile_boolean_default,
+    verify_boolean_preservation,
+)
 from .native_default_transfer import (
     PROFILE as DEFAULT_PROFILE,
 )
@@ -132,6 +139,8 @@ class NativeApplications:
             "scope": SCOPE,
             "default_transfer_profile": DEFAULT_PROFILE,
             "default_transfer_scope": DEFAULT_SCOPE,
+            "boolean_default_transfer_profile": BOOLEAN_DEFAULT_PROFILE,
+            "boolean_default_transfer_scope": BOOLEAN_DEFAULT_SCOPE,
             "backup_effects": backup_effects(),
             "limits": {
                 "operation_seconds": self.operation_timeout,
@@ -442,6 +451,13 @@ class NativeApplications:
 
     async def preview_default(self, **arguments):
         options = DefaultTransferPreview(**arguments)
+        return await self.preview_typed_default(options, boolean=False)
+
+    async def preview_boolean_default(self, **arguments):
+        options = BooleanTransferPreview(**arguments)
+        return await self.preview_typed_default(options, boolean=True)
+
+    async def preview_typed_default(self, options, *, boolean):
         async with self.operation(options.operation_id, "review-default"):
             self.available(options)
             if (self.storage.directory / options.capture_id).is_symlink():
@@ -449,9 +465,15 @@ class NativeApplications:
             captured, files = self.check_capture(options)
             if captured["evidence_sha256"] != options.snapshot_sha256:
                 raise ValueError("The native snapshot changed; reopen and review again.")
-            edit = options.model_dump(include={"record_ref", "encoded_sha256", "value_text"})
-            output, compilation = compile_default(files, edit)
-            if not compilation["selected_field_changed"]:
+            if boolean and options.source_sha256 != sha(files[3]):
+                raise ValueError("The native Boolean archive changed; reopen and review again.")
+            edit = options.model_dump(
+                include={"record_ref", "encoded_sha256", "value" if boolean else "value_text"}
+            )
+            output, compilation = (compile_boolean_default if boolean else compile_default)(
+                files, edit
+            )
+            if not compilation["selected_edit"]["changed"]:
                 raise ValueError("Choose a different effective native default before transfer.")
             config, app = copy.deepcopy(self.bacnet.config), self.bacnet.require()
             async with self.path._path(options) as session:
@@ -461,12 +483,12 @@ class NativeApplications:
                 raise ValueError("Controller identity changed after backup; capture again.")
             body = {
                 "profile": PROFILE,
-                "operation_profile": DEFAULT_PROFILE,
+                "operation_profile": BOOLEAN_DEFAULT_PROFILE if boolean else DEFAULT_PROFILE,
                 "target": self.target(options),
                 "identity": actual,
                 "old_instance": ObjectIdentifier(options.device)[1],
                 "new_instance": ObjectIdentifier(options.device)[1],
-                "change_kind": "signal-default",
+                "change_kind": "boolean-default" if boolean else "signal-default",
                 "old_name": actual["object-name"],
                 "new_name": actual["object-name"],
                 "capture_id": options.capture_id,
@@ -484,7 +506,7 @@ class NativeApplications:
                     "preview. Verify both full native application and effective settings."
                 ),
                 "backup_effects": backup_effects(),
-                "scope": DEFAULT_SCOPE,
+                "scope": BOOLEAN_DEFAULT_SCOPE if boolean else DEFAULT_SCOPE,
                 "vendor_runtime_required": False,
                 "can_apply": True,
                 "connector_config": config,
@@ -529,10 +551,12 @@ class NativeApplications:
     async def verify(self, session, intent):
         self.phase("reading back the physical station")
         change_kind = intent.get("change_kind", "instance")
-        if change_kind not in ("instance", "name", "signal-default"):
+        if change_kind not in ("instance", "name", "signal-default", "boolean-default"):
             raise ValueError("Unrecognized native transfer operation; retain its evidence.")
-        default_edit = change_kind == "signal-default"
-        if default_edit and intent.get("operation_profile") != DEFAULT_PROFILE:
+        boolean_edit = change_kind == "boolean-default"
+        default_edit = change_kind in ("signal-default", "boolean-default")
+        expected_profile = BOOLEAN_DEFAULT_PROFILE if boolean_edit else DEFAULT_PROFILE
+        if default_edit and intent.get("operation_profile") != expected_profile:
             raise ValueError("Unsupported native default transfer evidence version; retain it.")
         renaming = intent.get("change_kind") == "name"
         observed = (
@@ -586,7 +610,9 @@ class NativeApplications:
                     else {}
                 )
                 result["preservation"] = (
-                    verify_default_preservation(original_files, files, intent["default_edit"])
+                    (verify_boolean_preservation if boolean_edit else verify_default_preservation)(
+                        original_files, files, intent["default_edit"]
+                    )
                     if default_edit
                     else verify_preservation(
                         original_files,
@@ -622,7 +648,11 @@ class NativeApplications:
         request = DefaultTransferApply(**arguments)
         return await self.apply_reviewed(request, default_edit=True)
 
-    async def apply_reviewed(self, request, *, default_edit):
+    async def apply_boolean_default(self, **arguments):
+        request = DefaultTransferApply(**arguments)
+        return await self.apply_reviewed(request, default_edit=True, boolean_edit=True)
+
+    async def apply_reviewed(self, request, *, default_edit, boolean_edit=False):
         plan = self.plans.pop(request.token, None)
         if not plan or plan["digest"] != request.review_sha256 or not plan["body"]["can_apply"]:
             raise ValueError(
@@ -630,8 +660,13 @@ class NativeApplications:
             )
         renaming = plan["body"].get("change_kind") == "name"
         kind = plan["body"].get("change_kind", "instance")
-        if kind not in (("signal-default",) if default_edit else ("instance", "name")):
+        expected_kind = "boolean-default" if boolean_edit else "signal-default"
+        if kind not in ((expected_kind,) if default_edit else ("instance", "name")):
             raise ValueError("This review belongs to a different native transfer operation.")
+        if default_edit and plan["body"].get("operation_profile") != (
+            BOOLEAN_DEFAULT_PROFILE if boolean_edit else DEFAULT_PROFILE
+        ):
+            raise ValueError("Unsupported native default transfer evidence version; retain it.")
         if (
             not request.application_transfer_confirmed
             or (default_edit and not request.default_change_confirmed)
@@ -685,10 +720,22 @@ class NativeApplications:
                             "Application or saved parameter directory changed after review. Capture and review again."
                         )
                     output, compilation = (
-                        compile_default(
+                        (compile_boolean_default if boolean_edit else compile_default)(
                             files,
                             body["default_edit"],
-                            expected_prior_bits=body["compilation"]["selected_edit"]["before_bits"],
+                            **(
+                                {
+                                    "expected_prior_value": body["compilation"]["selected_edit"][
+                                        "before_value"
+                                    ]
+                                }
+                                if boolean_edit
+                                else {
+                                    "expected_prior_bits": body["compilation"]["selected_edit"][
+                                        "before_bits"
+                                    ]
+                                }
+                            ),
                         )
                         if default_edit
                         else self.compile(files, options.new_instance, options.new_name)
@@ -750,7 +797,9 @@ class NativeApplications:
                             **(
                                 {
                                     "default_edit": body["default_edit"],
-                                    "operation_profile": DEFAULT_PROFILE,
+                                    "operation_profile": BOOLEAN_DEFAULT_PROFILE
+                                    if boolean_edit
+                                    else DEFAULT_PROFILE,
                                     "default_change_confirmed": request.default_change_confirmed,
                                 }
                                 if default_edit
@@ -891,6 +940,14 @@ def native_application_router(service):
     @router.post("/signal-default/transfer/apply")
     async def apply_default(body: DefaultTransferApply):
         return await service.apply_default(**body.model_dump())
+
+    @router.post("/boolean-default/transfer/preview")
+    async def preview_boolean_default(body: BooleanTransferPreview):
+        return await service.preview_boolean_default(**body.model_dump())
+
+    @router.post("/boolean-default/transfer/apply")
+    async def apply_boolean_default(body: DefaultTransferApply):
+        return await service.apply_boolean_default(**body.model_dump())
 
     @router.post("/cancel")
     async def cancel(body: InstanceCancel):

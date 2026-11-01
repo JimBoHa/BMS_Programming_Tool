@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
+import { NativeBooleanTransferContext } from "./NativeBooleanTransferContext";
 import { api } from "./api";
 import { NativeRecords, type NativeArchiveSource } from "./NativeRecords";
 import { NativeBackupCapabilities } from "./NativeBackupCapabilities";
@@ -27,6 +28,8 @@ export function NativeBackupInspection({
   visible: boolean;
   booleanDrafts: BooleanCopyDrafts;
 }) {
+  const fieldBusy =
+    useContext(NativeBooleanTransferContext)?.fieldBusy ?? false;
   const owner = JSON.stringify([
     visible,
     selection,
@@ -125,6 +128,7 @@ export function NativeBackupInspection({
       <button
         disabled={
           !selection ||
+          fieldBusy ||
           (pending?.owner === owner && pending.epoch === epoch.current)
         }
         onClick={() => void inspect()}

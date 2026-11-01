@@ -48,8 +48,9 @@ hash and recomputes the entire compilation. All original file hashes are checked
 on each call. Response headers bind snapshot, review and actual artifact SHA-256.
 
 Native-backup operation matrix profile 3 adds the fourteenth operation for this
-effective Boolean compiler. Field transfer remains separately qualified and
-currently Real-only. Arbitrary logic generation, resource/package compatibility,
+effective Boolean compiler. A later [Boolean transfer profile](native-boolean-default-transfer.md)
+has its own fresh controller review/apply/readback contract; this compiler alone
+prepares no field operation. Arbitrary logic generation, resource/package compatibility,
 hardware allocation, CCT reopening and physical/BTCVT acceptance remain separate.
 JCI-02/JCI-03/JCI-09 remain partial overall.
 

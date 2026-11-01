@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import {
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
+import { NativeBooleanTransferContext } from "./NativeBooleanTransferContext";
 import { api } from "./api";
 import { controllerKey, type ControllerContext } from "./workflow";
 import {
@@ -55,6 +62,8 @@ const scalarText = (scalar: Data | null) => {
 };
 
 export function NativeRecords(props: RecordSource) {
+  const fieldBusy =
+    useContext(NativeBooleanTransferContext)?.fieldBusy ?? false;
   const native = props.kind === "native-backup";
   const controller = props.controller;
   const capture = native
@@ -266,10 +275,11 @@ export function NativeRecords(props: RecordSource) {
           <input
             maxLength={256}
             value={query}
+            disabled={fieldBusy}
             onChange={(event) => setQuery(event.target.value)}
           />
         </label>
-        <button disabled={busy}>Search records</button>
+        <button disabled={busy || fieldBusy}>Search records</button>
       </form>
       {busy && <p role="status">Loading captured records…</p>}
       {error && (
@@ -330,7 +340,7 @@ export function NativeRecords(props: RecordSource) {
                     <td>
                       <button
                         type="button"
-                        disabled={busy}
+                        disabled={busy || fieldBusy}
                         aria-pressed={selected === row.id}
                         onClick={() => {
                           setPropertyQuery("");
@@ -351,7 +361,7 @@ export function NativeRecords(props: RecordSource) {
           <div className="button-row">
             <button
               type="button"
-              disabled={busy || inventory.offset === 0}
+              disabled={busy || fieldBusy || inventory.offset === 0}
               onClick={() =>
                 void list(
                   Math.max(0, inventory.offset - pageSize),
@@ -363,7 +373,7 @@ export function NativeRecords(props: RecordSource) {
             </button>
             <button
               type="button"
-              disabled={busy || inventory.next_offset == null}
+              disabled={busy || fieldBusy || inventory.next_offset == null}
               onClick={() => void list(inventory.next_offset, inventory.query)}
             >
               Next records
@@ -399,10 +409,13 @@ export function NativeRecords(props: RecordSource) {
               <input
                 maxLength={256}
                 value={propertyQuery}
+                disabled={fieldBusy}
                 onChange={(event) => setPropertyQuery(event.target.value)}
               />
             </label>
-            <button disabled={detailBusy}>Search properties</button>
+            <button disabled={detailBusy || fieldBusy}>
+              Search properties
+            </button>
           </form>
           <p>
             {detail.total_matches} matching properties · query:{" "}
@@ -472,7 +485,7 @@ export function NativeRecords(props: RecordSource) {
           <div className="button-row">
             <button
               type="button"
-              disabled={detailBusy || detail.offset === 0}
+              disabled={detailBusy || fieldBusy || detail.offset === 0}
               onClick={() =>
                 void inspect(
                   selected,
@@ -485,7 +498,7 @@ export function NativeRecords(props: RecordSource) {
             </button>
             <button
               type="button"
-              disabled={detailBusy || detail.next_offset == null}
+              disabled={detailBusy || fieldBusy || detail.next_offset == null}
               onClick={() =>
                 void inspect(selected, detail.next_offset, detail.query)
               }

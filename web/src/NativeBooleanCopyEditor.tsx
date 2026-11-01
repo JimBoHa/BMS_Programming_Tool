@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { NativeBooleanTransferContext } from "./NativeBooleanTransferContext";
 import { apiBlobDocument, apiJsonDocument, saveBlob } from "./api";
 import { sha256Blob } from "./activityContracts";
 import { controllerKey } from "./workflow";
@@ -11,6 +12,7 @@ export function BooleanCopyEditor({
   field,
   drafts,
   effective,
+  renderTransfer,
 }: {
   source: NativeArchiveSource;
   field: {
@@ -21,7 +23,14 @@ export function BooleanCopyEditor({
   };
   drafts: BooleanCopyDrafts;
   effective?: { source_sha256: string; archive_value: boolean };
+  renderTransfer?: (proposal: Data) => ReactNode;
 }) {
+  const transferContext = useContext(NativeBooleanTransferContext);
+  const fieldBusy = transferContext?.fieldBusy ?? false;
+  const transferActive =
+    !!renderTransfer &&
+    !!transferContext?.controller?.interfaceOpen &&
+    controllerKey(transferContext.controller) === controllerKey(source.target);
   const base = effective
     ? "/bacnet/controller/native-application/boolean-default-compiler"
     : "/bacnet/controller/native-application/inspection/boolean-default";
@@ -213,6 +222,7 @@ export function BooleanCopyEditor({
       <label>
         <input
           type="checkbox"
+          disabled={fieldBusy}
           aria-label={
             effective
               ? "Proposed effective Boolean default"
@@ -225,15 +235,18 @@ export function BooleanCopyEditor({
       </label>
       <div className="button-row">
         <button
-          className={shown ? undefined : "primary"}
-          disabled={busy}
+          className={shown || transferActive ? undefined : "primary"}
+          disabled={busy || fieldBusy}
           onClick={() => void prepare()}
         >
           {effective
             ? "Review effective Boolean compilation"
             : "Review Boolean archive copy"}
         </button>
-        <button disabled={busy} onClick={() => change(field.value)}>
+        <button
+          disabled={busy || fieldBusy}
+          onClick={() => change(field.value)}
+        >
           {effective
             ? "Discard effective Boolean draft"
             : "Discard Boolean copy draft"}
@@ -267,8 +280,8 @@ export function BooleanCopyEditor({
             transfer this file.
           </p>
           <button
-            className="primary"
-            disabled={busy}
+            className={transferActive ? undefined : "primary"}
+            disabled={busy || fieldBusy}
             onClick={() => void save()}
           >
             {effective
@@ -289,6 +302,7 @@ export function BooleanCopyEditor({
           </button>
         </section>
       )}
+      {renderTransfer?.(body)}
     </details>
   );
 }

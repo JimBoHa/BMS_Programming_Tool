@@ -2,7 +2,10 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 
 const root = path.resolve("..");
-export async function nativeDefaultPeer(mode = "consume") {
+export async function nativeDefaultPeer(
+  mode = "consume",
+  datatype: "real" | "boolean" = "real",
+) {
   const child = spawn(
     path.join(root, ".venv/bin/python"),
     [
@@ -13,17 +16,24 @@ import asyncio,json,sys,struct
 from tests.test_native_applications import NativePeer,port
 from tests.test_native_signal_compiler import signal_files
 from tests.test_native_default_transfer import controller_storage,real_slot,NativeRouter
+from tests.test_native_boolean_copies import boolean_files,FIRST
+from tests.test_native_boolean_transfer import storage_outcome,boolean_slot
 from bacpypes3.local.device import DeviceObject
 from bacpypes3.local.networkport import NetworkPortObject
 async def main():
- p=port();app=NativePeer.from_object_list([DeviceObject(objectIdentifier=('device',5136),objectName='Authored controller',vendorIdentifier=5),NetworkPortObject(f'127.0.0.1:{p}',objectIdentifier=('network-port',1),objectName='Owned native default peer')]);app.setup();app.files=signal_files();controller_storage(app,mode=sys.argv[1])
+ p=port();app=NativePeer.from_object_list([DeviceObject(objectIdentifier=('device',5136),objectName='Authored controller',vendorIdentifier=5),NetworkPortObject(f'127.0.0.1:{p}',objectIdentifier=('network-port',1),objectName='Owned native default peer')]);app.setup()
+ if sys.argv[2]=='boolean':app.files=boolean_files();storage_outcome(app,mode=sys.argv[1])
+ else:app.files=signal_files();controller_storage(app,mode=sys.argv[1])
  transport,proxy=await asyncio.get_running_loop().create_datagram_endpoint(lambda:NativeRouter(('127.0.0.1',p)),local_addr=('127.0.0.1',0))
  print('READY '+json.dumps({'direct':f'127.0.0.1:{p}','router':proxy.endpoint}),flush=True)
  def command():
   line=sys.stdin.readline().strip()
   if not line:return
   if line=='selected43':real_slot(app.files,-10,struct.pack('>f',43))
-  elif line=='repair':real_slot(app.files,-10,bytes.fromhex('3dcccccd'))
+  elif line=='boolean-selected-false':boolean_slot(app.files,FIRST,False)
+  elif line=='repair':
+   if sys.argv[2]=='boolean':boolean_slot(app.files,FIRST,False)
+   else:real_slot(app.files,-10,bytes.fromhex('3dcccccd'))
   elif line.startswith('mode '):app.mode=line[5:]
   elif line!='stats':raise AssertionError('Unknown authored command')
   print('RESULT '+json.dumps({'command':line,'events':app.events,'instance':app.instance,'router_errors':proxy.errors,'request_types':[r['type'] for r in proxy.requests]}),flush=True)
@@ -33,6 +43,7 @@ async def main():
 asyncio.run(main())
 `,
       mode,
+      datatype,
     ],
     {
       cwd: root,
