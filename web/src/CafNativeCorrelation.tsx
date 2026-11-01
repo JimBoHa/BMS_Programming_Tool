@@ -1,12 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { api, apiJsonDocument, saveBlob } from "./api";
+import { apiJsonDocument, saveBlob } from "./api";
 import { sha256Blob } from "./activityContracts";
 import { controllerKey, type ControllerContext } from "./workflow";
+import {
+  comparisonSources,
+  comparisonRequest,
+  comparisonReportSource,
+  comparisonIdentityFlag,
+  comparisonSourceMatches,
+  type ComparisonSource,
+  type ComparisonSourceKind,
+} from "./cafNativeCorrelationSources";
 import "./caf-native-correlation.css";
 
 type Data = Record<string, any>;
-const profile = "caf-native-source-correlation/1";
 const hash = (value: unknown): value is string =>
   typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
 const statuses = new Set([
@@ -44,16 +52,26 @@ export function CafNativeCorrelation({
   controller?: ControllerContext | null;
   hasLocalProposals: boolean;
 }) {
-  const [sources, setSources] = useState<Data[]>([]);
-  const [choice, setChoice] = useState("");
+  const [kind, setKind] = useState<ComparisonSourceKind>("backup");
+  const [sourceCache, setSourceCache] = useState<
+    Record<ComparisonSourceKind, ComparisonSource[]>
+  >({ backup: [], file: [] });
+  const [choices, setChoices] = useState<Record<ComparisonSourceKind, string>>({
+    backup: "",
+    file: "",
+  });
+  const sources = sourceCache[kind],
+    choice = choices[kind],
+    backup = kind === "backup";
+  const setChoice = (value: string) =>
+    setChoices((prior) => ({ ...prior, [kind]: value }));
   const [query, setQuery] = useState("");
   const selected = sources.find((row) => row.id === choice);
-  const target = selected
-    ? { ...selected.target, device: selected.device }
-    : null;
+  const target = selected?.target || null;
   const context = JSON.stringify([
     id,
     visible,
+    kind,
     controller && [
       controllerKey(controller),
       controller.interfaceKey,
@@ -63,7 +81,7 @@ export function CafNativeCorrelation({
   const owner = JSON.stringify([
     context,
     choice,
-    selected?.evidence_sha256,
+    selected?.signature,
     target,
     query,
   ]);
@@ -85,7 +103,11 @@ export function CafNativeCorrelation({
     ticket: number;
   } | null>(null);
   const [listBusy, setListBusy] = useState(false);
-  const [listError, setListError] = useState("");
+  const [listFailure, setListFailure] = useState<{
+    context: string;
+    text: string;
+  } | null>(null);
+  const listError = listFailure?.context === context ? listFailure.text : "";
   const [failure, setFailure] = useState<{
     owner: string;
     ticket: number;
@@ -99,6 +121,7 @@ export function CafNativeCorrelation({
   } | null>(null);
   const shown =
     loaded?.owner === owner && loaded.ticket === epoch.current ? loaded : null;
+  const shownSource = shown ? comparisonReportSource(shown.data, kind) : null;
   const error =
     failure?.owner === owner && failure.ticket === epoch.current
       ? failure.text
@@ -122,36 +145,19 @@ export function CafNativeCorrelation({
     setFailure(null);
     setPending(null);
     setListBusy(true);
-    setListError("");
+    setListFailure(null);
     try {
-      const result = await api(
-        "/bacnet/controller/native-application/signal-default/sources",
-      );
-      if (
-        result.profile !== "native-effective-signal-default-compiler/1" ||
-        result.controller_queries !== false ||
-        !Array.isArray(result.sources) ||
-        result.sources.length > 128 ||
-        new Set(result.sources.map((row: Data) => row.id)).size !==
-          result.sources.length ||
-        result.sources.some(
-          (row: Data) =>
-            !/^[a-f0-9]{32}$/.test(row.id || "") ||
-            !hash(row.evidence_sha256) ||
-            typeof row.target?.address !== "string" ||
-            typeof row.device !== "string",
-        )
-      )
-        throw new Error("Unsupported retained native backup list.");
+      const rows = await comparisonSources(kind);
       if (
         alive.current &&
         contextNow.current === key &&
         listEpoch.current === ticket
       ) {
-        setSources(result.sources);
-        setChoice((prior) =>
-          result.sources.some((row: Data) => row.id === prior) ? prior : "",
-        );
+        setSourceCache((prior) => ({ ...prior, [kind]: rows }));
+        setChoices((prior) => ({
+          ...prior,
+          [kind]: rows.some((row) => row.id === prior[kind]) ? prior[kind] : "",
+        }));
       }
     } catch (failure) {
       if (
@@ -159,7 +165,7 @@ export function CafNativeCorrelation({
         contextNow.current === key &&
         listEpoch.current === ticket
       )
-        setListError(String(failure));
+        setListFailure({ context: key, text: String(failure) });
     } finally {
       if (
         alive.current &&
@@ -179,25 +185,19 @@ export function CafNativeCorrelation({
     setLoaded(null);
     setFailure(null);
     setPending({ owner: key, ticket });
-    const body = {
-      source_sha256: id,
-      capture_id: selected.id,
-      snapshot_sha256: selected.evidence_sha256,
-      query,
-      offset,
-      limit: 64,
-    };
+    const body = comparisonRequest(selected, id, query, offset);
     try {
       const result = await apiJsonDocument(
-        "/caf/" + id + "/native-correlation",
+        "/caf/" +
+          id +
+          (backup ? "/native-correlation" : "/native-file-correlation"),
         body,
         true,
       );
-      const data = result.data,
-        native = data.native_backup;
+      const data = result.data;
       const expectedHash = result.headers?.get("X-Studio-Artifact-Sha256");
       if (
-        data.profile !== profile ||
+        !comparisonSourceMatches(data, selected) ||
         data.caf?.sha256 !== id ||
         data.caf?.source !== "original-opened-archive" ||
         !data.request ||
@@ -206,18 +206,6 @@ export function CafNativeCorrelation({
         Object.entries(body).some(
           ([key, value]) => data.request[key] !== value,
         ) ||
-        native?.profile !== "native-backup-record-inspection/1" ||
-        native?.source_kind !== "native-backup-archive" ||
-        native?.capture_id !== selected.id ||
-        native?.snapshot_sha256 !== selected.evidence_sha256 ||
-        !hash(native?.sha256) ||
-        native?.files?.["3"]?.sha256 !== native.sha256 ||
-        native?.read_only !== true ||
-        native?.controller_queries !== false ||
-        native?.field_actions !== false ||
-        native?.identity_verified !== false ||
-        native?.captured_at !== selected.captured_at ||
-        controllerKey(native.target) !== controllerKey(target!) ||
         data.read_only !== true ||
         data.controller_queries !== false ||
         data.field_actions !== false ||
@@ -230,7 +218,6 @@ export function CafNativeCorrelation({
           "recorded-differences",
           "identity-incomplete",
         ].includes(data.classification) ||
-        typeof data.recorded_acquisition_identity_verified !== "boolean" ||
         !Array.isArray(data.device_checks) ||
         data.device_checks.length !== 5 ||
         data.device_checks.map((row: Data) => row.field).join() !==
@@ -318,19 +305,57 @@ export function CafNativeCorrelation({
             </p>
           )}
           <label>
-            Native backup for CAF comparison
+            Comparison source type
             <span className="caf-native-select">
               <select
-                aria-label="Native backup for CAF comparison"
+                aria-label="Comparison source type"
+                value={kind}
+                disabled={!visible}
+                onChange={(event) =>
+                  setKind(event.target.value as ComparisonSourceKind)
+                }
+              >
+                <option value="backup">Native backup (Files 3/11/12)</option>
+                <option value="file">Captured BACnet File</option>
+              </select>
+              <ChevronDown size={16} aria-hidden="true" />
+            </span>
+          </label>
+          {!backup && (
+            <p>
+              Compare actual recognized native bytes from a retained File
+              capture. Paired saved-setting files and atomic-backup evidence are
+              unavailable.
+            </p>
+          )}
+          <label>
+            {backup
+              ? "Native backup for CAF comparison"
+              : "Captured File for CAF comparison"}
+            <span className="caf-native-select">
+              <select
+                aria-label={
+                  backup
+                    ? "Native backup for CAF comparison"
+                    : "Captured File for CAF comparison"
+                }
                 value={choice}
                 disabled={!visible || listBusy}
                 onChange={(event) => setChoice(event.target.value)}
               >
-                <option value="">Select retained native backup</option>
+                <option value="">
+                  {backup
+                    ? "Select retained native backup"
+                    : "Select retained BACnet File"}
+                </option>
                 {sources.map((row) => (
                   <option key={row.id} value={row.id}>
-                    {row.identity?.["object-name"] || row.id} ·{" "}
-                    {station({ ...row.target, device: row.device })} ·{" "}
+                    {typeof row.identity?.["object-name"] === "string"
+                      ? row.identity["object-name"]
+                      : row.id}{" "}
+                    · {station(row.target)} ·{" "}
+                    {!backup &&
+                      `${row.raw.file_object} · ${typeof row.raw.format_hint === "string" ? row.raw.format_hint : "unlabelled format"} · `}
                     {row.captured_at}
                   </option>
                 ))}
@@ -343,15 +368,22 @@ export function CafNativeCorrelation({
               disabled={!visible || listBusy}
               onClick={() => void refresh()}
             >
-              Refresh comparison backups
+              {backup ? "Refresh comparison backups" : "Refresh captured files"}
             </button>
           </div>
-          {listBusy && <p role="status">Reading retained backup list…</p>}
+          {listBusy && (
+            <p role="status">
+              {backup
+                ? "Reading retained backup list…"
+                : "Reading retained File list…"}
+            </p>
+          )}
           {listError && <p role="alert">{listError}</p>}
           {!listBusy && !sources.length && (
             <p>
-              Read a native backup in Program's Native backup defaults tool,
-              then refresh this list.
+              {backup
+                ? "Read a native backup in Program's Native backup defaults tool, then refresh this list."
+                : "Read an existing BACnet application File from the controller workspace, then refresh this list."}
             </p>
           )}
           {target && (
@@ -362,7 +394,9 @@ export function CafNativeCorrelation({
           {controller && target && (
             <p aria-label="Comparison workspace relation">
               {controllerKey(controller) === controllerKey(target)
-                ? "The workspace and retained source name the same station."
+                ? backup
+                  ? "The workspace and retained source name the same station."
+                  : "Workspace and captured File have matching recorded addresses."
                 : "The workspace selects a different station."}{" "}
               Retained evidence does not verify its current program.
               {!controller.interfaceOpen &&
@@ -416,12 +450,17 @@ export function CafNativeCorrelation({
                 application association remain unverified.
               </p>
               <p>
-                Recorded acquisition identity:{" "}
-                {shown.data.recorded_acquisition_identity_verified
-                  ? "verified at capture"
-                  : "unverified"}
-                . Native archive captured {shown.data.native_backup.captured_at}
-                .
+                {backup
+                  ? "Recorded acquisition identity: "
+                  : "Recorded File device identity agrees with archive: "}
+                {backup
+                  ? comparisonIdentityFlag(shown.data, kind)
+                    ? "verified at capture"
+                    : "unverified"
+                  : comparisonIdentityFlag(shown.data, kind)
+                    ? "yes"
+                    : "no"}
+                . Native archive captured {shownSource?.captured_at}.
               </p>
               <div className="table-scroll">
                 <table aria-label="CAF/native Device identity checks">
@@ -517,7 +556,7 @@ export function CafNativeCorrelation({
                   {JSON.stringify(
                     {
                       caf: shown.data.caf,
-                      native_backup: shown.data.native_backup,
+                      [backup ? "native_backup" : "native_file"]: shownSource,
                       coverage: shown.data.coverage,
                       report_sha256: shown.data.report_sha256,
                     },

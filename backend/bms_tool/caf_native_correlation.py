@@ -49,12 +49,8 @@ def string_property(caf, obj, pid):
     return None
 
 
-def correlate(caf, backups, request):
-    options = CafNativeCorrelationRequest.model_validate(request)
-    if caf.hash != options.source_sha256:
-        raise ValueError("The opened CAF changed; compare its original source again.")
-    snapshot, files, _ = backups.load(options.model_dump(include={"capture_id", "snapshot_sha256"}))
-    identity = MoiIdentity(files[3])
+def correlation_identity(data):
+    identity = MoiIdentity(data)
     if identity.reader.errors:
         raise ValueError("Native correlation requires unambiguous framed engineering records.")
     if any(
@@ -62,12 +58,6 @@ def correlate(caf, backups, request):
         for record in identity.reader.records.values()
     ):
         raise ValueError("Native correlation requires typed engineering reference strings.")
-    if len(caf.objects) > MAX_OBJECTS:
-        raise ValueError("CAF correlation supports at most 20000 recorded objects.")
-    refs = set(caf.objects) | set(identity.reader.records)
-    if any(len(ref) > 512 for ref in refs):
-        raise ValueError("CAF/native correlation references must be at most 512 characters.")
-    caf_identity = CafInstanceEditor(caf)
     native_identity = identity.summary()
     for key, pid in (("name", 2390), ("model", 70)):
         scalar = identity.root["properties"].get(pid, {}).get("scalar") or {}
@@ -78,6 +68,62 @@ def correlate(caf, backups, request):
             or len(value.encode("utf-8")) > 4096
         ):
             native_identity[key] = None
+    return identity, native_identity
+
+
+def recorded_identity_agrees(device, recorded, native_identity):
+    return (
+        native_identity["name"] is not None
+        and native_identity["model"] is not None
+        and recorded.get("vendor-identifier") == 5
+        and device == f"device,{native_identity['instance']}"
+        and recorded.get("object-name") == native_identity["name"]
+        and recorded.get("model-name") == native_identity["model"]
+    )
+
+
+def correlate(caf, backups, request):
+    options = CafNativeCorrelationRequest.model_validate(request)
+    if caf.hash != options.source_sha256:
+        raise ValueError("The opened CAF changed; compare its original source again.")
+    snapshot, files, _ = backups.load(options.model_dump(include={"capture_id", "snapshot_sha256"}))
+    identity, native_identity = correlation_identity(files[3])
+    verified = snapshot.get("source_identity_matches") is True and recorded_identity_agrees(
+        snapshot["device"], snapshot["identity"], native_identity
+    )
+    return compare_archives(
+        caf,
+        identity,
+        native_identity,
+        options,
+        profile=PROFILE,
+        scope=SCOPE,
+        source_field="native_backup",
+        source=backups.envelope(snapshot, files),
+        identity_field="recorded_acquisition_identity_verified",
+        identity_agrees=verified,
+    )
+
+
+def compare_archives(
+    caf,
+    identity,
+    native_identity,
+    options,
+    *,
+    profile,
+    scope,
+    source_field,
+    source,
+    identity_field,
+    identity_agrees,
+):
+    if len(caf.objects) > MAX_OBJECTS:
+        raise ValueError("CAF correlation supports at most 20000 recorded objects.")
+    refs = set(caf.objects) | set(identity.reader.records)
+    if any(len(ref) > 512 for ref in refs):
+        raise ValueError("CAF/native correlation references must be at most 512 characters.")
+    caf_identity = CafInstanceEditor(caf)
     caf_root = {
         "root_ref": caf_identity.ref,
         "root_class": canonical_number(caf_identity.root.get("classid"), 65535),
@@ -98,15 +144,6 @@ def correlate(caf, backups, request):
         }
         for key in ("root_ref", "root_class", "instance", "name", "model")
     ]
-    acquisition_verified = (
-        snapshot.get("source_identity_matches") is True
-        and native_identity["name"] is not None
-        and native_identity["model"] is not None
-        and snapshot.get("identity", {}).get("vendor-identifier") == 5
-        and snapshot["device"] == f"device,{identity.instance}"
-        and snapshot["identity"].get("object-name") == native_identity["name"]
-        and snapshot["identity"].get("model-name") == native_identity["model"]
-    )
     frames = {
         start: (cid, int.from_bytes(oid, "big") & 0x3FFFFF)
         for start, cid, oid, _ in native_frames(identity.data, required=True)
@@ -156,7 +193,7 @@ def correlate(caf, backups, request):
         counts.get(key, 0) for key in ("different-record-identity", "caf-only", "native-only")
     )
     incomplete = (
-        not acquisition_verified
+        not identity_agrees
         or any(row["status"] == "unavailable" for row in checks)
         or any(counts.get(key, 0) for key in ("identity-unavailable", "ambiguous-identity"))
     )
@@ -166,8 +203,8 @@ def correlate(caf, backups, request):
         if options.query.casefold() in " ".join(str(v) for v in row.values()).casefold()
     ]
     body = {
-        "profile": PROFILE,
-        "scope": SCOPE,
+        "profile": profile,
+        "scope": scope,
         "request": options.model_dump(),
         "caf": {
             "sha256": caf.hash,
@@ -175,9 +212,9 @@ def correlate(caf, backups, request):
             "source": "original-opened-archive",
             "root_metadata_entries": len(caf.extra_entries),
         },
-        "native_backup": backups.envelope(snapshot, files),
+        source_field: source,
         "device_checks": checks,
-        "recorded_acquisition_identity_verified": acquisition_verified,
+        identity_field: identity_agrees,
         "classification": "recorded-differences"
         if differences
         else "identity-incomplete"
