@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
-import { controllerKey, type ControllerTarget } from "./workflow";
+import {
+  controllerKey,
+  controllerReadTarget,
+  type ControllerTarget,
+} from "./workflow";
 import "./controller-object-picker.css";
 
 type Choice = { object: string; name: string };
@@ -57,8 +61,7 @@ export function ControllerObjectPicker({
   } catch {
     // An unavailable context must not be replaced with the latest interface.
   }
-  const available =
-    connected && !!configuration && configuration.transport !== "mstp";
+  const available = connected && !!configuration;
   const [position, setPosition] = useState({ source, offset: 0 });
   const offset = position.source === source ? position.offset : 0;
   const [revision, setRevision] = useState(0);
@@ -107,6 +110,29 @@ export function ControllerObjectPicker({
     }
     void (async () => {
       try {
+        if (configuration?.transport === "mstp") {
+          const result = await api("/bacnet/controller/monitoring/choices", {
+            controller_target: controllerReadTarget(target, configuration),
+            expected_connector_config: configuration,
+            kind,
+            offset,
+            limit: 16,
+          });
+          if (!active()) return;
+          verify(result);
+          setPage({
+            source,
+            offset,
+            total: result.total,
+            next: result.next_offset,
+            rows: result.rows,
+            message: [
+              ...(result.errors || []),
+              ...(result.warnings || []),
+            ].join(" "),
+          });
+          return;
+        }
         const inventory = await api("/bacnet/controller/inventory", {
           ...pinned,
           offset,
@@ -188,9 +214,7 @@ export function ControllerObjectPicker({
         <p className="help-text">
           {!connected
             ? "Open the matching controller interface to discover objects. Saved evidence remains available offline."
-            : configuration?.transport === "mstp"
-              ? "Selected-controller object choices currently require BACnet/IPv4, directly or through an IP router. Standalone serial acquisition is a separate profile."
-              : "Reopen and verify the controller to obtain its interface context."}
+            : "Reopen and verify the controller to obtain its interface context."}
         </p>
       ) : (
         <>

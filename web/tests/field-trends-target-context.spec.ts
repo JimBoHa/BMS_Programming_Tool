@@ -552,3 +552,36 @@ test("a held refresh for an earlier source cannot overwrite the operator's later
     gate.release();
   }
 });
+
+test("changing to a newly admitted source hides already displayed samples before its first page arrives", async ({
+  page,
+}) => {
+  const state = await fixture(page);
+  await openController(page, first);
+  await openTrends(page);
+  const samples = page.getByRole("region", {
+    name: "Saved field trend samples",
+  });
+  const oldSignal = samples.getByRole("cell", {
+    name: /original_saved_signal/,
+  });
+  await expect(oldSignal).toBeVisible();
+  await picker(page).selectOption(object(first));
+  const gate = state.holdSamples("field/authored-job-1");
+  try {
+    await start(page).click();
+    await gate.arrived;
+    await expect(
+      page.getByLabel("Field trend source", { exact: true }),
+    ).toHaveValue("field/authored-job-1");
+    await expect(oldSignal).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Export field page CSV", exact: true }),
+    ).toBeDisabled();
+    gate.release();
+    await expect(oldSignal).toHaveCount(0);
+    expect(state.starts).toHaveLength(1);
+  } finally {
+    gate.release();
+  }
+});

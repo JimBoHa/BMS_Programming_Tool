@@ -63,6 +63,22 @@ export const controllerKey = (target: ControllerTarget) =>
     target.device,
   ]);
 
+/** Explicit serial read opt-in; preserve the existing IPv4 target shape. */
+export function controllerReadTarget(
+  target: ControllerTarget,
+  configuration: Record<string, unknown> | null,
+) {
+  return {
+    address: target.address,
+    device: target.device,
+    router: target.router || null,
+    dnet: target.dnet ?? null,
+    ...(configuration?.transport === "mstp"
+      ? { transport: "direct-mstp" as const }
+      : {}),
+  };
+}
+
 export const programTools = [
   { id: "editor", label: "Graph editor" },
   { id: "caf", label: "CAF file" },

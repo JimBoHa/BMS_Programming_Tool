@@ -29,6 +29,13 @@ const sameTarget = (a: Data, b: Data) =>
   ["address", "router", "dnet"].every(
     (key) => (a[key] ?? null) === (b[key] ?? null),
   );
+const hasSerialInterface = (key?: string) => {
+  try {
+    return JSON.parse(key ?? "null")?.transport === "mstp";
+  } catch {
+    return false;
+  }
+};
 
 export function NativeDefaultTransfer({
   controller,
@@ -120,8 +127,11 @@ export function NativeDefaultTransfer({
     alive.current && ownerNow.current === key && epoch.current === ticket;
   const shown =
     plan?.owner === owner && plan.epoch === epoch.current ? plan : null;
+  const serialInterface = hasSerialInterface(controller?.interfaceKey);
   const connected =
-    !!controller?.interfaceOpen && controller.ownedCommands === 0;
+    !!controller?.interfaceOpen &&
+    controller.ownedCommands === 0 &&
+    !serialInterface;
   const sourceMatches =
     !!controller &&
     !!source &&
@@ -448,6 +458,12 @@ export function NativeDefaultTransfer({
         native application and can interrupt controller operation. Device
         identity stays unchanged.
       </p>
+      {serialInterface && (
+        <p>
+          Native backup and application transfer require a BACnet/IPv4
+          interface. Local compilation and saved receipts remain available.
+        </p>
+      )}
       {!adapterAvailable && (
         <p>
           The installed native {wireSource ? "wire source" : "Boolean"} transfer

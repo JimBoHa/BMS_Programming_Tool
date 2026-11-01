@@ -1491,6 +1491,15 @@
     "evidence": "Authored direct/routed UDP peers, source-pinned backend/API checks and Chromium/WebKit controller-workspace regressions.",
     "pdf_pages_or_section": "docs/controller-monitoring-context.md; docs/workflow-style-guide.md; ROADMAP UX-01",
     "status": "implemented",
-    "implementation_or_gap": "Implemented for direct/explicit-routed BACnet IPv4: paired controller target and original connector configuration, source/Device/object checks, staged polling samples, bounded discovered-object choices, per-context drafts, exact history response/source checks and original JSON capture exports. Legacy standalone API/report profiles remain. Selected-controller direct MS/TP and other unsupported profiles are explicitly refused pending separate work; no physical acceptance or native application changes."
+    "implementation_or_gap": "Implemented for direct/explicit-routed BACnet IPv4: paired controller target and original connector configuration, source/Device/object checks, staged polling samples, bounded discovered-object choices, per-context drafts, exact history response/source checks and original JSON capture exports. Legacy standalone API/report profiles remain. Selected-controller direct MS/TP field polling and single-log history are separately implemented under UI-MONITOR-SERIAL-001. Other profiles retain their own admission contracts; no physical acceptance or native application changes."
+  },
+  {
+    "id": "UI-MONITOR-SERIAL-001",
+    "feature": "Selected-controller direct serial monitoring",
+    "acceptance_criterion": "Discover actual standard monitoring objects on the selected serial controller and reuse its exact remote MAC, Device and original complete interface for verified field polling and single Trend Log history, retiring stale pages and preserving original evidence.",
+    "evidence": "Production HTTP and BACnet services over kernel TTYs; independent MS/TP frame/CRC peers, source-admission cases and Chromium/WebKit workflows.",
+    "pdf_pages_or_section": "docs/controller-monitoring-context.md; docs/mstp-transport.md",
+    "status": "implemented",
+    "implementation_or_gap": "Software-qualified explicit direct-mstp nested targets for paired-context field sampling and single-log position/sequence/time history. Strict complete original/actual serial identities, bounded observed-object/name choices, staged samples and before/after identity checks, application-generation pinning, exact history bytes/captures, per-interface drafts and source/cursor-owned visible pages. No physical RS-485/controller or BTCVT acceptance, native application change, widened COV/multiple/event/generic inventory APIs, automatic collector restart, retry or timeout expansion."
   }
 ]
