@@ -1,0 +1,144 @@
+.change-ledger {
+  min-width: 0;
+  padding: 24px;
+}
+.change-ledger-heading,
+.change-ledger-pages {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.change-ledger h2,
+.change-ledger h3 {
+  margin: 0 0 8px;
+}
+.change-ledger p {
+  line-height: 1.5;
+}
+.change-ledger-local {
+  margin: 24px 0;
+}
+.change-ledger table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.change-ledger th,
+.change-ledger td {
+  padding: 16px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border, #d9e0e3);
+  overflow-wrap: anywhere;
+}
+.change-ledger td > span,
+.change-ledger td > strong,
+.change-ledger-original > span,
+.change-ledger-original > strong {
+  display: block;
+  margin-bottom: 8px;
+}
+.change-ledger th {
+  background: var(--bg, #f4f7f8);
+}
+.change-ledger-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 16px;
+  margin: 24px 0 16px;
+}
+.change-ledger-filters label {
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+}
+.change-ledger-filters label:first-child {
+  flex: 1 1 280px;
+}
+.change-ledger-filters input,
+.change-ledger-filters select {
+  min-height: 40px;
+  width: 100%;
+}
+.change-ledger-scope {
+  color: var(--muted, #536573);
+}
+.change-ledger-warning {
+  border: 1px solid #ba8734;
+  background: #fff7e8;
+  padding: 16px;
+  margin: 16px 0;
+}
+.change-ledger-table {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.change-ledger-table table {
+  min-width: 820px;
+}
+.change-ledger-state {
+  font-weight: 600;
+}
+.change-ledger-state.attention {
+  color: #8a580a;
+}
+.change-ledger-state.verified {
+  color: #17674c;
+}
+.change-ledger-pages {
+  margin: 16px 0;
+  justify-content: flex-start;
+}
+.change-ledger-detail {
+  border: 1px solid var(--border, #d9e0e3);
+  padding: 24px;
+  margin-top: 24px;
+}
+.change-ledger-detail dl {
+  display: grid;
+  grid-template-columns: minmax(140px, auto) 1fr;
+  gap: 8px 16px;
+}
+.change-ledger-detail dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.change-ledger-detail pre {
+  max-height: 480px;
+  overflow: auto;
+  font-size: 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.change-ledger-detail details {
+  margin-top: 16px;
+}
+.change-ledger button:focus-visible,
+.change-ledger [tabindex]:focus-visible,
+.change-ledger summary:focus-visible {
+  outline: 3px solid #147d83;
+  outline-offset: 3px;
+}
+@media (max-width: 700px) {
+  .change-ledger,
+  .change-ledger-detail {
+    padding: 16px;
+  }
+  .change-ledger-heading {
+    align-items: flex-start;
+  }
+  .change-ledger-filters label {
+    flex: 1 1 100%;
+  }
+  .change-ledger-detail dl {
+    grid-template-columns: 1fr;
+  }
+  .change-ledger-local {
+    overflow-x: auto;
+  }
+  .change-ledger-local table {
+    min-width: 520px;
+  }
+}
