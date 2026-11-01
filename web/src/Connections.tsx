@@ -45,6 +45,7 @@ import {
 } from "./ControllerWorkspace";
 import { WorkflowToolTabs } from "./WorkflowChrome";
 import { ControllerProgram, LiveControllerPoints } from "./LiveController";
+import { ResponsivePanel } from "./ResponsivePanel";
 import {
   type ConnectionView,
   type ControllerContext,
@@ -820,17 +821,35 @@ export function Connections({
         />
       )}
       <div className="workflow-controller-layout">
-        <ControllerExplorer
-          devices={scanNames}
-          current={controller}
-          busy={busy}
-          onOpen={(target) => void openController(target)}
-          onConnect={() => {
-            setSetupStep(status.connected ? "discovery" : "connection");
-            onConnectionSetup?.();
-          }}
-          onProgram={() => onNavigate?.("program")}
-        />
+        <ResponsivePanel
+          name="Controller explorer"
+          panel="controllers"
+          triggerText="Controllers"
+          triggerLabel="Open controller explorer"
+          closeLabel="Close controller explorer"
+          context={
+            controller
+              ? `Selected ${controller.name} · ${controller.address} · ${controller.device}${controller.router ? ` via ${controller.router}, network ${controller.dnet}` : ""} · ${controllerReady ? "Interface open" : "Matching interface unavailable"}`
+              : status.connected
+                ? "Interface open · no controller selected"
+                : "Interface closed · no controller selected"
+          }
+          retireKey={`${view}:${visible}:${controller ? controllerKey(controller) : ""}:${statusKey}`}
+          closeOnSelector=".workflow-explorer button"
+          disabled={busy}
+        >
+          <ControllerExplorer
+            devices={scanNames}
+            current={controller}
+            busy={busy}
+            onOpen={(target) => void openController(target)}
+            onConnect={() => {
+              setSetupStep(status.connected ? "discovery" : "connection");
+              onConnectionSetup?.();
+            }}
+            onProgram={() => onNavigate?.("program")}
+          />
+        </ResponsivePanel>
         <div className="workflow-task-body">
           {!controller &&
             view !== "setup" &&

@@ -102,6 +102,7 @@ import {
 } from "./workflow";
 import type { CafView } from "./NativeCaf";
 import "./workflow.css";
+import { ResponsivePanel } from "./ResponsivePanel";
 
 const NativeCaf = lazy(() =>
   import("./NativeCaf").then((m) => ({ default: m.NativeCaf })),
@@ -518,9 +519,14 @@ export function App() {
     edges: Program["edges"];
     source: Program;
   } | null>(null);
+  const [selectionActivation, setSelectionActivation] = useState(0);
   function setSelected(id: string | null) {
+    setSelectionActivation((value) => (id ? value + 1 : 0));
     setSelection(id ? [id] : []);
   }
+  useEffect(() => {
+    if (!selection.length) setSelectionActivation(0);
+  }, [selection.length]);
   useEffect(() => {
     setSelection((ids) =>
       ids.filter((id) => program.nodes.some((n) => n.id === id)),
@@ -1850,11 +1856,32 @@ export function App() {
         />
       )}
       <div className="app-body">
-        <WorkflowNavigation
-          surface={surface}
-          onNavigate={navigateSurface}
+        <ResponsivePanel
+          name="Navigation"
+          panel="navigation"
+          triggerText="Menu"
+          triggerLabel="Open navigation"
+          closeLabel="Close navigation"
+          context={[
+            controller
+              ? `Selected ${controller.name} · ${controller.address} · ${controller.device}${controller.router ? ` via ${controller.router}, network ${controller.dnet}` : ""} · ${controller.interfaceOpen ? "Interface open" : "Matching interface unavailable"}`
+              : "No controller selected",
+            cafDocument
+              ? `Local CAF · ${cafDocument.name}`
+              : sourceKind === "graph"
+                ? `Local graph · ${program.name}`
+                : "Local workspace",
+          ].join(" · ")}
+          retireKey={`${surface}:${tab}`}
+          closeOnSelector=".workflow-nav button"
           disabled={!!macroEdit || workflowBusy}
-        />
+        >
+          <WorkflowNavigation
+            surface={surface}
+            onNavigate={navigateSurface}
+            disabled={!!macroEdit || workflowBusy}
+          />
+        </ResponsivePanel>
         <main>
           {surface === "workspace" && (
             <WorkspaceTabs
@@ -2208,82 +2235,94 @@ export function App() {
                   </div>
                   <ConversionPreview program={program} />
                   <div className="editor-layout">
-                    <aside className="palette">
-                      <div className="panel-heading">
-                        <Workflow size={16} /> BLOCK LIBRARY{" "}
-                        <span>{specs.length}</span>
-                      </div>
-                      <div className="search">
-                        <Search size={15} />
-                        <input
-                          aria-label="Search blocks"
-                          placeholder="Search blocks…"
-                          value={search}
-                          onChange={(e) => setSearch(e.target.value)}
-                        />
-                      </div>
-                      <div className="palette-scroll">
-                        {[
-                          "I/O",
-                          "Math",
-                          "Logic",
-                          "Control",
-                          "Supervision",
-                          "Macros",
-                        ].map((category) => (
-                          <div className="palette-group" key={category}>
-                            <div className="small-heading">{category}</div>
-                            {palette
-                              .filter((b) => b.category === category)
-                              .map((b) => (
-                                <button
-                                  className="palette-block"
-                                  key={specKey(b)}
-                                  draggable
-                                  onDragStart={(e) => {
-                                    e.dataTransfer.setData(
-                                      "application/bms-kind",
-                                      specKey(b),
-                                    );
-                                    e.dataTransfer.effectAllowed = "copy";
-                                  }}
-                                  onClick={() => add(specKey(b))}
-                                  title={b.help || b.title}
-                                >
-                                  <span
-                                    className={
-                                      "block-mark category-" +
-                                      category.toLowerCase().replace("/", "")
-                                    }
+                    <ResponsivePanel
+                      name="Block library"
+                      panel="blocks"
+                      triggerText="Block library"
+                      triggerLabel="Open block library"
+                      closeLabel="Close block library"
+                      context={`Local graph · ${program.name}`}
+                      error={activityCatalogError}
+                      retireKey={`${program.id}:${mode}`}
+                      closeOnSelector=".palette-block"
+                    >
+                      <aside className="palette">
+                        <div className="panel-heading">
+                          <Workflow size={16} /> BLOCK LIBRARY{" "}
+                          <span>{specs.length}</span>
+                        </div>
+                        <div className="search">
+                          <Search size={15} />
+                          <input
+                            aria-label="Search blocks"
+                            placeholder="Search blocks…"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                          />
+                        </div>
+                        <div className="palette-scroll">
+                          {[
+                            "I/O",
+                            "Math",
+                            "Logic",
+                            "Control",
+                            "Supervision",
+                            "Macros",
+                          ].map((category) => (
+                            <div className="palette-group" key={category}>
+                              <div className="small-heading">{category}</div>
+                              {palette
+                                .filter((b) => b.category === category)
+                                .map((b) => (
+                                  <button
+                                    className="palette-block"
+                                    key={specKey(b)}
+                                    draggable
+                                    onDragStart={(e) => {
+                                      e.dataTransfer.setData(
+                                        "application/bms-kind",
+                                        specKey(b),
+                                      );
+                                      e.dataTransfer.effectAllowed = "copy";
+                                    }}
+                                    onClick={() => add(specKey(b))}
+                                    title={b.help || b.title}
                                   >
-                                    {b.stateful
-                                      ? "↻"
-                                      : b.kind === "Input"
-                                        ? "I"
-                                        : b.kind === "Output"
-                                          ? "O"
-                                          : b.title.slice(0, 1)}
-                                  </span>
-                                  <span>
-                                    {b.title}
-                                    <small>
-                                      {b.inputs.length
-                                        ? b.inputs.length + " inputs"
-                                        : "source"}
-                                    </small>
-                                  </span>
-                                  <Plus size={13} />
-                                </button>
-                              ))}
-                          </div>
-                        ))}
-                      </div>
-                      <div className="palette-footer">
-                        Drag a block onto the wiresheet.
-                        <br />
-                        Click a block to add it.
-                      </div>
-                    </aside>
+                                    <span
+                                      className={
+                                        "block-mark category-" +
+                                        category.toLowerCase().replace("/", "")
+                                      }
+                                    >
+                                      {b.stateful
+                                        ? "↻"
+                                        : b.kind === "Input"
+                                          ? "I"
+                                          : b.kind === "Output"
+                                            ? "O"
+                                            : b.title.slice(0, 1)}
+                                    </span>
+                                    <span>
+                                      {b.title}
+                                      <small>
+                                        {b.inputs.length
+                                          ? b.inputs.length + " inputs"
+                                          : "source"}
+                                      </small>
+                                    </span>
+                                    <Plus size={13} />
+                                  </button>
+                                ))}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="palette-footer">
+                          Drag a block onto the wiresheet.
+                          <br />
+                          Click a block to add it.
+                        </div>
+                      </aside>
+                    </ResponsivePanel>
                     <div className="editor-center">
                       {activityCatalogError && (
                         <p className="activity-source-error" role="alert">
@@ -2299,6 +2338,10 @@ export function App() {
                         selected={selection}
                         onSelect={setSelected}
                         onChange={nodeChanges}
+                        onInspect={(id) => {
+                          if (selection.includes(id))
+                            setSelectionActivation((value) => value + 1);
+                        }}
                         onBeginDrag={remember}
                         onConnect={connect}
                         onAdd={add}
@@ -2353,42 +2396,57 @@ export function App() {
                         />
                       )}
                     </div>
-                    {selection.length > 1 ? (
-                      <SelectionPanel
-                        nodes={program.nodes.filter((n) =>
-                          selection.includes(n.id),
-                        )}
-                        onSelect={setSelected}
-                        onCopy={copySelection}
-                        onDuplicate={duplicate}
-                        onDelete={remove}
-                        onAlign={alignSelection}
-                      />
-                    ) : (
-                      <Inspector
-                        node={active}
-                        block={specs.find((b) => matchesBlock(b, active))}
-                        onEdit={edit}
-                        onDelete={remove}
-                        onDuplicate={duplicate}
-                        program={program}
-                        onSelect={setSelected}
-                        forces={forces}
-                        onForceChange={setForces}
-                        executionValues={executionValues}
-                        last={history.at(-1)}
-                        activityBindings={activityPorts}
-                        onActivityForceChange={changeActivityForces}
-                        sourceEpoch={renderedDraftEpoch}
-                        onRefreshActivityPorts={() => {
-                          resetSimulation();
-                          activityAuthorityEpoch.current++;
-                          setActivityPortSource(null);
-                          setActivityCatalogError("");
-                          setActivityCatalogRefresh((value) => value + 1);
-                        }}
-                      />
-                    )}
+                    <ResponsivePanel
+                      name="Block properties"
+                      panel="inspector"
+                      side="right"
+                      triggerText="Properties"
+                      triggerLabel="Open block properties"
+                      closeLabel="Close block properties"
+                      context={`Local graph · ${program.name}`}
+                      error={activityCatalogError}
+                      retireKey={`${program.id}:${mode}`}
+                      openSignal={
+                        selectionActivation ? String(selectionActivation) : null
+                      }
+                    >
+                      {selection.length > 1 ? (
+                        <SelectionPanel
+                          nodes={program.nodes.filter((n) =>
+                            selection.includes(n.id),
+                          )}
+                          onSelect={setSelected}
+                          onCopy={copySelection}
+                          onDuplicate={duplicate}
+                          onDelete={remove}
+                          onAlign={alignSelection}
+                        />
+                      ) : (
+                        <Inspector
+                          node={active}
+                          block={specs.find((b) => matchesBlock(b, active))}
+                          onEdit={edit}
+                          onDelete={remove}
+                          onDuplicate={duplicate}
+                          program={program}
+                          onSelect={setSelected}
+                          forces={forces}
+                          onForceChange={setForces}
+                          executionValues={executionValues}
+                          last={history.at(-1)}
+                          activityBindings={activityPorts}
+                          onActivityForceChange={changeActivityForces}
+                          sourceEpoch={renderedDraftEpoch}
+                          onRefreshActivityPorts={() => {
+                            resetSimulation();
+                            activityAuthorityEpoch.current++;
+                            setActivityPortSource(null);
+                            setActivityCatalogError("");
+                            setActivityCatalogRefresh((value) => value + 1);
+                          }}
+                        />
+                      )}
+                    </ResponsivePanel>
                   </div>
                   <div className="validation-bar">
                     <button

@@ -226,6 +226,21 @@ export function WorkspaceTabs({
 }) {
   return (
     <nav className="workspace-task-tabs" aria-label="Workspace tasks">
+      <label className="workflow-compact-choice">
+        <span>Task</span>
+        <select
+          aria-label="Workspace task"
+          value={area}
+          disabled={disabled}
+          onChange={(event) => onChange(event.target.value as WorkspaceArea)}
+        >
+          {workspaceAreas.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.label}
+            </option>
+          ))}
+        </select>
+      </label>
       {workspaceAreas.map((item) => (
         <button
           key={item.id}
@@ -348,6 +363,24 @@ export function WorkflowToolTabs({
 }) {
   return (
     <nav className="workflow-tool-tabs" aria-label={label}>
+      <label className="workflow-compact-choice">
+        <span>Tool</span>
+        <select
+          aria-label={label}
+          value={items.some((item) => item.id === value) ? value : ""}
+          disabled={disabled}
+          onChange={(event) => onChange(event.target.value)}
+        >
+          <option value="" disabled>
+            Choose a tool
+          </option>
+          {items.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.label}
+            </option>
+          ))}
+        </select>
+      </label>
       {items.map((item) => (
         <button
           key={item.id}
