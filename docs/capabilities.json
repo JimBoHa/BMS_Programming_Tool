@@ -523,5 +523,10 @@
     "feature": "Captured native engineering and metadata record explorer",
     "status": "implemented",
     "scope": "The tagged-MOI reader independently advertises record inspection; list/detail APIs default to 64 rows, bound pages/queries and retain metadata, source offsets/order, native scalar type/value or structured hashes. The existing Program view exposes search/property pages, captured-source labels, byte evidence, local scrolling and response identity/generation guards. Stored references never imply live values or a physical module inventory. Broader editable IR, native logic/resource compilation, deployment and physical/BT acceptance remain separate. See docs/native-record-explorer.md."
+  },
+  {
+    "feature": "Native signed Integer scalar inspection",
+    "status": "implemented",
+    "scope": "Native MOI stored properties decode single application Integer tag3 with one-to-four-byte signed32 payloads into exact integer values. Original expanded bytes, offsets and encoded hashes remain intact; invalid widths/structured tags stay opaque. Compression, signed boundaries, saved values, production HTTP and actual UDP/browser inspection are qualified. No new edit, compilation setting, hardware allocation, field transfer or physical/BTCVT acceptance."
   }
 ]

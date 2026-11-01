@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 153 scoped criteria: 99
+The public requirement register currently records 154 scoped criteria: 100
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -308,3 +308,7 @@ native-file upload entry path, saved-parameter update, arbitrary parameter/logic
 compiler, resource/package/release qualification, CCT reopen result or physical
 controller acceptance. The current operation family does not require a vendor
 runtime; general native compilation still needs independent acceptance evidence.
+
+The scoped [signed Integer reader](docs/native-signed-integer-reading.md) adds exact
+signed32 stored values under JCI-02, retaining opaque byte evidence for other
+widths/structures. It grants no additional write or general logic capability.

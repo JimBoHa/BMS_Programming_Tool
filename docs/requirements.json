@@ -1375,5 +1375,14 @@
     "pdf_pages_or_section": "docs/native-record-explorer.md",
     "status": "implemented",
     "implementation_or_gap": "The tagged-MOI reader independently advertises record inspection; list/detail APIs default to 64 rows, bound pages/queries and retain metadata, source offsets/order, native scalar type/value or structured hashes. The existing Program view exposes search/property pages, captured-source labels, byte evidence, local scrolling and response identity/generation guards. Stored references never imply live values or a physical module inventory. Broader editable IR, native logic/resource compilation, deployment and physical/BT acceptance remain separate."
+  },
+  {
+    "id": "FMT-NATIVE-SIGNED-INT-001",
+    "feature": "Native signed Integer scalar inspection",
+    "acceptance_criterion": "Read one recognized native signed Integer value with its exact sign and signed32 range while preserving original byte evidence; keep unsupported widths/structures opaque and do not promote Integer fields into Real-only edits.",
+    "evidence": "Literal BACnet Integer application tags/payloads; authored framed native sources; saved parameter bytes; production record API and actual UDP File peer.",
+    "pdf_pages_or_section": "docs/native-signed-integer-reading.md",
+    "status": "implemented",
+    "implementation_or_gap": "Native MOI stored properties decode single application Integer tag3 with one-to-four-byte signed32 payloads into exact integer values. Original expanded bytes, offsets and encoded hashes remain intact; invalid widths/structured tags stay opaque. Compression, signed boundaries, saved values, production HTTP and actual UDP/browser inspection are qualified. No new edit, compilation setting, hardware allocation, field transfer or physical/BTCVT acceptance."
   }
 ]
