@@ -103,6 +103,7 @@ from .madd_mz_ahu import madd_mz_ahu_router
 from .masd_ahu import masd_ahu_router
 from .models import Program, StrictModel
 from .native_applications import NativeApplications, native_application_router
+from .native_backup_comparison import BackupComparisonRequest, NativeBackupComparison
 from .native_backup_records import (
     BackupInspectionSource,
     BackupRecordRequest,
@@ -577,6 +578,7 @@ def create_app(state_dir=None, *, operation_power=None):
     native_applications = NativeApplications(bacnet, store, device_instances)
     signal_compiler = SignalCompilerService(native_applications.storage)
     backup_records = NativeBackupRecords(native_applications.storage)
+    backup_comparison = NativeBackupComparison(backup_records)
     boolean_copies = NativeBooleanCopies(backup_records)
     boolean_compiler = EffectiveBooleanService(backup_records)
     wire_copies = NativeWireCopies(backup_records)
@@ -733,6 +735,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.state.native_applications = native_applications
     app.state.native_signal_compiler = signal_compiler
     app.state.native_backup_records = backup_records
+    app.state.native_backup_comparison = backup_comparison
     app.state.native_boolean_copies = boolean_copies
     app.state.native_boolean_compiler = boolean_compiler
     app.include_router(native_application_router(native_applications))
@@ -742,6 +745,10 @@ def create_app(state_dir=None, *, operation_power=None):
     @app.post("/api/bacnet/controller/native-application/inspection/source")
     def native_backup_inspection_source(body: BackupInspectionSource):
         return backup_records.source(body.model_dump())
+
+    @app.post("/api/bacnet/controller/native-application/inspection/compare")
+    def native_backup_compare(body: BackupComparisonRequest):
+        return backup_comparison.compare(body.model_dump())
 
     @app.post("/api/bacnet/controller/native-application/inspection/capabilities")
     def native_backup_operation_capabilities(body: BackupInspectionSource):

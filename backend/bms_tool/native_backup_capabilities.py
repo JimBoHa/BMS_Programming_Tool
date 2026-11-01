@@ -9,7 +9,7 @@ from .moi_signal_defaults import MoiSignalDefaults
 from .moi_wire_sources import MoiWireSources
 from .native_signal_compiler import compiler_from_snapshot
 
-PROFILE = "native-backup-operation-capabilities/7"
+PROFILE = "native-backup-operation-capabilities/8"
 
 
 def eligible_wire(editor):
@@ -107,6 +107,13 @@ def backup_capabilities(snapshot, files, application):
         "source-qualified",
         "The installed reader recognized the original retained File 3. All three file hashes and the manifest were checked.",
         "Browse captured native records. Archive values are distinct from saved settings and live measurements.",
+    )
+    add(
+        "retained-backup-comparison",
+        "Compare original retained backups",
+        "source-qualified",
+        "This manifest and Files 3/11/12 passed integrity checks and can supply one local comparison source.",
+        "Select both original backups in Compare retained backups. Byte comparisons remain separate from unambiguous engineering-record/property alignment; no saved-setting merge, compatibility or restore is inferred.",
     )
     diagrams = application["capabilities"]["logic_read"]
     add(

@@ -99,12 +99,15 @@ def test_actual_saved_merge_and_compiler_are_distinct_from_captured_transport(
     before = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in folder.iterdir()}
     report = service.capabilities(request)
     rows, qualification = operations(report), report["qualification"]
-    assert report["capability_profile"] == "native-backup-operation-capabilities/7"
-    assert len(rows) == len(report["operations"]) == 18
+    assert report["capability_profile"] == "native-backup-operation-capabilities/8"
+    assert len(rows) == len(report["operations"]) == 19
     assert report["read_only"] and not report["can_apply"] and not report["field_actions"]
     assert not report["controller_queries"] and not report["current_identity_verified"]
     assert qualification["recorded_identity_verified"]
     assert qualification["captured_plain_ipv4"] is plain
+    assert rows["retained-backup-comparison"]["status"] == "source-qualified"
+    if not plain:
+        assert rows["identity-transfer"]["status"] == "transport-unavailable"
     assert (
         qualification["archive_real_default_count"]
         == qualification["effective_real_default_count"]

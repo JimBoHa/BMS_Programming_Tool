@@ -1,3 +1,4 @@
+import { openNativeCompiler } from "./workspace-navigation";
 import { test, expect, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
@@ -39,10 +40,7 @@ async function enter(page: Page, id: string) {
   await page
     .getByRole("button", { name: "New application", exact: true })
     .click();
-  await page
-    .getByRole("navigation", { name: "Current task tools" })
-    .getByRole("button", { name: "Native backup defaults", exact: true })
-    .click();
+  await openNativeCompiler(page);
   const compiler = page.getByRole("region", {
     name: "Native backup default compiler",
     exact: true,
@@ -96,7 +94,7 @@ test("offline backup analysis qualifies exact saved values while keeping local d
     name: "Native backup operations",
     exact: true,
   });
-  await expect(table.getByRole("row")).toHaveCount(19);
+  await expect(table.getByRole("row")).toHaveCount(20);
   await expect(
     table.locator('[data-operation="effective-default-compile"] td').first(),
   ).toHaveText("source qualified");

@@ -1,3 +1,7 @@
+import {
+  openNativeCompiler,
+  chooseWorkspaceSurface,
+} from "./workspace-navigation";
 import { test, expect, type Page, type Locator } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
@@ -38,10 +42,7 @@ async function enter(page: Page, id: string) {
   await page
     .getByRole("button", { name: "New application", exact: true })
     .click();
-  await page
-    .getByRole("navigation", { name: "Current task tools" })
-    .getByRole("button", { name: "Native backup defaults", exact: true })
-    .click();
+  await openNativeCompiler(page);
   const compiler = page.getByRole("region", {
     name: "Native backup default compiler",
     exact: true,
@@ -141,18 +142,9 @@ test("offline native backup records expose original archive values and preserve 
   await page.screenshot({
     path: info.outputPath("native-backup-source-context.png"),
   });
-  await page
-    .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("button", { name: "Library", exact: true })
-    .click();
-  await page
-    .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("button", { name: "Workspace", exact: true })
-    .click();
-  await page
-    .getByRole("navigation", { name: "Current task tools" })
-    .getByRole("button", { name: "Native backup defaults", exact: true })
-    .click();
+  await chooseWorkspaceSurface(page, "Library");
+  await chooseWorkspaceSurface(page, "Workspace");
+  await openNativeCompiler(page);
   await expect(inspection.getByRole("table")).toHaveCount(0);
   await expect(
     compiler.getByLabel("Proposed native Real default", { exact: true }),

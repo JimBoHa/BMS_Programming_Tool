@@ -1,0 +1,39 @@
+.native-backup-comparison {
+  min-width: 0;
+}
+.native-backup-comparison > label {
+  display: grid;
+  gap: 8px;
+  margin-block: 16px;
+  min-width: 0;
+}
+.native-backup-comparison select,
+.native-backup-comparison input {
+  width: 100%;
+  min-width: 0;
+  font-size: 14px;
+}
+.native-comparison-sources {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-block: 16px;
+}
+.native-comparison-sources p,
+.native-backup-comparison > p,
+.native-backup-comparison code {
+  overflow-wrap: anywhere;
+}
+.native-backup-comparison .native-record-table {
+  margin-block: 16px;
+}
+@media (max-width: 600px) {
+  .native-comparison-sources {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.native-backup-comparison .native-record-table thead th {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
