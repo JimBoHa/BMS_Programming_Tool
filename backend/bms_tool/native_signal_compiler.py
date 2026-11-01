@@ -119,6 +119,24 @@ class EffectiveSignalCompiler:
         }
 
 
+def compiler_from_snapshot(snapshot, files):
+    """Share the exact offline compiler qualification with source analysis."""
+    if (
+        not snapshot.get("source_identity_matches")
+        or snapshot.get("identity", {}).get("vendor-identifier") != 5
+    ):
+        raise ValueError("Select a complete identity-verified native vendor 5 backup.")
+    compiler = EffectiveSignalCompiler(files)
+    identity = compiler.archive.editor.summary()
+    if (
+        snapshot.get("device") != f"device,{identity['instance']}"
+        or snapshot["identity"].get("object-name") != identity["name"]
+        or snapshot["identity"].get("model-name") != identity["model"]
+    ):
+        raise ValueError("Retained native application and snapshot identity disagree.")
+    return compiler
+
+
 class SignalCompilerService:
     def __init__(self, storage):
         self.storage = storage
@@ -159,20 +177,7 @@ class SignalCompilerService:
             raise ValueError(
                 "Native backup source is unavailable; retain or capture a complete backup before compiling."
             ) from exc
-        if (
-            not snapshot.get("source_identity_matches")
-            or snapshot.get("identity", {}).get("vendor-identifier") != 5
-        ):
-            raise ValueError("Select a complete identity-verified native vendor 5 backup.")
-        compiler = EffectiveSignalCompiler(files)
-        identity = compiler.archive.editor.summary()
-        if (
-            snapshot.get("device") != f"device,{identity['instance']}"
-            or snapshot["identity"].get("object-name") != identity["name"]
-            or snapshot["identity"].get("model-name") != identity["model"]
-        ):
-            raise ValueError("Retained native application and snapshot identity disagree.")
-        return snapshot, compiler
+        return snapshot, compiler_from_snapshot(snapshot, files)
 
     def source(self, capture_id):
         snapshot, compiler = self.load(capture_id)

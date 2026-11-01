@@ -5,6 +5,7 @@ from pydantic import Field
 from .models import StrictModel
 from .moi_application import MoiApplication
 from .moi_identity import sha
+from .native_backup_capabilities import backup_capabilities
 
 PROFILE = "native-backup-record-inspection/1"
 SCOPE = (
@@ -73,6 +74,13 @@ class NativeBackupRecords:
     def source(self, request):
         snapshot, files, application = self.load(request)
         return {**self.envelope(snapshot, files), "application": application.summary()}
+
+    def capabilities(self, request):
+        snapshot, files, application = self.load(request)
+        return {
+            **self.envelope(snapshot, files),
+            **backup_capabilities(snapshot, files, application.summary()),
+        }
 
     def records(self, request, *, detail=False):
         model = BackupRecordRequest if detail else BackupRecordsRequest
