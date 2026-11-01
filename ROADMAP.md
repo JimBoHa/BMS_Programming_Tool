@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 166 scoped criteria: 112
+The public requirement register currently records 167 scoped criteria: 113
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -36,8 +36,9 @@ an evidence inventory, not 2,343 missing features. Reassess before adding work.
 Implementation progress: **UX-01 has a verified first IPv4 slice** under
 [UI-MONITOR-CTX-001](docs/controller-monitoring-context.md): selected-controller
 field recording and single-log history now retain the complete target and
-captured interface, discovered objects and original saved evidence. Direct MS/TP
-and other bound transport profiles remain separate work under PORT-01. The
+captured interface, discovered objects and original saved evidence. Selected
+serial field recording and single-log history now have a separately qualified
+software profile. Physical bus/BTCVT and other profiles remain under PORT-01. The
 following work packages retain their remaining scope; this does not mark the
 broader monitoring/transport roadmap complete.
 
@@ -355,3 +356,21 @@ checked. Current controller-centered navigation and hidden target fields remain.
 This implements a concrete part of QA-02 and preserves the original local ideas
 without restoring older layout or dated source files. Other operation/transport
 and physical acceptance remain independent. See [the scope and tests](docs/scan-survey-freshness.md).
+
+
+## 2026-10-31 UX-01 delivery: selected serial monitoring
+
+`UI-MONITOR-SERIAL-001` adds explicit selected-controller direct-MS/TP field
+recording and single-log history to the earlier IPv4 context work. Actual
+object-list/name choices, full original serial interface identity, before/after
+Device/object checks, staged samples and exact historical byte evidence use the
+existing open master. Changing source/cursor retires visible old pages, and a
+newly admitted recording remains selectable before its first catalog entry.
+Irrelevant IP route fields are hidden/cleared for serial controller selection.
+
+This is an extension of the earlier selected-monitoring feature and is delivered
+as a separate dependent PR. The broader UX-01/PORT-01 work remains partial:
+physical RS-485/adapter/controller and BTCVT acceptance, other monitoring profiles
+and additional native operations retain separate gates. No native application
+write, generic API widening, automatic reconnect/resume, extra retry or timeout
+expansion is added. See [the serial profile](docs/controller-monitoring-context.md).

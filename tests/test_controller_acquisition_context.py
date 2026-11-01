@@ -524,7 +524,7 @@ async def test_bound_serial_and_address_mismatch_are_explicit_refusals(tmp_path,
             else FieldTrends(connector, tmp_path)
         )
         try:
-            with pytest.raises(ValueError, match="IPv4 routes only"):
+            with pytest.raises(ValueError, match="explicit direct-MS/TP target"):
                 await (service.read(**request) if kind == "history" else service.start(**request))
             assert not peer.requests
         finally:

@@ -10,7 +10,11 @@ import {
 import { api, saveBlob } from "./api";
 import { showValue } from "./types";
 import { ControllerObjectPicker } from "./ControllerObjectPicker";
-import { controllerKey, type ControllerTarget } from "./workflow";
+import {
+  controllerKey,
+  controllerReadTarget,
+  type ControllerTarget,
+} from "./workflow";
 
 type Point = {
   signal: string;
@@ -71,7 +75,11 @@ function jobTarget(job: any): string {
   const target = job?.controller_target;
   if (target)
     return [
-      target.router ? `${target.router} / network ${target.dnet}` : "Direct",
+      target.transport === "direct-mstp"
+        ? `Direct MS/TP ${job.connector_config?.port || "original serial interface"}`
+        : target.router
+          ? `${target.router} / network ${target.dnet}`
+          : "Direct",
       target.address,
       target.device,
     ].join(" · ");
@@ -113,13 +121,17 @@ export function FieldTrends({
   const [connectorConfig, setConnectorConfig] = useState<any>(null);
   const [sources, setSources] = useState<any[]>([]);
   const [source, setSource] = useState("");
-  const [samples, setSamples] = useState<any[]>([]);
-  const [events, setEvents] = useState<any[]>([]);
+  const [sampleRows, setSamples] = useState<any[]>([]);
+  const [eventRows, setEvents] = useState<any[]>([]);
+  const [pageOwner, setPageOwner] = useState("");
   const [after, setAfter] = useState(0);
   const [pages, setPages] = useState<number[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const selectionIdentity = JSON.stringify([source, after]);
+  const visibleOwner = JSON.stringify([draftIdentity, selectionIdentity]);
+  const samples = pageOwner === visibleOwner ? sampleRows : [];
+  const events = pageOwner === visibleOwner ? eventRows : [];
   const currentSelection = useRef(selectionIdentity);
   currentSelection.current = selectionIdentity;
   const mounted = useRef(false);
@@ -141,9 +153,7 @@ export function FieldTrends({
     configKey(expectedConnector) === configKey(connectorConfig);
   const serialBound = bound && expectedConnector?.transport === "mstp";
   const ready =
-    connected &&
-    controllerReady !== false &&
-    (!bound || (connectorMatches && !serialBound));
+    connected && controllerReady !== false && (!bound || connectorMatches);
   const contextIdentity = JSON.stringify([
     draftIdentity,
     controllerReady !== false,
@@ -218,6 +228,7 @@ export function FieldTrends({
       setSources(streams);
       setSamples(data);
       setEvents(log);
+      setPageOwner(JSON.stringify([draftIdentity, selection]));
     } catch (e) {
       if (
         mounted.current &&
@@ -408,15 +419,17 @@ export function FieldTrends({
                 {defaultTarget.device}
                 {defaultTarget.router &&
                   ` · router ${defaultTarget.router} · network ${defaultTarget.dnet}`}
+                {serialBound &&
+                  ` · direct MS/TP · ${expectedConnector.port} · ${expectedConnector.baudrate} baud · local MAC ${expectedConnector.mac}`}
                 . Sampling choices belong to this target and interface; earlier
                 drafts remain separate. Existing jobs keep their original target
                 until explicitly stopped.
               </p>
               {!ready && (
                 <p className="help-text" role="status">
-                  {serialBound
-                    ? "Selected-controller sampling over direct MS/TP is not supported by this identity-verified profile. Saved history and existing job controls remain available."
-                    : "Verify the selected controller on its matching BACnet interface before choosing points or starting sampling. Saved history remains available."}
+                  Verify the selected controller on its matching BACnet
+                  interface before choosing points or starting sampling. Saved
+                  history remains available.
                 </p>
               )}
               <div className="form-grid">
@@ -562,12 +575,10 @@ export function FieldTrends({
                     verify_quality: verifyQuality,
                     ...(defaultTarget
                       ? {
-                          controller_target: {
-                            address: defaultTarget.address,
-                            device: defaultTarget.device,
-                            router: defaultTarget.router || null,
-                            dnet: defaultTarget.dnet ?? null,
-                          },
+                          controller_target: controllerReadTarget(
+                            defaultTarget,
+                            expectedConnector,
+                          ),
                           expected_connector_config: expectedConnector,
                         }
                       : {}),
@@ -687,6 +698,12 @@ export function FieldTrends({
               }}
             >
               <option value="">All field sources</option>
+              {source &&
+                !sources.some((stream) => stream.source === source) && (
+                  <option value={source}>
+                    {source} · not in the latest source list
+                  </option>
+                )}
               {sources.map((stream: any) => (
                 <option key={stream.source} value={stream.source}>
                   {stream.source} ·{" "}

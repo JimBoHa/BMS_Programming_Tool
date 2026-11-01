@@ -4,7 +4,11 @@ import { api, saveBlob, type JsonDocument } from "./api";
 import { historyEvidence, historyVisible } from "./historyEvidence";
 import { MultipleHistoryPanel } from "./MultipleHistoryPanel";
 import { ControllerObjectPicker } from "./ControllerObjectPicker";
-import { controllerKey, type ControllerTarget } from "./workflow";
+import {
+  controllerKey,
+  controllerReadTarget,
+  type ControllerTarget,
+} from "./workflow";
 import "./temco-simulator.css";
 
 type RecordValue = {
@@ -193,12 +197,7 @@ export function DeviceHistory({
       let next: JsonDocument<Report> | null = null;
       if (kind === "read") {
         const selected: ControllerTarget | null = defaultTarget
-          ? {
-              address: defaultTarget.address,
-              device: defaultTarget.device,
-              router: defaultTarget.router ?? null,
-              dnet: defaultTarget.dnet ?? null,
-            }
+          ? controllerReadTarget(defaultTarget, connectorConfig)
           : null;
         const requestedAddress = selected?.address ?? address.trim();
         const requested = Number(count),
@@ -514,7 +513,9 @@ export function DeviceHistory({
             {defaultTarget.device} · {defaultTarget.address}
             {defaultTarget.router
               ? ` · router ${defaultTarget.router} · network ${defaultTarget.dnet}`
-              : " · direct endpoint"}
+              : connectorConfig?.transport === "mstp"
+                ? ` · direct MS/TP · ${connectorConfig.port} · ${connectorConfig.baudrate} baud · local MAC ${connectorConfig.mac}`
+                : " · direct endpoint"}
             {!controllerReady && " · controller interface unavailable"}
           </p>
         )}

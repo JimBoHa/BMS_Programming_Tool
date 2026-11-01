@@ -2,8 +2,9 @@
 
 The controller workspace binds single-log reads to the selected controller and
 its captured interface, with discovered Trend Log choices. See
-[monitoring context](controller-monitoring-context.md) for the additive IPv4
-profile, stale-result rules and preserved standalone/offline behavior.
+[monitoring context](controller-monitoring-context.md) for the additive IPv4 and
+explicit serial profiles, stale-result rules and preserved standalone/offline
+behavior.
 
 Device history retrieves records already stored by a standard BACnet Trend Log
 object. It sends actual `ReadRange` requests for the addressed object's

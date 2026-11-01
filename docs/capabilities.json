@@ -47,7 +47,7 @@
   {
     "feature": "Existing BACnet Trend Log history",
     "status": "implemented",
-    "scope": "Explicit bounded forward ReadRange through the connected interface; standard single-value Trend Log only. Device timezone/fold, original local clocks, unresolved UTC, all 11 datum alternatives, quality, sequence gaps/wrap and partial failures stay visible. Immutable sealed captures and JSON/CSV retain provenance. No auto-connect, background polling, device writes, physical-device validation or proprietary history import. JSON downloads retain the exact original read/load HTTP response bytes, preserving native integral floats, signed zero, exponent notation and the original evidence/capture hashes; display and CSV formatting are separate. The selected-controller IPv4 profile carries the exact Device/router/DNET and original connector context, offers discovered Trend Log objects, checks returned source and log identity and retires delayed replies after target/interface changes. Saved captures remain source-labelled and usable offline. Standalone API shapes are preserved; bound direct MS/TP uses a separate future profile."
+    "scope": "Explicit bounded forward ReadRange through the connected interface; standard single-value Trend Log only. Device timezone/fold, original local clocks, unresolved UTC, all 11 datum alternatives, quality, sequence gaps/wrap and partial failures stay visible. Immutable sealed captures and JSON/CSV retain provenance. No auto-connect, background polling, device writes, physical-device validation or proprietary history import. JSON downloads retain the exact original read/load HTTP response bytes, preserving native integral floats, signed zero, exponent notation and the original evidence/capture hashes; display and CSV formatting are separate. The selected-controller IPv4 profile carries the exact Device/router/DNET and original connector context, offers discovered Trend Log objects, checks returned source and log identity and retires delayed replies after target/interface changes. Saved captures remain source-labelled and usable offline. Standalone API shapes are preserved; bound direct MS/TP is separately software-qualified under UI-MONITOR-SERIAL-001, with physical bus/BTCVT acceptance still pending."
   },
   {
     "feature": "Program and input/output simulation",
@@ -583,5 +583,10 @@
     "feature": "Actual scan and survey freshness with explicit interface resume",
     "status": "implemented",
     "scope": "Interface/bind/epoch ownership retires late scan and metadata results and pauses retained pending observations until explicit resume, reread or new scan. Same-interface shown-page behavior and completed source evidence remain. Actual browser/UDP scan-to-controller-to-survey tests prove changed snapshot values and same-configuration reopen behavior; peer joins and mutation-service rejection preserve evidence. No encoded site scans, physical device/adapter/route qualification, Bluetooth configuration or native program transfer."
+  },
+  {
+    "feature": "Selected-controller direct serial monitoring",
+    "status": "implemented",
+    "scope": "Software-qualified explicit direct-mstp nested targets for paired-context field sampling and single-log position/sequence/time history. Strict complete original/actual serial identities, bounded observed-object/name choices, staged samples and before/after identity checks, application-generation pinning, exact history bytes/captures, per-interface drafts and source/cursor-owned visible pages. No physical RS-485/controller or BTCVT acceptance, native application change, widened COV/multiple/event/generic inventory APIs, automatic collector restart, retry or timeout expansion."
   }
 ]
