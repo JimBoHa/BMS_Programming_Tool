@@ -134,7 +134,7 @@ def _structs(tags, datatypes):
 
 class MoiApplication:
     format = "jci-moi-tagged/1"
-    extensions = (".moi",)
+    extensions = (".moi", ".moz")
 
     def __init__(self, source):
         if not isinstance(source, bytes) or not 1 <= len(source) <= MAX_SOURCE:

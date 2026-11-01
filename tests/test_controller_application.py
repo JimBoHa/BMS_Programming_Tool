@@ -123,13 +123,15 @@ def test_bad_or_excessive_native_files_are_rejected(raw):
         MoiApplication(raw)
 
 
+@pytest.mark.parametrize("extension", [".moi", ".MoZ"])
 async def test_application_is_acquired_from_actual_file_and_cannot_be_reused_for_another_target(
     link,
+    extension,
 ):
     server, connector, files, target = link
     server.payload = authored_application()
     server.stream.fileSize = len(server.payload)
-    server.stream.fileType = ".moi"
+    server.stream.fileType = extension
     server.stream.objectName = "Controller/Archive"
     service = ControllerApplication(connector, connector.store, files)
     result = await service.read_application(target)
@@ -148,11 +150,14 @@ async def test_application_is_acquired_from_actual_file_and_cannot_be_reused_for
     assert server.atomic_requests and not connector.app._requests
 
 
-async def test_application_file_discovery_works_when_optional_configuration_files_is_absent(link):
+@pytest.mark.parametrize("extension", [".moi", ".moz"])
+async def test_application_file_discovery_works_when_optional_configuration_files_is_absent(
+    link, extension
+):
     server, connector, files, target = link
     server.payload = authored_application()
     server.stream.fileSize = len(server.payload)
-    server.stream.fileType = ".moi"
+    server.stream.fileType = extension
     original = server.do_ReadPropertyRequest
 
     async def without_optional_property(request):
@@ -167,3 +172,35 @@ async def test_application_file_discovery_works_when_optional_configuration_file
     assert result["receipt"]["discovery_source"] == "object-list"
     assert result["receipt"]["configuration_files_supported"] is False
     assert result["receipt"]["advertised_files"] == ["file,31", "file,32"]
+
+
+@pytest.mark.parametrize("payload", [b"not a tagged application", gzip.compress(b"wrong format")])
+async def test_moz_filename_never_substitutes_for_recognized_content_and_originals_survive(
+    link, payload
+):
+    server, connector, files, target = link
+    server.payload = payload
+    server.stream.fileSize = len(payload)
+    server.stream.fileType = ".moz"
+    service = ControllerApplication(connector, connector.store, files)
+    with pytest.raises(ValueError, match="No installed reader recognized"):
+        await service.read_application(target)
+    retained = files.captures()
+    assert len(retained) == 1
+    receipt, raw = files.capture_data(retained[0]["id"])
+    assert raw == payload and receipt["metadata"]["file_type"] == ".moz"
+
+
+async def test_mixed_moi_and_moz_candidates_require_an_explicit_file_selection(link):
+    server, connector, files, target = link
+    server.payload = authored_application()
+    server.stream.fileSize = len(server.payload)
+    server.stream.fileType = ".moi"
+    server.record.fileType = ".moz"
+    service = ControllerApplication(connector, connector.store, files)
+    offered = await service.read_application(target)
+    assert offered["status"] == "select_application"
+    assert {item["object_id"] for item in offered["files"]} == {"file,31", "file,32"}
+    assert not server.atomic_requests
+    result = await service.read_application(target, file_object="file,31")
+    assert result["status"] == "read" and result["receipt"]["target"]["object_id"] == "file,31"

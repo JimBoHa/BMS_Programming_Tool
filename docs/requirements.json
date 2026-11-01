@@ -1312,5 +1312,14 @@
     "pdf_pages_or_section": "docs/device-instance-commissioning.md",
     "status": "implemented",
     "implementation_or_gap": "Guided local router discovery and router/trunk/controller selectors fill exact commissioning targets; verified names reuse the shared Scan inventory. Explicit standard Device.object-identifier WriteProperty to a pinned IPv4 or router/DNET/MAC station. One-use identity/configuration-bound review, scoped new-ID collision checks, site allocation confirmation, fresh preflight, single-attempt dispatch, durable intent/results, readback and restart reconciliation. Unsupported/read-only controllers require vendor tooling; no proprietary application transfer, reset, automatic retry/rollback or physical-controller acceptance claim. See docs/device-instance-commissioning.md."
+  },
+  {
+    "id": "FMT-MOZ-READ-001",
+    "feature": "Recognized tagged-MOI content in published MOZ Files",
+    "acceptance_criterion": "Acquire and inspect published .moz application Files when their actual bytes satisfy the existing tagged-MOI reader, preserving content validation, explicit ambiguous-file selection, original rejected captures and exact source ownership.",
+    "evidence": "Authored actual UDP File reads, original-byte retention and Chromium/WebKit application/block/live-value workflows; existing content parser and native backup File-type allowlist.",
+    "pdf_pages_or_section": "docs/moz-application-reading.md; Controller Tool Help18.0 LIT-12011147 PDF368 names MOI/MOZ generation errors but supplies no binary equivalence contract.",
+    "status": "implemented",
+    "implementation_or_gap": "Case-insensitive .moi/.moz candidate labels share the unchanged bounded content decoder. Native model names never choose data. Mixed candidates require explicit File selection; optional configuration-files absence retains discovery fallback; wrong plain/gzip contents are rejected after original-byte capture and target/config guards remain. No new encoding or arbitrary MOZ conversion, native general-logic compiler, transfer permission or physical acceptance."
   }
 ]

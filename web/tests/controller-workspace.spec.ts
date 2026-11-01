@@ -13,7 +13,7 @@ async function controller(
   name: string,
   modules: number,
   value = 21,
-  native = false,
+  native: boolean | "moz" = false,
 ) {
   const port = await freePort();
   const child = spawn(
@@ -31,14 +31,14 @@ async def main():
  app.device_object.objectName=sys.argv[2]
  point=app.get_object_id(ObjectIdentifier(('analog-input',1)))
  point.presentValue=float(sys.argv[4])
- if sys.argv[5]=='true':
+ if sys.argv[5] in ('true','moz'):
   import types
   from tests.test_bacnet_files import FilePeer
   from tests.test_controller_application import authored_application
   from bacpypes3.object import FileObject,AnalogValueObject
   from bacpypes3.basetypes import DateTime
   app.payload=authored_application()
-  app.stream=FileObject(objectIdentifier=('file',31),objectName='Controller/Archive',description='Authored application file',fileType='.moi',fileSize=len(app.payload),modificationDate=DateTime('2026-01-05 12:00:00'),archive=False,readOnly=True,fileAccessMethod='stream-access')
+  app.stream=FileObject(objectIdentifier=('file',31),objectName='Controller/Archive',description='Authored application file',fileType='.MoZ' if sys.argv[5]=='moz' else '.moi',fileSize=len(app.payload),modificationDate=DateTime('2026-01-05 12:00:00'),archive=False,readOnly=True,fileAccessMethod='stream-access')
   app.add_object(app.stream)
   app.device_object.configurationFiles=[app.stream.objectIdentifier]
   app.atomic_requests=[];app.all_requests=[];app.drop=False;app.mutation=None;app.callback=None
@@ -286,59 +286,70 @@ test("one failed point read does not starve later points and its configuration i
   }
 });
 
-test("Program reads a controller's published native application and displays actual diagrams, configuration and live block data", async ({
-  page,
-  request,
-}) => {
-  test.setTimeout(90000);
-  const device = await controller("Unlisted native format family", 0, 21, true);
-  await session(request);
-  try {
-    await interfaceSetup(page);
-    await openController(
-      page,
-      device.endpoint,
+for (const nativeType of [true, "moz"] as const)
+  test(`Program reads ${nativeType === "moz" ? "MOZ" : "MOI"} application Files with actual diagrams, configuration and live block data`, async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(90000);
+    const device = await controller(
       "Unlisted native format family",
+      0,
+      21,
+      nativeType,
     );
-    await tasks(page)
-      .getByRole("button", { name: "Program", exact: true })
-      .click();
-    const native = page.getByRole("region", {
-      name: "Native controller application",
-      exact: true,
-    });
-    await native
-      .getByRole("button", { name: "Read controller application", exact: true })
-      .click();
-    await expect(native).toContainText("3 native records", { timeout: 30000 });
-    await expect(native).toContainText("Controller file snapshot");
-    await expect(
-      native
-        .getByLabel("Actual native program diagram")
-        .locator(".react-flow__edge"),
-    ).toHaveCount(1);
-    await native
-      .getByLabel("Controller program block")
-      .selectOption("site/575_1.2_10");
-    const config = native.getByRole("region", {
-      name: "Actual native block configuration",
-      exact: true,
-    });
-    await expect(config).toContainText("23.5");
-    await expect(
-      config.getByRole("definition").filter({ hasText: /^21$/ }),
-    ).toBeVisible();
-    device.change(33.75);
-    await expect(
-      config.getByRole("definition").filter({ hasText: /^33.75$/ }),
-    ).toBeVisible({ timeout: 20000 });
-    await expect(page.getByLabel("Working context")).not.toContainText(
-      "Local graph",
-    );
-    await native.getByLabel("Actual native program diagram").screenshot({
-      path: test.info().outputPath("native-controller-application.png"),
-    });
-  } finally {
-    device.close();
-  }
-});
+    await session(request);
+    try {
+      await interfaceSetup(page);
+      await openController(
+        page,
+        device.endpoint,
+        "Unlisted native format family",
+      );
+      await tasks(page)
+        .getByRole("button", { name: "Program", exact: true })
+        .click();
+      const native = page.getByRole("region", {
+        name: "Native controller application",
+        exact: true,
+      });
+      await native
+        .getByRole("button", {
+          name: "Read controller application",
+          exact: true,
+        })
+        .click();
+      await expect(native).toContainText("3 native records", {
+        timeout: 30000,
+      });
+      await expect(native).toContainText("Controller file snapshot");
+      await expect(
+        native
+          .getByLabel("Actual native program diagram")
+          .locator(".react-flow__edge"),
+      ).toHaveCount(1);
+      await native
+        .getByLabel("Controller program block")
+        .selectOption("site/575_1.2_10");
+      const config = native.getByRole("region", {
+        name: "Actual native block configuration",
+        exact: true,
+      });
+      await expect(config).toContainText("23.5");
+      await expect(
+        config.getByRole("definition").filter({ hasText: /^21$/ }),
+      ).toBeVisible();
+      device.change(33.75);
+      await expect(
+        config.getByRole("definition").filter({ hasText: /^33.75$/ }),
+      ).toBeVisible({ timeout: 20000 });
+      await expect(page.getByLabel("Working context")).not.toContainText(
+        "Local graph",
+      );
+      await native.getByLabel("Actual native program diagram").screenshot({
+        path: test.info().outputPath("native-controller-application.png"),
+      });
+    } finally {
+      device.close();
+    }
+  });
