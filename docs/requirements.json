@@ -1321,5 +1321,14 @@
     "pdf_pages_or_section": "docs/native-signal-default-copies.md",
     "status": "implemented",
     "implementation_or_gap": "Profile tagged-moi-signal-default-copy/1 supports classes 526/527, property 3113, ordinary finite four-byte Real in fully framed native sources. Source/property/route/configuration/review guards, explicit float32 rounding/bits, signed zero, exact no-op, unknown-record preservation, source-bound browser drafts and digest-verified copies. No field requests, saved-parameter edit, general logic generation, CCT reopening, release/package/firmware compatibility, deployment or physical acceptance claim."
+  },
+  {
+    "id": "COMM-NATIVE-EFFECTS-001",
+    "feature": "Explicit native backup and verification effects",
+    "acceptance_criterion": "Disclose native backup-state transitions before capture and readback; qualify new effect metadata as possible services, report these operations as not protocol-read-only, and preserve existing one-use transfer and historical evidence contracts.",
+    "evidence": "Actual authored UDP native application capture and instance/name readback, production status API and Chromium/WebKit workflows.",
+    "pdf_pages_or_section": "docs/native-application-transfer.md#backup-and-verification-effects",
+    "status": "implemented",
+    "implementation_or_gap": "Existing vendor-5 MCE/tagged-MOI backup phases expose ReinitializeDevice start-backup/end-backup and Files 11/12/3 as possible services, with writes_application false scoped to that phase. New native capture/verification read_only flags are false; legacy sealed evidence stays unchanged. Both instance/name controls link a visible effects description. Tests distinguish declared effects from early-preflight no-dispatch and verify readback never restores/reapplies. No extra protocol action, generic native compiler, serial/BTCVT acceptance or fresh physical-controller result."
   }
 ]
