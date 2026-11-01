@@ -49,11 +49,13 @@ numbers are rejected. The operation profile is
 command, native transfer, force or transfer-journal insertion. Saving a file does
 not establish CCT reopening, firmware/release compatibility or physical acceptance.
 
-Native-backup capability analysis advances to profile
-`native-backup-operation-capabilities/2`, adding the thirteenth operation for this
-separate archive-only copy. Its source qualification comes from actual eligible
-fields, not the presence of a class label. General logic, package/release and
-physical acceptance remain separate, and the broader JCI roadmap stays partial.
+Native-backup capability analysis first added this thirteenth, archive-only
+operation in profile 2. Profile 3 also distinguishes a separate
+[effective Boolean compiler](native-effective-boolean-compiler.md), selected with
+**Boolean default source → Merge retained saved settings**. This archive-copy
+mode remains independent. Actual eligible fields determine qualification, rather
+than the presence of a class label. General logic, package/release, field transfer
+and physical acceptance remain separate, and the broader JCI roadmap stays partial.
 
 Local qualification uses literal Boolean tags in complete plain/gzip and short/
 extended frames, independent other-byte comparison, saved-value separation,

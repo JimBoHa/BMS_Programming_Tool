@@ -20,6 +20,7 @@ from bms_tool.storage import Store
 from fastapi.testclient import TestClient
 
 from .test_controller_application import encoded, native_record
+from .test_moi_parameters import parameters_source
 from .test_native_applications import native_link as native_link  # noqa: F401
 from .test_native_signal_compiler import retained, signal_files, slot
 
@@ -27,8 +28,12 @@ BASE = "/api/bacnet/controller/native-application/inspection/boolean-default"
 FIRST, SECOND = "controller/boolean-20", "controller/boolean-21"
 
 
-def boolean_files(*, compressed=True, extended=False):
-    files = signal_files(compressed=False, extended=extended)
+def boolean_files(*, compressed=True, extended=False, real_signals=True):
+    files = (
+        signal_files(compressed=False, extended=extended)
+        if real_signals
+        else dict(zip((3, 11, 12), parameters_source(compressed=False), strict=True))
+    )
     data = bytearray(files[3])
     data[10:14] = (int.from_bytes(data[10:14], "little") + 2).to_bytes(4, "little")
     for index, cid, value in [(20, 530, False), (21, 531, True)]:
@@ -250,7 +255,7 @@ def test_boolean_copy_capability_does_not_expand_real_effective_compilation_or_t
         {"capture_id": snapshot["id"], "snapshot_sha256": snapshot["evidence_sha256"]}
     )
     rows = {row["id"]: row for row in report["operations"]}
-    assert report["capability_profile"] == "native-backup-operation-capabilities/2"
+    assert report["capability_profile"] == "native-backup-operation-capabilities/3"
     assert report["qualification"]["archive_boolean_default_count"] == 2
     assert rows["boolean-default-copy"]["status"] == "source-qualified"
     assert "no Boolean field transfer" in rows["boolean-default-copy"]["next_step"]
