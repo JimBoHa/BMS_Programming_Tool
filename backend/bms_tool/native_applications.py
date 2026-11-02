@@ -21,6 +21,7 @@ from .application_store import (
     ApplicationCredentials,
     ApplicationStore,
     evidence,
+    native_storage_profile,
     private_write,
     utc,
 )
@@ -193,6 +194,7 @@ class NativeApplications:
             "wire_source_transfer_profile": WIRE_PROFILE,
             "wire_source_transfer_scope": WIRE_SCOPE,
             "backup_effects": backup_effects(),
+            "storage": native_storage_profile(),
             "limits": {
                 "operation_seconds": self.operation_timeout,
                 "review_seconds": PLAN_SECONDS,

@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from .device_instance import station_key
+from .file_access import open_regular, storage_profile, sync_directory
 from .moi_identity import seal, sha
 
 PROFILE = "native-application-transfer/1"
@@ -37,30 +38,47 @@ def evidence(row):
     return {**row, "evidence_sha256": seal(row)}
 
 
+def native_storage_profile():
+    current = storage_profile()
+    available = current["platform"] in ("posix", "nt")
+    return {
+        "profile": "native-application-storage/1",
+        "platform": current["platform"],
+        "available": available,
+        "regular_file_guard": current["regular_file_guard"] if available else "Unavailable",
+        "file_data_flush": "os.fsync before complete-file replace" if available else "Unavailable",
+        "directory_flush": available and current["directory_flush"],
+        "durability": current["durability"] if available else "Safe native storage unavailable.",
+        "catalog_and_journal": "SQLite transactions; lifecycle and transfer updates use synchronous=FULL.",
+        "scope": "Current computer storage policy; not original capture durability or controller acceptance.",
+    }
+
+
+def retained_directory(path):
+    info = path.lstat()
+    if not stat.S_ISDIR(info.st_mode) or getattr(info, "st_file_attributes", 0) & 0x400:
+        raise ValueError("Native backups must remain in their original storage folder.")
+    return path
+
+
 def private_write(path, data):
     """Publish a complete file only after its private contents reach storage."""
     temporary = path.with_name(path.name + "." + secrets.token_hex(8) + ".part")
-    fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    fd = open_regular(temporary, writable=True, create=True, exclusive=True)
     try:
         with os.fdopen(fd, "wb") as stream:
             stream.write(data)
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary, path)
-        directory = os.open(path.parent, os.O_RDONLY)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
+        sync_directory(path.parent)
     finally:
         temporary.unlink(missing_ok=True)
 
 
 def read_private(path, maximum):
-    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    fd = open_regular(path)
     with os.fdopen(fd, "rb") as stream:
-        if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
-            raise ValueError("Private application evidence must be a regular file.")
         raw = stream.read(maximum + 1)
     if len(raw) > maximum:
         raise ValueError("Private application file exceeds its size limit.")
@@ -82,6 +100,7 @@ class ApplicationStore:
         self.store = store
         self.directory = store.directory / "native-applications"
         self.directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        retained_directory(self.directory)
         with store.connect() as db:
             db.execute(
                 "CREATE TABLE IF NOT EXISTS application_transfers("
@@ -105,6 +124,7 @@ class ApplicationStore:
     def active_folders(self, db):
         from .native_backup_lifecycle import lifecycle_states
 
+        retained_directory(self.directory)
         states = lifecycle_states(db)
         return [
             path.parent
@@ -143,10 +163,13 @@ class ApplicationStore:
             private_write(folder / "manifest.json", encoded(manifest))
         return manifest
 
-    def load(self, capture_id):
+    def capture_folder(self, capture_id):
+        retained_directory(self.directory)
         folder = self.directory / identifier(capture_id)
-        if self.directory.is_symlink() or folder.is_symlink():
-            raise ValueError("Native backups must remain in their original storage folder.")
+        return retained_directory(folder)
+
+    def load(self, capture_id):
+        folder = self.capture_folder(capture_id)
         manifest = checked(read_private(folder / "manifest.json", 128 * 1024))
         if manifest["id"] != capture_id or set(manifest["files"]) != {"3", "11", "12"}:
             raise ValueError("Native backup manifest does not match its retained source.")

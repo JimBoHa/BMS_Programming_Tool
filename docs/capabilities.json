@@ -658,5 +658,10 @@
     "feature": "Native backup catalog archiving and restoration",
     "status": "implemented",
     "scope": "History exposes bounded searchable active/archived native captures, original routes/times/file metadata and ZIP export. Reversible source-bound sealed catalog revisions free active slots without moving or changing original files or breaking journal, pending-transfer and typed recovery references after restart. The 128 active limit remains; archived captures are separately bounded to 1024. Cross-process capacity serialization, stale/ABA and source-integrity checks, strict local HTTP and response ownership apply. Local catalog actions make no controller requests, replay no transfer and free no disk; general backup import/controller restore and whole-state portability remain separate. See docs/native-backup-lifecycle.md."
+  },
+  {
+    "feature": "Native application storage across POSIX and Windows",
+    "status": "implemented",
+    "scope": "Native backups, reviewed payloads and controller-family credential files reuse the native safe regular-file layer for exclusive temporary creation, complete data flush/replace, bounded reads and descriptor cleanup. Retained directories refuse symlinks/Windows reparse attributes. Current native-application-storage/1 metadata distinguishes POSIX directory fsync, Windows namespace/power-loss limitations and unavailable profiles without resealing original captures or claiming another process lock. Original formats, source/recovery IDs, quotas and native protocol/compilation contracts remain intact. See docs/native-application-storage.md; physical/BTCVT and whole-state portability remain separate."
   }
 ]

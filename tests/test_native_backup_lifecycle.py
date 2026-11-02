@@ -220,7 +220,21 @@ def test_pending_receipt_and_reviewed_payload_are_retained_without_replay(tmp_pa
 
 
 @pytest.mark.parametrize(
-    "fault", ["hash", "file", "folder-link", "manifest-link", "fifo", "catalog"]
+    "fault",
+    [
+        "hash",
+        "file",
+        "folder-link",
+        "manifest-link",
+        pytest.param(
+            "fifo",
+            marks=pytest.mark.skipif(
+                not hasattr(os, "mkfifo"),
+                reason="POSIX FIFO creation requires os.mkfifo; native Windows pipes have separate coverage.",
+            ),
+        ),
+        "catalog",
+    ],
 )
 def test_substituted_evidence_or_redirected_files_never_changes_catalog(tmp_path, fault):
     storage = ApplicationStore(Store(tmp_path))
