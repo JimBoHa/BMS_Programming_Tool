@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { api, apiJsonDocument, saveBlob } from "./api";
 import { NativeScheduleWritePanel } from "./NativeScheduleWritePanel";
+import { NativeCalendarEditor } from "./NativeCalendarEditor";
+import { calendarWork, type CalendarWork } from "./nativeCalendar";
 import {
   STRING_DRAFT,
   STRING_DRAFT_RULES,
@@ -250,11 +252,17 @@ export function ScheduleLibraryPanel({
   sessionReportId,
   connected = false,
   connectionKey = "",
+  calendarWorkspace: suppliedCalendarWorkspace,
 }: {
   sessionReportId: string | null;
   connected?: boolean;
   connectionKey?: string;
+  calendarWorkspace?: CalendarWork;
 }) {
+  const fallbackCalendarWorkspace = useRef(calendarWork());
+  const calendarWorkspace =
+    suppliedCalendarWorkspace || fallbackCalendarWorkspace.current;
+  const [calendarOpen, setCalendarOpen] = useState(calendarWorkspace.open);
   const [profile, setProfile] = useState<any>(null),
     [capture, setCapture] = useState<Capture | null>(null),
     [object, setObject] = useState(""),
@@ -313,6 +321,7 @@ export function ScheduleLibraryPanel({
       value.objects.find((candidate) => candidate.object === wanted) ||
       value.objects.find((candidate) => candidate.eligible);
     setCapture(value);
+    calendarWorkspace.captureId = value.id;
     setObject(item?.object || "");
     setDay(wantedDay);
     setRows(
@@ -391,6 +400,10 @@ export function ScheduleLibraryPanel({
       () => current(ticket, source),
     );
   }
+  useEffect(() => {
+    // Restore only a local source. Field connection and write reviews are not restored.
+    if (calendarWorkspace.captureId) void open(calendarWorkspace.captureId);
+  }, []);
   async function saveCurrent() {
     if (!sessionReportId) return;
     const report = sessionReportId,
@@ -593,14 +606,15 @@ export function ScheduleLibraryPanel({
   }
   return (
     <section className="card" aria-label="Native Schedule capture library">
-      <h3>Offline Schedule library</h3>
+      <h3>Offline Calendar and Schedule library</h3>
       <p>
-        Save native captures, reopen them offline and review one weekly-day
-        draft. Drafts do not send changes to a controller.
+        Save native captures, reopen them offline and review Calendar dates or
+        one weekly-day draft. Drafts do not send changes to a controller.
       </p>
       <p>
-        Unexported rows and reviews stay in this workspace's memory. Export a
-        reviewed draft before leaving or restarting.
+        Calendar edits stay with their captured source while switching tasks.
+        Export weekly drafts before leaving this task, and export all local work
+        before restarting. Write reviews are never restored by navigation.
       </p>
       <div className="toolbar">
         <button
@@ -715,6 +729,24 @@ export function ScheduleLibraryPanel({
             are sequential observations with unresolved source-clock context.
           </p>
           <p className="mono">Capture SHA-256: {capture.id}</p>
+          <details
+            aria-label="Captured Calendar dates"
+            open={calendarOpen}
+            onToggle={(event) => {
+              const next = event.currentTarget.open;
+              calendarWorkspace.open = next;
+              setCalendarOpen(next);
+            }}
+          >
+            <summary>Calendar dates</summary>
+            {calendarOpen && (
+              <NativeCalendarEditor
+                captureId={capture.id}
+                connectionKey={connectionKey}
+                work={calendarWorkspace}
+              />
+            )}
+          </details>
           <div className="toolbar">
             <button
               disabled={exporting}

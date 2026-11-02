@@ -1645,5 +1645,14 @@
     "pdf_pages_or_section": "docs/native-backup-integrity.md; docs/native-backup-lifecycle.md",
     "status": "implemented",
     "implementation_or_gap": "History / Native backups provides independent read-only storage inventory and selected-source original-file observations. Exact serialized-manifest and snapshot evidence hashes remain distinct; incomplete, mismatched, redirected and nonregular originals are explicit. Pending source/ABA/task/disclosure/visibility replies retire. No cleanup, catalog repair, source promotion, native logic validation, atomic snapshot, transfer, restore or physical/BTCVT acceptance is inferred."
+  },
+  {
+    "id": "COMM-CALENDAR-DRAFT-001",
+    "feature": "Source-qualified native Calendar date drafts",
+    "acceptance_criterion": "Edit captured standard Calendar Date_List entries locally with exact native old/new encoding proof, immutable originals, stateless export/import and source-specific draft retention without controller effects.",
+    "evidence": "Pinned BACpypes3 0.0.110 CalendarEntry/CalendarObject sources; ASHRAE 135-2012bg-4 and 135.1-2019s Calendar tests; independent literal direct/routed UDP captures and local API/browser checks.",
+    "pdf_pages_or_section": "docs/native-calendar-drafts.md; ASHRAE 135-2012bg PDF 7; 135.1-2019s PDF 194-196",
+    "status": "implemented",
+    "implementation_or_gap": "Independent native-calendar-date-list-draft/1 supports 0..32 ordered Date/DateRange/WeekNDay choices, strict byte/date/context validation, exact source/property/context hashes, native tag exhaustion and unchanged originals/weekly authorities. Stateless regenerated exact JSON export and whole-document source reproof on import; raw Calendar buffers persist by capture/object during navigation, transient reviews retire. Weeks 7..9 retain revision 18 requirement without target inference. No field queries/writes, Date_List transfer grant, evaluator/timezone inference, new objects, exception/context/link editing, native CAF or physical acceptance; SCH-01\u2013SCH-03 remain partial."
   }
 ]

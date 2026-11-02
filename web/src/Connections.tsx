@@ -29,6 +29,8 @@ import { ControllerProbePanel } from "./ControllerProbePanel";
 import { HardwareSurveyPanel } from "./HardwareSurveyPanel";
 import { EnumMappingPanel, type EnumMappingWork } from "./EnumMappingPanel";
 import { ScheduleInventoryPanel } from "./ScheduleInventoryPanel";
+import { ScheduleLibraryPanel } from "./ScheduleLibraryPanel";
+import { calendarWork } from "./nativeCalendar";
 import { PointStatusPanel } from "./PointStatusPanel";
 import { BacnetCovPanel } from "./BacnetCovPanel";
 import { BacnetEventsPanel } from "./BacnetEventsPanel";
@@ -94,6 +96,7 @@ export function Connections({
   // Reviews, confirmations and field operations remain owned by each panel.
   const instanceDrafts = useRef(new Map<string, string>());
   const enumWork = useRef<EnumMappingWork | null>(null);
+  const calendarWorkspace = useRef(calendarWork());
   const groups: Record<ConnectionView, { id: string; label: string }[]> = {
     setup: [],
     overview: [
@@ -860,6 +863,7 @@ export function Connections({
             view !== "setup" &&
             view !== "settings" &&
             view !== "overview" &&
+            view !== "schedules" &&
             view !== "changes" && (
               <ControllerOverview
                 controller={null}
@@ -870,6 +874,14 @@ export function Connections({
                 onConnect={() => onConnectionSetup?.()}
               />
             )}
+          {!controller && visible && view === "schedules" && (
+            <ScheduleLibraryPanel
+              sessionReportId={null}
+              connected={false}
+              connectionKey={JSON.stringify(["offline", interfaceIdentity])}
+              calendarWorkspace={calendarWorkspace.current}
+            />
+          )}
           {view === "overview" && currentTool === "summary" && (
             <ControllerOverview
               controller={
@@ -1498,6 +1510,7 @@ export function Connections({
             </TaskMount>
             <TaskMount active={showTool("schedules")} preserve={false}>
               <ScheduleInventoryPanel
+                calendarWorkspace={calendarWorkspace.current}
                 interfaceIdentity={interfaceIdentity}
                 connected={
                   visible &&

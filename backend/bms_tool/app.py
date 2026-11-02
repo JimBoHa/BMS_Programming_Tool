@@ -112,6 +112,7 @@ from .native_backup_records import (
 )
 from .native_boolean_compiler import EffectiveBooleanService
 from .native_boolean_copies import BooleanCopyExport, BooleanCopyPreview, NativeBooleanCopies
+from .native_calendar_drafts import calendar_draft_router
 from .native_historical_wire_copies import NativeHistoricalWireCopies, historical_wire_copy_router
 from .native_schedule_library import (
     MAX_ARCHIVE_BYTES,
@@ -743,6 +744,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.state.native_boolean_copies = boolean_copies
     app.state.native_boolean_compiler = boolean_compiler
     app.include_router(native_application_router(native_applications))
+    app.include_router(calendar_draft_router(schedule_library))
     app.include_router(native_wire_router(wire_copies))
     app.include_router(effective_wire_router(wire_compiler))
     app.include_router(historical_wire_copy_router(historical_wire_copies))

@@ -668,5 +668,10 @@
     "feature": "Original native backup integrity diagnostics",
     "status": "implemented",
     "scope": "Read-only bounded root-entry inventory and explicit three-file size/SHA-256 checks with exact original-manifest binding, retained damaged/unpublished sources, immutable originals and no field actions. Independent of the ordinary catalog; not a repair, atomic snapshot, native program validation or controller restore path."
+  },
+  {
+    "feature": "Captured native Calendar date drafts",
+    "status": "implemented",
+    "scope": "Separate immutable-source Date_List draft profile for Date, DateRange and WeekNDay patterns; native byte/date/context checks, exact literal encoding proof, stateless reviewed JSON export/import and capture-specific unfinished workspace buffers. No controller queries/writes, Date_List transfer authority, calendar evaluation/timezone inference, new objects/exception/context/link edits, native CAF or physical acceptance. Existing numeric/String weekly profiles remain unchanged. See docs/native-calendar-drafts.md."
   }
 ]

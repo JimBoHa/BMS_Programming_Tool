@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-01. Implementation baseline: GitHub `main` at
-[`e6b35918`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/e6b359184dae47071fa852c66d90cf967fee1f55).
+[`00d62cf5`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/00d62cf556a1b8d98cde5de8abfe3176296aa275).
 
 ## Baseline and purpose
 
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 183 scoped criteria: 129
+The public requirement register currently records 184 scoped criteria: 130
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -84,6 +84,16 @@ verified Apply or explicit readback clears only its matching completed proposal.
 This is in-memory workspace retention, not durable draft storage across reloads.
 
 ## Existing capabilities to preserve and credit
+
+[Native Calendar date drafts](docs/native-calendar-drafts.md) add a separate
+source-qualified local Date_List editor for captured Date, DateRange and WeekNDay
+entries. Exact original/native bytes, stateless reviewed JSON export/import and
+source-specific unfinished workspace buffers are retained without field traffic.
+Newer week patterns explicitly retain their protocol-revision requirement.
+This is the first Calendar authoring slice of SCH-01, not Calendar deployment,
+special-event/context editing, timezone evaluation or physical acceptance. Next,
+qualify a separate one-use Date_List transfer/readback and uncertainty contract
+before exposing any Calendar Apply action.
 
 [Schedule inventory continuation](docs/schedule-inventory-continuation.md)
 retains a verified controller's last completed Object_List offset after a

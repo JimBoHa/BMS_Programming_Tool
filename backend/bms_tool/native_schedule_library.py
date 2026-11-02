@@ -18,7 +18,7 @@ from typing import Literal
 
 from bacpypes3.basetypes import DailySchedule, Reliability, TimeValue
 from bacpypes3.constructeddata import Array
-from bacpypes3.object import DeviceObject, ScheduleObject
+from bacpypes3.object import CalendarObject, DeviceObject, ScheduleObject
 from bacpypes3.pdu import PDU
 from bacpypes3.primitivedata import (
     Boolean,
@@ -313,7 +313,7 @@ def _decoded_row(row, obj, prop, index):
             )
         strict_character_strings(tags)
     object_type = int(ObjectIdentifier(obj)[0])
-    cls = DeviceObject if object_type == 8 else ScheduleObject
+    cls = {8: DeviceObject, 6: CalendarObject}.get(object_type, ScheduleObject)
     datatype = cls.get_property_type(prop)
     if datatype is None:
         raise ValueError("Native schedule property type is unsupported.")
