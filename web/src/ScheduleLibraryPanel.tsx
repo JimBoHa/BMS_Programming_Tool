@@ -3,6 +3,7 @@ import { api, apiJsonDocument, saveBlob } from "./api";
 import { NativeScheduleWritePanel } from "./NativeScheduleWritePanel";
 import { NativeCalendarEditor } from "./NativeCalendarEditor";
 import { calendarWork, type CalendarWork } from "./nativeCalendar";
+import type { ControllerTarget } from "./workflow";
 import {
   STRING_DRAFT,
   STRING_DRAFT_RULES,
@@ -252,11 +253,13 @@ export function ScheduleLibraryPanel({
   sessionReportId,
   connected = false,
   connectionKey = "",
+  selectedTarget = null,
   calendarWorkspace: suppliedCalendarWorkspace,
 }: {
   sessionReportId: string | null;
   connected?: boolean;
   connectionKey?: string;
+  selectedTarget?: ControllerTarget | null;
   calendarWorkspace?: CalendarWork;
 }) {
   const fallbackCalendarWorkspace = useRef(calendarWork());
@@ -1112,6 +1115,7 @@ export function ScheduleLibraryPanel({
         </div>
       )}
       <NativeScheduleWritePanel
+        selectedTarget={selectedTarget}
         draft={review}
         connected={connected}
         connectionKey={connectionKey}
