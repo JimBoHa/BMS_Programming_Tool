@@ -33,6 +33,14 @@ import {
   identityDraftDocument,
   IDENTITY_DRAFT_LIMIT,
 } from "./nativeIdentityWork";
+import {
+  IDENTITY_TEXT_BYTES,
+  IDENTITY_TEXT_RESPONSE_BYTES,
+  identityDraftBlob,
+  identityTextSha,
+  parseIdentityText,
+  importedIdentityText,
+} from "./unfinishedIdentity";
 
 const base = "/bacnet/controller/native-application";
 const localIdentityWork = new Map<string, NativeIdentityWork>();
@@ -69,6 +77,9 @@ export function NativeInstancePanel(
   const [number, setNumber] = useState("");
   const [newName, setNewName] = useState("");
   const [recovery, setRecovery] = useState<any>(null);
+  const [rawImported, setRawImported] =
+    useState<NativeIdentityWork["rawImported"]>();
+  const rawInput = useRef<HTMLInputElement>(null);
   const [identitySources, setIdentitySources] = useState<any[]>([]);
   const [localBusy, setLocalBusy] = useState(false);
   const recoveryFocus = useRef<HTMLElement | null>(null);
@@ -98,7 +109,14 @@ export function NativeInstancePanel(
   const selectionNow = useRef(selection);
   selectionNow.current = selection;
   const workNow = useRef(emptyIdentityWork());
-  workNow.current = { capture, receipt, newName, number, recovery };
+  workNow.current = {
+    capture,
+    receipt,
+    newName,
+    number,
+    recovery,
+    rawImported,
+  };
   const draftAvailable = canRememberIdentityWork(localIdentityWork, selection);
   const retainedDraft = localIdentityWork.get(draftChoice);
   function keep(changes: Partial<NativeIdentityWork> = {}, pending = false) {
@@ -185,6 +203,7 @@ export function NativeInstancePanel(
       renaming ? (saved?.receipt ?? null) : (saved?.receipt ?? previous),
     );
     setRecovery(saved?.recovery ?? null);
+    setRawImported(saved?.rawImported);
     setIdentitySources([]);
     setLocalBusy(false);
     setAllocated(false);
@@ -205,6 +224,7 @@ export function NativeInstancePanel(
           newName,
           number,
           recovery,
+          rawImported,
         },
         (busy || localBusy) && localIdentityWork.has(selection),
       )
@@ -219,6 +239,7 @@ export function NativeInstancePanel(
     newName,
     number,
     recovery,
+    rawImported,
     busy,
     localBusy,
   ]);
@@ -229,7 +250,11 @@ export function NativeInstancePanel(
       setLocalBusy(false);
     };
     document.addEventListener("visibilitychange", retire);
-    return () => document.removeEventListener("visibilitychange", retire);
+    window.addEventListener("pagehide", retire);
+    return () => {
+      document.removeEventListener("visibilitychange", retire);
+      window.removeEventListener("pagehide", retire);
+    };
   }, [renaming, localBusy]);
   useEffect(() => {
     if (!plan && !busy) return;
@@ -243,6 +268,7 @@ export function NativeInstancePanel(
     if (!keep({ number: value })) return;
     cancel();
     generation.current++;
+    setLocalBusy(false);
     setPlan(null);
     setAllocated(false);
     setConfirmed(false);
@@ -252,6 +278,7 @@ export function NativeInstancePanel(
     if (!keep({ newName: value })) return;
     cancel();
     generation.current++;
+    setLocalBusy(false);
     setPlan(null);
     setAllocated(false);
     setConfirmed(false);
@@ -275,6 +302,7 @@ export function NativeInstancePanel(
       receiptEpoch.current++;
       setCapture(null);
       setRecovery(null);
+      setRawImported(undefined);
       setNumber("");
       setNewName("");
       setPlan(null);
@@ -285,6 +313,94 @@ export function NativeInstancePanel(
     setDraftChoice("");
     changeDraftList((n) => n + 1);
     setError("");
+  }
+  function saveDraft(key: string, work: NativeIdentityWork) {
+    try {
+      saveBlob(
+        identityDraftBlob(key, work),
+        `native-local-identity-draft-${Date.now()}.json`,
+      );
+      setError("");
+    } catch (failure) {
+      setError(String(failure));
+    }
+  }
+  async function importDraft(file: File) {
+    if (locked || localBusy || !localReady) return;
+    cancel();
+    const epoch = ++generation.current,
+      wanted = selection;
+    receiptEpoch.current++;
+    const current = () =>
+      mounted.current &&
+      generation.current === epoch &&
+      selectionNow.current === wanted;
+    setPlan(null);
+    setAllocated(false);
+    setConfirmed(false);
+    setLocalBusy(true);
+    setError("");
+    try {
+      if (!canRememberIdentityWork(localIdentityWork, wanted))
+        throw new Error(capacityMessage);
+      if (
+        !file.name ||
+        file.name.length > 1024 ||
+        file.size > IDENTITY_TEXT_BYTES
+      )
+        throw new Error(
+          "Local identity file exceeds its 128 KiB or filename limit. Existing work was kept.",
+        );
+      const original = parseIdentityText(
+        new TextDecoder("utf-8", { fatal: true }).decode(
+          await file.arrayBuffer(),
+        ),
+        wanted,
+      );
+      const sha = await identityTextSha(file);
+      if (!current()) return;
+      const form = new FormData();
+      form.append("file", file);
+      const response = await apiJsonDocument(
+        base + "/local-drafts/import",
+        form,
+      );
+      if (response.blob.size > IDENTITY_TEXT_RESPONSE_BYTES)
+        throw new Error("Local identity response exceeds its byte limit.");
+      const restored = await importedIdentityText(
+        response.data,
+        original,
+        wanted,
+        sha,
+      );
+      if (!current()) return;
+      const existing = localIdentityWork.get(wanted);
+      if (existing && hasIdentityDraft(existing))
+        throw new Error(
+          "Discard this retained identity draft before importing replacement text. Existing work was kept.",
+        );
+      restored.rawImported = {
+        filename: file.name,
+        file_sha256: sha,
+        receipt_id: original.receipt_id,
+        recovery_origin_sha256: original.recovery_origin_sha256,
+      };
+      if (!keep(restored)) return;
+      generation.current++;
+      setCapture(restored.capture);
+      setNewName(restored.newName);
+      setNumber(restored.number);
+      setReceipt(null);
+      setRecovery(null);
+      setRawImported(restored.rawImported);
+      setDraftChoice(wanted);
+      setLocalBusy(false);
+      changeDraftList((n) => n + 1);
+    } catch (failure) {
+      if (current()) setError(String(failure));
+    } finally {
+      if (current()) setLocalBusy(false);
+    }
   }
   async function identityLocal(
     kind: "sources" | "source" | "prepare",
@@ -332,13 +448,15 @@ export function NativeInstancePanel(
           throw new Error(
             `The retained ${family} source changed; select it again.`,
           );
-        if (mounted.current && epoch === generation.current)
+        if (mounted.current && epoch === generation.current) {
+          setRawImported(undefined);
           setCapture({
             ...data,
             id: data.capture_id,
             snapshot_evidence_sha256: data.snapshot_sha256,
             identity: { ...data.identity, device: data.target.device },
           });
+        }
       } else {
         if (
           !capture ||
@@ -365,6 +483,7 @@ export function NativeInstancePanel(
           epoch === generation.current &&
           receiptGeneration === receiptEpoch.current
         ) {
+          setRawImported(undefined);
           setRecovery(document);
           requestAnimationFrame(() => {
             if (mounted.current && epoch === generation.current)
@@ -425,7 +544,10 @@ export function NativeInstancePanel(
           ...target,
           operation_id: id,
         });
-        if (mounted.current && epoch === generation.current) setCapture(result);
+        if (mounted.current && epoch === generation.current) {
+          setRawImported(undefined);
+          setCapture(result);
+        }
       } else if (kind === "preview") {
         if (
           !renaming &&
@@ -529,6 +651,8 @@ export function NativeInstancePanel(
             // A retained receipt must not retire a newer capture or proposal.
             // Original recovery did not apply the proposed identity change.
             if (capture?.id === result.intent?.review_capture_id) {
+              delete retained.rawImported;
+              setRawImported(undefined);
               retained.recovery = null;
               retained.capture = null;
               setRecovery(null);
@@ -733,6 +857,37 @@ export function NativeInstancePanel(
             never evicted. Drafts stay in memory; save local text before
             reloading.
           </p>
+          <p>
+            Import restores raw proposal text for this same interface
+            configuration, route, Device and edit kind. Referenced original
+            backups must still be available locally. Discard retained work
+            explicitly before replacement.
+          </p>
+          <button
+            disabled={locked || localBusy || !localReady}
+            onClick={() => rawInput.current?.click()}
+          >
+            Import local identity draft
+          </button>
+          <input
+            type="file"
+            accept=".json"
+            hidden
+            ref={rawInput}
+            aria-label="Import local identity draft file"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (file) void importDraft(file);
+            }}
+          />
+          {rawImported && (
+            <p role="status">
+              Unfinished identity text restored from a local file. Earlier
+              receipt and recovery IDs are unverified references. Review and
+              confirm any controller change separately.
+            </p>
+          )}
           <label>
             Retained local identity draft
             <select
@@ -783,21 +938,7 @@ export function NativeInstancePanel(
               <div className="button-row">
                 <button
                   disabled={locked || localBusy}
-                  onClick={() =>
-                    saveBlob(
-                      new Blob(
-                        [
-                          JSON.stringify(
-                            identityDraftDocument(draftChoice, retainedDraft),
-                            null,
-                            2,
-                          ) + "\n",
-                        ],
-                        { type: "application/json" },
-                      ),
-                      `native-local-identity-draft-${Date.now()}.json`,
-                    )
-                  }
+                  onClick={() => saveDraft(draftChoice, retainedDraft)}
                 >
                   Save local identity draft
                 </button>

@@ -4,7 +4,7 @@ import {
   type Page,
   type Locator,
   type APIRequestContext,
-} from "@playwright/test";
+} from "./nativeScheduleWriteFixture";
 import { readFileSync } from "node:fs";
 import { python } from "./caf-native-fixture";
 import { nativeDefaultPeer } from "./native-default-peer";
@@ -25,7 +25,7 @@ const proposal = (page: Page) =>
   });
 const number = (p: Locator) =>
   p.getByLabel("New application Device instance (0–4194302)", { exact: true });
-function seed(already = false) {
+function seed(directory: string, already = false) {
   return JSON.parse(
     python(
       `
@@ -42,7 +42,7 @@ src={k:request[k] for k in ('capture_id','snapshot_sha256')};source=service.sour
 capture=source|{'id':source['capture_id'],'snapshot_evidence_sha256':source['snapshot_sha256'],'identity':source['identity']|{'device':source['target']['device']}}
 print(json.dumps({'request':request,'receipt':s.receipt(request['receipt_id']),'report':service.prepare(request),'capture':capture,'caf':base64.b64encode(caf_source().original).decode()}))
 `,
-      process.env.BMS_TEST_COMPILER_STATE!,
+      directory,
       already ? "already" : "changed",
     ),
   );
@@ -149,8 +149,9 @@ async function prepare(p: Locator) {
 test("offline CAF entry keeps ordinary number draft, exact evidence, focus and phone navigation", async ({
   page,
   request,
+  nativeScheduleWriteServer,
 }, info) => {
-  const data = seed();
+  const data = seed(nativeScheduleWriteServer.directory);
   expect(previousInstanceMatches(data.report, data.capture, data.receipt)).toBe(
     true,
   );
@@ -226,8 +227,9 @@ test("offline CAF entry keeps ordinary number draft, exact evidence, focus and p
 });
 test("already recorded old number supplies evidence without a live claim", async ({
   page,
+  nativeScheduleWriteServer,
 }) => {
-  const p = await local(page, seed(true));
+  const p = await local(page, seed(nativeScheduleWriteServer.directory, true));
   const result = await prepare(p);
   await expect(result).toContainText("already records the previous instance");
   await expect(result).toContainText("does not verify the current controller");
@@ -241,9 +243,10 @@ test("already recorded old number supplies evidence without a live claim", async
 for (const change of ["source", "task", "receipt", "visibility"]) {
   test(`held previous-instance reply retires on ${change} lifecycle`, async ({
     page,
+    nativeScheduleWriteServer,
   }) => {
-    const data = seed(),
-      other = seed();
+    const data = seed(nativeScheduleWriteServer.directory),
+      other = seed(nativeScheduleWriteServer.directory);
     let p = await local(page, data);
     await number(p).fill("5151");
     let release!: () => void, arrived!: () => void, released!: () => void;
@@ -314,8 +317,9 @@ for (const change of ["source", "task", "receipt", "visibility"]) {
 }
 test("unbound verified-after source cannot replace an ordinary number draft", async ({
   page,
+  nativeScheduleWriteServer,
 }) => {
-  const data = seed(),
+  const data = seed(nativeScheduleWriteServer.directory),
     p = await local(page, data);
   await number(p).fill("5151");
   const changed = structuredClone(data.report);
@@ -446,6 +450,7 @@ for (const routed of [false, true]) {
   test(`actual ${routed ? "routed" : "direct"} previous-instance transfer preserves values and records lineage`, async ({
     page,
     request,
+    nativeScheduleWriteServer,
   }, info) => {
     test.setTimeout(90000);
     const peer = await nativeDefaultPeer("consume", "instance");

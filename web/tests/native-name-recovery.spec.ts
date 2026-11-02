@@ -4,7 +4,7 @@ import {
   type Page,
   type APIRequestContext,
   type Locator,
-} from "@playwright/test";
+} from "./nativeScheduleWriteFixture";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -25,8 +25,8 @@ const proposal = (page: Page) =>
     name: "Previous controller name proposal",
     exact: true,
   });
-function seed(already = false) {
-  const state = process.env.BMS_TEST_COMPILER_STATE;
+function seed(directory: string, already = false) {
+  const state = directory;
   if (!state) throw new Error("An isolated state directory is required.");
   return JSON.parse(
     execFileSync(
@@ -152,8 +152,9 @@ test.beforeEach(async ({ request }) => {
 test("offline CAF entry preserves ordinary draft, exact evidence, task navigation and phone layout", async ({
   page,
   request,
+  nativeScheduleWriteServer,
 }, info) => {
-  const data = seed();
+  const data = seed(nativeScheduleWriteServer.directory);
   expect(previousNameMatches(data.report, data.capture, data.receipt)).toBe(
     true,
   );
@@ -229,8 +230,9 @@ test("offline CAF entry preserves ordinary draft, exact evidence, task navigatio
 
 test("already recorded previous name has evidence and no implicit controller verification", async ({
   page,
+  nativeScheduleWriteServer,
 }) => {
-  const p = await local(page, seed(true));
+  const p = await local(page, seed(nativeScheduleWriteServer.directory, true));
   const result = await prepare(p);
   await expect(result).toContainText("already records the previous name");
   await expect(result).toContainText("does not verify the current controller");
@@ -242,9 +244,10 @@ test("already recorded previous name has evidence and no implicit controller ver
 for (const change of ["source", "task", "receipt", "visibility"]) {
   test(`held previous-name response is retired by ${change} ABA`, async ({
     page,
+    nativeScheduleWriteServer,
   }) => {
-    const data = seed(),
-      other = seed();
+    const data = seed(nativeScheduleWriteServer.directory),
+      other = seed(nativeScheduleWriteServer.directory);
     let p = await local(page, data);
     await p
       .getByLabel("New controller name", { exact: true })
@@ -329,8 +332,9 @@ for (const change of ["source", "task", "receipt", "visibility"]) {
 
 test("malformed previous-name report cannot replace the ordinary draft", async ({
   page,
+  nativeScheduleWriteServer,
 }) => {
-  const data = seed(),
+  const data = seed(nativeScheduleWriteServer.directory),
     p = await local(page, data);
   await p
     .getByLabel("New controller name", { exact: true })
@@ -450,6 +454,7 @@ for (const routed of [false, true]) {
   test(`actual ${routed ? "routed" : "direct"} name recovery requires a new transfer and records lineage`, async ({
     page,
     request,
+    nativeScheduleWriteServer,
   }, info) => {
     test.setTimeout(60000);
     const peer = await nativeDefaultPeer("consume", "wire");
@@ -481,7 +486,7 @@ for (const routed of [false, true]) {
       ).toContainText("Renamed controller");
       await expandRecovery(p);
       if (routed) {
-        const unrelated = seed();
+        const unrelated = seed(nativeScheduleWriteServer.directory);
         const beforeLocal = (await peer.command("stats")).events;
         await p
           .getByRole("button", {
