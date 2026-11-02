@@ -105,8 +105,10 @@ surface while the backend field interface remains closed. Normal uploads test
 browser multipart transport; a held-import ownership case supplies a separately
 verified real HTTP response without replaying the browser multipart request.
 
-This profile performs local exception engineering. Field deployment, Calendar
-reference verification, effective-period/default/context/link changes, evaluation,
+This profile performs local exception engineering. A [separate deployment
+profile](native-schedule-exception-deployment.md) adds one whole-array write with
+fresh same-Device Calendar identity checks and receipts. Calendar contents/current
+value verification, effective-period/default/context/link changes, evaluation,
 timezone/DST behavior, native CAF compilation and physical manufacturer/transport
 acceptance remain separate. SCH-01–SCH-03 remain partial. Existing Calendar and
 weekly writers and durable journals retain their original authority.

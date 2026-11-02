@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-02. Implementation baseline: GitHub `main` at
-[`344ab1d6`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/344ab1d633ad657d8510fc8b095aaacb5df69693).
+[`c9b88617`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/c9b886177dccc215fe038b88732cc19472b3d4ff).
 
 ## Baseline and purpose
 
@@ -85,20 +85,27 @@ This is in-memory workspace retention, not durable draft storage across reloads.
 
 ## Existing capabilities to preserve and credit
 
-[Native Schedule exceptions](docs/native-schedule-exceptions.md) now have a
-separate local source/review/exact export/import workflow within Schedules.
-Typed periods, values, priorities, order and modern captured week patterns retain
-their native proof and source-specific unfinished buffers. Calendar references
-are not queried and no field authority is issued. Existing weekly/String rules
-and writers stay separate; exception transfer, context/link editing and schedule
-evaluation remain pending under SCH-01–SCH-03.
+[Native Schedule exception deployment](docs/native-schedule-exception-deployment.md)
+now adds fresh selected-controller review, one whole-array write attempt, exact
+static context/Calendar identity/revision checks, an independent durable journal
+and separate explicit read-only reconciliation. The local exception editor keeps
+unfinished work through lifecycle changes and late receipts. This is simulated
+plain IPv4 direct/routed software qualification; physical acceptance, Calendar
+contents/evaluation and context/link editing remain pending under SCH-01–SCH-03.
+
+[Native Schedule exceptions](docs/native-schedule-exceptions.md) retain their
+separate local source/review/exact export/import profile. Typed periods, values,
+priorities, order and modern captured week patterns retain native proof and
+source-specific unfinished buffers. This local profile queries no references and
+issues no field authority; deployment uses the independent profile above.
+Existing weekly/String and Calendar rules and writers stay separate.
 
 [Calendar range admission](docs/native-calendar-date-ranges.md) now distinguishes
 fully specified or wholly unspecified DateRange endpoints from broader Date
 patterns before new field review and request encoding. Invalid new ranges create
 no field reads or write authority. Original sources, local exports, no-change
 observation and historical receipt readback remain useful without granting a new
-write. This does not complete exception editing or schedule evaluation.
+write. This does not complete general context/link editing or schedule evaluation.
 
 [Native identity draft capacity](docs/native-identity-draft-capacity.md) now
 retains unfinished name/instance contexts without evicting earlier work. Empty
