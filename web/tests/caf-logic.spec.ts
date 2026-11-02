@@ -127,6 +127,7 @@ test("dragging native ports reviews and exports an existing connection source ch
   await expect(
     p.getByLabel("Native rewire review", { exact: true }),
   ).toContainText("[1,663,2,513]");
+  await expect(p.locator("button.primary:visible")).toHaveCount(1);
   const download = page.waitForEvent("download");
   await p
     .getByRole("button", {
@@ -165,6 +166,7 @@ test("dragging to an unused native input uses an original prototype and preserve
   await expect(
     p.getByLabel("Native new connection review", { exact: true }),
   ).toContainText("[1,663,3,513]");
+  await expect(p.locator("button.primary:visible")).toHaveCount(1);
   const download = page.waitForEvent("download");
   await p
     .getByRole("button", {
@@ -218,6 +220,10 @@ test("nested module navigation and compact inspector keep exact CAF source", asy
   await p
     .getByRole("button", { name: "Close CAF logic inspector", exact: true })
     .click();
+  const finder = await p.locator(".caf-logic-finder").boundingBox(),
+    canvas = await p.locator(".caf-logic-canvas").boundingBox();
+  expect(finder!.width).toBeGreaterThan(280);
+  expect(canvas!.width).toBeGreaterThan(280);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,

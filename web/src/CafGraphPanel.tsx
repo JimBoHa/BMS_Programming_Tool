@@ -656,7 +656,7 @@ export function CafGraphPanel({
                         </small>
                       </div>
                       <button
-                        className="primary"
+                        className={connectionOpen ? "" : "primary"}
                         disabled={
                           !proposed ||
                           disabled ||

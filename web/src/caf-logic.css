@@ -206,6 +206,12 @@
   .caf-logic-grid {
     grid-template-columns: 1fr;
   }
+  .caf-logic-grid > .responsive-panel-trigger[data-panel="inspector"] {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: start;
+    margin: 0;
+  }
   .caf-logic-finder > div {
     max-height: 150px;
     display: grid;
