@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-02. Implementation baseline: GitHub `main` at
-[`db6c429c`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/db6c429c9962f0accb1fe06edd3657a8496b17aa).
+[`b89ea258`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/b89ea25866e3793faaec749dc5561e488bb92b44).
 
 ## Baseline and purpose
 
@@ -84,6 +84,13 @@ verified Apply or explicit readback clears only its matching completed proposal.
 This is in-memory workspace retention, not durable draft storage across reloads.
 
 ## Existing capabilities to preserve and credit
+
+[IP route-change qualification](docs/ip-route-change-qualification.md) now
+exercises the genuine guided workflow against two authored routed controllers
+with the same Device instance. It preserves the bind and verifies each selected
+route. A suspected extra-field product error was traced to inaccurate simulated
+status; those fixtures now follow the real IP contract. Production connection
+and strict server-admission code remain unchanged.
 
 [Unfinished exception import](docs/unfinished-exception-import.md) now restores
 source-bound raw exception text after reload. Strict file/source/buffer checks,
