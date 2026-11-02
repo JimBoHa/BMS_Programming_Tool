@@ -8,6 +8,7 @@ from .moi_effective_boolean import EffectiveBooleanCompiler
 from .moi_identity import MoiIdentity, sha
 from .moi_parameters import ParameterApplication
 from .native_boolean_copies import BooleanCopyPreview
+from .native_parameter_qualification import qualify_parameter_additions
 
 PROFILE = "native-effective-boolean-default-transfer/1"
 SCOPE = (
@@ -43,7 +44,11 @@ def compile_boolean_default(files, edit, *, expected_prior_value=None):
         raise ValueError(
             "The selected effective Boolean default changed after review. Capture and review again."
         )
-    return compiler.compile(**edit)
+    output, report = compiler.compile(**edit)
+    report["parameter_transfer_qualification"] = qualify_parameter_additions(
+        output, report["parameter_merge"]
+    )
+    return output, report
 
 
 def verify_boolean_preservation(before, after, edit):

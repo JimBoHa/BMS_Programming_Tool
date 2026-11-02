@@ -61,6 +61,7 @@ from .native_instance_recovery import PROFILE as INSTANCE_RECOVERY_PROFILE
 from .native_instance_recovery import NativeInstanceRecovery
 from .native_name_recovery import PROFILE as NAME_RECOVERY_PROFILE
 from .native_name_recovery import NativeNameRecovery
+from .native_parameter_qualification import qualify_parameter_additions
 from .native_point_names import PROFILE as POINT_NAME_PROFILE
 from .native_point_names import SCOPE as POINT_NAME_SCOPE
 from .native_point_names import (
@@ -416,9 +417,12 @@ class NativeApplications:
             try:
                 if not receipt["source_identity_matches"]:
                     raise ValueError(receipt["source_identity_error"])
-                _, receipt["parameter_merge"] = ParameterApplication(
+                merged, receipt["parameter_merge"] = ParameterApplication(
                     files[3], files[11], files[12]
                 ).compile()
+                receipt["parameter_transfer_qualification"] = qualify_parameter_additions(
+                    merged, receipt["parameter_merge"]
+                )
                 receipt["instance_edit_supported"] = True
             except ValueError as exc:
                 receipt.update(instance_edit_supported=False, compiler_error=str(exc))
@@ -445,6 +449,7 @@ class NativeApplications:
     @staticmethod
     def compile(files, new_instance, new_name=None):
         merged, parameters = ParameterApplication(files[3], files[11], files[12]).compile()
+        qualification = qualify_parameter_additions(merged, parameters)
         editor = MoiIdentity(merged)
         q = {
             "source_sha256": editor.source_sha256,
@@ -455,7 +460,11 @@ class NativeApplications:
             q.update(expected_name=editor.summary()["name"], new_name=new_name)
         edit = editor.preview(**q)
         output, edits = editor.export(**q, plan_sha256=edit["plan_sha256"])
-        return output, {"parameters": parameters, "identity_edit": edits}
+        return output, {
+            "parameters": parameters,
+            "identity_edit": edits,
+            "parameter_transfer_qualification": qualification,
+        }
 
     async def preview(self, **arguments):
         options = NativePreview(**arguments)
