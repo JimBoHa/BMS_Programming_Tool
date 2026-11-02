@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-01. Implementation baseline: GitHub `main` at
-[`f65f4f88`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/f65f4f8827e91755d70aa4a81e9fa0bdddf97202).
+[`7eaf0efb`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/7eaf0efbb97b52045332a228d105d044c35875bf).
 
 ## Baseline and purpose
 
@@ -84,6 +84,15 @@ verified Apply or explicit readback clears only its matching completed proposal.
 This is in-memory workspace retention, not durable draft storage across reloads.
 
 ## Existing capabilities to preserve and credit
+
+[Original native recovery readback](docs/native-original-recovery-readback.md)
+now distinguishes complete original-image/settings recovery from applying the
+proposed change. Fresh identity, operational status, full image/settings and
+published point-name checks precede lock release. Failed intent/results remain
+immutable with appended proof; readback does not send a recovery application.
+The [additional qualification](docs/native-original-recovery-qualification.md)
+also preserves newer local captures and proposals during older receipt readback.
+Broader restore orchestration and physical acceptance remain separate.
 
 [Schedule deployment selection](docs/native-schedule-controller-selection.md)
 now binds preview, Apply and receipt readback to the exact controller and route

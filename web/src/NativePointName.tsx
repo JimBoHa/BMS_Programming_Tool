@@ -180,7 +180,9 @@ export function NativePointName({
           throw new Error(
             "Point-name source differs from the selected backup.",
           );
-        const field = pointSource.points.find((p: any) => p.object_id === object);
+        const field = pointSource.points.find(
+          (p: any) => p.object_id === object,
+        );
         if (!field)
           throw new Error(
             "This application has no supported native name for the selected point.",
@@ -300,13 +302,15 @@ export function NativePointName({
           }));
           onVerified();
         } else if (
+          intent &&
           observed?.status === "recovered_original" &&
-          !result.pending
+          result.pending === false
         ) {
           setWork((w) => ({
             ...w,
-            capture: null,
-            field: null,
+            ...(w.capture?.id === intent.review_capture_id
+              ? { capture: null, field: null }
+              : {}),
             receipt: result,
           }));
           onVerified();

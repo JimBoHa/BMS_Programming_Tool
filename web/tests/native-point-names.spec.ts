@@ -617,3 +617,201 @@ test("a published-name mismatch remains uncertain and retains the unfinished pro
     peer.close();
   }
 });
+
+test("original recovery readback preserves its failed attempt and keeps newer point-name work", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(90000);
+  await reset(request);
+  const peer = await nativeDefaultPeer("consume", "point-name");
+  try {
+    const panel = await prepareName(page, peer.direct);
+    await panel
+      .getByRole("button", { name: "Review point name change", exact: true })
+      .click();
+    await panel
+      .getByLabel("I confirm this point name change.", { exact: true })
+      .check();
+    await panel
+      .getByLabel(
+        "I reviewed the application transfer and brief interruption.",
+        { exact: true },
+      )
+      .check();
+    await peer.command("mode drop-end");
+    await panel
+      .getByRole("button", { name: "Apply point name", exact: true })
+      .click();
+    const receipt = panel.getByRole("region", {
+      name: "Point name transfer receipt",
+    });
+    await expect(receipt).toContainText("Outcome uncertain", {
+      timeout: 30000,
+    });
+    const original = (
+      await (await request.get(base + "/status")).json()
+    ).receipts.find((r: any) => r.target.address === peer.direct);
+    const failed = await (
+      await request.get(base + "/receipts/" + original.id)
+    ).json();
+    expect(failed.pending).toBe(true);
+    expect(failed.result.status).toBe("unknown");
+    // Model original recovery by another tool. The application performs only readback.
+    await peer.command("recover-original");
+    await receipt
+      .getByRole("button", { name: "Read back point name", exact: true })
+      .click();
+    await expect(receipt).toContainText(
+      "Original application and point name recovered",
+      { timeout: 30000 },
+    );
+    await expect(receipt).toContainText(
+      "proposed name change was not verified",
+    );
+    await expect(receipt).not.toContainText("Outcome uncertain");
+    const recovered = await (
+      await request.get(base + "/receipts/" + original.id)
+    ).json();
+    expect(recovered.intent).toEqual(failed.intent);
+    expect(recovered.result).toEqual(failed.result);
+    expect(recovered.latest_readback.status).toBe("recovered_original");
+    expect(recovered.pending).toBe(false);
+    await panel
+      .getByRole("button", { name: "Read point name backup", exact: true })
+      .click();
+    await expect(panel).toContainText("Captured name: Authored input");
+    await panel
+      .getByLabel("New point name", { exact: true })
+      .fill("Next unfinished input");
+    await receipt
+      .getByRole("button", { name: "Read back point name", exact: true })
+      .click();
+    await expect(
+      receipt.getByRole("button", {
+        name: "Read back point name",
+        exact: true,
+      }),
+    ).toBeEnabled({ timeout: 30000 });
+    await expect(
+      panel.getByLabel("New point name", { exact: true }),
+    ).toHaveValue("Next unfinished input");
+    expect(
+      (await peer.command("stats")).events.filter(
+        (e: any[]) => e[0] === "state" && e[1] === "start-restore",
+      ),
+    ).toHaveLength(1);
+  } finally {
+    peer.close();
+  }
+});
+
+for (const kind of ["name", "instance"])
+  test(`original recovery keeps a newer native ${kind} proposal`, async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(90000);
+    await reset(request);
+    const peer = await nativeDefaultPeer("consume", "instance");
+    try {
+      await open(page, peer.direct);
+      await chooseWorkspaceTask(page, "Overview");
+      const tools = page.getByRole("navigation", {
+        name: "Controller task tools",
+        exact: true,
+      });
+      const select = tools.getByRole("combobox", {
+        name: "Controller task tools",
+        exact: true,
+      });
+      if (await select.isVisible())
+        await select.selectOption({ label: "Identity settings" });
+      else
+        await tools
+          .getByRole("button", { name: "Identity settings", exact: true })
+          .click();
+      await page
+        .getByLabel("Identity setting", { exact: true })
+        .selectOption(kind);
+      if (kind === "instance")
+        await page
+          .getByLabel("Instance change method", { exact: true })
+          .selectOption("native");
+      const p = page.getByRole("region", {
+        name: `Native application ${kind} commissioning`,
+        exact: true,
+      });
+      const input = p.getByLabel(
+        kind === "name"
+          ? "New controller name"
+          : "New application Device instance (0–4194302)",
+        { exact: true },
+      );
+      await p
+        .getByRole("button", { name: "Read application backup", exact: true })
+        .click();
+      await input.fill(kind === "name" ? "Reviewed controller" : "5336");
+      await p
+        .getByRole("button", {
+          name:
+            kind === "name"
+              ? "Review name change"
+              : "Review application instance change",
+          exact: true,
+        })
+        .click();
+      await p
+        .getByLabel(
+          kind === "name"
+            ? "I confirm this controller name change."
+            : "I reserved this instance across the BACnet internetwork, including offline devices.",
+          { exact: true },
+        )
+        .check();
+      await p
+        .getByRole("checkbox", {
+          name: "I reviewed this application transfer and its possible brief interruption of controller operation.",
+          exact: true,
+        })
+        .check();
+      await peer.command("mode drop-end");
+      await p
+        .getByRole("button", {
+          name:
+            kind === "name"
+              ? "Apply controller name"
+              : "Apply application instance change",
+          exact: true,
+        })
+        .click();
+      await expect(p).toContainText("This transfer is unresolved", {
+        timeout: 30000,
+      });
+      await peer.command("recover-original");
+      const readback = p.getByRole("button", {
+        name: `Read back application and ${kind}`,
+        exact: true,
+      });
+      await readback.click();
+      await expect(p).toContainText(
+        "Original identity, application and saved settings recovered",
+        { timeout: 30000 },
+      );
+      await p
+        .getByRole("button", { name: "Read application backup", exact: true })
+        .click();
+      const newer = kind === "name" ? "Next unfinished controller" : "6000";
+      await input.fill(newer);
+      await readback.click();
+      await expect(readback).toBeEnabled({ timeout: 30000 });
+      await expect(input).toHaveValue(newer);
+      expect(
+        (await peer.command("stats")).events.filter(
+          (e: any[]) => e[0] === "state" && e[1] === "start-restore",
+        ),
+      ).toHaveLength(1);
+    } finally {
+      peer.close();
+    }
+  });
