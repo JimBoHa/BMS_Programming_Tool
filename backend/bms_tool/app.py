@@ -113,6 +113,7 @@ from .native_backup_records import (
 from .native_boolean_compiler import EffectiveBooleanService
 from .native_boolean_copies import BooleanCopyExport, BooleanCopyPreview, NativeBooleanCopies
 from .native_calendar_drafts import calendar_draft_router
+from .native_calendar_write import NativeCalendarWrites, calendar_write_router
 from .native_historical_wire_copies import NativeHistoricalWireCopies, historical_wire_copy_router
 from .native_schedule_library import (
     MAX_ARCHIVE_BYTES,
@@ -591,6 +592,7 @@ def create_app(state_dir=None, *, operation_power=None):
     schedule_inventory = ScheduleInventory(bacnet, store)
     schedule_library = NativeScheduleLibrary(store.directory, schedule_inventory)
     schedule_writes = NativeWeeklyDayWrites(bacnet, store, schedule_library)
+    calendar_writes = NativeCalendarWrites(bacnet, store, schedule_library)
     point_status = PointStatus(bacnet, store)
     event_inventory = EventInventory(bacnet, store)
     event_ack = EventAcknowledgements(bacnet, store, event_inventory)
@@ -665,6 +667,7 @@ def create_app(state_dir=None, *, operation_power=None):
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
             await schedule_writes.close()
+            await calendar_writes.close()
             try:
                 try:
                     try:
@@ -745,6 +748,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.state.native_boolean_compiler = boolean_compiler
     app.include_router(native_application_router(native_applications))
     app.include_router(calendar_draft_router(schedule_library))
+    app.include_router(calendar_write_router(calendar_writes))
     app.include_router(native_wire_router(wire_copies))
     app.include_router(effective_wire_router(wire_compiler))
     app.include_router(historical_wire_copy_router(historical_wire_copies))
@@ -850,6 +854,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.state.event_inventory = event_inventory
     app.state.event_ack = event_ack
     app.state.schedule_writes = schedule_writes
+    app.state.calendar_writes = calendar_writes
     app.state.event_reception = event_reception
     app.state.bacnet_files = files
     app.state.hardware_workbench = hardware_workbench
@@ -2381,6 +2386,7 @@ def create_app(state_dir=None, *, operation_power=None):
         await native_applications.close()
         await device_instances.close()
         await schedule_writes.close()
+        await calendar_writes.close()
         await event_ack.close()
         await event_inventory.close()
         await event_log.close()
@@ -2447,6 +2453,7 @@ def create_app(state_dir=None, *, operation_power=None):
         await native_applications.close()
         await device_instances.close()
         await schedule_writes.close()
+        await calendar_writes.close()
         await event_ack.close()
         await event_inventory.close()
         await event_log.close()
@@ -2458,6 +2465,7 @@ def create_app(state_dir=None, *, operation_power=None):
         await native_applications.close()
         await device_instances.close()
         await schedule_writes.close()
+        await calendar_writes.close()
         await event_ack.close()
         await event_inventory.close()
         await event_log.close()

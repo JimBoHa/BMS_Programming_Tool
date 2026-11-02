@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-01. Implementation baseline: GitHub `main` at
-[`00d62cf5`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/00d62cf556a1b8d98cde5de8abfe3176296aa275).
+[`b9060a44`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/b9060a44cd5eeaca75d8de13cbf11046856bfc3d).
 
 ## Baseline and purpose
 
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 184 scoped criteria: 130
+The public requirement register currently records 185 scoped criteria: 131
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -90,10 +90,16 @@ source-qualified local Date_List editor for captured Date, DateRange and WeekNDa
 entries. Exact original/native bytes, stateless reviewed JSON export/import and
 source-specific unfinished workspace buffers are retained without field traffic.
 Newer week patterns explicitly retain their protocol-revision requirement.
-This is the first Calendar authoring slice of SCH-01, not Calendar deployment,
-special-event/context editing, timezone evaluation or physical acceptance. Next,
-qualify a separate one-use Date_List transfer/readback and uncertainty contract
-before exposing any Calendar Apply action.
+This is the first Calendar authoring slice of SCH-01. A separate
+[Date_List transfer backend](docs/native-calendar-write.md) now adds fresh exact
+source/target checks, actual protocol-revision qualification, one-use dispatch,
+durable intent/results and independent readback/reconciliation. It preserves the
+local-only draft boundary and all older weekly authorities. Next, integrate that
+qualified API into the selected-controller Calendar editor with explicit review,
+Apply, uncertainty and recovery, then qualify its browser workflows. No Calendar
+Apply button is supplied by the backend slice. Special-event/context/link editing,
+timezone evaluation and physical acceptance remain separate; SCH-01–SCH-03 stay
+partial.
 
 [Schedule inventory continuation](docs/schedule-inventory-continuation.md)
 retains a verified controller's last completed Object_List offset after a
