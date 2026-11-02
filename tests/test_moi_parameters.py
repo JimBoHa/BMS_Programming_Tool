@@ -212,3 +212,64 @@ def test_unsaved_unused_slot_must_still_own_a_bounded_nonoverlapping_range():
     static += (len(body) + 2).to_bytes(2, "big") + body
     with pytest.raises(ValueError, match="overlap"):
         ParameterApplication(archive, static, dynamic).compile()
+
+
+def runtime_slot(*, position, flags=0x27, instance=321, pid=85, cid=141, datatype=4):
+    body = ((19 << 22) | instance).to_bytes(4, "big") + pid.to_bytes(2, "big")
+    body += bytes([flags, datatype]) + cid.to_bytes(2, "big")
+    body += position.to_bytes(2, "big") + b"\x12\x34"
+    return (len(body) + 2).to_bytes(2, "big") + body
+
+
+@pytest.mark.parametrize("compressed", [True, False])
+def test_repeated_unsaved_runtime_slots_reserve_storage_without_merging_old_values(compressed):
+    archive, static, dynamic = parameters_source(compressed=compressed)
+    expected, _ = ParameterApplication(archive, static, dynamic).compile()
+    # Different retired priority slots may retain arbitrary old Float/CRC bytes.
+    # Neither is a saved application value, even when the selectors repeat.
+    for payload in (bytes.fromhex("7fc0000000"), bytes.fromhex("80000000ff")):
+        static += runtime_slot(position=len(dynamic))
+        dynamic += payload
+    output, report = ParameterApplication(archive, static, dynamic).compile()
+    assert MoiIdentity(output).data == MoiIdentity(expected).data
+    assert report["matched_parameters"] == 7
+
+
+@pytest.mark.parametrize("mutation", ["overlap", "bounds", "type", "mixed", "class"])
+def test_unsaved_runtime_repetition_cannot_bypass_storage_or_selector_checks(mutation):
+    archive, static, dynamic = parameters_source()
+    first = len(dynamic)
+    static += runtime_slot(position=first)
+    dynamic += b"\x00" * 5
+    options = {"position": len(dynamic)}
+    if mutation == "overlap":
+        options["position"] = first
+    elif mutation == "bounds":
+        options["position"] += 100
+    elif mutation == "type":
+        options["datatype"] = 255
+    elif mutation == "mixed":
+        options["flags"] = 0x6F
+    elif mutation == "class":
+        options["cid"] = 142
+    static += runtime_slot(**options)
+    dynamic += b"\x00" * 5
+    with pytest.raises(ValueError):
+        ParameterApplication(archive, static, dynamic).compile()
+
+
+def test_unsaved_runtime_slot_cannot_replace_a_serialized_application_property():
+    archive, static, dynamic = parameters_source()
+    invalid = bytearray(static)
+    invalid[8] = 0x27
+    with pytest.raises(ValueError, match="no valid saved value"):
+        ParameterApplication(archive, bytes(invalid), dynamic).compile()
+
+
+def test_valid_setting_on_an_existing_object_cannot_be_silently_ignored():
+    archive, static, dynamic = parameters_source()
+    invalid = bytearray(static)
+    # A new saved property on the existing root, absent from the archive.
+    invalid[6:8] = (65002).to_bytes(2, "big")
+    with pytest.raises(ValueError, match="property is absent"):
+        ParameterApplication(archive, bytes(invalid), dynamic).compile()
