@@ -80,6 +80,7 @@ class ParameterApplication:
                 raise ValueError("Duplicate native object identifiers prevent parameter matching.")
             objects[oid] = record
         self.replacements, self.insertions, self.parameters = {}, {}, []
+        self.retained_runtime_parameters = []
         used, selectors, resolved_selectors, offset = {}, {}, set(), 0
         while offset < len(static):
             length = int.from_bytes(static[offset : offset + 2], "big")
@@ -155,6 +156,30 @@ class ParameterApplication:
                 value = _inline(row[12:-2], datatype)
             else:
                 raise ValueError("Unsupported saved parameter storage flags.")
+            # Binary Change_Of_State_Time is a read-only runtime timestamp.
+            # Its PSS slot is an Unsigned epoch value, whereas the application
+            # attribute is a date/time structure. Storage type is not an
+            # application schema. Never synthesize an Unsigned application
+            # property from that slot or reset the controller's event time.
+            if record is not None and pid == 16 and oid >> 22 in (3, 4, 5):
+                if datatype != 2:
+                    raise ValueError("Unsupported saved binary timestamp storage type.")
+                if prop is not None:
+                    raise ValueError(
+                        "Existing binary timestamp application encoding is unqualified."
+                    )
+                self.retained_runtime_parameters.append(
+                    {
+                        "class": cid,
+                        "instance": resolved_instance,
+                        "property": pid,
+                        "role": "binary-change-of-state-time",
+                        "stored_epoch_seconds": int.from_bytes(payload, "big"),
+                        "policy": "Retained in the original PSS backup; not an application default or writable runtime timestamp.",
+                    }
+                )
+                offset += length
+                continue
             resolved = (cid, resolved_instance, pid)
             if record is not None:
                 if resolved in resolved_selectors:
@@ -252,5 +277,6 @@ class ParameterApplication:
             "dynamic_sha256": self.dynamic_sha256,
             "matched_parameters": len(self.parameters),
             "changed_parameters": [p for p in self.parameters if p["changed"]],
+            "retained_runtime_parameters": self.retained_runtime_parameters,
             "vendor_runtime_required": False,
         }
