@@ -7,7 +7,20 @@ import {
 import { spawn, execFileSync } from "node:child_process";
 import { createSocket } from "node:dgram";
 import path from "node:path";
+import {
+  chooseWorkspaceSurface,
+  chooseWorkspaceTask,
+} from "./workspace-navigation";
 const root = path.resolve("..");
+const targets = new WeakMap<
+  Page,
+  {
+    address: string;
+    device: string;
+    router: string | null;
+    dnet: number | null;
+  }
+>();
 test.afterEach(async ({ request }) => {
   const session = await (await request.get("/api/session")).json();
   const response = await request.post("/api/bacnet/disconnect", {
@@ -37,12 +50,28 @@ async function peer(routed = false, behavior = "normal") {
       "-c",
       `
 import asyncio,sys
-from tests.test_schedule_inventory import make_peer
+from tests.test_schedule_inventory import SchedulePeer,text,unsigned
+class Peer(SchedulePeer):
+ def value(self,obj,prop,index):
+  if prop in ('model-name','firmware-revision','application-software-version','vendor-name','location'):return text('Authored')
+  if prop=='protocol-revision':return unsigned(22)
+  if prop=='max-apdu-length-accepted':return unsigned(480)
+  if prop=='segmentation-supported':return b'\\x91\\x03'
+  if prop=='vendor-identifier':return unsigned(5)
+  if prop=='system-status':return b'\\x91\\x00'
+  return super().value(obj,prop,index)
 async def main():
- peer=await make_peer(routed=sys.argv[1]=='1',behavior=sys.argv[2]);original=peer.datagram_received
+ peer=Peer(routed=sys.argv[1]=='1',behavior='normal' if sys.argv[2]=='hold' else sys.argv[2])
+ await asyncio.get_running_loop().create_datagram_endpoint(lambda:peer,local_addr=('127.0.0.1',0))
+ original=peer.datagram_received
  def observed(data,source):
   print('READ',flush=True);original(data,source)
  peer.datagram_received=observed
+ def mark():
+  if sys.stdin.readline().strip()!='mark':raise AssertionError('Unknown authored peer command')
+  if sys.argv[2]=='hold':peer.behavior='hold'
+  print('MARK',flush=True)
+ asyncio.get_running_loop().add_reader(sys.stdin.fileno(),mark)
  print(peer.endpoint.split(':')[-1],flush=True)
  try: await asyncio.Event().wait()
  finally: peer.close()
@@ -54,10 +83,12 @@ asyncio.run(main())
     {
       cwd: root,
       env: { ...process.env, PYTHONPATH: path.join(root, "backend") },
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: ["pipe", "pipe", "pipe"],
     },
   );
-  let count = 0;
+  let count = 0,
+    baseline = 0,
+    marked: (() => void) | null = null;
   const port = await new Promise<number>((resolve, reject) => {
     let pending = "",
       error = "",
@@ -80,6 +111,11 @@ asyncio.run(main())
           clearTimeout(timer);
           resolve(Number(line));
         } else if (line === "READ") count++;
+        else if (line === "MARK") {
+          baseline = count;
+          marked?.();
+          marked = null;
+        }
       }
     });
     child.on("error", reject);
@@ -88,12 +124,76 @@ asyncio.run(main())
       if (!ready) reject(new Error(`Schedule peer exited ${code}: ${error}`));
     });
   });
-  return { process: child, port, reads: () => count };
+  return {
+    port,
+    reads: () => count - baseline,
+    async mark() {
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(
+          () => reject(new Error("Authored peer mark timed out")),
+          5000,
+        );
+        marked = () => {
+          clearTimeout(timer);
+          resolve();
+        };
+        child.stdin!.write("mark\n");
+      });
+    },
+    async close() {
+      if (child.exitCode !== null || child.signalCode !== null) return;
+      await new Promise<void>((resolve) => {
+        child.once("exit", () => resolve());
+        child.kill("SIGTERM");
+      });
+    },
+  };
+}
+async function selectController(
+  page: Page,
+  server: { port: number },
+  routed = false,
+) {
+  await page
+    .getByRole("button", { name: "Known controller address", exact: true })
+    .click();
+  await page
+    .getByLabel("Known controller address", { exact: true })
+    .fill(routed ? "3001:7" : `127.0.0.1:${server.port}`);
+  await page
+    .getByLabel("Known Device object", { exact: true })
+    .fill("device,42");
+  await page
+    .getByLabel("Known router", { exact: true })
+    .fill(routed ? `127.0.0.1:${server.port}` : "");
+  await page
+    .getByLabel("Known network", { exact: true })
+    .fill(routed ? "3001" : "");
+  await page
+    .getByRole("region", { name: "Known controller connection", exact: true })
+    .getByRole("button", { name: "Open controller", exact: true })
+    .click();
+  await expect(
+    page.getByRole("region", { name: "Controller overview", exact: true }),
+  ).toContainText("Native device,42");
+  await chooseWorkspaceTask(page, "Schedules");
+  targets.set(page, {
+    address: routed ? "3001:7" : `127.0.0.1:${server.port}`,
+    device: "device,42",
+    router: routed ? `127.0.0.1:${server.port}` : null,
+    dnet: routed ? 3001 : null,
+  });
+}
+async function changeController(page: Page, server: { port: number }) {
+  await page
+    .getByRole("button", { name: "Change controller", exact: true })
+    .click();
+  await selectController(page, server);
 }
 async function open(
   page: Page,
   request: APIRequestContext,
-  server: { port: number },
+  server: { port: number; mark: () => Promise<void> },
   routed = false,
 ) {
   const headers = {
@@ -107,8 +207,16 @@ async function open(
       })
     ).ok(),
   ).toBe(true);
+  const scheduleCalls: string[] = [];
+  page.on("request", (request) => {
+    if (
+      /\/api\/bacnet\/schedules\/(read|read-diagnostics)$/.test(request.url())
+    )
+      scheduleCalls.push(request.url());
+  });
   await page.goto("/");
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
+  await page.getByRole("button", { name: /^Connect to a controller/ }).click();
+  await selectController(page, server, routed);
   const panel = page.getByRole("region", {
     name: "Native Calendar and Schedule inventory",
     exact: true,
@@ -116,27 +224,32 @@ async function open(
   await expect(
     panel.getByRole("button", { name: "Read native schedules", exact: true }),
   ).toBeEnabled();
-  await panel
-    .getByLabel("Schedule source address", { exact: true })
-    .fill(routed ? "3001:7" : `127.0.0.1:${server.port}`);
-  await panel
-    .getByLabel("Schedule Device identifier", { exact: true })
-    .fill("device,42");
-  if (routed) {
-    await panel
-      .getByLabel("Schedule router endpoint", { exact: true })
-      .fill(`127.0.0.1:${server.port}`);
-    await panel.getByLabel("Schedule DNET", { exact: true }).fill("3001");
-  }
+  const context = page.getByLabel("Working context", { exact: true });
+  await expect(context).toContainText("device,42");
+  await expect(context).toContainText(
+    routed ? "3001:7" : `127.0.0.1:${server.port}`,
+  );
+  if (routed) await expect(context).toContainText(`127.0.0.1:${server.port}`);
   await panel
     .getByLabel("Calendar/Schedule object selection", { exact: true })
     .fill("calendar,1; schedule,1");
+  expect(scheduleCalls).toEqual([]);
+  // Opening a controller performs identity reads. Count subsequent schedule
+  // requests separately, after an ordered acknowledgement from the owned peer.
+  await server.mark();
   return panel;
 }
 async function read(panel: ReturnType<Page["getByRole"]>) {
+  const page = panel.page();
+  const response = page.waitForResponse((r) =>
+    r.url().endsWith("/api/bacnet/schedules/read"),
+  );
   await panel
     .getByRole("button", { name: "Read native schedules", exact: true })
     .click();
+  expect((await response).request().postDataJSON()).toMatchObject(
+    targets.get(page)!,
+  );
   await expect(
     panel.getByLabel("Schedule evidence report", { exact: true }),
   ).toBeVisible();
@@ -209,7 +322,7 @@ print('verified')
     ).toBeVisible();
     expect(server.reads()).toBe(count);
   } finally {
-    server.process.kill();
+    await server.close();
   }
 });
 test("routed native read retains endpoint DNET and opaque nested choices", async ({
@@ -236,7 +349,7 @@ test("routed native read retains endpoint DNET and opaque nested choices", async
     await expect(evidence).toContainText('"decode_status": "opaque"');
     await expect(evidence).toContainText('"npdu_source": "3001:7"');
   } finally {
-    server.process.kill();
+    await server.close();
   }
 });
 for (const action of ["draft", "selection", "receipt", "navigation"] as const)
@@ -245,6 +358,7 @@ for (const action of ["draft", "selection", "receipt", "navigation"] as const)
     request,
   }) => {
     const server = await peer();
+    let alternate: Awaited<ReturnType<typeof peer>> | null = null;
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {
       release = resolve;
@@ -290,27 +404,24 @@ for (const action of ["draft", "selection", "receipt", "navigation"] as const)
       await started;
       if (action === "draft")
         await panel
-          .getByLabel("Schedule Device identifier", { exact: true })
-          .fill("device,43");
-      else if (action === "selection")
-        await page
-          .getByLabel("Unicast target", { exact: true })
-          .fill("127.0.0.1:47809");
-      else if (action === "receipt")
+          .getByLabel("Calendar/Schedule object selection", { exact: true })
+          .fill("calendar,2");
+      else if (action === "selection") {
+        alternate = await peer();
+        await changeController(page, alternate);
+      } else if (action === "receipt")
         await panel
           .getByRole("button", { name: /^Open schedule report/ })
           .first()
           .click();
-      else
-        await page
-          .getByRole("button", { name: "Program", exact: true })
-          .click();
+      else await chooseWorkspaceTask(page, "Program");
       release();
       await page.waitForTimeout(350);
       expect(downloads).toBe(0);
     } finally {
       release();
-      server.process.kill();
+      await server.close();
+      await alternate?.close();
     }
   });
 test("cancel and navigation retire owned pending reads without retries", async ({
@@ -339,7 +450,7 @@ test("cancel and navigation retire owned pending reads without retries", async (
     const cancelled = page.waitForResponse((response) =>
       response.url().endsWith("/api/bacnet/schedules/cancel"),
     );
-    await page.getByRole("button", { name: "Program", exact: true }).click();
+    await chooseWorkspaceSurface(page, "Library");
     expect((await cancelled).ok()).toBe(true);
     await expect
       .poll(
@@ -351,7 +462,7 @@ test("cancel and navigation retire owned pending reads without retries", async (
     await page.waitForTimeout(100);
     expect(server.reads()).toBe(2);
   } finally {
-    server.process.kill();
+    await server.close();
   }
 });
 
@@ -360,6 +471,7 @@ test("late read response cannot populate a newly selected source", async ({
   request,
 }) => {
   const server = await peer();
+  let alternate: Awaited<ReturnType<typeof peer>> | null = null;
   let release!: () => void;
   const gate = new Promise<void>((resolve) => {
     release = resolve;
@@ -380,12 +492,11 @@ test("late read response cannot populate a newly selected source", async ({
       .getByRole("button", { name: "Read native schedules", exact: true })
       .click();
     await started;
-    await page
-      .getByLabel("Unicast target", { exact: true })
-      .fill("127.0.0.1:47809");
+    alternate = await peer();
+    await changeController(page, alternate);
     await expect(
-      panel.getByLabel("Schedule source address", { exact: true }),
-    ).toHaveValue("127.0.0.1:47809");
+      page.getByLabel("Working context", { exact: true }),
+    ).toContainText(`127.0.0.1:${alternate.port}`);
     release();
     await expect(
       panel.getByRole("button", { name: "Read native schedules", exact: true }),
@@ -396,6 +507,7 @@ test("late read response cannot populate a newly selected source", async ({
     expect(server.reads()).toBeGreaterThan(1);
   } finally {
     release();
-    server.process.kill();
+    await server.close();
+    await alternate?.close();
   }
 });

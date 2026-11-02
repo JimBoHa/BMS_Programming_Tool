@@ -78,6 +78,18 @@ backup-state commands in mutation tests concern those authored peers; they are
 not passive reads or new field acceptance. The original older checkout and its
 31 changed files remain preserved.
 
+## Schedule browser harness qualification
+
+The older Schedule inventory browser suite also stopped at its removed global
+Connect button. That same failure was reproduced on the preceding runtime.
+[The updated Schedule workflow](schedule-workflow-validation.md) follows verified
+controller selection and keeps original native numeric/seal, routing,
+cancellation and delayed-result checks. All 32 desktop/compact Chromium/WebKit
+cases pass with retries disabled. Product sources and styles remain unchanged.
+Original failed traces and the separately observed Program-navigation datagram
+remain retained; this does not explain the two earlier full-run BACnet failures
+or establish physical acceptance.
+
 ## Reproducing optional compiler coverage
 
 Configure the existing supported environment variables for the actual installed
