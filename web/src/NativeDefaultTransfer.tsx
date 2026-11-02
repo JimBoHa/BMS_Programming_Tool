@@ -23,6 +23,11 @@ import {
   wireTransferReceiptMatches,
 } from "./nativeWireTransferContract";
 import {
+  enumTransferProfile,
+  enumTransferReviewMatches,
+  enumTransferReceiptMatches,
+} from "./nativeEnumTransferContract";
+import {
   previousWireSourceMatches,
   wireRecoveryProfile,
   historicalWireRecoveryProfile,
@@ -63,6 +68,7 @@ export function NativeDefaultTransfer({
   onBusy,
   onCaptured,
   booleanDefault = false,
+  enumDefault = false,
   wireSource = false,
   otherOperationBusy = false,
   recoveryDraft = null,
@@ -78,6 +84,7 @@ export function NativeDefaultTransfer({
   onBusy: (busy: boolean) => void;
   onCaptured: (id: string) => void;
   booleanDefault?: boolean;
+  enumDefault?: boolean;
   wireSource?: boolean;
   otherOperationBusy?: boolean;
   recoveryDraft?: NativeDefaultRecoveryDocument | null;
@@ -86,24 +93,32 @@ export function NativeDefaultTransfer({
 }) {
   const operationProfile = wireSource
     ? "native-effective-wire-source-transfer/1"
-    : booleanDefault
-      ? "native-effective-boolean-default-transfer/1"
-      : "native-effective-default-transfer/1";
+    : enumDefault
+      ? enumTransferProfile
+      : booleanDefault
+        ? "native-effective-boolean-default-transfer/1"
+        : "native-effective-default-transfer/1";
   const changeKind = wireSource
     ? "wire-source"
-    : booleanDefault
-      ? "boolean-default"
-      : "signal-default";
+    : enumDefault
+      ? "enum-default"
+      : booleanDefault
+        ? "boolean-default"
+        : "signal-default";
   const transferPath = wireSource
     ? "/wire-source/transfer"
-    : booleanDefault
-      ? "/boolean-default/transfer"
-      : "/signal-default/transfer";
+    : enumDefault
+      ? "/enum-default/transfer"
+      : booleanDefault
+        ? "/boolean-default/transfer"
+        : "/signal-default/transfer";
   const [status, setStatus] = useState<Data | null>(null);
   const adapterAvailable = wireSource
     ? status?.wire_source_transfer_profile === operationProfile
-    : !booleanDefault ||
-      status?.boolean_default_transfer_profile === operationProfile;
+    : enumDefault
+      ? status?.enum_default_transfer_profile === operationProfile
+      : !booleanDefault ||
+        status?.boolean_default_transfer_profile === operationProfile;
   const [plan, setPlan] = useState<{
     data: Data;
     blob: Blob;
@@ -131,6 +146,7 @@ export function NativeDefaultTransfer({
   const owner = JSON.stringify([
     wireSource,
     booleanDefault,
+    enumDefault,
     otherOperationBusy,
     visible,
     controller && [
@@ -171,6 +187,13 @@ export function NativeDefaultTransfer({
           () => {},
         );
     reviewId.current = null;
+  }
+  function stopOperation() {
+    epoch.current++;
+    setPlan(null);
+    setConfirmed(false);
+    setInterruption(false);
+    cancel();
   }
   async function refresh() {
     const ticket = ++statusTicket.current;
@@ -301,36 +324,39 @@ export function NativeDefaultTransfer({
               data.recovery_origin_sha256 !== undefined) ||
           (wireSource
             ? !wireTransferReviewMatches(data, source!, proposal!, field!)
-            : ![
-                "record_ref",
-                "encoded_sha256",
-                booleanDefault ? "value" : "value_text",
-              ].every(
-                (name) => data.default_edit?.[name] === proposal![name],
-              ) ||
-              edit?.record_ref !== field!.ref ||
-              edit?.encoded_sha256 !== field!.encoded_sha256 ||
-              (booleanDefault
-                ? data.application_sha256 !== proposal!.source_sha256 ||
-                  data.compilation?.profile !==
-                    "native-effective-boolean-default-compiler/1" ||
-                  data.compilation.other_merged_bytes_preserved !== true ||
-                  data.compilation.saved_settings_merged !== true ||
-                  edit?.datatype !== "Boolean" ||
-                  edit?.property !== 3113 ||
-                  edit?.class_id !== field!.class_id ||
-                  typeof edit?.before_value !== "boolean" ||
-                  typeof edit?.after_value !== "boolean" ||
-                  edit.before_value !== field!.effective_value ||
-                  edit.after_value !== proposal!.value ||
-                  edit.before_tag !== (field!.effective_value ? "11" : "10") ||
-                  edit.after_tag !== (proposal!.value ? "11" : "10")
-                : edit?.before_bits !== field!.effective_bits ||
-                  !Number.isFinite(edit?.stored_value) ||
-                  edit?.after_bits !==
-                    floatBits(Number(proposal!.value_text)) ||
-                  edit?.after_bits !== floatBits(edit.stored_value) ||
-                  !/^[a-f0-9]{8}$/.test(edit?.after_bits || ""))) ||
+            : enumDefault
+              ? !enumTransferReviewMatches(data, source!, proposal!, field!)
+              : ![
+                  "record_ref",
+                  "encoded_sha256",
+                  booleanDefault ? "value" : "value_text",
+                ].every(
+                  (name) => data.default_edit?.[name] === proposal![name],
+                ) ||
+                edit?.record_ref !== field!.ref ||
+                edit?.encoded_sha256 !== field!.encoded_sha256 ||
+                (booleanDefault
+                  ? data.application_sha256 !== proposal!.source_sha256 ||
+                    data.compilation?.profile !==
+                      "native-effective-boolean-default-compiler/1" ||
+                    data.compilation.other_merged_bytes_preserved !== true ||
+                    data.compilation.saved_settings_merged !== true ||
+                    edit?.datatype !== "Boolean" ||
+                    edit?.property !== 3113 ||
+                    edit?.class_id !== field!.class_id ||
+                    typeof edit?.before_value !== "boolean" ||
+                    typeof edit?.after_value !== "boolean" ||
+                    edit.before_value !== field!.effective_value ||
+                    edit.after_value !== proposal!.value ||
+                    edit.before_tag !==
+                      (field!.effective_value ? "11" : "10") ||
+                    edit.after_tag !== (proposal!.value ? "11" : "10")
+                  : edit?.before_bits !== field!.effective_bits ||
+                    !Number.isFinite(edit?.stored_value) ||
+                    edit?.after_bits !==
+                      floatBits(Number(proposal!.value_text)) ||
+                    edit?.after_bits !== floatBits(edit.stored_value) ||
+                    !/^[a-f0-9]{8}$/.test(edit?.after_bits || ""))) ||
           !/^[A-Za-z0-9_-]{32}$/.test(data.token || "") ||
           !/^[a-f0-9]{64}$/.test(data.review_sha256 || "") ||
           !Number.isFinite(Date.parse(data.expires_at))
@@ -368,6 +394,16 @@ export function NativeDefaultTransfer({
             : { operation_id: id, receipt_id: receipt!.data.intent.id },
         );
         const intent = result.data.intent;
+        if (
+          enumDefault &&
+          !enumTransferReceiptMatches(
+            result.data,
+            kind === "apply" ? selectedPlan?.data : receipt?.data.intent,
+          )
+        )
+          throw new Error(
+            "Native Enum receipt does not match its reviewed code, storage and preservation evidence. Load retained receipts before another transfer.",
+          );
         if (
           wireSource &&
           !wireTransferReceiptMatches(
@@ -423,6 +459,7 @@ export function NativeDefaultTransfer({
         result.data.intent?.id !== id ||
         result.data.intent?.change_kind !== changeKind ||
         result.data.intent?.operation_profile !== operationProfile ||
+        (enumDefault && !enumTransferReceiptMatches(result.data)) ||
         (wireSource && !wireTransferReceiptMatches(result.data))
       )
         throw new Error(
@@ -442,7 +479,8 @@ export function NativeDefaultTransfer({
       operation.current ||
       !source ||
       !receipt ||
-      !onRecoveryPrepared
+      !onRecoveryPrepared ||
+      enumDefault
     )
       return;
     if (
@@ -556,9 +594,11 @@ export function NativeDefaultTransfer({
       aria-label={
         wireSource
           ? "Native wire source controller transfer"
-          : booleanDefault
-            ? "Native Boolean default controller transfer"
-            : "Native default controller transfer"
+          : enumDefault
+            ? "Native Enum default controller transfer"
+            : booleanDefault
+              ? "Native Boolean default controller transfer"
+              : "Native default controller transfer"
       }
     >
       <h2>Controller transfer</h2>
@@ -591,9 +631,10 @@ export function NativeDefaultTransfer({
       )}
       {!adapterAvailable && (
         <p>
-          The installed native {wireSource ? "wire source" : "Boolean"} transfer
-          profile is unavailable. Retain this local compilation; no transfer
-          review is prepared.
+          The installed native{" "}
+          {wireSource ? "wire source" : enumDefault ? "Enum" : "Boolean"}{" "}
+          transfer profile is unavailable. Retain this local compilation; no
+          transfer review is prepared.
         </p>
       )}
       <details>
@@ -703,15 +744,15 @@ export function NativeDefaultTransfer({
           ) : (
             <p>
               {shown.data.default_edit.record_ref} ·{" "}
-              {booleanDefault
+              {booleanDefault || enumDefault
                 ? String(shown.data.compilation.selected_edit.before_value)
                 : shown.data.compilation.selected_edit.before_bits}{" "}
               →{" "}
-              {booleanDefault
+              {booleanDefault || enumDefault
                 ? String(shown.data.compilation.selected_edit.after_value)
                 : shown.data.compilation.selected_edit.after_bits}{" "}
               · stored value{" "}
-              {booleanDefault
+              {booleanDefault || enumDefault
                 ? String(shown.data.compilation.selected_edit.after_value)
                 : Object.is(
                       shown.data.compilation.selected_edit.stored_value,
@@ -739,7 +780,9 @@ export function NativeDefaultTransfer({
             />
             {wireSource
               ? "I confirm the selected controller, native connection and proposed wire source."
-              : "I confirm the selected controller, native default and proposed value."}
+              : enumDefault
+                ? "I confirm the selected controller, native Enum code and its intended meaning."
+                : "I confirm the selected controller, native default and proposed value."}
           </label>
           <label className="native-transfer-check">
             <input
@@ -787,7 +830,7 @@ export function NativeDefaultTransfer({
           {operation.current ? (
             <>
               Native operation in progress.{" "}
-              <button onClick={cancel}>Stop native operation</button>
+              <button onClick={stopOperation}>Stop native operation</button>
             </>
           ) : (
             "Preparing the previous value from retained local evidence."
@@ -938,7 +981,7 @@ export function NativeDefaultTransfer({
                   : "Read back native default transfer"}
               </button>
             )}
-            {onRecoveryPrepared && (
+            {onRecoveryPrepared && !enumDefault && (
               <button
                 disabled={
                   localLocked ||
@@ -968,7 +1011,7 @@ export function NativeDefaultTransfer({
               </button>
             )}
           </div>
-          {onRecoveryPrepared && (
+          {onRecoveryPrepared && !enumDefault && (
             <p className="muted">
               Preparation uses this receipt and the selected retained backup
               locally. Read a current backup first when connected. A new review

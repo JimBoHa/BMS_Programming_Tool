@@ -33,6 +33,7 @@ const operationIds = [
   "identity-transfer",
   "default-transfer",
   "boolean-default-transfer",
+  "enum-default-transfer",
   "wire-source-transfer",
   "general-logic",
   "release-packages",
@@ -136,7 +137,7 @@ export function NativeBackupCapabilities({
       );
       if (
         data.profile !== "native-backup-record-inspection/1" ||
-        data.capability_profile !== "native-backup-operation-capabilities/10" ||
+        data.capability_profile !== "native-backup-operation-capabilities/11" ||
         data.source_kind !== "native-backup-archive" ||
         data.capture_id !== source.capture_id ||
         data.snapshot_sha256 !== source.snapshot_sha256 ||
@@ -182,7 +183,17 @@ export function NativeBackupCapabilities({
         )?.status !==
           (data.qualification.effective_enum_default_count > 0
             ? "source-qualified"
-            : "unsupported-source")
+            : "unsupported-source") ||
+        data.operations.find(
+          (row: Operation) => row.id === "enum-default-transfer",
+        )?.status !==
+          (data.qualification.recorded_identity_verified !== true
+            ? "source-mismatch"
+            : data.qualification.effective_enum_fixed_storage_count === 0
+              ? "unsupported-source"
+              : data.qualification.captured_plain_ipv4 === true
+                ? "preflight-required"
+                : "transport-unavailable")
       )
         throw new Error(
           "Native backup operation analysis differs from the selected source. Inspect this snapshot again.",

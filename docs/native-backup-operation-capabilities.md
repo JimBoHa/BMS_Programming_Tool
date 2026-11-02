@@ -7,7 +7,7 @@ not open a connection, issue backup-state commands, create an edit or transfer
 intent, or qualify the currently running controller. Original acquisition effects
 and evidence remain unchanged.
 
-The table separates twenty-one operations. Archive and diagram reading use actual
+The table separates twenty-two operations. Archive and diagram reading use actual
 recognized content. Typed instance/name copies require the stricter native
 identity framing; name copies also require a typed Device name. Archive Real
 copies require actual existing supported fields. Saved-setting merging requires
@@ -41,7 +41,7 @@ The token-admitted `POST
 /api/bacnet/controller/native-application/inspection/capabilities` accepts only
 capture ID and manifest hash. All retained files and the manifest are verified
 before analysis. It returns inspection provenance plus capability profile
-`native-backup-operation-capabilities/10`, twenty-one ordered rows and detailed local
+`native-backup-operation-capabilities/11`, twenty-two ordered rows and detailed local
 qualification evidence. It returns `read_only: true`, `controller_queries: false`,
 `can_apply: false` and `current_identity_verified: false`.
 
@@ -125,3 +125,13 @@ Counts, their fixed/unknown partition, recorded identity, compiler error and row
 status must agree. Unknown saved structure or identity mismatch keeps readable
 records available while reporting effective compilation as unsupported. No Enum
 transfer row, field review or physical acceptance is added.
+
+Profile11 adds a separate [Enum code transfer](native-enum-default-transfer.md)
+row. A recorded matching vendor5 identity, actual effective Enum field with a
+captured fixed selected slot and captured plain IPv4 route qualify only a
+connected preflight. Local UInt32 compilation without that slot does not qualify
+transfer. The browser independently checks this identity/storage/transport status.
+The connected operation still requires fresh selected-value/settings/capacity/
+ownership/credential checks, two confirmations, one-use intent and complete
+native/effective readback. Code meanings and membership remain unverified; this
+local table prepares no field plan or physical acceptance.

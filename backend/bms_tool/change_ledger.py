@@ -343,6 +343,7 @@ class ChangeLedger:
                 "name": "Native controller name change",
                 "signal-default": "Native Real default transfer",
                 "boolean-default": "Native Boolean default transfer",
+                "enum-default": "Native Enum code transfer",
                 "wire-source": "Native wire source transfer",
                 "input": "Native input configuration transfer",
                 "point-name": "Native point-name transfer",

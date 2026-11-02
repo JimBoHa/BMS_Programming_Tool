@@ -37,7 +37,10 @@ unknown records and metadata stay intact. Selecting the already effective value
 returns the merged application, which can differ from the original archive when
 other saved settings differ. All three original backup files remain unchanged.
 This does not update saved files, allocate blocks, generate general logic, enable
-an Enum field transfer or establish CCT/physical acceptance.
+an Enum field transfer by itself or establish CCT/physical acceptance. The separate
+[Enum transfer workflow](native-enum-default-transfer.md) additionally requires an
+actual selected fixed slot, exact native IPv4 station, fresh preflight, one-use
+review, confirmations and full readback.
 
 Token-admitted local `POST /api/bacnet/controller/native-application/enum-default-compiler/`
 operations are `source`, `preview` and `export`. Source and review identify the

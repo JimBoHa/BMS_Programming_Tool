@@ -31,8 +31,8 @@ def test_actual_enum_codes_are_independent_of_saved_schema_identity_and_transpor
     before = copy.deepcopy(storage.load(request["capture_id"]))
     report = records.capabilities(request)
     rows, evidence = operations(report), report["qualification"]
-    assert report["capability_profile"] == "native-backup-operation-capabilities/10"
-    assert len(rows) == len(report["operations"]) == 21
+    assert report["capability_profile"] == "native-backup-operation-capabilities/11"
+    assert len(rows) == len(report["operations"]) == 22
     assert rows["enum-default-copy"]["status"] == "source-qualified"
     assert "membership and state meanings remain unverified" in rows["enum-default-copy"]["basis"]
     assert "no executable mapping, Enum field transfer" in rows["enum-default-copy"]["next_step"]
