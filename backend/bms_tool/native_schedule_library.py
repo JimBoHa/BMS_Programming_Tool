@@ -471,7 +471,9 @@ def date_range(value):
             raise ValueError("Captured native effective/date range is reversed.")
 
 
-def exception_period(period):
+def exception_period(period, *, week_limit=6):
+    if week_limit not in (6, 9):
+        raise ValueError("Unknown native exception week-pattern qualification.")
     if period._choice == "calendarReference":
         if int(period.calendarReference[0]) != 6 or not 0 <= period.calendarReference[1] <= 4194302:
             raise ValueError("Captured exception reference is not a Calendar object.")
@@ -487,7 +489,7 @@ def exception_period(period):
         month, week, weekday = entry.weekNDay
         if not (
             (1 <= month <= 14 or month == 255)
-            and (1 <= week <= 6 or week == 255)
+            and (1 <= week <= week_limit or week == 255)
             and (1 <= weekday <= 7 or weekday == 255)
         ):
             raise ValueError("Captured WeekNDay contains unknown native pattern fields.")
@@ -658,9 +660,11 @@ class NativeScheduleLibrary:
         return wrapper["source_json"].encode()
 
     @staticmethod
-    def _weekly_context(report, object_id):
+    def _weekly_context(report, object_id, *, exception_week_limit=6):
         try:
-            return NativeScheduleLibrary._decoded_weekly_context(report, object_id)
+            return NativeScheduleLibrary._decoded_weekly_context(
+                report, object_id, exception_week_limit=exception_week_limit
+            )
         except ValueError as exc:
             raise ValueError(str(exc)[:400] or "Invalid native schedule context.") from exc
         except Exception as exc:
@@ -669,7 +673,7 @@ class NativeScheduleLibrary:
             ) from exc
 
     @staticmethod
-    def _decoded_weekly_context(report, object_id):
+    def _decoded_weekly_context(report, object_id, *, exception_week_limit=6):
         if report.get("identity_verified") is not True:
             raise ValueError("Captured Device identity was not verified.")
         device = report["target"].get("device")
@@ -721,7 +725,7 @@ class NativeScheduleLibrary:
             for i, row in enumerate(exceptions["elements"], 1)
         ]
         for event in events:
-            exception_period(event.period)
+            exception_period(event.period, week_limit=exception_week_limit)
             if not 1 <= int(event.eventPriority) <= 16:
                 raise ValueError("Captured exception event priority is outside1..16.")
         sequences = [day.daySchedule for day in days] + [event.listOfTimeValues for event in events]

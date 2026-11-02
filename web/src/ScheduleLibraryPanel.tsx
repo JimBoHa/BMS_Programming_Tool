@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { api, apiJsonDocument, saveBlob } from "./api";
 import { NativeScheduleWritePanel } from "./NativeScheduleWritePanel";
 import { NativeCalendarEditor } from "./NativeCalendarEditor";
+import { exceptionWork, type ExceptionWork } from "./nativeScheduleExceptions";
 import { calendarWork, type CalendarWork } from "./nativeCalendar";
 import { controllerKey, type ControllerTarget } from "./workflow";
 import {
@@ -23,6 +24,12 @@ import {
 } from "./nativeScheduleStrings";
 
 import "./native-schedule-library.css";
+
+const NativeExceptionEditor = lazy(() =>
+  import("./NativeExceptionEditor").then((module) => ({
+    default: module.NativeExceptionEditor,
+  })),
+);
 
 const BASE = "/bacnet/schedules/library";
 const CAPTURE = "native-calendar-schedule-capture/1";
@@ -259,6 +266,7 @@ export function ScheduleLibraryPanel({
   selectedTarget = null,
   calendarWorkspace: suppliedCalendarWorkspace,
   weeklyWorkspace: suppliedWeeklyWorkspace,
+  exceptionWorkspace: suppliedExceptionWorkspace,
 }: {
   sessionReportId: string | null;
   connected?: boolean;
@@ -266,6 +274,7 @@ export function ScheduleLibraryPanel({
   selectedTarget?: ControllerTarget | null;
   calendarWorkspace?: CalendarWork;
   weeklyWorkspace?: WeeklyWork;
+  exceptionWorkspace?: ExceptionWork;
 }) {
   const fallbackWeeklyWorkspace = useRef(weeklyWork());
   const weeklyWorkspace =
@@ -274,6 +283,10 @@ export function ScheduleLibraryPanel({
   const calendarWorkspace =
     suppliedCalendarWorkspace || fallbackCalendarWorkspace.current;
   const [calendarOpen, setCalendarOpen] = useState(calendarWorkspace.open);
+  const fallbackExceptionWorkspace = useRef(exceptionWork());
+  const exceptionWorkspace =
+    suppliedExceptionWorkspace || fallbackExceptionWorkspace.current;
+  const [exceptionsOpen, setExceptionsOpen] = useState(exceptionWorkspace.open);
   const [profile, setProfile] = useState<any>(null),
     [capture, setCapture] = useState<Capture | null>(null),
     [object, setObject] = useState(""),
@@ -380,6 +393,7 @@ export function ScheduleLibraryPanel({
     });
     setCapture(value);
     calendarWorkspace.captureId = value.id;
+    exceptionWorkspace.captureId = value.id;
     setObject(item?.object || "");
     setDay(wantedDay);
     setRows(next);
@@ -472,7 +486,10 @@ export function ScheduleLibraryPanel({
   }
   useEffect(() => {
     // Restore only a local source. Field connection and write reviews are not restored.
-    const id = weeklyWorkspace.captureId || calendarWorkspace.captureId;
+    const id =
+      weeklyWorkspace.captureId ||
+      calendarWorkspace.captureId ||
+      exceptionWorkspace.captureId;
     if (id) void open(id);
   }, []);
   async function saveCurrent() {
@@ -819,6 +836,27 @@ export function ScheduleLibraryPanel({
                 connectionKey={connectionKey}
                 work={calendarWorkspace}
               />
+            )}
+          </details>
+          <details
+            aria-label="Captured Schedule exceptions"
+            open={exceptionsOpen}
+            onToggle={(event) => {
+              exceptionWorkspace.open = event.currentTarget.open;
+              setExceptionsOpen(event.currentTarget.open);
+            }}
+          >
+            <summary>Schedule exceptions</summary>
+            {exceptionsOpen && (
+              <Suspense fallback={<p>Opening local exception editor…</p>}>
+                <NativeExceptionEditor
+                  captureId={capture.id}
+                  connectionKey={connectionKey}
+                  connected={connected}
+                  selectedTarget={selectedTarget}
+                  work={exceptionWorkspace}
+                />
+              </Suspense>
             )}
           </details>
           <div className="toolbar">
