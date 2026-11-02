@@ -55,6 +55,13 @@ from .native_default_transfer import (
     compile_default,
     verify_default_preservation,
 )
+from .native_enum_transfer import PROFILE as ENUM_DEFAULT_PROFILE
+from .native_enum_transfer import SCOPE as ENUM_DEFAULT_SCOPE
+from .native_enum_transfer import (
+    EnumTransferPreview,
+    compile_enum_default,
+    verify_enum_preservation,
+)
 from .native_historical_wire_recovery import PROFILE as HISTORICAL_WIRE_RECOVERY_PROFILE
 from .native_historical_wire_recovery import NativeHistoricalWireRecovery
 from .native_input_transfer import NativeInputOperations
@@ -225,6 +232,8 @@ class NativeApplications(NativeInputOperations):
             "controller_instance_recovery_profile": INSTANCE_RECOVERY_PROFILE,
             "boolean_default_transfer_profile": BOOLEAN_DEFAULT_PROFILE,
             "boolean_default_transfer_scope": BOOLEAN_DEFAULT_SCOPE,
+            "enum_default_transfer_profile": ENUM_DEFAULT_PROFILE,
+            "enum_default_transfer_scope": ENUM_DEFAULT_SCOPE,
             "wire_source_transfer_profile": WIRE_PROFILE,
             "wire_source_transfer_scope": WIRE_SCOPE,
             "backup_effects": backup_effects(),
@@ -782,6 +791,10 @@ class NativeApplications(NativeInputOperations):
         options = BooleanTransferPreview(**arguments)
         return await self.preview_typed_default(options, boolean=True)
 
+    async def preview_enum_default(self, **arguments):
+        options = EnumTransferPreview(**arguments)
+        return await self.preview_typed_default(options, boolean=False, enumerated=True)
+
     async def preview_wire(self, **arguments):
         options = WireTransferPreview(**arguments)
         async with self.operation(options.operation_id, "review-wire"):
@@ -840,7 +853,30 @@ class NativeApplications(NativeInputOperations):
             }
             return self.retain_plan(body, options, app, config)
 
-    async def preview_typed_default(self, options, *, boolean):
+    async def preview_typed_default(self, options, *, boolean, enumerated=False):
+        if boolean and enumerated:
+            raise ValueError("Choose one native default datatype.")
+        compiler = (
+            compile_enum_default
+            if enumerated
+            else compile_boolean_default
+            if boolean
+            else compile_default
+        )
+        profile = (
+            ENUM_DEFAULT_PROFILE
+            if enumerated
+            else BOOLEAN_DEFAULT_PROFILE
+            if boolean
+            else DEFAULT_PROFILE
+        )
+        scope = (
+            ENUM_DEFAULT_SCOPE
+            if enumerated
+            else BOOLEAN_DEFAULT_SCOPE
+            if boolean
+            else DEFAULT_SCOPE
+        )
         async with self.operation(options.operation_id, "review-default"):
             self.available(options)
             if (self.storage.directory / options.capture_id).is_symlink():
@@ -848,17 +884,22 @@ class NativeApplications(NativeInputOperations):
             captured, files = self.check_capture(options)
             if captured["evidence_sha256"] != options.snapshot_sha256:
                 raise ValueError("The native snapshot changed; reopen and review again.")
-            if boolean and options.source_sha256 != sha(files[3]):
-                raise ValueError("The native Boolean archive changed; reopen and review again.")
+            if (boolean or enumerated) and options.source_sha256 != sha(files[3]):
+                datatype = "Enum" if enumerated else "Boolean"
+                raise ValueError(f"The native {datatype} archive changed; reopen and review again.")
             edit = options.model_dump(
-                include={"record_ref", "encoded_sha256", "value" if boolean else "value_text"}
+                include={
+                    "record_ref",
+                    "encoded_sha256",
+                    "value" if boolean or enumerated else "value_text",
+                }
             )
-            output, compilation = (compile_boolean_default if boolean else compile_default)(
-                files, edit
-            )
+            output, compilation = compiler(files, edit)
             if not compilation["selected_edit"]["changed"]:
                 raise ValueError("Choose a different effective native default before transfer.")
-            recovery = self.recovery_origin(options, compilation, boolean=boolean)
+            recovery = (
+                {} if enumerated else self.recovery_origin(options, compilation, boolean=boolean)
+            )
             config, app = copy.deepcopy(self.bacnet.config), self.bacnet.require()
             async with self.path._path(options) as session:
                 PropertyEvidence.pin(session, options.router)
@@ -867,12 +908,16 @@ class NativeApplications(NativeInputOperations):
                 raise ValueError("Controller identity changed after backup; capture again.")
             body = {
                 "profile": PROFILE,
-                "operation_profile": BOOLEAN_DEFAULT_PROFILE if boolean else DEFAULT_PROFILE,
+                "operation_profile": profile,
                 "target": self.target(options),
                 "identity": actual,
                 "old_instance": ObjectIdentifier(options.device)[1],
                 "new_instance": ObjectIdentifier(options.device)[1],
-                "change_kind": "boolean-default" if boolean else "signal-default",
+                "change_kind": "enum-default"
+                if enumerated
+                else "boolean-default"
+                if boolean
+                else "signal-default",
                 "old_name": actual["object-name"],
                 "new_name": actual["object-name"],
                 "capture_id": options.capture_id,
@@ -890,7 +935,8 @@ class NativeApplications(NativeInputOperations):
                     "preview. Verify both full native application and effective settings."
                 ),
                 "backup_effects": backup_effects(),
-                "scope": BOOLEAN_DEFAULT_SCOPE if boolean else DEFAULT_SCOPE,
+                "scope": scope,
+                **({"enum_semantics_verified": False} if enumerated else {}),
                 "vendor_runtime_required": False,
                 "can_apply": True,
                 "connector_config": config,
@@ -1072,13 +1118,15 @@ class NativeApplications(NativeInputOperations):
             "name",
             "signal-default",
             "boolean-default",
+            "enum-default",
             "wire-source",
             "point-name",
             "input",
         ):
             raise ValueError("Unrecognized native transfer operation; retain its evidence.")
         boolean_edit = change_kind == "boolean-default"
-        default_edit = change_kind in ("signal-default", "boolean-default")
+        enum_edit = change_kind == "enum-default"
+        default_edit = change_kind in ("signal-default", "boolean-default", "enum-default")
         wire_edit = change_kind == "wire-source"
         point_name_edit = change_kind == "point-name"
         input_edit = change_kind == "input"
@@ -1087,7 +1135,13 @@ class NativeApplications(NativeInputOperations):
             raise ValueError("Unsupported native input evidence version; retain it.")
         if point_name_edit and intent.get("operation_profile") != POINT_NAME_PROFILE:
             raise ValueError("Unsupported native point-name evidence version; retain it.")
-        expected_profile = BOOLEAN_DEFAULT_PROFILE if boolean_edit else DEFAULT_PROFILE
+        expected_profile = (
+            ENUM_DEFAULT_PROFILE
+            if enum_edit
+            else BOOLEAN_DEFAULT_PROFILE
+            if boolean_edit
+            else DEFAULT_PROFILE
+        )
         if default_edit and intent.get("operation_profile") != expected_profile:
             raise ValueError("Unsupported native default transfer evidence version; retain it.")
         if wire_edit and intent.get("operation_profile") != WIRE_PROFILE:
@@ -1216,7 +1270,9 @@ class NativeApplications(NativeInputOperations):
                     if wire_edit
                     else (
                         (
-                            verify_boolean_preservation
+                            verify_enum_preservation
+                            if enum_edit
+                            else verify_boolean_preservation
                             if boolean_edit
                             else verify_default_preservation
                         )(original_files, files, intent["default_edit"])
@@ -1274,6 +1330,10 @@ class NativeApplications(NativeInputOperations):
         request = DefaultTransferApply(**arguments)
         return await self.apply_reviewed(request, default_edit=True, boolean_edit=True)
 
+    async def apply_enum_default(self, **arguments):
+        request = DefaultTransferApply(**arguments)
+        return await self.apply_reviewed(request, default_edit=True, enum_edit=True)
+
     async def apply_wire(self, **arguments):
         request = WireTransferApply(**arguments)
         return await self.apply_reviewed(request, default_edit=False, wire_edit=True)
@@ -1293,13 +1353,16 @@ class NativeApplications(NativeInputOperations):
         *,
         default_edit,
         boolean_edit=False,
+        enum_edit=False,
         wire_edit=False,
         point_name_edit=False,
         input_edit=False,
     ):
-        if sum(
-            (bool(default_edit), bool(wire_edit), bool(point_name_edit), bool(input_edit))
-        ) > 1 or (boolean_edit and not default_edit):
+        if (
+            sum((bool(default_edit), bool(wire_edit), bool(point_name_edit), bool(input_edit))) > 1
+            or ((boolean_edit or enum_edit) and not default_edit)
+            or (boolean_edit and enum_edit)
+        ):
             raise ValueError("Choose one native transfer operation.")
         program_edit = default_edit or wire_edit or point_name_edit or input_edit
         plan = self.plans.pop(request.token, None)
@@ -1316,6 +1379,8 @@ class NativeApplications(NativeInputOperations):
             if point_name_edit
             else "wire-source"
             if wire_edit
+            else "enum-default"
+            if enum_edit
             else "boolean-default"
             if boolean_edit
             else "signal-default"
@@ -1323,7 +1388,11 @@ class NativeApplications(NativeInputOperations):
         if kind not in ((expected_kind,) if program_edit else ("instance", "name")):
             raise ValueError("This review belongs to a different native transfer operation.")
         if default_edit and plan["body"].get("operation_profile") != (
-            BOOLEAN_DEFAULT_PROFILE if boolean_edit else DEFAULT_PROFILE
+            ENUM_DEFAULT_PROFILE
+            if enum_edit
+            else BOOLEAN_DEFAULT_PROFILE
+            if boolean_edit
+            else DEFAULT_PROFILE
         ):
             raise ValueError("Unsupported native default transfer evidence version; retain it.")
         if wire_edit and plan["body"].get("operation_profile") != WIRE_PROFILE:
@@ -1419,7 +1488,13 @@ class NativeApplications(NativeInputOperations):
                         )
                         if wire_edit
                         else (
-                            (compile_boolean_default if boolean_edit else compile_default)(
+                            (
+                                compile_enum_default
+                                if enum_edit
+                                else compile_boolean_default
+                                if boolean_edit
+                                else compile_default
+                            )(
                                 files,
                                 body["default_edit"],
                                 **(
@@ -1428,12 +1503,21 @@ class NativeApplications(NativeInputOperations):
                                             "selected_edit"
                                         ]["before_value"]
                                     }
-                                    if boolean_edit
+                                    if boolean_edit or enum_edit
                                     else {
                                         "expected_prior_bits": body["compilation"]["selected_edit"][
                                             "before_bits"
                                         ]
                                     }
+                                ),
+                                **(
+                                    {
+                                        "expected_states_text_sha256": body["compilation"][
+                                            "states_text_encoded_sha256"
+                                        ]
+                                    }
+                                    if enum_edit
+                                    else {}
                                 ),
                             )
                             if default_edit
@@ -1474,7 +1558,7 @@ class NativeApplications(NativeInputOperations):
                         )
                     recovery = (
                         {}
-                        if input_edit
+                        if input_edit or enum_edit
                         else self.point_name_recovery_origin(options, compilation)
                         if point_name_edit
                         else self.wire_recovery_origin(options, compilation)
@@ -1542,10 +1626,13 @@ class NativeApplications(NativeInputOperations):
                             **(
                                 {
                                     "default_edit": body["default_edit"],
-                                    "operation_profile": BOOLEAN_DEFAULT_PROFILE
+                                    "operation_profile": ENUM_DEFAULT_PROFILE
+                                    if enum_edit
+                                    else BOOLEAN_DEFAULT_PROFILE
                                     if boolean_edit
                                     else DEFAULT_PROFILE,
                                     "default_change_confirmed": request.default_change_confirmed,
+                                    **({"enum_semantics_verified": False} if enum_edit else {}),
                                 }
                                 if default_edit
                                 else {}
@@ -1822,6 +1909,14 @@ def native_application_router(service):
     @router.post("/boolean-default/transfer/apply")
     async def apply_boolean_default(body: DefaultTransferApply):
         return await service.apply_boolean_default(**body.model_dump())
+
+    @router.post("/enum-default/transfer/preview")
+    async def preview_enum_default(body: EnumTransferPreview):
+        return await service.preview_enum_default(**body.model_dump())
+
+    @router.post("/enum-default/transfer/apply")
+    async def apply_enum_default(body: DefaultTransferApply):
+        return await service.apply_enum_default(**body.model_dump())
 
     @router.post("/wire-source/transfer/preview")
     async def preview_wire(body: WireTransferPreview):

@@ -403,7 +403,7 @@ reply or promote local protocol qualification into physical acceptance.
 
 | ID | Planned addition | Workspace | Acceptance / dependency |
 | --- | --- | --- | --- |
-| JCI-09 | Extend existing native backup/compile/transfer into each additional supported application edit and full-program workflow | Changes | Narrow Real and [Boolean default transfers](docs/native-boolean-default-transfer.md) preserve original application/settings, capacity, fresh selected-value guards, one-use typed intent and full readback/recovery. [Existing-wire source transfer](docs/native-wire-source-transfer.md) adds a separately reviewed graph edit with fresh configuration signatures, saved merging and full readback/recovery. Extend additional edits and full-program workflows separately; support is per operation/format, not all controllers |
+| JCI-09 | Extend existing native backup/compile/transfer into each additional supported application edit and full-program workflow | Changes | Narrow Real, [Boolean default transfers](docs/native-boolean-default-transfer.md) and [fixed-storage Enum code transfer](docs/native-enum-default-transfer.md) preserve original application/settings, capacity, fresh selected-value guards, one-use typed intent and full readback. Enum meaning/membership remains unverified and previous-value recovery is separate. [Existing-wire source transfer](docs/native-wire-source-transfer.md) adds a separately reviewed graph edit with fresh configuration signatures, saved merging and full readback/recovery. Extend additional edits and full-program workflows separately; support is per operation/format, not all controllers |
 | JCI-10 | Add supported restore/recovery operations and a broader post-change verification package | Changes / History | Partial: [Real-default recovery](docs/native-real-default-recovery.md) and the separate [Boolean-default recovery](docs/native-boolean-default-recovery.md) derive local previous-effective-value proposals from verified immutable receipt/source evidence, then require new confirmed one-use transfers and full readback while preserving other current settings. Read-only reconciliation comes first for uncertain outcomes; no automatic replay or assumed inverse write. [Existing-wire-source recovery](docs/native-wire-source-recovery.md) separately derives a previous connection source with current observed-pin/configuration/order/cycle/width proof and requires a new confirmed transfer. [Verified original-pin recovery](docs/native-historical-wire-pin-recovery.md) separately supports a missing current output pin using original connection evidence and unchanged current non-default source configuration, while retaining order/cycle/width checks and new confirmed transfer/readback. [Previous controller-name recovery](docs/native-controller-name-recovery.md) separately qualifies the original/current name-only evidence, preserves the instance and other fresh saved settings, and requires a new confirmed review/transfer/full readback with recorded lineage. [Previous instance recovery](docs/native-controller-instance-recovery.md) separately checks original and verified-after sources/static bindings, latent destination settings, a new reservation/collision/review/transfer and full readback with typed lineage. General application restore remains separate |
 | IO-01 | Strengthen discovered hardware/live/archive correlation and candidate spare-input evidence | Points & I/O | Distinguish configured records, exposed objects, published capacities and physical wiring; missing points do not prove unused terminals |
 | IO-02 | Extend validated terminal reassignment, electrical modes and cross-module/native allocation | Points & I/O / Program; Changes | [Native local universal-input allocation/mode editing](docs/native-inputs.md) adds source-pinned local copies and one-input native transfer with complete image, published-property and saved-setting readback. Integral/SA allocation, output modes and graph connections remain separate. Verify electrical capabilities, native references, package/resource limits and physical wiring; existing narrow CAF edits remain supported |
@@ -685,3 +685,22 @@ unfinished drafts remain available when compilation is unsupported or a reply
 is rejected. No Enum field preflight, transfer or physical acceptance is added.
 JCI-01/JCI-05/JCI-09 remain partial overall. See
 [the operation support profile](docs/native-backup-operation-capabilities.md).
+
+## 2026-11-02 JCI-03/JCI-05/JCI-09 delivery: one fixed-storage Enum code transfer
+
+`COMM-NATIVE-ENUM-DEFAULT-TRANSFER-001` separately transfers one existing typed
+Enum default with an actual selected fixed saved slot. It adds exact native
+IPv4 source/target review, fresh selected code/state-metadata fingerprints and application/
+directory guards, merging of other fresh settings, capacity qualification,
+durable one-use restore and full native/effective readback. No-slot local
+UInt32 copies remain local-only. The support table separately reports its
+source/storage/transport preflight requirement.
+
+Program reuses the effective Enum editor and existing transfer panel, with exact
+code confirmation, source/navigation locking, preserved drafts, canceled late
+review retirement and original review/receipt downloads. Changes identifies the
+recorded Enum operation without querying a controller. Uncertain outcomes retain
+readback/restart reconciliation without replay. Code meaning, allowed states,
+executable mappings, previous-Enum-value recovery, general logic authoring and
+physical acceptance remain separate. These JCI groups remain partial overall.
+See [the operation's scope and evidence](docs/native-enum-default-transfer.md).

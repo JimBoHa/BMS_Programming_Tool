@@ -8,6 +8,8 @@ import {
 } from "./api";
 import { sha256Blob } from "./activityContracts";
 import { NativeBooleanTransferContext } from "./NativeBooleanTransferContext";
+import { NativeEnumTransfer } from "./NativeEnumTransfer";
+import { controllerKey } from "./workflow";
 import type { NativeArchiveSource } from "./NativeRecords";
 import { enumCode, rememberEnumText } from "./nativeEnumCopyWork";
 import {
@@ -36,8 +38,21 @@ export function NativeEffectiveEnumCopy({
   const alive = useRef(true),
     generation = useRef(0),
     active = useRef(false);
-  const fieldBusy =
-    useContext(NativeBooleanTransferContext)?.fieldBusy ?? false;
+  const transferContext = useContext(NativeBooleanTransferContext);
+  const fieldBusy = transferContext?.fieldBusy ?? false;
+  let nativeIp = false;
+  try {
+    nativeIp =
+      JSON.parse(transferContext?.controller?.interfaceKey ?? "null")
+        ?.transport !== "mstp";
+  } catch {
+    /* unavailable interface evidence */
+  }
+  const transferActive =
+    !!loaded?.selected.saved_storage &&
+    nativeIp &&
+    !!transferContext?.controller?.interfaceOpen &&
+    controllerKey(transferContext.controller) === controllerKey(source.target);
   const current = (ticket: number) =>
     alive.current && generation.current === ticket;
   const prepared =
@@ -128,6 +143,13 @@ export function NativeEffectiveEnumCopy({
       value,
     };
   }
+  let transferProposal = null;
+  if (loaded)
+    try {
+      transferProposal = request();
+    } catch {
+      /* Retain invalid raw text without field authority. */
+    }
   async function preview() {
     if (active.current || fieldBusy || !loaded) return;
     active.current = true;
@@ -254,7 +276,7 @@ export function NativeEffectiveEnumCopy({
           </label>
           <div className="button-row">
             <button
-              className={prepared ? undefined : "primary"}
+              className={prepared || transferActive ? undefined : "primary"}
               disabled={busy || fieldBusy}
               onClick={() => void preview()}
             >
@@ -281,7 +303,7 @@ export function NativeEffectiveEnumCopy({
               </p>
               <div className="button-row">
                 <button
-                  className="primary"
+                  className={transferActive ? undefined : "primary"}
                   disabled={busy || fieldBusy}
                   onClick={() => void download()}
                 >
@@ -302,6 +324,11 @@ export function NativeEffectiveEnumCopy({
             <summary>Effective Enum source and review evidence</summary>
             <pre>{JSON.stringify(prepared?.data ?? loaded, null, 2)}</pre>
           </details>
+          <NativeEnumTransfer
+            source={loaded}
+            field={loaded.selected}
+            proposal={transferProposal}
+          />
         </>
       )}
     </section>

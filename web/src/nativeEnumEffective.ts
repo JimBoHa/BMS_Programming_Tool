@@ -87,7 +87,11 @@ export function effectiveEnumSource(
     !integer(selected.effective_value, selected.maximum_code) ||
     selected.saved_value_differs !==
       (selected.encoded_sha256 !== field.encoded_sha256) ||
-    selected.enum_semantics_verified !== false
+    selected.enum_semantics_verified !== false ||
+    !(
+      selected.states_text_encoded_sha256 === null ||
+      hash(selected.states_text_encoded_sha256)
+    )
   )
     throw new Error(
       "Effective Enum source differs from the selected original field or captured storage. Inspect this backup again.",

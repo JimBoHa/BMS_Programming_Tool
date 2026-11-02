@@ -32,8 +32,8 @@ def test_actual_effective_enum_qualification_is_independent_of_captured_transpor
     digests = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in folder.iterdir()}
     report = records.capabilities(request)
     rows, evidence = operations(report), report["qualification"]
-    assert report["capability_profile"] == "native-backup-operation-capabilities/10"
-    assert len(rows) == len(report["operations"]) == 21
+    assert report["capability_profile"] == "native-backup-operation-capabilities/11"
+    assert len(rows) == len(report["operations"]) == 22
     assert rows["enum-default-copy"]["status"] == "source-qualified"
     assert rows["effective-enum-compile"]["status"] == "source-qualified"
     assert "1 have captured fixed numeric storage" in rows["effective-enum-compile"]["basis"]
@@ -49,7 +49,9 @@ def test_actual_effective_enum_qualification_is_independent_of_captured_transpor
     assert evidence["captured_plain_ipv4"] is (transport != "serial")
     assert rows["general-logic"]["status"] == "unavailable"
     assert rows["physical-acceptance"]["status"] == "not-inferred"
-    assert not any(row["id"] == "enum-default-transfer" for row in report["operations"])
+    assert rows["enum-default-transfer"]["status"] == (
+        "transport-unavailable" if transport == "serial" else "preflight-required"
+    )
     assert (
         not report["controller_queries"] and not report["field_actions"] and not report["can_apply"]
     )

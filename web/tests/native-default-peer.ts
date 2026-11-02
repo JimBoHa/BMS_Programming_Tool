@@ -7,11 +7,13 @@ export async function nativeDefaultPeer(
   datatype:
     | "real"
     | "boolean"
+    | "enum"
     | "wire"
     | "wire-recovery"
     | "instance"
     | "input"
     | "point-name" = "real",
+  enumStates = false,
 ) {
   const child = spawn(
     path.join(root, ".venv/bin/python"),
@@ -62,6 +64,11 @@ async def main():
   from tests.test_native_instance_recovery_transfer import controller_storage as instance_storage
   app.files=signal_files();instance_storage(app);app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
  elif sys.argv[2]=='boolean':app.files=boolean_files();storage_outcome(app,mode=sys.argv[1])
+ elif sys.argv[2]=='enum':
+  from tests.test_moi_effective_enum import enum_files
+  from tests.test_native_enum_transfer import enum_storage,enum_slot,add_enum_states_slot,enum_states_slot
+  app.files=enum_files();enum_storage(app,mode=sys.argv[1])
+  if sys.argv[3]=='states':add_enum_states_slot(app.files)
  else:app.files=signal_files();controller_storage(app,mode=sys.argv[1])
  original_files=copy.deepcopy(app.files)
  router_type=NativeRouter
@@ -88,6 +95,12 @@ async def main():
    import types
    app.do_ReinitializeDeviceRequest=types.MethodType(NativePeer.do_ReinitializeDeviceRequest,app);storage_outcome(app,value=True)
   elif line=='boolean-second-true':boolean_slot(app.files,'controller/boolean-21',True)
+  elif line=='enum-selected42':enum_slot(app.files,42)
+  elif line=='enum-other9':real_slot(app.files,4,struct.pack('>f',9.25))
+  elif line=='enum-states292':enum_states_slot(app.files,292)
+  elif line=='enum-restore-zero':
+   import types
+   app.do_ReinitializeDeviceRequest=types.MethodType(NativePeer.do_ReinitializeDeviceRequest,app);enum_storage(app,value=0)
   elif line=='point-name-publish-current':
    from tests.test_native_point_names import attach_point_reads
    attach_point_reads(app)
@@ -97,10 +110,16 @@ async def main():
    app.instance=5136;app.metadata['object-name']='Authored controller';app.metadata['system-status']=0;app.mode='normal'
   elif line=='repair':
    if sys.argv[2]=='boolean':boolean_slot(app.files,FIRST,False)
+   elif sys.argv[2]=='enum':enum_slot(app.files,65535)
    else:real_slot(app.files,-10,bytes.fromhex('3dcccccd'))
   elif line.startswith('mode '):app.mode=line[5:]
   elif line!='stats':raise AssertionError('Unknown authored command')
-  print('RESULT '+json.dumps({'command':line,'events':app.events,'instance':app.instance,'router_errors':proxy.errors,'request_types':[r['type'] for r in proxy.requests]}|({'discovery_requests':proxy.discovery_requests,'discovery_responses':proxy.discovery_responses} if sys.argv[2]=='instance' else {})),flush=True)
+  enum_evidence={}
+  if sys.argv[2]=='enum':
+   from bms_tool.moi_effective_enum import EffectiveEnumCompiler
+   reader=EffectiveEnumCompiler(app.files);field=reader.fields()[0];record,prop=reader.archive.candidates[field['ref']]
+   enum_evidence={'enum_archive_code':field['archive_value'],'enum_effective_code':field['effective_value'],'enum_archive_tag':reader.archive.editor.data[prop['value_start_offset']:prop['value_end_offset']].hex()}
+  print('RESULT '+json.dumps({'command':line,'events':app.events,'instance':app.instance,'router_errors':proxy.errors,'request_types':[r['type'] for r in proxy.requests]}|({'discovery_requests':proxy.discovery_requests,'discovery_responses':proxy.discovery_responses} if sys.argv[2]=='instance' else {})|enum_evidence),flush=True)
  asyncio.get_running_loop().add_reader(sys.stdin.fileno(),command)
  try:await asyncio.Event().wait()
  finally:transport.close();app.close()
@@ -108,6 +127,7 @@ asyncio.run(main())
 `,
       mode,
       datatype,
+      enumStates ? "states" : "plain",
     ],
     {
       cwd: root,

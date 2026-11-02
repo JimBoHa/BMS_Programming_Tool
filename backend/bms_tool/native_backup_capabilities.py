@@ -11,7 +11,7 @@ from .moi_signal_defaults import MoiSignalDefaults
 from .moi_wire_sources import MoiWireSources
 from .native_signal_compiler import compiler_from_snapshot
 
-PROFILE = "native-backup-operation-capabilities/10"
+PROFILE = "native-backup-operation-capabilities/11"
 
 
 def eligible_wire(editor):
@@ -280,6 +280,16 @@ def backup_capabilities(snapshot, files, application):
             effective_boolean_error or "No supported effective Boolean defaults were found.",
         ),
         "Use the separate Boolean controller review/apply/readback workflow. Fresh selected-value and other-setting checks, capacity, credentials, one-use typed review and uncertainty recovery remain mandatory. Capture/readback use backup-state commands; Apply can interrupt control.",
+    )
+    add(
+        "enum-default-transfer",
+        "Transfer one effective native Enum code",
+        *transfer_status(
+            bool(fixed_enums),
+            effective_enum_error
+            or "No supported effective Enum default has a selected captured fixed Enum slot.",
+        ),
+        "Use the separate Enum controller review/apply/readback workflow. Check the intended numeric code; membership and meanings remain unverified. Fresh selected-value/storage, other-setting, capacity, credential and one-use checks remain mandatory. Capture/readback use backup-state commands; Apply can interrupt control. This analysis prepares no transfer.",
     )
     add(
         "wire-source-transfer",
