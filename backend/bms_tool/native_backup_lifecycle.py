@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from .application_store import checked, encoded, identifier, read_private, utc
+from .application_store import checked, encoded, native_storage_profile, read_private, utc
 from .models import StrictModel
 from .moi_identity import seal
 
@@ -82,12 +82,11 @@ class NativeBackupLifecycle:
             "field_actions": False,
             "active_limit": ACTIVE_LIMIT,
             "archive_limit": ARCHIVE_LIMIT,
+            "storage": native_storage_profile(),
         }
 
     def manifest(self, capture_id):
-        folder = self.storage.directory / identifier(capture_id)
-        if self.storage.directory.is_symlink() or folder.is_symlink():
-            raise ValueError("Native backups must remain in their original storage folder.")
+        folder = self.storage.capture_folder(capture_id)
         manifest = checked(read_private(folder / "manifest.json", 128 * 1024))
         if manifest["id"] != capture_id or set(manifest["files"]) != {"3", "11", "12"}:
             raise ValueError("Native backup manifest does not match its retained source.")

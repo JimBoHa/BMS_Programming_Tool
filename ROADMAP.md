@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-01. Implementation baseline: GitHub `main` at
-[`a826a2ec`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/a826a2ec28e598c0fd9c87067b53bc18038b41f1).
+[`d0b13057`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/d0b13057f899052427c460b01cc94ad4798c20dd).
 
 ## Baseline and purpose
 
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 181 scoped criteria: 127
+The public requirement register currently records 182 scoped criteria: 128
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -261,6 +261,12 @@ archiving within the unchanged 128 active-capture limit. Original files and
 transfer/recovery references remain available, including across restart. This
 implements a bounded retention workflow; general controller restore and whole-state
 portability under JCI-09/10 and PORT-03 remain separate.
+
+The [native application storage profile](docs/native-application-storage.md)
+reuses native POSIX/Win32 safe file handles without changing original backup or
+transfer formats. Current computer durability appears separately from original
+capture evidence. This extends PORT-03 storage support, while whole-state
+migration and physical transport acceptance remain separate.
 
 ## Workspace and shared features
 

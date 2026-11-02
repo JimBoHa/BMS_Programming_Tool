@@ -1,5 +1,11 @@
 # Native file ownership and capture storage
 
+Native JCI application backup and credential files now have a separate
+[complete-file storage profile](native-application-storage.md) using this same
+regular-file boundary and platform-specific directory-flush policy. Its existing
+formats and transfer evidence remain unchanged; current storage policy is shown
+separately from original capture provenance.
+
 The browser application imports on Windows without importing POSIX-only
 `fcntl`. Standard BACnet history and opaque File captures use the same sealed
 formats as before. Existing captures reopen without migration or resealing.

@@ -277,6 +277,26 @@ export function NativeBackupLibrary() {
             {data.active_count} / 128 active · {data.archived_count} / 1024
             archived · {data.total} matching.
           </p>
+          <details aria-label="Native backup storage">
+            <summary>Storage on this computer</summary>
+            {data.storage?.profile === "native-application-storage/1" &&
+            typeof data.storage.durability === "string" ? (
+              <>
+                <p>{data.storage.durability}</p>
+                <p>
+                  This describes the current computer’s storage policy. Original
+                  captures retain their own evidence; a local file flush does
+                  not establish controller acceptance.
+                </p>
+                <pre>{JSON.stringify(data.storage, null, 2)}</pre>
+              </>
+            ) : (
+              <p>
+                Current storage policy is unavailable. Original source evidence
+                remains unchanged.
+              </p>
+            )}
+          </details>
           <div className="native-backup-list-scroll">
             <table>
               <caption>

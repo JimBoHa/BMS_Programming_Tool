@@ -1627,5 +1627,14 @@
     "pdf_pages_or_section": "docs/native-backup-lifecycle.md; docs/native-application-transfer.md",
     "status": "implemented",
     "implementation_or_gap": "History manages 128 active and 1024 archived snapshots with source-bound, append-only, sealed revision transitions. No original files move or change; explicit ID consumers and pending/recovery references remain available. Bounded searchable pages show original route/time/files and local ZIP export. Capture/restore capacity claims serialize across processes; stale/ABA actions, substituted evidence and active native operation management are refused. Catalog changes issue no controller requests and free no disk. General backup import/controller restore, whole-state portability and physical acceptance remain separate; JCI-09/10 and PORT-03 remain partial."
+  },
+  {
+    "id": "BKP-NATIVE-PORTABLE-001",
+    "feature": "Portable native application backup storage",
+    "acceptance_criterion": "Use the native POSIX/Win32 regular-file boundary for native snapshots, reviewed payloads and local family credentials while preserving original formats, paths and transfer contracts; expose the actual current flush policy separately from original capture evidence.",
+    "evidence": "Native storage/credential boundaries, order/failure/descriptor checks, reparse directory and native NTFS-junction case, original-source HTTP, shared safe-file tests and Chromium/WebKit workflows.",
+    "pdf_pages_or_section": "docs/native-application-storage.md; docs/portable-storage.md",
+    "status": "implemented",
+    "implementation_or_gap": "Native reads and exclusive complete-file publication reuse the established safe-file layer. Windows does not require POSIX-only flags or attempt ordinary directory opens; final native handles and retained directory reparse attributes are checked. POSIX keeps directory fsync; Windows explicitly leaves namespace/power-loss durability unverified. Current storage metadata is separate from original manifests and supplies no field authority. Original snapshot formats/seals, quotas, SQLite journal/capacity transactions, compilers and transfer protocols remain unchanged. Physical controllers, BTCVT and whole-state migration remain separate under PORT-01/02/03."
   }
 ]
