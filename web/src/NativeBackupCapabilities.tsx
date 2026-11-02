@@ -28,6 +28,7 @@ const operationIds = [
   "wire-source-copy",
   "effective-wire-compile",
   "effective-boolean-compile",
+  "effective-enum-compile",
   "effective-default-compile",
   "identity-transfer",
   "default-transfer",
@@ -47,6 +48,40 @@ const statuses = new Set([
   "not-evaluated",
   "not-inferred",
 ]);
+
+function effectiveEnumEvidence(data: any, source: NativeArchiveSource) {
+  const evidence = data.qualification;
+  if (!evidence) return false;
+  const count = evidence.effective_enum_default_count,
+    fixed = evidence.effective_enum_fixed_storage_count,
+    unknown = evidence.effective_enum_unknown_storage_count,
+    error = evidence.effective_enum_default_error,
+    merge = evidence.parameter_merge;
+  if (
+    ![count, fixed, unknown].every(
+      (value) => Number.isSafeInteger(value) && value >= 0 && value <= 4096,
+    ) ||
+    fixed + unknown !== count ||
+    !(
+      error === null ||
+      (typeof error === "string" && error.length > 0 && error.length <= 512)
+    )
+  )
+    return false;
+  if (count === 0)
+    return error !== null || evidence.archive_enum_default_count === 0;
+  return (
+    error === null &&
+    count === evidence.archive_enum_default_count &&
+    evidence.recorded_identity_verified === true &&
+    evidence.identity_matches_snapshot === true &&
+    merge?.source_sha256 === source.sha256 &&
+    merge.static_sha256 === source.files["11"].sha256 &&
+    merge.dynamic_sha256 === source.files["12"].sha256 &&
+    typeof merge.output_sha256 === "string" &&
+    /^[a-f0-9]{64}$/.test(merge.output_sha256)
+  );
+}
 
 export function NativeBackupCapabilities({
   source,
@@ -101,12 +136,17 @@ export function NativeBackupCapabilities({
       );
       if (
         data.profile !== "native-backup-record-inspection/1" ||
-        data.capability_profile !== "native-backup-operation-capabilities/9" ||
+        data.capability_profile !== "native-backup-operation-capabilities/10" ||
         data.source_kind !== "native-backup-archive" ||
         data.capture_id !== source.capture_id ||
         data.snapshot_sha256 !== source.snapshot_sha256 ||
         data.sha256 !== source.sha256 ||
         data.files?.["3"]?.sha256 !== source.sha256 ||
+        !(["3", "11", "12"] as const).every(
+          (key) =>
+            data.files?.[key]?.sha256 === source.files[key].sha256 &&
+            data.files[key].bytes === source.files[key].bytes,
+        ) ||
         typeof data.target?.address !== "string" ||
         typeof data.target?.device !== "string" ||
         controllerKey(data.target) !== controllerKey(source.target) ||
@@ -120,6 +160,7 @@ export function NativeBackupCapabilities({
         !Number.isSafeInteger(data.qualification.archive_enum_default_count) ||
         data.qualification.archive_enum_default_count < 0 ||
         data.qualification.enum_semantics_verified !== false ||
+        !effectiveEnumEvidence(data, source) ||
         typeof data.scope !== "string" ||
         !Array.isArray(data.operations) ||
         data.operations.length !== operationIds.length ||
@@ -134,6 +175,12 @@ export function NativeBackupCapabilities({
         data.operations.find((row: Operation) => row.id === "enum-default-copy")
           ?.status !==
           (data.qualification.archive_enum_default_count > 0
+            ? "source-qualified"
+            : "unsupported-source") ||
+        data.operations.find(
+          (row: Operation) => row.id === "effective-enum-compile",
+        )?.status !==
+          (data.qualification.effective_enum_default_count > 0
             ? "source-qualified"
             : "unsupported-source")
       )

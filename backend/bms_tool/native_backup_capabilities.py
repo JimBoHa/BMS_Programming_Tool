@@ -2,6 +2,7 @@
 
 from .moi_boolean_defaults import MoiBooleanDefaults
 from .moi_effective_boolean import compiler_from_snapshot as boolean_compiler_from_snapshot
+from .moi_effective_enum import compiler_from_snapshot as enum_compiler_from_snapshot
 from .moi_effective_wire import compiler_from_snapshot as wire_compiler_from_snapshot
 from .moi_enum_defaults import MoiEnumDefaults
 from .moi_identity import MoiIdentity
@@ -10,7 +11,7 @@ from .moi_signal_defaults import MoiSignalDefaults
 from .moi_wire_sources import MoiWireSources
 from .native_signal_compiler import compiler_from_snapshot
 
-PROFILE = "native-backup-operation-capabilities/9"
+PROFILE = "native-backup-operation-capabilities/10"
 
 
 def eligible_wire(editor):
@@ -74,6 +75,12 @@ def backup_capabilities(snapshot, files, application):
         effective_booleans = boolean_compiler_from_snapshot(snapshot, files).fields()
     except ValueError as exc:
         effective_boolean_error = str(exc)[:512]
+    effective_enums, effective_enum_error = [], None
+    try:
+        effective_enums = enum_compiler_from_snapshot(snapshot, files).fields()
+    except ValueError as exc:
+        effective_enum_error = str(exc)[:512]
+    fixed_enums = sum(field["saved_storage"] is not None for field in effective_enums)
     parameters, parameters_error = None, None
     try:
         merged, parameters = ParameterApplication(files[3], files[11], files[12]).compile()
@@ -211,6 +218,15 @@ def backup_capabilities(snapshot, files, application):
         "Inspect the actual Boolean record, select Merge retained saved settings and review/save a local compiled copy. This separate compiler prepares no Boolean field transfer.",
     )
     add(
+        "effective-enum-compile",
+        "Compile an effective native Enum default",
+        "source-qualified" if effective_enums else "unsupported-source",
+        f"The saved-setting compiler qualified {len(effective_enums)} existing Enum defaults and the retained Device identity; {fixed_enums} have captured fixed numeric storage. Code membership and state meanings remain unverified."
+        if effective_enums
+        else effective_enum_error or "No supported effective Enum defaults were found.",
+        "Inspect the actual Enum record, select Merge retained saved settings and review/save a local compiled copy. Captured storage bounds are not allowed-state tables; without a selected fixed slot only UInt32 representation is checked. No Enum field transfer is prepared.",
+    )
+    add(
         "effective-default-compile",
         "Compile an effective native Real default",
         "source-qualified" if fields else "unsupported-source",
@@ -321,6 +337,10 @@ def backup_capabilities(snapshot, files, application):
             "effective_wire_source_compilation": effective_wire,
             "effective_wire_source_compilation_error": effective_wire_error,
             "effective_boolean_default_count": len(effective_booleans),
+            "effective_enum_default_count": len(effective_enums),
+            "effective_enum_default_error": effective_enum_error,
+            "effective_enum_fixed_storage_count": fixed_enums,
+            "effective_enum_unknown_storage_count": len(effective_enums) - fixed_enums,
             "effective_real_default_count": len(fields),
             "parameter_merge": parameters,
             "parameter_merge_error": parameters_error,

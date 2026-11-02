@@ -64,6 +64,7 @@ identity mismatches, changed originals and token-admitted HTTP with field method
 forbidden. Browser checks exercise both local entry paths, raw/effective draft
 separation, phone layout/focus, source/review/artifact substitutions and delayed
 replies. These establish the software profile, not manufacturer compiler or
-physical acceptance. The generic native-backup operation table currently lists
-the archive-only Enum operation; effective-compiler capability reporting remains
-a separate follow-up.
+physical acceptance. The [native-backup operation table](native-backup-operation-capabilities.md)
+separately qualifies this effective compiler from the actual retained identity,
+saved merge and eligible fields. Its captured-storage counts remain numeric
+representation evidence and prepare no Enum field transfer.
