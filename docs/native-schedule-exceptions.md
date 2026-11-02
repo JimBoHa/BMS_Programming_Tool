@@ -20,6 +20,8 @@ supported. Empty event arrays and empty event time lists are explicit values.
 Order and duplicate events remain intact. EventPriority uses 1 through 16 and is
 independent of the captured Schedule's Priority_For_Writing. The editor preserves
 these values without evaluating overlap or choosing a winning event.
+Zero-padded clock and priority fields are accepted as decimal integers while the
+unfinished buffer retains their original text.
 
 Periods reuse the reviewed Calendar choices. DateRange endpoints follow the
 [specific/unspecified range qualification](native-calendar-date-ranges.md).

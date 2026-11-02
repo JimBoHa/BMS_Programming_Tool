@@ -198,7 +198,7 @@ for (const caf of [false, true])
     await chooseWorkspaceTask(page, "Schedules");
     p = panel(page);
     await expect(input()).toHaveValue("1e-");
-    await p.getByLabel("Exception time 1 hour", { exact: true }).fill("9");
+    await p.getByLabel("Exception time 1 hour", { exact: true }).fill("09");
     await input().fill("-0");
     await reviewed(page);
     const file = await downloaded(page);

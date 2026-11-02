@@ -153,7 +153,7 @@ export function exceptionRows(events: NativeExceptionEvent[]): ExceptionRow[] {
   }));
 }
 const integer = (text: string, label: string) => {
-  if (!/^(0|[1-9][0-9]*)$/.test(text))
+  if (!/^[0-9]{1,2}$/.test(text))
     throw new Error(`Complete ${label} using decimal whole numbers.`);
   return Number(text);
 };

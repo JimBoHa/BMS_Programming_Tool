@@ -97,3 +97,18 @@ test("Null serialization leaves raw numeric or String work intact for a later ty
       .transitions[0].value_text,
   ).toBe("1e-");
 });
+
+test("zero-padded exception clock and priority fields encode as native integers without changing raw text", () => {
+  const row = blankException();
+  row.kind = "calendarReference";
+  row.reference = "calendar,2";
+  row.priority = "08";
+  const time = blankExceptionTime("Real");
+  time.time = ["09", "05", "00", "09"];
+  row.transitions = [time];
+  const event = exceptionRequest("a".repeat(64), "schedule,1", [row]).events[0];
+  expect(event.priority).toBe(8);
+  expect(event.transitions[0].time).toEqual([9, 5, 0, 9]);
+  expect(row.priority).toBe("08");
+  expect(time.time).toEqual(["09", "05", "00", "09"]);
+});
