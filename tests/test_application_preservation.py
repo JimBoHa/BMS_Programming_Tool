@@ -165,6 +165,8 @@ def test_elapsed_runtime_counter_can_advance_without_changing_configuration():
             "property": 33,
             "changed": True,
             "property_name": "Elapsed Active Time",
+            "application_value": 10,
+            "current_saved_value": 11,
         }
     ]
 

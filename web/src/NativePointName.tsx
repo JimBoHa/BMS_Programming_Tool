@@ -484,7 +484,10 @@ export function NativePointName({
         {error && <p role="alert">{error}</p>}
         {work.receipt && (
           <section aria-label="Point name transfer receipt">
-            <NativeRuntimeCalibration report={observed?.runtime_calibration} />
+            <NativeRuntimeCalibration
+              report={observed?.runtime_calibration}
+              preservation={observed?.preservation}
+            />
             <p>
               Result: <strong>{observed?.status || "unknown"}</strong>.
               Published name: {observed?.published_point_name || "not verified"}
