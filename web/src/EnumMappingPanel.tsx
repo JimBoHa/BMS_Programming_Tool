@@ -21,6 +21,7 @@ type Draft = {
   coverage: boolean;
   probes: string;
 };
+export type EnumMappingWork = { draft: Draft; imported: string };
 const domain = (side: string): Domain => ({
   namespace: "operator/" + side,
   id: side + "-domain",
@@ -122,12 +123,26 @@ function fromPlan(plan: any): Draft {
       .join(", "),
   };
 }
-export function EnumMappingPanel() {
-  const [draft, setDraft] = useState<Draft>(blank),
+export function EnumMappingPanel({
+  work,
+}: {
+  work?: { current: EnumMappingWork | null };
+}) {
+  const [draft, setDraft] = useState<Draft>(
+      () => work?.current?.draft ?? blank(),
+    ),
     [review, setReview] = useState<any>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
-    [imported, setImported] = useState("");
+    [imported, setImported] = useState(work?.current?.imported ?? "");
+  const currentDraft = useRef(draft);
+  currentDraft.current = draft;
+  function remember(next: Draft, imported = "") {
+    currentDraft.current = next;
+    if (work) work.current = { draft: next, imported };
+    setDraft(next);
+    setImported(imported);
+  }
   const alive = useRef(true),
     epoch = useRef(0),
     draftKey = JSON.stringify(draft),
@@ -149,9 +164,8 @@ export function EnumMappingPanel() {
     alive.current && epoch.current === ticket && now.current === key;
   function change(update: Partial<Draft>) {
     epoch.current++;
-    setDraft((old) => ({ ...old, ...update }));
+    remember({ ...currentDraft.current, ...update });
     setReview(null);
-    setImported("");
   }
   async function run() {
     const ticket = ++epoch.current,
@@ -198,8 +212,8 @@ export function EnumMappingPanel() {
       const result = await api("/enum-mapping/import", data);
       if (current(ticket, key)) {
         epoch.current++;
-        setDraft(fromPlan(result.source_plan));
-        setImported(
+        remember(
+          fromPlan(result.source_plan),
           `Imported operator plan ${result.source_plan_sha256}. Review required; no native binding.`,
         );
       }
