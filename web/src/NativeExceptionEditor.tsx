@@ -23,6 +23,7 @@ import {
   type ExceptionWork,
   type ExceptionRow,
 } from "./nativeScheduleExceptions";
+import { NativeExceptionWritePanel } from "./NativeExceptionWritePanel";
 import "./native-exceptions.css";
 
 export function NativeExceptionEditor({
@@ -57,6 +58,7 @@ export function NativeExceptionEditor({
     [loading, setLoading] = useState(false),
     [error, setError] = useState(""),
     [managed, setManaged] = useState("");
+  const [deploymentOpen, setDeploymentOpen] = useState(false);
   const alive = useRef(false),
     generation = useRef(0),
     operation = useRef(0),
@@ -744,7 +746,7 @@ export function NativeExceptionEditor({
                   Review exception draft
                 </button>
                 <button
-                  className={review ? "primary" : ""}
+                  className={review && !deploymentOpen ? "primary" : ""}
                   disabled={!!pending || !review}
                   onClick={() => void run("export")}
                 >
@@ -800,6 +802,13 @@ export function NativeExceptionEditor({
           )}
         </>
       )}
+      <NativeExceptionWritePanel
+        review={review}
+        context={context}
+        connected={connected}
+        selectedTarget={selectedTarget}
+        onOpenChange={setDeploymentOpen}
+      />
     </section>
   );
 }
