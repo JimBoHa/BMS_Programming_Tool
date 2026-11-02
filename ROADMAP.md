@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-02. Implementation baseline: GitHub `main` at
-[`cae18c3d`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/cae18c3d01c495b2c9957dea8635f172ab2f1ea2).
+[`ef04a16b`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/ef04a16b4f546c0f6fbb6955afa39ea035f04a0a).
 
 ## Baseline and purpose
 
@@ -553,3 +553,20 @@ physical RS-485/adapter/controller and BTCVT acceptance, other monitoring profil
 and additional native operations retain separate gates. No native application
 write, generic API widening, automatic reconnect/resume, extra retry or timeout
 expansion is added. See [the serial profile](docs/controller-monitoring-context.md).
+
+## 2026-11-02 JCI-02 / UX-03 delivery: graphical CAF inspection
+
+Program → CAF file → Logic now displays actual CAF blocks, named ports, arrowed
+connections and nested activity/sequence navigation. Readable signal-flow layout,
+source-specific view positions, search, upstream/downstream tracing and a
+responsive stored-property inspector keep this work inside the existing file
+workflow. Dragging native ports stages the existing guarded source-substitution
+or prototype-connection export between existing blocks; original archive data
+stays separate from the local view and proposed wiring.
+
+Authored backend/browser fixtures cover nested identities, source isolation,
+delayed property responses, view-only moves and exports that preserve native
+object inventory, positions and order. Local private-file checks supplement these
+fixtures without committing controller files or site data. No new native block
+creation, complete program compiler or controller download is added. JCI-02 and
+JCI-03 remain partial. See [the graphical workspace and guards](docs/caf-native-graph.md).

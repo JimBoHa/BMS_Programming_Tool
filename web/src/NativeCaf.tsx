@@ -446,6 +446,10 @@ export function NativeCaf({
               disabled={opening || !visible || currentView !== "logic"}
               scalarChangeCount={changes.length}
               onDirtyChange={setGraphDirty}
+              onInspectObject={(block) => {
+                void select(block);
+                changeView("objects");
+              }}
             />
           </div>
           <div className="caf-layout" hidden={currentView !== "objects"}>

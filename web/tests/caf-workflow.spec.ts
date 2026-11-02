@@ -41,6 +41,11 @@ async function cafTask(page: Page, name: "Objects & parameters" | "Logic") {
     .getByRole("navigation", { name: "CAF application tasks" })
     .getByRole("button", { name, exact: true })
     .click();
+  if (name === "Logic") {
+    const advanced = page.locator(".caf-logic-export-tools");
+    if ((await advanced.getAttribute("open")) === null)
+      await advanced.locator("summary").first().click();
+  }
 }
 
 async function compareAndReturn(
@@ -304,6 +309,10 @@ test("scalar export keeps its snapshot outcome when the editable draft changes d
     await page
       .getByRole("navigation", { name: "Workspace tasks" })
       .getByRole("button", { name: "Changes", exact: true })
+      .click();
+    await page
+      .getByRole("navigation", { name: "Current task tools" })
+      .getByRole("button", { name: "CAF changes", exact: true })
       .click();
     await expect(
       page.getByText("Current scalar edits have not been exported.", {

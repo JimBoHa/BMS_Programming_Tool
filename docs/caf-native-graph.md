@@ -4,6 +4,56 @@
 
 The records were inspected across seven authorized local CAFs for FX and Metasys controllers. The originals remain outside the repository and are never rewritten. In aggregate, the files contain 123 graph objects and 3,717 connection records. Related applications share substantial structure, so those counts do not imply independent coverage of 123 different graph schemas. All observed graph objects use class version `1.0`.
 
+## Graphical CAF workspace
+
+Open a local CAF, then choose **Program → CAF file → Logic**. The diagram selector
+lists the archive's actual activities and sequences. The canvas shows their
+existing blocks, execution sequence, named input/output ports and arrowed wires.
+Double-click a module, or use **Open module logic** in its inspector, to enter that
+module. **Up to** returns to its parent. The block finder and **Focus selected
+block** make large diagrams readable without adding another feature page.
+
+The default readable layout separates blocks whose recorded CAF coordinates
+overlap. It condenses feedback components for layout and follows signal flow;
+it does not change the archive's execution order. Recorded coordinates remain
+available. Dragging blocks changes this browser view only. View positions and
+selection stay with the archive hash and exact diagram reference when navigating
+between tasks or reopening that source in the same page. Up to 32 diagram views
+can be retained; further retention reports the limit rather than evicting a view.
+**Reset view positions** clears that diagram's retained layout.
+
+Selecting a block traces its upstream/downstream dependencies and displays
+properties read from that exact CAF reference. The responsive inspector also
+offers **Edit object properties**, which opens the existing local property editor.
+These are stored file values, never substituted for connected-controller values.
+Late property responses are retired when the selection or source changes.
+
+Port direction comes from actual connection tuples. An unused exposed port is
+shown as a hollow handle only when the same class/version has a recorded wire
+establishing that direction. Unknown labels retain their numeric property ID;
+names alone never establish a writable interface. Dashed original wires preserve
+the recorded continuation flag.
+
+Dragging an output handle to an input stages one local proposal: a source
+substitution for an occupied input, or a new connection from an observed prototype
+for an unused input. An amber dashed wire marks the proposal without replacing
+the recorded connection. **Connection table and guarded CAF export** opens for
+tuple review and explicit export. The server applies all existing opaque-field,
+identity, ordering and conflict guards described below; a plausible gesture can
+still be rejected. The selectors remain available as a keyboard alternative.
+Exports are separate CAF copies. Scalar edits and connection edits remain separate
+exports; open the connection-edited copy before combining further edits.
+
+This slice provides actual CAF display and guarded wiring of existing blocks.
+It does not create new native blocks, compile a complete program or download one.
+The interactive canvas is limited to 1,500 blocks and 6,000 wires per diagram;
+larger diagrams retain their full connection table and can be inspected by module.
+
+The interaction references are the manufacturer's [CCT activities tree](https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Controller-Tool-Help/17.0/User-Interface/User-Interface-Concepts/Classic-View-Workspace/Logic-Tab/Activities-Tree)
+and [connection display](https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Controller-Tool-Help/13.1/Configuring-a-System/Setting-Preferences-Concepts/Control-View-Connections-Option-in-Logic-View),
+plus Automated Logic's [EIKON graphical engineering](https://www.automatedlogic.com/en/products/webctrl-building-automation-system/engineering-tools/eikon/).
+Their capabilities are references for interaction, not claimed native support.
+
 ## Observed record structure
 
 The XML namespace is `http://johnsoncontrols.com/MetasysIII/2002/3/Core`.
