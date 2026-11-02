@@ -107,6 +107,8 @@ actual captures; local drafting continues after the interface closes.
 Chromium/WebKit checks exercise local graph and CAF entry, selected-controller
 source labels, compact controls, raw text retention, native literal exports,
 invalid dates, re-import, substituted responses and delayed operations. These
-are software checks using authored peers. Native Date_List transfer, exception
-editing, schedule context/linking, vendor CAF integration and physical controller
-acceptance remain separate work under SCH-01–SCH-03.
+are software checks using authored peers. Native Date_List transfer now has a
+separate [guarded backend](native-calendar-write.md) and
+[controller deployment interface](native-calendar-controller-deployment.md).
+Exception editing, schedule context/linking, vendor CAF integration and physical
+controller acceptance remain separate work under SCH-01–SCH-03.

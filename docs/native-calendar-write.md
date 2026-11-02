@@ -4,8 +4,10 @@
 one existing standard BACnet Calendar. It consumes the separate
 [local Calendar draft](native-calendar-drafts.md) and its exact expected review
 ID. The source capture supplies the Device, address and route; callers cannot
-substitute another target. This backend does not add a Calendar Apply button.
-Its controller-centered deployment interface is the next separate feature.
+substitute another target. The separately qualified
+[controller deployment interface](native-calendar-controller-deployment.md)
+provides explicit review, Apply, receipt recovery and read-only reconciliation
+inside the existing Calendar editor.
 
 The service requires an already-open plain IPv4 interface, either direct or
 through an explicit router/DNET:MAC. Opening a source, requesting capabilities

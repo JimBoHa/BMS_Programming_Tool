@@ -7,6 +7,9 @@ import {
 } from "react";
 import { ChevronDown } from "lucide-react";
 import { api, apiJsonDocument, saveBlob } from "./api";
+import { NativeCalendarWritePanel } from "./NativeCalendarWritePanel";
+import { sameCalendarTarget } from "./nativeCalendarWrite";
+import type { ControllerTarget } from "./workflow";
 import {
   CALENDAR_BASE,
   blankCalendarRow,
@@ -145,10 +148,14 @@ export function NativeCalendarEditor({
   captureId,
   connectionKey,
   work,
+  connected,
+  selectedTarget,
 }: {
   captureId: string;
   connectionKey: string;
   work: CalendarWork;
+  connected: boolean;
+  selectedTarget: ControllerTarget | null;
 }) {
   const [sourceRecord, setSourceRecord] = useState<{
       owner: string;
@@ -559,13 +566,24 @@ export function NativeCalendarEditor({
                   Discard Calendar edits
                 </button>
                 <button
-                  className="primary"
+                  className={review ? "" : "primary"}
                   disabled={busy}
                   onClick={() => void run("review")}
                 >
                   Review Calendar dates
                 </button>
                 <button
+                  className={
+                    review &&
+                    (!connected ||
+                      !sameCalendarTarget(
+                        review.source.target,
+                        selectedTarget,
+                      ) ||
+                      !review.diff.changed)
+                      ? "primary"
+                      : ""
+                  }
                   disabled={busy || !review}
                   onClick={() => void run("export")}
                 >
@@ -619,6 +637,12 @@ export function NativeCalendarEditor({
           )}
         </>
       )}
+      <NativeCalendarWritePanel
+        review={review}
+        context={ordered([context, generation.current, sourceEpoch.current])}
+        connected={connected}
+        selectedTarget={selectedTarget}
+      />
     </section>
   );
 }

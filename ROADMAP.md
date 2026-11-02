@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-01. Implementation baseline: GitHub `main` at
-[`7eaf0efb`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/7eaf0efbb97b52045332a228d105d044c35875bf).
+[`86e01611`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/86e016114a3b9a0b29cb62e5fa243e7aeef4e291).
 
 ## Baseline and purpose
 
@@ -141,12 +141,14 @@ This is the first Calendar authoring slice of SCH-01. A separate
 [Date_List transfer backend](docs/native-calendar-write.md) now adds fresh exact
 source/target checks, actual protocol-revision qualification, one-use dispatch,
 durable intent/results and independent readback/reconciliation. It preserves the
-local-only draft boundary and all older weekly authorities. Next, integrate that
-qualified API into the selected-controller Calendar editor with explicit review,
-Apply, uncertainty and recovery, then qualify its browser workflows. No Calendar
-Apply button is supplied by the backend slice. Special-event/context/link editing,
-timezone evaluation and physical acceptance remain separate; SCH-01–SCH-03 stay
-partial.
+local-only draft boundary and all older weekly authorities. The
+[Calendar deployment interface](docs/native-calendar-controller-deployment.md)
+now integrates that API into the selected-controller Calendar editor with
+explicit fresh review, one-use Apply, immutable receipts, interrupted-intent
+recovery and separate read-only reconciliation. Target, source, interface,
+navigation and visibility transitions retire field authority while preserving
+local dates and original evidence. Special-event/context/link editing, timezone
+evaluation and physical acceptance remain separate; SCH-01–SCH-03 stay partial.
 
 [Schedule inventory continuation](docs/schedule-inventory-continuation.md)
 retains a verified controller's last completed Object_List offset after a
