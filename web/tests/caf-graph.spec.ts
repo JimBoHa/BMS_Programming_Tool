@@ -2,6 +2,20 @@ import { test, expect } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 
+async function openGraph(page: import("@playwright/test").Page) {
+  await page
+    .getByRole("navigation", { name: "CAF application tasks", exact: true })
+    .getByRole("button", { name: "Logic", exact: true })
+    .click();
+  const panel = page.getByRole("region", {
+    name: "Native CAF graph",
+    exact: true,
+  });
+  await panel
+    .getByText("Connection table and guarded CAF export", { exact: true })
+    .click();
+}
+
 const root = path.resolve("..");
 const python = path.join(root, ".venv/bin/python");
 
@@ -22,13 +36,16 @@ test("inspect native CAF graph and export one verified source-index change", asy
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "CAF files", exact: true }).click();
+
   const original = example();
-  await page.locator('input[type=file][accept=".caf"]').setInputFiles({
-    name: "native-graph.caf",
-    mimeType: "application/octet-stream",
-    buffer: original,
-  });
+  await page
+    .getByLabel("Open local CAF application", { exact: true })
+    .setInputFiles({
+      name: "native-graph.caf",
+      mimeType: "application/octet-stream",
+      buffer: original,
+    });
+  await openGraph(page);
   const panel = page.getByRole("region", {
     name: "Native CAF graph",
     exact: true,
@@ -103,12 +120,15 @@ test("native CAF source export rejects incompatible opaque configuration", async
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "CAF files", exact: true }).click();
-  await page.locator('input[type=file][accept=".caf"]').setInputFiles({
-    name: "native-config-mismatch.caf",
-    mimeType: "application/octet-stream",
-    buffer: example(true),
-  });
+
+  await page
+    .getByLabel("Open local CAF application", { exact: true })
+    .setInputFiles({
+      name: "native-config-mismatch.caf",
+      mimeType: "application/octet-stream",
+      buffer: example(true),
+    });
+  await openGraph(page);
   const panel = page.getByRole("region", {
     name: "Native CAF graph",
     exact: true,
@@ -134,7 +154,7 @@ test("add a native CAF connection from an observed prototype without adding obje
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "CAF files", exact: true }).click();
+
   const buffer = execFileSync(
     python,
     [
@@ -144,12 +164,13 @@ test("add a native CAF connection from an observed prototype without adding obje
     { cwd: root },
   );
   await page
-    .locator('input[type=file][accept=".caf"]')
+    .getByLabel("Open local CAF application", { exact: true })
     .setInputFiles({
       name: "native-create.caf",
       mimeType: "application/octet-stream",
       buffer,
     });
+  await openGraph(page);
   const panel = page.getByRole("region", {
     name: "Native CAF graph",
     exact: true,

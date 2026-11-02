@@ -240,6 +240,22 @@ class CafGraph:
                 }
             )
         name = self.archive.scalar(props.get("2390")) if "2390" in props else None
+        # Labels are display metadata. Directions continue to come from actual
+        # connection tuples; a property name never grants wiring capability.
+        port_labels = {}
+        for block in blocks:
+            labels = port_labels.setdefault(block["class_id"], {})
+            for port in block["exposed_ports"]:
+                labels[str(port["id"])] = port["name"]
+        for wire in wires:
+            for block_index, pid in (
+                (wire["raw"][0], wire["source_port"]),
+                (wire["raw"][2], wire["target_port"]),
+            ):
+                cid = blocks[block_index]["class_id"]
+                port_labels.setdefault(cid, {})[str(pid)] = BY_CLASS.get(cid, {}).get(
+                    str(pid), ATTRIBUTES.get(str(pid), "Unmapped property")
+                )
         return {
             "ref": ref,
             "class_id": obj.get("classid"),
@@ -249,6 +265,7 @@ class CafGraph:
             "blocks": blocks,
             "connections": wires,
             "execution_order": sequence,
+            "port_labels": port_labels,
             "validation": VALIDATION,
         }
 

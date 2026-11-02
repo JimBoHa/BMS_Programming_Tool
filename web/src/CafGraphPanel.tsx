@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, GitBranch, RefreshCw } from "lucide-react";
 import { api, download } from "./api";
+import { CafLogicCanvas } from "./CafLogicCanvas";
+import type { WiringProposal } from "./cafLogic";
 import "./caf-graph.css";
 
 type DiagramSummary = {
@@ -48,6 +50,7 @@ type NativeDiagram = {
   connections: NativeWire[];
   execution_order: number[];
   validation: string;
+  port_labels?: Record<string, Record<string, string>>;
 };
 
 function blockTitle(block?: NativeBlock) {
@@ -67,12 +70,14 @@ export function CafGraphPanel({
   disabled = false,
   scalarChangeCount = 0,
   onDirtyChange,
+  onInspectObject,
 }: {
   id: string;
   filename: string;
   disabled?: boolean;
   scalarChangeCount?: number;
   onDirtyChange?: (dirty: boolean) => void;
+  onInspectObject?: (block: NativeBlock) => void;
 }) {
   const [inventory, setInventory] = useState<GraphInventory | null>(null);
   const [diagramRef, setDiagramRef] = useState("");
@@ -86,6 +91,8 @@ export function CafGraphPanel({
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
   const [exported, setExported] = useState("");
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [connectionOpen, setConnectionOpen] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const mounted = useRef(false);
   const exportRequest = useRef(0);
@@ -252,6 +259,29 @@ export function CafGraphPanel({
     setError("");
   }
 
+  function openModule(ref: string) {
+    if (disabled || exporting || !discardProposals()) return;
+    setDiagramRef(ref);
+  }
+  function proposeWiring(proposal: WiringProposal) {
+    if (disabled || exporting || !discardProposals()) return false;
+    setWireIndex(proposal.prototype);
+    setSourceRef(proposal.kind === "rewire" ? proposal.source : "");
+    setConnectionSourceRef(proposal.kind === "connect" ? proposal.source : "");
+    setConnectionTargetRef(proposal.kind === "connect" ? proposal.target : "");
+    setAdvancedOpen(true);
+    setConnectionOpen(proposal.kind === "connect");
+    setError("");
+    return true;
+  }
+  const moduleRefs = useMemo(
+    () => new Set(inventory?.diagrams.map((d) => d.ref) || []),
+    [inventory],
+  );
+  const parentModule = inventory?.diagrams
+    .filter((d) => diagramRef.startsWith(d.ref + "."))
+    .sort((a, b) => b.ref.length - a.ref.length)[0];
+
   async function exportRewire() {
     if (!diagram || !wire || !proposedSource || exporting || disabled) return;
     const request = ++exportRequest.current;
@@ -404,6 +434,14 @@ export function CafGraphPanel({
                 {inventory.diagrams.length} inspected diagrams ·{" "}
                 {inventory.errors.length} unreadable diagrams
               </small>
+              {parentModule && (
+                <button
+                  disabled={disabled || exporting}
+                  onClick={() => openModule(parentModule.ref)}
+                >
+                  Up to {parentModule.name || "parent module"}
+                </button>
+              )}
             </div>
             {inventory.errors.length > 0 && (
               <details className="caf-graph-errors">
@@ -436,276 +474,328 @@ export function CafGraphPanel({
               </span>
               <code>{diagram.ref}</code>
             </div>
-            <div className="caf-graph-columns">
-              <section
-                className="caf-graph-table"
-                aria-label="Native connections"
-              >
-                <h4>Connections · property 3118</h4>
-                <div className="table-scroll">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Record</th>
-                        <th>Source · property</th>
-                        <th>Destination · property</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {diagram.connections.map((item) => (
-                        <tr
-                          key={item.index}
-                          className={
-                            item.index === wireIndex ? "active-row" : ""
-                          }
-                        >
-                          <td>
-                            <button
-                              aria-label={`Select native connection ${item.index}`}
-                              aria-pressed={item.index === wireIndex}
-                              disabled={disabled || exporting}
-                              onClick={() => selectWire(item.index)}
-                            >
-                              #{item.index}
-                            </button>
-                          </td>
-                          <td>
-                            <b>{blockTitle(blockByRef.get(item.source_ref))}</b>
-                            <small>Property {item.source_port}</small>
-                          </td>
-                          <td>
-                            <b>{blockTitle(blockByRef.get(item.target_ref))}</b>
-                            <small>Property {item.target_port}</small>
-                          </td>
+            {!disabled && (
+              <CafLogicCanvas
+                key={id + diagram.ref}
+                archive={id}
+                diagram={diagram}
+                selectedWire={wireIndex}
+                moduleRefs={moduleRefs}
+                onSelectWire={selectWire}
+                onOpenModule={openModule}
+                onPropose={proposeWiring}
+                onInspectObject={onInspectObject}
+                proposal={
+                  wire && proposedSource
+                    ? {
+                        kind: "rewire",
+                        source: proposedSource.ref,
+                        target: wire.target_ref,
+                        sourcePort: wire.source_port,
+                        targetPort: wire.target_port,
+                      }
+                    : wire &&
+                        connectionTuple &&
+                        connectionSource &&
+                        connectionTarget
+                      ? {
+                          kind: "connect",
+                          source: connectionSource.ref,
+                          target: connectionTarget.ref,
+                          sourcePort: wire.source_port,
+                          targetPort: wire.target_port,
+                        }
+                      : null
+                }
+              />
+            )}
+            <details
+              open={advancedOpen}
+              onToggle={(e) => setAdvancedOpen(e.currentTarget.open)}
+              className="caf-logic-export-tools"
+            >
+              <summary>Connection table and guarded CAF export</summary>
+              <div className="caf-graph-columns">
+                <section
+                  className="caf-graph-table"
+                  aria-label="Native connections"
+                >
+                  <h4>Connections · property 3118</h4>
+                  <div className="table-scroll">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Record</th>
+                          <th>Source · property</th>
+                          <th>Destination · property</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {!diagram.connections.length && (
-                  <p>This diagram contains no connection records.</p>
-                )}
-              </section>
-              <section
-                className="caf-source-rewire"
-                aria-label="Native source rewire"
-              >
-                <h4>Change an existing connection source</h4>
-                {wire && currentSource && destination ? (
-                  <>
-                    <dl>
-                      <div>
-                        <dt>Connection</dt>
-                        <dd>#{wire.index}</dd>
+                      </thead>
+                      <tbody>
+                        {diagram.connections.map((item) => (
+                          <tr
+                            key={item.index}
+                            className={
+                              item.index === wireIndex ? "active-row" : ""
+                            }
+                          >
+                            <td>
+                              <button
+                                aria-label={`Select native connection ${item.index}`}
+                                aria-pressed={item.index === wireIndex}
+                                disabled={disabled || exporting}
+                                onClick={() => selectWire(item.index)}
+                              >
+                                #{item.index}
+                              </button>
+                            </td>
+                            <td>
+                              <b>
+                                {blockTitle(blockByRef.get(item.source_ref))}
+                              </b>
+                              <small>Property {item.source_port}</small>
+                            </td>
+                            <td>
+                              <b>
+                                {blockTitle(blockByRef.get(item.target_ref))}
+                              </b>
+                              <small>Property {item.target_port}</small>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {!diagram.connections.length && (
+                    <p>This diagram contains no connection records.</p>
+                  )}
+                </section>
+                <section
+                  className="caf-source-rewire"
+                  aria-label="Native source rewire"
+                >
+                  <h4>Change an existing connection source</h4>
+                  {wire && currentSource && destination ? (
+                    <>
+                      <dl>
+                        <div>
+                          <dt>Connection</dt>
+                          <dd>#{wire.index}</dd>
+                        </div>
+                        <div>
+                          <dt>Current source</dt>
+                          <dd>
+                            {blockTitle(currentSource)} · property{" "}
+                            {wire.source_port}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Destination</dt>
+                          <dd>
+                            {blockTitle(destination)} · property{" "}
+                            {wire.target_port}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Continuation</dt>
+                          <dd>
+                            {wire.continuation.flag ? "true" : "false"} ·{" "}
+                            {wire.continuation.text || "(empty text)"}
+                          </dd>
+                        </div>
+                      </dl>
+                      <label>
+                        Replacement source
+                        <select
+                          aria-label="Native replacement source"
+                          value={sourceRef}
+                          disabled={
+                            !sources.length ||
+                            disabled ||
+                            exporting ||
+                            !diagram.observed_version
+                          }
+                          onChange={(event) => {
+                            setSourceRef(event.target.value);
+                            setError("");
+                          }}
+                        >
+                          <option value="">
+                            {sources.length
+                              ? "Select existing source…"
+                              : "No matching visible source"}
+                          </option>
+                          {sources.map((block) => (
+                            <option key={block.ref} value={block.ref}>
+                              {blockTitle(block)} · block index {block.index}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <p className="caf-graph-help">
+                        Choices already use property {wire.source_port}, share
+                        the source class/version and execute before this
+                        destination. Export also checks opaque configuration,
+                        the original tuple and feedback paths. A mismatch
+                        rejects the edit with its reason.
+                      </p>
+                      <div
+                        className="caf-rewire-review"
+                        aria-label="Native rewire review"
+                      >
+                        <small>Existing tuple</small>
+                        <code>{JSON.stringify(wire.raw)}</code>
+                        <small>Proposed tuple</small>
+                        <code>
+                          {proposed
+                            ? JSON.stringify(proposed)
+                            : "Choose a source"}
+                        </code>
+                        <small>
+                          Tuple: source block index, source property,
+                          destination block index, destination property.
+                        </small>
                       </div>
-                      <div>
-                        <dt>Current source</dt>
-                        <dd>
-                          {blockTitle(currentSource)} · property{" "}
-                          {wire.source_port}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>Destination</dt>
-                        <dd>
-                          {blockTitle(destination)} · property{" "}
-                          {wire.target_port}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>Continuation</dt>
-                        <dd>
-                          {wire.continuation.flag ? "true" : "false"} ·{" "}
-                          {wire.continuation.text || "(empty text)"}
-                        </dd>
-                      </div>
-                    </dl>
-                    <label>
-                      Replacement source
-                      <select
-                        aria-label="Native replacement source"
-                        value={sourceRef}
+                      <button
+                        className="primary"
                         disabled={
-                          !sources.length ||
+                          !proposed ||
                           disabled ||
                           exporting ||
                           !diagram.observed_version
                         }
+                        onClick={exportRewire}
+                      >
+                        <Download size={15} />
+                        {exporting
+                          ? "Checking native records…"
+                          : "Check and export native CAF rewire"}
+                      </button>
+                      {!diagram.observed_version && (
+                        <p className="caf-graph-help">
+                          Rewiring requires observed class version 1.0. This
+                          diagram can be inspected only.
+                        </p>
+                      )}
+                      <p className="caf-graph-help">
+                        The export changes one source index in a separate native
+                        CAF copy. Block identities, property IDs and all other
+                        XML bytes are preserved. Scalar edits elsewhere in this
+                        page are separate exports.
+                      </p>
+                    </>
+                  ) : (
+                    <p>Select an existing connection to review its source.</p>
+                  )}
+                </section>
+              </div>
+              {wire && currentSource && destination && (
+                <details
+                  className="caf-connection-create"
+                  open={connectionOpen}
+                  onToggle={(e) => setConnectionOpen(e.currentTarget.open)}
+                >
+                  <summary>
+                    Add native connection between existing blocks
+                  </summary>
+                  <p className="caf-graph-help">
+                    Connection #{wire.index} supplies the observed
+                    source/destination interface prototype. The new connection
+                    uses property {wire.source_port} to property{" "}
+                    {wire.target_port}. Both endpoint configurations must match
+                    the prototype; the destination property must be unused.
+                  </p>
+                  <div className="caf-connection-endpoints">
+                    <label>
+                      New connection source
+                      <select
+                        aria-label="Native new connection source"
+                        value={connectionSource?.ref || ""}
+                        disabled={
+                          disabled || exporting || !diagram.observed_version
+                        }
                         onChange={(event) => {
-                          setSourceRef(event.target.value);
+                          setConnectionSourceRef(event.target.value);
+                          setConnectionTargetRef("");
                           setError("");
                         }}
                       >
-                        <option value="">
-                          {sources.length
-                            ? "Select existing source…"
-                            : "No matching visible source"}
-                        </option>
-                        {sources.map((block) => (
+                        {connectionSources.map((block) => (
                           <option key={block.ref} value={block.ref}>
                             {blockTitle(block)} · block index {block.index}
                           </option>
                         ))}
                       </select>
                     </label>
-                    <p className="caf-graph-help">
-                      Choices already use property {wire.source_port}, share the
-                      source class/version and execute before this destination.
-                      Export also checks opaque configuration, the original
-                      tuple and feedback paths. A mismatch rejects the edit with
-                      its reason.
-                    </p>
-                    <div
-                      className="caf-rewire-review"
-                      aria-label="Native rewire review"
-                    >
-                      <small>Existing tuple</small>
-                      <code>{JSON.stringify(wire.raw)}</code>
-                      <small>Proposed tuple</small>
-                      <code>
-                        {proposed
-                          ? JSON.stringify(proposed)
-                          : "Choose a source"}
-                      </code>
-                      <small>
-                        Tuple: source block index, source property, destination
-                        block index, destination property.
-                      </small>
-                    </div>
-                    <button
-                      className="primary"
-                      disabled={
-                        !proposed ||
-                        disabled ||
-                        exporting ||
-                        !diagram.observed_version
-                      }
-                      onClick={exportRewire}
-                    >
-                      <Download size={15} />
-                      {exporting
-                        ? "Checking native records…"
-                        : "Check and export native CAF rewire"}
-                    </button>
-                    {!diagram.observed_version && (
-                      <p className="caf-graph-help">
-                        Rewiring requires observed class version 1.0. This
-                        diagram can be inspected only.
-                      </p>
-                    )}
-                    <p className="caf-graph-help">
-                      The export changes one source index in a separate native
-                      CAF copy. Block identities, property IDs and all other XML
-                      bytes are preserved. Scalar edits elsewhere in this page
-                      are separate exports.
-                    </p>
-                  </>
-                ) : (
-                  <p>Select an existing connection to review its source.</p>
-                )}
-              </section>
-            </div>
-            {wire && currentSource && destination && (
-              <details className="caf-connection-create">
-                <summary>Add native connection between existing blocks</summary>
-                <p className="caf-graph-help">
-                  Connection #{wire.index} supplies the observed
-                  source/destination interface prototype. The new connection
-                  uses property {wire.source_port} to property{" "}
-                  {wire.target_port}. Both endpoint configurations must match
-                  the prototype; the destination property must be unused.
-                </p>
-                <div className="caf-connection-endpoints">
-                  <label>
-                    New connection source
-                    <select
-                      aria-label="Native new connection source"
-                      value={connectionSource?.ref || ""}
-                      disabled={
-                        disabled || exporting || !diagram.observed_version
-                      }
-                      onChange={(event) => {
-                        setConnectionSourceRef(event.target.value);
-                        setConnectionTargetRef("");
-                        setError("");
-                      }}
-                    >
-                      {connectionSources.map((block) => (
-                        <option key={block.ref} value={block.ref}>
-                          {blockTitle(block)} · block index {block.index}
+                    <label>
+                      New connection destination
+                      <select
+                        aria-label="Native new connection destination"
+                        value={connectionTargetRef}
+                        disabled={
+                          exporting ||
+                          disabled ||
+                          !diagram.observed_version ||
+                          !connectionTargets.length
+                        }
+                        onChange={(event) => {
+                          setConnectionTargetRef(event.target.value);
+                          setError("");
+                        }}
+                      >
+                        <option value="">
+                          {connectionTargets.length
+                            ? "Select unused destination…"
+                            : "No matching unused destination"}
                         </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    New connection destination
-                    <select
-                      aria-label="Native new connection destination"
-                      value={connectionTargetRef}
-                      disabled={
-                        exporting ||
-                        disabled ||
-                        !diagram.observed_version ||
-                        !connectionTargets.length
-                      }
-                      onChange={(event) => {
-                        setConnectionTargetRef(event.target.value);
-                        setError("");
-                      }}
-                    >
-                      <option value="">
-                        {connectionTargets.length
-                          ? "Select unused destination…"
-                          : "No matching unused destination"}
-                      </option>
-                      {connectionTargets.map((block) => (
-                        <option key={block.ref} value={block.ref}>
-                          {blockTitle(block)} · block index {block.index}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                <div
-                  className="caf-rewire-review"
-                  aria-label="Native new connection review"
-                >
-                  <small>Prototype tuple</small>
-                  <code>{JSON.stringify(wire.raw)}</code>
-                  <small>New tuple</small>
-                  <code>
-                    {connectionTuple
-                      ? JSON.stringify(connectionTuple)
-                      : "Choose a destination"}
-                  </code>
-                  <small>
-                    Append to {diagram.connections.length} existing connection
-                    records. Existing records and block identities stay intact.
-                    The new continuation record starts with false and empty
-                    text.
-                  </small>
-                </div>
-                <button
-                  className="primary"
-                  disabled={
-                    !connectionTuple ||
-                    disabled ||
-                    exporting ||
-                    !diagram.observed_version
-                  }
-                  onClick={exportConnection}
-                >
-                  <Download size={15} /> Check and export new native CAF
-                  connection
-                </button>
-                <p className="caf-graph-help">
-                  Export checks the exact prototype and current record count,
-                  native endpoint configuration, execution order and feedback.
-                  Controller resource capacity and CCT/PCT acceptance remain
-                  unverified. The new connection is a separate CAF export.
-                </p>
-              </details>
-            )}
+                        {connectionTargets.map((block) => (
+                          <option key={block.ref} value={block.ref}>
+                            {blockTitle(block)} · block index {block.index}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <div
+                    className="caf-rewire-review"
+                    aria-label="Native new connection review"
+                  >
+                    <small>Prototype tuple</small>
+                    <code>{JSON.stringify(wire.raw)}</code>
+                    <small>New tuple</small>
+                    <code>
+                      {connectionTuple
+                        ? JSON.stringify(connectionTuple)
+                        : "Choose a destination"}
+                    </code>
+                    <small>
+                      Append to {diagram.connections.length} existing connection
+                      records. Existing records and block identities stay
+                      intact. The new continuation record starts with false and
+                      empty text.
+                    </small>
+                  </div>
+                  <button
+                    className="primary"
+                    disabled={
+                      !connectionTuple ||
+                      disabled ||
+                      exporting ||
+                      !diagram.observed_version
+                    }
+                    onClick={exportConnection}
+                  >
+                    <Download size={15} /> Check and export new native CAF
+                    connection
+                  </button>
+                  <p className="caf-graph-help">
+                    Export checks the exact prototype and current record count,
+                    native endpoint configuration, execution order and feedback.
+                    Controller resource capacity and CCT/PCT acceptance remain
+                    unverified. The new connection is a separate CAF export.
+                  </p>
+                </details>
+              )}
+            </details>
             <details className="caf-graph-blocks">
               <summary>
                 Inspect {diagram.blocks.length} native blocks and execution

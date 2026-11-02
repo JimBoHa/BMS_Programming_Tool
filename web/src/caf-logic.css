@@ -1,0 +1,226 @@
+.caf-logic-workspace {
+  margin: 16px 0;
+  min-width: 0;
+}
+.caf-logic-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+}
+.caf-logic-toolbar label {
+  min-width: 150px;
+  max-width: 240px;
+}
+.caf-logic-source {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 12px 0;
+}
+.caf-logic-grid {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr) 275px;
+  gap: 12px;
+  min-width: 0;
+}
+.caf-logic-finder {
+  min-width: 0;
+  border: 1px solid var(--border);
+  padding: 10px;
+  border-radius: 6px;
+}
+.caf-logic-finder > div {
+  max-height: 540px;
+  overflow: auto;
+  margin-top: 10px;
+}
+.caf-logic-finder button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin-bottom: 6px;
+  padding: 8px;
+  white-space: normal;
+}
+.caf-logic-finder button[aria-pressed="true"] {
+  border-color: var(--teal);
+  background: #e8f6f2;
+}
+.caf-logic-finder small,
+.caf-logic-finder strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.caf-logic-finder small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.caf-logic-canvas {
+  height: 640px;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fbfdfd;
+}
+.caf-logic-node {
+  width: 282px;
+  border: 1.5px solid #7c9d9e;
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 2px 5px #143a4417;
+  position: relative;
+  color: var(--ink);
+}
+.caf-logic-node-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 5px;
+  padding: 8px 10px;
+  background: #e9f4f3;
+  border-radius: 5px 5px 0 0;
+  font-size: 11px;
+}
+.caf-logic-node-heading > span {
+  max-width: 205px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.caf-logic-node-heading small {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.caf-logic-node-name {
+  display: block;
+  padding: 8px 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 14px;
+}
+.caf-logic-port {
+  position: absolute;
+  height: 22px;
+  max-width: 48%;
+  font-size: 11px;
+  line-height: 20px;
+}
+.caf-logic-port.inputs {
+  left: 0;
+  padding-left: 9px;
+}
+.caf-logic-port.outputs {
+  right: 0;
+  padding-right: 9px;
+  text-align: right;
+}
+.caf-logic-port span {
+  display: block;
+  max-width: 126px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.caf-logic-port small {
+  margin-left: 4px;
+  color: #697c85;
+  font-size: 9px;
+}
+.caf-logic-port .react-flow__handle {
+  background: #247d80;
+  width: 8px;
+  height: 8px;
+}
+.caf-logic-port.prototype-port .react-flow__handle {
+  background: #fff;
+  border: 1.5px solid #247d80;
+}
+.caf-logic-node.is-selected {
+  border: 2px solid #087d80;
+  box-shadow: 0 0 0 3px #83c8c54d;
+}
+.caf-logic-node.outside-trace {
+  opacity: 0.3;
+}
+.caf-logic-node.in-trace {
+  border-color: #087d80;
+}
+.caf-logic-grid .responsive-panel {
+  min-width: 0;
+}
+.caf-logic-grid .responsive-panel.inline[open] {
+  display: block;
+  position: static;
+  width: 100%;
+  height: 640px;
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+}
+.caf-logic-grid .responsive-panel.inline > .responsive-panel-content {
+  display: block;
+  height: 100%;
+  padding: 12px;
+  box-sizing: border-box;
+}
+.caf-logic-grid .responsive-panel-content {
+  max-height: 640px;
+  overflow: auto;
+}
+.caf-logic-grid .responsive-panel-content code,
+.caf-logic-grid .responsive-panel-content pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.caf-logic-grid .responsive-panel-content button {
+  margin: 6px 0;
+}
+.caf-logic-grid .responsive-panel-content p {
+  font-size: 12px;
+}
+.caf-logic-grid table {
+  min-width: 0;
+  width: 100%;
+  font-size: 11px;
+}
+.caf-logic-grid td {
+  overflow-wrap: anywhere;
+}
+.caf-logic-grid td small {
+  display: block;
+  color: var(--muted);
+}
+@media (max-width: 1250px) {
+  .caf-logic-grid {
+    grid-template-columns: 150px minmax(0, 1fr) 240px;
+  }
+}
+@media (max-width: 900px) {
+  .caf-logic-grid {
+    grid-template-columns: 1fr;
+  }
+  .caf-logic-finder > div {
+    max-height: 150px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .caf-logic-canvas {
+    height: 560px;
+  }
+  .caf-logic-grid .responsive-panel-content {
+    max-height: none;
+  }
+  .caf-logic-toolbar label {
+    flex: 1;
+    max-width: none;
+    min-width: 140px;
+  }
+}
