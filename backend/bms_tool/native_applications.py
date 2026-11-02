@@ -296,10 +296,15 @@ class NativeApplications:
         except asyncio.CancelledError as exc:
             raise ValueError(
                 "Native operation cancelled. Consult retained transfer receipts before any further write."
+                + (" " + str(exc) if str(exc) else "")
             ) from exc
         except TimeoutError as exc:
+            detail = str(exc)
+            if not detail and isinstance(exc.__cause__, asyncio.CancelledError):
+                detail = str(exc.__cause__)
             raise ValueError(
                 "Native operation timed out. Consult retained transfer receipts before any further write."
+                + (" " + detail if detail else "")
             ) from exc
         finally:
             self.active = None
@@ -345,15 +350,19 @@ class NativeApplications:
         ):
             raise ValueError("The native application File has an unsupported format.")
         secrets_config = self.credentials.get()
-        files, started, cleanup_error = {}, False, None
+        files, started, cleanup_error, capture_error = {}, False, None, None
         try:
             await self.files.state(session, "start-backup", password=secrets_config["backup"])
             started = True
             for file_id in (11, 12, 3):
                 self.phase(f"capturing backup File {file_id}")
                 files[file_id] = await self.files.read(session, file_id, chunk=chunk)
+        except (ValueError, TimeoutError, OSError, sqlite3.Error, asyncio.CancelledError) as exc:
+            capture_error = exc
+            raise
         finally:
             if started:
+                self.phase("ending backup session")
                 try:
                     await self.files.state(session, "end-backup")
                 except (
@@ -363,7 +372,18 @@ class NativeApplications:
                     sqlite3.Error,
                     asyncio.CancelledError,
                 ) as exc:
-                    cleanup_error = str(exc) or "Backup completion was not confirmed."
+                    cleanup_error = str(exc) or "No backup completion reply"
+                    if capture_error is not None:
+                        message = (
+                            "Native backup capture failed: "
+                            + (str(capture_error) or type(capture_error).__name__)
+                            + ". Ending the backup session was also not confirmed: "
+                            + cleanup_error
+                            + ". Check controller status and retained transfer receipts before another operation."
+                        )
+                        if isinstance(capture_error, asyncio.CancelledError):
+                            raise asyncio.CancelledError(message) from capture_error
+                        raise ValueError(message) from capture_error
         if cleanup_error:
             raise ValueError(
                 "Original files read, but ending the backup session was not confirmed: "
