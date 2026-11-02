@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { NativeRuntimeCalibration } from "./NativeRuntimeCalibration";
 import {
   api,
   apiBlobDocument,
@@ -878,6 +879,7 @@ export function NativeDefaultTransfer({
             </p>
           )}
           <p>{observed?.error || observed?.errors?.join(" ")}</p>
+          <NativeRuntimeCalibration report={observed?.runtime_calibration} />
           {receipt.data.intent?.recovery_origin && (
             <p>
               New previous-value transfer from receipt{" "}

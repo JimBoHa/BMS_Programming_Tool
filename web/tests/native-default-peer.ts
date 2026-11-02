@@ -36,6 +36,19 @@ async def main():
  elif sys.argv[2]=='point-name':
   from tests.test_native_point_names import point_files,attach_point_reads
   app.files=point_files();attach_point_reads(app,published_old=sys.argv[1]=='published-old')
+  import gzip,types
+  from tests.test_controller_application import native_record,encoded
+  from bacpypes3.primitivedata import ObjectIdentifier,CharacterString,Real
+  from bacpypes3.apdu import ReadPropertyACK
+  from bacpypes3.constructeddata import Any
+  flow=native_record(570,73,[(32527,encoded(CharacterString('controller/flow'))),(75,encoded(ObjectIdentifier((570,73)))),(3506,encoded(Real(3.5)))])
+  raw=bytearray(gzip.decompress(app.files[3]));struct.pack_into('<I',raw,10,struct.unpack_from('<I',raw,10)[0]+1);raw.extend(struct.pack('<H',len(flow)+2)+flow);app.files[3]=gzip.compress(bytes(raw),mtime=0)
+  point_read=app.do_ReadPropertyRequest
+  async def runtime_read(self,request):
+   if request.objectIdentifier==ObjectIdentifier((570,73)) and int(request.propertyIdentifier)==3506:
+    await self.response(ReadPropertyACK(context=request,objectIdentifier=request.objectIdentifier,propertyIdentifier=3506,propertyValue=Any(Real(0.25))))
+   else:await point_read(request)
+  app.do_ReadPropertyRequest=types.MethodType(runtime_read,app)
  elif sys.argv[2]=='wire':
   app.files=wire_files(target_class=538);app.metadata['object-name']='Authored native wire controller';app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
  elif sys.argv[2]=='instance':
