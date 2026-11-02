@@ -1762,7 +1762,7 @@ export function App() {
     if (
       source === "native" &&
       nativeChangeKind &&
-      !["instance", "name", "input"].includes(nativeChangeKind)
+      !["instance", "name", "input", "point-name"].includes(nativeChangeKind)
     )
       return;
     if (source === "temco") {
@@ -1771,7 +1771,7 @@ export function App() {
     }
     const destination = {
       native:
-        nativeChangeKind === "input"
+        nativeChangeKind === "input" || nativeChangeKind === "point-name"
           ? { view: "points", tool: "live-points" }
           : { view: "overview", tool: "instance" },
       instance: { view: "overview", tool: "instance" },
