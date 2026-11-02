@@ -180,7 +180,9 @@ export function NativePointName({
           throw new Error(
             "Point-name source differs from the selected backup.",
           );
-        const field = pointSource.points.find((p: any) => p.object_id === object);
+        const field = pointSource.points.find(
+          (p: any) => p.object_id === object,
+        );
         if (!field)
           throw new Error(
             "This application has no supported native name for the selected point.",
@@ -295,6 +297,19 @@ export function NativePointName({
             ...(w.name === intent.point_name_edit.new_name &&
             w.capture?.id === intent.review_capture_id
               ? { name: "", capture: null, field: null }
+              : {}),
+            receipt: result,
+          }));
+          onVerified();
+        } else if (
+          intent &&
+          observed?.status === "recovered_original" &&
+          result.pending === false
+        ) {
+          setWork((w) => ({
+            ...w,
+            ...(w.capture?.id === intent.review_capture_id
+              ? { capture: null, field: null }
               : {}),
             receipt: result,
           }));
@@ -475,6 +490,12 @@ export function NativePointName({
               Published name: {observed?.published_point_name || "not verified"}
               .
             </p>
+            {observed?.status === "recovered_original" && (
+              <p role="status">
+                Original application and point name recovered. The proposed name
+                change was not verified.
+              </p>
+            )}
             {work.receipt.pending && (
               <p role="alert">
                 Outcome uncertain. Read back this receipt before another change.

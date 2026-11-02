@@ -1033,14 +1033,12 @@ class NativeApplications:
                     "Controller operational status could not be read: " + str(exc)[:256]
                 )
                 return result
-        if observed["status"] != "verified_new":
+        if observed["status"] not in ("verified_new", "verified_old"):
             return result
         if not result.get("operational"):
             result["error"] = "The new identity responds, but the controller is not operational."
             return result
-        options = DeviceDetailsRequest(
-            **intent["target"], device=f"device,{intent['new_instance']}"
-        )
+        options = DeviceDetailsRequest(**intent["target"], device=identity["device"])
         try:
             backup, files, _ = await self.capture_session(
                 options, session, identity=observed["identity"]
@@ -1051,8 +1049,55 @@ class NativeApplications:
                 native_sha256=digest,
                 expected_native_sha256=intent["native_payload_sha256"],
             )
+            _, original_files = self.storage.load(intent["backup_id"])
+            if identity == intent["identity"] and digest != intent["native_payload_sha256"]:
+                original, _ = ParameterApplication(
+                    original_files[3], original_files[11], original_files[12]
+                ).compile()
+                original_digest = sha(MoiIdentity(original).data)
+                if digest == original_digest and backup.get("source_identity_matches"):
+                    result["preservation"] = verify_preservation(
+                        original_files,
+                        files,
+                        old_instance=intent["old_instance"],
+                        new_instance=intent["old_instance"],
+                    )
+                    if point_name_edit:
+                        edit = PointNameEdit(**intent["point_name_edit"])
+                        name = await self.path._read(session, edit.object_id, "object-name")
+                        if name != intent["compilation"]["selected_edit"]["before"]:
+                            raise ValueError("The original published point name is not recovered.")
+                        result["published_point_name"] = name
+                    result["runtime_calibration"] = await read_runtime_calibration(
+                        files[3], self.files.exchange, session
+                    )
+                    status = int(await self.path._read(session, options.device, "system-status"))
+                    result.update(
+                        system_status=status,
+                        operational=status == 0,
+                        expected_native_sha256=original_digest,
+                        proposed_change_verified=False,
+                        recovery={
+                            "profile": "native-original-application-readback/1",
+                            "original_backup_id": intent["backup_id"],
+                            "original_reviewed_native_sha256": intent["native_payload_sha256"],
+                            "scope": "Original identity, complete application and saved application settings recovered. The proposed change is not verified. Readback did not restore or replay an application.",
+                        },
+                    )
+                    if status == 0:
+                        result["status"] = "recovered_original"
+                        self.instances._forget_old_address(session)
+                    else:
+                        result["error"] = (
+                            "Original application matches, but the controller is not operational."
+                        )
+                    return result
+            if observed["status"] != "verified_new":
+                result["error"] = (
+                    "Original identity responds, but its complete application/settings recovery is not verified."
+                )
+                return result
             if digest == intent["native_payload_sha256"]:
-                _, original_files = self.storage.load(intent["backup_id"])
                 name_policy = (
                     {"old_name": intent["old_name"], "new_name": intent["new_name"]}
                     if renaming
@@ -1437,7 +1482,7 @@ class NativeApplications:
         except (ValueError, TimeoutError, OSError, sqlite3.Error, asyncio.CancelledError) as exc:
             result["errors"].append((str(exc) or "Native operation cancelled or timed out.")[:512])
         result["may_have_applied"] = dispatched
-        if result["status"] != "verified":
+        if result["status"] not in ("verified", "recovered_original"):
             result["status"] = "unknown" if dispatched else "not_sent"
         if intent is None:
             return {
