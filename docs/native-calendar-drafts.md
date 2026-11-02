@@ -83,8 +83,9 @@ Edits, capture/object/interface changes, task departure, visibility changes and
 source A→B→A retire pending results and reviews. Delayed review/import/export
 responses cannot restore retired authority, overwrite another draft or start a
 download. Source refresh retires transient operations and preserves local text.
-The existing weekly editor retains its own behavior and export-before-navigation
-boundary; this slice does not claim weekly draft retention is complete.
+The separately qualified [weekly workspace](native-weekly-workspace-continuity.md)
+now retains its own unfinished source-specific rows through navigation. Both
+workspaces require explicit export before restarting or reloading.
 
 The new profile permits at most 32 entries and 128 KiB per reviewed document.
 Existing source-library capture, byte and namespace limits are unchanged. Strict

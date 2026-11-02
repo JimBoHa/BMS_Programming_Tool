@@ -4,6 +4,7 @@ import { ChevronDown } from "lucide-react";
 import { api, apiJsonDocument, download, saveBlob } from "./api";
 import { ScheduleLibraryPanel } from "./ScheduleLibraryPanel";
 import { type CalendarWork } from "./nativeCalendar";
+import type { WeeklyWork } from "./nativeWeeklyWork";
 import {
   scheduleDiagnostic,
   type ScheduleTraceFocus,
@@ -17,6 +18,7 @@ type Props = {
   defaultRouter?: string;
   defaultDnet?: number | null;
   calendarWorkspace?: CalendarWork;
+  weeklyWorkspace?: WeeklyWork;
 };
 export function ScheduleInventoryPanel({
   connected,
@@ -26,6 +28,7 @@ export function ScheduleInventoryPanel({
   defaultRouter = "",
   defaultDnet: suppliedDnet,
   calendarWorkspace,
+  weeklyWorkspace,
 }: Props) {
   const defaultDnet = suppliedDnet ?? null;
   const [address, setAddress] = useState(defaultAddress),
@@ -683,6 +686,7 @@ export function ScheduleInventoryPanel({
           dnet: defaultDnet,
         }}
         calendarWorkspace={calendarWorkspace}
+        weeklyWorkspace={weeklyWorkspace}
         sessionReportId={report?.id || null}
         connected={connected}
         connectionKey={JSON.stringify([

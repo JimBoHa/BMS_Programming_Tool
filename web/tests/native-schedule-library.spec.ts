@@ -356,7 +356,7 @@ for (const routed of [false, true])
     }
   });
 
-test("native day edits retain typed intent, expose wire rounding, reject unsupported values and guard dirty replacement", async ({
+test("native day edits retain typed intent, expose wire rounding and preserve unfinished days", async ({
   page,
   request,
 }) => {
@@ -371,10 +371,13 @@ test("native day edits retain typed intent, expose wire rounding, reject unsuppo
     await local
       .getByLabel("Native weekly day", { exact: true })
       .selectOption("2");
-    await expect(local.getByRole("alert")).toContainText("Export or discard");
     await expect(
       local.getByLabel("Native weekly day", { exact: true }),
-    ).toHaveValue("1");
+    ).toHaveValue("2");
+    await local
+      .getByLabel("Native weekly day", { exact: true })
+      .selectOption("1");
+    await expect(value).toHaveValue("0.1");
     await local
       .getByRole("button", { name: "Review native weekly draft", exact: true })
       .click();
