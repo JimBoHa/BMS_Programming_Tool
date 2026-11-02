@@ -7,6 +7,8 @@ type Target = { address: string; device: string; router: string; dnet: string };
 const base = "/bacnet/device-instance";
 
 export type DeviceInstanceProps = {
+  /** Unreviewed text only, retained by the containing controller workspace. */
+  drafts?: Map<string, string>;
   initialChange?: "instance" | "name";
   connected: boolean;
   interfaceIdentity: string;
@@ -73,6 +75,7 @@ export function DeviceInstancePanel(props: DeviceInstanceProps) {
 }
 
 function StandardInstancePanel({
+  drafts,
   connected,
   interfaceIdentity,
   defaultAddress,
@@ -84,13 +87,32 @@ function StandardInstancePanel({
   onVerified,
   onNative,
 }: DeviceInstanceProps & { onNative: () => void }) {
+  const draftKey = JSON.stringify([
+    interfaceIdentity,
+    defaultAddress,
+    defaultDevice,
+    defaultRouter || null,
+    defaultDnet ?? null,
+  ]);
   const [target, setTarget] = useState<Target>({
     address: "",
     device: "",
     router: "",
     dnet: "",
   });
-  const [newInstance, setNewInstance] = useState("");
+  const [instanceDraft, setInstanceDraft] = useState(() => ({
+    key: draftKey,
+    text: drafts?.get(draftKey) ?? "",
+  }));
+  const newInstance =
+    instanceDraft.key === draftKey
+      ? instanceDraft.text
+      : (drafts?.get(draftKey) ?? "");
+  function setNewInstance(text: string) {
+    if (text) drafts?.set(draftKey, text);
+    else drafts?.delete(draftKey);
+    setInstanceDraft({ key: draftKey, text });
+  }
   const [allocated, setAllocated] = useState(false);
   const [plan, setPlan] = useState<any>(null);
   const [receipt, setReceipt] = useState<any>(null);
@@ -140,7 +162,7 @@ function StandardInstancePanel({
     cancel();
     setPlan(null);
     setAllocated(false);
-    setNewInstance("");
+    setInstanceDraft({ key: draftKey, text: drafts?.get(draftKey) ?? "" });
     setTarget({
       address: defaultAddress,
       device: defaultDevice,
@@ -148,7 +170,7 @@ function StandardInstancePanel({
       dnet: defaultDnet == null ? "" : String(defaultDnet),
     });
     setHydratedDefaults(defaultsIdentity);
-  }, [defaultsIdentity]);
+  }, [defaultsIdentity, draftKey, drafts]);
   useEffect(() => {
     if (!plan) return;
     setNow(Date.now());
