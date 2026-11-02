@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, apiBlobDocument, saveBlob } from "./api";
+import { NativeBackupIntegrity } from "./NativeBackupIntegrity";
 import "./native-backup-library.css";
 
 type Data = Record<string, any>;
@@ -49,6 +50,7 @@ export function NativeBackupLibrary() {
     [selection, setSelection] = useState(""),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
+    [storageOpen, setStorageOpen] = useState(false),
     [busy, setBusy] = useState(false);
   const key = JSON.stringify([state, query, offset]);
   const alive = useRef(false),
@@ -271,6 +273,13 @@ export function NativeBackupLibrary() {
         </p>
       )}
       {message && <p role="status">{message}</p>}
+      <details
+        onToggle={(event) => setStorageOpen(event.currentTarget.open)}
+        aria-label="Backup storage diagnostics"
+      >
+        <summary>Check backup storage</summary>
+        {storageOpen && <NativeBackupIntegrity />}
+      </details>
       {data && (
         <>
           <p>

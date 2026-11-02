@@ -1254,6 +1254,11 @@ class NativeApplications:
 
 
 def native_application_router(service):
+    from .native_backup_integrity import (
+        BackupIntegrityCheck,
+        BackupStorageQuery,
+        NativeBackupIntegrity,
+    )
     from .native_backup_lifecycle import (
         BackupLibraryQuery,
         BackupLifecycleChange,
@@ -1262,6 +1267,15 @@ def native_application_router(service):
 
     router = APIRouter(prefix="/api/bacnet/controller/native-application")
     library = NativeBackupLifecycle(service.storage)
+    integrity = NativeBackupIntegrity(service.storage)
+
+    @router.post("/backup-library/storage-inventory")
+    def inspect_backup_storage(body: BackupStorageQuery):
+        return integrity.inventory(body.model_dump())
+
+    @router.post("/backup-library/check-originals")
+    def check_backup_originals(body: BackupIntegrityCheck):
+        return integrity.check(body.model_dump())
 
     @router.post("/backup-library/list")
     def list_backups(body: BackupLibraryQuery):

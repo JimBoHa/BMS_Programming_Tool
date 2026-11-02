@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-01. Implementation baseline: GitHub `main` at
-[`d0b13057`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/d0b13057f899052427c460b01cc94ad4798c20dd).
+[`9c56c39d`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/9c56c39d75861a16da13c767bb3230ced4788cb9).
 
 ## Baseline and purpose
 
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 182 scoped criteria: 128
+The public requirement register currently records 183 scoped criteria: 129
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -84,6 +84,12 @@ verified Apply or explicit readback clears only its matching completed proposal.
 This is in-memory workspace retention, not durable draft storage across reloads.
 
 ## Existing capabilities to preserve and credit
+
+[Read-only native backup integrity diagnostics](docs/native-backup-integrity.md)
+now expose damaged/unpublished storage entries independently of the ordinary
+catalog and check selected original file sizes/hashes. They retain all originals,
+quotas, receipts and source eligibility checks. A local hash match is not program
+validation, an atomic snapshot or controller restore acceptance.
 
 | Existing scope | Baseline to retain | Remaining boundary |
 | --- | --- | --- |
