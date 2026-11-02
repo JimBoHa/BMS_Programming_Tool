@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-02. Implementation baseline: GitHub `main` at
-[`ed84391d`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/ed84391db3ec860d398ece7b26dcca9e326ad39a).
+[`cae18c3d`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/cae18c3d01c495b2c9957dea8635f172ab2f1ea2).
 
 ## Baseline and purpose
 
@@ -89,8 +89,12 @@ This is in-memory workspace retention, not durable draft storage across reloads.
 source-bound raw exception text after reload. Strict file/source/buffer checks,
 explicit replacement refusal and existing no-eviction workspace limits preserve
 partial numeric/time/String/date work without creating native or field authority.
-File provenance stays separate from reviewed encoding proof. Other draft-family
-raw recovery remains a separate planned workflow.
+File provenance stays separate from reviewed encoding proof. Separately qualified
+[numeric/String weekly recovery](docs/unfinished-weekly-recovery.md) and
+[Calendar text recovery](docs/unfinished-calendar-recovery.md) now preserve their
+own exact source-bound raw buffers after reload. They retain existing workspace
+limits, require explicit discard before replacement and never restore review or
+field authority. Identity raw recovery remains a separate planned workflow.
 
 [Native review cancellation](docs/native-review-cancellation.md) now retires owned
 completed Calendar and numeric/String weekly reviews, including weekly workspace
