@@ -9,7 +9,10 @@ import { sha256Blob } from "./activityContracts";
 import { NativeBooleanTransferContext } from "./NativeBooleanTransferContext";
 import type { NativeArchiveSource } from "./NativeRecords";
 import { enumCode, rememberEnumText } from "./nativeEnumCopyWork";
+import { NativeEffectiveEnumCopy } from "./NativeEffectiveEnumCopy";
+import type { EnumArchiveField } from "./nativeEnumEffective";
 import "./native-enum-copy.css";
+import "./native-effective-enum.css";
 
 const base = "/bacnet/controller/native-application/inspection/enum-default";
 const drafts = new Map<string, string>();
@@ -17,7 +20,37 @@ const capacity =
   "Local Enum work is full (128 fields). Reopen an earlier field and discard its local Enum draft before editing another.";
 const hash = (v: unknown) => typeof v === "string" && /^[a-f0-9]{64}$/.test(v);
 
-export function NativeEnumDefaultCopy({
+export function NativeEnumDefaultCopy(props: {
+  source: NativeArchiveSource;
+  field: EnumArchiveField;
+}) {
+  const [mode, setMode] = useState("archive");
+  const fieldBusy =
+    useContext(NativeBooleanTransferContext)?.fieldBusy ?? false;
+  return (
+    <div className="native-enum-source-mode">
+      <label>
+        Enum default source
+        <select
+          aria-label="Enum default source"
+          value={mode}
+          disabled={fieldBusy}
+          onChange={(event) => setMode(event.target.value)}
+        >
+          <option value="archive">Original archive value</option>
+          <option value="effective">Merge retained saved settings</option>
+        </select>
+      </label>
+      {mode === "archive" ? (
+        <NativeEnumArchiveCopy key="archive" {...props} />
+      ) : (
+        <NativeEffectiveEnumCopy key="effective" {...props} />
+      )}
+    </div>
+  );
+}
+
+function NativeEnumArchiveCopy({
   source,
   field,
 }: {

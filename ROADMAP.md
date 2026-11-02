@@ -365,7 +365,7 @@ hardware reassignment remain separate. JCI-03 and JCI-09 remain partial overall.
 | JCI-02 | Extend real CAF/MOI inspection and loss-preserving editable intermediate representation | Program | Partial: [actual MOI/MOZ reading](docs/moz-application-reading.md), [native record explorer](docs/native-record-explorer.md), [Boolean archive copies](docs/native-boolean-default-copies.md) and [effective Boolean compilation](docs/native-effective-boolean-compiler.md) expose recorded properties, exact bytes and scoped typed local edits. [Existing-wire source copies](docs/native-wire-source-copies.md) preserve the remaining expanded bytes, identities, ports, targets, order and layout. [Retained backup comparison](docs/native-backup-comparison.md) separately preserves original file, recognized engineering-property and unaligned metadata evidence without field queries. Continue the broader editable representation, units and typed golden edits; no general logic generation is inferred |
 | JCI-03 | Implement general native logic authoring: typed parameters, new block identities, links, ordering and full compile/resource validation | Program / Library | Partial: [existing-wire source archive copies](docs/native-wire-source-copies.md) change one observed source index within the original width and independently reparse/preserve the remaining graph bytes. [Effective wire compilation](docs/native-effective-wire-compiler.md) separately merges retained saved settings before that edit and guards original graph structure. [Existing-wire transfer](docs/native-wire-source-transfer.md) separately guards fresh selected configuration and verifies full native/effective readback. Continue full-program transfer, broader typed authoring/new identities and full resource/package/runtime validation; no general compiler or physical acceptance is inferred |
 | JCI-04 | Extend FX/Metasys and cross-release conversion with explicit semantics and package migrations | Program → conversion review | Every supported source/target pair has a loss report and round-trip/behavior evidence; reject unresolved semantics instead of dropping logic |
-| JCI-05 | Implement executable native Enum/reliability/type mappings and restart/retention rules | Program / Library | Partial groundwork: [original native Enum code copies](docs/native-enum-default-copies.md) preserve typing, widths and captured metadata; [CAF Enum default copies](docs/caf-enum-default-copies.md) preserve original set references and share the scalar change workflow. Verify set membership, executable codes, fallback, units, precision, reliability and state/restart behavior separately; labels or manual named sets alone do not supply native numeric bindings |
+| JCI-05 | Implement executable native Enum/reliability/type mappings and restart/retention rules | Program / Library | Partial groundwork: [original native Enum code copies](docs/native-enum-default-copies.md), [local effective Enum compilation](docs/native-effective-enum-compiler.md) and [CAF Enum default copies](docs/caf-enum-default-copies.md) preserve typing, source metadata and actual captured numeric capacity. Verify set membership, executable codes, fallback, units, precision, reliability and state/restart behavior separately; labels or manual named sets alone do not supply native numeric bindings |
 | JCI-06 | Add versioned package provenance, native schema migrations and destination resource accounting | Settings / Program validation | Source/package/runtime compatibility and actual RAM/flash/scan/I/O limits are explicit; no silent hardware-definition substitution |
 | JCI-07 | Associate a local CAF/project with a connected application using actual identity and compatibility evidence | Program / Changes | Partial: [original CAF/native identity comparison](docs/caf-native-source-correlation.md) and [retained File comparison](docs/caf-native-file-correlation.md) retain actual root/record IDs, separate source families, source/route/coverage and contradictions without granting full program or compiler equivalence. Continue semantic/package compatibility and persistent association; local files never supply live data implicitly |
 
@@ -654,3 +654,18 @@ This is a local numeric code copy. Membership, meaning, executable mappings,
 Enum simulation, native compilation, field transfer and CCT/physical acceptance
 remain separate work. JCI-02/JCI-03/JCI-05 stay partial overall. See
 [the supported profile and qualification](docs/caf-enum-default-copies.md).
+
+## 2026-11-02 JCI-02/JCI-03/JCI-05/JCI-09 delivery: local effective Enum compilation
+
+`FMT-NATIVE-EFFECTIVE-ENUM-COMPILE-001` merges identity-qualified retained saved
+settings before changing one existing class 528/529 Enum default. Original and
+merged values stay separate; an actual fixed Enum slot supplies its numeric
+capacity, with no capacity or domain selected from a model name. The compiler
+preserves other merged native bytes and all original backup files.
+
+The existing record editor gains an explicit source mode, independent unfinished
+raw text and source-bound review/artifact downloads. No connection is required.
+Enum meaning/membership, executable mappings, general native compilation and
+Enum field transfer remain separate. The generic operation table still needs
+an effective-Enum row. These JCI roadmap groups remain partial overall. See
+[the compiler profile](docs/native-effective-enum-compiler.md).
