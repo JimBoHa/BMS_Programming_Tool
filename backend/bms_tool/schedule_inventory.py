@@ -314,6 +314,7 @@ class ScheduleInventory:
                         if options.object_list_offset > count:
                             raise ValueError("Object_List offset exceeds its current native count.")
                         last = options.object_list_offset
+                        inventory["next_offset"] = last if last < count else None
                         for index in range(
                             last + 1, min(int(count), last + options.object_list_limit) + 1
                         ):
@@ -322,6 +323,10 @@ class ScheduleInventory:
                             )
                             inventory["entries"].append(row)
                             last = index
+                            # Publish progress before the next await. A finite
+                            # deadline or cancellation must retain a resumable
+                            # cursor, including when no schedules were found yet.
+                            inventory["next_offset"] = last if last < count else None
                             if (
                                 isinstance(obj, ObjectIdentifier)
                                 and int(obj[0]) in (6, 17)

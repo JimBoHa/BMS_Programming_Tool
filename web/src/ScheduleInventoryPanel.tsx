@@ -598,12 +598,29 @@ export function ScheduleInventoryPanel({
             <pre>{JSON.stringify(report.errors, null, 2)}</pre>
           )}
           {report.inventory?.next_offset != null && (
-            <p>
-              Object_List page incomplete. Next offset:{" "}
-              <strong>{report.inventory.next_offset}</strong>. Enter that offset
-              and explicitly read another page; this does not freeze a coherent
-              snapshot.
-            </p>
+            <div>
+              <p>
+                Object_List page incomplete. Next offset:{" "}
+                <strong>{report.inventory.next_offset}</strong>. Prepare that
+                offset, then explicitly read another page. Reduce the page limit
+                if the response budget expires. Pages are separate observations.
+              </p>
+              <button
+                disabled={
+                  !connected ||
+                  busy ||
+                  !report.identity_verified ||
+                  report.target.address !== address.trim() ||
+                  report.target.device !== device.trim() ||
+                  (report.target.router ?? null) !== (router.trim() || null) ||
+                  (report.target.dnet ?? null) !==
+                    (dnet.trim() ? Number(dnet) : null)
+                }
+                onClick={() => setOffset(String(report.inventory.next_offset))}
+              >
+                Prepare next Object_List page
+              </button>
+            </div>
           )}
           {(report.objects || []).map((obj: any) => (
             <details key={obj.object} open>

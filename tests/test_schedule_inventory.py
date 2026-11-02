@@ -43,6 +43,7 @@ class SchedulePeer(asyncio.DatagramProtocol):
         self.requests, self.errors, self.tasks = [], [], set()
         self.entered, self.release = asyncio.Event(), asyncio.Event()
         self.hold_property = None
+        self.hold_reference = None
         self.drop_reference = None
         self.corrupt_property = None
         self.rogue = None
@@ -146,7 +147,11 @@ class SchedulePeer(asyncio.DatagramProtocol):
             self.requests.append((str(obj), prop, index))
             if (str(obj), prop, index) == self.drop_reference:
                 return
-            if self.behavior == "hold" or prop == self.hold_property:
+            if (
+                self.behavior == "hold"
+                or prop == self.hold_property
+                or (str(obj), prop, index) == self.hold_reference
+            ):
                 self.entered.set()
                 await self.release.wait()
             if prop == self.corrupt_property and self.behavior == "timeout":
@@ -402,6 +407,46 @@ async def test_discovery_pages_are_explicit_and_references_not_crawled(link):
     assert second["inventory"]["next_offset"] == 4
     assert [o["object"] for o in second["objects"]] == ["schedule,1"]
     assert not any(obj == "device,77" for obj, _, _ in peer.requests)
+    retired(client)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("interruption", ["deadline", "cancel"])
+async def test_interrupted_discovery_retains_last_completed_cursor(link, interruption):
+    peer, client, service = link
+    peer.hold_reference = ("device,42", "object-list", 3)
+    service.timeout = 0.5
+    service.operation_timeout = 0.15 if interruption == "deadline" else 3
+    task = asyncio.create_task(service.read(**options(peer, object_ids=None)))
+    await asyncio.wait_for(peer.entered.wait(), 1)
+    if interruption == "cancel":
+        service.cancel("schedule_test_operation")
+    report = await task
+    assert report["status"] == ("timeout" if interruption == "deadline" else "cancelled")
+    assert report["inventory"]["next_offset"] == 2
+    assert len(report["inventory"]["entries"]) == 2
+    assert not report["complete"] and not report["inventory"]["complete"]
+    verify_hash(report)
+    requests = len(peer.requests)
+    await asyncio.sleep(0.02)
+    assert len(peer.requests) == requests  # No automatic page/retry.
+    peer.hold_reference = None
+    peer.release.set()
+    service.operation_timeout = 3
+    resumed = await service.read(
+        **options(
+            peer,
+            operation_id="explicit_resume_page",
+            object_ids=None,
+            object_list_offset=report["inventory"]["next_offset"],
+        )
+    )
+    assert resumed["inventory"]["entries"][0]["array_index"] == 3
+    assert resumed["inventory"]["next_offset"] is None
+    assert {o["object"] for o in resumed["objects"]} == {
+        "calendar,1", "schedule,1", "calendar,2"
+    }
+    verify_hash(resumed)
     retired(client)
 
 
