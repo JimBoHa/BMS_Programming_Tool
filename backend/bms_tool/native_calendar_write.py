@@ -103,6 +103,46 @@ class CalendarReconcile(CalendarAction):
     receipt_id: str = Field(pattern=r"^[0-9a-f]{32}$", strict=True)
 
 
+def qualify_calendar_ranges(entries):
+    """Qualify new field values; old local encodings and readback stay readable.
+
+    BACnet DateRange endpoints are specific dates or wholly unspecified dates.
+    Date/WeekNDay patterns retain their separate, broader native choices. This
+    enforces the existing standard-Calendar write scope without changing sealed
+    local encodings, journal formats or the rules used by older readback records.
+    """
+    for index, entry in enumerate(entries, 1):
+        if entry["kind"] != "dateRange":
+            continue
+        endpoints = []
+        for side in ("start", "end"):
+            fields = entry[side]
+            message = (
+                f"Calendar date range entry {index} {side} requires a fully specified "
+                "date with its matching weekday, or Any in all four fields."
+            )
+            if (
+                type(fields) is not list
+                or len(fields) != 4
+                or any(type(value) is not int for value in fields)
+            ):
+                raise ValueError(message)
+            if fields == [255, 255, 255, 255]:
+                endpoints.append(None)
+                continue
+            if not 0 <= fields[0] <= 254:
+                raise ValueError(message)
+            try:
+                endpoint = datetime(1900 + fields[0], fields[1], fields[2]).date()
+            except (ValueError, OverflowError) as error:
+                raise ValueError(message) from error
+            if fields[3] != endpoint.isoweekday():
+                raise ValueError(message)
+            endpoints.append(endpoint)
+        if all(value is not None for value in endpoints) and endpoints[0] > endpoints[1]:
+            raise ValueError(f"Calendar date range entry {index} starts after its end date.")
+
+
 class CalendarWriteJournal:
     """Bounded durable intent/result rows; no eviction or implicit deletion."""
 
@@ -527,6 +567,7 @@ class NativeCalendarWrites:
 
     @staticmethod
     def _request(review, destination):
+        qualify_calendar_ranges(review["new"]["entries"])
         tags = TagList.decode(PDU(bytes.fromhex(review["new"]["encoded_hex"])))
         value = DATE_LIST.decode(tags)
         if tags or bytes(value.encode().encode().pduData).hex() != review["new"]["encoded_hex"]:
@@ -547,6 +588,10 @@ class NativeCalendarWrites:
         review, captured, target = self._reference(
             options.draft.model_dump(), options.expected_review_id
         )
+        # Refuse an invalid proposal before fresh field reads or plan allocation.
+        # Reconcile intentionally uses the historical reference without new-write admission.
+        if review["diff"]["changed"]:
+            qualify_calendar_ranges(review["new"]["entries"])
         body = {
             "id": secrets.token_hex(16),
             "profile": PROFILE,
@@ -584,17 +629,10 @@ class NativeCalendarWrites:
                         raise ValueError(
                             "Captured Calendar configuration changed; capture and draft again."
                         )
-                    request, size = self._request(review, session["target"])
                     body.update(
-                        request_apdu_bytes=size,
-                        request_service_body_hex=bytes(request.encode().pduData).hex(),
                         capabilities=capabilities,
                         static_native_sha256=digest(static),
                     )
-                    if size > capabilities["remote_max_apdu"]:
-                        raise ValueError(
-                            "Calendar replacement exceeds the remote APDU limit; no split or segmentation is attempted."
-                        )
                     if not review["diff"]["changed"]:
                         body.update(
                             status="no_change",
@@ -603,6 +641,15 @@ class NativeCalendarWrites:
                             ],
                         )
                     else:
+                        request, size = self._request(review, session["target"])
+                        body.update(
+                            request_apdu_bytes=size,
+                            request_service_body_hex=bytes(request.encode().pduData).hex(),
+                        )
+                        if size > capabilities["remote_max_apdu"]:
+                            raise ValueError(
+                                "Calendar replacement exceeds the remote APDU limit; no split or segmentation is attempted."
+                            )
                         for old, plan in list(self.plans.items()):
                             if (
                                 plan["body"]["target"] == body["target"]

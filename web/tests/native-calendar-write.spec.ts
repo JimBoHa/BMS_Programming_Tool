@@ -689,7 +689,7 @@ for (const revision of [18, 17])
         for (const [part, value] of [
           ["month", "11"],
           ["day", day],
-          ["weekday", "*"],
+          ["weekday", side === "start" ? "1" : "3"],
         ])
           await editor
             .getByLabel(`Calendar entry 2 ${side} ${part}`, { exact: true })
@@ -744,9 +744,151 @@ for (const revision of [18, 17])
           }),
         ).toContainText("matched at readback");
         expect((await peer.stats()).values).toEqual([
-          "0c7e0b02ff1ea47e0b02ffa47e0b04ff1f2bff0701",
+          "0c7e0b02ff1ea47e0b0201a47e0b04031f2bff0701",
         ]);
       }
+    } finally {
+      await peer.close();
+    }
+  });
+
+for (const routed of [false, true])
+  test(`${routed ? "routed" : "direct"} Calendar range refusal preserves local work, then a corrected range deploys once`, async ({
+    page,
+    request,
+  }, info) => {
+    const { peer, panel, editor } = await setup(page, request, routed);
+    try {
+      await editor
+        .getByLabel("Calendar entry 1 type", { exact: true })
+        .selectOption("dateRange");
+      for (const [side, year, month, day, weekday] of [
+        ["start", "*", "1", "1", "*"],
+        ["end", "2026", "11", "4", "3"],
+      ]) {
+        await editor
+          .getByLabel(`Calendar entry 1 ${side} year`, { exact: true })
+          .fill(year);
+        for (const [part, value] of [
+          ["month", month],
+          ["day", day],
+          ["weekday", weekday],
+        ])
+          await editor
+            .getByLabel(`Calendar entry 1 ${side} ${part}`, { exact: true })
+            .selectOption(value);
+      }
+      await expect(editor).toContainText(
+        "fully specify each endpoint and its matching weekday",
+      );
+      await editor
+        .getByRole("button", { name: "Review Calendar dates", exact: true })
+        .click();
+      await expect(
+        editor.getByLabel("Calendar date draft review", { exact: true }),
+      ).toBeVisible();
+      const saving = page.waitForEvent("download");
+      await editor
+        .getByRole("button", {
+          name: "Export reviewed Calendar draft",
+          exact: true,
+        })
+        .click();
+      const saved = JSON.parse(
+        readFileSync((await (await saving).path())!).toString(),
+      );
+      expect(saved.request.entries).toEqual([
+        { kind: "dateRange", start: [255, 1, 1, 255], end: [126, 11, 4, 3] },
+      ]);
+      const before = await peer.stats(),
+        journal = (await (await request.get(base + "/profile")).json()).journal;
+      const rejected = page.waitForResponse((r) =>
+        r.url().endsWith(base + "/preview"),
+      );
+      await panel
+        .getByRole("button", {
+          name: "Review Calendar controller change",
+          exact: true,
+        })
+        .click();
+      expect((await rejected).status()).toBe(422);
+      await expect(panel).toContainText(
+        "entry 1 start requires a fully specified date",
+      );
+      await expect(
+        panel.getByRole("button", {
+          name: "Apply Calendar dates",
+          exact: true,
+        }),
+      ).toHaveCount(0);
+      const refused = await peer.stats();
+      expect(refused.reads).toBe(before.reads);
+      expect(refused.writes).toBe(0);
+      expect(
+        (await (await request.get(base + "/profile")).json()).journal,
+      ).toEqual(journal);
+      await chooseWorkspaceTask(page, "Program");
+      await chooseWorkspaceTask(page, "Schedules");
+      await expect(
+        editor.getByLabel("Calendar entry 1 start year", { exact: true }),
+      ).toHaveValue("*");
+      await editor
+        .getByLabel("Calendar entry 1 start year", { exact: true })
+        .fill("2026");
+      for (const [part, value] of [
+        ["month", "11"],
+        ["day", "2"],
+        ["weekday", "1"],
+      ])
+        await editor
+          .getByLabel(`Calendar entry 1 start ${part}`, { exact: true })
+          .selectOption(value);
+      await editor
+        .getByRole("button", { name: "Review Calendar dates", exact: true })
+        .click();
+      await expect(
+        editor.getByLabel("Calendar date draft review", { exact: true }),
+      ).toBeVisible();
+      await panel
+        .getByRole("button", {
+          name: "Open Calendar deployment and receipts",
+          exact: true,
+        })
+        .click();
+      await panel
+        .getByLabel("Declared Calendar operator", { exact: true })
+        .fill("Authored operator");
+      await panel
+        .getByLabel("Calendar change rationale", { exact: true })
+        .fill("Corrected range qualification");
+      await preview(panel);
+      await panel
+        .getByRole("button", { name: "Apply Calendar dates", exact: true })
+        .click();
+      await expect(
+        panel.getByRole("region", {
+          name: "Calendar transfer receipt",
+          exact: true,
+        }),
+      ).toContainText("matched at readback");
+      expect((await peer.stats()).values).toEqual(["1ea47e0b0201a47e0b04031f"]);
+      await page.setViewportSize({ width: 390, height: 1100 });
+      const caption = editor
+        .locator("caption")
+        .filter({ hasText: "Local Calendar entries" });
+      await caption.scrollIntoViewIfNeeded();
+      const captionBox = await caption.boundingBox();
+      expect(captionBox!.width).toBeGreaterThan(200);
+      expect(captionBox!.height).toBeLessThan(60);
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+      await page.screenshot({
+        path: info.outputPath("qualified-calendar-range-phone.png"),
+        fullPage: true,
+      });
     } finally {
       await peer.close();
     }

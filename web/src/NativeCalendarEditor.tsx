@@ -497,6 +497,11 @@ export function NativeCalendarEditor({
                               />
                             ) : row.kind === "dateRange" ? (
                               <>
+                                <p className="help-text">
+                                  For controller deployment, fully specify each
+                                  endpoint and its matching weekday, or choose
+                                  Any in all four fields.
+                                </p>
                                 <DateFields
                                   label={label + " start"}
                                   value={row.start}

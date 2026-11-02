@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-02. Implementation baseline: GitHub `main` at
-[`0ba84716`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/0ba847165e227351ea4cd6cf18d8786200813a0c).
+[`1709961b`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/1709961bfc4a4be4d8c58a51b768134bd38059d0).
 
 ## Baseline and purpose
 
@@ -84,6 +84,13 @@ verified Apply or explicit readback clears only its matching completed proposal.
 This is in-memory workspace retention, not durable draft storage across reloads.
 
 ## Existing capabilities to preserve and credit
+
+[Calendar range admission](docs/native-calendar-date-ranges.md) now distinguishes
+fully specified or wholly unspecified DateRange endpoints from broader Date
+patterns before new field review and request encoding. Invalid new ranges create
+no field reads or write authority. Original sources, local exports, no-change
+observation and historical receipt readback remain useful without granting a new
+write. This does not complete exception editing or schedule evaluation.
 
 [Native identity draft capacity](docs/native-identity-draft-capacity.md) now
 retains unfinished name/instance contexts without evicting earlier work. Empty

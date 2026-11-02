@@ -12,6 +12,9 @@ static-context, protocol-revision and request-size checks. A qualified review
 offers **Apply Calendar dates** for one complete Date_List replacement. A no-op,
 stale source or unsupported target receives a reason instead of Apply authority.
 The operator and rationale are user declarations, not authenticated site identity.
+DateRange endpoints have a separate [field admission check](native-calendar-date-ranges.md).
+The range editor explains fully specified dates and wholly unspecified endpoints;
+local encoding/export alone does not qualify a range for controller deployment.
 
 Apply consumes its local authority before the request begins. The existing
 [`native-calendar-reviewed-date-list-write/1` backend](native-calendar-write.md)
@@ -56,7 +59,8 @@ rewind, source A→B→A, visibility, task navigation, interrupted-intent recove
 named cancellation, no-op proposals and exact original receipt exports. Compact
 and desktop layouts retain the existing teal workspace and labelled controls.
 
-The production backend and previous weekly/String authorities remain unchanged.
+Previous weekly/String authorities remain unchanged. Calendar's additional
+range admission preserves existing local seals and historical receipt readback.
 This profile edits one existing standard Calendar's whole Date_List on plain
 IPv4, direct or through an explicit BACnet router. It does not create objects,
 edit exceptions or schedule links, evaluate timezones, compile CAF applications
