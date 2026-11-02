@@ -245,6 +245,8 @@ class NativePeer(Application):
 @pytest.fixture
 async def native_link(tmp_path, monkeypatch):
     monkeypatch.setattr("bms_tool.native_applications.RESTORE_PREPARATION_SECONDS", 0.03)
+    monkeypatch.setattr("bms_tool.native_applications.RESTORE_READINESS_SECONDS", 0.15)
+    monkeypatch.setattr("bms_tool.native_applications.RESTORE_READINESS_INTERVAL", 0.01)
     remote = port()
     peer = NativePeer.from_object_list(
         [
@@ -711,3 +713,87 @@ async def test_cancel_during_storage_preparation_preserves_pending_without_sendi
     assert ("state", "start-restore") in peer.events
     assert not any(e[0] in ("write", "early-block") for e in peer.events)
     assert ("state", "end-restore") not in peer.events
+
+
+@pytest.mark.parametrize("renaming", [False, True])
+async def test_post_restore_read_timeouts_wait_without_repeating_the_transfer(
+    native_link, renaming
+):
+    peer, _, _, service, target = native_link
+    if renaming:
+        capture = await service.capture(**target, operation_id="readiness-capture")
+        plan = await service.preview(
+            **target,
+            operation_id="readiness-preview",
+            capture_id=capture["id"],
+            new_instance=5136,
+            new_name="Readiness test",
+        )
+    else:
+        _, plan = await review(native_link)
+    original = service.restore_readiness_probe
+    calls = []
+
+    async def rebooting(session, intent):
+        calls.append(True)
+        if len(calls) < 3:
+            observation = {"status": "unconfirmed", "errors": ["Authored reboot timeout"]}
+            return observation, {"identity_status": "unconfirmed", "errors": observation["errors"]}
+        return await original(session, intent)
+
+    service.restore_readiness_probe = rebooting
+    request = {**apply_request(plan), "name_change_confirmed": renaming}
+    result = await service.apply(**request)
+    assert result["result"]["status"] == "verified", result
+    readiness = result["result"]["restore_readiness"]
+    assert readiness["ready"] and readiness["read_only"]
+    assert [a["identity_status"] for a in readiness["attempts"]] == [
+        "unconfirmed",
+        "unconfirmed",
+        "verified_new",
+    ]
+    assert peer.events.count(("state", "start-restore")) == 1
+    assert peer.events.count(("state", "end-restore")) == 1
+    writes = [e[2] for e in peer.events if e[0] == "write"]
+    assert len(set(writes)) == len(writes)
+    assert len([e for e in result["events"] if e["stage"] == "restore-readiness-read"]) == 3
+
+
+async def test_readiness_timeout_keeps_receipt_pending_without_entering_another_backup(native_link):
+    peer, _, _, service, _ = native_link
+    _, plan = await review(native_link)
+
+    async def unavailable(session, intent):
+        await asyncio.sleep(1)
+        raise AssertionError("Readiness must cancel this read on its deadline")
+
+    service.restore_readiness_probe = unavailable
+    result = await service.apply(**apply_request(plan))
+    assert result["pending"] and result["result"]["status"] == "unknown"
+    assert not result["result"]["restore_readiness"]["ready"]
+    assert "deadline" in result["result"]["restore_readiness"]["attempts"][-1]["errors"][0]
+    last_restore = peer.events.index(("state", "end-restore"))
+    assert not any(e[0] in ("state", "write") for e in peer.events[last_restore + 1 :])
+    with pytest.raises(ValueError, match="pending|unresolved"):
+        await service.capture(
+            address=plan["target"]["address"],
+            device="device,5336",
+            operation_id="blocked-after-readiness",
+        )
+
+
+async def test_different_identity_stops_readiness_without_waiting_or_reading_files(native_link):
+    peer, _, _, service, _ = native_link
+    _, plan = await review(native_link)
+
+    async def mismatch(session, intent):
+        return {"status": "identity_mismatch", "errors": []}, {
+            "identity_status": "identity_mismatch",
+            "errors": [],
+        }
+
+    service.restore_readiness_probe = mismatch
+    result = await service.apply(**apply_request(plan))
+    assert result["pending"] and result["result"]["status"] == "unknown"
+    assert len(result["result"]["restore_readiness"]["attempts"]) == 1
+    assert peer.events[-1] == ("state", "end-restore")
