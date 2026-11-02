@@ -58,8 +58,9 @@ Acknowledgement alone does not establish verification. Lost acknowledgements,
 cancellation after dispatch, unavailable readback or mismatches retain an
 unresolved receipt and block another write. Readback/reconciliation after restart
 does not replay the application. The original journal and exact review/receipt
-downloads remain available. Previous-Enum-value recovery is a separate future
-operation; this profile adds no automatic rollback or inverse write.
+downloads remain available. [Previous-Enum-value recovery](native-enum-default-recovery.md)
+is a separately qualified local proposal and new confirmed transfer; this profile
+adds no automatic rollback or inverse write.
 
 The browser independently checks source/identity, strict numeric codes and native
 tags, captured capacity, saved merge, omitted-field qualification, one-use review,
@@ -75,7 +76,8 @@ Token-admitted native application endpoints are `POST
 `.../apply`; the existing native `readback`, `cancel`, `status`, original backup
 and exact receipt endpoints remain shared. Preview accepts strict source/field/
 integer/target parameters, not labels, Boolean coercions, identity allocation or
-recovery authority. Apply uses the existing two explicit strict confirmations.
+unpaired recovery authority. Paired parent/origin hashes require the separate
+recovery qualification above. Apply uses the existing two explicit strict confirmations.
 Changes lists the recorded operation as **Native Enum code transfer** with its
 record reference; that read-only projection performs no controller request.
 

@@ -28,6 +28,11 @@ import {
   enumTransferReceiptMatches,
 } from "./nativeEnumTransferContract";
 import {
+  enumRecoveryProfile,
+  enumRecoveryEncodingMatches,
+  previousEnumDefaultMatches,
+} from "./nativeEnumRecoveryContract";
+import {
   previousWireSourceMatches,
   wireRecoveryProfile,
   historicalWireRecoveryProfile,
@@ -202,11 +207,15 @@ export function NativeDefaultTransfer({
   }
   useEffect(() => {
     alive.current = true;
+    document.addEventListener("visibilitychange", stopOperation);
+    window.addEventListener("pagehide", stopOperation);
     return () => {
       alive.current = false;
       epoch.current++;
       receiptTicket.current++;
       statusTicket.current++;
+      document.removeEventListener("visibilitychange", stopOperation);
+      window.removeEventListener("pagehide", stopOperation);
       cancel();
       if (operation.current) onBusy(false);
     };
@@ -479,12 +488,11 @@ export function NativeDefaultTransfer({
       operation.current ||
       !source ||
       !receipt ||
-      !onRecoveryPrepared ||
-      enumDefault
+      !onRecoveryPrepared
     )
       return;
     if (
-      booleanDefault &&
+      (booleanDefault || enumDefault) &&
       receipt.data.intent?.default_edit?.record_ref !== field?.ref
     )
       return;
@@ -511,7 +519,9 @@ export function NativeDefaultTransfer({
             ? "/wire-source/recovery/prepare"
             : booleanDefault
               ? "/boolean-default/recovery/prepare"
-              : "/signal-default/recovery/prepare"),
+              : enumDefault
+                ? "/enum-default/recovery/prepare"
+                : "/signal-default/recovery/prepare"),
         {
           receipt_id: receipt.data.intent.id,
           capture_id: source.capture_id,
@@ -519,6 +529,8 @@ export function NativeDefaultTransfer({
         },
       );
       if (
+        (enumDefault &&
+          !(await enumRecoveryEncodingMatches(document.data, field!))) ||
         (wireSource &&
           document.data.profile === historicalWireRecoveryProfile &&
           status?.historical_wire_pin_recovery_profile !==
@@ -537,7 +549,14 @@ export function NativeDefaultTransfer({
                 receipt.data,
                 field!,
               )
-            : previousRealDefaultMatches(document.data, source, receipt.data))
+            : enumDefault
+              ? previousEnumDefaultMatches(
+                  document.data,
+                  source,
+                  receipt.data,
+                  field!,
+                )
+              : previousRealDefaultMatches(document.data, source, receipt.data))
       )
         throw new Error(
           "The previous-value proposal does not match this receipt and retained source.",
@@ -981,7 +1000,7 @@ export function NativeDefaultTransfer({
                   : "Read back native default transfer"}
               </button>
             )}
-            {onRecoveryPrepared && !enumDefault && (
+            {onRecoveryPrepared && (
               <button
                 disabled={
                   localLocked ||
@@ -998,8 +1017,13 @@ export function NativeDefaultTransfer({
                           booleanRecoveryProfile ||
                         receipt.data.intent?.default_edit?.record_ref !==
                           field?.ref
-                      : status?.real_default_recovery_profile !==
-                        realRecoveryProfile)
+                      : enumDefault
+                        ? status?.enum_default_recovery_profile !==
+                            enumRecoveryProfile ||
+                          receipt.data.intent?.default_edit?.record_ref !==
+                            field?.ref
+                        : status?.real_default_recovery_profile !==
+                          realRecoveryProfile)
                 }
                 onClick={() => void preparePreviousDefault()}
               >
@@ -1007,11 +1031,13 @@ export function NativeDefaultTransfer({
                   ? "Prepare previous wire source"
                   : booleanDefault
                     ? "Prepare previous Boolean default"
-                    : "Prepare previous Real default"}
+                    : enumDefault
+                      ? "Prepare previous Enum default"
+                      : "Prepare previous Real default"}
               </button>
             )}
           </div>
-          {onRecoveryPrepared && !enumDefault && (
+          {onRecoveryPrepared && (
             <p className="muted">
               Preparation uses this receipt and the selected retained backup
               locally. Read a current backup first when connected. A new review

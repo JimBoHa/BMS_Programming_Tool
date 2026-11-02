@@ -101,6 +101,9 @@ async def main():
   elif line=='enum-restore-zero':
    import types
    app.do_ReinitializeDeviceRequest=types.MethodType(NativePeer.do_ReinitializeDeviceRequest,app);enum_storage(app,value=0)
+  elif line=='enum-restore-513':
+   import types
+   app.do_ReinitializeDeviceRequest=types.MethodType(NativePeer.do_ReinitializeDeviceRequest,app);enum_storage(app,value=513)
   elif line=='point-name-publish-current':
    from tests.test_native_point_names import attach_point_reads
    attach_point_reads(app)

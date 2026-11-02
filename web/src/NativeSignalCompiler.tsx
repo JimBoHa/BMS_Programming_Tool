@@ -47,6 +47,9 @@ export function NativeSignalCompiler({
   const [sources, setSources] = useState<Data[]>([]),
     [choice, setChoice] = useState("");
   const booleanDrafts = useRef(new Map<string, boolean>());
+  const enumRecoveries = useRef(
+    new Map<string, NativeDefaultRecoveryDocument>(),
+  );
   const booleanRecoveries = useRef(
     new Map<string, NativeDefaultRecoveryDocument>(),
   );
@@ -659,6 +662,7 @@ export function NativeSignalCompiler({
           otherOperationBusy: transferBusy,
           recoveryDrafts: booleanRecoveries.current,
           wireRecoveryDrafts: wireRecoveries.current,
+          enumRecoveryDrafts: enumRecoveries.current,
           onBusy: transferBusyChanged,
           onCaptured: (id) => {
             setChoice(id);

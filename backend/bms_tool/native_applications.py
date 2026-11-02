@@ -55,6 +55,8 @@ from .native_default_transfer import (
     compile_default,
     verify_default_preservation,
 )
+from .native_enum_recovery import PROFILE as ENUM_RECOVERY_PROFILE
+from .native_enum_recovery import NativeEnumRecovery
 from .native_enum_transfer import PROFILE as ENUM_DEFAULT_PROFILE
 from .native_enum_transfer import SCOPE as ENUM_DEFAULT_SCOPE
 from .native_enum_transfer import (
@@ -201,6 +203,7 @@ class NativeApplications(NativeInputOperations):
         self.storage = ApplicationStore(store)
         self.default_recovery = NativeDefaultRecovery(NativeBackupRecords(self.storage))
         self.boolean_recovery = NativeBooleanRecovery(NativeBackupRecords(self.storage))
+        self.enum_recovery = NativeEnumRecovery(NativeBackupRecords(self.storage))
         self.wire_recovery = NativeHistoricalWireRecovery(NativeBackupRecords(self.storage))
         self.name_recovery = NativeNameRecovery(NativeBackupRecords(self.storage), self.compile)
         self.point_name_recovery = NativePointNameRecovery(NativeBackupRecords(self.storage))
@@ -225,6 +228,7 @@ class NativeApplications(NativeInputOperations):
             "default_transfer_scope": DEFAULT_SCOPE,
             "real_default_recovery_profile": RECOVERY_PROFILE,
             "boolean_default_recovery_profile": BOOLEAN_RECOVERY_PROFILE,
+            "enum_default_recovery_profile": ENUM_RECOVERY_PROFILE,
             "wire_source_recovery_profile": WIRE_RECOVERY_PROFILE,
             "historical_wire_pin_recovery_profile": HISTORICAL_WIRE_RECOVERY_PROFILE,
             "controller_name_recovery_profile": NAME_RECOVERY_PROFILE,
@@ -897,8 +901,8 @@ class NativeApplications(NativeInputOperations):
             output, compilation = compiler(files, edit)
             if not compilation["selected_edit"]["changed"]:
                 raise ValueError("Choose a different effective native default before transfer.")
-            recovery = (
-                {} if enumerated else self.recovery_origin(options, compilation, boolean=boolean)
+            recovery = self.recovery_origin(
+                options, compilation, boolean=boolean, enumerated=enumerated
             )
             config, app = copy.deepcopy(self.bacnet.config), self.bacnet.require()
             async with self.path._path(options) as session:
@@ -946,11 +950,17 @@ class NativeApplications(NativeInputOperations):
             }
             return self.retain_plan(body, options, app, config)
 
-    def recovery_origin(self, options, compilation, *, boolean=False):
+    def recovery_origin(self, options, compilation, *, boolean=False, enumerated=False):
         """Reconstruct local lineage; a caller-supplied parent is never write authority."""
         if options.recovery_parent_receipt is None:
             return {}
-        service = self.boolean_recovery if boolean else self.default_recovery
+        service = (
+            self.enum_recovery
+            if enumerated
+            else self.boolean_recovery
+            if boolean
+            else self.default_recovery
+        )
         prepared = service.prepare(
             {
                 "receipt_id": options.recovery_parent_receipt,
@@ -961,7 +971,12 @@ class NativeApplications(NativeInputOperations):
         proposal = prepared["proposal"]
         selected = compilation["selected_edit"]
         matches_value = (
-            type(selected.get("after_value")) is bool
+            type(selected.get("after_value")) is int
+            and selected["after_value"] == prepared["origin"]["previous_effective_value"]
+            and compilation["states_text_encoded_sha256"]
+            == prepared["origin"]["states_text_encoded_sha256"]
+            if enumerated
+            else type(selected.get("after_value")) is bool
             and selected["after_value"] is prepared["origin"]["previous_effective_value"]
             if boolean
             else selected["after_bits"] == prepared["origin"]["previous_effective_bits"]
@@ -1558,12 +1573,14 @@ class NativeApplications(NativeInputOperations):
                         )
                     recovery = (
                         {}
-                        if input_edit or enum_edit
+                        if input_edit
                         else self.point_name_recovery_origin(options, compilation)
                         if point_name_edit
                         else self.wire_recovery_origin(options, compilation)
                         if wire_edit
-                        else self.recovery_origin(options, compilation, boolean=boolean_edit)
+                        else self.recovery_origin(
+                            options, compilation, boolean=boolean_edit, enumerated=enum_edit
+                        )
                         if default_edit
                         else self.identity_recovery_origin(options, compilation, files)
                     )
@@ -1632,6 +1649,11 @@ class NativeApplications(NativeInputOperations):
                                     if boolean_edit
                                     else DEFAULT_PROFILE,
                                     "default_change_confirmed": request.default_change_confirmed,
+                                    **(
+                                        {"review_snapshot_sha256": body["snapshot_sha256"]}
+                                        if enum_edit and recovery
+                                        else {}
+                                    ),
                                     **({"enum_semantics_verified": False} if enum_edit else {}),
                                 }
                                 if default_edit
@@ -1917,6 +1939,10 @@ def native_application_router(service):
     @router.post("/enum-default/transfer/apply")
     async def apply_enum_default(body: DefaultTransferApply):
         return await service.apply_enum_default(**body.model_dump())
+
+    @router.post("/enum-default/recovery/prepare")
+    def prepare_enum_recovery(body: DefaultRecoveryPrepare):
+        return service.enum_recovery.prepare(body.model_dump())
 
     @router.post("/wire-source/transfer/preview")
     async def preview_wire(body: WireTransferPreview):

@@ -704,3 +704,22 @@ readback/restart reconciliation without replay. Code meaning, allowed states,
 executable mappings, previous-Enum-value recovery, general logic authoring and
 physical acceptance remain separate. These JCI groups remain partial overall.
 See [the operation's scope and evidence](docs/native-enum-default-transfer.md).
+
+## 2026-11-02 JCI-03/JCI-05/JCI-09 delivery: previous effective Enum code proposals
+
+`COMM-NATIVE-ENUM-DEFAULT-RECOVERY-001` prepares a local previous-code proposal
+from a resolved, historically verified separate Enum-default transfer receipt.
+It reconstructs the original payload and binds the exact current source/identity,
+selected fixed slot, strict codes, actual encoding widths and encoded state
+metadata. Other current saved values remain current; an already-previous source
+creates no Apply proposal. Missing proof, unrelated codes or changed configuration
+refuse preparation without controller queries.
+
+Program retains ordinary raw drafts separately, exports exact proposal JSON and
+requires a new review, both confirmations, fresh pre-intent qualification and
+full readback. Lifecycle/Stop/source changes retire late proposals and reviews
+while preserving dispatched uncertainty. Direct/routed authored software tests
+cover new transfers and restart reconciliation without replay. Common Changes
+lineage projection, historical slot capacity after removal, Enum semantics,
+general native authoring and physical acceptance remain separate. These JCI
+groups remain partial overall. See [the recovery profile](docs/native-enum-default-recovery.md).

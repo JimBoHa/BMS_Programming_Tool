@@ -10,6 +10,7 @@ export const NativeBooleanTransferContext = createContext<{
   otherOperationBusy: boolean;
   recoveryDrafts: Map<string, NativeDefaultRecoveryDocument>;
   wireRecoveryDrafts: Map<string, NativeDefaultRecoveryDocument>;
+  enumRecoveryDrafts: Map<string, NativeDefaultRecoveryDocument>;
   onBusy: (owner: string, busy: boolean) => void;
   onCaptured: (id: string) => void;
 } | null>(null);
