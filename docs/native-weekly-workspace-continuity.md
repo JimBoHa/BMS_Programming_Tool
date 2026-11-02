@@ -48,8 +48,13 @@ retirement. Separate boundary cases verify count/byte refusal, copy isolation an
 explicit discard. Authored direct/routed captures provide actual native source
 evidence; offline navigation adds no field requests.
 
-No production backend, protocol rules, native writer, receipt, source archive or
-visual stylesheet changes. This completes the scoped weekly workspace continuity
+Tables scroll within their own containers on narrow screens. The surrounding
+source labels and actions remain visible; imported hashes stay behind Details.
+Existing styles remain intact, with a scoped library stylesheet containing these
+tables and wrapping original evidence.
+
+No production backend, protocol rules, native writer, receipt or source archive
+changes. This completes the scoped weekly workspace continuity
 idea under SCH-01/UX-01; exception/context/link editing, schedule evaluation,
 native CAF integration, durable unfinished-draft storage and physical acceptance
 remain separate work. The public criterion register is unchanged.

@@ -1,0 +1,17 @@
+.native-schedule-library {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.native-schedule-library .mono,
+.native-schedule-library pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.native-schedule-table-scroll {
+  max-width: 100%;
+  overflow: auto;
+  margin-block: 16px;
+}
+.native-schedule-table-scroll > table {
+  min-width: 560px;
+}

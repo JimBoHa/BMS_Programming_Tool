@@ -22,6 +22,8 @@ import {
   stringDraftReview,
 } from "./nativeScheduleStrings";
 
+import "./native-schedule-library.css";
+
 const BASE = "/bacnet/schedules/library";
 const CAPTURE = "native-calendar-schedule-capture/1";
 const DRAFT = "native-schedule-weekly-day-draft/1";
@@ -668,7 +670,10 @@ export function ScheduleLibraryPanel({
     replaceSelection(capture, nextObject, nextDay);
   }
   return (
-    <section className="card" aria-label="Native Schedule capture library">
+    <section
+      className="card native-schedule-library"
+      aria-label="Native Schedule capture library"
+    >
       <h3>Offline Calendar and Schedule library</h3>
       <p>
         Save native captures, reopen them offline and review Calendar dates or
@@ -731,40 +736,42 @@ export function ScheduleLibraryPanel({
               profile.storage?.platform ||
               "local storage"}
           </p>
-          <table aria-label="Saved native schedule captures">
-            <thead>
-              <tr>
-                <th>Capture</th>
-                <th>Captured target</th>
-                <th>Observed through</th>
-                <th>Origin / status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {profile.captures.map((item: Capture) => (
-                <tr key={item.id}>
-                  <td>
-                    <button
-                      disabled={!!busy}
-                      onClick={() => void open(item.id)}
-                    >
-                      Open capture {item.id.slice(0, 12)}
-                    </button>
-                  </td>
-                  <td>
-                    {item.target.device} at {item.target.address}
-                    {item.target.router
-                      ? ` via ${item.target.router} / ${item.target.dnet}`
-                      : ""}
-                  </td>
-                  <td>{item.finished_at}</td>
-                  <td>
-                    {item.origin} · {item.status}
-                  </td>
+          <div className="native-schedule-table-scroll">
+            <table aria-label="Saved native schedule captures">
+              <thead>
+                <tr>
+                  <th>Capture</th>
+                  <th>Captured target</th>
+                  <th>Observed through</th>
+                  <th>Origin / status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {profile.captures.map((item: Capture) => (
+                  <tr key={item.id}>
+                    <td>
+                      <button
+                        disabled={!!busy}
+                        onClick={() => void open(item.id)}
+                      >
+                        Open capture {item.id.slice(0, 12)}
+                      </button>
+                    </td>
+                    <td>
+                      {item.target.device} at {item.target.address}
+                      {item.target.router
+                        ? ` via ${item.target.router} / ${item.target.dnet}`
+                        : ""}
+                    </td>
+                    <td>{item.finished_at}</td>
+                    <td>
+                      {item.origin} · {item.status}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           <details>
             <summary>Library limits and draft policy</summary>
             <pre>
@@ -939,146 +946,150 @@ export function ScheduleLibraryPanel({
                   stay in memory until this application reloads.
                 </p>
               </details>
-              <table aria-label="Native daily transitions">
-                <thead>
-                  <tr>
-                    <th>Native time (hour / minute / second / hundredth)</th>
-                    <th>Native type</th>
-                    <th>Exact value text</th>
-                    <th>Row</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row, index) => (
-                    <tr key={row.key}>
-                      <td>
-                        <div className="toolbar">
-                          {["Hour", "Minute", "Second", "Hundredth"].map(
-                            (label, field) => (
-                              <input
-                                key={label}
-                                aria-label={`Transition ${index + 1} ${label.toLowerCase()}`}
-                                inputMode="numeric"
-                                size={2}
-                                maxLength={2}
-                                value={row.time[field]}
-                                onChange={(event) =>
-                                  changed(
-                                    rows.map((item) =>
-                                      item.key === row.key
-                                        ? {
-                                            ...item,
-                                            time: item.time.map(
-                                              (value, position) =>
-                                                position === field
-                                                  ? event.target.value
-                                                  : value,
-                                            ),
-                                          }
-                                        : item,
-                                    ),
-                                  )
-                                }
-                              />
-                            ),
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        <select
-                          aria-label={`Transition ${index + 1} native type`}
-                          value={row.native_type}
-                          onChange={(event) =>
-                            changed(
-                              rows.map((item) =>
-                                item.key === row.key
-                                  ? {
-                                      ...item,
-                                      native_type: event.target.value,
-                                      string_json: undefined,
-                                      value_text:
-                                        event.target.value === "Null"
-                                          ? "null"
-                                          : item.value_text === "null"
-                                            ? ""
-                                            : item.value_text,
-                                    }
-                                  : item,
+              <div className="native-schedule-table-scroll">
+                <table aria-label="Native daily transitions">
+                  <thead>
+                    <tr>
+                      <th>Native time (hour / minute / second / hundredth)</th>
+                      <th>Native type</th>
+                      <th>Exact value text</th>
+                      <th>Row</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, index) => (
+                      <tr key={row.key}>
+                        <td>
+                          <div className="toolbar">
+                            {["Hour", "Minute", "Second", "Hundredth"].map(
+                              (label, field) => (
+                                <input
+                                  key={label}
+                                  aria-label={`Transition ${index + 1} ${label.toLowerCase()}`}
+                                  inputMode="numeric"
+                                  size={2}
+                                  maxLength={2}
+                                  value={row.time[field]}
+                                  onChange={(event) =>
+                                    changed(
+                                      rows.map((item) =>
+                                        item.key === row.key
+                                          ? {
+                                              ...item,
+                                              time: item.time.map(
+                                                (value, position) =>
+                                                  position === field
+                                                    ? event.target.value
+                                                    : value,
+                                              ),
+                                            }
+                                          : item,
+                                      ),
+                                    )
+                                  }
+                                />
                               ),
-                            )
-                          }
-                        >
-                          <option value={selected?.native_type}>
-                            {selected?.native_type}
-                          </option>
-                          <option value="Null">Null</option>
-                        </select>
-                      </td>
-                      <td>
-                        {row.native_type === "CharacterString" ? (
-                          <>
-                            <textarea
-                              aria-label={`Transition ${index + 1} CharacterString JSON literal`}
-                              value={
-                                row.string_json ??
-                                JSON.stringify(row.value_text)
-                              }
-                              maxLength={STRING_EDITOR_LENGTH}
-                              rows={2}
-                              onChange={(event) =>
-                                changed(
-                                  rows.map((item) =>
-                                    item.key === row.key
-                                      ? {
-                                          ...item,
-                                          string_json: event.target.value,
-                                        }
-                                      : item,
-                                  ),
-                                )
-                              }
-                            />
-                            <small>
-                              Quoted JSON string; empty is {`""`}. Escapes
-                              preserve CR, LF and NUL. Maximum 256 UTF-8 bytes;
-                              no trimming or Unicode normalization.
-                            </small>
-                          </>
-                        ) : (
-                          <input
-                            aria-label={`Transition ${index + 1} exact value text`}
-                            value={row.value_text}
-                            maxLength={256}
-                            readOnly={row.native_type === "Null"}
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <select
+                            aria-label={`Transition ${index + 1} native type`}
+                            value={row.native_type}
                             onChange={(event) =>
                               changed(
                                 rows.map((item) =>
                                   item.key === row.key
                                     ? {
                                         ...item,
-                                        value_text: event.target.value,
+                                        native_type: event.target.value,
+                                        string_json: undefined,
+                                        value_text:
+                                          event.target.value === "Null"
+                                            ? "null"
+                                            : item.value_text === "null"
+                                              ? ""
+                                              : item.value_text,
                                       }
                                     : item,
                                 ),
                               )
                             }
-                          />
-                        )}
-                      </td>
-                      <td>
-                        <button
-                          onClick={() =>
-                            changed(rows.filter((item) => item.key !== row.key))
-                          }
-                          aria-label={`Remove transition ${index + 1}`}
-                        >
-                          Remove
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                          >
+                            <option value={selected?.native_type}>
+                              {selected?.native_type}
+                            </option>
+                            <option value="Null">Null</option>
+                          </select>
+                        </td>
+                        <td>
+                          {row.native_type === "CharacterString" ? (
+                            <>
+                              <textarea
+                                aria-label={`Transition ${index + 1} CharacterString JSON literal`}
+                                value={
+                                  row.string_json ??
+                                  JSON.stringify(row.value_text)
+                                }
+                                maxLength={STRING_EDITOR_LENGTH}
+                                rows={2}
+                                onChange={(event) =>
+                                  changed(
+                                    rows.map((item) =>
+                                      item.key === row.key
+                                        ? {
+                                            ...item,
+                                            string_json: event.target.value,
+                                          }
+                                        : item,
+                                    ),
+                                  )
+                                }
+                              />
+                              <small>
+                                Quoted JSON string; empty is {`""`}. Escapes
+                                preserve CR, LF and NUL. Maximum 256 UTF-8
+                                bytes; no trimming or Unicode normalization.
+                              </small>
+                            </>
+                          ) : (
+                            <input
+                              aria-label={`Transition ${index + 1} exact value text`}
+                              value={row.value_text}
+                              maxLength={256}
+                              readOnly={row.native_type === "Null"}
+                              onChange={(event) =>
+                                changed(
+                                  rows.map((item) =>
+                                    item.key === row.key
+                                      ? {
+                                          ...item,
+                                          value_text: event.target.value,
+                                        }
+                                      : item,
+                                  ),
+                                )
+                              }
+                            />
+                          )}
+                        </td>
+                        <td>
+                          <button
+                            onClick={() =>
+                              changed(
+                                rows.filter((item) => item.key !== row.key),
+                              )
+                            }
+                            aria-label={`Remove transition ${index + 1}`}
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
               {!rows.length && <p>This proposed day has no transitions.</p>}
               <div className="toolbar">
                 <button
@@ -1138,45 +1149,47 @@ export function ScheduleLibraryPanel({
                     priority, references, effective period and exception context
                     remain bound to this review.
                   </p>
-                  <table aria-label="Requested and encoded native values">
-                    <thead>
-                      <tr>
-                        <th>Native time</th>
-                        <th>Type</th>
-                        <th>Requested text</th>
-                        <th>Wire value text</th>
-                        <th>Precision change</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {review.new.transitions.map(
-                        (item: any, index: number) => (
-                          <tr key={index}>
-                            <td>{item.time.join(":")}</td>
-                            <td>{item.native_type}</td>
-                            <td>
-                              {item.native_type === "CharacterString"
-                                ? JSON.stringify(item.value_text)
-                                : item.value_text}
-                            </td>
-                            <td>
-                              {item.native_type === "CharacterString"
-                                ? JSON.stringify(item.wire_value_text)
-                                : item.wire_value_text}
-                            </td>
-                            <td>
-                              {item.native_type === "CharacterString"
-                                ? "Exact UTF-8 text"
-                                : item.decimal_text_changed ||
-                                    item.binary64_to_wire_changed
-                                  ? "Inspect rounding"
-                                  : "No reported numeric change"}
-                            </td>
-                          </tr>
-                        ),
-                      )}
-                    </tbody>
-                  </table>
+                  <div className="native-schedule-table-scroll">
+                    <table aria-label="Requested and encoded native values">
+                      <thead>
+                        <tr>
+                          <th>Native time</th>
+                          <th>Type</th>
+                          <th>Requested text</th>
+                          <th>Wire value text</th>
+                          <th>Precision change</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {review.new.transitions.map(
+                          (item: any, index: number) => (
+                            <tr key={index}>
+                              <td>{item.time.join(":")}</td>
+                              <td>{item.native_type}</td>
+                              <td>
+                                {item.native_type === "CharacterString"
+                                  ? JSON.stringify(item.value_text)
+                                  : item.value_text}
+                              </td>
+                              <td>
+                                {item.native_type === "CharacterString"
+                                  ? JSON.stringify(item.wire_value_text)
+                                  : item.wire_value_text}
+                              </td>
+                              <td>
+                                {item.native_type === "CharacterString"
+                                  ? "Exact UTF-8 text"
+                                  : item.decimal_text_changed ||
+                                      item.binary64_to_wire_changed
+                                    ? "Inspect rounding"
+                                    : "No reported numeric change"}
+                              </td>
+                            </tr>
+                          ),
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                   <button
                     disabled={exporting || !!busy}
                     onClick={() => void exportDocument("draft")}

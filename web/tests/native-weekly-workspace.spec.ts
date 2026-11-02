@@ -212,6 +212,10 @@ for (const caf of [false, true])
       await expect(raw).toHaveValue('  "unfinished\\u00');
       await page.setViewportSize({ width: 390, height: 1100 });
       await raw.scrollIntoViewIfNeeded();
+      expect(await lib(page).evaluate((e) => e.scrollLeft)).toBe(0);
+      expect(
+        await lib(page).evaluate((e) => e.scrollWidth <= e.clientWidth + 1),
+      ).toBe(true);
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth,
