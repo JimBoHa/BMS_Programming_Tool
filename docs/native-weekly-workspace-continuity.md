@@ -35,12 +35,15 @@ retained source. Existing row and editor-text limits remain unchanged.
 
 **Discard weekly draft** removes only the selected capture/Schedule/day buffer
 and restores its captured seed. Other retained days and imported provenance stay
-available. Exported work remains in the workspace until explicitly discarded;
-export marks that buffer saved without altering its original source.
+available. Exported work remains in the workspace until explicitly discarded.
+Reviewed native export marks that buffer saved without altering its original
+source; unfinished text export preserves its current edited state.
 
 Buffers live in this application's in-memory controller workspace. Export work
-before reloading, restarting or moving computers. Export the original capture
-archive as well as its reviewed draft when transferring work. Durable source
+before reloading, restarting or moving computers. **Weekly workspace draft limits**
+now offers [unfinished text export and import](unfinished-weekly-recovery.md),
+including invalid fields that cannot yet produce a reviewed native draft. Export
+the original capture archive too. Durable source
 captures, receipt journals and existing backend review limits are unchanged.
 
 ## Scope and checks
