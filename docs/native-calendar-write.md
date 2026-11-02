@@ -18,6 +18,12 @@ writers, their journals, rules and limits remain unchanged.
 
 ## Review and dispatch
 
+The [field range qualifier](native-calendar-date-ranges.md) now checks changed
+DateRange endpoints before fresh reads. Specific endpoints require their matching
+weekday; an unspecified endpoint uses Any in all four fields. Existing local
+encoding reviews and historical receipt readback retain their original rules.
+Unchanged legacy values receive no token and construct no write request.
+
 1. Recreate the entire local draft from the immutable original source and verify
    its expected ID. Require exact captured Calendar identifier, name, description,
    Boolean Present_Value and complete canonical Date_List. Missing or unsupported
