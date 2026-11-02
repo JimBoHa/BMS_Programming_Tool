@@ -1636,5 +1636,14 @@
     "pdf_pages_or_section": "docs/native-application-storage.md; docs/portable-storage.md",
     "status": "implemented",
     "implementation_or_gap": "Native reads and exclusive complete-file publication reuse the established safe-file layer. Windows does not require POSIX-only flags or attempt ordinary directory opens; final native handles and retained directory reparse attributes are checked. POSIX keeps directory fsync; Windows explicitly leaves namespace/power-loss durability unverified. Current storage metadata is separate from original manifests and supplies no field authority. Original snapshot formats/seals, quotas, SQLite journal/capacity transactions, compilers and transfer protocols remain unchanged. Physical controllers, BTCVT and whole-state migration remain separate under PORT-01/02/03."
+  },
+  {
+    "id": "BKP-NATIVE-INTEGRITY-001",
+    "feature": "Read-only original native backup storage diagnostics",
+    "acceptance_criterion": "Inspect bounded original storage entries despite malformed or unpublished neighbors; explicitly compare the selected original manifest and three file sizes/hashes while preserving originals, catalog state, receipts and field isolation.",
+    "evidence": "Authored original files, malformed/partial storage, exact byte/mode retention, strict local HTTP, source substitution and bounded inspection; Chromium/WebKit entry, compact, export and lifecycle workflows.",
+    "pdf_pages_or_section": "docs/native-backup-integrity.md; docs/native-backup-lifecycle.md",
+    "status": "implemented",
+    "implementation_or_gap": "History / Native backups provides independent read-only storage inventory and selected-source original-file observations. Exact serialized-manifest and snapshot evidence hashes remain distinct; incomplete, mismatched, redirected and nonregular originals are explicit. Pending source/ABA/task/disclosure/visibility replies retire. No cleanup, catalog repair, source promotion, native logic validation, atomic snapshot, transfer, restore or physical/BTCVT acceptance is inferred."
   }
 ]

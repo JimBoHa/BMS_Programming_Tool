@@ -663,5 +663,10 @@
     "feature": "Native application storage across POSIX and Windows",
     "status": "implemented",
     "scope": "Native backups, reviewed payloads and controller-family credential files reuse the native safe regular-file layer for exclusive temporary creation, complete data flush/replace, bounded reads and descriptor cleanup. Retained directories refuse symlinks/Windows reparse attributes. Current native-application-storage/1 metadata distinguishes POSIX directory fsync, Windows namespace/power-loss limitations and unavailable profiles without resealing original captures or claiming another process lock. Original formats, source/recovery IDs, quotas and native protocol/compilation contracts remain intact. See docs/native-application-storage.md; physical/BTCVT and whole-state portability remain separate."
+  },
+  {
+    "feature": "Original native backup integrity diagnostics",
+    "status": "implemented",
+    "scope": "Read-only bounded root-entry inventory and explicit three-file size/SHA-256 checks with exact original-manifest binding, retained damaged/unpublished sources, immutable originals and no field actions. Independent of the ordinary catalog; not a repair, atomic snapshot, native program validation or controller restore path."
   }
 ]
