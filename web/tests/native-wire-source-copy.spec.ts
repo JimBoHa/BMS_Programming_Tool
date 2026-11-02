@@ -1,5 +1,6 @@
 import { openNativeCompiler } from "./workspace-navigation";
-import { test, expect, type Page, type Locator } from "@playwright/test";
+import { test, expect, type Page } from "./nativeScheduleWriteFixture";
+import type { Locator } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { python } from "./caf-native-fixture";
@@ -33,7 +34,7 @@ test("wire draft capacity refuses new entries without evicting earlier proposals
 const ref = "controller/575_1",
   a = ref + ".2_10",
   b = ref + ".2_11";
-function seed() {
+function seed(directory: string) {
   return JSON.parse(
     python(
       `
@@ -49,7 +50,7 @@ def capture(**kwargs):
 a=capture();b=capture(config=True);empty=capture(empty=True)
 print(json.dumps({'a':a['id'],'b':b['id'],'empty':empty['id']}))
 `,
-      process.env.BMS_TEST_COMPILER_STATE!,
+      directory,
     ),
   );
 }
@@ -132,9 +133,10 @@ test.beforeEach(async ({ page, request }) => {
 
 test("native wire review exports exact one-byte source copy and original review with readable controls", async ({
   page,
+  nativeScheduleWriteServer,
   request,
 }, info) => {
-  const ids = seed();
+  const ids = seed(nativeScheduleWriteServer.directory);
   await page.setViewportSize({ width: 820, height: 1100 });
   const { editor } = await enter(page, ids.a);
   for (const name of [
@@ -199,8 +201,9 @@ print(json.dumps({'differences':diff,'source':new.reader.diagram(REF)['connectio
 
 test("wire proposal survives navigation in its original graph while review retires", async ({
   page,
+  nativeScheduleWriteServer,
 }) => {
-  const ids = seed(),
+  const ids = seed(nativeScheduleWriteServer.directory),
     { compiler, editor } = await enter(page, ids.a);
   await editor
     .getByLabel("Replacement native source", { exact: true })
@@ -230,8 +233,9 @@ test("wire proposal survives navigation in its original graph while review retir
 
 test("native wire source and proposal A B A cannot revive a delayed review", async ({
   page,
+  nativeScheduleWriteServer,
 }) => {
-  const ids = seed(),
+  const ids = seed(nativeScheduleWriteServer.directory),
     { editor } = await enter(page, ids.a);
   await editor
     .getByLabel("Replacement native source", { exact: true })
@@ -281,8 +285,9 @@ test("native wire source and proposal A B A cannot revive a delayed review", asy
 
 test("copy from a different retained snapshot cannot inherit another graph's proposal", async ({
   page,
+  nativeScheduleWriteServer,
 }) => {
-  const ids = seed(),
+  const ids = seed(nativeScheduleWriteServer.directory),
     { compiler, editor } = await enter(page, ids.a);
   await editor
     .getByLabel("Replacement native source", { exact: true })
@@ -318,8 +323,11 @@ test("copy from a different retained snapshot cannot inherit another graph's pro
 });
 
 for (const fault of ["tuple", "source", "preservation"]) {
-  test(`altered native wire review ${fault} is rejected`, async ({ page }) => {
-    const ids = seed(),
+  test(`altered native wire review ${fault} is rejected`, async ({
+    page,
+    nativeScheduleWriteServer,
+  }) => {
+    const ids = seed(nativeScheduleWriteServer.directory),
       { editor } = await enter(page, ids.a);
     await editor
       .getByLabel("Replacement native source", { exact: true })
@@ -351,8 +359,9 @@ for (const fault of ["tuple", "source", "preservation"]) {
 
 test("late or substituted native wire output cannot download after the proposal changes", async ({
   page,
+  nativeScheduleWriteServer,
 }) => {
-  const ids = seed(),
+  const ids = seed(nativeScheduleWriteServer.directory),
     { editor } = await enter(page, ids.a);
   await editor
     .getByLabel("Replacement native source", { exact: true })
@@ -423,8 +432,9 @@ test("late or substituted native wire output cannot download after the proposal 
 
 test("empty native graph stays inspectable without creating a connection", async ({
   page,
+  nativeScheduleWriteServer,
 }) => {
-  const ids = seed(),
+  const ids = seed(nativeScheduleWriteServer.directory),
     { editor } = await enter(page, ids.empty, false);
   await expect(
     editor.getByLabel("Replacement native source", { exact: true }),
@@ -443,8 +453,9 @@ test("empty native graph stays inspectable without creating a connection", async
 
 test("wire switching retains each original proposal and retires the earlier review", async ({
   page,
+  nativeScheduleWriteServer,
 }) => {
-  const ids = seed(),
+  const ids = seed(nativeScheduleWriteServer.directory),
     { editor } = await enter(page, ids.a);
   const connection = editor.getByLabel("Existing native connection", {
     exact: true,
@@ -476,9 +487,10 @@ test("wire switching retains each original proposal and retires the earlier revi
 
 test("unchanged wire review exports the exact original archive through keyboard controls", async ({
   page,
+  nativeScheduleWriteServer,
   browserName,
 }) => {
-  const ids = seed(),
+  const ids = seed(nativeScheduleWriteServer.directory),
     { editor } = await enter(page, ids.a);
   const candidate = editor.getByLabel("Replacement native source", {
     exact: true,
@@ -515,8 +527,9 @@ test("unchanged wire review exports the exact original archive through keyboard 
 
 test("source read failure preserves the wire draft and supports explicit retry", async ({
   page,
+  nativeScheduleWriteServer,
 }) => {
-  const ids = seed(),
+  const ids = seed(nativeScheduleWriteServer.directory),
     { editor } = await enter(page, ids.a);
   const candidate = editor.getByLabel("Replacement native source", {
     exact: true,
@@ -557,8 +570,9 @@ test("source read failure preserves the wire draft and supports explicit retry",
 
 test("connected routed entry keeps archive copying local and route changes retire review without losing its draft", async ({
   page,
+  nativeScheduleWriteServer,
 }) => {
-  const ids = seed(),
+  const ids = seed(nativeScheduleWriteServer.directory),
     peer = await nativeDefaultPeer();
   async function select(routed: boolean) {
     await page

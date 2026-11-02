@@ -16,8 +16,8 @@ export function python(code: string, ...args: string[]) {
     },
   );
 }
-export function seed() {
-  const state = process.env.BMS_TEST_COMPILER_STATE;
+export function seed(directory = process.env.BMS_TEST_COMPILER_STATE) {
+  const state = directory;
   if (!state) throw new Error("An isolated native backup state is required.");
   return JSON.parse(
     python(

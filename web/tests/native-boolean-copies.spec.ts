@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./nativeScheduleWriteFixture";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import {
@@ -21,10 +21,11 @@ test.beforeEach(async ({ request }) => {
 
 test("offline Boolean archive copy changes one actual byte, preserves other archive settings and exact review JSON", async ({
   page,
+  nativeScheduleWriteServer,
   request,
 }, info) => {
   await page.setViewportSize({ width: 820, height: 1100 });
-  const ids = seed(),
+  const ids = seed(nativeScheduleWriteServer.directory),
     { copy } = await enter(page, ids.a);
   let originalReview = Buffer.alloc(0);
   await page.route("**/inspection/boolean-default/preview", async (route) => {
@@ -61,7 +62,7 @@ s=ApplicationStore(Store(sys.argv[1]));original=MoiIdentity(s.load(sys.argv[2])[
 differences=[i for i,(a,b) in enumerate(zip(original.data,actual.data,strict=True)) if a!=b]
 print(json.dumps({'differences':differences,'before':original.reader.scalar(original.reader.records['controller/boolean-20'],3113),'after':actual.reader.scalar(actual.reader.records['controller/boolean-20'],3113),'other':actual.reader.scalar(actual.reader.records['controller/boolean-21'],3113),'archive_root':actual.reader.scalar(actual.root,900),'archive_real':actual.reader.scalar(actual.reader.records['controller/signal-10'],3113)}))
 `,
-      process.env.BMS_TEST_COMPILER_STATE!,
+      nativeScheduleWriteServer.directory,
       ids.a,
       filename,
     ),
@@ -85,8 +86,9 @@ print(json.dumps({'differences':differences,'before':original.reader.scalar(orig
 
 test("Boolean drafts stay with their record and capture through selection and navigation; reviews retire", async ({
   page,
+  nativeScheduleWriteServer,
 }) => {
-  const ids = seed(),
+  const ids = seed(nativeScheduleWriteServer.directory),
     { compiler, records, copy } = await enter(page, ids.a);
   await review(copy);
   const other = await record(records, "controller/boolean-21");
@@ -152,8 +154,9 @@ test("Boolean drafts stay with their record and capture through selection and na
 
 test("unverified source and unknown saved format remain archive-copyable without enabling transfer", async ({
   page,
+  nativeScheduleWriteServer,
 }) => {
-  const ids = seed(),
+  const ids = seed(nativeScheduleWriteServer.directory),
     { inspection, copy } = await enter(page, ids.unknown);
   await expect(inspection).toContainText("Authored identity mismatch");
   await review(copy);
@@ -166,8 +169,9 @@ test("unverified source and unknown saved format remain archive-copyable without
 for (const altered of ["station", "field", "value", "transfer"]) {
   test(`altered Boolean review ${altered} cannot become a saved-copy review`, async ({
     page,
+    nativeScheduleWriteServer,
   }) => {
-    const ids = seed(),
+    const ids = seed(nativeScheduleWriteServer.directory),
       { copy } = await enter(page, ids.a);
     await page.route("**/inspection/boolean-default/preview", async (route) => {
       const response = await route.fetch({ maxRetries: 0 }),
@@ -197,8 +201,11 @@ for (const altered of ["station", "field", "value", "transfer"]) {
 }
 
 for (const altered of ["bytes", "header"]) {
-  test(`substituted export ${altered} cannot download`, async ({ page }) => {
-    const ids = seed(),
+  test(`substituted export ${altered} cannot download`, async ({
+    page,
+    nativeScheduleWriteServer,
+  }) => {
+    const ids = seed(nativeScheduleWriteServer.directory),
       { copy } = await enter(page, ids.a),
       reviewed = await review(copy);
     let downloads = 0;
@@ -230,8 +237,9 @@ for (const altered of ["bytes", "header"]) {
 
 test("export delivered after source A B A cannot download or revive its review; draft survives", async ({
   page,
+  nativeScheduleWriteServer,
 }) => {
-  const ids = seed(),
+  const ids = seed(nativeScheduleWriteServer.directory),
     { compiler, copy } = await enter(page, ids.a),
     reviewed = await review(copy);
   let release!: () => void,
