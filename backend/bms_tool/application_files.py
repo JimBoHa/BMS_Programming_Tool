@@ -103,7 +103,13 @@ class ApplicationFiles:
                     )
                 ),
             )
-            reply = await self.exchange(session, request, AtomicReadFileACK)
+            try:
+                reply = await self.exchange(session, request, AtomicReadFileACK)
+            except (ValueError, TimeoutError, OSError) as exc:
+                raise ValueError(
+                    f"Backup File {file_id} read failed at byte offset {offset}: "
+                    + (str(exc) or type(exc).__name__)
+                ) from exc
             access = reply.accessMethod.streamAccess
             if access is None or int(access.fileStartPosition) != offset:
                 raise ValueError("Application File reply has an unexpected stream position.")

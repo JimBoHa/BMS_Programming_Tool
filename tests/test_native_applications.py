@@ -202,6 +202,8 @@ class NativePeer(Application):
                 return
         else:
             assert state == "end-backup"
+            if self.mode in ("drop-end-backup", "drop-file-read-and-end-backup"):
+                return
         ack = SimpleAckPDU(context=request)
         if state == "start-restore" and self.mode == "wrong-service":
             ack.apduService = 12
@@ -216,6 +218,8 @@ class NativePeer(Application):
         access = request.accessMethod.streamAccess
         start, count = int(access.fileStartPosition), int(access.requestedOctetCount)
         self.events.append(("read", file_id, start))
+        if self.mode in ("drop-file-read", "drop-file-read-and-end-backup"):
+            return
         data = self.files[file_id][start : start + count]
         await self.response(
             AtomicReadFileACK(
