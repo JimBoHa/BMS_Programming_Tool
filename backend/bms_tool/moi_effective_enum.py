@@ -91,6 +91,9 @@ class EffectiveEnumCompiler:
                     "saved_storage": storage,
                     "maximum_code": storage["maximum_code"] if storage else 4294967295,
                     "states_text_evidence": record["properties"].get(931, {}).get("scalar"),
+                    "states_text_encoded_sha256": record["properties"]
+                    .get(931, {})
+                    .get("encoded_sha256"),
                     "enum_semantics_verified": False,
                 }
             )

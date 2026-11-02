@@ -71,3 +71,8 @@ physical acceptance. The [native-backup operation table](native-backup-operation
 separately qualifies this effective compiler from the actual retained identity,
 saved merge and eligible fields. Its captured-storage counts remain numeric
 representation evidence and prepare no Enum field transfer.
+
+Effective fields retain the actual encoded property 931 fingerprint, or explicit
+absence, alongside uninterpreted state metadata. The separate transfer binds that
+fingerprint through fresh preflight and readback; it does not derive allowed
+codes or meanings from a state-set number or label.

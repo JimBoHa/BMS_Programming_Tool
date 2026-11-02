@@ -13,6 +13,7 @@ export async function nativeDefaultPeer(
     | "instance"
     | "input"
     | "point-name" = "real",
+  enumStates = false,
 ) {
   const child = spawn(
     path.join(root, ".venv/bin/python"),
@@ -65,8 +66,9 @@ async def main():
  elif sys.argv[2]=='boolean':app.files=boolean_files();storage_outcome(app,mode=sys.argv[1])
  elif sys.argv[2]=='enum':
   from tests.test_moi_effective_enum import enum_files
-  from tests.test_native_enum_transfer import enum_storage,enum_slot
+  from tests.test_native_enum_transfer import enum_storage,enum_slot,add_enum_states_slot,enum_states_slot
   app.files=enum_files();enum_storage(app,mode=sys.argv[1])
+  if sys.argv[3]=='states':add_enum_states_slot(app.files)
  else:app.files=signal_files();controller_storage(app,mode=sys.argv[1])
  original_files=copy.deepcopy(app.files)
  router_type=NativeRouter
@@ -95,6 +97,7 @@ async def main():
   elif line=='boolean-second-true':boolean_slot(app.files,'controller/boolean-21',True)
   elif line=='enum-selected42':enum_slot(app.files,42)
   elif line=='enum-other9':real_slot(app.files,4,struct.pack('>f',9.25))
+  elif line=='enum-states292':enum_states_slot(app.files,292)
   elif line=='enum-restore-zero':
    import types
    app.do_ReinitializeDeviceRequest=types.MethodType(NativePeer.do_ReinitializeDeviceRequest,app);enum_storage(app,value=0)
@@ -124,6 +127,7 @@ asyncio.run(main())
 `,
       mode,
       datatype,
+      enumStates ? "states" : "plain",
     ],
     {
       cwd: root,

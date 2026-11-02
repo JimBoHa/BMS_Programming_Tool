@@ -11,6 +11,7 @@ from .native_enum_copies import EnumCopyPreview
 from .native_parameter_qualification import qualify_parameter_additions
 
 PROFILE = "native-effective-enum-default-transfer/1"
+_UNSET = object()
 SCOPE = (
     "Transfer one existing class 528/529 Enumerated Default Value with an actual "
     "captured fixed Enum slot. Preserve Device identity and all other fresh merged "
@@ -25,7 +26,9 @@ class EnumTransferPreview(EnumCopyPreview, DeviceDetailsRequest):
     operation_id: str = Field(pattern=r"^[A-Za-z0-9_-]{8,80}$")
 
 
-def compile_enum_default(files, edit, *, expected_prior_value=None):
+def compile_enum_default(
+    files, edit, *, expected_prior_value=None, expected_states_text_sha256=_UNSET
+):
     compiler = EffectiveEnumCompiler(files)
     field = next((row for row in compiler.fields() if row["ref"] == edit["record_ref"]), None)
     if field is None:
@@ -43,7 +46,15 @@ def compile_enum_default(files, edit, *, expected_prior_value=None):
         raise ValueError(
             "The selected effective Enum code changed after review. Capture and review again."
         )
+    if (
+        expected_states_text_sha256 is not _UNSET
+        and field["states_text_encoded_sha256"] != expected_states_text_sha256
+    ):
+        raise ValueError(
+            "The selected Enum state metadata changed after review. Capture and review again."
+        )
     output, compilation = compiler.compile(**edit)
+    compilation["states_text_encoded_sha256"] = field["states_text_encoded_sha256"]
     compilation["parameter_transfer_qualification"] = qualify_parameter_additions(
         output, compilation["parameter_merge"]
     )
@@ -87,6 +98,10 @@ def verify_enum_preservation(before, after, edit):
     wanted = compilation["selected_edit"]["after_value"]
     if field is None or type(wanted) is not int or field["effective_value"] != wanted:
         raise ValueError("The effective saved Enum code does not match the reviewed value.")
+    if field["states_text_encoded_sha256"] != compilation["states_text_encoded_sha256"]:
+        raise ValueError(
+            "The effective saved Enum state metadata differs from the reviewed source."
+        )
     record, prop = effective.archive.candidates[edit["record_ref"]]
     if prop["scalar"] != {"datatype": "Enumerated", "value": wanted}:
         raise ValueError("The readback archive Enum code differs from the reviewed value.")
@@ -114,6 +129,7 @@ def verify_enum_preservation(before, after, edit):
             "archive_encoding_sha256": prop["encoded_sha256"],
             "saved_encoding_sha256": field["encoded_sha256"],
             "equal_typed_code": True,
+            "states_text_encoded_sha256": field["states_text_encoded_sha256"],
         },
         "saved_application_parameters_verified": compilation["parameter_merge"][
             "matched_parameters"

@@ -44,6 +44,8 @@ function compilationMatches(compiled: Data | undefined, edit: Data) {
     compiled.saved_settings_merged === true &&
     compiled.other_merged_bytes_preserved === true &&
     compiled.enum_semantics_verified === false &&
+    (compiled.states_text_encoded_sha256 === null ||
+      hash(compiled.states_text_encoded_sha256)) &&
     compiled.controller_write === false &&
     compiled.field_transfer_enabled === false &&
     compiled.maximum_code === 65535 &&
@@ -133,6 +135,7 @@ export function enumTransferReviewMatches(
     ) &&
     compiled.parameter_merge.output_sha256 === source.effective_sha256 &&
     compiled.selected_edit.class_id === field.class_id &&
+    compiled.states_text_encoded_sha256 === field.states_text_encoded_sha256 &&
     compiled.selected_edit.before_value === field.effective_value &&
     edit.record_ref === field.ref &&
     edit.record_ref === proposal.record_ref &&
@@ -197,6 +200,8 @@ export function enumTransferReceiptMatches(data: Data, reference?: Data) {
         reference.compilation?.selected_edit?.before_value ||
       compiled.selected_edit.class_id !==
         reference.compilation?.selected_edit?.class_id ||
+      compiled.states_text_encoded_sha256 !==
+        reference.compilation?.states_text_encoded_sha256 ||
       !same(compiled.saved_storage, reference.compilation?.saved_storage))
   )
     return false;
@@ -223,6 +228,8 @@ export function enumTransferReceiptMatches(data: Data, reference?: Data) {
     selected.after_value === edit.value &&
     selected.effective_value === edit.value &&
     selected.equal_typed_code === true &&
+    selected.states_text_encoded_sha256 ===
+      compiled.states_text_encoded_sha256 &&
     hash(selected.archive_encoding_sha256) &&
     hash(selected.saved_encoding_sha256)
   );

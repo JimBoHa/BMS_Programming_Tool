@@ -71,6 +71,7 @@ test("changed Enum code, type, capacity, source and semantic declarations cannot
     (x: any) => (x.compilation.files["11"].bytes += 1),
     (x: any) => (x.enum_semantics_verified = true),
     (x: any) => (x.identity["vendor-identifier"] = 99),
+    (x: any) => (x.compilation.states_text_encoded_sha256 = "0".repeat(64)),
     (x: any) =>
       (x.compilation.parameter_transfer_qualification.model_inventory_used = true),
   ]) {
@@ -89,6 +90,9 @@ test("altered verified Enum receipt cannot claim the selected code or full prese
     (x: any) => (x.intent.compilation.selected_edit.datatype = "Unsigned"),
     (x: any) => (x.intent.compilation.saved_storage.maximum_code = 4294967295),
     (x: any) => (x.result.preservation.enum_semantics_verified = true),
+    (x: any) =>
+      (x.result.preservation.selected_default.states_text_encoded_sha256 =
+        "0".repeat(64)),
     (x: any) => (x.result.preservation.selected_default.effective_value = 0),
     (x: any) =>
       (x.result.preservation.selected_default.equal_typed_code = false),

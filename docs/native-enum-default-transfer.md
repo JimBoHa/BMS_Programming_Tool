@@ -23,11 +23,14 @@ this profile. Interface-open, a local compiled copy and this operation's
 source-qualified/preflight-required capability row are not prepared field intent.
 
 Review binds the complete source snapshot, original archive hash, selected
-record/property encoding, effective prior code, proposed strict integer and
-captured storage. Apply consumes that one-use review and checks its operation
+record/property encoding, effective prior code, proposed strict integer,
+captured storage and encoded state metadata (property 931, or explicit absence).
+That fingerprint does not interpret state meanings. Apply consumes that one-use
+review and checks its operation
 profile, target/interface, ownership, credentials and expiry. It obtains fresh
 Files 3/11/12: original application/directory and selected effective code/fingerprint
-must still match, while other fresh saved values are merged. The final payload
+must still match, including the selected state metadata, while other fresh saved
+values are merged. The final payload
 can therefore differ from preview. The existing capacity and omitted-application-
 field qualification remain required.
 
@@ -39,7 +42,8 @@ supervisor configuration is changed by this profile.
 
 Verification requires the full expanded native image to equal the reviewed edit
 of the fresh merged source, unchanged Device identity and a matching effective
-saved Enum code. The native writer retains an existing value width while the
+saved Enum code and state metadata fingerprint. The native writer retains an
+existing value width while the
 saved-value serializer uses a minimal width. Equal selected Enumerated codes
 can consequently have different encodings, such as two-byte versus one-byte
 code 0. Only after complete image equality and strict selected archive/effective

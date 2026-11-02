@@ -1510,6 +1510,15 @@ class NativeApplications(NativeInputOperations):
                                         ]
                                     }
                                 ),
+                                **(
+                                    {
+                                        "expected_states_text_sha256": body["compilation"][
+                                            "states_text_encoded_sha256"
+                                        ]
+                                    }
+                                    if enum_edit
+                                    else {}
+                                ),
                             )
                             if default_edit
                             else self.compile(files, options.new_instance, options.new_name)

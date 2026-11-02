@@ -690,7 +690,7 @@ JCI-01/JCI-05/JCI-09 remain partial overall. See
 
 `COMM-NATIVE-ENUM-DEFAULT-TRANSFER-001` separately transfers one existing typed
 Enum default with an actual selected fixed saved slot. It adds exact native
-IPv4 source/target review, fresh selected code/fingerprint and application/
+IPv4 source/target review, fresh selected code/state-metadata fingerprints and application/
 directory guards, merging of other fresh settings, capacity qualification,
 durable one-use restore and full native/effective readback. No-slot local
 UInt32 copies remain local-only. The support table separately reports its

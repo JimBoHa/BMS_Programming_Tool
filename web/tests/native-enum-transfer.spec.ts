@@ -400,6 +400,38 @@ test("a changed live saved Enum code refuses Apply before any restore", async ({
   }
 });
 
+test("a changed saved Enum state set refuses routed Apply even when its default code is unchanged", async ({
+  page,
+  request,
+}) => {
+  const peer = await nativeDefaultPeer("consume", "enum", true);
+  let headers: any;
+  try {
+    const view = await open(page, request, peer.router);
+    headers = view.headers;
+    const { apply } = await review(view.panel);
+    await peer.command("enum-states292");
+    const applied = page.waitForResponse(
+      (r) =>
+        r.url().endsWith("/enum-default/transfer/apply") &&
+        r.request().method() === "POST",
+    );
+    await apply.click();
+    await (await applied).finished();
+    await expect(outcome(view.panel)).toContainText(
+      "Native default transfer not sent",
+    );
+    await expect(outcome(view.panel)).toContainText(
+      "selected Enum state metadata changed",
+    );
+    expect(mutations((await peer.command("stats")).events)).toEqual([]);
+    await expect(view.input).toHaveValue("65535");
+  } finally {
+    if (headers) await close(request, headers, peer);
+    else peer.close();
+  }
+});
+
 test("lost Enum commit acknowledgement retains uncertainty and readback verifies without replay", async ({
   page,
   request,

@@ -31,6 +31,36 @@ def enum_slot(files, value):
     files[12] = files[12][:-3] + payload + bytes([header_crc(payload) ^ 255])
 
 
+def add_enum_states_slot(files, *, cid=528):
+    """Independent fixed property931 slot before the final Default Value payload."""
+    position = len(files[12]) - 3
+    default = bytearray(files[11][-16:])
+    assert int.from_bytes(default[12:14], "big") == position
+    default[12:14] = (position + 3).to_bytes(2, "big")
+    row = (
+        b"\x00\x10"
+        + ((19 << 22) | 1).to_bytes(4, "big")
+        + b"\x03\xa3\x6f\x09"
+        + cid.to_bytes(2, "big")
+        + position.to_bytes(2, "big")
+        + b"\x12\x34"
+    )
+    payload = b"\x01\x23"
+    files[11] = files[11][:-16] + bytes(default) + row
+    files[12] = files[12][:-3] + payload + bytes([header_crc(payload) ^ 255]) + files[12][-3:]
+
+
+def enum_states_slot(files, value):
+    payload = value.to_bytes(2, "big")
+    position = len(files[12]) - 6
+    files[12] = (
+        files[12][:position]
+        + payload
+        + bytes([header_crc(payload) ^ 255])
+        + files[12][position + 3 :]
+    )
+
+
 def enum_storage(peer, *, mode="consume", value=65535):
     original = peer.do_ReinitializeDeviceRequest
 
@@ -55,10 +85,20 @@ def enum_storage(peer, *, mode="consume", value=65535):
 
 
 async def enum_review(
-    link, *, mode="consume", value=65535, cid=528, compressed=True, target=None, slot=True
+    link,
+    *,
+    mode="consume",
+    value=65535,
+    cid=528,
+    compressed=True,
+    target=None,
+    slot=True,
+    states_slot=False,
 ):
     peer, _, _, service, original_target = link
     peer.files = enum_files(cid=cid, compressed=compressed, slot=slot)
+    if states_slot:
+        add_enum_states_slot(peer.files, cid=cid)
     enum_storage(peer, mode=mode, value=value)
 
     async def no_collision(_):
@@ -342,6 +382,7 @@ def test_enum_http_admission_rejects_coercions_and_extra_authority_without_conne
             {"value_text": "1"},
             {"new_instance": 5336},
             {"recovery_parent_receipt": "e" * 32},
+            {"expected_states_text_sha256": "0" * 64},
         ):
             assert (
                 client.post(base + "/preview", json=body | extra, headers=headers).status_code
@@ -419,3 +460,43 @@ async def test_enum_expiry_during_fresh_capture_never_enters_restore(native_link
     receipt = await service.apply_enum_default(**apply_request(plan))
     assert receipt["result"]["status"] == "not_sent" and not receipt["pending"]
     assert not mutations(peer) and not service.storage.receipts()
+
+
+@pytest.mark.parametrize("cid", [528, 529])
+@pytest.mark.parametrize("compressed", [False, True])
+async def test_changed_selected_saved_enum_states_metadata_refuses_restore(
+    native_link, cid, compressed
+):
+    peer, _, _, service, _ = native_link
+    _, source, _, plan = await enum_review(
+        native_link, cid=cid, compressed=compressed, states_slot=True
+    )
+    assert (
+        plan["compilation"]["states_text_encoded_sha256"]
+        == source["fields"][0]["states_text_encoded_sha256"]
+    )
+    enum_states_slot(peer.files, 292)
+    result = await service.apply_enum_default(**apply_request(plan))
+    assert result["result"]["status"] == "not_sent" and not result["pending"], result
+    assert "selected Enum state metadata changed" in str(result)
+    assert not mutations(peer) and not service.storage.receipts()
+
+
+@pytest.mark.parametrize("cid", [528, 529])
+@pytest.mark.parametrize("value", [0, 65535])
+async def test_unchanged_selected_enum_state_slot_preserves_other_fresh_values(
+    native_link, cid, value
+):
+    peer, _, _, service, _ = native_link
+    _, _, _, plan = await enum_review(native_link, cid=cid, value=value, states_slot=True)
+    real_slot(peer.files, 4, struct.pack(">f", 9.25))
+    result = await service.apply_enum_default(**apply_request(plan))
+    assert result["result"]["status"] == "verified" and not result["pending"], result
+    proof = result["result"]["preservation"]
+    assert (
+        proof["selected_default"]["states_text_encoded_sha256"]
+        == plan["compilation"]["states_text_encoded_sha256"]
+    )
+    actual = MoiIdentity(peer.files[3])
+    assert actual.reader.scalar(actual.reader.records[REF], 931) == 291
+    assert actual.reader.scalar(actual.root, 900) == 9.25
