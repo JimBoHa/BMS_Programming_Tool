@@ -47,6 +47,7 @@ export type ExceptionRow = Omit<CalendarRow, "kind"> & {
 export type ExceptionDraftBuffer = {
   rows: ExceptionRow[];
   imported: { filename: string; review_id: string } | null;
+  rawImported?: { filename: string; file_sha256: string };
 };
 export type ExceptionWork = {
   captureId: string;

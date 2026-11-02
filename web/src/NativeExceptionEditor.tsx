@@ -2,6 +2,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, apiJsonDocument, saveBlob } from "./api";
 import { controllerKey, type ControllerTarget } from "./workflow";
 import { ordered } from "./nativeCalendar";
+import { calendarDocumentSha } from "./nativeCalendarWrite";
+import { parseSourceJSON } from "./programSource";
+import {
+  UNFINISHED_EXCEPTION_BYTES,
+  unfinishedExceptionImport,
+} from "./unfinishedExceptions";
 import {
   Choice,
   DateFields,
@@ -22,6 +28,7 @@ import {
   exceptionReview,
   type ExceptionWork,
   type ExceptionRow,
+  type ExceptionDraftBuffer,
 } from "./nativeScheduleExceptions";
 import { NativeExceptionWritePanel } from "./NativeExceptionWritePanel";
 import "./native-exceptions.css";
@@ -63,7 +70,8 @@ export function NativeExceptionEditor({
     generation = useRef(0),
     operation = useRef(0),
     sourceEpoch = useRef(0),
-    fileInput = useRef<HTMLInputElement>(null);
+    fileInput = useRef<HTMLInputElement>(null),
+    rawFileInput = useRef<HTMLInputElement>(null);
   const owner = ordered([
       captureId,
       connected ? connectionKey : "closed",
@@ -171,13 +179,17 @@ export function NativeExceptionEditor({
   }, [owner]);
   function change(
     next: ExceptionRow[],
-    imported?: { filename: string; review_id: string },
+    imported?: { filename: string; review_id: string } | null,
+    rawImported?: ExceptionDraftBuffer["rawImported"],
   ) {
     if (!key) return false;
     try {
       rememberExceptions(work, key, {
         rows: next,
         imported: imported ?? retained?.imported ?? null,
+        ...(rawImported || retained?.rawImported
+          ? { rawImported: rawImported || retained?.rawImported }
+          : {}),
       });
       retire();
       setError("");
@@ -203,7 +215,10 @@ export function NativeExceptionEditor({
     setError("");
     paint((n) => n + 1);
   }
-  async function run(kind: "review" | "export" | "import", file?: File) {
+  async function run(
+    kind: "review" | "export" | "import" | "raw_import",
+    file?: File,
+  ) {
     if (!selected?.eligible || pending) return;
     const id = ++operation.current,
       epoch = generation.current,
@@ -212,7 +227,52 @@ export function NativeExceptionEditor({
     setError("");
     if (kind === "review") setReviewRecord(null);
     try {
-      if (kind === "import") {
+      if (kind === "raw_import") {
+        if (
+          !file ||
+          file.size > UNFINISHED_EXCEPTION_BYTES ||
+          !file.name ||
+          file.name.length > 1024
+        )
+          throw new Error(
+            "Unfinished exception file exceeds its 8 MiB or filename bound.",
+          );
+        const original = parseSourceJSON(
+          new TextDecoder("utf-8", { fatal: true }).decode(
+            await file.arrayBuffer(),
+          ),
+        );
+        const sha = await calendarDocumentSha(file);
+        if (!current(id, epoch, wanted)) return;
+        const form = new FormData();
+        form.append("file", file);
+        const document = await apiJsonDocument(
+          base + "/unfinished/import",
+          form,
+        );
+        if (document.blob.size > UNFINISHED_EXCEPTION_BYTES + 65536)
+          throw new Error(
+            "Unfinished exception import response exceeds its byte bound.",
+          );
+        const buffer = unfinishedExceptionImport(
+          document.data,
+          captureId,
+          selectedObject,
+          selected.native_type,
+          sha,
+          original,
+        );
+        if (current(id, epoch, wanted)) {
+          if (work.drafts.has(key))
+            throw new Error(
+              "Discard this retained exception draft before importing unfinished text for the same Schedule. Existing work was kept.",
+            );
+          change(buffer.rows, buffer.imported, {
+            filename: file.name,
+            file_sha256: sha,
+          });
+        }
+      } else if (kind === "import") {
         if (!file || file.size > EXCEPTION_DOCUMENT_BYTES)
           throw new Error("Exception draft exceeds 512 KiB.");
         const form = new FormData();
@@ -296,6 +356,24 @@ export function NativeExceptionEditor({
           {work.drafts.size} of 64 source drafts used; 4 MiB total. No work is
           evicted. Save before reloading.
         </p>
+        <button
+          disabled={!!pending || loading || !selected?.eligible}
+          onClick={() => rawFileInput.current?.click()}
+        >
+          Import unfinished exception text
+        </button>
+        <input
+          type="file"
+          accept=".json"
+          hidden
+          ref={rawFileInput}
+          aria-label="Import unfinished exception text file"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (file) void run("raw_import", file);
+          }}
+        />
         <label>
           Retained exception source
           <select
@@ -350,9 +428,10 @@ export function NativeExceptionEditor({
           </div>
         )}
         <p className="help-text">
-          The unfinished-text export retains raw fields and references for
-          manual recovery. It has no import action or native review proof.
-          Original captures remain separate.
+          Open the original capture and Schedule before importing unfinished
+          text. Partial fields are restored without native review proof.
+          Existing work for that source requires explicit discard before
+          replacement. Original captures remain separate.
         </p>
       </details>
       {source && (
@@ -405,7 +484,7 @@ export function NativeExceptionEditor({
                 release. Event priority is independent of the Schedule’s writing
                 priority. Event order and duplicates stay intact.
               </p>
-              {retained?.imported && (
+              {retained?.imported && !retained.rawImported && (
                 <>
                   <p role="status">
                     Imported exception draft. Review again before export.
@@ -414,6 +493,26 @@ export function NativeExceptionEditor({
                     <summary>Imported exception provenance</summary>
                     <p>Original file: {retained.imported.filename}</p>
                     <p>Original local review: {retained.imported.review_id}</p>
+                  </details>
+                </>
+              )}
+              {retained?.rawImported && (
+                <>
+                  <p role="status">
+                    Unfinished exception text imported. Review valid fields
+                    before native export or deployment.
+                  </p>
+                  <details aria-label="Unfinished exception import provenance">
+                    <summary>Unfinished text import provenance</summary>
+                    <p>File: {retained.rawImported.filename}</p>
+                    <p>File SHA-256: {retained.rawImported.file_sha256}</p>
+                    {retained.imported && (
+                      <p>
+                        Earlier draft reference, unverified:{" "}
+                        {retained.imported.filename} ·{" "}
+                        {retained.imported.review_id}
+                      </p>
+                    )}
                   </details>
                 </>
               )}
