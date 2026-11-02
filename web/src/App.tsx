@@ -1684,6 +1684,7 @@ export function App() {
       : surface === "history"
         ? [
             { id: "observations", label: "Recorded trends & alarms" },
+            { id: "change-ledger", label: "Recorded changes" },
             { id: "device-history", label: "Controller history" },
             { id: "native-backups", label: "Native backups" },
           ]
@@ -1761,7 +1762,7 @@ export function App() {
     if (
       source === "native" &&
       nativeChangeKind &&
-      !["instance", "name"].includes(nativeChangeKind)
+      !["instance", "name", "input"].includes(nativeChangeKind)
     )
       return;
     if (source === "temco") {
@@ -1769,7 +1770,10 @@ export function App() {
       return;
     }
     const destination = {
-      native: { view: "overview", tool: "instance" },
+      native:
+        nativeChangeKind === "input"
+          ? { view: "points", tool: "live-points" }
+          : { view: "overview", tool: "instance" },
       instance: { view: "overview", tool: "instance" },
       schedule: { view: "schedules", tool: "schedules" },
       event: { view: "monitor", tool: "events" },
@@ -1777,7 +1781,13 @@ export function App() {
       bbmd: { view: "settings", tool: "bbmd-admin" },
     }[source] as
       | {
-          view: "overview" | "schedules" | "monitor" | "changes" | "settings";
+          view:
+            | "overview"
+            | "points"
+            | "schedules"
+            | "monitor"
+            | "changes"
+            | "settings";
           tool: string;
         }
       | undefined;
