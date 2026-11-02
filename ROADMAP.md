@@ -76,6 +76,13 @@ remain the design authority. The deliberate changes in `32d0887`, `dff2273`,
   is not an atomic batch. Preserve source checks, one-use reviews, transaction
   limits, ownership and durable recovery.
 
+State mapping declarations and standard instance proposals now have
+[workspace draft continuity](docs/workspace-draft-continuity.md). Navigation
+retains unreviewed work and imported provenance while retiring reviews and
+allocation confirmations. Instance text stays with its exact route/interface;
+verified Apply or explicit readback clears only its matching completed proposal.
+This is in-memory workspace retention, not durable draft storage across reloads.
+
 ## Existing capabilities to preserve and credit
 
 | Existing scope | Baseline to retain | Remaining boundary |

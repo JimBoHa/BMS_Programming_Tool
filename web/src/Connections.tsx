@@ -27,7 +27,7 @@ import { BbmdTablesPanel } from "./BbmdTablesPanel";
 import { BbmdAdminPanel } from "./BbmdAdminPanel";
 import { ControllerProbePanel } from "./ControllerProbePanel";
 import { HardwareSurveyPanel } from "./HardwareSurveyPanel";
-import { EnumMappingPanel } from "./EnumMappingPanel";
+import { EnumMappingPanel, type EnumMappingWork } from "./EnumMappingPanel";
 import { ScheduleInventoryPanel } from "./ScheduleInventoryPanel";
 import { PointStatusPanel } from "./PointStatusPanel";
 import { BacnetCovPanel } from "./BacnetCovPanel";
@@ -90,6 +90,10 @@ export function Connections({
     "instance",
   );
   const controllerEpoch = useRef(0);
+  // Draft text belongs to the workspace, not the lifetime of a task panel.
+  // Reviews, confirmations and field operations remain owned by each panel.
+  const instanceDrafts = useRef(new Map<string, string>());
+  const enumWork = useRef<EnumMappingWork | null>(null);
   const groups: Record<ConnectionView, { id: string; label: string }[]> = {
     setup: [],
     overview: [
@@ -1370,6 +1374,7 @@ export function Connections({
             </TaskMount>
             <TaskMount active={showTool("instance")} preserve={false}>
               <DeviceInstancePanel
+                drafts={instanceDrafts.current}
                 initialChange={identitySetting}
                 connected={
                   visible &&
@@ -1489,7 +1494,7 @@ export function Connections({
               />
             </TaskMount>
             <TaskMount active={showTool("enum")} preserve={false}>
-              <EnumMappingPanel />
+              <EnumMappingPanel work={enumWork} />
             </TaskMount>
             <TaskMount active={showTool("schedules")} preserve={false}>
               <ScheduleInventoryPanel
