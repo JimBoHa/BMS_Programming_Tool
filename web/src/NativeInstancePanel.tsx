@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { NativeRuntimeCalibration } from "./NativeRuntimeCalibration";
+import { NativeRuntimeParametersNotice } from "./NativeRuntimeParametersNotice";
 import {
   api,
   apiBlobDocument,
@@ -816,6 +817,9 @@ export function NativeInstancePanel(
               {plan.target.router ? ` via ${plan.target.router}` : ""}
             </p>
             <p>{plan.parameter_policy}</p>
+            <NativeRuntimeParametersNotice
+              parameters={plan.compilation.parameters}
+            />
             {renaming && (
               <p>
                 Device instance remains {plan.old_instance}. The physical

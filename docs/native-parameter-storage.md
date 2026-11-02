@@ -46,3 +46,19 @@ settings after an instance edit without rewriting its logical reference.
 This distinction prevents an unused runtime value from blocking an otherwise
 supported instance edit. It never substitutes a default, repairs a stored value,
 or copies invalid bytes into the application.
+
+## Stored runtime timestamps are not application defaults
+
+Binary Input, Output and Value Change_Of_State_Time (16) slots store Unsigned epoch
+seconds in PSS. The controller application defines this read-only timestamp as a
+date/time structure, not an Unsigned application default. A valid storage checksum
+does not make those two schemas interchangeable. Synthesizing the integer property
+can leave a controller in configuration/download-required state.
+
+The merger validates the timestamp slot and retains its original epoch value in
+`retained_runtime_parameters`, without injecting it into File 3. An already present
+unqualified application encoding or another timestamp storage type fails closed.
+Binary change counts and elapsed times remain separately typed application fields.
+The review explains that a transfer does not restore historical runtime event
+times. Original PSS files remain intact in the private backup; retaining a value
+there does not claim the controller's current event timestamp stayed unchanged.

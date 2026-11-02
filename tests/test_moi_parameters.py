@@ -434,3 +434,67 @@ def test_saved_root_aliases_cannot_write_the_same_omitted_property_twice():
     dynamic += bytes([62, header_crc(bytes([62])) ^ 255])
     with pytest.raises(ValueError, match="Multiple saved selectors"):
         ParameterApplication(archive, bytes(directory), dynamic).compile()
+
+
+def binary_saved_state(*, external=3, cid=242, existing_timestamp=False):
+    archive, static, dynamic = parameters_source(compressed=False)
+    props = [
+        (32527, encoded(CharacterString("controller/binary"))),
+        (75, encoded(ObjectIdentifier((external, 73)))),
+    ]
+    if existing_timestamp:
+        props.append((16, encoded(Unsigned(0))))
+    record = native_record(cid, 73, props)
+    data = bytearray(archive)
+    struct.pack_into("<I", data, 10, struct.unpack_from("<I", data, 10)[0] + 1)
+    data.extend(struct.pack("<H", len(record) + 2) + record)
+    for pid, value in [(15, 1234), (16, 1700000000), (33, 5678)]:
+        payload = value.to_bytes(4, "big")
+        position = len(dynamic)
+        dynamic += payload + bytes([header_crc(payload) ^ 255])
+        body = (
+            ((external << 22) | 73).to_bytes(4, "big")
+            + pid.to_bytes(2, "big")
+            + b"\x6f\x02"
+            + cid.to_bytes(2, "big")
+            + position.to_bytes(2, "big")
+            + b"\x12\x34"
+        )
+        static += (len(body) + 2).to_bytes(2, "big") + body
+    return bytes(data), static, dynamic
+
+
+@pytest.mark.parametrize("external,cid", [(3, 242), (4, 239), (5, 168)])
+def test_binary_runtime_timestamp_is_not_fabricated_as_an_unsigned_application_default(
+    external, cid
+):
+    files = binary_saved_state(external=external, cid=cid)
+    output, report = ParameterApplication(*files).compile()
+    app = MoiIdentity(output)
+    record = next(
+        r
+        for r in app.records
+        if r["class_id"] == cid and app.reader.scalar(r, 32527) == "controller/binary"
+    )
+    assert 16 not in record["properties"]
+    assert app.reader.scalar(record, 15) == 1234 and app.reader.scalar(record, 33) == 5678
+    assert report["matched_parameters"] == 9
+    runtime = report["retained_runtime_parameters"]
+    assert len(runtime) == 1 and runtime[0]["stored_epoch_seconds"] == 1700000000
+    assert runtime[0]["role"] == "binary-change-of-state-time"
+    assert files == binary_saved_state(external=external, cid=cid)
+    again, _ = ParameterApplication(output, files[1], files[2]).compile()
+    assert MoiIdentity(again).data == app.data
+
+
+def test_timestamp_exception_does_not_bypass_crc_checks():
+    archive, static, dynamic = binary_saved_state()
+    corrupt = bytearray(dynamic)
+    corrupt[-6] ^= 1
+    with pytest.raises(ValueError, match="checksum"):
+        ParameterApplication(archive, static, bytes(corrupt)).compile()
+
+
+def test_existing_unqualified_binary_timestamp_encoding_is_rejected():
+    with pytest.raises(ValueError, match="timestamp application encoding"):
+        ParameterApplication(*binary_saved_state(existing_timestamp=True)).compile()

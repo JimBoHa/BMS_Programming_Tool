@@ -112,6 +112,7 @@ def verify_preservation(before, after, *, old_instance, new_instance, old_name=N
         "application_identical_except_name": renaming,
         "allowed_identity_changes": ["name"] if renaming else ["instance"],
         "saved_application_parameters_verified": len(parameters.parameters),
+        "retained_runtime_parameters": parameters.retained_runtime_parameters,
         "post_saved_parameters": current["matched_parameters"],
         "runtime_counter_changes": counters,
         "device_calculated_changes": calculated,

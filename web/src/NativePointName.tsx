@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { NativeRuntimeCalibration } from "./NativeRuntimeCalibration";
+import { NativeRuntimeParametersNotice } from "./NativeRuntimeParametersNotice";
 import { api, apiKeepalive, apiJsonDocument, saveBlob } from "./api";
 import { controllerKey, type ControllerContext } from "./workflow";
 
@@ -289,6 +290,9 @@ export function NativePointName({
               · {object}
             </p>
             <p>{review.parameter_policy}</p>
+            <NativeRuntimeParametersNotice
+              parameters={review.compilation.parameter_merge}
+            />
             <label>
               <input
                 type="checkbox"
