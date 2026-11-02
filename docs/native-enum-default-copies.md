@@ -60,5 +60,6 @@ compiler equivalence, full-program compatibility or physical acceptance.
 
 The broader JCI-02/JCI-03/JCI-05 work remains partial. Enum-set member evidence,
 semantic validation, saved-setting compilation, field transfer and general native
-logic generation require separate verified implementations. The generic backup
-operation table has not yet added this new local operation.
+logic generation require separate verified implementations. The [backup operation table](native-backup-operation-capabilities.md) separately
+qualifies this local copy using actual eligible encodings; it does not verify
+Enum semantics or enable a transfer.

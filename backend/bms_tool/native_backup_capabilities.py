@@ -3,13 +3,14 @@
 from .moi_boolean_defaults import MoiBooleanDefaults
 from .moi_effective_boolean import compiler_from_snapshot as boolean_compiler_from_snapshot
 from .moi_effective_wire import compiler_from_snapshot as wire_compiler_from_snapshot
+from .moi_enum_defaults import MoiEnumDefaults
 from .moi_identity import MoiIdentity
 from .moi_parameters import ParameterApplication
 from .moi_signal_defaults import MoiSignalDefaults
 from .moi_wire_sources import MoiWireSources
 from .native_signal_compiler import compiler_from_snapshot
 
-PROFILE = "native-backup-operation-capabilities/8"
+PROFILE = "native-backup-operation-capabilities/9"
 
 
 def eligible_wire(editor):
@@ -63,6 +64,11 @@ def backup_capabilities(snapshot, files, application):
         boolean_count = len(MoiBooleanDefaults(files[3]).candidates)
     except ValueError as exc:
         boolean_error = str(exc)[:512]
+    enum_count, enum_error = 0, None
+    try:
+        enum_count = len(MoiEnumDefaults(files[3]).candidates)
+    except ValueError as exc:
+        enum_error = str(exc)[:512]
     effective_booleans, effective_boolean_error = [], None
     try:
         effective_booleans = boolean_compiler_from_snapshot(snapshot, files).fields()
@@ -165,6 +171,15 @@ def backup_capabilities(snapshot, files, application):
         if boolean_count
         else boolean_error or "No canonical class 530/531 Boolean Default Value was found.",
         "Inspect the actual record and review a separate archive copy. Saved values are not merged and no Boolean field transfer is prepared.",
+    )
+    add(
+        "enum-default-copy",
+        "Save an archive Enum-code copy",
+        "source-qualified" if enum_count else "unsupported-source",
+        f"The archive contains {enum_count} supported existing Enumerated defaults. Code membership and state meanings remain unverified."
+        if enum_count
+        else enum_error or "No supported class 528/529 Enumerated Default Value was found.",
+        "Inspect the actual record and review a local Enum code file copy. Saved settings are not merged; no executable mapping, Enum field transfer or physical acceptance is granted.",
     )
     add(
         "wire-source-copy",
@@ -298,6 +313,9 @@ def backup_capabilities(snapshot, files, application):
             "captured_plain_ipv4": bool(plain_ip),
             "archive_real_default_count": defaults,
             "archive_boolean_default_count": boolean_count,
+            "archive_enum_default_count": enum_count,
+            "archive_enum_default_error": enum_error,
+            "enum_semantics_verified": False,
             "archive_wire_source_copy": wire_copy,
             "archive_wire_source_copy_error": wire_copy_error,
             "effective_wire_source_compilation": effective_wire,

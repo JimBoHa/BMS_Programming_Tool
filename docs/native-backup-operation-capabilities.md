@@ -7,7 +7,7 @@ not open a connection, issue backup-state commands, create an edit or transfer
 intent, or qualify the currently running controller. Original acquisition effects
 and evidence remain unchanged.
 
-The table separates nineteen operations. Archive and diagram reading use actual
+The table separates twenty operations. Archive and diagram reading use actual
 recognized content. Typed instance/name copies require the stricter native
 identity framing; name copies also require a typed Device name. Archive Real
 copies require actual existing supported fields. Saved-setting merging requires
@@ -41,7 +41,7 @@ The token-admitted `POST
 /api/bacnet/controller/native-application/inspection/capabilities` accepts only
 capture ID and manifest hash. All retained files and the manifest are verified
 before analysis. It returns inspection provenance plus capability profile
-`native-backup-operation-capabilities/8`, nineteen ordered rows and detailed local
+`native-backup-operation-capabilities/9`, twenty ordered rows and detailed local
 qualification evidence. It returns `read_only: true`, `controller_queries: false`,
 `can_apply: false` and `current_identity_verified: false`.
 
@@ -103,3 +103,10 @@ requires the original verified receipt/connection and unchanged current source
 configuration. A source-only candidate list supplies no historical pin. Its
 separate local compiler/export and new confirmed transfer do not broaden the
 ordinary source-only capability profile.
+
+Profile 9 adds [original Enum code file copies](native-enum-default-copies.md).
+Qualification uses actual class 528/529 Enumerated Default Value encodings under
+the local copy profile, independent of saved schema, historical identity status
+and captured transport. The table reports eligible fields and any local framing
+error. Code membership and state meanings remain explicitly unverified; no Enum
+effective compiler, executable mapping or field transfer is inferred.
