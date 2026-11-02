@@ -19,13 +19,15 @@ from bms_tool.mstp import header_crc
 from .test_controller_application import encoded, native_record
 
 
-def parameters_source(*, model="UNLISTED-MODEL", cid=470, modules=5, compressed=True):
+def parameters_source(
+    *, model="UNLISTED-MODEL", cid=470, modules=5, compressed=True, root_ref="controller"
+):
     records = [
         native_record(
             cid,
             5136,
             [
-                (32527, encoded(CharacterString("controller"))),
+                (32527, encoded(CharacterString(root_ref))),
                 (75, encoded(ObjectIdentifier((8, 5136)))),
                 (2390, encoded(CharacterString("Authored controller"))),
                 (70, encoded(CharacterString(model))),
@@ -359,3 +361,76 @@ def test_omitted_property_reframes_a_record_that_outgrows_its_short_length():
         actual.root["properties"][65000]["encoded_sha256"]
         == MoiIdentity(archive).root["properties"][65000]["encoded_sha256"]
     )
+
+
+def rebase_selectors(static, instance):
+    output = bytearray(static)
+    offset = 0
+    while offset < len(output):
+        length = int.from_bytes(output[offset : offset + 2], "big")
+        output[offset + 2 : offset + 6] = ((8 << 22) | instance).to_bytes(4, "big")
+        offset += length
+    return bytes(output)
+
+
+@pytest.mark.parametrize("cid", [194, 777])
+@pytest.mark.parametrize("logical_instance", [1, 41])
+@pytest.mark.parametrize("compressed", [True, False])
+def test_saved_root_selectors_follow_the_exact_declared_reference(
+    cid, logical_instance, compressed
+):
+    archive, static, dynamic = parameters_source(
+        cid=cid, compressed=compressed, root_ref=f"8-{logical_instance}"
+    )
+    static = rebase_selectors(static, logical_instance)
+    merge = ParameterApplication(archive, static, dynamic)
+    output, report = merge.compile()
+    actual = MoiIdentity(output)
+    assert actual.instance == 5136
+    assert actual.reader.scalar(actual.root, 900) == 3.5
+    assert report["matched_parameters"] == 7
+    assert {p["instance"] for p in merge.parameters} == {5136}
+    q = dict(source_sha256=actual.source_sha256, expected_instance=5136, new_instance=5336)
+    plan = actual.preview(**q)
+    changed, _ = actual.export(**q, plan_sha256=plan["plan_sha256"])
+    again, after = ParameterApplication(changed, static, dynamic).compile()
+    assert MoiIdentity(again).data == MoiIdentity(changed).data
+    assert after["matched_parameters"] == 7
+    assert not after["changed_parameters"]
+
+
+def test_same_numeric_root_selector_without_reference_proof_is_not_guessed():
+    archive, static, dynamic = parameters_source(root_ref="other-root")
+    output, report = ParameterApplication(archive, rebase_selectors(static, 1), dynamic).compile()
+    assert MoiIdentity(output).data == MoiIdentity(archive).data
+    assert report["matched_parameters"] == 0
+
+
+def test_logical_root_selector_cannot_shadow_an_existing_native_object():
+    archive, static, dynamic = parameters_source(compressed=False, root_ref="8-1")
+    extra = native_record(
+        470,
+        1,
+        [
+            (32527, encoded(CharacterString("8-1/conflict"))),
+            (70, encoded(CharacterString("other"))),
+        ],
+    )
+    data = bytearray(archive)
+    struct.pack_into("<I", data, 10, struct.unpack_from("<I", data, 10)[0] + 1)
+    data.extend(struct.pack("<H", len(extra) + 2) + extra)
+    with pytest.raises(ValueError, match="conflicts"):
+        ParameterApplication(bytes(data), rebase_selectors(static, 1), dynamic).compile()
+
+
+def test_saved_root_aliases_cannot_write_the_same_omitted_property_twice():
+    archive, static, dynamic = parameters_source(root_ref="8-1")
+    directory = bytearray(rebase_selectors(static, 1))
+    directory[6:8] = (65002).to_bytes(2, "big")
+    duplicate = bytearray(directory[:16])
+    duplicate[2:6] = ((8 << 22) | 5136).to_bytes(4, "big")
+    duplicate[12:14] = len(dynamic).to_bytes(2, "big")
+    directory.extend(duplicate)
+    dynamic += bytes([62, header_crc(bytes([62])) ^ 255])
+    with pytest.raises(ValueError, match="Multiple saved selectors"):
+        ParameterApplication(archive, bytes(directory), dynamic).compile()

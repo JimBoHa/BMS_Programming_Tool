@@ -35,6 +35,14 @@ Identity/default/wire transfer preservation compares the complete merged image,
 so these retained fields receive the same byte and saved-value verification as
 properties originally present in File 3.
 
+A root Device selector may retain the application's logical reference while
+the native record header carries the assigned BACnet instance. The merger uses
+the exact root reference and native class to resolve this alias. It does not
+assume that Device 1 means the root. Conflicting native objects, non-Device root
+selectors and two aliases targeting one property remain errors. The report uses
+the resolved native instance, so preservation still checks the root's saved
+settings after an instance edit without rewriting its logical reference.
+
 This distinction prevents an unused runtime value from blocking an otherwise
 supported instance edit. It never substitutes a default, repairs a stored value,
 or copies invalid bytes into the application.
