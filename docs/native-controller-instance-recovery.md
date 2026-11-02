@@ -13,6 +13,8 @@ ordinary drafts and completed proposals stay in a bounded context cache across
 task navigation. Reviews, confirmations and active operations are not restored.
 Reload requires explicit selection. Source/receipt/task/target/interface and
 visibility lifecycle changes retire pending replies, including A→B→A changes.
+The [32-context retention policy](native-identity-draft-capacity.md) refuses new
+work instead of evicting older drafts and provides explicit save/discard actions.
 
 Reserve the previous number across the BACnet internetwork, including offline
 devices. Connect and verify the exact source station, choose **Review application
