@@ -17,7 +17,10 @@ review rather than silently passing.
 
 The receipt retains application and current saved values separately, including
 existing binary change counts and elapsed times. The readback view displays
-these differences within the existing transfer result. Stored/PSS readback is
+these differences within the existing transfer result. The review explains
+that standard runtime counters can reset during a restart; their preservation
+is distinct from preserving fixed application settings. The legacy 978 exception
+remains stricter and rejects a decreased value. Stored/PSS readback is
 not represented as a simultaneous live measurement or proof of motor movement.
 This adds no actuator command, calibration, tuning adjustment or state write.
 

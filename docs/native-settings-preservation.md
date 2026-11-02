@@ -13,11 +13,14 @@ Before accepting a transfer as verified, BMS Studio now also checks:
 3. Compare every captured saved application parameter with the readback,
    accounting for the changed Device object's native identifier.
 4. Decode the readback's current saved parameters and reject unexplained value
-   differences. Documented elapsed-active-time and change-of-state counters may
-   advance while the controller operates.
+   differences. Elapsed-active-time and change-of-state counters are runtime
+   state: they can advance while the controller operates and can reset during a
+   restart. These differences are reported separately from fixed configuration.
 
 The transfer receipt includes a `preservation` evidence record with verified
-parameter counts, hashes and any advancing counters. A smaller regenerated
+parameter counts, hashes and observed counter changes. Original backups retain
+their pre-transfer values; the review describes possible resets rather than
+promising to restore runtime history. A smaller regenerated
 parameter directory is not treated as data loss when those values are preserved
 as application defaults. Any unexplained program or saved-setting difference
 keeps the transfer unresolved and requires review before another write.
