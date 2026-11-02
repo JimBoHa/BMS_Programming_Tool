@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { api, apiJsonDocument, download, saveBlob } from "./api";
 import { ScheduleLibraryPanel } from "./ScheduleLibraryPanel";
+import type { ExceptionWork } from "./nativeScheduleExceptions";
 import { type CalendarWork } from "./nativeCalendar";
 import type { WeeklyWork } from "./nativeWeeklyWork";
 import {
@@ -19,6 +20,7 @@ type Props = {
   defaultDnet?: number | null;
   calendarWorkspace?: CalendarWork;
   weeklyWorkspace?: WeeklyWork;
+  exceptionWorkspace?: ExceptionWork;
 };
 export function ScheduleInventoryPanel({
   connected,
@@ -29,6 +31,7 @@ export function ScheduleInventoryPanel({
   defaultDnet: suppliedDnet,
   calendarWorkspace,
   weeklyWorkspace,
+  exceptionWorkspace,
 }: Props) {
   const defaultDnet = suppliedDnet ?? null;
   const [address, setAddress] = useState(defaultAddress),
@@ -687,6 +690,7 @@ export function ScheduleInventoryPanel({
         }}
         calendarWorkspace={calendarWorkspace}
         weeklyWorkspace={weeklyWorkspace}
+        exceptionWorkspace={exceptionWorkspace}
         sessionReportId={report?.id || null}
         connected={connected}
         connectionKey={JSON.stringify([

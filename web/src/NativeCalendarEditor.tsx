@@ -68,7 +68,7 @@ const WEEKS = [
   ["9", "7 days before last 21"],
   ["*", "Any week"],
 ];
-function Choice({
+export function Choice({
   label,
   value,
   options,
@@ -99,7 +99,7 @@ function Choice({
     </label>
   );
 }
-function DateFields({
+export function DateFields({
   label,
   value,
   change,
@@ -143,6 +143,12 @@ function DateFields({
     </div>
   );
 }
+
+export const calendarPatternOptions = {
+  months: MONTHS,
+  weeks: WEEKS,
+  weekdays: WEEKDAYS,
+};
 
 export function NativeCalendarEditor({
   captureId,

@@ -144,6 +144,17 @@ function field(text: string, year = false) {
 }
 const dateValue = (values: string[]) =>
   values.map((value, i) => field(value, i === 0));
+export function calendarEntryRequest(row: CalendarRow): CalendarEntry {
+  return row.kind === "date"
+    ? { kind: "date", date: dateValue(row.date) }
+    : row.kind === "dateRange"
+      ? {
+          kind: "dateRange",
+          start: dateValue(row.start),
+          end: dateValue(row.end),
+        }
+      : { kind: "weekNDay", fields: row.fields.map((value) => field(value)) };
+}
 export function calendarRequest(
   captureId: string,
   objectId: string,
@@ -152,21 +163,7 @@ export function calendarRequest(
   return {
     capture_id: captureId,
     object_id: objectId,
-    entries: rows.map(
-      (row): CalendarEntry =>
-        row.kind === "date"
-          ? { kind: "date", date: dateValue(row.date) }
-          : row.kind === "dateRange"
-            ? {
-                kind: "dateRange",
-                start: dateValue(row.start),
-                end: dateValue(row.end),
-              }
-            : {
-                kind: "weekNDay",
-                fields: row.fields.map((value) => field(value)),
-              },
-    ),
+    entries: rows.map(calendarEntryRequest),
   };
 }
 export function calendarReview(

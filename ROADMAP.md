@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-02. Implementation baseline: GitHub `main` at
-[`1709961b`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/1709961bfc4a4be4d8c58a51b768134bd38059d0).
+[`344ab1d6`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/344ab1d633ad657d8510fc8b095aaacb5df69693).
 
 ## Baseline and purpose
 
@@ -84,6 +84,14 @@ verified Apply or explicit readback clears only its matching completed proposal.
 This is in-memory workspace retention, not durable draft storage across reloads.
 
 ## Existing capabilities to preserve and credit
+
+[Native Schedule exceptions](docs/native-schedule-exceptions.md) now have a
+separate local source/review/exact export/import workflow within Schedules.
+Typed periods, values, priorities, order and modern captured week patterns retain
+their native proof and source-specific unfinished buffers. Calendar references
+are not queried and no field authority is issued. Existing weekly/String rules
+and writers stay separate; exception transfer, context/link editing and schedule
+evaluation remain pending under SCH-01–SCH-03.
 
 [Calendar range admission](docs/native-calendar-date-ranges.md) now distinguishes
 fully specified or wholly unspecified DateRange endpoints from broader Date

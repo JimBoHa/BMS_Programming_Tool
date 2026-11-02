@@ -1,0 +1,21 @@
+.native-exception-editor {
+  min-width: 0;
+}
+.native-exception-fields {
+  min-width: 0;
+  margin-block: 16px;
+  padding: 16px;
+  border: 1px solid var(--border);
+}
+.native-exception-clock {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.native-exception-clock input {
+  width: 64px;
+}
+.native-exception-editor pre {
+  max-height: 400px;
+  overflow: auto;
+}
