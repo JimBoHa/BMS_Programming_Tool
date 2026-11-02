@@ -24,6 +24,7 @@ const operationIds = [
   "saved-settings",
   "signal-default-copy",
   "boolean-default-copy",
+  "enum-default-copy",
   "wire-source-copy",
   "effective-wire-compile",
   "effective-boolean-compile",
@@ -100,7 +101,7 @@ export function NativeBackupCapabilities({
       );
       if (
         data.profile !== "native-backup-record-inspection/1" ||
-        data.capability_profile !== "native-backup-operation-capabilities/8" ||
+        data.capability_profile !== "native-backup-operation-capabilities/9" ||
         data.source_kind !== "native-backup-archive" ||
         data.capture_id !== source.capture_id ||
         data.snapshot_sha256 !== source.snapshot_sha256 ||
@@ -116,6 +117,9 @@ export function NativeBackupCapabilities({
         data.current_identity_verified !== false ||
         typeof data.qualification !== "object" ||
         data.qualification === null ||
+        !Number.isSafeInteger(data.qualification.archive_enum_default_count) ||
+        data.qualification.archive_enum_default_count < 0 ||
+        data.qualification.enum_semantics_verified !== false ||
         typeof data.scope !== "string" ||
         !Array.isArray(data.operations) ||
         data.operations.length !== operationIds.length ||
@@ -126,7 +130,12 @@ export function NativeBackupCapabilities({
             [row.operation, row.basis, row.next_step].every(
               (value) => typeof value === "string",
             ),
-        )
+        ) ||
+        data.operations.find((row: Operation) => row.id === "enum-default-copy")
+          ?.status !==
+          (data.qualification.archive_enum_default_count > 0
+            ? "source-qualified"
+            : "unsupported-source")
       )
         throw new Error(
           "Native backup operation analysis differs from the selected source. Inspect this snapshot again.",

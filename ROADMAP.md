@@ -618,8 +618,8 @@ The existing Program record inspector exposes this operation for captured fields
 with source-specific unfinished text, exact response evidence and digest-checked
 artifact downloads. No connection is required. Saved settings, semantic set
 membership, executable mappings, Enum transfer and general native compilation
-remain separate. The generic backup operation table still needs a separate local
-Enum capability row. JCI-02/JCI-03/JCI-05 remain partial overall. See
+remain separate. The generic backup operation table separately qualifies the local Enum copy
+using actual eligible encodings. JCI-02/JCI-03/JCI-05 remain partial overall. See
 [the supported profile and qualification](docs/native-enum-default-copies.md).
 
 ## 2026-11-02 QA-02 delivery: isolate native copy browser fixtures
@@ -630,3 +630,13 @@ and installed qualification uses the same 106 cases while the global runner
 directories are already full at the unchanged 128-backup quota. Original runner
 archives remain intact. Production code, assertions, deadlines and retries are
 unchanged. See [the failure and qualification scope](docs/native-copy-test-isolation.md).
+
+## 2026-11-02 JCI-01 delivery: original Enum-copy capability reporting
+
+`QUAL-NATIVE-ENUM-COPY-CAPABILITY-001` adds a twentieth operation to retained
+backup analysis. Actual native class/property/datatype/encoding eligibility
+qualifies local Enum code copies independently of saved schema or transport.
+The report preserves identity/framing errors, counts eligible captured fields
+and explicitly leaves Enum semantics unverified. Existing controller preflight,
+semantic mappings and physical acceptance remain separate. See
+[the operation profile](docs/native-backup-operation-capabilities.md).
