@@ -666,6 +666,22 @@ preserves other merged native bytes and all original backup files.
 The existing record editor gains an explicit source mode, independent unfinished
 raw text and source-bound review/artifact downloads. No connection is required.
 Enum meaning/membership, executable mappings, general native compilation and
-Enum field transfer remain separate. The generic operation table still needs
-an effective-Enum row. These JCI roadmap groups remain partial overall. See
+Enum field transfer remain separate. The generic operation table separately
+qualifies the actual effective compiler. These JCI roadmap groups remain partial overall. See
 [the compiler profile](docs/native-effective-enum-compiler.md).
+
+## 2026-11-02 JCI-01 delivery: effective Enum compiler capability reporting
+
+`FMT-NATIVE-EFFECTIVE-ENUM-CAPABILITIES-001` adds one source-specific local
+effective-Enum compilation operation to the existing native backup support
+table. Actual retained identity, saved merge and eligible typed fields determine
+support. Captured fixed numeric storage and unknown selected capacity retain
+separate counts; neither establishes allowed states or meanings. Archive-only
+Enum copies remain independent of the saved format and acquisition interface.
+
+The browser independently binds all original files, saved-merge hashes,
+historical identity, counts, error and ordered row status. Readable records and
+unfinished drafts remain available when compilation is unsupported or a reply
+is rejected. No Enum field preflight, transfer or physical acceptance is added.
+JCI-01/JCI-05/JCI-09 remain partial overall. See
+[the operation support profile](docs/native-backup-operation-capabilities.md).

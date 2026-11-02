@@ -7,7 +7,7 @@ not open a connection, issue backup-state commands, create an edit or transfer
 intent, or qualify the currently running controller. Original acquisition effects
 and evidence remain unchanged.
 
-The table separates twenty operations. Archive and diagram reading use actual
+The table separates twenty-one operations. Archive and diagram reading use actual
 recognized content. Typed instance/name copies require the stricter native
 identity framing; name copies also require a typed Device name. Archive Real
 copies require actual existing supported fields. Saved-setting merging requires
@@ -41,7 +41,7 @@ The token-admitted `POST
 /api/bacnet/controller/native-application/inspection/capabilities` accepts only
 capture ID and manifest hash. All retained files and the manifest are verified
 before analysis. It returns inspection provenance plus capability profile
-`native-backup-operation-capabilities/9`, twenty ordered rows and detailed local
+`native-backup-operation-capabilities/10`, twenty-one ordered rows and detailed local
 qualification evidence. It returns `read_only: true`, `controller_queries: false`,
 `can_apply: false` and `current_identity_verified: false`.
 
@@ -110,3 +110,18 @@ the local copy profile, independent of saved schema, historical identity status
 and captured transport. The table reports eligible fields and any local framing
 error. Code membership and state meanings remain explicitly unverified; no Enum
 effective compiler, executable mapping or field transfer is inferred.
+
+Profile 10 separately qualifies [effective Enum compilation](native-effective-enum-compiler.md)
+using that compiler's actual identity-qualified saved merge and supported field
+list. The table retains the local compiler error and eligible-field counts, split
+between actual captured fixed numeric storage and no selected fixed slot. The
+latter supports only local UInt32 representation checking. Neither numeric bound
+establishes allowed states or meanings. The archive-only Enum row remains
+independent of saved schema, recorded identity and acquisition transport.
+
+The browser additionally binds all three original file sizes/hashes and positive
+effective-Enum evidence to the exact saved-merge source/static/dynamic hashes.
+Counts, their fixed/unknown partition, recorded identity, compiler error and row
+status must agree. Unknown saved structure or identity mismatch keeps readable
+records available while reporting effective compilation as unsupported. No Enum
+transfer row, field review or physical acceptance is added.
