@@ -9,6 +9,11 @@ import "./change-ledger.css";
 import { recordedInput, inputAction } from "./nativeInputLedger";
 import { recordedPointName } from "./nativePointNameLedger";
 import { recordedPointNameRecovery } from "./nativePointNameRecoveryLedger";
+import {
+  recordedEnumRecovery,
+  ENUM_RECOVERY_UNAVAILABLE,
+  type RecordedEnumRecovery,
+} from "./nativeEnumRecoveryLedger";
 
 export type LedgerSource =
   | "audit"
@@ -31,6 +36,7 @@ type RecordedRecovery = {
   scope: string;
 };
 type NativeRecovery =
+  | RecordedEnumRecovery
   | (RecordedRecovery & {
       datatype: "ObjectIdentifier";
       before_instance: number;
@@ -291,8 +297,26 @@ export function ChangeLedgerPanel({
         : {}),
     })
       .then((report: Report) => {
-        if (!retired && epoch === generation.current.value)
-          setResult({ key, report, busy: false });
+        if (!retired && epoch === generation.current.value) {
+          const rows = report.rows.map((row) =>
+            row.native_recovery !== undefined &&
+            (row.native_change_kind === "enum-default" ||
+                (row.native_recovery?.state === "recorded" &&
+                row.native_recovery.datatype === "Enumerated"))
+              ? {
+                  ...row,
+                  native_recovery: recordedEnumRecovery(
+                    row.native_recovery,
+                    row,
+                  ) ?? {
+                    state: "unavailable" as const,
+                    scope: ENUM_RECOVERY_UNAVAILABLE,
+                  },
+                }
+              : row,
+          );
+          setResult({ key, report: { ...report, rows }, busy: false });
+        }
       })
       .catch((error) => {
         if (!retired && epoch === generation.current.value)
@@ -622,7 +646,7 @@ export function ChangeLedgerPanel({
                       {row.native_recovery && (
                         <span>
                           {row.native_recovery.state === "recorded"
-                            ? `${row.native_recovery.datatype === "Wire" ? "Previous wire source recovery" : row.native_recovery.datatype === "ObjectIdentifier" ? "Previous controller instance recovery" : row.native_recovery.datatype === "CharacterString" ? "Previous controller name recovery" : "Previous-value recovery"} · parent ${row.native_recovery.parent_receipt_id}`
+                            ? `${row.native_recovery.datatype === "Wire" ? "Previous wire source recovery" : row.native_recovery.datatype === "ObjectIdentifier" ? "Previous controller instance recovery" : row.native_recovery.datatype === "CharacterString" ? "Previous controller name recovery" : row.native_recovery.datatype === "Enumerated" ? "Previous Enum code recovery" : "Previous-value recovery"} · parent ${row.native_recovery.parent_receipt_id}`
                             : "Recovery metadata unavailable"}
                         </span>
                       )}
@@ -988,7 +1012,9 @@ export function ChangeLedgerPanel({
                             ? "Recorded controller name change"
                             : choice.native_recovery.datatype === "Boolean"
                               ? "Recorded Boolean change"
-                              : "Recorded Real change"}
+                              : choice.native_recovery.datatype === "Enumerated"
+                                ? "Recorded Enum code proposal"
+                                : "Recorded Real change"}
                     </dt>
                     <dd>
                       {choice.native_recovery.record_ref} ·{" "}
@@ -1022,6 +1048,13 @@ export function ChangeLedgerPanel({
                           {choice.native_recovery.before_tag} to{" "}
                           {choice.native_recovery.after_tag}
                         </>
+                      ) : choice.native_recovery.datatype === "Enumerated" ? (
+                        <>
+                          {choice.native_recovery.before_value} to{" "}
+                          {choice.native_recovery.after_value} · class{" "}
+                          {choice.native_recovery.class_id} · property 3113.
+                          Code meanings remain unverified.
+                        </>
                       ) : (
                         <>
                           {realText(choice.native_recovery.before_value)} to{" "}
@@ -1031,6 +1064,47 @@ export function ChangeLedgerPanel({
                         </>
                       )}
                     </dd>
+                    {choice.native_recovery.datatype === "Enumerated" && (
+                      <>
+                        <dt>Recorded current and proposed encodings</dt>
+                        <dd>
+                          <code>
+                            {choice.native_recovery.before_encoding_hex}
+                          </code>{" "}
+                          to{" "}
+                          <code>
+                            {choice.native_recovery.after_encoding_hex}
+                          </code>
+                        </dd>
+                        <dt>Historical previous and after encodings</dt>
+                        <dd>
+                          <code>
+                            {choice.native_recovery.previous_encoding_hex}
+                          </code>{" "}
+                          ·{" "}
+                          <code>
+                            {choice.native_recovery.recorded_after_encoding_hex}
+                          </code>
+                        </dd>
+                        <dt>Captured storage and state metadata</dt>
+                        <dd>
+                          {choice.native_recovery.saved_storage.bytes} bytes ·
+                          numeric maximum{" "}
+                          {choice.native_recovery.saved_storage.maximum_code} ·{" "}
+                          {choice.native_recovery.states_text_encoded_sha256 ? (
+                            <code>
+                              {
+                                choice.native_recovery
+                                  .states_text_encoded_sha256
+                              }
+                            </code>
+                          ) : (
+                            "No encoded state metadata was recorded"
+                          )}
+                          . Numeric capacity does not establish allowed states.
+                        </dd>
+                      </>
+                    )}
                     <dt>Historical verification</dt>
                     <dd>
                       {choice.native_recovery.verified_proof.kind === "result"
