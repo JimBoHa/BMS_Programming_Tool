@@ -104,6 +104,7 @@ from .masd_ahu import masd_ahu_router
 from .models import Program, StrictModel
 from .native_applications import NativeApplications, native_application_router
 from .native_backup_comparison import BackupComparisonRequest, NativeBackupComparison
+from .native_backup_import import backup_import_router
 from .native_backup_records import (
     BackupInspectionSource,
     BackupRecordRequest,
@@ -755,6 +756,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.state.native_boolean_copies = boolean_copies
     app.state.native_boolean_compiler = boolean_compiler
     app.include_router(native_application_router(native_applications))
+    app.include_router(backup_import_router(native_applications.storage))
     app.include_router(identity_text_router(native_applications.storage))
     app.include_router(calendar_draft_router(schedule_library))
     app.include_router(calendar_text_router(schedule_library))

@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./nativeScheduleWriteFixture";
 import { python } from "./caf-native-fixture";
 import { chooseWorkspaceSurface } from "./workspace-navigation";
 
@@ -6,7 +6,7 @@ const endpoint =
   "/api/bacnet/controller/native-application/backup-library/list";
 const panel = (page: Page) =>
   page.getByRole("region", { name: "Native backup library", exact: true });
-function seed() {
+function seed(directory: string) {
   return JSON.parse(
     python(
       `
@@ -18,7 +18,7 @@ from tests.test_caf_native_correlation import caf_source
 s=ApplicationStore(Store(sys.argv[1]));capture=retained(s)
 print(json.dumps({'capture':capture,'storage':native_storage_profile(),'caf':base64.b64encode(caf_source().original).decode()}))
 `,
-      process.env.BMS_TEST_COMPILER_STATE!,
+      directory,
     ),
   );
 }
@@ -68,8 +68,9 @@ for (const caf of [false, true])
   test(`current storage policy from ${caf ? "CAF" : "new application"} entry retains original manifest and makes no field calls`, async ({
     page,
     request,
+    nativeScheduleWriteServer,
   }) => {
-    const data = seed(),
+    const data = seed(nativeScheduleWriteServer.directory),
       field: string[] = [];
     page.on("request", (request) => {
       if (
@@ -112,8 +113,9 @@ for (const caf of [false, true])
 
 test("authored Windows policy displays its actual directory durability limitation", async ({
   page,
+  nativeScheduleWriteServer,
 }) => {
-  const data = seed();
+  const data = seed(nativeScheduleWriteServer.directory);
   const windows = {
     ...data.storage,
     platform: "nt",
@@ -143,8 +145,9 @@ test("authored Windows policy displays its actual directory durability limitatio
 
 test("unknown storage metadata remains unavailable without replacing original source evidence", async ({
   page,
+  nativeScheduleWriteServer,
 }) => {
-  const data = seed();
+  const data = seed(nativeScheduleWriteServer.directory);
   await page.route("**" + endpoint, async (route) => {
     const response = await route.fetch(),
       result = await response.json();

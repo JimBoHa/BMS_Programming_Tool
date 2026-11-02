@@ -117,6 +117,8 @@ class NativeBackupLifecycle:
         }
 
     def list(self, request):
+        from .native_backup_import import import_origin
+
         options = BackupLibraryQuery.model_validate(request)
         with self.storage.store.connect(timeout=0.25) as db:
             # Serialize the bounded catalog snapshot with capture publication and transitions.
@@ -125,9 +127,17 @@ class NativeBackupLifecycle:
             folders = list(self.storage.directory.glob("*/manifest.json"))
             if len(folders) > ACTIVE_LIMIT + ARCHIVE_LIMIT:
                 raise ValueError("Native backup library exceeds its retained source limits.")
-            rows = [
-                self.entry(self.manifest(p.parent.name), states.get(p.parent.name)) for p in folders
-            ]
+            rows = []
+            for path in folders:
+                manifest = self.manifest(path.parent.name)
+                row = self.entry(manifest, states.get(path.parent.name))
+                try:
+                    origin = import_origin(self.storage, manifest)
+                    if origin is not None:
+                        row["local_import"] = origin
+                except (ValueError, OSError):
+                    row["local_import_unavailable"] = True
+                rows.append(row)
         active = sum(not row["archived"] for row in rows)
         if active > ACTIVE_LIMIT:
             raise ValueError("Native backup library exceeds its active source limit.")

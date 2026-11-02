@@ -2,13 +2,14 @@ import {
   openNativeCompiler,
   chooseWorkspaceSurface,
 } from "./workspace-navigation";
-import { test, expect, type Page, type Locator } from "@playwright/test";
+import { test, expect, type Page } from "./nativeScheduleWriteFixture";
+import type { Locator } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 
 const root = path.resolve("..");
-function seed() {
-  const state = process.env.BMS_TEST_COMPILER_STATE;
+function seed(directory: string) {
+  const state = directory;
   if (!state)
     throw new Error("The runner must provide isolated compiler state.");
   return JSON.parse(
@@ -89,7 +90,7 @@ async function selectRecord(explorer: Locator, ref: string) {
     exact: true,
   });
 }
-test.beforeEach(async ({ request }) => {
+test.beforeEach(async ({ request, nativeScheduleWriteServer }) => {
   const headers = {
     "X-Studio-Token": (await (await request.get("/api/session")).json()).token,
   };
@@ -101,9 +102,10 @@ test.beforeEach(async ({ request }) => {
 test("offline native backup records expose original archive values and preserve compiler drafts", async ({
   page,
   request,
+  nativeScheduleWriteServer,
 }, info) => {
   await page.setViewportSize({ width: 820, height: 1100 });
-  const ids = seed(),
+  const ids = seed(nativeScheduleWriteServer.directory),
     { compiler, inspection } = await enter(page, ids.a);
   await compiler
     .getByRole("button", { name: "Open retained backup", exact: true })
@@ -157,8 +159,9 @@ test("offline native backup records expose original archive values and preserve 
 test("unverified archive with unknown saved settings stays readable without qualifying compilation", async ({
   page,
   request,
+  nativeScheduleWriteServer,
 }) => {
-  const ids = seed(),
+  const ids = seed(nativeScheduleWriteServer.directory),
     { compiler, inspection } = await enter(page, ids.bad);
   await compiler
     .getByRole("button", { name: "Open retained backup", exact: true })
@@ -193,8 +196,9 @@ for (const { endpoint, altered } of [
 ]) {
   test(`altered native archive ${endpoint} ${altered} response cannot display another source`, async ({
     page,
+    nativeScheduleWriteServer,
   }) => {
-    const ids = seed(),
+    const ids = seed(nativeScheduleWriteServer.directory),
       { inspection } = await enter(page, ids.a);
     await page.route(
       `**/native-application/inspection/${endpoint}`,
@@ -228,8 +232,9 @@ for (const { endpoint, altered } of [
 
 test("late native backup properties cannot return after source A B A selection", async ({
   page,
+  nativeScheduleWriteServer,
 }) => {
-  const ids = seed(),
+  const ids = seed(nativeScheduleWriteServer.directory),
     { compiler, inspection } = await enter(page, ids.a);
   const explorer = await inspect(inspection);
   let release!: () => void, started!: () => void;

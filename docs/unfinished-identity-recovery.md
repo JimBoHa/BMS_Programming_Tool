@@ -40,8 +40,10 @@ select its captured target, connect an interface or verify a responding device.
 Existing fresh target, compiler, collision, allocation, confirmation, one-use
 transfer and full readback checks still govern later field changes. Source-less
 raw text has no fabricated capture. Empty/reference-only work does not acquire a
-draft slot. Saving this reference file does not package original backup files or
-add a native backup ZIP importer.
+draft slot. Saving this reference file does not package original backup files.
+The separate [native backup ZIP importer](native-backup-import.md) can retain an
+original backup on another computer before importing source-bound identity text;
+neither importer restores field authority or original transfer receipts.
 
 ## File and workspace limits
 
