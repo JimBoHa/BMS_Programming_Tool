@@ -33,6 +33,8 @@ changes. A late reply cannot restore their authority.
 and public identifiers, rather than selecting a program inventory by model.
 Native ACS/DMCS pairs 60/60, 62/62 and 66/65 are supported. Physical terminal
 capacity comes separately from exact documented hardware model evidence.
+The newly admitted omitted analog-input defaults (813 and 3164) use the same
+three-pair boundary; an undeclared or mixed data-model pair remains blocked.
 
 The profile supports one of these operations per review:
 
@@ -117,6 +119,12 @@ tests follow the actual UI through allocation, voltage/resistance round trips an
 removal, local copy saving, task navigation and substituted-review rejection.
 CAF entry also reaches retained native input copies through Points & I/O without
 opening a field interface; the native source stays separate from the open CAF.
+The original feature author supplied the native datatype declarations and reports
+a field allocation/mode/removal round trip. Independent review on this Mac uses
+authored sources and checks the declared version boundary, transfer safeguards,
+published-property comparisons and graphical workflow. It does not independently
+establish that reported physical result or acceptance by every controller using
+one of those native formats.
 
 Software configuration/readback and an open-terminal value do not establish
 calibrated analog accuracy. Applying a known voltage/resistance and checking field

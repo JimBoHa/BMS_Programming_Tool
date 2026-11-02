@@ -295,6 +295,43 @@ test("substituted input review cannot authorize apply", async ({
   }
 });
 
+test("input review keeps Apply as its one primary action", async ({
+  page,
+  request,
+}) => {
+  const peer = await nativeDefaultPeer("consume", "input");
+  try {
+    const p = await open(page, request, peer.direct);
+    await capture(p);
+    await p
+      .getByLabel("Native input name", { exact: true })
+      .fill("Primary action review");
+    await p
+      .getByRole("button", {
+        name: "Review controller input change",
+        exact: true,
+      })
+      .click();
+    await expect(
+      p.getByRole("region", { name: "Input change review", exact: true }),
+    ).toBeVisible();
+    await expect(p.locator("button.primary")).toHaveCount(1);
+    await expect(
+      p.getByRole("button", {
+        name: "Apply input change to controller",
+        exact: true,
+      }),
+    ).toHaveClass(/primary/);
+    expect(
+      (await peer.command("stats")).events.filter(
+        (e: any[]) => e[0] === "write",
+      ),
+    ).toHaveLength(0);
+  } finally {
+    peer.close();
+  }
+});
+
 test("CAF entry can edit and save a retained native input copy with no field interface", async ({
   page,
   request,
@@ -386,10 +423,17 @@ print(json.dumps(c))
       exact: true,
     }),
   ).toBeDisabled();
+  await expect(
+    p.getByRole("button", { name: "Review local input copy", exact: true }),
+  ).toHaveClass(/primary/);
   await p
     .getByRole("button", { name: "Review local input copy", exact: true })
     .click();
   await expect(p).toContainText("Local copy reviewed.");
+  await expect(
+    p.getByRole("button", { name: "Save native copy", exact: true }),
+  ).toHaveClass(/primary/);
+  await expect(p.locator("button.primary")).toHaveCount(1);
   const download = page.waitForEvent("download");
   await p
     .getByRole("button", { name: "Save native copy", exact: true })

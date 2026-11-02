@@ -9,8 +9,6 @@ PROFILE = "native-omitted-application-field-types/1"
 # Native format-family attributes, independently qualified against their
 # application definitions. These do not select models, objects or inventories.
 MODULE_TYPES = {
-    (240, 813): "unsigned-byte",  # AI calculation default, not an Enum or Boolean
-    (240, 3164): 4,  # AI filter Time Constant (Real seconds)
     (240, 1302): 1,  # hardware input presence Boolean
     (252, 3413): 1,
     (252, 3414): 4,
@@ -21,6 +19,13 @@ MODULE_TYPES = {
     (575, 2305): 7,  # control-sequence database identifier string
 }
 ROOT_TYPES = {32583: 9, 119: 3, 1017: 3, 1093: 3, 988: "five-unsigned", 1040: "five-unsigned"}
+# The input profile declares these application/data-model pairs. Do not infer
+# an omitted-field schema for an unqualified release, even from valid PSS bytes.
+ANALOG_DEFAULT_FORMATS = {(60, 60), (62, 62), (66, 65)}
+ANALOG_DEFAULT_TYPES = {
+    (240, 813): "unsigned-byte",  # AI calculation default, not an Enum or Boolean
+    (240, 3164): 4,  # AI filter Time Constant (Real seconds)
+}
 
 
 def qualify_parameter_additions(application, parameter_merge):
@@ -39,6 +44,9 @@ def qualify_parameter_additions(application, parameter_merge):
         if record is None:
             raise ValueError("An omitted saved field no longer has its original native object.")
         expected = ROOT_TYPES.get(pid) if record is app.root else MODULE_TYPES.get((cid, pid))
+        versions = app.summary()["format_versions"]
+        if (versions["acs"], versions["dmcs"]) in ANALOG_DEFAULT_FORMATS:
+            expected = ANALOG_DEFAULT_TYPES.get((cid, pid), expected)
         if (cid, pid) == (251, 978) and app.summary()["format_versions"] == {"acs": 60, "dmcs": 60}:
             # The native 6.0 application definition declares this actuator
             # field as an application-persistent UnsignedLong. Later schemas

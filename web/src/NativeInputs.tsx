@@ -777,17 +777,22 @@ export function NativeInputs({
             )}
           </fieldset>
           <div className="button-row">
-            <button disabled={busy} onClick={() => void run("local")}>
+            <button
+              className={!fieldAllowed && !copyReview ? "primary" : ""}
+              disabled={busy}
+              onClick={() => void run("local")}
+            >
               Review local input copy
             </button>
             <button
+              className={!fieldAllowed && copyReview ? "primary" : ""}
               disabled={busy || !copyReview}
               onClick={() => void run("save")}
             >
               Save native copy
             </button>
             <button
-              className="primary"
+              className={fieldAllowed && !review ? "primary" : ""}
               disabled={
                 busy || !fieldAllowed || !status?.credentials_configured
               }

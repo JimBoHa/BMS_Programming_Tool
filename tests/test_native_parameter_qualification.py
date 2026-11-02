@@ -71,6 +71,36 @@ def test_saved_analog_input_defaults_require_their_actual_application_types(pid,
             qualify_parameter_additions(bytes(data), report)
 
 
+@pytest.mark.parametrize("versions", [(60, 60), (62, 62), (66, 65), (66, 66), (102, 102), (60, 62)])
+@pytest.mark.parametrize("pid,value", [(813, Unsigned(1)), (3164, Real(900))])
+def test_saved_analog_defaults_do_not_qualify_an_undeclared_data_model(versions, pid, value):
+    root = native_record(
+        194,
+        5136,
+        [
+            (32527, encoded(CharacterString("controller"))),
+            (75, encoded(ObjectIdentifier((8, 5136)))),
+            (2390, encoded(CharacterString("Authored controller"))),
+            (70, encoded(CharacterString("UNLISTED-MODEL"))),
+            (4128, encoded(Unsigned(versions[0]))),
+            (4129, encoded(Unsigned(versions[1]))),
+        ],
+    )
+    ai = native_record(
+        240, 101, [(32527, encoded(CharacterString("controller/input"))), (pid, encoded(value))]
+    )
+    application = struct.pack("<6sHHI", b"\x02\x00MOI\x00", 194, 1, 2)
+    application += b"".join(struct.pack("<H", len(r) + 2) + r for r in (root, ai))
+    report = {
+        "changed_parameters": [{"class": 240, "instance": 101, "property": pid, "added": True}]
+    }
+    if versions in {(60, 60), (62, 62), (66, 65)}:
+        assert qualify_parameter_additions(application, report)["qualified_fields"] == 1
+    else:
+        with pytest.raises(ValueError, match="Unqualified omitted application property"):
+            qualify_parameter_additions(application, report)
+
+
 @pytest.mark.parametrize("external,cid", [(3, 242), (4, 239), (5, 168)])
 def test_counter_defaults_are_qualified_but_runtime_timestamps_are_not_injected(external, cid):
     output, report = ParameterApplication(*binary_saved_state(external=external, cid=cid)).compile()
