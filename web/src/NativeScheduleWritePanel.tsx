@@ -288,7 +288,8 @@ export function NativeScheduleWritePanel({
   const alive = useRef(true),
     own = useRef<Owned | null>(null),
     localTicket = useRef(0),
-    historyTicket = useRef(0);
+    historyTicket = useRef(0),
+    readyOperation = useRef<string | null>(null);
   const selectedKey = target(selectedTarget) ? targetKey(selectedTarget) : null;
   const draftMatchesSelection =
     !!draft &&
@@ -329,14 +330,20 @@ export function NativeScheduleWritePanel({
     own.current === operation &&
     !operation.retired &&
     authorityNow.current === operation.key;
+  function cancelId(id: string | null) {
+    if (id)
+      void apiKeepalive(BASE + "/cancel", { operation_id: id }).catch(() => {});
+  }
+  function discardPrepared() {
+    cancelId(readyOperation.current);
+    readyOperation.current = null;
+    setPrepared(null);
+  }
   function retire(send = true) {
     const operation = own.current;
     if (operation && !operation.retired) {
       operation.retired = true;
-      if (send)
-        void apiKeepalive(BASE + "/cancel", {
-          operation_id: operation.id,
-        }).catch(() => {});
+      if (send) cancelId(operation.id);
       if (alive.current)
         setNotice(
           operation.kind === "apply"
@@ -344,7 +351,7 @@ export function NativeScheduleWritePanel({
             : "The earlier operation is no longer current. Its late response cannot authorize Apply.",
         );
     }
-    setPrepared(null);
+    discardPrepared();
   }
   useEffect(() => {
     retire();
@@ -362,10 +369,17 @@ export function NativeScheduleWritePanel({
   }, [prepared]);
   useEffect(() => {
     alive.current = true;
+    const retireVisible = () => retire();
+    document.addEventListener("visibilitychange", retireVisible);
+    window.addEventListener("pagehide", retireVisible);
     return () => {
+      document.removeEventListener("visibilitychange", retireVisible);
+      window.removeEventListener("pagehide", retireVisible);
       alive.current = false;
       localTicket.current++;
       historyTicket.current++;
+      cancelId(readyOperation.current);
+      readyOperation.current = null;
       const operation = own.current;
       if (operation && !operation.retired) {
         operation.retired = true;
@@ -382,7 +396,7 @@ export function NativeScheduleWritePanel({
       if (alive.current && localTicket.current === ticket) setProfile(result);
     } catch (failure) {
       if (alive.current && localTicket.current === ticket) {
-        setPrepared(null);
+        discardPrepared();
         setProfile(null);
         setError(String(failure));
       }
@@ -415,6 +429,7 @@ export function NativeScheduleWritePanel({
         );
       if (valid(operation)) await accept(result, operation);
     } catch (failure) {
+      if (kind === "preview") cancelId(operation.id);
       if (valid(operation))
         setError(
           kind === "apply"
@@ -442,7 +457,7 @@ export function NativeScheduleWritePanel({
       name = operator.trim(),
       why = rationale.trim(),
       domain = writeDomain(binding, profile);
-    setPrepared(null);
+    discardPrepared();
     if (!domain) {
       setError(
         "The native write profile does not support this exact draft domain and rules.",
@@ -454,6 +469,7 @@ export function NativeScheduleWritePanel({
       { draft_id: binding.id, operator_name: name, rationale: why },
       (result, operation) => {
         previewResult(result.data, binding, operation.id, name, why, domain);
+        if (result.data.can_apply) readyOperation.current = operation.id;
         setPrepared({ ...result, authority: operation.key });
       },
     );
@@ -492,6 +508,7 @@ export function NativeScheduleWritePanel({
       );
       return;
     }
+    readyOperation.current = null; // Apply consumes the token; do not cancel it.
     setPrepared(null); // consume UI authority synchronously, before any await
     await run(
       "apply",
@@ -591,7 +608,7 @@ export function NativeScheduleWritePanel({
         setNotice(
           result.cancel_requested
             ? "Cancellation requested for the active operation. A transmitted write cannot be undone; check its journal receipt."
-            : "The named operation was no longer active. Late UI authority was discarded; a ready server token expires separately.",
+            : "The named operation was no longer active. Late UI authority was discarded; inspect its receipt before another attempt.",
         );
     } catch (failure) {
       if (currentCancellation())

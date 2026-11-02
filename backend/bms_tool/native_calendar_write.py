@@ -400,6 +400,13 @@ class NativeCalendarWrites:
         self.cancelled[operation_id] = True
         while len(self.cancelled) > 64:
             self.cancelled.popitem(last=False)
+        retired = [
+            token
+            for token, plan in self.plans.items()
+            if plan["body"]["operation_id"] == operation_id
+        ]
+        for token in retired:
+            del self.plans[token]
         found = self.active is not None and self.active["id"] == operation_id
         if found:
             self.active["reason"] = reason
@@ -407,6 +414,7 @@ class NativeCalendarWrites:
         return {
             "operation_id": operation_id,
             "cancel_requested": found,
+            "reviews_retired": len(retired),
             "note": "Cancellation cannot undo a transmitted Calendar write.",
         }
 
