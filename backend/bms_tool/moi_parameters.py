@@ -80,7 +80,7 @@ class ParameterApplication:
                 raise ValueError("Duplicate native object identifiers prevent parameter matching.")
             objects[oid] = record
         self.replacements, self.insertions, self.parameters = {}, {}, []
-        used, selectors, offset = {}, {}, 0
+        used, selectors, resolved_selectors, offset = {}, {}, set(), 0
         while offset < len(static):
             length = int.from_bytes(static[offset : offset + 2], "big")
             if length < 14 or offset + length > len(static):
@@ -97,6 +97,25 @@ class ParameterApplication:
                 raise ValueError("Static parameter selector is invalid or duplicated.")
             selectors[selector] = (flags, cid)
             record = objects.get((cid << 22) | (oid & 4194303))
+            # A directory may retain the root's logical reference identity
+            # (for example 8-1) while the native root header uses its assigned
+            # BACnet Device instance. Resolve only the exact declared reference
+            # and root class; never guess an alias from the model or instance 1.
+            logical_root = (
+                cid == app.root["class_id"] and oid >> 22 == 8 and app.ref == f"8-{oid & 4194303}"
+            )
+            if logical_root:
+                if record is not None and record is not app.root:
+                    raise ValueError("Saved root selector conflicts with another native object.")
+                record = app.root
+            if record is app.root and oid >> 22 != 8:
+                raise ValueError("Saved Device selector has a non-Device external object type.")
+            resolved_instance = (
+                int.from_bytes(app.data[record["offset"] + 6 : record["offset"] + 10], "big")
+                & 4194303
+                if record is not None
+                else oid & 4194303
+            )
             prop = record["properties"].get(pid) if record else None
             value = None
             if flags in (0x6F, 0xEF, 0x67, 0x27):
@@ -136,6 +155,13 @@ class ParameterApplication:
                 value = _inline(row[12:-2], datatype)
             else:
                 raise ValueError("Unsupported saved parameter storage flags.")
+            resolved = (cid, resolved_instance, pid)
+            if record is not None:
+                if resolved in resolved_selectors:
+                    raise ValueError(
+                        "Multiple saved selectors resolve to one application property."
+                    )
+                resolved_selectors.add(resolved)
             if record is not None and prop is None:
                 # The captured, CRC-checked directory declares the saved field
                 # and datatype. Preserve it on that exact existing object even
@@ -147,7 +173,7 @@ class ParameterApplication:
                 self.parameters.append(
                     {
                         "class": cid,
-                        "instance": oid & 4194303,
+                        "instance": resolved_instance,
                         "property": pid,
                         "changed": True,
                         "added": True,
@@ -169,7 +195,7 @@ class ParameterApplication:
                 self.parameters.append(
                     {
                         "class": cid,
-                        "instance": oid & 4194303,
+                        "instance": resolved_instance,
                         "property": pid,
                         "changed": before != value,
                     }

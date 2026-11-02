@@ -11,7 +11,7 @@ from bms_tool.moi_parameters import ParameterApplication
 from bms_tool.mstp import header_crc
 
 from .test_controller_application import encoded, native_record
-from .test_moi_parameters import parameters_source
+from .test_moi_parameters import parameters_source, rebase_selectors
 
 
 def snapshots(*, model="UNLISTED-MODEL", cid=470, modules=5, compressed=True):
@@ -56,6 +56,26 @@ def test_smaller_post_directory_does_not_mean_the_application_lost_settings():
     report = verify_preservation(before, after, old_instance=5136, new_instance=5336)
     assert report["saved_application_parameters_verified"] == 7
     assert report["post_saved_parameters"] == 2
+
+
+def test_logical_root_saved_settings_remain_verified_after_physical_instance_edit():
+    archive, static, dynamic = parameters_source(cid=194, root_ref="8-41")
+    static = rebase_selectors(static, 41)
+    before = {3: archive, 11: static, 12: dynamic}
+    merged, _ = ParameterApplication(archive, static, dynamic).compile()
+    editor = MoiIdentity(merged)
+    query = dict(source_sha256=editor.source_sha256, expected_instance=5136, new_instance=5336)
+    review = editor.preview(**query)
+    changed, _ = editor.export(**query, plan_sha256=review["plan_sha256"])
+    after = {3: changed, 11: static, 12: dynamic}
+    evidence = verify_preservation(before, after, old_instance=5136, new_instance=5336)
+    assert evidence["saved_application_parameters_verified"] == 7
+    assert MoiIdentity(changed).ref == "8-41"
+    corrupt = bytearray(dynamic)
+    corrupt[0:2] = bytes([63, header_crc(bytes([63])) ^ 255])
+    after[12] = bytes(corrupt)
+    with pytest.raises(ValueError, match="current saved parameter differs"):
+        verify_preservation(before, after, old_instance=5136, new_instance=5336)
 
 
 def test_omitted_saved_property_survives_identity_edit_and_complete_preservation_check():
