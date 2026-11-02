@@ -9,6 +9,7 @@ export type WeeklyDraft = {
   rows: WeeklyRow[];
   dirty: boolean;
   imported: { review_id: string; filename: string } | null;
+  rawImported?: { filename: string; file_sha256: string };
 };
 export type WeeklyWork = {
   captureId: string;
@@ -28,6 +29,7 @@ const copy = (draft: WeeklyDraft): WeeklyDraft => ({
   ...draft,
   rows: draft.rows.map((row) => ({ ...row, time: [...row.time] })),
   imported: draft.imported ? { ...draft.imported } : null,
+  ...(draft.rawImported ? { rawImported: { ...draft.rawImported } } : {}),
 });
 export const weeklyDraft = (work: WeeklyWork, key: string) => {
   const value = work.drafts.get(key);

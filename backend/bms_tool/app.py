@@ -141,6 +141,7 @@ from .native_signal_compiler import (
     SignalCompilerSource,
 )
 from .native_simulator import NativeSimulator
+from .native_weekly_text import weekly_text_router
 from .native_wire_compiler import EffectiveWireService, effective_wire_router
 from .native_wire_copies import NativeWireCopies, native_wire_router
 from .network_number_plan import network_plan_router
@@ -755,6 +756,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.include_router(calendar_draft_router(schedule_library))
     app.include_router(exception_draft_router(schedule_library))
     app.include_router(exception_text_router(schedule_library))
+    app.include_router(weekly_text_router(schedule_library))
     app.include_router(calendar_write_router(calendar_writes))
     app.include_router(exception_write_router(exception_writes))
     app.include_router(native_wire_router(wire_copies))

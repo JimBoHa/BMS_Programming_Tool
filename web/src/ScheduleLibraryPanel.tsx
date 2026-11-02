@@ -5,6 +5,13 @@ import { NativeCalendarEditor } from "./NativeCalendarEditor";
 import { exceptionWork, type ExceptionWork } from "./nativeScheduleExceptions";
 import { calendarWork, type CalendarWork } from "./nativeCalendar";
 import { controllerKey, type ControllerTarget } from "./workflow";
+import { calendarDocumentSha } from "./nativeCalendarWrite";
+import { parseSourceJSON } from "./programSource";
+import {
+  UNFINISHED_WEEKLY_BYTES,
+  unfinishedWeeklyDocument,
+  unfinishedWeeklyImport,
+} from "./unfinishedWeekly";
 import {
   weeklyWork,
   weeklyKey,
@@ -310,7 +317,8 @@ export function ScheduleLibraryPanel({
   const reviewNow = useRef(review?.id || "");
   reviewNow.current = review?.id || "";
   const input = useRef<HTMLInputElement>(null),
-    draftInput = useRef<HTMLInputElement>(null);
+    draftInput = useRef<HTMLInputElement>(null),
+    rawInput = useRef<HTMLInputElement>(null);
   const selected = capture?.objects.find((item) => item.object === object);
   const seed = selected?.days?.find((item) => item.day === day);
   const bufferKey = weeklyKey(capture?.id || "", object, day);
@@ -408,6 +416,7 @@ export function ScheduleLibraryPanel({
         rows: next,
         dirty: true,
         imported: retained?.imported || null,
+        ...(retained?.rawImported ? { rawImported: retained.rawImported } : {}),
       });
     } catch (failure) {
       setError(String(failure));
@@ -556,6 +565,92 @@ export function ScheduleLibraryPanel({
       },
       () => current(ticket, source),
     );
+  }
+  async function importUnfinished(file: File) {
+    if (!capture || !selected?.eligible || working.current) return;
+    const ticket = ++epoch.current,
+      source = signatureNow.current;
+    setReview(null);
+    await action(
+      "Importing unfinished weekly text",
+      async () => {
+        if (
+          !file.name ||
+          file.name.length > 1024 ||
+          file.size > UNFINISHED_WEEKLY_BYTES
+        )
+          throw new Error(
+            "Unfinished weekly file exceeds its 512 KiB or filename bound.",
+          );
+        const original = parseSourceJSON(
+          new TextDecoder("utf-8", { fatal: true }).decode(
+            await file.arrayBuffer(),
+          ),
+        );
+        const sha = await calendarDocumentSha(file);
+        if (!current(ticket, source)) return;
+        const form = new FormData();
+        form.append("file", file);
+        const document = await apiJsonDocument(
+          BASE + "/weekly/unfinished/import",
+          form,
+        );
+        if (document.blob.size > UNFINISHED_WEEKLY_BYTES + 65536)
+          throw new Error("Unfinished weekly response exceeds its byte bound.");
+        const buffer = unfinishedWeeklyImport(
+          document.data,
+          capture.id,
+          object,
+          day,
+          selected.native_type!,
+          sha,
+          original,
+        );
+        if (!current(ticket, source)) return;
+        if (weeklyWorkspace.drafts.has(bufferKey))
+          throw new Error(
+            "Discard this retained weekly draft before importing unfinished text for the same day. Existing work was kept.",
+          );
+        const next = buffer.rows.map((row) => ({
+          ...row,
+          key: nextRow.current++,
+        }));
+        rememberWeekly(weeklyWorkspace, bufferKey, {
+          ...buffer,
+          rows: next,
+          dirty: true,
+          rawImported: { filename: file.name, file_sha256: sha },
+        });
+        epoch.current++;
+        setRows(next);
+        setNotice(
+          "Restored unfinished weekly text. Review this draft before native export or controller review.",
+        );
+      },
+      () => current(ticket, source),
+    );
+  }
+  function exportUnfinished() {
+    if (!capture || !selected?.eligible || !retained) return;
+    try {
+      const blob = unfinishedWeeklyDocument(
+        capture.id,
+        object,
+        day,
+        retained,
+        selected.native_type!,
+      );
+      saveBlob(
+        blob,
+        `native-schedule-unfinished-weekly-${capture.id.slice(0, 12)}-day-${day}.json`,
+      );
+      setError("");
+      setNotice(
+        "Exported unfinished weekly text. Save its original capture archive too; no native review or controller authority is included.",
+      );
+    } catch (failure) {
+      setError(String(failure));
+    }
   }
   function request() {
     if (!capture || !selected?.eligible)
@@ -965,15 +1060,24 @@ export function ScheduleLibraryPanel({
                 separate choice. No timezone or controller execution is
                 inferred.
               </p>
-              {retained?.imported && (
+              {(retained?.imported || retained?.rawImported) && (
                 <details aria-label="Imported weekly draft provenance">
                   <summary>Imported weekly draft source</summary>
                   <p>
                     Retained text needs a current local review; navigation never
                     restores field authority.
+                    {retained.rawImported &&
+                      " Raw-file metadata and earlier review IDs are unverified references."}
                   </p>
                   <pre className="result">
-                    {JSON.stringify(retained.imported, null, 2)}
+                    {JSON.stringify(
+                      {
+                        imported: retained.imported,
+                        rawImported: retained.rawImported,
+                      },
+                      null,
+                      2,
+                    )}
                   </pre>
                 </details>
               )}
@@ -985,6 +1089,37 @@ export function ScheduleLibraryPanel({
                   explicitly discard a selected draft to free space. Buffers
                   stay in memory until this application reloads.
                 </p>
+                <p>
+                  Save unfinished text and its original capture archive before
+                  reloading. Import requires the same capture, Schedule and day.
+                  Discard retained work explicitly before replacing it.
+                </p>
+                <div className="toolbar">
+                  <button
+                    disabled={!retained || !!busy}
+                    onClick={exportUnfinished}
+                  >
+                    Export unfinished weekly text
+                  </button>
+                  <button
+                    disabled={!!busy}
+                    onClick={() => rawInput.current?.click()}
+                  >
+                    Import unfinished weekly text
+                  </button>
+                </div>
+                <input
+                  type="file"
+                  accept=".json"
+                  hidden
+                  ref={rawInput}
+                  aria-label="Import unfinished weekly text file"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = "";
+                    if (file) void importUnfinished(file);
+                  }}
+                />
               </details>
               <div className="native-schedule-table-scroll">
                 <table aria-label="Native daily transitions">
