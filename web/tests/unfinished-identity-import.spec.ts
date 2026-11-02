@@ -598,7 +598,6 @@ test("authored UI target ABA retires raw import and preserves a foreign backup w
         config: {
           local_address: "127.0.0.1:59997",
           instance: 4190001,
-          transport: "ip",
           router: null,
           dnet: null,
         },

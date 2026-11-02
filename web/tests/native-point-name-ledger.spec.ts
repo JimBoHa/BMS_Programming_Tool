@@ -206,12 +206,11 @@ test("point-tools link keeps the selected routed controller and does not adopt a
   let config: any = {
     local_address: "127.0.0.1:59997",
     instance: 4190001,
-    transport: "ip",
     router: null,
     dnet: null,
   };
   await page.route("**/api/bacnet/connect", (route) => {
-    config = { ...route.request().postDataJSON(), transport: "ip" };
+    config = { ...route.request().postDataJSON() };
     return route.fulfill({ json: { connected: true, config, commands: [] } });
   });
   await page.route("**/api/bacnet/status", (route) =>

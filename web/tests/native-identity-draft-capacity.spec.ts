@@ -292,7 +292,6 @@ test("identity UI refuses a 33rd context, keeps earlier proposals, and frees onl
         config: {
           local_address: "127.0.0.1:59997",
           instance: 4190001,
-          transport: "ip",
           router: null,
           dnet: null,
         },
