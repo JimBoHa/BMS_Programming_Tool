@@ -744,6 +744,8 @@ export function ScheduleLibraryPanel({
             <summary>Calendar dates</summary>
             {calendarOpen && (
               <NativeCalendarEditor
+                connected={connected}
+                selectedTarget={selectedTarget}
                 captureId={capture.id}
                 connectionKey={connectionKey}
                 work={calendarWorkspace}
