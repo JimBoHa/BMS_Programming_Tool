@@ -621,3 +621,12 @@ membership, executable mappings, Enum transfer and general native compilation
 remain separate. The generic backup operation table still needs a separate local
 Enum capability row. JCI-02/JCI-03/JCI-05 remain partial overall. See
 [the supported profile and qualification](docs/native-enum-default-copies.md).
+
+## 2026-11-02 QA-02 delivery: isolate native copy browser fixtures
+
+`QA-NATIVE-COPY-TEST-ISOLATION-001` moves legacy Boolean/wire copy browser cases
+to the existing per-test server and explicit state directory. Combined source
+and installed qualification uses the same 106 cases while the global runner
+directories are already full at the unchanged 128-backup quota. Original runner
+archives remain intact. Production code, assertions, deadlines and retries are
+unchanged. See [the failure and qualification scope](docs/native-copy-test-isolation.md).
