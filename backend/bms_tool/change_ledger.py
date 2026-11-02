@@ -23,6 +23,7 @@ from .models import StrictModel
 from .native_input_ledger import input_reference
 from .native_ledger_details import native_reference, recovery_lineage
 from .native_point_name_ledger import point_name_reference
+from .native_point_name_recovery_ledger import point_name_recovery_reference
 
 Source = Literal["audit", "native", "instance", "schedule", "bbmd", "event", "temco", "command"]
 SOURCES = ("audit", "native", "instance", "schedule", "bbmd", "event", "temco", "command")
@@ -357,7 +358,14 @@ class ChangeLedger:
                 native_metadata = input_reference(body)
             elif native_kind == "point-name":
                 native_metadata = point_name_reference(body)
-            recovery = recovery_lineage(body, native_kind, native_metadata)
+                native_metadata.update(
+                    point_name_recovery_reference(body, native_metadata.get("native_point_name"))
+                )
+            recovery = (
+                None
+                if native_kind == "point-name"
+                else recovery_lineage(body, native_kind, native_metadata)
+            )
             if recovery is not None:
                 native_metadata["native_recovery"] = recovery
             state, created = latest["status"], body["created_at"]

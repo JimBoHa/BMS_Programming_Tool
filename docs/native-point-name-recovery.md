@@ -86,5 +86,6 @@ paths, exact evidence downloads, retired/substituted replies and compact layout.
 
 Physical acceptance, Bluetooth, general application rollback, hardware reassignment
 and whole-state migration remain separate. Recorded point-name rows continue to
-show their existing metadata; a dedicated searchable projection of point-name
-recovery lineage remains a separate Changes/History extension.
+show their existing metadata. The separate [recorded recovery lineage
+projection](native-point-name-recovery-ledger.md) now adds parent search and
+recorded name/proof references without revalidating parents, files or field state.
