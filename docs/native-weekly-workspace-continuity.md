@@ -21,6 +21,10 @@ operation. Restored imported provenance supplies no write authority. Review the
 retained rows again; controller deployment still requires its separate fresh
 review, one-use Apply and readback workflow.
 
+Loading remembered connection settings while no verified field connection exists
+does not cancel a local import. Opening a verified connection or changing the
+selected target still retires authority. Offline settings supply no field token.
+
 ## Storage and discard
 
 The workspace retains at most 128 edited weekly days and 4 MiB of serialized UTF-8

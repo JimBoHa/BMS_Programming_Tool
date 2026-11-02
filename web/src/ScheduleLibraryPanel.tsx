@@ -304,7 +304,9 @@ export function ScheduleLibraryPanel({
   const retained = weeklyDraft(weeklyWorkspace, bufferKey);
   const fieldContext = JSON.stringify([
     connected,
-    connectionKey,
+    // Remembered settings have no field authority while disconnected/unverified.
+    // Loading them must not cancel an operation on the local capture library.
+    connected ? connectionKey : "closed",
     selectedTarget ? controllerKey(selectedTarget) : null,
   ]);
   const boundary = useRef({ context: fieldContext, version: 0 });

@@ -412,3 +412,84 @@ test("weekly review retires on visibility and source ABA without losing raw text
     await finish(work);
   }
 });
+
+test("loading stored closed-interface settings cannot cancel an owned local capture import", async ({
+  page,
+  request,
+}) => {
+  let releaseStatus = () => {},
+    releaseImport = () => {};
+  const statusGate = new Promise<void>((r) => (releaseStatus = r));
+  await page.route("**/api/bacnet/status", async (route) => {
+    const response = await route.fetch({ maxRetries: 0 });
+    await statusGate;
+    await route.fulfill({ response });
+  });
+  const work = await setup(page, request);
+  try {
+    await value(page).fill("2.5");
+    const exported = await request.post(base + "/export", {
+      headers: work.headers,
+      data: { id: work.captures[0].id },
+    });
+    expect(exported.ok()).toBe(true);
+    const archive = await exported.body();
+    expect(archive.length).toBeGreaterThan(0);
+    expect(JSON.parse(archive.toString()).id).toBe(work.captures[0].id);
+    const file = {
+      name: "owned-capture.json",
+      mimeType: "application/json",
+      buffer: archive,
+    };
+    let entered = () => {};
+    const reached = new Promise<void>((r) => (entered = r)),
+      gate = new Promise<void>((r) => (releaseImport = r));
+    await page.route("**" + base + "/import", async (route) => {
+      // Isolate reply ownership using original bytes through the owned HTTP API.
+      // Ordinary import scenarios separately exercise browser multipart uploads.
+      const response = await request.post(base + "/import", {
+        headers: work.headers,
+        multipart: { file },
+      });
+      expect(response.ok(), await response.text()).toBe(true);
+      const body = await response.body();
+      entered();
+      await gate;
+      await route.fulfill({
+        status: response.status(),
+        contentType: "application/json",
+        body,
+      });
+    });
+    await lib(page)
+      .getByLabel("Import native schedule capture file", { exact: true })
+      .setInputFiles(file);
+    await reached;
+    const loaded = page.waitForResponse((r) =>
+      r.url().endsWith("/api/bacnet/status"),
+    );
+    releaseStatus();
+    await (await loaded).finished();
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
+    const delivered = page.waitForResponse("**" + base + "/import");
+    releaseImport();
+    await (await delivered).finished();
+    await expect(
+      lib(page).getByText(
+        "Imported capture " + work.captures[0].id.slice(0, 12) + ".",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await expect(value(page)).toHaveValue("2.5");
+    await expect(reviewed(page)).toHaveCount(0);
+  } finally {
+    releaseStatus();
+    releaseImport();
+    await finish(work);
+  }
+});
