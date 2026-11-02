@@ -16,6 +16,7 @@ from bacpypes3.primitivedata import (
     ClosingTag,
     Enumerated,
     Integer,
+    OpeningTag,
     Real,
     Tag,
     TagClass,
@@ -78,7 +79,7 @@ class ParameterApplication:
             if oid in objects:
                 raise ValueError("Duplicate native object identifiers prevent parameter matching.")
             objects[oid] = record
-        self.replacements, self.parameters = {}, []
+        self.replacements, self.insertions, self.parameters = {}, {}, []
         used, selectors, offset = {}, {}, 0
         while offset < len(static):
             length = int.from_bytes(static[offset : offset + 2], "big")
@@ -136,12 +137,21 @@ class ParameterApplication:
             else:
                 raise ValueError("Unsupported saved parameter storage flags.")
             if record is not None and prop is None:
-                # A valid saved value belonging to an existing application
-                # object must not be silently lost because File 3 omitted it.
-                # Materializing such properties needs separate qualification.
-                raise ValueError(
-                    "Saved parameter belongs to an application object but its property "
-                    "is absent from the archive; preservation is not supported."
+                # The captured, CRC-checked directory declares the saved field
+                # and datatype. Preserve it on that exact existing object even
+                # when the archive elided the property. Never allocate an object
+                # or infer a value from a model/default/property-name inventory.
+                identifier = Unsigned(pid).encode()[0].app_to_context(0)
+                added = _encode([identifier, OpeningTag(2)]) + value
+                self.insertions.setdefault(record["offset"], []).append(added)
+                self.parameters.append(
+                    {
+                        "class": cid,
+                        "instance": oid & 4194303,
+                        "property": pid,
+                        "changed": True,
+                        "added": True,
+                    }
                 )
             if prop is not None:
                 start, end = prop["value_start_offset"], prop["value_end_offset"]
@@ -182,6 +192,10 @@ class ParameterApplication:
                 raw.extend(value)
                 cursor = old_end
             raw.extend(app.data[cursor:end])
+            if start in self.insertions:
+                if raw[-1:] != b"\x1f":
+                    raise ValueError("Saved property insertion requires a closed native record.")
+                raw[-1:] = b"".join(self.insertions[start]) + b"\x1f"
             extended = prefix == 6 or len(raw) + 2 > 65535
             output.extend(
                 b"\x00\x00" + struct.pack("<I", len(raw) + 6)

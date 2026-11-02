@@ -58,6 +58,34 @@ def test_smaller_post_directory_does_not_mean_the_application_lost_settings():
     assert report["post_saved_parameters"] == 2
 
 
+def test_omitted_saved_property_survives_identity_edit_and_complete_preservation_check():
+    archive, static, dynamic = parameters_source()
+    directory = bytearray(static)
+    directory[6:8] = (65002).to_bytes(2, "big")
+    before = {3: archive, 11: bytes(directory), 12: dynamic}
+    merged, _ = ParameterApplication(*[before[k] for k in (3, 11, 12)]).compile()
+    editor = MoiIdentity(merged)
+    q = dict(source_sha256=editor.source_sha256, expected_instance=5136, new_instance=5336)
+    review = editor.preview(**q)
+    changed, _ = editor.export(**q, plan_sha256=review["plan_sha256"])
+    offset = 0
+    while offset < len(directory):
+        size = int.from_bytes(directory[offset : offset + 2], "big")
+        directory[offset + 2 : offset + 6] = ((8 << 22) | 5336).to_bytes(4, "big")
+        offset += size
+    after = {3: changed, 11: bytes(directory), 12: dynamic}
+    evidence = verify_preservation(before, after, old_instance=5136, new_instance=5336)
+    assert evidence["saved_application_parameters_verified"] == 7
+    actual = MoiIdentity(after[3])
+    assert actual.reader.scalar(actual.root, 65002) == 62
+    # A changed post-transfer saved value must still block verification.
+    corrupt = bytearray(dynamic)
+    corrupt[0:2] = bytes([63, header_crc(bytes([63])) ^ 255])
+    after[12] = bytes(corrupt)
+    with pytest.raises(ValueError, match="current saved parameter differs"):
+        verify_preservation(before, after, old_instance=5136, new_instance=5336)
+
+
 def test_replacing_an_unknown_expansion_property_is_rejected():
     before, after = snapshots()
     raw = gzip.decompress(after[3]).replace(b"opaque footer", b"unsafe footer")
