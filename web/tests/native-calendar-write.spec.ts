@@ -873,6 +873,13 @@ for (const routed of [false, true])
       ).toContainText("matched at readback");
       expect((await peer.stats()).values).toEqual(["1ea47e0b0201a47e0b04031f"]);
       await page.setViewportSize({ width: 390, height: 1100 });
+      const caption = editor
+        .locator("caption")
+        .filter({ hasText: "Local Calendar entries" });
+      await caption.scrollIntoViewIfNeeded();
+      const captionBox = await caption.boundingBox();
+      expect(captionBox!.width).toBeGreaterThan(200);
+      expect(captionBox!.height).toBeLessThan(60);
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth,

@@ -53,6 +53,9 @@ independent readback. Browser cases preserve and export an invalid local range,
 show refusal with zero added reads/writes, navigate away and return, then repair
 the endpoints and apply the exact reviewed range once. Existing mixed-choice
 cases now use explicit matching weekdays instead of wildcard range weekdays.
+Phone review also exposed a table-caption sizing issue. One scoped mobile rule
+keeps the Calendar caption readable while retaining the existing stacked form;
+the other styles and desktop layout remain unchanged.
 
 The actual prior installed package supplies separate historical-receipt
 compatibility evidence against an authored peer. The new installed reader
