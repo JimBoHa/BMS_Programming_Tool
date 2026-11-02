@@ -673,5 +673,10 @@
     "feature": "Captured native Calendar date drafts",
     "status": "implemented",
     "scope": "Separate immutable-source Date_List draft profile for Date, DateRange and WeekNDay patterns; native byte/date/context checks, exact literal encoding proof, stateless reviewed JSON export/import and capture-specific unfinished workspace buffers. No controller queries/writes, Date_List transfer authority, calendar evaluation/timezone inference, new objects/exception/context/link edits, native CAF or physical acceptance. Existing numeric/String weekly profiles remain unchanged. See docs/native-calendar-drafts.md."
+  },
+  {
+    "feature": "Reviewed native Calendar Date_List transfer backend",
+    "status": "implemented",
+    "scope": "Separate exact-source existing Calendar service15 writer: fresh identities/static value/name/description, actual revision/APDU qualification, one-use review, one unsegmented dispatch without index/priority, full-sync bounded immutable intent/results and independent readback/reconciliation. Unknown/rejected protocol outcomes remain distinct from observed values; passive receipts never grant retries. No new UI Apply button, exception/context/link edits, native CAF, BBMD/serial/segmentation or physical acceptance. Existing weekly writers remain unchanged. See docs/native-calendar-write.md."
   }
 ]

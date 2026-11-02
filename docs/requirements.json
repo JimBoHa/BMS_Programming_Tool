@@ -1654,5 +1654,14 @@
     "pdf_pages_or_section": "docs/native-calendar-drafts.md; ASHRAE 135-2012bg PDF 7; 135.1-2019s PDF 194-196",
     "status": "implemented",
     "implementation_or_gap": "Independent native-calendar-date-list-draft/1 supports 0..32 ordered Date/DateRange/WeekNDay choices, strict byte/date/context validation, exact source/property/context hashes, native tag exhaustion and unchanged originals/weekly authorities. Stateless regenerated exact JSON export and whole-document source reproof on import; raw Calendar buffers persist by capture/object during navigation, transient reviews retire. Weeks 7..9 retain revision 18 requirement without target inference. No field queries/writes, Date_List transfer grant, evaluator/timezone inference, new objects, exception/context/link editing, native CAF or physical acceptance; SCH-01\u2013SCH-03 remain partial."
+  },
+  {
+    "id": "COMM-CALENDAR-WRITE-001",
+    "feature": "Guarded native Calendar Date_List write backend",
+    "acceptance_criterion": "Replace one captured existing standard Calendar Date_List using fresh identity/static-context/capability checks, one-use reviewed dispatch, durable intent and independent readback with explicit read-only uncertainty recovery.",
+    "evidence": "Independent literal direct/routed service15 UDP peers, strict actual HTTP, source-qualified Calendar draft authority, ASHRAE135-2012bg revision requirement and pinned BACpypes3 0.0.110 property/APDU contracts.",
+    "pdf_pages_or_section": "docs/native-calendar-write.md; docs/native-calendar-drafts.md",
+    "status": "implemented",
+    "implementation_or_gap": "Backend/API only: exact stateless draft/source regeneration and captured name/description/value context, fresh verified target/revision/APDU limits, original socket/configuration, one attempt without index/priority, monotonic expiry before dispatch, bounded full-sync Calendar intent/result journal, source/request binding and partial readback/reconciliation after restart. Negative/lost replies and intent-only evidence preserve uncertainty. All older weekly profiles/transfers/journals and web sources remain unchanged. Controller-centered Calendar deployment GUI is next; exceptions/context/linking, BBMD/serial/segmentation, native CAF and physical acceptance remain outside this scope. SCH-01\u2013SCH-03 remain partial."
   }
 ]
