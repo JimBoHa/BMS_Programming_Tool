@@ -266,7 +266,10 @@ class ApplicationStore:
                 "finished_at": utc(),
             }
         )
-        pending = int(row.get("may_have_applied", True) and row.get("status") != "verified")
+        pending = int(
+            row.get("may_have_applied", True)
+            and row.get("status") not in ("verified", "recovered_original")
+        )
         with self.store.connect(timeout=0.25) as db:
             db.execute("PRAGMA synchronous=FULL")
             db.execute("BEGIN IMMEDIATE")
@@ -341,7 +344,7 @@ class ApplicationStore:
 
     def resolve(self, receipt_id, readback):
         self.event(receipt_id, "readback", readback)
-        if readback["status"] == "verified":
+        if readback["status"] in ("verified", "recovered_original"):
             with self.store.connect() as db:
                 db.execute("UPDATE application_transfers SET pending=0 WHERE id=?", (receipt_id,))
         return self.receipt(receipt_id)

@@ -856,17 +856,19 @@ export function NativeDefaultTransfer({
           }
         >
           <h3>
-            {observed?.status === "verified"
-              ? wireSource
-                ? "Verified native wire transfer"
-                : "Verified native default transfer"
-              : observed?.status === "not_sent"
+            {observed?.status === "recovered_original"
+              ? "Original application recovered"
+              : observed?.status === "verified"
                 ? wireSource
-                  ? "Native wire transfer not sent"
-                  : "Native default transfer not sent"
-                : wireSource
-                  ? "Native wire transfer outcome uncertain"
-                  : "Native default transfer outcome uncertain"}
+                  ? "Verified native wire transfer"
+                  : "Verified native default transfer"
+                : observed?.status === "not_sent"
+                  ? wireSource
+                    ? "Native wire transfer not sent"
+                    : "Native default transfer not sent"
+                  : wireSource
+                    ? "Native wire transfer outcome uncertain"
+                    : "Native default transfer outcome uncertain"}
           </h3>
           {receipt.data.intent && (
             <p>
@@ -893,7 +895,13 @@ export function NativeDefaultTransfer({
               . Original attempt and verification history remain retained.
             </p>
           )}
-          {observed?.status === "verified" ? (
+          {observed?.status === "recovered_original" ? (
+            <p>
+              Original identity, application and saved settings recovered. The
+              proposed change was not verified. Readback did not send an
+              application.
+            </p>
+          ) : observed?.status === "verified" ? (
             <p>
               Native application bytes and effective saved settings verified.
               Physical control performance remains unverified.

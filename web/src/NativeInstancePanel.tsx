@@ -457,12 +457,25 @@ export function NativeInstancePanel(
           const observed =
             result.events?.filter((e: any) => e.stage === "readback").at(-1)
               ?.detail || result.result;
-          if (epoch === generation.current && observed?.status === "verified") {
+          if (
+            epoch === generation.current &&
+            ["verified", "recovered_original"].includes(observed?.status)
+          ) {
             setRecovery(null);
             setCapture(null);
             setNumber("");
             setNewName("");
-            props.onVerified?.({ ...result.intent, ...observed });
+            props.onVerified?.({
+              ...result.intent,
+              ...observed,
+              ...(observed.status === "recovered_original"
+                ? {
+                      old_instance: Number(props.defaultDevice.split(",")[1]),
+                    new_instance: result.intent.old_instance,
+                    new_name: result.intent.old_name,
+                  }
+                : {}),
+            });
           }
         }
       }
@@ -901,6 +914,13 @@ export function NativeInstancePanel(
               {receipt.intent &&
                 ` · ${receipt.intent.target.address} · ${receipt.intent.change_kind === "name" ? `${receipt.intent.old_name} → ${receipt.intent.new_name}` : `${receipt.intent.old_instance} → ${receipt.intent.new_instance}`}`}
             </p>
+            {observed?.status === "recovered_original" && (
+              <p role="status">
+                Original identity, application and saved settings recovered. The
+                proposed change was not verified. Readback did not replay a
+                transfer.
+              </p>
+            )}
             <p>
               Device readback: {observed?.readback?.status || "not read"}.
               Application readback:{" "}

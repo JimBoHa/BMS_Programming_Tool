@@ -206,6 +206,17 @@ export function NativePointName({
             receipt: result,
           }));
           onVerified();
+        } else if (
+          observed?.status === "recovered_original" &&
+          !result.pending
+        ) {
+          setWork((w) => ({
+            ...w,
+            capture: null,
+            field: null,
+            receipt: result,
+          }));
+          onVerified();
         }
       }
       const result = await api(base + "/status");
@@ -333,6 +344,12 @@ export function NativePointName({
               Published name: {observed?.published_point_name || "not verified"}
               .
             </p>
+            {observed?.status === "recovered_original" && (
+              <p role="status">
+                Original application and point name recovered. The proposed name
+                change was not verified.
+              </p>
+            )}
             {work.receipt.pending && (
               <p role="alert">
                 Outcome uncertain. Read back this receipt before another change.
