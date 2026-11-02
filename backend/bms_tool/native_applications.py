@@ -61,6 +61,17 @@ from .native_instance_recovery import PROFILE as INSTANCE_RECOVERY_PROFILE
 from .native_instance_recovery import NativeInstanceRecovery
 from .native_name_recovery import PROFILE as NAME_RECOVERY_PROFILE
 from .native_name_recovery import NativeNameRecovery
+from .native_point_names import PROFILE as POINT_NAME_PROFILE
+from .native_point_names import SCOPE as POINT_NAME_SCOPE
+from .native_point_names import (
+    PointNameApply,
+    PointNameCompiler,
+    PointNameEdit,
+    PointNamePreview,
+    PointNameSource,
+    compile_point_name,
+    verify_point_name_preservation,
+)
 from .native_wire_compiler import EffectiveWirePreview
 from .native_wire_recovery import PROFILE as WIRE_RECOVERY_PROFILE
 from .native_wire_transfer import PROFILE as WIRE_PROFILE
@@ -185,6 +196,8 @@ class NativeApplications:
             "credentials_configured": self.credentials.configured(),
             "vendor_runtime_required": False,
             "scope": SCOPE,
+            "point_name_transfer_profile": POINT_NAME_PROFILE,
+            "point_name_transfer_scope": POINT_NAME_SCOPE,
             "default_transfer_profile": DEFAULT_PROFILE,
             "default_transfer_scope": DEFAULT_SCOPE,
             "real_default_recovery_profile": RECOVERY_PROFILE,
@@ -216,6 +229,7 @@ class NativeApplications:
                     "old_instance": r["intent"]["old_instance"],
                     "new_instance": r["intent"]["new_instance"],
                     "change_kind": r["intent"].get("change_kind", "instance"),
+                    "point_object_id": r["intent"].get("point_name_edit", {}).get("object_id"),
                     "old_name": r["intent"].get("old_name"),
                     "new_name": r["intent"].get("new_name"),
                     "default_edit": r["intent"].get("default_edit"),
@@ -611,6 +625,75 @@ class NativeApplications:
         options = DefaultTransferPreview(**arguments)
         return await self.preview_typed_default(options, boolean=False)
 
+    def point_name_source(self, **arguments):
+        options = PointNameSource(**arguments)
+        if (self.storage.directory / options.capture_id).is_symlink():
+            raise ValueError("Native name sources must stay in their original folder.")
+        captured, files = self.check_capture(options)
+        if captured["evidence_sha256"] != options.snapshot_sha256:
+            raise ValueError("The selected native snapshot changed; open it again.")
+        return {
+            "profile": POINT_NAME_PROFILE,
+            "scope": POINT_NAME_SCOPE,
+            "capture_id": captured["id"],
+            "snapshot_sha256": captured["evidence_sha256"],
+            "target": self.target(options),
+            "device": options.device,
+            "points": PointNameCompiler(files).fields(),
+            "controller_queries": False,
+            "controller_writes": False,
+        }
+
+    async def preview_point_name(self, **arguments):
+        options = PointNamePreview(**arguments)
+        async with self.operation(options.operation_id, "review-point-name"):
+            self.available(options)
+            self.point_name_source(**options.model_dump(include=set(PointNameSource.model_fields)))
+            captured, files = self.check_capture(options)
+            edit = options.model_dump(include=set(PointNameEdit.model_fields))
+            output, compilation = compile_point_name(files, edit)
+            if not compilation["selected_edit"]["changed"]:
+                raise ValueError("Choose a different point name before transfer.")
+            config, app = copy.deepcopy(self.bacnet.config), self.bacnet.require()
+            async with self.path._path(options) as session:
+                PropertyEvidence.pin(session, options.router)
+                actual, _ = await self.identity(session, options.device)
+                published = await self.path._read(session, options.object_id, "object-name")
+            if (
+                actual != captured["identity"]
+                or published != compilation["selected_edit"]["before"]
+            ):
+                raise ValueError("Controller or published point name changed; capture again.")
+            body = {
+                "profile": PROFILE,
+                "operation_profile": POINT_NAME_PROFILE,
+                "operation_id": options.operation_id,
+                "target": self.target(options),
+                "identity": actual,
+                "old_instance": ObjectIdentifier(options.device)[1],
+                "new_instance": ObjectIdentifier(options.device)[1],
+                "change_kind": "point-name",
+                "old_name": actual["object-name"],
+                "new_name": actual["object-name"],
+                "capture_id": options.capture_id,
+                "snapshot_sha256": captured["evidence_sha256"],
+                "application_sha256": sha(files[3]),
+                "static_parameters_sha256": sha(files[11]),
+                "point_name_edit": edit,
+                "compilation": compilation,
+                "payload_sha256": sha(output),
+                "collision_check": self.name_scope(),
+                "parameter_policy": "Merge fresh saved settings; retain this point reference/name and all other application bytes. Verify the complete application and published point name.",
+                "backup_effects": backup_effects(),
+                "scope": POINT_NAME_SCOPE,
+                "vendor_runtime_required": False,
+                "can_apply": True,
+                "connector_config": config,
+                "created_at": utc(),
+                "expires_at": (datetime.now(UTC) + timedelta(seconds=PLAN_SECONDS)).isoformat(),
+            }
+            return self.retain_plan(body, options, app, config)
+
     async def preview_boolean_default(self, **arguments):
         options = BooleanTransferPreview(**arguments)
         return await self.preview_typed_default(options, boolean=True)
@@ -906,12 +989,16 @@ class NativeApplications:
             "signal-default",
             "boolean-default",
             "wire-source",
+            "point-name",
         ):
             raise ValueError("Unrecognized native transfer operation; retain its evidence.")
         boolean_edit = change_kind == "boolean-default"
         default_edit = change_kind in ("signal-default", "boolean-default")
         wire_edit = change_kind == "wire-source"
-        program_edit = default_edit or wire_edit
+        point_name_edit = change_kind == "point-name"
+        program_edit = default_edit or wire_edit or point_name_edit
+        if point_name_edit and intent.get("operation_profile") != POINT_NAME_PROFILE:
+            raise ValueError("Unsupported native point-name evidence version; retain it.")
         expected_profile = BOOLEAN_DEFAULT_PROFILE if boolean_edit else DEFAULT_PROFILE
         if default_edit and intent.get("operation_profile") != expected_profile:
             raise ValueError("Unsupported native default transfer evidence version; retain it.")
@@ -934,7 +1021,7 @@ class NativeApplications:
         }
         identity = observed.get("identity")
         if program_edit and identity is not None and identity != intent["identity"]:
-            result["error"] = "Controller identity changed during the native default transfer."
+            result["error"] = "Controller identity changed during the native application transfer."
             return result
         if identity is not None:
             try:
@@ -971,7 +1058,9 @@ class NativeApplications:
                     else {}
                 )
                 result["preservation"] = (
-                    verify_wire_preservation(
+                    verify_point_name_preservation(original_files, files, intent["point_name_edit"])
+                    if point_name_edit
+                    else verify_wire_preservation(
                         original_files,
                         files,
                         intent["wire_edit"],
@@ -995,6 +1084,13 @@ class NativeApplications:
                         )
                     )
                 )
+                if point_name_edit:
+                    edit = PointNameEdit(**intent["point_name_edit"])
+                    name = await self.path._read(session, edit.object_id, "object-name")
+                    result["published_point_name"] = name
+                    if name != edit.new_name:
+                        result["error"] = "The published point name differs from the reviewed name."
+                        return result
                 status = int(await self.path._read(session, options.device, "system-status"))
                 result.update(system_status=status, operational=status == 0)
                 if status == 0:
@@ -1029,10 +1125,18 @@ class NativeApplications:
         request = WireTransferApply(**arguments)
         return await self.apply_reviewed(request, default_edit=False, wire_edit=True)
 
-    async def apply_reviewed(self, request, *, default_edit, boolean_edit=False, wire_edit=False):
-        if wire_edit and (default_edit or boolean_edit):
+    async def apply_point_name(self, **arguments):
+        request = PointNameApply(**arguments)
+        return await self.apply_reviewed(request, default_edit=False, point_name_edit=True)
+
+    async def apply_reviewed(
+        self, request, *, default_edit, boolean_edit=False, wire_edit=False, point_name_edit=False
+    ):
+        if sum((bool(default_edit), bool(wire_edit), bool(point_name_edit))) > 1 or (
+            boolean_edit and not default_edit
+        ):
             raise ValueError("Choose one native transfer operation.")
-        program_edit = default_edit or wire_edit
+        program_edit = default_edit or wire_edit or point_name_edit
         plan = self.plans.pop(request.token, None)
         if not plan or plan["digest"] != request.review_sha256 or not plan["body"]["can_apply"]:
             raise ValueError(
@@ -1041,7 +1145,13 @@ class NativeApplications:
         renaming = plan["body"].get("change_kind") == "name"
         kind = plan["body"].get("change_kind", "instance")
         expected_kind = (
-            "wire-source" if wire_edit else "boolean-default" if boolean_edit else "signal-default"
+            "point-name"
+            if point_name_edit
+            else "wire-source"
+            if wire_edit
+            else "boolean-default"
+            if boolean_edit
+            else "signal-default"
         )
         if kind not in ((expected_kind,) if program_edit else ("instance", "name")):
             raise ValueError("This review belongs to a different native transfer operation.")
@@ -1051,10 +1161,13 @@ class NativeApplications:
             raise ValueError("Unsupported native default transfer evidence version; retain it.")
         if wire_edit and plan["body"].get("operation_profile") != WIRE_PROFILE:
             raise ValueError("Unsupported native wire transfer evidence version; retain it.")
+        if point_name_edit and plan["body"].get("operation_profile") != POINT_NAME_PROFILE:
+            raise ValueError("Unsupported native point-name evidence version; retain it.")
         if (
             not request.application_transfer_confirmed
             or (wire_edit and not request.wire_change_confirmed)
             or (default_edit and not request.default_change_confirmed)
+            or (point_name_edit and not request.point_name_confirmed)
             or (not program_edit and renaming and not request.name_change_confirmed)
             or (not program_edit and not renaming and not request.allocation_confirmed)
         ):
@@ -1084,7 +1197,7 @@ class NativeApplications:
                     else self.default_scope()
                     if default_edit
                     else self.name_scope()
-                    if renaming
+                    if renaming or point_name_edit
                     else await self.instances._collision(options)
                 )
                 if collision["devices"]:
@@ -1096,6 +1209,10 @@ class NativeApplications:
                     actual, _ = await self.identity(session, options.device)
                     if actual != body["identity"]:
                         raise ValueError("Controller identity changed after review.")
+                    if point_name_edit:
+                        name = await self.path._read(session, options.object_id, "object-name")
+                        if name != body["compilation"]["selected_edit"]["before"]:
+                            raise ValueError("The published point name changed after review.")
                     backup, files, chunk = await self.capture_session(
                         options, session, identity=actual
                     )
@@ -1107,7 +1224,9 @@ class NativeApplications:
                             "Application or saved parameter directory changed after review. Capture and review again."
                         )
                     output, compilation = (
-                        compile_wire(
+                        compile_point_name(files, body["point_name_edit"])
+                        if point_name_edit
+                        else compile_wire(
                             files,
                             body["wire_edit"],
                             fresh=True,
@@ -1168,7 +1287,9 @@ class NativeApplications:
                             "Native application review or credentials changed during preflight. Review again."
                         )
                     recovery = (
-                        self.wire_recovery_origin(options, compilation)
+                        {}
+                        if point_name_edit
+                        else self.wire_recovery_origin(options, compilation)
                         if wire_edit
                         else self.recovery_origin(options, compilation, boolean=boolean_edit)
                         if default_edit
@@ -1200,6 +1321,15 @@ class NativeApplications:
                             "native_payload_sha256": sha(MoiIdentity(output).data),
                             "compilation": compilation,
                             "collision_check": collision,
+                            **(
+                                {
+                                    "point_name_edit": body["point_name_edit"],
+                                    "operation_profile": POINT_NAME_PROFILE,
+                                    "point_name_confirmed": request.point_name_confirmed,
+                                }
+                                if point_name_edit
+                                else {}
+                            ),
                             **(
                                 {
                                     "wire_edit": body["wire_edit"],
@@ -1390,6 +1520,18 @@ def native_application_router(service):
     @router.post("/preview")
     async def preview(body: NativePreview):
         return await service.preview(**body.model_dump())
+
+    @router.post("/point-name/source")
+    async def point_name_source(body: PointNameSource):
+        return service.point_name_source(**body.model_dump())
+
+    @router.post("/point-name/preview")
+    async def preview_point_name(body: PointNamePreview):
+        return await service.preview_point_name(**body.model_dump())
+
+    @router.post("/point-name/apply")
+    async def apply_point_name(body: PointNameApply):
+        return await service.apply_point_name(**body.model_dump())
 
     @router.post("/apply")
     async def apply(body: NativeApply):

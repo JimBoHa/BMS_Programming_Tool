@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-01. Implementation baseline: GitHub `main` at
-[`8cced3e2`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/8cced3e2dc1bbfc36a3ccfddece84c08e224798f).
+[`a39d7770`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/a39d7770ee4a04c8a5773b8ac7b31bd332e2933c).
 
 ## Baseline and purpose
 
@@ -84,6 +84,14 @@ verified Apply or explicit readback clears only its matching completed proposal.
 This is in-memory workspace retention, not durable draft storage across reloads.
 
 ## Existing capabilities to preserve and credit
+
+[Native point-name editing](docs/native-point-names.md) now belongs to the
+selected point's Configuration within Points & I/O. It preserves the existing
+point identifier, logic references, I/O setup and other merged settings, and
+requires both full native readback and the published BACnet name to agree.
+Bounded drafts refuse eviction; exact review/operation/receipt ownership and
+uncertainty recovery remain explicit. This does not allocate points, move
+terminals, rename supervisor objects or complete general native authoring.
 
 Native parameter preservation now handles qualified repeated unsaved runtime
 slots, restores typed saved properties omitted from existing application records,

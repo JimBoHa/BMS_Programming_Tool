@@ -927,6 +927,7 @@ export function Connections({
                   key={controllerKey(controller) + controller.interfaceKey}
                   controller={controller}
                   connected={!!controllerReady}
+                  onBusy={setBusy}
                   onVerified={(when) =>
                     setController((current) =>
                       current &&

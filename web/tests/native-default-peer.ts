@@ -4,7 +4,13 @@ import path from "node:path";
 const root = path.resolve("..");
 export async function nativeDefaultPeer(
   mode = "consume",
-  datatype: "real" | "boolean" | "wire" | "wire-recovery" | "instance" = "real",
+  datatype:
+    | "real"
+    | "boolean"
+    | "wire"
+    | "wire-recovery"
+    | "instance"
+    | "point-name" = "real",
 ) {
   const child = spawn(
     path.join(root, ".venv/bin/python"),
@@ -27,6 +33,9 @@ async def main():
  if sys.argv[2]=='wire-recovery':
   from tests.test_native_wire_recovery import FANOUT
   app.files=wire_files(target_class=538,wires=FANOUT);app.metadata['object-name']='Authored native wire controller';app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
+ elif sys.argv[2]=='point-name':
+  from tests.test_native_point_names import point_files,attach_point_reads
+  app.files=point_files();attach_point_reads(app,published_old=sys.argv[1]=='published-old')
  elif sys.argv[2]=='wire':
   app.files=wire_files(target_class=538);app.metadata['object-name']='Authored native wire controller';app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
  elif sys.argv[2]=='instance':
@@ -58,6 +67,9 @@ async def main():
    import types
    app.do_ReinitializeDeviceRequest=types.MethodType(NativePeer.do_ReinitializeDeviceRequest,app);storage_outcome(app,value=True)
   elif line=='boolean-second-true':boolean_slot(app.files,'controller/boolean-21',True)
+  elif line=='point-name-publish-current':
+   from tests.test_native_point_names import attach_point_reads
+   attach_point_reads(app)
   elif line=='repair':
    if sys.argv[2]=='boolean':boolean_slot(app.files,FIRST,False)
    else:real_slot(app.files,-10,bytes.fromhex('3dcccccd'))
