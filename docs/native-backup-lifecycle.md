@@ -26,7 +26,9 @@ archived captures**; archiving does not free disk space. At either capacity, the
 operation refuses explicitly without pruning, deleting or overwriting another
 source. Restoring at the active limit requires archiving another capture first.
 The original ZIP export contains the original manifest and three backup files;
-it is not a portable copy of the whole transfer journal or an import/restore path.
+it is not a portable copy of the whole transfer journal or a controller restore
+path. The separate [original ZIP importer](native-backup-import.md) supports
+bounded immutable local ingestion in this catalog without restoring authority.
 
 Catalog transitions are private SQLite records, sealed with SHA-256, appended
 with monotonically increasing per-capture revisions and committed with FULL
@@ -85,5 +87,5 @@ Chromium/WebKit workflows cover both local entry paths, real pagination/search,
 archive/restore/export, stale and substituted replies, navigation/visibility,
 compact layouts and connected catalogs that issue no controller requests.
 These are software tests with authored sources and loopback peers. Physical
-controller, Bluetooth, whole-state portability, general backup import/restore,
+controller, Bluetooth, whole-state portability, general controller restore,
 additional native logic and manufacturer compatibility retain separate gates.

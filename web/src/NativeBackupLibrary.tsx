@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { api, apiBlobDocument, saveBlob } from "./api";
 import { NativeBackupIntegrity } from "./NativeBackupIntegrity";
+import {
+  checkedNativeImport,
+  nativeArchiveHash,
+  validNativeImportOrigin,
+} from "./nativeBackupImport";
 import "./native-backup-library.css";
 
 type Data = Record<string, any>;
@@ -125,10 +130,12 @@ export function NativeBackupLibrary() {
       setBusy(false);
     };
     document.addEventListener("visibilitychange", retire);
+    window.addEventListener("pagehide", retire);
     return () => {
       alive.current = false;
       epoch.current++;
       document.removeEventListener("visibilitychange", retire);
+      window.removeEventListener("pagehide", retire);
     };
   }, []);
   useEffect(() => {
@@ -208,6 +215,41 @@ export function NativeBackupLibrary() {
       if (current(ticket, context)) setBusy(false);
     }
   }
+  async function importBackup(file: File) {
+    if (active.current) return;
+    active.current = true;
+    const ticket = ++epoch.current,
+      context = owner.current;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const digest = await nativeArchiveHash(file);
+      if (!current(ticket, context)) return;
+      const form = new FormData();
+      form.append("file", file);
+      const result = checkedNativeImport(
+        await api(base + "/backup-library/import", form),
+        digest,
+      );
+      if (current(ticket, context)) {
+        setMessage(
+          (result.already_present
+            ? "Original backup already present. "
+            : "Original backup imported locally. ") +
+            "Capture " +
+            result.capture_id +
+            ". Historical evidence only; no controller queried or authority restored. Current list and search filters still apply.",
+        );
+        await refresh();
+      }
+    } catch (failure) {
+      if (current(ticket, context)) setError(String(failure));
+    } finally {
+      active.current = false;
+      if (current(ticket, context)) setBusy(false);
+    }
+  }
   return (
     <section
       className="native-backup-library"
@@ -266,6 +308,26 @@ export function NativeBackupLibrary() {
           Refresh backups
         </button>
       </form>
+      <label>
+        Import native backup ZIP
+        <input
+          type="file"
+          accept=".zip,application/zip"
+          disabled={busy}
+          aria-label="Import native backup ZIP"
+          onChange={(event) => {
+            const file = event.currentTarget.files?.[0];
+            event.currentTarget.value = "";
+            if (file) void importBackup(file);
+          }}
+        />
+      </label>
+      <p>
+        Import an original backup ZIP with its manifest and Files 3, 11 and 12
+        (8 MiB maximum). Original IDs and file bytes stay intact. Imported
+        metadata is historical evidence; connection, compatibility, receipts and
+        controller transfer require separate verification.
+      </p>
       {busy && <p role="status">Updating local backup catalog…</p>}
       {error && (
         <p role="alert">
@@ -331,6 +393,20 @@ export function NativeBackupLibrary() {
                       {row.source_identity_matches
                         ? "Identity captured"
                         : "Identity unverified"}
+                      {validNativeImportOrigin(row.local_import, row) && (
+                        <>
+                          <br />
+                          Imported historical copy
+                        </>
+                      )}
+                      {(row.local_import_unavailable ||
+                        (row.local_import &&
+                          !validNativeImportOrigin(row.local_import, row))) && (
+                        <>
+                          <br />
+                          Import provenance unavailable
+                        </>
+                      )}
                     </td>
                     <td>
                       {row.target.address}
@@ -362,8 +438,8 @@ export function NativeBackupLibrary() {
           </div>
           {!data.backups.length && (
             <p>
-              No matching backups. Capture a verified controller first, or
-              choose another list or search.
+              No matching backups. Import an original backup ZIP, capture a
+              verified controller, or choose another list or search.
             </p>
           )}
           <div className="button-row">
@@ -401,6 +477,21 @@ export function NativeBackupLibrary() {
             separately reviewed operation. This action never restores or writes
             a controller.
           </p>
+          {validNativeImportOrigin(selected.local_import, selected) && (
+            <p>
+              Imported historical copy from {selected.local_import.filename} on{" "}
+              {selected.local_import.imported_at}. No current controller
+              identity, compatibility or transfer authority is established.
+            </p>
+          )}
+          {(selected.local_import_unavailable ||
+            (selected.local_import &&
+              !validNativeImportOrigin(selected.local_import, selected))) && (
+            <p>
+              Import provenance unavailable. Inspect local storage; original
+              capture evidence remains available.
+            </p>
+          )}
           <div className="button-row">
             <button
               className="primary"

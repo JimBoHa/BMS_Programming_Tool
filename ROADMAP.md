@@ -434,6 +434,15 @@ transfer/recovery references remain available, including across restart. This
 implements a bounded retention workflow; general controller restore and whole-state
 portability under JCI-09/10 and PORT-03 remain separate.
 
+The [original native backup ZIP importer](docs/native-backup-import.md) adds
+explicit bounded local ingestion in the same History catalog. Original IDs,
+metadata and Files 3/11/12 remain intact, conflicting IDs refuse, and local
+provenance stays separate from original acquisition evidence. Identical imports
+preserve active/archived state; known unchanged partial imports can resume.
+This implements IDEA-NATIVE-BACKUP-ZIP-IMPORT-001 without restoring field
+authority, receipts, credentials or pending transfers. General controller
+restore and whole-state migration remain separate.
+
 The [native application storage profile](docs/native-application-storage.md)
 reuses native POSIX/Win32 safe file handles without changing original backup or
 transfer formats. Current computer durability appears separately from original

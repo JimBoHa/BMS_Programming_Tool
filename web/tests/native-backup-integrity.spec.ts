@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./nativeScheduleWriteFixture";
 import { readFileSync } from "node:fs";
 import { python } from "./caf-native-fixture";
 import { chooseWorkspaceSurface } from "./workspace-navigation";
@@ -18,7 +18,7 @@ const result = (page: Page) =>
     exact: true,
   });
 
-function seed(mismatch = false, count = 3) {
+function seed(directory: string, mismatch = false, count = 3) {
   return JSON.parse(
     python(
       `
@@ -40,7 +40,7 @@ if sys.argv[2]=='1':
  (s.directory/rows[0]['id']/'file-11.bin').unlink()
 print(json.dumps({'prefix':prefix,'first':rows[0]['id'],'second':rows[1]['id'],'bad':rows[2]['id'],'partial':partial,'unknown':unknown,'caf':base64.b64encode(caf_source().original).decode()}))
 `,
-      process.env.BMS_TEST_COMPILER_STATE!,
+      directory,
       mismatch ? "1" : "0",
       String(count),
     ),
@@ -144,8 +144,9 @@ for (const caf of [false, true])
     test(`storage diagnostics from ${caf ? "CAF" : "new application"} entry on ${compact ? "compact" : "desktop"} layout retain damaged originals and export exact observations`, async ({
       page,
       request,
+      nativeScheduleWriteServer,
     }) => {
-      const data = seed(),
+      const data = seed(nativeScheduleWriteServer.directory),
         calls = fieldCalls(page);
       if (compact) await page.setViewportSize({ width: 600, height: 1000 });
       await enter(page, data, caf);
@@ -200,8 +201,9 @@ for (const caf of [false, true])
 
 test("changed and missing payloads remain separate failures with no repair or field dispatch", async ({
   page,
+  nativeScheduleWriteServer,
 }) => {
-  const data = seed(true),
+  const data = seed(nativeScheduleWriteServer.directory, true),
     calls = fieldCalls(page);
   await enter(page, data);
   await choose(page, data.first);
@@ -221,8 +223,9 @@ test("changed and missing payloads remain separate failures with no repair or fi
 for (const boundary of ["source", "ABA", "close", "navigation", "visibility"])
   test(`held original-file check cannot survive ${boundary} changes`, async ({
     page,
+    nativeScheduleWriteServer,
   }) => {
-    const data = seed(),
+    const data = seed(nativeScheduleWriteServer.directory),
       calls = fieldCalls(page);
     await enter(page, data);
     await choose(page, data.first);
@@ -305,8 +308,9 @@ for (const boundary of ["source", "ABA", "close", "navigation", "visibility"])
 
 test("a substituted integrity source is rejected without exposing an export", async ({
   page,
+  nativeScheduleWriteServer,
 }) => {
-  const data = seed();
+  const data = seed(nativeScheduleWriteServer.directory);
   await enter(page, data);
   await choose(page, data.first);
   await page.route(
@@ -337,8 +341,9 @@ test("a substituted integrity source is rejected without exposing an export", as
 
 test("inventory pages and exact-name searches read actual bounded stored entries", async ({
   page,
+  nativeScheduleWriteServer,
 }) => {
-  const data = seed(false, 33);
+  const data = seed(nativeScheduleWriteServer.directory, false, 33);
   await enter(page, data);
   const table = diagnostics(page).getByRole("table", {
     name: "Observed native backup storage entries",
@@ -380,6 +385,7 @@ test("inventory pages and exact-name searches read actual bounded stored entries
 
 test("storage entry bound is visible and never claims an exhaustive inventory", async ({
   page,
+  nativeScheduleWriteServer,
 }) => {
   python(
     `
@@ -389,7 +395,7 @@ from bms_tool.application_store import ApplicationStore
 s=ApplicationStore(Store(sys.argv[1]))
 for i in range(1153):(s.directory/format(i,'032x')).mkdir(exist_ok=True)
 `,
-    process.env.BMS_TEST_COMPILER_STATE!,
+    nativeScheduleWriteServer.directory,
   );
   await page.goto("/");
   await page

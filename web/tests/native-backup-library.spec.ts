@@ -3,7 +3,7 @@ import {
   expect,
   type Page,
   type APIRequestContext,
-} from "@playwright/test";
+} from "./nativeScheduleWriteFixture";
 import { python } from "./caf-native-fixture";
 import { nativeDefaultPeer } from "./native-default-peer";
 import { freePort } from "./workflow-peer";
@@ -17,7 +17,7 @@ const library = (page: Page) =>
   page.getByRole("region", { name: "Native backup library", exact: true });
 const selected = (page: Page) =>
   page.getByRole("region", { name: "Selected native backup", exact: true });
-function seed(count = 2) {
+function seed(directory: string, count = 2) {
   return JSON.parse(
     python(
       `
@@ -30,7 +30,7 @@ s=ApplicationStore(Store(sys.argv[1]))
 rows=[retained(s,target={'address':f'3001:{i+1}','router':'127.0.0.1:49000','dnet':3001}) for i in range(int(sys.argv[2]))]
 print(json.dumps({'rows':rows,'caf':base64.b64encode(caf_source().original).decode()}))
 `,
-      process.env.BMS_TEST_COMPILER_STATE!,
+      directory,
       String(count),
     ),
   );
@@ -116,7 +116,7 @@ async function pick(page: Page, row: any) {
     .click();
   await expect(selected(page)).toContainText(row.device);
 }
-test.beforeEach(async ({ request }) => {
+test.beforeEach(async ({ request, nativeScheduleWriteServer }) => {
   expect(
     (
       await request.post("/api/bacnet/disconnect", {
@@ -131,8 +131,9 @@ for (const caf of [false, true])
   test(`offline ${caf ? "CAF" : "new application"} entry archives, exports exact originals and restores selection`, async ({
     page,
     request,
+    nativeScheduleWriteServer,
   }) => {
-    const data = seed(),
+    const data = seed(nativeScheduleWriteServer.directory),
       row = data.rows[0],
       forbidden: string[] = [];
     page.on("request", (request) => {
@@ -219,8 +220,9 @@ for (const caf of [false, true])
 
 test("search and real bounded pages retain exact route identity", async ({
   page,
+  nativeScheduleWriteServer,
 }) => {
-  const data = seed(35);
+  const data = seed(nativeScheduleWriteServer.directory, 35);
   await enter(page, data);
   await expect(
     library(page).getByRole("button", { name: /^Select backup / }),
@@ -251,8 +253,9 @@ test("search and real bounded pages retain exact route identity", async ({
 test("archive and restore ABA in another session rejects the stale selection", async ({
   page,
   request,
+  nativeScheduleWriteServer,
 }) => {
-  const data = seed(),
+  const data = seed(nativeScheduleWriteServer.directory),
     row = data.rows[0];
   await enter(page, data);
   await pick(page, row);
@@ -286,8 +289,9 @@ test("archive and restore ABA in another session rejects the stale selection", a
 
 test("a response substituted after local archive cannot authorize another action", async ({
   page,
+  nativeScheduleWriteServer,
 }) => {
-  const data = seed(),
+  const data = seed(nativeScheduleWriteServer.directory),
     row = data.rows[0];
   let calls = 0;
   await enter(page, data);
@@ -325,8 +329,9 @@ test("a response substituted after local archive cannot authorize another action
 for (const retirement of ["navigation", "visibility"])
   test(`delayed catalog reply retires across ${retirement}`, async ({
     page,
+    nativeScheduleWriteServer,
   }) => {
-    const data = seed();
+    const data = seed(nativeScheduleWriteServer.directory);
     await enter(page, data);
     await pick(page, data.rows[0]);
     let release!: () => void, seen!: () => void;
@@ -367,8 +372,9 @@ for (const retirement of ["navigation", "visibility"])
 
 test("phone catalog keeps labels, focus and local file through task navigation", async ({
   page,
+  nativeScheduleWriteServer,
 }, info) => {
-  const data = seed();
+  const data = seed(nativeScheduleWriteServer.directory);
   await page.setViewportSize({ width: 390, height: 844 });
   await enter(page, data, true);
   await pick(page, data.rows[0]);
@@ -402,8 +408,9 @@ for (const routed of [false, true])
   test(`connected ${routed ? "routed" : "direct"} catalog action makes zero controller requests`, async ({
     page,
     request,
+    nativeScheduleWriteServer,
   }) => {
-    const data = seed(),
+    const data = seed(nativeScheduleWriteServer.directory),
       peer = await nativeDefaultPeer("consume", "instance");
     try {
       await page.goto("/");

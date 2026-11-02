@@ -1,4 +1,5 @@
-import { test, expect, type Page, type Locator } from "@playwright/test";
+import { test, expect, type Page } from "./nativeScheduleWriteFixture";
+import type { Locator } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -6,8 +7,8 @@ import { openNativeCompiler } from "./workspace-navigation";
 
 const root = path.resolve("..");
 const endpoint = "/api/bacnet/controller/native-application/inspection/compare";
-function seed() {
-  const state = process.env.BMS_TEST_COMPILER_STATE;
+function seed(directory: string) {
+  const state = directory;
   if (!state) throw new Error("An isolated state directory is required.");
   return JSON.parse(
     execFileSync(
@@ -118,8 +119,9 @@ async function cleared(panel: Locator) {
 test("offline comparison retains both routes, original JSON numbers and hashes without field requests", async ({
   page,
   request,
+  nativeScheduleWriteServer,
 }) => {
-  const ids = seed();
+  const ids = seed(nativeScheduleWriteServer.directory);
   const forbidden: string[] = [];
   page.on("request", (r) => {
     if (
@@ -172,8 +174,9 @@ assert not r['controller_queries'] and not r['field_actions'] and not r['restore
 
 test("opaque sources retain byte comparisons and explicit unavailable structured coverage", async ({
   page,
+  nativeScheduleWriteServer,
 }) => {
-  const ids = seed();
+  const ids = seed(nativeScheduleWriteServer.directory);
   const { panel } = await enter(page, ids.a, ids.opaque);
   await compare(panel);
   await expect(panel).toContainText("Structured record comparison unavailable");
@@ -192,8 +195,9 @@ test("opaque sources retain byte comparisons and explicit unavailable structured
 
 test("paging and query keep bounded differences and retire old pages immediately", async ({
   page,
+  nativeScheduleWriteServer,
 }) => {
-  const ids = seed();
+  const ids = seed(nativeScheduleWriteServer.directory);
   const { panel } = await enter(page, ids.manyA, ids.manyB);
   await compare(panel);
   const table = panel.getByRole("table", {
@@ -216,8 +220,9 @@ test("paging and query keep bounded differences and retire old pages immediately
 
 test("a comparison naming another snapshot is refused before display or download", async ({
   page,
+  nativeScheduleWriteServer,
 }) => {
-  const ids = seed();
+  const ids = seed(nativeScheduleWriteServer.directory);
   const { panel } = await enter(page, ids.a, ids.b);
   await page.route("**" + endpoint, async (route) => {
     const r = await route.fetch();
@@ -235,8 +240,9 @@ test("a comparison naming another snapshot is refused before display or download
 for (const change of ["left", "right", "query", "disclosure"] as const) {
   test(`pending comparison retires through ${change} changes including source ABA`, async ({
     page,
+    nativeScheduleWriteServer,
   }) => {
-    const ids = seed();
+    const ids = seed(nativeScheduleWriteServer.directory);
     const { panel, compiler } = await enter(page, ids.a, ids.b);
     const held = await hold(page);
     try {
@@ -277,8 +283,9 @@ for (const change of ["left", "right", "query", "disclosure"] as const) {
 
 test("task navigation cannot revive a late comparison when the retained compiler returns", async ({
   page,
+  nativeScheduleWriteServer,
 }) => {
-  const ids = seed();
+  const ids = seed(nativeScheduleWriteServer.directory);
   const { panel } = await enter(page, ids.a, ids.b);
   const held = await hold(page);
   try {
@@ -304,9 +311,10 @@ test("task navigation cannot revive a late comparison when the retained compiler
 
 test("phone comparison keeps readable context and table overflow inside the engineering table", async ({
   page,
+  nativeScheduleWriteServer,
 }, info) => {
   await page.setViewportSize({ width: 390, height: 900 });
-  const ids = seed();
+  const ids = seed(nativeScheduleWriteServer.directory);
   const { panel } = await enter(page, ids.a, ids.b);
   await compare(panel);
   const summary = panel.locator(":scope > summary");
