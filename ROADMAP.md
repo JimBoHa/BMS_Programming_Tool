@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-01. Implementation baseline: GitHub `main` at
-[`b9060a44`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/b9060a44cd5eeaca75d8de13cbf11046856bfc3d).
+[`8cced3e2`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/8cced3e2dc1bbfc36a3ccfddece84c08e224798f).
 
 ## Baseline and purpose
 
@@ -84,6 +84,16 @@ verified Apply or explicit readback clears only its matching completed proposal.
 This is in-memory workspace retention, not durable draft storage across reloads.
 
 ## Existing capabilities to preserve and credit
+
+Native parameter preservation now handles qualified repeated unsaved runtime
+slots, restores typed saved properties omitted from existing application records,
+and resolves only exact declared logical root references across assigned Device
+instances. [Post-restore readiness](docs/native-restore-readiness.md) performs
+bounded identity/status reads after a validated commit ACK before full native
+verification, without repeating the transfer. Preserve these contracts and their
+[additional UDP and recovery regression checks](docs/native-transfer-regression-validation.md).
+This extends the existing preservation scope; it does not complete arbitrary
+logic/hardware generation, broader restore, other transports or physical acceptance.
 
 [Native Calendar date drafts](docs/native-calendar-drafts.md) add a separate
 source-qualified local Date_List editor for captured Date, DateRange and WeekNDay
