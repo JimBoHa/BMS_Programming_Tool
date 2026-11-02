@@ -8,7 +8,10 @@ import { spawn, execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { openScheduleController } from "./schedule-trace-peer";
-import { chooseWorkspaceTask } from "./workspace-navigation";
+import {
+  chooseWorkspaceTask,
+  chooseWorkspaceSurface,
+} from "./workspace-navigation";
 
 const root = path.resolve(".."),
   base = "/api/bacnet/schedules/library";
@@ -38,10 +41,16 @@ async function peer(routed: boolean) {
       "-u",
       "-c",
       `
-import asyncio,json,sys
-from tests.test_schedule_inventory import SchedulePeer,text,unsigned
+import asyncio,json,sys,traceback
+from tests.test_schedule_inventory import SchedulePeer,text,unsigned,oid
 class Peer(SchedulePeer):
+ async def reply(self,data,source):
+  before=len(self.errors)
+  await super().reply(data,source)
+  for error in self.errors[before:]:
+   print('PROTOCOL_ERROR '+json.dumps({'packet':data.hex(),'error':''.join(traceback.format_exception(error))}),file=sys.stderr,flush=True)
  def value(self,obj,prop,index):
+  if prop=='object-list' and index is None:return b''.join(b'\\xc4'+oid(*item) for item in self.object_list)
   if prop in ('model-name','firmware-revision','application-software-version','vendor-name','location'):return text('Authored')
   if prop=='protocol-revision':return unsigned(22)
   if prop=='max-apdu-length-accepted':return unsigned(480)
@@ -59,7 +68,7 @@ async def main():
  print(json.dumps({'port':int(p.endpoint.split(':')[-1])}),flush=True)
  try: await asyncio.to_thread(sys.stdin.readline)
  finally:
-  p.close();print(json.dumps({'requests':len(p.requests),'errors':p.errors}),flush=True)
+  p.close();print(json.dumps({'requests':len(p.requests),'errors':[str(e) for e in p.errors]}),flush=True)
 asyncio.run(main())
 `,
       routed ? "1" : "0",
@@ -121,7 +130,7 @@ asyncio.run(main())
         code = await exited;
       clearTimeout(timer);
       expect(code, error).toBe(0);
-      expect(summary.errors).toEqual([]);
+      expect(summary.errors, error).toEqual([]);
       return summary;
     },
   };
@@ -431,8 +440,8 @@ test("a completed local save cannot adopt an inventory source that changed durin
       .click();
     await entered;
     await panel
-      .getByLabel("Schedule source address", { exact: true })
-      .fill("192.0.2.77");
+      .getByLabel("Calendar/Schedule object selection", { exact: true })
+      .fill("schedule,2");
     await expect(
       panel.getByLabel("Schedule evidence report", { exact: true }),
     ).toHaveCount(0);
@@ -452,8 +461,8 @@ test("a completed local save cannot adopt an inventory source that changed durin
     ).toHaveCount(0);
     await expect(local.getByText(/^Saved capture /)).toHaveCount(0);
     await expect(
-      panel.getByLabel("Schedule source address", { exact: true }),
-    ).toHaveValue("192.0.2.77");
+      panel.getByLabel("Calendar/Schedule object selection", { exact: true }),
+    ).toHaveValue("schedule,2");
     await local
       .getByRole("button", {
         name: "Refresh local schedule library",
@@ -793,7 +802,7 @@ test("late real reviews and downloads cannot replace edited rows or survive leav
       })
       .click();
     await exporting;
-    await page.getByRole("button", { name: "Reference", exact: true }).click();
+    await chooseWorkspaceSurface(page, "Help");
     const exported = page.waitForResponse(
       "**/api/bacnet/schedules/library/source-export",
     );

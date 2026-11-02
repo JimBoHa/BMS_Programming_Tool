@@ -16,9 +16,10 @@ const root = path.resolve(".."),
 const peerSource = `
 import asyncio,json,sys
 from tests.test_native_schedule_write import WeeklyPeer
-from tests.test_schedule_inventory import options,text,unsigned
+from tests.test_schedule_inventory import options,text,unsigned,oid
 class Peer(WeeklyPeer):
  def value(self,obj,prop,index):
+  if prop=='object-list' and index is None:return b''.join(b'\\xc4'+oid(*item) for item in self.object_list)
   if prop in ('model-name','firmware-revision','application-software-version','vendor-name','location'):return text('Authored')
   if prop=='protocol-revision':return unsigned(22)
   if prop=='segmentation-supported':return b'\\x91\\x03'
@@ -263,7 +264,13 @@ function expectedDay(text: string, withNull = false) {
       JSON.stringify(text),
       withNull ? "1" : "0",
     ],
-    { cwd: root },
+    {
+      cwd: root,
+      env: {
+        ...process.env,
+        PYTHONPATH: [path.join(root, "backend"), root].join(path.delimiter),
+      },
+    },
   )
     .toString()
     .trim();
