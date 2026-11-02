@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-01. Implementation baseline: GitHub `main` at
-[`9c56c39d`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/9c56c39d75861a16da13c767bb3230ced4788cb9).
+[`551663f9`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/551663f9ca6d2984cd3a6fce2fa722898d3217f1).
 
 ## Baseline and purpose
 
@@ -84,6 +84,13 @@ verified Apply or explicit readback clears only its matching completed proposal.
 This is in-memory workspace retention, not durable draft storage across reloads.
 
 ## Existing capabilities to preserve and credit
+
+[Schedule inventory continuation](docs/schedule-inventory-continuation.md)
+retains a verified controller's last completed Object_List offset after a
+deadline or cancellation. Preparing the next page changes the form only;
+another explicit read is required. Previously discovered objects with unread
+fields still require separate explicit selection. This does not complete SCH-01
+or imply a coherent controller backup.
 
 [Read-only native backup integrity diagnostics](docs/native-backup-integrity.md)
 now expose damaged/unpublished storage entries independently of the ordinary
