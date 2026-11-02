@@ -91,3 +91,8 @@
     padding: 8px;
   }
 }
+
+.native-calendar-fields .native-calendar-weekday-action {
+  align-self: flex-end;
+  min-height: 40px;
+}
