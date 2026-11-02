@@ -1,3 +1,4 @@
+import { enumRecoveryTransferMatches } from "./nativeEnumRecoveryContract";
 type Data = Record<string, any>;
 export const enumTransferProfile = "native-effective-enum-default-transfer/1";
 const hash = (v: unknown) => typeof v === "string" && /^[a-f0-9]{64}$/.test(v);
@@ -10,6 +11,16 @@ const same = (a: Data | undefined, b: Data | undefined) =>
   Object.entries(a).every(
     ([key, value]) => Object.hasOwn(b, key) && b[key] === value,
   );
+const ordered = (value: any): any =>
+  Array.isArray(value)
+    ? value.map(ordered)
+    : value && typeof value === "object"
+      ? Object.fromEntries(
+          Object.keys(value)
+            .sort()
+            .map((key) => [key, ordered(value[key])]),
+        )
+      : value;
 function selection(edit: Data | undefined) {
   return (
     !!edit &&
@@ -148,8 +159,7 @@ export function enumTransferReviewMatches(
     data.old_name === source.identity?.["object-name"] &&
     data.new_name === data.old_name &&
     data.wire_edit === undefined &&
-    data.recovery_origin === undefined &&
-    data.recovery_origin_sha256 === undefined
+    enumRecoveryTransferMatches(data)
   );
 }
 export function enumTransferReceiptMatches(data: Data, reference?: Data) {
@@ -179,13 +189,15 @@ export function enumTransferReceiptMatches(data: Data, reference?: Data) {
     intent.payload_sha256 !== compiled.compiled_sha256 ||
     intent.native_payload_sha256 !== compiled.compiled_native_sha256 ||
     !hash(intent.review_sha256) ||
-    intent.recovery_origin !== undefined ||
-    intent.recovery_origin_sha256 !== undefined
+    !enumRecoveryTransferMatches(intent)
   )
     return false;
   if (
     reference &&
     (!same(edit, reference.default_edit) ||
+      intent.recovery_origin_sha256 !== reference.recovery_origin_sha256 ||
+      JSON.stringify(ordered(intent.recovery_origin)) !==
+        JSON.stringify(ordered(reference.recovery_origin)) ||
       intent.review_sha256 !== reference.review_sha256 ||
       intent.review_capture_id !==
         (reference.capture_id ?? reference.review_capture_id) ||

@@ -1,4 +1,10 @@
-import { useContext, useEffect, useRef, useState } from "react";
+import {
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   api,
   apiBlobDocument,
@@ -9,6 +15,7 @@ import {
 import { sha256Blob } from "./activityContracts";
 import { NativeBooleanTransferContext } from "./NativeBooleanTransferContext";
 import { NativeEnumTransfer } from "./NativeEnumTransfer";
+import type { NativeDefaultRecoveryDocument } from "./nativeDefaultRecoveryContract";
 import { controllerKey } from "./workflow";
 import type { NativeArchiveSource } from "./NativeRecords";
 import { enumCode, rememberEnumText } from "./nativeEnumCopyWork";
@@ -39,6 +46,32 @@ export function NativeEffectiveEnumCopy({
     generation = useRef(0),
     active = useRef(false);
   const transferContext = useContext(NativeBooleanTransferContext);
+  const [recovery, setRecovery] =
+    useState<NativeDefaultRecoveryDocument | null>(null);
+  const recoveryPanel = useRef<HTMLElement>(null),
+    pendingRecoveryFocus = useRef(false);
+  const shownRecovery =
+    recovery &&
+    recovery.data.origin.current_capture_id === source.capture_id &&
+    recovery.data.origin.current_snapshot_sha256 === source.snapshot_sha256 &&
+    recovery.data.origin.record_ref === field.ref
+      ? recovery
+      : null;
+  const activeRecovery = shownRecovery?.data.proposal ? shownRecovery : null;
+  useLayoutEffect(() => {
+    if (
+      pendingRecoveryFocus.current &&
+      shownRecovery &&
+      (transferContext?.visible ?? true)
+    ) {
+      pendingRecoveryFocus.current = false;
+      recoveryPanel.current?.focus({ preventScroll: true });
+      recoveryPanel.current?.scrollIntoView({
+        block: "nearest",
+        inline: "nearest",
+      });
+    }
+  });
   const fieldBusy = transferContext?.fieldBusy ?? false;
   let nativeIp = false;
   try {
@@ -120,6 +153,7 @@ export function NativeEffectiveEnumCopy({
       if (current(ticket)) {
         setLoaded({ ...data, selected });
         setText(drafts.get(draftKey) ?? String(selected.effective_value));
+        setRecovery(transferContext?.enumRecoveryDrafts.get(draftKey) ?? null);
       }
     } catch (failure) {
       if (current(ticket)) setError(String(failure));
@@ -129,7 +163,9 @@ export function NativeEffectiveEnumCopy({
     }
   }
   function request() {
-    const value = enumCode(text);
+    const value = activeRecovery
+      ? activeRecovery.data.proposal.value
+      : enumCode(text);
     if (value > loaded.selected.maximum_code)
       throw new Error(
         `Use a code from 0 through ${loaded.selected.maximum_code}; this snapshot records a fixed saved Enum slot.`,
@@ -142,6 +178,33 @@ export function NativeEffectiveEnumCopy({
       encoded_sha256: loaded.selected.encoded_sha256,
       value,
     };
+  }
+  function receiveRecovery(document: NativeDefaultRecoveryDocument) {
+    const cache = transferContext?.enumRecoveryDrafts;
+    if (
+      !loaded ||
+      document.data.origin.current_capture_id !== source.capture_id ||
+      document.data.origin.current_snapshot_sha256 !== source.snapshot_sha256 ||
+      document.data.origin.record_ref !== field.ref
+    )
+      return;
+    if (cache && !cache.has(key) && cache.size >= 128) {
+      setError(
+        "128 Enum recovery proposals are retained. Discard an older proposal before preparing another.",
+      );
+      return;
+    }
+    cache?.set(key, document);
+    retire();
+    setError("");
+    pendingRecoveryFocus.current = true;
+    setRecovery(document);
+  }
+  function discardRecovery() {
+    transferContext?.enumRecoveryDrafts.delete(key);
+    retire();
+    setRecovery(null);
+    setError("");
   }
   let transferProposal = null;
   if (loaded)
@@ -252,8 +315,12 @@ export function NativeEffectiveEnumCopy({
               aria-label="Proposed effective Enum code"
               inputMode="numeric"
               maxLength={128}
-              value={text}
-              disabled={fieldBusy}
+              value={
+                activeRecovery
+                  ? String(activeRecovery.data.proposal.value)
+                  : text
+              }
+              disabled={fieldBusy || !!activeRecovery}
               onChange={(event) => {
                 if (
                   !rememberEnumText(
@@ -274,6 +341,43 @@ export function NativeEffectiveEnumCopy({
               }}
             />
           </label>
+          {shownRecovery && (
+            <section
+              className="native-compiler-source"
+              aria-label="Prepared previous Enum default"
+              ref={recoveryPanel}
+              tabIndex={-1}
+            >
+              <h4>
+                {shownRecovery.data.already_recorded
+                  ? "Previous Enum code already recorded in this backup"
+                  : "Previous effective Enum code prepared locally"}
+              </h4>
+              <p>
+                Receipt{" "}
+                <code>{shownRecovery.data.origin.parent_receipt_id}</code> ·{" "}
+                {field.ref} · {shownRecovery.data.current_effective_value} to{" "}
+                {shownRecovery.data.previous_effective_value}.
+              </p>
+              <p>
+                {shownRecovery.data.already_recorded
+                  ? "No transfer proposal was created. This retained backup does not establish current live state."
+                  : "A new controller review and both transfer confirmations are required. Other current saved settings remain current."}{" "}
+                Code meanings remain unverified. Your ordinary raw Enum draft
+                remains retained separately.
+              </p>
+              <button
+                onClick={() =>
+                  saveBlob(
+                    shownRecovery.blob,
+                    "native-previous-enum-default-proposal.json",
+                  )
+                }
+              >
+                Export exact previous Enum proposal
+              </button>
+            </section>
+          )}
           <div className="button-row">
             <button
               className={prepared || transferActive ? undefined : "primary"}
@@ -283,15 +387,23 @@ export function NativeEffectiveEnumCopy({
               Review effective Enum copy
             </button>
             <button
-              disabled={busy || fieldBusy || !drafts.has(key)}
+              disabled={
+                busy || fieldBusy || (!shownRecovery && !drafts.has(key))
+              }
               onClick={() => {
+                if (shownRecovery) {
+                  discardRecovery();
+                  return;
+                }
                 retire();
                 drafts.delete(key);
                 setText(String(loaded.selected.effective_value));
                 setError("");
               }}
             >
-              Discard effective Enum draft
+              {shownRecovery
+                ? "Discard previous Enum proposal"
+                : "Discard effective Enum draft"}
             </button>
           </div>
           {prepared && (
@@ -328,6 +440,8 @@ export function NativeEffectiveEnumCopy({
             source={loaded}
             field={loaded.selected}
             proposal={transferProposal}
+            recoveryDraft={activeRecovery}
+            onRecoveryPrepared={receiveRecovery}
           />
         </>
       )}

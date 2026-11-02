@@ -1,6 +1,6 @@
 """One existing fixed-storage Enum code through the guarded native restore path."""
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from .application_preservation import runtime_parameter_changes
 from .device_details import DeviceDetailsRequest
@@ -24,6 +24,14 @@ SCOPE = (
 
 class EnumTransferPreview(EnumCopyPreview, DeviceDetailsRequest):
     operation_id: str = Field(pattern=r"^[A-Za-z0-9_-]{8,80}$")
+    recovery_parent_receipt: str | None = Field(default=None, pattern=r"^[0-9a-f]{32}$")
+    recovery_origin_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def recovery_binding(self):
+        if (self.recovery_parent_receipt is None) != (self.recovery_origin_sha256 is None):
+            raise ValueError("Provide both the Enum recovery parent and prepared origin hash.")
+        return self
 
 
 def compile_enum_default(
