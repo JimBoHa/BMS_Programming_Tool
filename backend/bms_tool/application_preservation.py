@@ -135,6 +135,33 @@ def runtime_parameter_changes(observed, post):
     for parameter in current["changed_parameters"]:
         cid, pid = str(parameter["class"]), str(parameter["property"])
         label = by_class.get(cid, {}).get(pid, names.get(pid, "Unknown"))
+        if (parameter["class"], parameter["property"]) == (251, 978) and observed.summary()[
+            "format_versions"
+        ] == {"acs": 60, "dmcs": 60}:
+            # The native 6.0 application definition declares this actuator
+            # state as frequently changing, application-persistent Unsigned
+            # seconds (f=1, a=1), without configuration/edit flags. Keep the
+            # application bytes exact and report a monotonic stored-state
+            # advance separately. This is not the configured stroke time.
+            oid = (parameter["class"] << 22) | parameter["instance"]
+            previous = observed.reader.scalar(actual_records[oid], parameter["property"])
+            value = current_app.reader.scalar(current_records[oid], parameter["property"])
+            if not all(type(v) is int and 0 <= v <= 4294967295 for v in (previous, value)):
+                raise ValueError("Legacy actuator seconds state has a non-Unsigned value.")
+            if value < previous:
+                raise ValueError(
+                    "Legacy actuator seconds state decreased; retain and review the snapshots."
+                )
+            counters.append(
+                {
+                    **parameter,
+                    "property_name": "Legacy actuator state (seconds, property 978)",
+                    "application_value": previous,
+                    "current_saved_value": value,
+                    "reason": "Native ACS/DMCS 60 frequently changing actuator seconds state",
+                }
+            )
+            continue
         # Flow Primitive's zero-flow offset is a calculated output, recalculated
         # by the application's autocalibration sequence. This is a native module
         # attribute, not a controller-model exception or a manual sensor offset.
@@ -168,5 +195,17 @@ def runtime_parameter_changes(observed, post):
                 "A current saved parameter differs beyond documented runtime outputs; "
                 "retain the snapshots and review before another write."
             )
-        counters.append({**parameter, "property_name": label})
+        oid = (parameter["class"] << 22) | parameter["instance"]
+        counters.append(
+            {
+                **parameter,
+                "property_name": label,
+                "application_value": observed.reader.scalar(
+                    actual_records[oid], parameter["property"]
+                ),
+                "current_saved_value": current_app.reader.scalar(
+                    current_records[oid], parameter["property"]
+                ),
+            }
+        )
     return current, counters, calculated

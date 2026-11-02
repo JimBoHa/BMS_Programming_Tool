@@ -470,7 +470,7 @@ export function NativeInstancePanel(
               ...observed,
               ...(observed.status === "recovered_original"
                 ? {
-                      old_instance: Number(props.defaultDevice.split(",")[1]),
+                    old_instance: Number(props.defaultDevice.split(",")[1]),
                     new_instance: result.intent.old_instance,
                     new_name: result.intent.old_name,
                   }
@@ -944,7 +944,10 @@ export function NativeInstancePanel(
               </p>
             )}
             {observed?.error && <p role="alert">{observed.error}</p>}
-            <NativeRuntimeCalibration report={observed?.runtime_calibration} />
+            <NativeRuntimeCalibration
+              report={observed?.runtime_calibration}
+              preservation={observed?.preservation}
+            />
             {!!observed?.preservation?.device_calculated_changes?.length && (
               <p role="status">
                 The controller refreshed its automatic flow calibration offset.

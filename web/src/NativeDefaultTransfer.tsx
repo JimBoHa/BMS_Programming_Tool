@@ -885,7 +885,10 @@ export function NativeDefaultTransfer({
             </p>
           )}
           <p>{observed?.error || observed?.errors?.join(" ")}</p>
-          <NativeRuntimeCalibration report={observed?.runtime_calibration} />
+          <NativeRuntimeCalibration
+            report={observed?.runtime_calibration}
+            preservation={observed?.preservation}
+          />
           {receipt.data.intent?.recovery_origin && (
             <p>
               New previous-value transfer from receipt{" "}
