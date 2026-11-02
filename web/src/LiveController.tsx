@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import { ControllerApplicationPanel } from "./ControllerApplication";
+import { NativePointName } from "./NativePointName";
 import { controllerKey, type ControllerContext } from "./workflow";
 
 type RecordValue = Record<string, any>;
@@ -261,12 +262,15 @@ export function LiveControllerPoints({
   connected,
   onCommand,
   onVerified,
+  onBusy,
 }: {
   controller: ControllerContext;
   connected: boolean;
   onCommand: (object: string) => void;
   onVerified?: (when: string) => void;
+  onBusy?: (busy: boolean) => void;
 }) {
+  const [nameBusy, setNameBusy] = useState(false);
   const [inventory, setInventory] = useState<RecordValue | null>(null),
     [values, setValues] = useState<Record<string, RecordValue>>({});
   const [offset, setOffset] = useState(0),
@@ -335,7 +339,7 @@ export function LiveControllerPoints({
   useEffect(() => {
     const epoch = ++valueEpoch.current;
     let timer: number | undefined;
-    if (!connected || !shown.length) return;
+    if (!connected || nameBusy || !shown.length) return;
     const configured = new Set<string>();
     const read = async () => {
       const identifiers = JSON.parse(pageKey) as string[];
@@ -405,7 +409,7 @@ export function LiveControllerPoints({
       valueEpoch.current++;
       window.clearTimeout(timer);
     };
-  }, [source, connected, pageKey, live, interval, reload]);
+  }, [source, connected, pageKey, live, interval, reload, nameBusy]);
   useEffect(() => {
     const epoch = ++detailEpoch.current;
     setDetail(null);
@@ -452,7 +456,7 @@ export function LiveControllerPoints({
     return () => {
       detailEpoch.current++;
     };
-  }, [source, connected, selected?.object]);
+  }, [source, connected, selected?.object, reload]);
   const filtered = shown.filter((row) =>
     [
       row.object,
@@ -573,7 +577,10 @@ export function LiveControllerPoints({
                     <td>{field(props, "status-flags")}</td>
                     <td>{field(props, "out-of-service")}</td>
                     <td>
-                      <button onClick={() => setSelected(row)}>
+                      <button
+                        disabled={nameBusy}
+                        onClick={() => setSelected(row)}
+                      >
                         Configuration
                       </button>
                       {row.has_present_value && (
@@ -630,9 +637,20 @@ export function LiveControllerPoints({
         {selected && (
           <section aria-label="Actual point configuration">
             <h3>{selected.object} · Controller configuration</h3>
-            <button onClick={() => setSelected(null)}>
+            <button disabled={nameBusy} onClick={() => setSelected(null)}>
               Close configuration
             </button>
+            <NativePointName
+              key={source + selected.object}
+              controller={controller}
+              object={selected.object}
+              connected={connected}
+              onBusy={(value) => {
+                setNameBusy(value);
+                onBusy?.(value);
+              }}
+              onVerified={() => setReload((value) => value + 1)}
+            />
             <div className="button-row">
               <label>
                 Additional property name or number
