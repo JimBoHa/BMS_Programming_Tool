@@ -6,7 +6,9 @@ import {
   Search,
   FileCheck2,
 } from "lucide-react";
-import { api, download } from "./api";
+import { api, apiBlobDocument, saveBlob } from "./api";
+import { sha256Blob } from "./activityContracts";
+import { cafEnumMetadata, cafScalarRequestSha } from "./cafScalarCopy";
 import { CafGraphPanel } from "./CafGraphPanel";
 import { CafHardwarePanel } from "./CafHardwarePanel";
 import { CafInstancePanel } from "./CafInstancePanel";
@@ -15,6 +17,7 @@ import { CafNativeCorrelation } from "./CafNativeCorrelation";
 import type { CafDocument, ControllerContext, FileRequest } from "./workflow";
 import { WorkflowToolTabs } from "./WorkflowChrome";
 import { ResponsivePanel } from "./ResponsivePanel";
+import "./caf-enum-copy.css";
 
 export type CafView =
   | "objects"
@@ -87,8 +90,14 @@ export function NativeCaf({
   const propertyRequest = useRef(0);
   const exportRequest = useRef(0);
   const activeArchive = useRef<string | null>(null);
+  const enumFields = useRef(new Set<string>());
   const scalarKey = scalarSignature(changes);
   const unsavedScalars = changes.length > 0 && scalarKey !== savedScalarKey;
+  const enumChanges = changes.some((item) =>
+    enumFields.current.has(
+      JSON.stringify([caf?.sha256, item.ref, item.property]),
+    ),
+  );
   useEffect(() => {
     if (caf)
       onDocumentChange?.({
@@ -177,6 +186,8 @@ export function NativeCaf({
     )
       return;
     const request = ++uploadRequest.current;
+    exportRequest.current++;
+    setExporting(false);
     setOpening(true);
     setError("");
     try {
@@ -195,6 +206,7 @@ export function NativeCaf({
       setTotal(0);
       setQuery("");
       setChanges([]);
+      enumFields.current.clear();
       setSavedScalarKey("[]");
       setGraphDirty(false);
       setHardwareDirty(false);
@@ -245,6 +257,10 @@ export function NativeCaf({
     }
   }
   function change(p: any, value: string) {
+    const enumKey = JSON.stringify([caf.sha256, selected.ref, p.id]);
+    if (cafEnumMetadata(p, selected, caf.sha256))
+      enumFields.current.add(enumKey);
+    else enumFields.current.delete(enumKey);
     setChanges((previous) => {
       const rest = previous.filter(
         (c) => !(c.ref === selected.ref && c.property === p.id),
@@ -275,13 +291,24 @@ export function NativeCaf({
     setExporting(true);
     setError("");
     try {
-      const saved = await download(
-        `/caf/${archive}/export`,
-        { changes: snapshot },
-        name,
-        current,
-      );
-      if (!saved || !current()) return;
+      const requestSha = await cafScalarRequestSha(snapshot);
+      if (!current()) return;
+      const result = await apiBlobDocument(`/caf/${archive}/export`, {
+        changes: snapshot,
+      });
+      const outputSha = result.headers.get("X-CAF-Output-SHA256");
+      if (
+        result.headers.get("X-CAF-Source-SHA256") !== archive ||
+        result.headers.get("X-CAF-Request-SHA256") !== requestSha ||
+        !outputSha ||
+        !/^[a-f0-9]{64}$/.test(outputSha) ||
+        (await sha256Blob(result.blob)) !== outputSha
+      )
+        throw new Error(
+          "CAF copy differs from the exact source, proposal or artifact digest. Review the current changes again.",
+        );
+      if (!current()) return;
+      saveBlob(result.blob, name);
       setSavedScalarKey(key);
       setExported(
         `Browser download requested for ${name} with ${snapshot.length} scalar change${snapshot.length === 1 ? "" : "s"}. This view still shows the original archive; current scalar drafts remain visible.`,
@@ -563,15 +590,24 @@ export function NativeCaf({
                       <p role="status">Reading selected object properties…</p>
                     )}
                     {properties.map((p) => {
+                      const enumCopy = cafEnumMetadata(p, selected, caf.sha256);
+                      const canEdit =
+                        p.editable && (p.scalar?.type !== "enum" || enumCopy);
                       const edited =
-                        p.editable &&
+                        canEdit &&
                         changes.find(
                           (c) => c.ref === selected.ref && c.property === p.id,
                         );
                       return (
                         <div
                           key={p.kind + ":" + p.id}
-                          className={"property-row " + (edited ? "edited" : "")}
+                          className={
+                            "property-row " +
+                            (edited ? "edited" : "") +
+                            (p.scalar?.type === "enum" && p.editable
+                              ? " caf-enum-property"
+                              : "")
+                          }
                         >
                           <label>
                             <b>{p.name || "Property " + p.id}</b>
@@ -580,9 +616,12 @@ export function NativeCaf({
                               {p.scalar?.type || "structured data"}
                             </small>
                             {p.scalar ? (
-                              p.editable ? (
+                              canEdit ? (
                                 <input
                                   aria-label={"CAF property " + p.id}
+                                  aria-describedby={
+                                    enumCopy ? "caf-enum-code-note" : undefined
+                                  }
                                   disabled={opening}
                                   value={edited?.value ?? p.scalar.text}
                                   onChange={(e) => change(p, e.target.value)}
@@ -599,6 +638,25 @@ export function NativeCaf({
                               </details>
                             )}
                           </label>
+                          {enumCopy && (
+                            <p className="help-text" id="caf-enum-code-note">
+                              Stored Enum code, 0–4294967295. Set reference:{" "}
+                              <code className="property-value">
+                                {enumCopy.set_reference ?? "not recorded"}
+                              </code>
+                              . Membership and state meanings are unverified.
+                              The set reference stays unchanged in the local
+                              copy.
+                            </p>
+                          )}
+                          {p.scalar?.type === "enum" &&
+                            p.editable &&
+                            !enumCopy && (
+                              <p role="alert">
+                                Enum edit evidence differs from this file or
+                                block. Reopen the object.
+                              </p>
+                            )}
                         </div>
                       );
                     })}
@@ -618,6 +676,12 @@ export function NativeCaf({
                   Saving prepares a local CAF copy. It does not send changes to
                   the connected controller.
                 </p>
+                {enumChanges && (
+                  <p className="help-text">
+                    Enum edits copy numeric codes and retain their set
+                    references. Membership and state meanings are unverified.
+                  </p>
+                )}
                 {changes.length ? (
                   <table>
                     <thead>

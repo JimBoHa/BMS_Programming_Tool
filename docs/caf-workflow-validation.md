@@ -6,6 +6,11 @@ and **Save CAF copy**. It does not restore retired global CAF feature buttons.
 All Python fixture/readback children explicitly import the feature checkout's
 backend. Paths resolve from the test file rather than the caller's directory.
 
+[Scoped Enum default code copies](caf-enum-default-copies.md) now share the scalar
+workflow. Source/request/artifact digest checks strengthen scalar downloads while
+preserving the submitted-snapshot behavior described below. Unknown Enum meaning
+and native compilation remain separate from preparing a local file copy.
+
 Eight existing scenarios remain intact:
 
 1. A delayed property response cannot overwrite another selected object's values

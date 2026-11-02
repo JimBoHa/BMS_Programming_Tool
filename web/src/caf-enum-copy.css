@@ -1,0 +1,19 @@
+.property-row.caf-enum-property {
+  padding: 16px 0;
+}
+.property-row.caf-enum-property label {
+  display: grid;
+  gap: 8px;
+}
+.property-row.caf-enum-property label,
+.property-row.caf-enum-property small,
+.property-row.caf-enum-property input,
+.property-row.caf-enum-property .help-text,
+.property-row.caf-enum-property .property-value {
+  font-size: 14px;
+  line-height: 1.5;
+}
+.property-row.caf-enum-property .help-text {
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
