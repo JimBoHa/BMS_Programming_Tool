@@ -82,6 +82,10 @@ PLAN_SECONDS = 15 * 60
 OPERATION_SECONDS = 30 * 60
 # Objects-only restore acknowledges before application storage is ready.
 RESTORE_PREPARATION_SECONDS = 5.0
+# End-restore acknowledges storage before a controller necessarily answers
+# property reads. Poll only reads; never repeat a restore or application block.
+RESTORE_READINESS_SECONDS = 60.0
+RESTORE_READINESS_INTERVAL = 2.0
 SCOPE = (
     "Edit the connected controller application Device identity. Capture the original application "
     "and parameter files; merge fresh saved parameters; transfer only the application File; "
@@ -199,6 +203,8 @@ class NativeApplications:
                 "operation_seconds": self.operation_timeout,
                 "review_seconds": PLAN_SECONDS,
                 "request_seconds": self.files.timeout,
+                "restore_readiness_seconds": RESTORE_READINESS_SECONDS,
+                "restore_readiness_interval_seconds": RESTORE_READINESS_INTERVAL,
             },
             "active": (
                 {k: v for k, v in self.active.items() if k != "task"} if self.active else None
@@ -826,7 +832,70 @@ class NativeApplications:
             )
             return {"status": state, "identity": actual, "errors": []}
         except (ValueError, TimeoutError, OSError) as exc:
-            return {"status": "unconfirmed", "identity": None, "errors": [str(exc)[:256]]}
+            return {
+                "status": "unconfirmed",
+                "identity": None,
+                "errors": [(str(exc) or "Identity read timed out.")[:256]],
+            }
+
+    async def restore_readiness_probe(self, session, intent):
+        observation = (
+            await self.observe_name(session, intent)
+            if intent.get("change_kind") == "name"
+            else await self.instances._observe(session, intent)
+        )
+        attempt = {
+            "observed_at": utc(),
+            "identity_status": observation["status"],
+            "errors": observation.get("errors", []),
+        }
+        identity = observation.get("identity")
+        if observation["status"] == "verified_new" and identity is not None:
+            try:
+                attempt["system_status"] = int(
+                    await self.path._read(session, identity["device"], "system-status")
+                )
+            except (ValueError, TimeoutError, OSError) as exc:
+                attempt["errors"] = [
+                    *attempt["errors"],
+                    (str(exc) or "Controller status read timed out.")[:256],
+                ]
+        return observation, attempt
+
+    async def wait_for_restore_readiness(self, session, intent):
+        """Wait for the reviewed station using reads, before entering backup mode."""
+        self.phase("waiting for controller after application restore")
+        deadline = time.monotonic() + RESTORE_READINESS_SECONDS
+        attempts = []
+        while True:
+            self.path._guard(session)
+            try:
+                observation, attempt = await asyncio.wait_for(
+                    self.restore_readiness_probe(session, intent),
+                    timeout=max(0.001, deadline - time.monotonic()),
+                )
+            except TimeoutError:
+                observation = {"status": "unconfirmed", "errors": ["Readiness deadline reached."]}
+                attempt = {
+                    "observed_at": utc(),
+                    "identity_status": observation["status"],
+                    "errors": observation["errors"],
+                }
+            attempts.append(attempt)
+            self.storage.event(intent["id"], "restore-readiness-read", attempt)
+            ready = attempt.get("system_status") == 0
+            # A different identity is evidence to stop, rather than to wait out.
+            mismatch = observation["status"] in ("identity_mismatch", "different_instance")
+            if ready or mismatch or time.monotonic() >= deadline:
+                return {
+                    "ready": ready,
+                    "read_only": True,
+                    "observation": observation,
+                    "attempts": attempts,
+                }
+            await asyncio.sleep(
+                max(0, min(RESTORE_READINESS_INTERVAL, deadline - time.monotonic()))
+            )
 
     async def verify(self, session, intent):
         self.phase("reading back the physical station")
@@ -1214,9 +1283,23 @@ class NativeApplications:
                         receipt_id, "ack-end-restore", session["last_application_wire"]
                     )
                     result.update(protocol_accepted=True, may_have_applied=True)
-                    await asyncio.sleep(1)
-                    verified = await self.verify(session, intent)
-                    result.update(verified)
+                    readiness = await self.wait_for_restore_readiness(session, intent)
+                    result["restore_readiness"] = readiness
+                    if readiness["ready"]:
+                        result.update(await self.verify(session, intent))
+                    else:
+                        result["readback"] = readiness["observation"]
+                        latest = next(
+                            (a for a in reversed(readiness["attempts"]) if "system_status" in a),
+                            {},
+                        )
+                        if "system_status" in latest:
+                            result.update(system_status=latest["system_status"], operational=False)
+                            result["error"] = "The controller is not operational after restore."
+                        result["errors"].append(
+                            "The reviewed controller did not become ready for verification. "
+                            "No transfer was repeated; use the retained receipt for readback."
+                        )
         except (ValueError, TimeoutError, OSError, sqlite3.Error, asyncio.CancelledError) as exc:
             result["errors"].append((str(exc) or "Native operation cancelled or timed out.")[:512])
         result["may_have_applied"] = dispatched
