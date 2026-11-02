@@ -1,10 +1,25 @@
 import { useEffect, useRef, useState } from "react";
 import { api, apiKeepalive, apiJsonDocument, saveBlob } from "./api";
 import { controllerKey, type ControllerContext } from "./workflow";
+import {
+  canRememberPointNameWork,
+  emptyPointNameWork,
+  hasPointNameWork,
+  rememberPointNameWork,
+  type PointNameWork,
+} from "./nativePointNameWork";
 
 const base = "/bacnet/controller/native-application";
-type Work = { name: string; capture: any; field: any; receipt: any };
-const drafts = new Map<string, Work>();
+const profile = "native-point-name-transfer/1";
+const drafts = new Map<string, PointNameWork>();
+const capacityMessage =
+  "Local point name work is full (32 points). Open an earlier point and discard its local work before capturing another. Retained transfer receipts remain available.";
+const sameEdit = (a: any, b: any) =>
+  a &&
+  b &&
+  ["object_id", "record_ref", "encoded_sha256", "new_name"].every(
+    (key) => a[key] === b[key],
+  );
 
 export function NativePointName({
   controller,
@@ -19,15 +34,13 @@ export function NativePointName({
   onBusy: (busy: boolean) => void;
   onVerified: () => void;
 }) {
-  const source = controllerKey(controller) + controller.interfaceKey + object;
-  const [work, setWork] = useState<Work>(
-    () =>
-      drafts.get(source) ?? {
-        name: "",
-        capture: null,
-        field: null,
-        receipt: null,
-      },
+  const source = JSON.stringify([
+    controllerKey(controller),
+    controller.interfaceKey,
+    object,
+  ]);
+  const [work, setWork] = useState<PointNameWork>(
+    () => drafts.get(source) ?? emptyPointNameWork(),
   );
   const [review, setReview] = useState<any>(null),
     [status, setStatus] = useState<any>(null);
@@ -37,8 +50,13 @@ export function NativePointName({
     [error, setError] = useState("");
   const [now, setNow] = useState(Date.now());
   const epoch = useRef(0),
+    mounted = useRef(true),
     active = useRef<string | null>(null),
     reviewOperation = useRef<string | null>(null);
+  const currentWork = useRef(work);
+  currentWork.current = work;
+  const currentOwner = (current: number) =>
+    mounted.current && current === epoch.current;
   const target = {
     address: controller.address,
     device: controller.device,
@@ -51,6 +69,8 @@ export function NativePointName({
     (value.dnet ?? null) === target.dnet;
   const matchesReceipt = (value: any) =>
     value?.intent?.change_kind === "point-name" &&
+    value.intent.operation_profile === profile &&
+    /^[a-f0-9]{32}$/.test(value.intent.id) &&
     targetMatches(value.intent.target) &&
     value.intent.identity?.device === controller.device &&
     value.intent.point_name_edit?.object_id === object;
@@ -65,11 +85,30 @@ export function NativePointName({
     setTransfer(false);
   }
   useEffect(() => {
+    mounted.current = true;
+    const current = epoch.current;
     void api(base + "/status")
-      .then(setStatus)
-      .catch((e) => setError(String(e)));
-    return () => {
+      .then((value) => {
+        if (currentOwner(current)) setStatus(value);
+      })
+      .catch((e) => {
+        if (currentOwner(current)) setError(String(e));
+      });
+    const retire = () => {
       epoch.current++;
+      cancelReview();
+      if (active.current)
+        void apiKeepalive(base + "/cancel", {
+          operation_id: active.current,
+        }).catch(() => {});
+    };
+    document.addEventListener("visibilitychange", retire);
+    window.addEventListener("pagehide", retire);
+    return () => {
+      mounted.current = false;
+      epoch.current++;
+      document.removeEventListener("visibilitychange", retire);
+      window.removeEventListener("pagehide", retire);
       for (const id of new Set([active.current, reviewOperation.current]))
         if (id)
           void apiKeepalive(base + "/cancel", { operation_id: id }).catch(
@@ -79,9 +118,7 @@ export function NativePointName({
     };
   }, []);
   useEffect(() => {
-    drafts.delete(source);
-    drafts.set(source, work);
-    while (drafts.size > 32) drafts.delete(drafts.keys().next().value!);
+    if (!rememberPointNameWork(drafts, source, work)) setError(capacityMessage);
   }, [source, work]);
   useEffect(() => {
     if (!review) return;
@@ -92,6 +129,10 @@ export function NativePointName({
     if (!connected) {
       epoch.current++;
       cancelReview();
+      if (active.current)
+        void apiKeepalive(base + "/cancel", {
+          operation_id: active.current,
+        }).catch(() => {});
     }
   }, [connected]);
   async function run(kind: "capture" | "review" | "apply" | "readback") {
@@ -104,12 +145,14 @@ export function NativePointName({
     setError("");
     try {
       if (kind === "capture") {
+        if (!canRememberPointNameWork(drafts, source))
+          throw new Error(capacityMessage);
         cancelReview();
         const capture = await api(base + "/capture", {
           ...target,
           operation_id,
         });
-        if (current !== epoch.current) return;
+        if (!currentOwner(current)) return;
         if (
           !capture.source_identity_matches ||
           !capture.instance_edit_supported ||
@@ -119,23 +162,23 @@ export function NativePointName({
           throw new Error(
             capture.compiler_error || "Capture does not match this controller.",
           );
-        const source = await api(base + "/point-name/source", {
+        const pointSource = await api(base + "/point-name/source", {
           ...target,
           capture_id: capture.id,
           snapshot_sha256: capture.snapshot_evidence_sha256,
         });
-        if (current !== epoch.current) return;
+        if (!currentOwner(current)) return;
         if (
-          source.profile !== "native-point-name-transfer/1" ||
-          source.capture_id !== capture.id ||
-          source.snapshot_sha256 !== capture.snapshot_evidence_sha256 ||
-          !targetMatches(source.target) ||
-          source.device !== controller.device
+          pointSource.profile !== profile ||
+          pointSource.capture_id !== capture.id ||
+          pointSource.snapshot_sha256 !== capture.snapshot_evidence_sha256 ||
+          !targetMatches(pointSource.target) ||
+          pointSource.device !== controller.device
         )
           throw new Error(
             "Point-name source differs from the selected backup.",
           );
-        const field = source.points.find((p: any) => p.object_id === object);
+        const field = pointSource.points.find((p: any) => p.object_id === object);
         if (!field)
           throw new Error(
             "This application has no supported native name for the selected point.",
@@ -153,24 +196,45 @@ export function NativePointName({
           encoded_sha256: work.field.encoded_sha256,
           new_name: work.name,
         });
-        if (current !== epoch.current) {
+        if (!currentOwner(current)) {
           void apiKeepalive(base + "/cancel", { operation_id }).catch(() => {});
           return;
         }
+        reviewOperation.current = operation_id;
+        const expectedEdit = {
+          object_id: object,
+          record_ref: work.field.record_ref,
+          encoded_sha256: work.field.encoded_sha256,
+          new_name: work.name,
+        };
         if (
+          result.profile !== "native-application-transfer/1" ||
+          result.operation_profile !== profile ||
+          result.operation_id !== operation_id ||
           result.change_kind !== "point-name" ||
           !targetMatches(result.target) ||
           result.identity?.device !== controller.device ||
-          result.point_name_edit?.object_id !== object ||
-          result.point_name_edit?.new_name !== work.name
-        )
+          result.capture_id !== work.capture.id ||
+          result.snapshot_sha256 !== work.capture.snapshot_evidence_sha256 ||
+          !sameEdit(result.point_name_edit, expectedEdit) ||
+          result.compilation?.selected_edit?.before !== work.field.name ||
+          result.can_apply !== true ||
+          !/^[A-Za-z0-9_-]{32}$/.test(result.token) ||
+          !/^[a-f0-9]{64}$/.test(result.review_sha256) ||
+          !Number.isFinite(Date.parse(result.expires_at)) ||
+          Date.parse(result.expires_at) <= Date.now()
+        ) {
+          cancelReview();
           throw new Error("Point-name review differs from this draft.");
-        reviewOperation.current = operation_id;
+        }
         setReview(result);
         setNow(Date.now());
       } else {
         const plan = review;
+        const original = work.receipt?.intent;
         if (kind === "apply") {
+          if (!fresh || !confirmed || !transfer)
+            throw new Error("Review and confirm this point name again.");
           reviewOperation.current = null;
           setReview(null);
           setConfirmed(false);
@@ -188,32 +252,95 @@ export function NativePointName({
               }
             : { operation_id, receipt_id: work.receipt.intent.id },
         );
-        if (current !== epoch.current) return;
-        if (result.intent && !matchesReceipt(result))
+        if (!currentOwner(current)) return;
+        const intent = result.intent;
+        if (
+          intent &&
+          (!matchesReceipt(result) ||
+            (kind === "apply"
+              ? intent.operation_id !== operation_id ||
+                intent.review_sha256 !== plan.review_sha256 ||
+                intent.review_capture_id !== plan.capture_id ||
+                !sameEdit(intent.point_name_edit, plan.point_name_edit)
+              : intent.id !== original?.id ||
+                intent.operation_id !== original.operation_id ||
+                intent.review_sha256 !== original.review_sha256 ||
+                intent.evidence_sha256 !== original.evidence_sha256 ||
+                !sameEdit(intent.point_name_edit, original.point_name_edit)))
+        )
           throw new Error(
-            "Retain this receipt: it belongs to another point or controller.",
+            "The point name receipt does not match this operation. Keep the draft and open the original retained transfer for readback.",
+          );
+        if (
+          !intent &&
+          (kind !== "apply" ||
+            result.pending !== false ||
+            result.result?.status !== "not_sent")
+        )
+          throw new Error(
+            "The point name receipt does not match this operation. Open the original retained transfer for readback.",
           );
         setWork((w) => ({ ...w, receipt: result }));
         const observed = result.latest_readback || result.result;
-        if (observed?.status === "verified" && !result.pending) {
+        if (
+          intent &&
+          observed?.status === "verified" &&
+          result.pending === false
+        ) {
           setWork((w) => ({
             ...w,
-            name: "",
-            capture: null,
-            field: null,
+            // An older retained transfer must not clear a newer local proposal.
+            ...(w.name === intent.point_name_edit.new_name &&
+            w.capture?.id === intent.review_capture_id
+              ? { name: "", capture: null, field: null }
+              : {}),
             receipt: result,
           }));
           onVerified();
         }
       }
-      const result = await api(base + "/status");
-      if (current === epoch.current) setStatus(result);
     } catch (e) {
-      if (current === epoch.current) setError(String(e));
+      if (currentOwner(current)) setError(String(e));
     } finally {
-      active.current = null;
-      setBusy(false);
-      onBusy(false);
+      if (active.current === operation_id) active.current = null;
+      if (mounted.current) {
+        // Even a retired or mismatched Apply reply can leave a durable intent.
+        // Refresh its discoverability without promoting that reply to success.
+        const statusOwner = epoch.current;
+        try {
+          const result = await api(base + "/status");
+          if (currentOwner(statusOwner)) setStatus(result);
+        } catch (e) {
+          if (currentOwner(current))
+            setError((previous) => previous || String(e));
+        }
+        setBusy(false);
+        onBusy(false);
+      }
+    }
+  }
+  async function saveReceipt() {
+    const current = epoch.current,
+      receipt = work.receipt?.intent;
+    if (!receipt) return;
+    try {
+      const document = await apiJsonDocument(base + "/receipts/" + receipt.id);
+      if (
+        !currentOwner(current) ||
+        currentWork.current.receipt?.intent !== receipt
+      )
+        return;
+      if (
+        !matchesReceipt(document.data) ||
+        document.data.intent.id !== receipt.id ||
+        document.data.intent.evidence_sha256 !== receipt.evidence_sha256
+      )
+        throw new Error(
+          "The saved receipt differs from the selected transfer.",
+        );
+      saveBlob(document.blob, "point-name-receipt.json");
+    } catch (e) {
+      if (currentOwner(current)) setError(String(e));
     }
   }
   const observed = work.receipt?.latest_readback || work.receipt?.result;
@@ -246,6 +373,20 @@ export function NativePointName({
         >
           Read point name backup
         </button>
+        {hasPointNameWork(work) && (
+          <button
+            disabled={busy}
+            onClick={() => {
+              epoch.current++;
+              cancelReview();
+              drafts.delete(source);
+              setWork(emptyPointNameWork());
+              setError("");
+            }}
+          >
+            Discard local point name work
+          </button>
+        )}
         {work.field && (
           <>
             <p>
@@ -259,6 +400,7 @@ export function NativePointName({
                 maxLength={128}
                 disabled={busy}
                 onChange={(e) => {
+                  epoch.current++;
                   cancelReview();
                   setWork((w) => ({ ...w, name: e.target.value }));
                 }}
@@ -343,16 +485,7 @@ export function NativePointName({
                 >
                   Read back point name
                 </button>
-                <button
-                  disabled={busy}
-                  onClick={() =>
-                    void apiJsonDocument(
-                      base + "/receipts/" + work.receipt.intent.id,
-                    )
-                      .then((d) => saveBlob(d.blob, "point-name-receipt.json"))
-                      .catch((e) => setError(String(e)))
-                  }
-                >
+                <button disabled={busy} onClick={() => void saveReceipt()}>
                   Save point name receipt
                 </button>
               </>
@@ -368,13 +501,23 @@ export function NativePointName({
               value=""
               onChange={(e) => {
                 const current = ++epoch.current;
+                const receiptId = e.target.value;
                 cancelReview();
-                void api(base + "/receipts/" + e.target.value)
+                void api(base + "/receipts/" + receiptId)
                   .then((receipt) => {
-                    if (current === epoch.current && matchesReceipt(receipt))
-                      setWork((w) => ({ ...w, receipt }));
+                    if (!currentOwner(current)) return;
+                    if (
+                      !matchesReceipt(receipt) ||
+                      receipt.intent.id !== receiptId
+                    )
+                      throw new Error(
+                        "The retained receipt differs from the selected transfer.",
+                      );
+                    setWork((w) => ({ ...w, receipt }));
                   })
-                  .catch((e) => setError(String(e)));
+                  .catch((e) => {
+                    if (currentOwner(current)) setError(String(e));
+                  });
               }}
             >
               <option value="" disabled>

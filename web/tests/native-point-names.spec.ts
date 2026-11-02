@@ -7,6 +7,11 @@ import {
 import { nativeDefaultPeer } from "./native-default-peer";
 import { freePort } from "./workflow-peer";
 import { chooseWorkspaceTask } from "./workspace-navigation";
+import {
+  emptyPointNameWork,
+  rememberPointNameWork,
+  type PointNameWork,
+} from "../src/nativePointNameWork";
 const base = "/api/bacnet/controller/native-application";
 async function reset(request: APIRequestContext) {
   const headers = {
@@ -213,6 +218,384 @@ test("point configuration keeps drafts across tasks, retires reviews, and verifi
       path: info.outputPath("point-name-phone.png"),
       fullPage: true,
     });
+  } finally {
+    peer.close();
+  }
+});
+
+async function prepareName(page: Page, endpoint: string) {
+  const panel = await open(page, endpoint);
+  await panel
+    .getByRole("button", { name: "Read point name backup", exact: true })
+    .click();
+  await expect(panel).toContainText("Captured name: Authored input");
+  await panel
+    .getByLabel("New point name", { exact: true })
+    .fill("Reviewed input");
+  return panel;
+}
+
+test("an Apply receipt from another operation cannot clear this point-name draft", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(60000);
+  await reset(request);
+  const peer = await nativeDefaultPeer("consume", "point-name");
+  try {
+    const panel = await prepareName(page, peer.direct);
+    let originalReceipt: any;
+    await page.route(
+      "**/native-application/point-name/apply",
+      async (route) => {
+        const response = await route.fetch({ maxRetries: 0 });
+        originalReceipt = await response.json();
+        expect(originalReceipt.result.status).toBe("verified");
+        const substituted = structuredClone(originalReceipt);
+        substituted.intent.operation_id = "another-owned-operation";
+        await route.fulfill({ response, json: substituted });
+      },
+    );
+    await panel
+      .getByRole("button", { name: "Review point name change", exact: true })
+      .click();
+    await panel
+      .getByLabel("I confirm this point name change.", { exact: true })
+      .check();
+    await panel
+      .getByLabel(
+        "I reviewed the application transfer and brief interruption.",
+        { exact: true },
+      )
+      .check();
+    const applied = page.waitForResponse(
+      (r) => r.url().endsWith("/point-name/apply"),
+      { timeout: 30000 },
+    );
+    await panel
+      .getByRole("button", { name: "Apply point name", exact: true })
+      .click();
+    await applied;
+    await expect(panel.getByRole("alert")).toContainText(
+      "does not match this operation",
+    );
+    await expect(
+      panel.getByLabel("New point name", { exact: true }),
+    ).toHaveValue("Reviewed input");
+    await expect(
+      panel.getByRole("region", { name: "Point name transfer receipt" }),
+    ).toHaveCount(0);
+    await panel
+      .getByLabel("Retained point name transfer", { exact: true })
+      .selectOption(originalReceipt.intent.id);
+    await expect(
+      panel.getByRole("region", { name: "Point name transfer receipt" }),
+    ).toContainText("Published name: Reviewed input.");
+    expect(
+      (await peer.command("stats")).events.filter(
+        (e: any[]) => e[0] === "state" && e[1] === "start-restore",
+      ),
+    ).toHaveLength(1);
+  } finally {
+    peer.close();
+  }
+});
+
+test("point-name work refuses a 33rd source, preserves all drafts, and frees only explicitly discarded work", () => {
+  const drafts = new Map<string, PointNameWork>();
+  for (let index = 0; index < 32; index++) {
+    expect(
+      rememberPointNameWork(drafts, `point-${index}`, {
+        ...emptyPointNameWork(),
+        name: `Unfinished ${index}`,
+        capture: { id: index },
+      }),
+    ).toBe(true);
+  }
+  const before = [...drafts];
+  expect(
+    rememberPointNameWork(drafts, "point-33", {
+      ...emptyPointNameWork(),
+      name: "New",
+    }),
+  ).toBe(false);
+  expect([...drafts]).toEqual(before);
+  expect(
+    rememberPointNameWork(drafts, "empty-mount", emptyPointNameWork()),
+  ).toBe(true);
+  expect(drafts.size).toBe(32);
+  expect(
+    rememberPointNameWork(drafts, "point-31", {
+      ...drafts.get("point-31")!,
+      name: "Still unfinished",
+    }),
+  ).toBe(true);
+  expect(drafts.get("point-0")!.name).toBe("Unfinished 0");
+  expect(rememberPointNameWork(drafts, "point-31", emptyPointNameWork())).toBe(
+    true,
+  );
+  expect(
+    rememberPointNameWork(drafts, "point-33", {
+      ...emptyPointNameWork(),
+      name: "New",
+    }),
+  ).toBe(true);
+  expect(drafts.size).toBe(32);
+});
+
+for (const changed of ["operation", "capture", "record", "snapshot", "profile"])
+  test(`a point-name review with a substituted ${changed} never grants Apply`, async ({
+    page,
+    request,
+  }) => {
+    await reset(request);
+    const peer = await nativeDefaultPeer("consume", "point-name");
+    try {
+      const panel = await prepareName(page, peer.direct);
+      await page.route(
+        "**/native-application/point-name/preview",
+        async (route) => {
+          const response = await route.fetch({ maxRetries: 0 });
+          const data = await response.json();
+          if (changed === "operation")
+            data.operation_id = "another-preview-operation";
+          if (changed === "capture") data.capture_id = "f".repeat(32);
+          if (changed === "record") data.point_name_edit.record_ref += "/other";
+          if (changed === "snapshot") data.snapshot_sha256 = "f".repeat(64);
+          if (changed === "profile")
+            data.operation_profile = "other-name-transfer/1";
+          await route.fulfill({ response, json: data });
+        },
+      );
+      await panel
+        .getByRole("button", { name: "Review point name change", exact: true })
+        .click();
+      await expect(panel.getByRole("alert")).toContainText(
+        "review differs from this draft",
+      );
+      await expect(
+        panel.getByRole("button", { name: "Apply point name", exact: true }),
+      ).toHaveCount(0);
+      await expect(
+        panel.getByLabel("New point name", { exact: true }),
+      ).toHaveValue("Reviewed input");
+      expect(
+        (await peer.command("stats")).events.filter(
+          (e: any[]) => e[0] === "state" && e[1] === "start-restore",
+        ),
+      ).toHaveLength(0);
+    } finally {
+      peer.close();
+    }
+  });
+
+test("visibility retirement preserves the proposal and cannot revive an Apply review", async ({
+  page,
+  request,
+}) => {
+  await reset(request);
+  const peer = await nativeDefaultPeer("consume", "point-name");
+  try {
+    const panel = await prepareName(page, peer.direct);
+    await panel
+      .getByRole("button", { name: "Review point name change", exact: true })
+      .click();
+    await expect(
+      panel.getByRole("region", { name: "Reviewed point name change" }),
+    ).toBeVisible();
+    await page.evaluate(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await expect(
+      panel.getByRole("button", { name: "Apply point name", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      panel.getByLabel("New point name", { exact: true }),
+    ).toHaveValue("Reviewed input");
+    await panel
+      .getByRole("button", {
+        name: "Discard local point name work",
+        exact: true,
+      })
+      .click();
+    await expect(
+      panel.getByLabel("New point name", { exact: true }),
+    ).toHaveCount(0);
+    await chooseWorkspaceTask(page, "Overview");
+    await chooseWorkspaceTask(page, "Points & I/O");
+    const reopened = await configure(page);
+    await expect(
+      reopened.getByLabel("New point name", { exact: true }),
+    ).toHaveCount(0);
+    expect(
+      (await peer.command("stats")).events.filter(
+        (e: any[]) => e[0] === "state" && e[1] === "start-restore",
+      ),
+    ).toHaveLength(0);
+  } finally {
+    peer.close();
+  }
+});
+
+test("late receipt export is retired, original bytes remain downloadable, and old readback keeps newer work", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(60000);
+  await reset(request);
+  const peer = await nativeDefaultPeer("consume", "point-name");
+  let release = () => {};
+  try {
+    let panel = await prepareName(page, peer.direct);
+    await panel
+      .getByRole("button", { name: "Review point name change", exact: true })
+      .click();
+    await panel
+      .getByLabel("I confirm this point name change.", { exact: true })
+      .check();
+    await panel
+      .getByLabel(
+        "I reviewed the application transfer and brief interruption.",
+        { exact: true },
+      )
+      .check();
+    await panel
+      .getByRole("button", { name: "Apply point name", exact: true })
+      .click();
+    await expect(
+      panel.getByRole("region", { name: "Point name transfer receipt" }),
+    ).toContainText("Published name: Reviewed input.", { timeout: 30000 });
+    const downloads: string[] = [];
+    page.on("download", (download) =>
+      downloads.push(download.suggestedFilename()),
+    );
+    let arrived!: () => void, finished!: () => void;
+    const held = new Promise<void>((resolve) => {
+      arrived = resolve;
+    });
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const delivered = new Promise<void>((resolve) => {
+      finished = resolve;
+    });
+    let original = Buffer.alloc(0);
+    await page.route(
+      "**/native-application/receipts/*",
+      async (route) => {
+        const response = await route.fetch({ maxRetries: 0 });
+        original = await response.body();
+        arrived();
+        await gate;
+        await route.fulfill({ response, body: original });
+        finished();
+      },
+      { times: 1 },
+    );
+    await panel
+      .getByRole("button", { name: "Save point name receipt", exact: true })
+      .click();
+    await held;
+    await chooseWorkspaceTask(page, "Overview");
+    release();
+    await delivered;
+    await chooseWorkspaceTask(page, "Points & I/O");
+    panel = await configure(page);
+    await expect(
+      panel.getByRole("button", {
+        name: "Save point name receipt",
+        exact: true,
+      }),
+    ).toBeEnabled();
+    expect(downloads).toEqual([]);
+    const saved = page.waitForEvent("download");
+    await panel
+      .getByRole("button", { name: "Save point name receipt", exact: true })
+      .click();
+    const stream = await (await saved).createReadStream();
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream!) chunks.push(Buffer.from(chunk));
+    expect(Buffer.concat(chunks)).toEqual(original);
+    await panel
+      .getByRole("button", { name: "Read point name backup", exact: true })
+      .click();
+    await expect(panel).toContainText("Captured name: Reviewed input");
+    await panel
+      .getByLabel("New point name", { exact: true })
+      .fill("Next unfinished input");
+    await panel
+      .getByRole("button", { name: "Read back point name", exact: true })
+      .click();
+    await expect(
+      panel.getByRole("button", { name: "Read back point name", exact: true }),
+    ).toBeEnabled({ timeout: 30000 });
+    await expect(
+      panel.getByLabel("New point name", { exact: true }),
+    ).toHaveValue("Next unfinished input");
+    expect(
+      (await peer.command("stats")).events.filter(
+        (e: any[]) => e[0] === "state" && e[1] === "start-restore",
+      ),
+    ).toHaveLength(1);
+  } finally {
+    release();
+    peer.close();
+  }
+});
+
+test("a published-name mismatch remains uncertain and retains the unfinished proposal", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(60000);
+  await reset(request);
+  const peer = await nativeDefaultPeer("published-old", "point-name");
+  try {
+    const panel = await prepareName(page, peer.direct);
+    await panel
+      .getByRole("button", { name: "Review point name change", exact: true })
+      .click();
+    await panel
+      .getByLabel("I confirm this point name change.", { exact: true })
+      .check();
+    await panel
+      .getByLabel(
+        "I reviewed the application transfer and brief interruption.",
+        { exact: true },
+      )
+      .check();
+    await panel
+      .getByRole("button", { name: "Apply point name", exact: true })
+      .click();
+    const receipt = panel.getByRole("region", {
+      name: "Point name transfer receipt",
+    });
+    await expect(receipt).toContainText("Outcome uncertain", {
+      timeout: 30000,
+    });
+    await expect(
+      panel.getByLabel("New point name", { exact: true }),
+    ).toHaveValue("Reviewed input");
+    await expect(
+      receipt.getByRole("button", {
+        name: "Read back point name",
+        exact: true,
+      }),
+    ).toBeEnabled();
+    // Resolve this owned controller's uncertain intent through real readback.
+    // The next test must not inherit an intentionally unresolved field action.
+    await peer.command("point-name-publish-current");
+    await receipt
+      .getByRole("button", { name: "Read back point name", exact: true })
+      .click();
+    await expect(receipt).toContainText("Result: verified", { timeout: 30000 });
+    await expect(receipt).not.toContainText("Outcome uncertain");
+    expect(
+      (await peer.command("stats")).events.filter(
+        (e: any[]) => e[0] === "state" && e[1] === "start-restore",
+      ),
+    ).toHaveLength(1);
   } finally {
     peer.close();
   }

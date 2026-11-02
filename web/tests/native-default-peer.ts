@@ -67,6 +67,9 @@ async def main():
    import types
    app.do_ReinitializeDeviceRequest=types.MethodType(NativePeer.do_ReinitializeDeviceRequest,app);storage_outcome(app,value=True)
   elif line=='boolean-second-true':boolean_slot(app.files,'controller/boolean-21',True)
+  elif line=='point-name-publish-current':
+   from tests.test_native_point_names import attach_point_reads
+   attach_point_reads(app)
   elif line=='repair':
    if sys.argv[2]=='boolean':boolean_slot(app.files,FIRST,False)
    else:real_slot(app.files,-10,bytes.fromhex('3dcccccd'))
