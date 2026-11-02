@@ -12,6 +12,7 @@ from .device_details import DeviceDetailsRequest
 from .models import StrictModel
 from .moi_identity import MoiIdentity, controller_name, sha
 from .moi_parameters import ParameterApplication
+from .native_parameter_qualification import qualify_parameter_additions
 
 PROFILE = "native-point-name-transfer/1"
 SCOPE = (
@@ -203,7 +204,11 @@ class PointNameCompiler:
 
 
 def compile_point_name(files, edit):
-    return PointNameCompiler(files).compile(edit)
+    output, report = PointNameCompiler(files).compile(edit)
+    report["parameter_transfer_qualification"] = qualify_parameter_additions(
+        output, report["parameter_merge"]
+    )
+    return output, report
 
 
 def verify_point_name_preservation(before, after, edit):

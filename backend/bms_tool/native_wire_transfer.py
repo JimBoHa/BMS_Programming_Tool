@@ -11,6 +11,7 @@ from .moi_effective_wire import EffectiveWireCompiler
 from .moi_identity import MoiIdentity, seal, sha
 from .moi_parameters import ParameterApplication
 from .moi_wire_sources import MoiWireSources
+from .native_parameter_qualification import qualify_parameter_additions
 from .native_wire_compiler import EffectiveWirePreview
 from .native_wire_copies import UInt
 
@@ -108,7 +109,13 @@ def compile_wire(files, edit, *, fresh=False, expected_guard=None, _compiler=Non
             include={"diagram_ref", "property_sha256", "wire_index", "old", "source_ref"}
         ),
     )
-    return output, {**compilation, "wire_guard": guard}
+    return output, {
+        **compilation,
+        "wire_guard": guard,
+        "parameter_transfer_qualification": qualify_parameter_additions(
+            output, compilation["parameter_merge"]
+        ),
+    }
 
 
 def verify_wire_preservation(before, after, edit, guard, *, _compiler=None):

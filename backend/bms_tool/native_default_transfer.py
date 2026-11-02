@@ -7,6 +7,7 @@ from .device_details import DeviceDetailsRequest
 from .models import StrictModel
 from .moi_identity import MoiIdentity, sha
 from .moi_parameters import ParameterApplication
+from .native_parameter_qualification import qualify_parameter_additions
 from .native_signal_compiler import EffectiveSignalCompiler, SignalCompilerPreview
 
 PROFILE = "native-effective-default-transfer/1"
@@ -51,7 +52,11 @@ def compile_default(files, edit, *, expected_prior_bits=None):
         raise ValueError(
             "The selected effective default changed after review. Capture and review again."
         )
-    return compiler.compile(**edit)
+    output, report = compiler.compile(**edit)
+    report["parameter_transfer_qualification"] = qualify_parameter_additions(
+        output, report["parameter_merge"]
+    )
+    return output, report
 
 
 def verify_default_preservation(before, after, edit):
