@@ -209,8 +209,10 @@ local proposal from verified original receipt/backup evidence and an exact curre
 point source. The web workflow preserves ordinary name text separately, stages
 the previous name explicitly, and requires a new confirmed transfer and complete
 readback with durable origin binding. JCI-10 remains partial overall; general
-application rollback and recorded point-name recovery lineage search remain
-separate.
+application rollback remains separate. The [recorded point-name recovery
+lineage](docs/native-point-name-recovery-ledger.md) now separately projects known
+origin/child bindings and local parent-ID search in Changes/History without
+revalidating originals, parents or field state.
 
 Native parameter preservation now handles qualified repeated unsaved runtime
 slots, restores typed saved properties omitted from existing application records,

@@ -8,6 +8,7 @@ import {
 import "./change-ledger.css";
 import { recordedInput, inputAction } from "./nativeInputLedger";
 import { recordedPointName } from "./nativePointNameLedger";
+import { recordedPointNameRecovery } from "./nativePointNameRecoveryLedger";
 
 export type LedgerSource =
   | "audit"
@@ -84,6 +85,7 @@ type Row = {
   native_recovery?: NativeRecovery;
   native_input?: unknown;
   native_point_name?: unknown;
+  native_point_name_recovery?: unknown;
   created_at: string;
   state: string;
   outcome: "attention" | "verified" | "other";
@@ -180,6 +182,22 @@ function PointNameSummary({ value }: { value: unknown }) {
       {JSON.stringify(point.after)}
     </span>
   ) : null;
+}
+function PointNameRecoverySummary({ row }: { row: Row }) {
+  if (row.native_point_name_recovery === undefined) return null;
+  const value = recordedPointNameRecovery(
+    row.native_point_name_recovery,
+    recordedPointName(row.native_point_name),
+    row.id,
+    row.target?.device,
+  );
+  return (
+    <span>
+      {value
+        ? "Previous point-name recovery · parent " + value.parent_receipt_id
+        : "Point-name recovery metadata unavailable"}
+    </span>
+  );
 }
 
 export function ChangeLedgerPanel({
@@ -336,6 +354,14 @@ export function ChangeLedgerPanel({
     choice?.source === "native"
       ? recordedPointName(choice.native_point_name)
       : null;
+  const pointRecovery = choice
+    ? recordedPointNameRecovery(
+        choice.native_point_name_recovery,
+        pointName,
+        choice.id,
+        choice.target?.device,
+      )
+    : null;
   const unsupportedNative =
     (choice?.source === "native" &&
       ![
@@ -592,6 +618,7 @@ export function ChangeLedgerPanel({
                       )}
                       <InputSummary value={row.native_input} />
                       <PointNameSummary value={row.native_point_name} />
+                      <PointNameRecoverySummary row={row} />
                       {row.native_recovery && (
                         <span>
                           {row.native_recovery.state === "recorded"
@@ -773,6 +800,77 @@ export function ChangeLedgerPanel({
               )}
             </section>
           )}
+          {nativeKind === "point-name" &&
+            choice.native_point_name_recovery !== undefined && (
+              <section aria-label="Recorded point name recovery lineage">
+                <h4>
+                  {pointRecovery
+                    ? "Recorded previous point-name proposal"
+                    : "Point-name recovery metadata unavailable"}
+                </h4>
+                {pointRecovery ? (
+                  <>
+                    <dl>
+                      <dt>Parent receipt</dt>
+                      <dd>{pointRecovery.parent_receipt_id}</dd>
+                      <dt>Recorded point</dt>
+                      <dd>
+                        {pointRecovery.object_id} · {pointRecovery.record_ref} ·
+                        device,{pointRecovery.instance}
+                      </dd>
+                      <dt>Recorded prior name</dt>
+                      <dd>{JSON.stringify(pointRecovery.before)}</dd>
+                      <dt>Requested previous name</dt>
+                      <dd>{JSON.stringify(pointRecovery.after)}</dd>
+                      <dt>Historical parent verification</dt>
+                      <dd>
+                        {pointRecovery.verified_proof.kind === "result"
+                          ? "Original result"
+                          : "Later readback event"}{" "}
+                        · {pointRecovery.verified_proof.time}
+                      </dd>
+                    </dl>
+                    <p>{pointRecovery.scope}</p>
+                    <button
+                      onClick={() =>
+                        searchParent(pointRecovery.parent_receipt_id)
+                      }
+                    >
+                      Search recorded point-name parent receipt
+                    </button>
+                    <details>
+                      <summary>Recorded point-name recovery references</summary>
+                      <pre>
+                        {JSON.stringify(
+                          {
+                            parent_intent_sha256:
+                              pointRecovery.parent_intent_sha256,
+                            original_backup_id:
+                              pointRecovery.original_backup_id,
+                            original_snapshot_sha256:
+                              pointRecovery.original_snapshot_sha256,
+                            current_capture_id:
+                              pointRecovery.current_capture_id,
+                            current_snapshot_sha256:
+                              pointRecovery.current_snapshot_sha256,
+                            origin_sha256: pointRecovery.origin_sha256,
+                            verified_proof: pointRecovery.verified_proof,
+                          },
+                          null,
+                          2,
+                        )}
+                      </pre>
+                    </details>
+                  </>
+                ) : (
+                  <p>
+                    Inspect original evidence. Parent/source availability,
+                    current names and new transfer authority are not established
+                    here.
+                  </p>
+                )}
+              </section>
+            )}
           {nativeKind === "input" && (
             <section aria-label="Recorded native input configuration">
               <h4>
