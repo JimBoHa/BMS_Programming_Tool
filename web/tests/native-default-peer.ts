@@ -10,6 +10,7 @@ export async function nativeDefaultPeer(
     | "wire"
     | "wire-recovery"
     | "instance"
+    | "input"
     | "point-name" = "real",
 ) {
   const child = spawn(
@@ -30,7 +31,10 @@ from bacpypes3.local.device import DeviceObject
 from bacpypes3.local.networkport import NetworkPortObject
 async def main():
  p=port();app=NativePeer.from_object_list([DeviceObject(objectIdentifier=('device',5136),objectName='Authored controller',vendorIdentifier=5),NetworkPortObject(f'127.0.0.1:{p}',objectIdentifier=('network-port',1),objectName='Owned native default peer')]);app.setup()
- if sys.argv[2]=='wire-recovery':
+ if sys.argv[2]=='input':
+  from tests.test_native_input_transfer import install_input_peer
+  install_input_peer((app,None,None,None,None))
+ elif sys.argv[2]=='wire-recovery':
   from tests.test_native_wire_recovery import FANOUT
   app.files=wire_files(target_class=538,wires=FANOUT);app.metadata['object-name']='Authored native wire controller';app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
  elif sys.argv[2]=='point-name':

@@ -3,7 +3,7 @@
 import struct
 
 import pytest
-from bacpypes3.primitivedata import CharacterString, ObjectIdentifier, Unsigned
+from bacpypes3.primitivedata import CharacterString, Enumerated, ObjectIdentifier, Real, Unsigned
 from bms_tool.moi_parameters import ParameterApplication
 from bms_tool.mstp import header_crc
 from bms_tool.native_parameter_qualification import qualify_parameter_additions
@@ -40,6 +40,35 @@ def test_known_attribute_with_wrong_storage_derived_application_type_is_rejected
     output, report = ParameterApplication(*moved_property(119)).compile()
     with pytest.raises(ValueError, match="qualified application datatype"):
         qualify_parameter_additions(output, report)
+
+
+@pytest.mark.parametrize(
+    "pid,value,accepted",
+    [
+        (813, Unsigned(1), True),
+        (813, Unsigned(255), True),
+        (813, Unsigned(256), False),
+        (813, Enumerated(1), False),
+        (3164, Real(900), True),
+        (3164, Unsigned(900), False),
+    ],
+)
+def test_saved_analog_input_defaults_require_their_actual_application_types(pid, value, accepted):
+    root, _, _ = parameters_source(compressed=False)
+    record = native_record(
+        240, 101, [(32527, encoded(CharacterString("controller/input"))), (pid, encoded(value))]
+    )
+    data = bytearray(root)
+    struct.pack_into("<I", data, 10, struct.unpack_from("<I", data, 10)[0] + 1)
+    data.extend(struct.pack("<H", len(record) + 2) + record)
+    report = {
+        "changed_parameters": [{"class": 240, "instance": 101, "property": pid, "added": True}]
+    }
+    if accepted:
+        assert qualify_parameter_additions(bytes(data), report)["qualified_fields"] == 1
+    else:
+        with pytest.raises(ValueError, match="qualified application datatype"):
+            qualify_parameter_additions(bytes(data), report)
 
 
 @pytest.mark.parametrize("external,cid", [(3, 242), (4, 239), (5, 168)])

@@ -9,6 +9,8 @@ PROFILE = "native-omitted-application-field-types/1"
 # Native format-family attributes, independently qualified against their
 # application definitions. These do not select models, objects or inventories.
 MODULE_TYPES = {
+    (240, 813): "unsigned-byte",  # AI calculation default, not an Enum or Boolean
+    (240, 3164): 4,  # AI filter Time Constant (Real seconds)
     (240, 1302): 1,  # hardware input presence Boolean
     (252, 3413): 1,
     (252, 3414): 4,
@@ -37,10 +39,7 @@ def qualify_parameter_additions(application, parameter_merge):
         if record is None:
             raise ValueError("An omitted saved field no longer has its original native object.")
         expected = ROOT_TYPES.get(pid) if record is app.root else MODULE_TYPES.get((cid, pid))
-        if (
-            (cid, pid) == (251, 978)
-            and app.summary()["format_versions"] == {"acs": 60, "dmcs": 60}
-        ):
+        if (cid, pid) == (251, 978) and app.summary()["format_versions"] == {"acs": 60, "dmcs": 60}:
             # The native 6.0 application definition declares this actuator
             # field as an application-persistent UnsignedLong. Later schemas
             # remove it; do not generalize it to another data-model release.
@@ -60,6 +59,13 @@ def qualify_parameter_additions(application, parameter_merge):
         tags = list(TagList.decode(PDUData(raw[:-1])))
         valid = (
             (
+                len(tags) == 1
+                and tags[0].tag_class == TagClass.application
+                and tags[0].tag_number == 2
+                and len(tags[0].tag_data) == 1
+            )
+            if expected == "unsigned-byte"
+            else (
                 len(tags) == 5
                 and all(
                     t.tag_class == TagClass.application

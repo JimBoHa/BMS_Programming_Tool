@@ -49,6 +49,7 @@ import {
 } from "./ControllerWorkspace";
 import { WorkflowToolTabs } from "./WorkflowChrome";
 import { ControllerProgram, LiveControllerPoints } from "./LiveController";
+import { NativeInputs } from "./NativeInputs";
 import { ResponsivePanel } from "./ResponsivePanel";
 import {
   type ConnectionView,
@@ -170,6 +171,7 @@ export function Connections({
       view === "settings" ||
       !!controller ||
       (view === "overview" && tool === "instance") ||
+      (view === "points" && tool === "live-points") ||
       (view === "changes" && tool === "commands"));
   const discoverActive =
     visible && view === "setup" && setupStep === "discovery";
@@ -928,6 +930,18 @@ export function Connections({
           )}
           <BoundControllerContext.Provider value={!!controller}>
             <TaskMount active={showTool("live-points")}>
+              {!controller && (
+                <section className="card">
+                  <div className="card-body">
+                    <NativeInputs
+                      controller={null}
+                      connected={false}
+                      onBusy={setBusy}
+                      onVerified={() => {}}
+                    />
+                  </div>
+                </section>
+              )}
               {controller && (
                 <LiveControllerPoints
                   key={controllerKey(controller) + controller.interfaceKey}

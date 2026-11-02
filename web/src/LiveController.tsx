@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import { ControllerApplicationPanel } from "./ControllerApplication";
 import { NativePointName } from "./NativePointName";
+import { NativeInputs } from "./NativeInputs";
 import { controllerKey, type ControllerContext } from "./workflow";
 
 type RecordValue = Record<string, any>;
@@ -271,6 +272,7 @@ export function LiveControllerPoints({
   onBusy?: (busy: boolean) => void;
 }) {
   const [nameBusy, setNameBusy] = useState(false);
+  const [inputOpen, setInputOpen] = useState(false);
   const [inventory, setInventory] = useState<RecordValue | null>(null),
     [values, setValues] = useState<Record<string, RecordValue>>({});
   const [offset, setOffset] = useState(0),
@@ -487,6 +489,14 @@ export function LiveControllerPoints({
         </p>
         <div className="button-row">
           <button
+            disabled={nameBusy}
+            onClick={() => setInputOpen((value) => !value)}
+          >
+            {inputOpen
+              ? "Close input configuration"
+              : "Configure native inputs"}
+          </button>
+          <button
             disabled={busy || !connected}
             onClick={() => setReload((value) => value + 1)}
           >
@@ -526,6 +536,18 @@ export function LiveControllerPoints({
             Show all BACnet objects
           </label>
         </div>
+        {inputOpen && (
+          <NativeInputs
+            key={source}
+            controller={controller}
+            connected={connected}
+            onBusy={(value) => {
+              setNameBusy(value);
+              onBusy?.(value);
+            }}
+            onVerified={() => setReload((value) => value + 1)}
+          />
+        )}
         <p role="status">
           {busy
             ? "Reading the selected controller’s configured object list…"
