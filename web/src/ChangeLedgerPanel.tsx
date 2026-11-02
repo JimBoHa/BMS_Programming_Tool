@@ -7,6 +7,7 @@ import {
 } from "./workflow";
 import "./change-ledger.css";
 import { recordedInput, inputAction } from "./nativeInputLedger";
+import { recordedPointName } from "./nativePointNameLedger";
 
 export type LedgerSource =
   | "audit"
@@ -82,6 +83,7 @@ type Row = {
   native_wire_index?: number;
   native_recovery?: NativeRecovery;
   native_input?: unknown;
+  native_point_name?: unknown;
   created_at: string;
   state: string;
   outcome: "attention" | "verified" | "other";
@@ -167,6 +169,15 @@ function InputSummary({ value }: { value: unknown }) {
     <span>
       {inputAction(input)} · {input.terminal_label}
       {input.requested_name && ` · ${input.requested_name}`}
+    </span>
+  ) : null;
+}
+function PointNameSummary({ value }: { value: unknown }) {
+  const point = recordedPointName(value);
+  return point ? (
+    <span>
+      Recorded name: {JSON.stringify(point.before)} →{" "}
+      {JSON.stringify(point.after)}
     </span>
   ) : null;
 }
@@ -321,6 +332,10 @@ export function ChangeLedgerPanel({
     ["signal-default", "boolean-default", "wire-source"].includes(nativeKind);
   const input =
     choice?.source === "native" ? recordedInput(choice.native_input) : null;
+  const pointName =
+    choice?.source === "native"
+      ? recordedPointName(choice.native_point_name)
+      : null;
   const unsupportedNative =
     (choice?.source === "native" &&
       ![
@@ -330,15 +345,19 @@ export function ChangeLedgerPanel({
         "boolean-default",
         "wire-source",
         "input",
+        "point-name",
       ].includes(nativeKind)) ||
-    (choice?.source === "native" && nativeKind === "input" && !input);
+    (choice?.source === "native" && nativeKind === "input" && !input) ||
+    (choice?.source === "native" && nativeKind === "point-name" && !pointName);
   const toolLabel = unsupportedNative
     ? undefined
-    : input
-      ? "Open input tools"
-      : nativeProgram
-        ? "Open native program tools"
-        : sourceInfo?.tool;
+    : pointName
+      ? "Open point tools"
+      : input
+        ? "Open input tools"
+        : nativeProgram
+          ? "Open native program tools"
+          : sourceInfo?.tool;
   const needsController =
     choice &&
     !!toolLabel &&
@@ -572,6 +591,7 @@ export function ChangeLedgerPanel({
                         <span>{row.native_reference_issue}</span>
                       )}
                       <InputSummary value={row.native_input} />
+                      <PointNameSummary value={row.native_point_name} />
                       {row.native_recovery && (
                         <span>
                           {row.native_recovery.state === "recorded"
@@ -695,6 +715,63 @@ export function ChangeLedgerPanel({
           </dl>
           {choice.native_reference_issue && (
             <p>{choice.native_reference_issue}</p>
+          )}
+          {nativeKind === "point-name" && (
+            <section aria-label="Recorded native point name">
+              <h4>
+                {pointName
+                  ? "Recorded point-name proposal"
+                  : "Point-name metadata unavailable"}
+              </h4>
+              {pointName ? (
+                <>
+                  <dl>
+                    <dt>Recorded object</dt>
+                    <dd>{pointName.object_id}</dd>
+                    <dt>Native reference</dt>
+                    <dd>{pointName.record_ref}</dd>
+                    <dt>Before</dt>
+                    <dd>
+                      <code>{JSON.stringify(pointName.before)}</code>
+                    </dd>
+                    <dt>Requested after</dt>
+                    <dd>
+                      <code>{JSON.stringify(pointName.after)}</code>
+                    </dd>
+                    <dt>Native character encoding</dt>
+                    <dd>{pointName.character_encoding}</dd>
+                    <dt>Name confirmation recorded</dt>
+                    <dd>
+                      {pointName.name_confirmation_recorded ? "Yes" : "No"}
+                    </dd>
+                  </dl>
+                  <p>{pointName.scope}</p>
+                  <p>
+                    Point tools open for the current selection. Choose a point
+                    there before preparing a fresh change.
+                  </p>
+                  <details>
+                    <summary>Recorded name binding hashes</summary>
+                    <pre>
+                      {JSON.stringify(
+                        {
+                          before_record_sha256: pointName.before_record_sha256,
+                          compiled_native_sha256:
+                            pointName.compiled_native_sha256,
+                        },
+                        null,
+                        2,
+                      )}
+                    </pre>
+                  </details>
+                </>
+              ) : (
+                <p>
+                  Inspect the original receipt. Current point names and
+                  original-backup availability are not established here.
+                </p>
+              )}
+            </section>
           )}
           {nativeKind === "input" && (
             <section aria-label="Recorded native input configuration">
@@ -923,8 +1000,10 @@ export function ChangeLedgerPanel({
           )}
           {needsController && !controller && (
             <p>
-              Open the original controller to use its recovery tools. Saved
-              evidence remains readable offline.
+              {pointName
+                ? "Open a controller and choose a point to use its current configuration tools. "
+                : "Open the original controller to use its recovery tools. "}
+              Saved evidence remains readable offline.
             </p>
           )}
           {!evidence && <p role="status">Loading local evidence…</p>}

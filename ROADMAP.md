@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-02. Implementation baseline: GitHub `main` at
-[`2eb1db94`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/2eb1db94f00205cc0191a8b041718d78edcc26ae).
+[`db6c429c`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/db6c429c9962f0accb1fe06edd3657a8496b17aa).
 
 ## Baseline and purpose
 
@@ -192,6 +192,10 @@ requires both full native readback and the published BACnet name to agree.
 Bounded drafts refuse eviction; exact review/operation/receipt ownership and
 uncertainty recovery remain explicit. This does not allocate points, move
 terminals, rename supervisor objects or complete general native authoring.
+The separate [recorded point-name ledger](docs/native-point-name-ledger.md) now
+shows attributable before/after metadata in Changes and History without querying
+live names or reopening backups. Its tool link retains the current controller
+and requires the user to choose a point for any fresh operation.
 
 Native parameter preservation now handles qualified repeated unsaved runtime
 slots, restores typed saved properties omitted from existing application records,
