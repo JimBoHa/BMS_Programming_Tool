@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-01. Implementation baseline: GitHub `main` at
-[`86e01611`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/86e016114a3b9a0b29cb62e5fa243e7aeef4e291).
+[`b8fab225`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/b8fab22549976742be914fe8a4bf7779371c7b09).
 
 ## Baseline and purpose
 
@@ -85,6 +85,24 @@ This is in-memory workspace retention, not durable draft storage across reloads.
 
 ## Existing capabilities to preserve and credit
 
+[Weekly workspace continuity](docs/native-weekly-workspace-continuity.md)
+now retains exact unfinished numeric/time/String rows and imported provenance by
+capture, Schedule and day through task and surface navigation. Bounded buffers
+refuse replacement at capacity; explicit discard frees only the selected day.
+Restoring local work never restores a field review. Reload persistence remains
+an explicit export/import workflow; this does not complete wider scheduling.
+
+[Omitted-field datatype qualification](docs/native-omitted-field-qualification.md)
+now guards fields newly materialized by native transfers. Unknown or mismatched
+application types retain their original snapshots and block transfer review.
+[Backup failure diagnostics](docs/native-backup-failures.md) retain both a failed
+File read and unconfirmed cleanup without retrying either operation.
+[Legacy actuator state verification](docs/native-legacy-actuator-state.md)
+separates one version-scoped changing saved counter from fixed configuration and
+shows both values in existing receipts. Exact application bytes and all other
+preservation checks remain required. These scopes do not establish arbitrary
+native generation or physical acceptance.
+
 [Original native recovery readback](docs/native-original-recovery-readback.md)
 now distinguishes complete original-image/settings recovery from applying the
 proposed change. Fresh identity, operational status, full image/settings and
@@ -98,9 +116,9 @@ Broader restore orchestration and physical acceptance remain separate.
 now binds preview, Apply and receipt readback to the exact controller and route
 shown in the workspace. Foreign captures remain useful for local review/export,
 and original receipt evidence remains available offline. Target transitions
-retire authority without changing the weekly/String wire services. Source-specific
-unfinished weekly buffers across task navigation remain a separate continuity
-item; the existing export-before-leaving instruction stays explicit.
+retire authority without changing the weekly/String wire services. The separate
+weekly workspace continuity now retains unfinished buffers across navigation;
+export remains necessary before reloading or restarting the application.
 
 [Live flow calibration readback](docs/native-runtime-calibration.md) separately
 reports one qualified calculated output from each discovered native Flow

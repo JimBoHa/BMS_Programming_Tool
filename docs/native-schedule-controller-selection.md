@@ -27,7 +27,8 @@ address prompt or inventory chosen by controller model.
 
 Scope remains one existing supported weekly day and the separately qualified
 UTF-8 String Schedule domain. Calendar deployment, exception/context engineering,
-physical acceptance and broader manufacturer formats remain separate. Weekly
-buffers still require export before leaving the task; source-specific unfinished
-weekly-work retention is recorded as a remaining roadmap item. Calendar workspace
-buffers keep their existing continuity behavior.
+physical acceptance and broader manufacturer formats remain separate.
+[Weekly workspace continuity](native-weekly-workspace-continuity.md) now retains
+unfinished source-specific buffers across navigation. Export remains necessary
+before reloading or restarting. Calendar workspace buffers retain their existing
+continuity behavior.

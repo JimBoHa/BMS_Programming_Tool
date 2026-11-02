@@ -31,6 +31,7 @@ import { EnumMappingPanel, type EnumMappingWork } from "./EnumMappingPanel";
 import { ScheduleInventoryPanel } from "./ScheduleInventoryPanel";
 import { ScheduleLibraryPanel } from "./ScheduleLibraryPanel";
 import { calendarWork } from "./nativeCalendar";
+import { weeklyWork } from "./nativeWeeklyWork";
 import { PointStatusPanel } from "./PointStatusPanel";
 import { BacnetCovPanel } from "./BacnetCovPanel";
 import { BacnetEventsPanel } from "./BacnetEventsPanel";
@@ -97,6 +98,7 @@ export function Connections({
   const instanceDrafts = useRef(new Map<string, string>());
   const enumWork = useRef<EnumMappingWork | null>(null);
   const calendarWorkspace = useRef(calendarWork());
+  const weeklyWorkspace = useRef(weeklyWork());
   const groups: Record<ConnectionView, { id: string; label: string }[]> = {
     setup: [],
     overview: [
@@ -880,6 +882,7 @@ export function Connections({
               connected={false}
               connectionKey={JSON.stringify(["offline", interfaceIdentity])}
               calendarWorkspace={calendarWorkspace.current}
+              weeklyWorkspace={weeklyWorkspace.current}
             />
           )}
           {view === "overview" && currentTool === "summary" && (
@@ -1512,6 +1515,7 @@ export function Connections({
             <TaskMount active={showTool("schedules")} preserve={false}>
               <ScheduleInventoryPanel
                 calendarWorkspace={calendarWorkspace.current}
+                weeklyWorkspace={weeklyWorkspace.current}
                 interfaceIdentity={interfaceIdentity}
                 connected={
                   visible &&

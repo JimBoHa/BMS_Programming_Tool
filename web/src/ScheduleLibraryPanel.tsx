@@ -3,7 +3,15 @@ import { api, apiJsonDocument, saveBlob } from "./api";
 import { NativeScheduleWritePanel } from "./NativeScheduleWritePanel";
 import { NativeCalendarEditor } from "./NativeCalendarEditor";
 import { calendarWork, type CalendarWork } from "./nativeCalendar";
-import type { ControllerTarget } from "./workflow";
+import { controllerKey, type ControllerTarget } from "./workflow";
+import {
+  weeklyWork,
+  weeklyKey,
+  weeklyDraft,
+  rememberWeekly,
+  type WeeklyWork,
+  type WeeklyRow as Row,
+} from "./nativeWeeklyWork";
 import {
   STRING_DRAFT,
   STRING_DRAFT_RULES,
@@ -13,6 +21,8 @@ import {
   stringDraftCapability,
   stringDraftReview,
 } from "./nativeScheduleStrings";
+
+import "./native-schedule-library.css";
 
 const BASE = "/bacnet/schedules/library";
 const CAPTURE = "native-calendar-schedule-capture/1";
@@ -31,13 +41,6 @@ type Transition = {
   time: number[];
   native_type: string;
   value_text: string;
-};
-type Row = {
-  key: number;
-  time: string[];
-  native_type: string;
-  value_text: string;
-  string_json?: string;
 };
 type Day = {
   day: number;
@@ -255,13 +258,18 @@ export function ScheduleLibraryPanel({
   connectionKey = "",
   selectedTarget = null,
   calendarWorkspace: suppliedCalendarWorkspace,
+  weeklyWorkspace: suppliedWeeklyWorkspace,
 }: {
   sessionReportId: string | null;
   connected?: boolean;
   connectionKey?: string;
   selectedTarget?: ControllerTarget | null;
   calendarWorkspace?: CalendarWork;
+  weeklyWorkspace?: WeeklyWork;
 }) {
+  const fallbackWeeklyWorkspace = useRef(weeklyWork());
+  const weeklyWorkspace =
+    suppliedWeeklyWorkspace || fallbackWeeklyWorkspace.current;
   const fallbackCalendarWorkspace = useRef(calendarWork());
   const calendarWorkspace =
     suppliedCalendarWorkspace || fallbackCalendarWorkspace.current;
@@ -271,7 +279,6 @@ export function ScheduleLibraryPanel({
     [object, setObject] = useState(""),
     [day, setDay] = useState(1),
     [rows, setRows] = useState<Row[]>([]),
-    [dirty, setDirty] = useState(false),
     [review, setReview] = useState<any>(null),
     [busy, setBusy] = useState(""),
     [exporting, setExporting] = useState(false),
@@ -293,7 +300,24 @@ export function ScheduleLibraryPanel({
     draftInput = useRef<HTMLInputElement>(null);
   const selected = capture?.objects.find((item) => item.object === object);
   const seed = selected?.days?.find((item) => item.day === day);
+  const bufferKey = weeklyKey(capture?.id || "", object, day);
+  const retained = weeklyDraft(weeklyWorkspace, bufferKey);
+  const fieldContext = JSON.stringify([
+    connected,
+    // Remembered settings have no field authority while disconnected/unverified.
+    // Loading them must not cancel an operation on the local capture library.
+    connected ? connectionKey : "closed",
+    selectedTarget ? controllerKey(selectedTarget) : null,
+  ]);
+  const boundary = useRef({ context: fieldContext, version: 0 });
+  if (boundary.current.context !== fieldContext)
+    boundary.current = {
+      context: fieldContext,
+      version: boundary.current.version + 1,
+    };
   const signature = JSON.stringify([
+    fieldContext,
+    boundary.current.version,
     capture?.id,
     object,
     day,
@@ -318,31 +342,64 @@ export function ScheduleLibraryPanel({
     wanted?: string,
     wantedDay = 1,
     transitions?: Transition[],
+    imported: { review_id: string; filename: string } | null = null,
   ) {
-    epoch.current++;
+    const previous = weeklyWorkspace.selected.get(value.id);
+    if (!wanted && previous) {
+      wanted = previous.object;
+      wantedDay = previous.day;
+    }
     const item =
       value.objects.find((candidate) => candidate.object === wanted) ||
       value.objects.find((candidate) => candidate.eligible);
+    const key = weeklyKey(value.id, item?.object || "", wantedDay);
+    let buffered = weeklyDraft(weeklyWorkspace, key);
+    if (transitions) {
+      if (buffered?.dirty)
+        throw new Error(
+          "This imported day already has unfinished work. Export or explicitly discard that day's draft before importing a replacement.",
+        );
+      buffered = { rows: rowCopies(transitions), dirty: true, imported };
+      rememberWeekly(weeklyWorkspace, key, buffered);
+    }
+    const next =
+      buffered?.rows ||
+      rowCopies(
+        item?.days?.find((candidate) => candidate.day === wantedDay)
+          ?.transitions || [],
+      );
+    nextRow.current = Math.max(
+      nextRow.current,
+      ...next.map((row) => row.key + 1),
+    );
+    epoch.current++;
+    weeklyWorkspace.captureId = value.id;
+    weeklyWorkspace.selected.set(value.id, {
+      object: item?.object || "",
+      day: wantedDay,
+    });
     setCapture(value);
     calendarWorkspace.captureId = value.id;
     setObject(item?.object || "");
     setDay(wantedDay);
-    setRows(
-      rowCopies(
-        transitions ||
-          item?.days?.find((candidate) => candidate.day === wantedDay)
-            ?.transitions ||
-          [],
-      ),
-    );
-    setDirty(false);
+    setRows(next);
     setReview(null);
     setError("");
   }
   function changed(next: Row[]) {
     epoch.current++;
+    setReview(null);
+    try {
+      rememberWeekly(weeklyWorkspace, bufferKey, {
+        rows: next,
+        dirty: true,
+        imported: retained?.imported || null,
+      });
+    } catch (failure) {
+      setError(String(failure));
+      return;
+    }
     setRows(next);
-    setDirty(true);
     setReview(null);
     setError("");
     setNotice("");
@@ -366,6 +423,22 @@ export function ScheduleLibraryPanel({
       listEpoch.current++;
     };
   }, []);
+  useEffect(() => {
+    epoch.current++;
+    setReview(null);
+  }, [fieldContext]);
+  useEffect(() => {
+    const retire = () => {
+      epoch.current++;
+      setReview(null);
+    };
+    document.addEventListener("visibilitychange", retire);
+    window.addEventListener("pagehide", retire);
+    return () => {
+      document.removeEventListener("visibilitychange", retire);
+      window.removeEventListener("pagehide", retire);
+    };
+  }, []);
   async function action(
     label: string,
     work: () => Promise<void>,
@@ -386,12 +459,6 @@ export function ScheduleLibraryPanel({
     }
   }
   async function open(id: string) {
-    if (dirty) {
-      setError(
-        "Export or discard the current weekly draft before opening another capture.",
-      );
-      return;
-    }
     const ticket = ++epoch.current,
       source = signatureNow.current;
     await action(
@@ -405,7 +472,8 @@ export function ScheduleLibraryPanel({
   }
   useEffect(() => {
     // Restore only a local source. Field connection and write reviews are not restored.
-    if (calendarWorkspace.captureId) void open(calendarWorkspace.captureId);
+    const id = weeklyWorkspace.captureId || calendarWorkspace.captureId;
+    if (id) void open(id);
   }, []);
   async function saveCurrent() {
     if (!sessionReportId) return;
@@ -431,12 +499,6 @@ export function ScheduleLibraryPanel({
     );
   }
   async function importFile(file: File, draft: boolean) {
-    if (draft && dirty) {
-      setError(
-        "Export or discard the current weekly draft before importing another draft.",
-      );
-      return;
-    }
     const ticket = ++epoch.current,
       source = signatureNow.current;
     await action(
@@ -462,6 +524,7 @@ export function ScheduleLibraryPanel({
             request.object_id,
             request.day,
             request.transitions,
+            { review_id: accepted.id, filename: file.name },
           );
           setReview(accepted);
           setNotice(
@@ -469,7 +532,7 @@ export function ScheduleLibraryPanel({
           );
         } else {
           const detail = captureResult(result);
-          if (!dirty) replaceSelection(detail);
+          replaceSelection(detail);
           setNotice(`Imported capture ${detail.id.slice(0, 12)}.`);
         }
         await refresh();
@@ -586,7 +649,14 @@ export function ScheduleLibraryPanel({
         response.blob,
         `native-schedule-${kind}-${(kind === "draft" ? reviewId : id).slice(0, 12)}.json`,
       );
-      if (kind === "draft") setDirty(false);
+      if (kind === "draft") {
+        const saved = weeklyDraft(weeklyWorkspace, bufferKey);
+        if (saved)
+          rememberWeekly(weeklyWorkspace, bufferKey, {
+            ...saved,
+            dirty: false,
+          });
+      }
       setNotice(
         `Exported exact ${kind === "draft" ? "reviewed day draft" : kind === "source" ? "original source report" : "capture archive"}.`,
       );
@@ -599,25 +669,22 @@ export function ScheduleLibraryPanel({
   }
   function choose(nextObject: string, nextDay: number) {
     if (!capture) return;
-    if (dirty) {
-      setError(
-        "Export or discard the current weekly draft before changing its source or day.",
-      );
-      return;
-    }
     replaceSelection(capture, nextObject, nextDay);
   }
   return (
-    <section className="card" aria-label="Native Schedule capture library">
+    <section
+      className="card native-schedule-library"
+      aria-label="Native Schedule capture library"
+    >
       <h3>Offline Calendar and Schedule library</h3>
       <p>
         Save native captures, reopen them offline and review Calendar dates or
         one weekly-day draft. Drafts do not send changes to a controller.
       </p>
       <p>
-        Calendar edits stay with their captured source while switching tasks.
-        Export weekly drafts before leaving this task, and export all local work
-        before restarting. Write reviews are never restored by navigation.
+        Calendar and weekly edits stay with their captured source while
+        switching tasks. Export all local work before restarting. Write reviews
+        are never restored by navigation.
       </p>
       <div className="toolbar">
         <button
@@ -671,40 +738,42 @@ export function ScheduleLibraryPanel({
               profile.storage?.platform ||
               "local storage"}
           </p>
-          <table aria-label="Saved native schedule captures">
-            <thead>
-              <tr>
-                <th>Capture</th>
-                <th>Captured target</th>
-                <th>Observed through</th>
-                <th>Origin / status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {profile.captures.map((item: Capture) => (
-                <tr key={item.id}>
-                  <td>
-                    <button
-                      disabled={!!busy}
-                      onClick={() => void open(item.id)}
-                    >
-                      Open capture {item.id.slice(0, 12)}
-                    </button>
-                  </td>
-                  <td>
-                    {item.target.device} at {item.target.address}
-                    {item.target.router
-                      ? ` via ${item.target.router} / ${item.target.dnet}`
-                      : ""}
-                  </td>
-                  <td>{item.finished_at}</td>
-                  <td>
-                    {item.origin} · {item.status}
-                  </td>
+          <div className="native-schedule-table-scroll">
+            <table aria-label="Saved native schedule captures">
+              <thead>
+                <tr>
+                  <th>Capture</th>
+                  <th>Captured target</th>
+                  <th>Observed through</th>
+                  <th>Origin / status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {profile.captures.map((item: Capture) => (
+                  <tr key={item.id}>
+                    <td>
+                      <button
+                        disabled={!!busy}
+                        onClick={() => void open(item.id)}
+                      >
+                        Open capture {item.id.slice(0, 12)}
+                      </button>
+                    </td>
+                    <td>
+                      {item.target.device} at {item.target.address}
+                      {item.target.router
+                        ? ` via ${item.target.router} / ${item.target.dnet}`
+                        : ""}
+                    </td>
+                    <td>{item.finished_at}</td>
+                    <td>
+                      {item.origin} · {item.status}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           <details>
             <summary>Library limits and draft policy</summary>
             <pre>
@@ -858,146 +927,171 @@ export function ScheduleLibraryPanel({
                 separate choice. No timezone or controller execution is
                 inferred.
               </p>
-              <table aria-label="Native daily transitions">
-                <thead>
-                  <tr>
-                    <th>Native time (hour / minute / second / hundredth)</th>
-                    <th>Native type</th>
-                    <th>Exact value text</th>
-                    <th>Row</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row, index) => (
-                    <tr key={row.key}>
-                      <td>
-                        <div className="toolbar">
-                          {["Hour", "Minute", "Second", "Hundredth"].map(
-                            (label, field) => (
-                              <input
-                                key={label}
-                                aria-label={`Transition ${index + 1} ${label.toLowerCase()}`}
-                                inputMode="numeric"
-                                size={2}
-                                maxLength={2}
-                                value={row.time[field]}
-                                onChange={(event) =>
-                                  changed(
-                                    rows.map((item) =>
-                                      item.key === row.key
-                                        ? {
-                                            ...item,
-                                            time: item.time.map(
-                                              (value, position) =>
-                                                position === field
-                                                  ? event.target.value
-                                                  : value,
-                                            ),
-                                          }
-                                        : item,
-                                    ),
-                                  )
-                                }
-                              />
-                            ),
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        <select
-                          aria-label={`Transition ${index + 1} native type`}
-                          value={row.native_type}
-                          onChange={(event) =>
-                            changed(
-                              rows.map((item) =>
-                                item.key === row.key
-                                  ? {
-                                      ...item,
-                                      native_type: event.target.value,
-                                      string_json: undefined,
-                                      value_text:
-                                        event.target.value === "Null"
-                                          ? "null"
-                                          : item.value_text === "null"
-                                            ? ""
-                                            : item.value_text,
-                                    }
-                                  : item,
+              {retained?.imported && (
+                <details aria-label="Imported weekly draft provenance">
+                  <summary>Imported weekly draft source</summary>
+                  <p>
+                    Retained text needs a current local review; navigation never
+                    restores field authority.
+                  </p>
+                  <pre className="result">
+                    {JSON.stringify(retained.imported, null, 2)}
+                  </pre>
+                </details>
+              )}
+              <details>
+                <summary>Weekly workspace draft limits</summary>
+                <p>
+                  {weeklyWorkspace.drafts.size} retained days; maximum 128
+                  drafts and 4 MiB. Existing work is never evicted. Export and
+                  explicitly discard a selected draft to free space. Buffers
+                  stay in memory until this application reloads.
+                </p>
+              </details>
+              <div className="native-schedule-table-scroll">
+                <table aria-label="Native daily transitions">
+                  <thead>
+                    <tr>
+                      <th>Native time (hour / minute / second / hundredth)</th>
+                      <th>Native type</th>
+                      <th>Exact value text</th>
+                      <th>Row</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, index) => (
+                      <tr key={row.key}>
+                        <td>
+                          <div className="toolbar">
+                            {["Hour", "Minute", "Second", "Hundredth"].map(
+                              (label, field) => (
+                                <input
+                                  key={label}
+                                  aria-label={`Transition ${index + 1} ${label.toLowerCase()}`}
+                                  inputMode="numeric"
+                                  size={2}
+                                  maxLength={2}
+                                  value={row.time[field]}
+                                  onChange={(event) =>
+                                    changed(
+                                      rows.map((item) =>
+                                        item.key === row.key
+                                          ? {
+                                              ...item,
+                                              time: item.time.map(
+                                                (value, position) =>
+                                                  position === field
+                                                    ? event.target.value
+                                                    : value,
+                                              ),
+                                            }
+                                          : item,
+                                      ),
+                                    )
+                                  }
+                                />
                               ),
-                            )
-                          }
-                        >
-                          <option value={selected?.native_type}>
-                            {selected?.native_type}
-                          </option>
-                          <option value="Null">Null</option>
-                        </select>
-                      </td>
-                      <td>
-                        {row.native_type === "CharacterString" ? (
-                          <>
-                            <textarea
-                              aria-label={`Transition ${index + 1} CharacterString JSON literal`}
-                              value={
-                                row.string_json ??
-                                JSON.stringify(row.value_text)
-                              }
-                              maxLength={STRING_EDITOR_LENGTH}
-                              rows={2}
-                              onChange={(event) =>
-                                changed(
-                                  rows.map((item) =>
-                                    item.key === row.key
-                                      ? {
-                                          ...item,
-                                          string_json: event.target.value,
-                                        }
-                                      : item,
-                                  ),
-                                )
-                              }
-                            />
-                            <small>
-                              Quoted JSON string; empty is {`""`}. Escapes
-                              preserve CR, LF and NUL. Maximum 256 UTF-8 bytes;
-                              no trimming or Unicode normalization.
-                            </small>
-                          </>
-                        ) : (
-                          <input
-                            aria-label={`Transition ${index + 1} exact value text`}
-                            value={row.value_text}
-                            maxLength={256}
-                            readOnly={row.native_type === "Null"}
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <select
+                            aria-label={`Transition ${index + 1} native type`}
+                            value={row.native_type}
                             onChange={(event) =>
                               changed(
                                 rows.map((item) =>
                                   item.key === row.key
                                     ? {
                                         ...item,
-                                        value_text: event.target.value,
+                                        native_type: event.target.value,
+                                        string_json: undefined,
+                                        value_text:
+                                          event.target.value === "Null"
+                                            ? "null"
+                                            : item.value_text === "null"
+                                              ? ""
+                                              : item.value_text,
                                       }
                                     : item,
                                 ),
                               )
                             }
-                          />
-                        )}
-                      </td>
-                      <td>
-                        <button
-                          onClick={() =>
-                            changed(rows.filter((item) => item.key !== row.key))
-                          }
-                          aria-label={`Remove transition ${index + 1}`}
-                        >
-                          Remove
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                          >
+                            <option value={selected?.native_type}>
+                              {selected?.native_type}
+                            </option>
+                            <option value="Null">Null</option>
+                          </select>
+                        </td>
+                        <td>
+                          {row.native_type === "CharacterString" ? (
+                            <>
+                              <textarea
+                                aria-label={`Transition ${index + 1} CharacterString JSON literal`}
+                                value={
+                                  row.string_json ??
+                                  JSON.stringify(row.value_text)
+                                }
+                                maxLength={STRING_EDITOR_LENGTH}
+                                rows={2}
+                                onChange={(event) =>
+                                  changed(
+                                    rows.map((item) =>
+                                      item.key === row.key
+                                        ? {
+                                            ...item,
+                                            string_json: event.target.value,
+                                          }
+                                        : item,
+                                    ),
+                                  )
+                                }
+                              />
+                              <small>
+                                Quoted JSON string; empty is {`""`}. Escapes
+                                preserve CR, LF and NUL. Maximum 256 UTF-8
+                                bytes; no trimming or Unicode normalization.
+                              </small>
+                            </>
+                          ) : (
+                            <input
+                              aria-label={`Transition ${index + 1} exact value text`}
+                              value={row.value_text}
+                              maxLength={256}
+                              readOnly={row.native_type === "Null"}
+                              onChange={(event) =>
+                                changed(
+                                  rows.map((item) =>
+                                    item.key === row.key
+                                      ? {
+                                          ...item,
+                                          value_text: event.target.value,
+                                        }
+                                      : item,
+                                  ),
+                                )
+                              }
+                            />
+                          )}
+                        </td>
+                        <td>
+                          <button
+                            onClick={() =>
+                              changed(
+                                rows.filter((item) => item.key !== row.key),
+                              )
+                            }
+                            aria-label={`Remove transition ${index + 1}`}
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
               {!rows.length && <p>This proposed day has no transitions.</p>}
               <div className="toolbar">
                 <button
@@ -1017,12 +1111,12 @@ export function ScheduleLibraryPanel({
                   Add daily transition
                 </button>
                 <button
-                  disabled={!dirty && !review}
+                  disabled={!retained && !review}
                   onClick={() => {
                     epoch.current++;
+                    weeklyWorkspace.drafts.delete(bufferKey);
                     setRows(rowCopies(seed?.transitions || []));
                     setReview(null);
-                    setDirty(false);
                     setError("");
                     setNotice("Discarded the local weekly draft.");
                   }}
@@ -1057,45 +1151,47 @@ export function ScheduleLibraryPanel({
                     priority, references, effective period and exception context
                     remain bound to this review.
                   </p>
-                  <table aria-label="Requested and encoded native values">
-                    <thead>
-                      <tr>
-                        <th>Native time</th>
-                        <th>Type</th>
-                        <th>Requested text</th>
-                        <th>Wire value text</th>
-                        <th>Precision change</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {review.new.transitions.map(
-                        (item: any, index: number) => (
-                          <tr key={index}>
-                            <td>{item.time.join(":")}</td>
-                            <td>{item.native_type}</td>
-                            <td>
-                              {item.native_type === "CharacterString"
-                                ? JSON.stringify(item.value_text)
-                                : item.value_text}
-                            </td>
-                            <td>
-                              {item.native_type === "CharacterString"
-                                ? JSON.stringify(item.wire_value_text)
-                                : item.wire_value_text}
-                            </td>
-                            <td>
-                              {item.native_type === "CharacterString"
-                                ? "Exact UTF-8 text"
-                                : item.decimal_text_changed ||
-                                    item.binary64_to_wire_changed
-                                  ? "Inspect rounding"
-                                  : "No reported numeric change"}
-                            </td>
-                          </tr>
-                        ),
-                      )}
-                    </tbody>
-                  </table>
+                  <div className="native-schedule-table-scroll">
+                    <table aria-label="Requested and encoded native values">
+                      <thead>
+                        <tr>
+                          <th>Native time</th>
+                          <th>Type</th>
+                          <th>Requested text</th>
+                          <th>Wire value text</th>
+                          <th>Precision change</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {review.new.transitions.map(
+                          (item: any, index: number) => (
+                            <tr key={index}>
+                              <td>{item.time.join(":")}</td>
+                              <td>{item.native_type}</td>
+                              <td>
+                                {item.native_type === "CharacterString"
+                                  ? JSON.stringify(item.value_text)
+                                  : item.value_text}
+                              </td>
+                              <td>
+                                {item.native_type === "CharacterString"
+                                  ? JSON.stringify(item.wire_value_text)
+                                  : item.wire_value_text}
+                              </td>
+                              <td>
+                                {item.native_type === "CharacterString"
+                                  ? "Exact UTF-8 text"
+                                  : item.decimal_text_changed ||
+                                      item.binary64_to_wire_changed
+                                    ? "Inspect rounding"
+                                    : "No reported numeric change"}
+                              </td>
+                            </tr>
+                          ),
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                   <button
                     disabled={exporting || !!busy}
                     onClick={() => void exportDocument("draft")}

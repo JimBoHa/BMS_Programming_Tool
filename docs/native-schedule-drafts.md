@@ -1,5 +1,9 @@
 # Native schedule captures and offline day drafts
 
+The separate [weekly workspace continuity](native-weekly-workspace-continuity.md)
+retains source-specific unfinished rows and imported provenance through navigation.
+Its in-memory buffers do not restore review authority; export work before reload.
+
 This feature retains an existing standard BACnet Calendar/Schedule inventory and reviews a replacement for one existing Schedule's weekly day. It makes no controller calls when saving, importing, reopening, reviewing or exporting. There is no native write or Apply action in this feature.
 
 In **Connect**, explicitly read native schedules using the existing inventory workflow. Save the returned report to the local library. The library remains usable after disconnection and application restart. Select a capture and an eligible Schedule, choose Monday1 through Sunday7, and edit its typed time/value rows. Review the exact old/new day, requested versus wire values and source hashes before exporting the draft. Export the sealed capture with the draft; importing a draft requires its original capture to be present.

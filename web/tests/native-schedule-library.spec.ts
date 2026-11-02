@@ -5,9 +5,13 @@ import {
   type APIRequestContext,
 } from "@playwright/test";
 import { spawn, execFileSync } from "node:child_process";
-import { createSocket } from "node:dgram";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { openScheduleController } from "./schedule-trace-peer";
+import {
+  chooseWorkspaceTask,
+  chooseWorkspaceSurface,
+} from "./workspace-navigation";
 
 const root = path.resolve(".."),
   base = "/api/bacnet/schedules/library";
@@ -30,18 +34,6 @@ async function disconnect(request: APIRequestContext) {
   ).toBe(false);
 }
 test.afterEach(async ({ request }) => disconnect(request));
-async function freePort(): Promise<number> {
-  const socket = createSocket("udp4");
-  return new Promise((resolve, reject) => {
-    socket.once("error", reject);
-    socket.bind(0, "127.0.0.1", () => {
-      const address = socket.address();
-      socket.close(() =>
-        resolve(typeof address === "string" ? 0 : address.port),
-      );
-    });
-  });
-}
 async function peer(routed: boolean) {
   const child = spawn(
     path.join(root, ".venv/bin/python"),
@@ -49,17 +41,34 @@ async function peer(routed: boolean) {
       "-u",
       "-c",
       `
-import asyncio,json,sys
-from tests.test_schedule_inventory import make_peer
+import asyncio,json,sys,traceback
+from tests.test_schedule_inventory import SchedulePeer,text,unsigned,oid
+class Peer(SchedulePeer):
+ async def reply(self,data,source):
+  before=len(self.errors)
+  await super().reply(data,source)
+  for error in self.errors[before:]:
+   print('PROTOCOL_ERROR '+json.dumps({'packet':data.hex(),'error':''.join(traceback.format_exception(error))}),file=sys.stderr,flush=True)
+ def value(self,obj,prop,index):
+  if prop=='object-list' and index is None:return b''.join(b'\\xc4'+oid(*item) for item in self.object_list)
+  if prop in ('model-name','firmware-revision','application-software-version','vendor-name','location'):return text('Authored')
+  if prop=='protocol-revision':return unsigned(22)
+  if prop=='max-apdu-length-accepted':return unsigned(480)
+  if prop=='segmentation-supported':return b'\\x91\\x03'
+  if prop=='vendor-identifier':return unsigned(5)
+  if prop=='system-status':return b'\\x91\\x00'
+  return super().value(obj,prop,index)
 async def main():
- p=await make_peer(routed=sys.argv[1]=='1');original=p.datagram_received
+ p=Peer(routed=sys.argv[1]=='1')
+ await asyncio.get_running_loop().create_datagram_endpoint(lambda:p,local_addr=('127.0.0.1',0))
+ original=p.datagram_received
  def observed(data,source):
   print('READ',flush=True);original(data,source)
  p.datagram_received=observed
  print(json.dumps({'port':int(p.endpoint.split(':')[-1])}),flush=True)
  try: await asyncio.to_thread(sys.stdin.readline)
  finally:
-  p.close();print(json.dumps({'requests':len(p.requests),'errors':p.errors}),flush=True)
+  p.close();print(json.dumps({'requests':len(p.requests),'errors':[str(e) for e in p.errors]}),flush=True)
 asyncio.run(main())
 `,
       routed ? "1" : "0",
@@ -121,7 +130,7 @@ asyncio.run(main())
         code = await exited;
       clearTimeout(timer);
       expect(code, error).toBe(0);
-      expect(summary.errors).toEqual([]);
+      expect(summary.errors, error).toEqual([]);
       return summary;
     },
   };
@@ -139,38 +148,12 @@ async function capture(
   save = true,
 ) {
   const server = await peer(routed);
-  expect(
-    (
-      await request.post("/api/bacnet/connect", {
-        headers: await headers(request),
-        data: { local_address: `127.0.0.1:${await freePort()}` },
-      })
-    ).ok(),
-  ).toBe(true);
-  await page.goto("/");
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
-  const panel = page.getByRole("region", {
-    name: "Native Calendar and Schedule inventory",
-    exact: true,
-  });
-  await expect(
-    panel.getByRole("button", { name: "Read native schedules", exact: true }),
-  ).toBeEnabled();
-  await panel
-    .getByLabel("Schedule source address", { exact: true })
-    .fill(routed ? "3001:7" : `127.0.0.1:${server.port}`);
-  await panel
-    .getByLabel("Schedule Device identifier", { exact: true })
-    .fill("device,42");
-  await panel
-    .getByLabel("Calendar/Schedule object selection", { exact: true })
-    .fill("calendar,1; schedule,1");
-  if (routed) {
-    await panel
-      .getByLabel("Schedule router endpoint", { exact: true })
-      .fill(`127.0.0.1:${server.port}`);
-    await panel.getByLabel("Schedule DNET", { exact: true }).fill("3001");
-  }
+  const panel = await openScheduleController(
+    page,
+    request,
+    { endpoint: `127.0.0.1:${server.port}` },
+    routed,
+  );
   await panel
     .getByRole("button", { name: "Read native schedules", exact: true })
     .click();
@@ -238,12 +221,7 @@ for (const routed of [false, true])
   }) => {
     const { server, local, id } = await capture(page, request, routed);
     try {
-      await page
-        .getByRole("button", { name: "Close BACnet interface", exact: true })
-        .click();
-      await expect(
-        page.getByText("No BACnet interface open", { exact: true }),
-      ).toBeVisible();
+      await disconnect(request);
       const before = server.reads();
       expect(before).toBeGreaterThan(20);
       await expect(
@@ -302,7 +280,10 @@ for (const routed of [false, true])
         { input: source },
       );
       await page.reload();
-      await page.getByRole("button", { name: "Connect", exact: true }).click();
+      await page
+        .getByRole("button", { name: "New application", exact: true })
+        .click();
+      await chooseWorkspaceTask(page, "Schedules");
       const reopened = library(page);
       await reopened
         .getByLabel("Import native schedule capture file", { exact: true })
@@ -356,7 +337,7 @@ for (const routed of [false, true])
     }
   });
 
-test("native day edits retain typed intent, expose wire rounding, reject unsupported values and guard dirty replacement", async ({
+test("native day edits retain typed intent, expose wire rounding and preserve unfinished days", async ({
   page,
   request,
 }) => {
@@ -371,10 +352,13 @@ test("native day edits retain typed intent, expose wire rounding, reject unsuppo
     await local
       .getByLabel("Native weekly day", { exact: true })
       .selectOption("2");
-    await expect(local.getByRole("alert")).toContainText("Export or discard");
     await expect(
       local.getByLabel("Native weekly day", { exact: true }),
-    ).toHaveValue("1");
+    ).toHaveValue("2");
+    await local
+      .getByLabel("Native weekly day", { exact: true })
+      .selectOption("1");
+    await expect(value).toHaveValue("0.1");
     await local
       .getByRole("button", { name: "Review native weekly draft", exact: true })
       .click();
@@ -456,8 +440,8 @@ test("a completed local save cannot adopt an inventory source that changed durin
       .click();
     await entered;
     await panel
-      .getByLabel("Schedule source address", { exact: true })
-      .fill("192.0.2.77");
+      .getByLabel("Calendar/Schedule object selection", { exact: true })
+      .fill("schedule,2");
     await expect(
       panel.getByLabel("Schedule evidence report", { exact: true }),
     ).toHaveCount(0);
@@ -477,8 +461,8 @@ test("a completed local save cannot adopt an inventory source that changed durin
     ).toHaveCount(0);
     await expect(local.getByText(/^Saved capture /)).toHaveCount(0);
     await expect(
-      panel.getByLabel("Schedule source address", { exact: true }),
-    ).toHaveValue("192.0.2.77");
+      panel.getByLabel("Calendar/Schedule object selection", { exact: true }),
+    ).toHaveValue("schedule,2");
     await local
       .getByRole("button", {
         name: "Refresh local schedule library",
@@ -818,7 +802,7 @@ test("late real reviews and downloads cannot replace edited rows or survive leav
       })
       .click();
     await exporting;
-    await page.getByRole("button", { name: "Reference", exact: true }).click();
+    await chooseWorkspaceSurface(page, "Help");
     const exported = page.waitForResponse(
       "**/api/bacnet/schedules/library/source-export",
     );

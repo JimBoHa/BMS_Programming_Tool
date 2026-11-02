@@ -8,6 +8,7 @@ import { spawn, execFileSync } from "node:child_process";
 import { createInterface } from "node:readline";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { openScheduleController } from "./schedule-trace-peer";
 
 const root = path.resolve(".."),
   python = path.join(root, ".venv/bin/python"),
@@ -15,10 +16,19 @@ const root = path.resolve(".."),
 const peerSource = `
 import asyncio,json,sys
 from tests.test_native_schedule_write import WeeklyPeer
-from tests.test_schedule_inventory import options
+from tests.test_schedule_inventory import options,text,unsigned,oid
+class Peer(WeeklyPeer):
+ def value(self,obj,prop,index):
+  if prop=='object-list' and index is None:return b''.join(b'\\xc4'+oid(*item) for item in self.object_list)
+  if prop in ('model-name','firmware-revision','application-software-version','vendor-name','location'):return text('Authored')
+  if prop=='protocol-revision':return unsigned(22)
+  if prop=='segmentation-supported':return b'\\x91\\x03'
+  if prop=='vendor-identifier':return unsigned(5)
+  if prop=='system-status':return b'\\x91\\x00'
+  return super().value(obj,prop,index)
 from tests.test_connections import free_udp
 async def main():
- p=WeeklyPeer(routed=sys.argv[1]=='routed')
+ p=Peer(routed=sys.argv[1]=='routed')
  atom=bytes.fromhex(sys.argv[2]);p.exception_count=0
  p.days=[bytes.fromhex('0eb408000000')+atom+bytes.fromhex('0f')]*7
  p.overrides['schedule,1','present-value',None]=atom
@@ -41,7 +51,13 @@ async function peer(routed: boolean, atom = "74006f6c64") {
   const child = spawn(
     python,
     ["-u", "-c", peerSource, routed ? "routed" : "direct", atom],
-    { cwd: root },
+    {
+      cwd: root,
+      env: {
+        ...process.env,
+        PYTHONPATH: [path.join(root, "backend"), root].join(path.delimiter),
+      },
+    },
   );
   const queue: any[] = [],
     waiters: ((data: any) => void)[] = [];
@@ -134,8 +150,12 @@ async function setup(
     });
     expect(saved.ok()).toBe(true);
     const capture = await saved.json();
-    await page.goto("/");
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
+    await openScheduleController(
+      page,
+      request,
+      { endpoint: server.options.router || server.options.address },
+      routed,
+    );
     const library = page.getByRole("region", {
       name: "Native Schedule capture library",
       exact: true,
@@ -244,7 +264,13 @@ function expectedDay(text: string, withNull = false) {
       JSON.stringify(text),
       withNull ? "1" : "0",
     ],
-    { cwd: root },
+    {
+      cwd: root,
+      env: {
+        ...process.env,
+        PYTHONPATH: [path.join(root, "backend"), root].join(path.delimiter),
+      },
+    },
   )
     .toString()
     .trim();
