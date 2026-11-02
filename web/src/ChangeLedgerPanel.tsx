@@ -6,6 +6,7 @@ import {
   type ControllerContext,
 } from "./workflow";
 import "./change-ledger.css";
+import { recordedInput, inputAction } from "./nativeInputLedger";
 
 export type LedgerSource =
   | "audit"
@@ -80,6 +81,7 @@ type Row = {
   native_reference_issue?: string;
   native_wire_index?: number;
   native_recovery?: NativeRecovery;
+  native_input?: unknown;
   created_at: string;
   state: string;
   outcome: "attention" | "verified" | "other";
@@ -158,6 +160,15 @@ function Target({ row }: { row: Row }) {
       {row.interface_label && <span>{row.interface_label}</span>}
     </>
   );
+}
+function InputSummary({ value }: { value: unknown }) {
+  const input = recordedInput(value);
+  return input ? (
+    <span>
+      {inputAction(input)} · {input.terminal_label}
+      {input.requested_name && ` · ${input.requested_name}`}
+    </span>
+  ) : null;
 }
 
 export function ChangeLedgerPanel({
@@ -308,25 +319,32 @@ export function ChangeLedgerPanel({
   const nativeProgram =
     choice?.source === "native" &&
     ["signal-default", "boolean-default", "wire-source"].includes(nativeKind);
+  const input =
+    choice?.source === "native" ? recordedInput(choice.native_input) : null;
   const unsupportedNative =
-    choice?.source === "native" &&
-    ![
-      "instance",
-      "name",
-      "signal-default",
-      "boolean-default",
-      "wire-source",
-    ].includes(nativeKind);
+    (choice?.source === "native" &&
+      ![
+        "instance",
+        "name",
+        "signal-default",
+        "boolean-default",
+        "wire-source",
+        "input",
+      ].includes(nativeKind)) ||
+    (choice?.source === "native" && nativeKind === "input" && !input);
   const toolLabel = unsupportedNative
     ? undefined
-    : nativeProgram
-      ? "Open native program tools"
-      : sourceInfo?.tool;
+    : input
+      ? "Open input tools"
+      : nativeProgram
+        ? "Open native program tools"
+        : sourceInfo?.tool;
   const needsController =
     choice &&
     !!toolLabel &&
     !nativeProgram &&
-    ["native", "instance", "schedule", "event"].includes(choice.source);
+    ["native", "instance", "schedule", "event"].includes(choice.source) &&
+    !input;
   function searchParent(id: string) {
     setSource("native");
     setOutcome("all");
@@ -553,6 +571,7 @@ export function ChangeLedgerPanel({
                       {row.native_reference_issue && (
                         <span>{row.native_reference_issue}</span>
                       )}
+                      <InputSummary value={row.native_input} />
                       {row.native_recovery && (
                         <span>
                           {row.native_recovery.state === "recorded"
@@ -676,6 +695,105 @@ export function ChangeLedgerPanel({
           </dl>
           {choice.native_reference_issue && (
             <p>{choice.native_reference_issue}</p>
+          )}
+          {nativeKind === "input" && (
+            <section aria-label="Recorded native input configuration">
+              <h4>
+                {input ? inputAction(input) : "Input metadata unavailable"}
+              </h4>
+              {input ? (
+                <>
+                  <dl>
+                    <dt>Recorded object</dt>
+                    <dd>
+                      {input.object_id} · {input.terminal_label}
+                    </dd>
+                    <dt>Native reference</dt>
+                    <dd>{input.record_ref}</dd>
+                    {input.requested_name && (
+                      <>
+                        <dt>Requested allocation name</dt>
+                        <dd>{input.requested_name}</dd>
+                      </>
+                    )}
+                    <dt>Wiring confirmation recorded</dt>
+                    <dd>{input.wiring_confirmation_recorded ? "Yes" : "No"}</dd>
+                  </dl>
+                  <p>{input.scope}</p>
+                  {input.requested_configuration &&
+                    input.stored_configuration && (
+                      <>
+                        <p>
+                          Electrical mode: {input.requested_configuration.mode}.
+                          Engineering values use the recorded native unit code.
+                        </p>
+                        <div className="change-ledger-table">
+                          <table>
+                            <caption>
+                              Requested and compiled input configuration
+                            </caption>
+                            <thead>
+                              <tr>
+                                <th>Field</th>
+                                <th>Requested</th>
+                                <th>Compiled</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {[
+                                ["input_low", "Electrical range low"],
+                                ["input_high", "Electrical range high"],
+                                ["output_low", "Engineering range low"],
+                                ["output_high", "Engineering range high"],
+                                ["units", "Engineering unit code"],
+                                ["minimum", "Minimum present value"],
+                                ["maximum", "Maximum present value"],
+                              ].map(([key, label]) => (
+                                <tr key={key}>
+                                  <th>{label}</th>
+                                  <td>
+                                    {realText(
+                                      input.requested_configuration![key],
+                                    )}
+                                  </td>
+                                  <td>
+                                    {realText(input.stored_configuration![key])}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </>
+                    )}
+                  {input.allocation_receipt_id && (
+                    <>
+                      <p>
+                        Recorded allocation reference:{" "}
+                        {input.allocation_receipt_id}. Its present availability
+                        is not established here.
+                      </p>
+                      <button
+                        onClick={() => {
+                          setSource("native");
+                          setScope("all");
+                          setSearch(input.allocation_receipt_id!);
+                          setText(input.allocation_receipt_id!);
+                        }}
+                      >
+                        Search recorded allocation receipt
+                      </button>
+                    </>
+                  )}
+                </>
+              ) : (
+                <p>
+                  Recorded input metadata is incomplete or inconsistent. Inspect
+                  the original evidence; it grants no tool or transfer
+                  authority.
+                </p>
+              )}
+            </section>
           )}
           {choice.native_recovery && (
             <section aria-label="Recorded native recovery lineage">

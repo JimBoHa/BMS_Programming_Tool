@@ -20,6 +20,7 @@ from bacpypes3.pdu import Address, IPv4Address
 from pydantic import Field, field_validator, model_validator
 
 from .models import StrictModel
+from .native_input_ledger import input_reference
 from .native_ledger_details import native_reference, recovery_lineage
 
 Source = Literal["audit", "native", "instance", "schedule", "bbmd", "event", "temco", "command"]
@@ -341,6 +342,7 @@ class ChangeLedger:
                 "signal-default": "Native Real default transfer",
                 "boolean-default": "Native Boolean default transfer",
                 "wire-source": "Native wire source transfer",
+                "input": "Native input configuration transfer",
             }
             candidate = body.get("change_kind", "instance")
             native_kind = (
@@ -349,6 +351,8 @@ class ChangeLedger:
             label = labels.get(native_kind, "Native application transfer (unsupported operation)")
             selection = body.get("wire_edit" if native_kind == "wire-source" else "default_edit")
             native_metadata = native_reference(native_kind, selection)
+            if native_kind == "input":
+                native_metadata = input_reference(body)
             recovery = recovery_lineage(body, native_kind, native_metadata)
             if recovery is not None:
                 native_metadata["native_recovery"] = recovery
