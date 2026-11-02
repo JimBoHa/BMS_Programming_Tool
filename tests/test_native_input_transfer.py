@@ -1,5 +1,6 @@
 """Native input transfers through an authored BACnet UDP controller."""
 
+import asyncio
 import copy
 import types
 
@@ -14,6 +15,7 @@ from bms_tool.moi_parameters import ParameterApplication
 from bms_tool.native_inputs import NativeInputCompiler, raw_property
 
 from .test_native_applications import native_link as native_link
+from .test_native_default_transfer import NativeRouter
 from .test_native_inputs import allocation, config, initialized_input_files, source
 
 
@@ -221,3 +223,41 @@ async def test_unrelated_receipt_cannot_authorize_removing_an_input(native_link)
             "wrong-origin",
         )
     service.storage.receipt = original_receipt
+
+
+@pytest.mark.parametrize("fault", ["", "wrong-mode"])
+async def test_input_transfer_and_explicit_readback_use_the_original_routed_envelopes(
+    native_link, fault
+):
+    peer, service = install_input_peer(native_link)
+    host, port = native_link[-1]["address"].split(":")
+    transport, proxy = await asyncio.get_running_loop().create_datagram_endpoint(
+        lambda: NativeRouter((host, int(port))), local_addr=("127.0.0.1", 0)
+    )
+    target = native_link[-1] | {"address": "3001:7", "router": proxy.endpoint, "dnet": 3001}
+    link = (*native_link[:-1], target)
+    try:
+        _, plan = await preview(link, allocation(), "routed")
+        peer.input_fault = fault
+        result = await service.apply_input(**apply(plan, "routed"))
+        assert result["intent"]["target"] == {k: target[k] for k in ("address", "router", "dnet")}
+        if fault:
+            assert result["result"]["status"] != "verified", result
+        else:
+            assert result["result"]["status"] == "verified", result
+        writes = len([event for event in peer.events if event[0] == "write"])
+        peer.input_fault = ""
+        receipt = await service.reconcile(
+            operation_id="routed-input-readback", receipt_id=result["intent"]["id"]
+        )
+        assert receipt["events"][-1]["detail"]["status"] == "verified", receipt
+        assert len([event for event in peer.events if event[0] == "write"]) == writes
+        assert not proxy.errors and not proxy.clients
+        assert len(proxy.requests) == len(proxy.responses)
+        assert any(row["type"] == "AtomicWriteFileRequest" for row in proxy.requests)
+        assert [event for event in peer.events if event == ("state", "start-restore")] == [
+            ("state", "start-restore")
+        ]
+    finally:
+        transport.close()
+        await asyncio.sleep(0.02)

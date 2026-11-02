@@ -332,6 +332,64 @@ test("input review keeps Apply as its one primary action", async ({
   }
 });
 
+test("capturing the selected controller cannot carry an edited foreign source into it", async ({
+  page,
+  request,
+  nativeScheduleWriteServer,
+}) => {
+  const root = path.resolve(".."),
+    foreign = JSON.parse(
+      execFileSync(
+        path.join(root, ".venv/bin/python"),
+        [
+          "-c",
+          `
+import json,sys
+from pathlib import Path
+from bms_tool.storage import Store
+from bms_tool.application_store import ApplicationStore
+from tests.test_native_inputs import source
+s=ApplicationStore(Store(Path(sys.argv[1])))
+c=s.save({'target':{'address':'127.0.0.1:47998','router':None,'dnet':None},'device':'device,5136','identity':{'device':'device,5136','object-name':'Authored controller'},'source_identity_matches':True,'connector_config':{}},source())
+print(json.dumps(c))
+`,
+          nativeScheduleWriteServer.directory,
+        ],
+        {
+          cwd: root,
+          env: { ...process.env, PYTHONPATH: root + "/backend:" + root },
+          encoding: "utf8",
+        },
+      ),
+    );
+  const peer = await nativeDefaultPeer("consume", "input");
+  try {
+    const p = await open(page, request, peer.direct);
+    await p
+      .getByLabel("Retained native input source", { exact: true })
+      .selectOption(foreign.id);
+    await p
+      .getByLabel("Native input name", { exact: true })
+      .fill("Foreign unfinished input");
+    const before = await peer.command("stats");
+    await p
+      .getByRole("button", { name: "Capture native inputs", exact: true })
+      .click();
+    await expect(p.getByRole("alert")).toContainText(
+      "Discard the local input draft",
+    );
+    await expect(
+      p.getByLabel("Retained native input source", { exact: true }),
+    ).toHaveValue(foreign.id);
+    await expect(
+      p.getByLabel("Native input name", { exact: true }),
+    ).toHaveValue("Foreign unfinished input");
+    expect((await peer.command("stats")).events).toEqual(before.events);
+  } finally {
+    peer.close();
+  }
+});
+
 test("CAF entry can edit and save a retained native input copy with no field interface", async ({
   page,
   request,
@@ -355,6 +413,7 @@ from bms_tool.application_store import ApplicationStore
 from tests.test_native_inputs import source
 s=ApplicationStore(Store(Path(sys.argv[1])))
 c=s.save({'target':{'address':'127.0.0.1:47999','router':None,'dnet':None},'device':'device,5136','identity':{'device':'device,5136','object-name':'Authored controller'},'source_identity_matches':True,'connector_config':{}},source())
+c['alternate_id']=s.save({'target':{'address':'127.0.0.1:47998','router':None,'dnet':None},'device':'device,5136','identity':{'device':'device,5136','object-name':'Authored controller'},'source_identity_matches':True,'connector_config':{}},source())['id']
 print(json.dumps(c))
 `,
         nativeScheduleWriteServer.directory,
@@ -439,6 +498,30 @@ print(json.dumps(c))
     .getByRole("button", { name: "Save native copy", exact: true })
     .click();
   await download;
+  await p
+    .getByLabel("Retained native input source", { exact: true })
+    .selectOption(capture.alternate_id);
+  await expect(p.getByRole("alert")).toContainText(
+    "Discard the local input draft",
+  );
+  await expect(p.getByLabel("Native input name", { exact: true })).toHaveValue(
+    "Offline spare input",
+  );
+  await expect(
+    p.getByLabel("Retained native input source", { exact: true }),
+  ).toHaveValue(capture.id);
+  await p
+    .getByRole("button", { name: "Discard local input draft", exact: true })
+    .click();
+  await p
+    .getByLabel("Retained native input source", { exact: true })
+    .selectOption(capture.alternate_id);
+  await expect(
+    p.getByLabel("Retained native input source", { exact: true }),
+  ).toHaveValue(capture.alternate_id);
+  await expect(p.getByLabel("Native input name", { exact: true })).toHaveValue(
+    "",
+  );
   expect(
     (await (await request.get("/api/session")).json()).field_network_open,
   ).toBe(false);

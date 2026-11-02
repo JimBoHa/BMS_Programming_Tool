@@ -26,6 +26,11 @@ operator must save/discard earlier work at capacity. Discard affects the local
 draft, not original captures or durable transfer receipts. Field reviews and
 confirmations retire on edits, target/interface changes, navigation and visibility
 changes. A late reply cannot restore their authority.
+Opening another retained source, or capturing the selected controller while an
+edited source belongs to a different target, requires explicit local discard.
+Save a native copy first when needed. A refusal preserves the current source and
+proposal and performs no field operation. Recapturing the same controller can
+retain its proposal for a new review against fresh settings.
 
 ## Qualified profile
 
@@ -114,7 +119,10 @@ Authored tests cover allocation, terminal occupancy, integral-sensor exclusion,
 mode changes, typed scaling, opaque property preservation, saved-presence handling,
 reference-protected removal, local export and strict HTTP admission. Real UDP peer
 tests exercise transfer, one-use plans, stale identifier checks, missing/negative
-responses and published-property mismatch followed by explicit readback. Browser
+responses and published-property mismatch followed by explicit readback.
+Routed UDP cases verify original router/DNET/station envelopes, attributable
+absence, allocation and readback, including uncertainty followed by readback with
+no repeated download. Browser
 tests follow the actual UI through allocation, voltage/resistance round trips and
 removal, local copy saving, task navigation and substituted-review rejection.
 CAF entry also reaches retained native input copies through Points & I/O without

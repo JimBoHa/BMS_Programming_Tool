@@ -263,6 +263,19 @@ export function NativeInputs({
   async function run(kind: string, id?: string) {
     if (busy) return;
     if (
+      work.source &&
+      !same(work.form, blank()) &&
+      ((kind === "source" && id !== work.source.capture_id) ||
+        (kind === "capture" &&
+          (!matchesTarget(work.source.target) ||
+            work.source.identity?.device !== controller?.device)))
+    ) {
+      setError(
+        "Discard the local input draft before opening a different source. Save a native copy first if needed; existing work was kept.",
+      );
+      return;
+    }
+    if (
       ["capture", "review", "apply", "readback"].includes(kind) &&
       (!controller || !connected)
     ) {
