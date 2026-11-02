@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-02. Implementation baseline: GitHub `main` at
-[`261b618f`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/261b618faf8ac70a53d10ca7f983ceea092e2160).
+[`ed84391d`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/ed84391db3ec860d398ece7b26dcca9e326ad39a).
 
 ## Baseline and purpose
 
@@ -84,6 +84,13 @@ verified Apply or explicit readback clears only its matching completed proposal.
 This is in-memory workspace retention, not durable draft storage across reloads.
 
 ## Existing capabilities to preserve and credit
+
+[Unfinished exception import](docs/unfinished-exception-import.md) now restores
+source-bound raw exception text after reload. Strict file/source/buffer checks,
+explicit replacement refusal and existing no-eviction workspace limits preserve
+partial numeric/time/String/date work without creating native or field authority.
+File provenance stays separate from reviewed encoding proof. Other draft-family
+raw recovery remains a separate planned workflow.
 
 [Native review cancellation](docs/native-review-cancellation.md) now retires owned
 completed Calendar and numeric/String weekly reviews, including weekly workspace

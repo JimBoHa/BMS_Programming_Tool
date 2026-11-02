@@ -75,9 +75,10 @@ edits** restores only the selected captured seed. The retained-source list also
 lets an operator save or explicitly discard an earlier buffer.
 
 **Save unfinished exception text** exports raw editor fields and source references
-for manual recovery, including invalid partial text. This separate document has
-no import action or native review proof. Reviewed JSON import remains the restore
-path for complete reviewed work. These buffers stay in memory; reloading or
+for manual recovery, including invalid partial text. The [unfinished-text import](unfinished-exception-import.md) now restores it
+only for its original captured Schedule, with strict shape/size/source checks and
+explicit replacement refusal. It creates no native review proof. Reviewed JSON
+import remains the separate restore path for complete reviewed work. These buffers stay in memory; reloading or
 restarting requires saving first. No original capture is deleted by draft discard.
 
 Pending reviews, imports and exports retire on raw/source/selected-controller,

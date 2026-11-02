@@ -38,9 +38,8 @@ async function freePort(): Promise<number> {
     });
   });
 }
-/** Exact state ownership permits faulting one actual intent without touching shared history. */
+/** Each test owns its history, capture quota and fault-injection files. */
 export const test = base.extend<
-  {},
   { nativeScheduleWriteServer: { url: string; directory: string } }
 >({
   nativeScheduleWriteServer: [
@@ -107,7 +106,7 @@ export const test = base.extend<
         }
       }
     },
-    { scope: "worker" },
+    { scope: "test" },
   ],
   baseURL: async ({ nativeScheduleWriteServer }, use) =>
     use(nativeScheduleWriteServer.url),
