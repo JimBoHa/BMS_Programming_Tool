@@ -33,8 +33,10 @@ Raw lengths match the browser's UTF-16 field limits, including astral characters
 The browser verifies the original file hash and exact parsed source/buffer against
 the returned response before copying it into the workspace. It also rejects
 unknown fields, changed authority declarations and substituted response content.
-A late reply cannot replace work after edits, source changes, navigation,
-visibility or A→B→A transitions. No review survives restoring text.
+Starting a raw import immediately retires its current local/field review. If an
+import is refused, existing fields stay intact and require another review. A late
+reply cannot replace work after edits, source changes, navigation, visibility or
+A→B→A transitions. No review survives restoring text.
 
 ## Provenance and authority
 

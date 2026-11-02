@@ -466,8 +466,14 @@ for (const action of ["edit", "source ABA", "visibility", "task"] as const)
       { times: 1 },
     );
     try {
+      await reviewed(page);
       await restore(page, file);
       await held;
+      await expect(
+        panel(page).getByLabel("Native exception draft review", {
+          exact: true,
+        }),
+      ).toHaveCount(0);
       if (action === "edit")
         await panel(page)
           .getByLabel("Exception time 1 value", { exact: true })

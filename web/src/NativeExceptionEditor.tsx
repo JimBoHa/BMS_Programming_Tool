@@ -225,7 +225,7 @@ export function NativeExceptionEditor({
       wanted = context;
     setPending(kind);
     setError("");
-    if (kind === "review") setReviewRecord(null);
+    if (kind === "review" || kind === "raw_import") setReviewRecord(null);
     try {
       if (kind === "raw_import") {
         if (
