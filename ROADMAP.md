@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-02. Implementation baseline: GitHub `main` at
-[`c9b88617`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/c9b886177dccc215fe038b88732cc19472b3d4ff).
+[`3c5d4e54`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/3c5d4e549c514177a241929ddcda59d3c3d57788).
 
 ## Baseline and purpose
 
@@ -84,6 +84,12 @@ verified Apply or explicit readback clears only its matching completed proposal.
 This is in-memory workspace retention, not durable draft storage across reloads.
 
 ## Existing capabilities to preserve and credit
+
+[Matching weekday assistance](docs/calendar-weekday-assistance.md) now supplies an
+explicit civil-date action in shared Calendar and exception controls. It changes
+only the selected weekday for a complete valid date, preserves wildcard/unfinished
+text, and uses the existing edit/review retirement path. It queries no clock or
+field interface and changes no native profile or deployment authority.
 
 [Native Schedule exception deployment](docs/native-schedule-exception-deployment.md)
 now adds fresh selected-controller review, one whole-array write attempt, exact

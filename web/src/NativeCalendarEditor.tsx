@@ -9,6 +9,7 @@ import { ChevronDown } from "lucide-react";
 import { api, apiJsonDocument, saveBlob } from "./api";
 import { NativeCalendarWritePanel } from "./NativeCalendarWritePanel";
 import { sameCalendarTarget } from "./nativeCalendarWrite";
+import { calendarMatchingWeekday } from "./calendarWeekday";
 import type { ControllerTarget } from "./workflow";
 import {
   CALENDAR_BASE,
@@ -110,6 +111,8 @@ export function DateFields({
 }) {
   const field = (index: number, text: string) =>
     change(value.map((old, i) => (i === index ? text : old)));
+  const weekday = calendarMatchingWeekday(value),
+    weekdayName = WEEKDAYS.find(([id]) => id === weekday)?.[1];
   return (
     <div className="native-calendar-fields">
       <label>
@@ -140,6 +143,21 @@ export function DateFields({
         options={WEEKDAYS}
         change={(text) => field(3, text)}
       />
+      <button
+        className="native-calendar-weekday-action"
+        aria-label={`Set matching weekday for ${label}`}
+        disabled={weekday === null || weekday === value[3]}
+        title={
+          weekday === null
+            ? "Enter a specific valid year, month and day first."
+            : `Matching civil weekday: ${weekdayName}. No clock lookup.`
+        }
+        onClick={() => {
+          if (weekday !== null && weekday !== value[3]) field(3, weekday);
+        }}
+      >
+        {weekdayName ? `Set weekday to ${weekdayName}` : "Set matching weekday"}
+      </button>
     </div>
   );
 }
