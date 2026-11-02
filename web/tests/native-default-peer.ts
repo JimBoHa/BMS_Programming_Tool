@@ -38,11 +38,14 @@ async def main():
   app.files=point_files();attach_point_reads(app,published_old=sys.argv[1]=='published-old')
   import gzip,types
   from tests.test_controller_application import native_record,encoded
+  from tests.test_moi_parameters import binary_saved_state
   from bacpypes3.primitivedata import ObjectIdentifier,CharacterString,Real
   from bacpypes3.apdu import ReadPropertyACK
   from bacpypes3.constructeddata import Any
   flow=native_record(570,73,[(32527,encoded(CharacterString('controller/flow'))),(75,encoded(ObjectIdentifier((570,73)))),(3506,encoded(Real(3.5)))])
-  raw=bytearray(gzip.decompress(app.files[3]));struct.pack_into('<I',raw,10,struct.unpack_from('<I',raw,10)[0]+1);raw.extend(struct.pack('<H',len(flow)+2)+flow);app.files[3]=gzip.compress(bytes(raw),mtime=0)
+  binary=native_record(242,73,[(32527,encoded(CharacterString('controller/binary'))),(75,encoded(ObjectIdentifier((3,73))))])
+  _,app.files[11],app.files[12]=binary_saved_state()
+  raw=bytearray(gzip.decompress(app.files[3]));struct.pack_into('<I',raw,10,struct.unpack_from('<I',raw,10)[0]+2);raw.extend(struct.pack('<H',len(flow)+2)+flow+struct.pack('<H',len(binary)+2)+binary);app.files[3]=gzip.compress(bytes(raw),mtime=0)
   point_read=app.do_ReadPropertyRequest
   async def runtime_read(self,request):
    if request.objectIdentifier==ObjectIdentifier((570,73)) and int(request.propertyIdentifier)==3506:

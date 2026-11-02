@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { NativeRuntimeCalibration } from "./NativeRuntimeCalibration";
+import { NativeRuntimeParametersNotice } from "./NativeRuntimeParametersNotice";
 import {
   api,
   apiBlobDocument,
@@ -722,6 +723,9 @@ export function NativeDefaultTransfer({
             </p>
           )}
           <p>{shown.data.parameter_policy}</p>
+          <NativeRuntimeParametersNotice
+            parameters={shown.data.compilation.parameter_merge}
+          />
           <p>
             Review expires {shown.data.expires_at}.
             {!fresh && " Review expired; review the current source again."}
