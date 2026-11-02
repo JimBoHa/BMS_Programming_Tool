@@ -157,6 +157,14 @@ test("point configuration keeps drafts across tasks, retires reviews, and verifi
     await expect(
       p.getByRole("button", { name: "Apply point name", exact: true }),
     ).toBeDisabled();
+    await expect(
+      p.getByRole("note", {
+        name: "Read-only runtime timestamps",
+        exact: true,
+      }),
+    ).toContainText(
+      "1 read-only binary event timestamp(s) stay in the original backup",
+    );
     await chooseWorkspaceTask(page, "Overview");
     await chooseWorkspaceTask(page, "Points & I/O");
     p = await configure(page);

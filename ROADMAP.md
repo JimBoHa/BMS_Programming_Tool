@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-01. Implementation baseline: GitHub `main` at
-[`94921842`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/9492184201cf6f91c92ddea0896b602eeed32ee1).
+[`f65f4f88`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/f65f4f8827e91755d70aa4a81e9fa0bdddf97202).
 
 ## Baseline and purpose
 
@@ -111,7 +111,12 @@ terminals, rename supervisor objects or complete general native authoring.
 Native parameter preservation now handles qualified repeated unsaved runtime
 slots, restores typed saved properties omitted from existing application records,
 and resolves only exact declared logical root references across assigned Device
-instances. [Post-restore readiness](docs/native-restore-readiness.md) performs
+instances. Binary event timestamp slots now retain their validated original epoch
+as runtime evidence instead of synthesizing an integer application default;
+other saved settings still merge and read back independently. See the
+[timestamp qualification](docs/native-runtime-timestamp-qualification.md).
+Already-present unqualified date/time encodings and wider runtime schemas need
+their own preservation evidence. [Post-restore readiness](docs/native-restore-readiness.md) performs
 bounded identity/status reads after a validated commit ACK before full native
 verification, without repeating the transfer. Preserve these contracts and their
 [additional UDP and recovery regression checks](docs/native-transfer-regression-validation.md).
