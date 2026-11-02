@@ -6,6 +6,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { NativeBooleanTransferContext } from "./NativeBooleanTransferContext";
+import { NativeEnumDefaultCopy } from "./NativeEnumDefaultCopy";
 import { api } from "./api";
 import {
   NativeWireSourceCopy,
@@ -134,6 +135,15 @@ export function NativeRecords(props: RecordSource) {
             prop.id === 3113 &&
             prop.scalar?.datatype === "Boolean" &&
             typeof prop.scalar.value === "boolean",
+        )
+      : null;
+  const enumDefault =
+    native && detail?.record.ref && [528, 529].includes(detail.record.class_id)
+      ? detail.properties.find(
+          (prop: Data) =>
+            prop.id === 3113 &&
+            prop.scalar?.datatype === "Enumerated" &&
+            Number.isInteger(prop.scalar.value),
         )
       : null;
   useEffect(() => {
@@ -469,6 +479,26 @@ export function NativeRecords(props: RecordSource) {
           </div>
           {!detail.properties.length && (
             <p>No captured properties match this query.</p>
+          )}
+          {native && enumDefault && (
+            <NativeEnumDefaultCopy
+              key={JSON.stringify([
+                owner,
+                ownerGeneration.current,
+                props.source.target,
+                detail.record.ref,
+                detail.record.class_id,
+                enumDefault.encoded_sha256,
+                enumDefault.scalar.value,
+              ])}
+              source={props.source}
+              field={{
+                ref: detail.record.ref,
+                class_id: detail.record.class_id,
+                encoded_sha256: enumDefault.encoded_sha256,
+                value: enumDefault.scalar.value,
+              }}
+            />
           )}
           {native && props.booleanDrafts && booleanDefault && (
             <NativeBooleanDefaultCopy

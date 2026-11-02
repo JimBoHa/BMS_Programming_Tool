@@ -116,6 +116,7 @@ from .native_boolean_copies import BooleanCopyExport, BooleanCopyPreview, Native
 from .native_calendar_drafts import calendar_draft_router
 from .native_calendar_text import calendar_text_router
 from .native_calendar_write import NativeCalendarWrites, calendar_write_router
+from .native_enum_copies import native_enum_copy_router
 from .native_exception_text import exception_text_router
 from .native_exception_write import NativeExceptionWrites, exception_write_router
 from .native_historical_wire_copies import NativeHistoricalWireCopies, historical_wire_copy_router
@@ -757,6 +758,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.state.native_boolean_compiler = boolean_compiler
     app.include_router(native_application_router(native_applications))
     app.include_router(backup_import_router(native_applications.storage))
+    app.include_router(native_enum_copy_router(backup_records))
     app.include_router(identity_text_router(native_applications.storage))
     app.include_router(calendar_draft_router(schedule_library))
     app.include_router(calendar_text_router(schedule_library))

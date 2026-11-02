@@ -1,0 +1,28 @@
+.native-enum-copy {
+  min-width: 0;
+  margin-block: 24px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+}
+.native-enum-copy p,
+.native-enum-copy code,
+.native-enum-copy pre {
+  overflow-wrap: anywhere;
+}
+.native-enum-copy label {
+  display: grid;
+  gap: 8px;
+  margin-block: 16px;
+}
+.native-enum-copy input {
+  min-width: 0;
+  font-size: 14px;
+}
+.native-enum-copy pre {
+  white-space: pre-wrap;
+  max-height: 320px;
+  overflow: auto;
+  font-size: 14px;
+}
