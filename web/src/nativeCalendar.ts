@@ -14,12 +14,29 @@ export type CalendarRow = {
   end: string[];
   fields: string[];
 };
+export type CalendarDraftBuffer = {
+  rows: CalendarRow[];
+  imported: string;
+  rawImported?: { filename: string; file_sha256: string };
+};
 export type CalendarWork = {
   captureId: string;
   open: boolean;
   selected: Map<string, string>;
-  drafts: Map<string, { rows: CalendarRow[]; imported: string }>;
+  drafts: Map<string, CalendarDraftBuffer>;
 };
+export const CALENDAR_BUFFERS = 512;
+export function rememberCalendar(
+  work: CalendarWork,
+  key: string,
+  buffer: CalendarDraftBuffer,
+) {
+  if (!work.drafts.has(key) && work.drafts.size >= CALENDAR_BUFFERS)
+    throw new Error(
+      "Calendar workspace is full. Export and discard an existing Calendar draft before editing another.",
+    );
+  work.drafts.set(key, structuredClone(buffer));
+}
 export const calendarWork = (): CalendarWork => ({
   captureId: "",
   open: false,

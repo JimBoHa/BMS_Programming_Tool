@@ -8,9 +8,15 @@ import {
 import { ChevronDown } from "lucide-react";
 import { api, apiJsonDocument, saveBlob } from "./api";
 import { NativeCalendarWritePanel } from "./NativeCalendarWritePanel";
-import { sameCalendarTarget } from "./nativeCalendarWrite";
+import { sameCalendarTarget, calendarDocumentSha } from "./nativeCalendarWrite";
+import { parseSourceJSON } from "./programSource";
+import {
+  UNFINISHED_CALENDAR_BYTES,
+  unfinishedCalendarDocument,
+  unfinishedCalendarImport,
+} from "./unfinishedCalendar";
 import { calendarMatchingWeekday } from "./calendarWeekday";
-import type { ControllerTarget } from "./workflow";
+import { controllerKey, type ControllerTarget } from "./workflow";
 import {
   CALENDAR_BASE,
   blankCalendarRow,
@@ -19,6 +25,8 @@ import {
   calendarRows,
   calendarSource,
   ordered,
+  rememberCalendar,
+  type CalendarDraftBuffer,
   type CalendarRow,
   type CalendarWork,
 } from "./nativeCalendar";
@@ -91,6 +99,9 @@ export function Choice({
         <option value="" disabled>
           Choose…
         </option>
+        {value && !options.some(([id]) => id === value) && (
+          <option value={value}>Unrecognized value: {value}</option>
+        )}
         {options.map(([id, title]) => (
           <option key={id} value={id}>
             {title}
@@ -203,7 +214,12 @@ export function NativeCalendarEditor({
     sourceEpoch = useRef(0),
     generation = useRef(0),
     operation = useRef(0);
-  const owner = JSON.stringify([captureId, connectionKey]),
+  const owner = JSON.stringify([
+      captureId,
+      connected,
+      connected ? connectionKey : "closed",
+      selectedTarget ? controllerKey(selectedTarget) : null,
+    ]),
     ownerNow = useRef(owner);
   ownerNow.current = owner;
   const source = sourceRecord?.owner === owner ? sourceRecord.data : null;
@@ -297,12 +313,14 @@ export function NativeCalendarEditor({
       setError("");
     };
     document.addEventListener("visibilitychange", retire);
+    window.addEventListener("pagehide", retire);
     return () => {
       alive.current = false;
       sourceEpoch.current++;
       generation.current++;
       operation.current++;
       document.removeEventListener("visibilitychange", retire);
+      window.removeEventListener("pagehide", retire);
     };
   }, []);
   useEffect(() => {
@@ -325,32 +343,86 @@ export function NativeCalendarEditor({
       setError(String(failure));
     }
   }
-  function change(next: CalendarRow[], imported = "") {
+  function change(
+    next: CalendarRow[],
+    imported = cached?.imported || "",
+    rawImported:
+      | CalendarDraftBuffer["rawImported"]
+      | null = cached?.rawImported || null,
+  ) {
     if (!key) return;
-    if (!work.drafts.has(key) && work.drafts.size >= 512) {
-      setError(
-        "Calendar workspace is full. Export and discard an existing Calendar draft before editing another.",
-      );
+    try {
+      rememberCalendar(work, key, {
+        rows: next,
+        imported,
+        ...(rawImported ? { rawImported } : {}),
+      });
+    } catch (failure) {
+      setError(String(failure));
       return;
     }
     generation.current++;
     operation.current++;
-    work.drafts.set(key, { rows: next, imported });
     setReviewRecord(null);
     setPending(null);
     setError("");
     paint((n) => n + 1);
   }
-  async function run(kind: "review" | "export", file?: File) {
+  async function run(kind: "review" | "export" | "raw_import", file?: File) {
     if (!selected?.eligible || busy) return;
     const id = ++operation.current,
       epoch = generation.current,
       wanted = context;
     setPending({ id, context: wanted });
     setError("");
-    if (kind === "review") setReviewRecord(null);
+    if (kind === "review" || kind === "raw_import") setReviewRecord(null);
     try {
-      if (file) {
+      if (kind === "raw_import") {
+        if (
+          !file ||
+          !file.name ||
+          file.name.length > 1024 ||
+          file.size > UNFINISHED_CALENDAR_BYTES
+        )
+          throw new Error(
+            "Unfinished Calendar file exceeds its 128 KiB or filename bound.",
+          );
+        const original = parseSourceJSON(
+          new TextDecoder("utf-8", { fatal: true }).decode(
+            await file.arrayBuffer(),
+          ),
+        );
+        const sha = await calendarDocumentSha(file);
+        if (!current(id, epoch, wanted)) return;
+        const form = new FormData();
+        form.append("file", file);
+        const document = await apiJsonDocument(
+          CALENDAR_BASE + "/unfinished/import",
+          form,
+        );
+        if (document.blob.size > UNFINISHED_CALENDAR_BYTES + 65536)
+          throw new Error(
+            "Unfinished Calendar response exceeds its byte bound.",
+          );
+        const buffer = unfinishedCalendarImport(
+          document.data,
+          captureId,
+          selectedObject,
+          sha,
+          original,
+        );
+        if (current(id, epoch, wanted)) {
+          if (work.drafts.has(key))
+            throw new Error(
+              "Discard this retained Calendar draft before importing unfinished text for the same object. Existing work was kept.",
+            );
+          change(
+            buffer.rows.map((row) => ({ ...row, key: crypto.randomUUID() })),
+            buffer.imported,
+            { filename: file.name, file_sha256: sha },
+          );
+        }
+      } else if (file) {
         if (file.size > 128 * 1024)
           throw new Error("Calendar draft exceeds 128 KiB.");
         const form = new FormData();
@@ -361,7 +433,7 @@ export function NativeCalendarEditor({
           selected,
         );
         if (current(id, epoch, wanted))
-          change(calendarRows(data.request.entries), data.id);
+          change(calendarRows(data.request.entries), data.id, null);
       } else {
         const draft = calendarRequest(captureId, selectedObject, rows);
         if (kind === "review") {
@@ -402,7 +474,20 @@ export function NativeCalendarEditor({
       if (current(id, epoch, wanted)) setPending(null);
     }
   }
-  const input = useRef<HTMLInputElement>(null);
+  function exportUnfinished() {
+    if (!cached || !selected?.eligible) return;
+    try {
+      saveBlob(
+        unfinishedCalendarDocument(captureId, selectedObject, cached),
+        `native-calendar-unfinished-${captureId.slice(0, 12)}-${selectedObject.split(",")[1]}.json`,
+      );
+      setError("");
+    } catch (failure) {
+      setError(String(failure));
+    }
+  }
+  const input = useRef<HTMLInputElement>(null),
+    rawInput = useRef<HTMLInputElement>(null);
   return (
     <section
       className="native-calendar-editor"
@@ -464,12 +549,63 @@ export function NativeCalendarEditor({
                 patterns are encoded without inferring a controller date or
                 timezone.
               </p>
-              {cached?.imported && (
+              {cached?.imported && !cached.rawImported && (
                 <p role="status">
                   Imported local Calendar review {cached.imported}. Review again
                   before exporting.
                 </p>
               )}
+              <details>
+                <summary>Unfinished Calendar drafts</summary>
+                <p>
+                  {work.drafts.size} of 512 source drafts retained. Save
+                  unfinished text and its original capture archive before
+                  reloading. No work is evicted; discard a retained draft
+                  explicitly before replacing it.
+                </p>
+                <div className="toolbar">
+                  <button disabled={busy || !cached} onClick={exportUnfinished}>
+                    Export unfinished Calendar text
+                  </button>
+                  <button
+                    disabled={busy}
+                    onClick={() => rawInput.current?.click()}
+                  >
+                    Import unfinished Calendar text
+                  </button>
+                </div>
+                <input
+                  type="file"
+                  hidden
+                  accept=".json"
+                  ref={rawInput}
+                  aria-label="Import unfinished Calendar text file"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = "";
+                    if (file) void run("raw_import", file);
+                  }}
+                />
+                {cached?.rawImported && (
+                  <div aria-label="Unfinished Calendar import provenance">
+                    <p>
+                      Unfinished text restored from a raw file. Filenames and
+                      earlier review IDs are unverified references; review the
+                      current draft separately.
+                    </p>
+                    <pre>
+                      {JSON.stringify(
+                        {
+                          imported: cached.imported,
+                          rawImported: cached.rawImported,
+                        },
+                        null,
+                        2,
+                      )}
+                    </pre>
+                  </div>
+                )}
+              </details>
               <div className="native-calendar-scroll">
                 <table>
                   <caption>Local Calendar entries</caption>
