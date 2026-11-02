@@ -1,0 +1,81 @@
+.native-calendar-editor {
+  margin-top: 16px;
+  min-width: 0;
+}
+.native-calendar-editor label {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.native-calendar-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-block: 8px;
+}
+.native-calendar-fields input {
+  width: 100px;
+}
+.native-calendar-fields input,
+.native-calendar-fields select,
+.native-calendar-editor select {
+  font-size: 14px;
+  min-height: 36px;
+}
+.native-calendar-select {
+  display: grid;
+  position: relative;
+  min-width: 0;
+}
+.native-calendar-select select {
+  appearance: none;
+  height: 40px;
+  width: 100%;
+  padding: 8px 32px 8px 8px;
+}
+.native-calendar-select svg {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.native-calendar-scroll {
+  overflow-x: auto;
+  margin-block: 16px;
+}
+.native-calendar-editor table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 14px;
+}
+.native-calendar-editor th,
+.native-calendar-editor td {
+  text-align: left;
+  vertical-align: top;
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.native-calendar-editor pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 700px) {
+  .native-calendar-editor thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .native-calendar-editor table,
+  .native-calendar-editor tbody,
+  .native-calendar-editor tr,
+  .native-calendar-editor td {
+    display: block;
+  }
+  .native-calendar-editor tr {
+    margin-bottom: 16px;
+    border: 1px solid var(--border);
+  }
+}
