@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { NativeRuntimeCalibration } from "./NativeRuntimeCalibration";
 import {
   api,
   apiBlobDocument,
@@ -919,6 +920,7 @@ export function NativeInstancePanel(
               </p>
             )}
             {observed?.error && <p role="alert">{observed.error}</p>}
+            <NativeRuntimeCalibration report={observed?.runtime_calibration} />
             {!!observed?.preservation?.device_calculated_changes?.length && (
               <p role="status">
                 The controller refreshed its automatic flow calibration offset.

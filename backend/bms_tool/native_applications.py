@@ -72,6 +72,7 @@ from .native_point_names import (
     compile_point_name,
     verify_point_name_preservation,
 )
+from .native_runtime_calibration import read_runtime_calibration
 from .native_wire_compiler import EffectiveWirePreview
 from .native_wire_recovery import PROFILE as WIRE_RECOVERY_PROFILE
 from .native_wire_transfer import PROFILE as WIRE_PROFILE
@@ -1090,6 +1091,9 @@ class NativeApplications:
                     if name != edit.new_name:
                         result["error"] = "The published point name differs from the reviewed name."
                         return result
+                result["runtime_calibration"] = await read_runtime_calibration(
+                    files[3], self.files.exchange, session
+                )
                 status = int(await self.path._read(session, options.device, "system-status"))
                 result.update(system_status=status, operational=status == 0)
                 if status == 0:

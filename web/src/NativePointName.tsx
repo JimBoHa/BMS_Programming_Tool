@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { NativeRuntimeCalibration } from "./NativeRuntimeCalibration";
 import { api, apiKeepalive, apiJsonDocument, saveBlob } from "./api";
 import { controllerKey, type ControllerContext } from "./workflow";
 
@@ -322,6 +323,7 @@ export function NativePointName({
         {error && <p role="alert">{error}</p>}
         {work.receipt && (
           <section aria-label="Point name transfer receipt">
+            <NativeRuntimeCalibration report={observed?.runtime_calibration} />
             <p>
               Result: <strong>{observed?.status || "unknown"}</strong>.
               Published name: {observed?.published_point_name || "not verified"}

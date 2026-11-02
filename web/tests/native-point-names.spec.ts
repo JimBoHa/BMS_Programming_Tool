@@ -181,6 +181,15 @@ test("point configuration keeps drafts across tasks, retires reviews, and verifi
       p.getByRole("region", { name: "Point name transfer receipt" }),
     ).toContainText("Published name: Reviewed input.", { timeout: 30000 });
     expect(writes).toHaveLength(1);
+    const calibration = p.getByRole("region", {
+      name: "Live flow calibration readback",
+    });
+    await expect(calibration).toContainText("calibration differs");
+    await calibration
+      .getByText("Live airflow calibration values", { exact: true })
+      .click();
+    await expect(calibration).toContainText("3.5");
+    await expect(calibration).toContainText("0.25");
     const stats = await peer.command("stats");
     expect(
       stats.events.filter(
