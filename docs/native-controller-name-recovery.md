@@ -12,6 +12,8 @@ visibility changes retire pending local replies, including A→B→A changes. A
 bounded in-memory context cache retains local sources, receipts, ordinary drafts
 and completed proposals across task navigation. It never restores a transfer
 review, confirmations or an operation. Reload requires explicit source selection.
+The [32-context retention policy](native-identity-draft-capacity.md) refuses new
+work instead of evicting older drafts and provides explicit save/discard actions.
 
 An offline proposal does not change a controller. Connect and verify the exact
 source station, choose **Review name change**, confirm both the name change and

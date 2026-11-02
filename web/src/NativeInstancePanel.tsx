@@ -23,16 +23,21 @@ import {
   instanceRecoveryReviewMatches,
   previousInstanceMatches,
 } from "./nativeInstanceRecoveryContract";
+import {
+  type NativeIdentityWork,
+  emptyIdentityWork,
+  hasIdentityDraft,
+  canRememberIdentityWork,
+  rememberIdentityWork,
+  releaseEmptyIdentityWork,
+  identityDraftDocument,
+  IDENTITY_DRAFT_LIMIT,
+} from "./nativeIdentityWork";
 
 const base = "/bacnet/controller/native-application";
-type LocalIdentityWork = {
-  capture: any;
-  receipt: any;
-  newName: string;
-  number: string;
-  recovery: any;
-};
-const localIdentityWork = new Map<string, LocalIdentityWork>();
+const localIdentityWork = new Map<string, NativeIdentityWork>();
+const capacityMessage =
+  "All 32 native identity draft slots are in use. Save and explicitly discard retained work below before opening another draft. Existing work was kept.";
 
 export function NativeInstancePanel(
   props: DeviceInstanceProps & { changeKind?: "name" | "instance" },
@@ -74,6 +79,8 @@ export function NativeInstancePanel(
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [draftChoice, setDraftChoice] = useState("");
+  const [, changeDraftList] = useState(0);
   const mounted = useRef(false),
     generation = useRef(0),
     receiptEpoch = useRef(0);
@@ -88,6 +95,27 @@ export function NativeInstancePanel(
     props.defaultDnet,
     props.changeKind,
   ]);
+  const selectionNow = useRef(selection);
+  selectionNow.current = selection;
+  const workNow = useRef(emptyIdentityWork());
+  workNow.current = { capture, receipt, newName, number, recovery };
+  const draftAvailable = canRememberIdentityWork(localIdentityWork, selection);
+  const retainedDraft = localIdentityWork.get(draftChoice);
+  function keep(changes: Partial<NativeIdentityWork> = {}, pending = false) {
+    if (selectionNow.current !== selection) return false;
+    if (
+      !rememberIdentityWork(
+        localIdentityWork,
+        selection,
+        { ...workNow.current, ...changes },
+        pending,
+      )
+    ) {
+      setError(capacityMessage);
+      return false;
+    }
+    return true;
+  }
   const [hydrated, setHydrated] = useState("");
   const localReady = hydrated === selection;
   const recoveryActive =
@@ -163,19 +191,25 @@ export function NativeInstancePanel(
     setConfirmed(false);
     setError("");
     setHydrated(selection);
+    return () => releaseEmptyIdentityWork(localIdentityWork, selection);
   }, [selection]);
   useEffect(() => {
     if (!localReady) return;
-    localIdentityWork.delete(selection);
-    localIdentityWork.set(selection, {
-      capture,
-      receipt,
-      newName,
-      number,
-      recovery,
-    });
-    while (localIdentityWork.size > 32)
-      localIdentityWork.delete(localIdentityWork.keys().next().value!);
+    if (
+      !rememberIdentityWork(
+        localIdentityWork,
+        selection,
+        {
+          capture,
+          receipt,
+          newName,
+          number,
+          recovery,
+        },
+        (busy || localBusy) && localIdentityWork.has(selection),
+      )
+    )
+      setError(capacityMessage);
   }, [
     selection,
     renaming,
@@ -185,6 +219,8 @@ export function NativeInstancePanel(
     newName,
     number,
     recovery,
+    busy,
+    localBusy,
   ]);
   useEffect(() => {
     if (!renaming && !localBusy) return;
@@ -204,6 +240,7 @@ export function NativeInstancePanel(
     return () => window.clearInterval(timer);
   }, [plan, busy]);
   function editNumber(value: string) {
+    if (!keep({ number: value })) return;
     cancel();
     generation.current++;
     setPlan(null);
@@ -212,6 +249,7 @@ export function NativeInstancePanel(
     setNumber(value);
   }
   function editName(value: string) {
+    if (!keep({ newName: value })) return;
     cancel();
     generation.current++;
     setPlan(null);
@@ -229,11 +267,31 @@ export function NativeInstancePanel(
     setConfirmed(false);
     setLocalBusy(false);
   }
+  function discardDraft(key: string) {
+    if (locked || localBusy) return;
+    if (key === selection) {
+      cancel();
+      generation.current++;
+      receiptEpoch.current++;
+      setCapture(null);
+      setRecovery(null);
+      setNumber("");
+      setNewName("");
+      setPlan(null);
+      setAllocated(false);
+      setConfirmed(false);
+    }
+    localIdentityWork.delete(key);
+    setDraftChoice("");
+    changeDraftList((n) => n + 1);
+    setError("");
+  }
   async function identityLocal(
     kind: "sources" | "source" | "prepare",
     sourceId = "",
   ) {
     if (locked || !localReady) return;
+    if (kind !== "sources" && !keep({}, true)) return;
     cancel();
     setPlan(null);
     setAllocated(false);
@@ -332,6 +390,8 @@ export function NativeInstancePanel(
     )
       return;
     if (["capture", "preview", "apply"].includes(kind) && !ready) return;
+    if (["capture", "preview", "apply"].includes(kind) && !keep({}, true))
+      return;
     if (["capture", "preview"].includes(kind)) {
       generation.current++;
       setLocalBusy(false);
@@ -444,7 +504,11 @@ export function NativeInstancePanel(
             operation_id: id,
             receipt_id: receipt.intent.id,
           });
-        if (mounted.current && receiptGeneration === receiptEpoch.current) {
+        if (
+          mounted.current &&
+          selectionNow.current === selection &&
+          receiptGeneration === receiptEpoch.current
+        ) {
           if (
             kind === "readback" &&
             receipt.intent.recovery_origin &&
@@ -457,6 +521,7 @@ export function NativeInstancePanel(
           const observed =
             result.events?.filter((e: any) => e.stage === "readback").at(-1)
               ?.detail || result.result;
+          const retained = { ...workNow.current, receipt: result };
           if (
             epoch === generation.current &&
             ["verified", "recovered_original"].includes(observed?.status)
@@ -464,19 +529,27 @@ export function NativeInstancePanel(
             // A retained receipt must not retire a newer capture or proposal.
             // Original recovery did not apply the proposed identity change.
             if (capture?.id === result.intent?.review_capture_id) {
+              retained.recovery = null;
+              retained.capture = null;
               setRecovery(null);
               setCapture(null);
               if (observed.status === "verified") {
-                if (renaming && newName === result.intent.new_name)
+                if (renaming && newName === result.intent.new_name) {
+                  retained.newName = "";
                   setNewName("");
+                }
                 if (
                   !renaming &&
                   number.trim() &&
                   Number(number) === result.intent.new_instance
-                )
+                ) {
+                  retained.number = "";
                   setNumber("");
+                }
               }
             }
+            // Save matching cleanup before a verified identity changes the selected key.
+            rememberIdentityWork(localIdentityWork, selection, retained);
             props.onVerified?.({
               ...result.intent,
               ...observed,
@@ -488,7 +561,7 @@ export function NativeInstancePanel(
                   }
                 : {}),
             });
-          }
+          } else rememberIdentityWork(localIdentityWork, selection, retained);
         }
       }
       await refresh();
@@ -624,7 +697,12 @@ export function NativeInstancePanel(
           <button
             className={!capture ? "primary" : ""}
             aria-describedby={backupEffectsId}
-            disabled={!ready || locked || !status?.credentials_configured}
+            disabled={
+              !ready ||
+              locked ||
+              !draftAvailable ||
+              !status?.credentials_configured
+            }
             onClick={() => void run("capture")}
           >
             Read application backup
@@ -634,7 +712,105 @@ export function NativeInstancePanel(
               Save original backup
             </button>
           )}
+          <button
+            disabled={
+              locked ||
+              localBusy ||
+              !localReady ||
+              !hasIdentityDraft(workNow.current)
+            }
+            onClick={() => discardDraft(selection)}
+          >
+            Discard local identity draft
+          </button>
         </div>
+        {!draftAvailable && <p role="status">{capacityMessage}</p>}
+        <details>
+          <summary>Retained identity drafts</summary>
+          <p>
+            {localIdentityWork.size} of {IDENTITY_DRAFT_LIMIT} slots used. Empty
+            views and passive receipt viewing use no slot. Existing work is
+            never evicted. Drafts stay in memory; save local text before
+            reloading.
+          </p>
+          <label>
+            Retained local identity draft
+            <select
+              aria-label="Retained local identity draft"
+              value={
+                retainedDraft && hasIdentityDraft(retainedDraft)
+                  ? draftChoice
+                  : ""
+              }
+              disabled={locked || localBusy}
+              onChange={(event) => setDraftChoice(event.target.value)}
+            >
+              <option value="" disabled>
+                Choose retained work
+              </option>
+              {[...localIdentityWork]
+                .filter(([, work]) => hasIdentityDraft(work))
+                .map(([key]) => {
+                  const source = JSON.parse(key);
+                  return (
+                    <option key={key} value={key}>
+                      {source[6] === "name" ? "Name" : "Instance"} ·{" "}
+                      {source[3] || "No Device"} at {source[2] || "no address"}
+                      {source[4]
+                        ? ` via ${source[4]} / ${source[5]}`
+                        : ""} ·{" "}
+                      {source[0] ? "connected context" : "offline context"}
+                    </option>
+                  );
+                })}
+            </select>
+          </label>
+          {retainedDraft && hasIdentityDraft(retainedDraft) && (
+            <section aria-label="Retained native identity draft">
+              <p>
+                This is local work for the source below. Viewing it does not
+                change the selected controller. Original backups and receipts
+                remain in local History; this export saves raw proposal text and
+                source references.
+              </p>
+              <pre className="result">
+                {JSON.stringify(
+                  identityDraftDocument(draftChoice, retainedDraft),
+                  null,
+                  2,
+                )}
+              </pre>
+              <div className="button-row">
+                <button
+                  disabled={locked || localBusy}
+                  onClick={() =>
+                    saveBlob(
+                      new Blob(
+                        [
+                          JSON.stringify(
+                            identityDraftDocument(draftChoice, retainedDraft),
+                            null,
+                            2,
+                          ) + "\n",
+                        ],
+                        { type: "application/json" },
+                      ),
+                      `native-local-identity-draft-${Date.now()}.json`,
+                    )
+                  }
+                >
+                  Save local identity draft
+                </button>
+                <button
+                  disabled={locked || localBusy}
+                  onClick={() => discardDraft(draftChoice)}
+                >
+                  Discard selected retained draft
+                </button>
+              </div>
+            </section>
+          )}
+        </details>
         {localReady && (
           <details>
             <summary>Previous controller {family}</summary>
@@ -655,6 +831,7 @@ export function NativeInstancePanel(
                 disabled={
                   locked ||
                   localBusy ||
+                  !draftAvailable ||
                   !capture ||
                   !receipt ||
                   receipt.pending ||
@@ -677,7 +854,7 @@ export function NativeInstancePanel(
                       ? capture?.id
                       : ""
                   }
-                  disabled={locked || localBusy}
+                  disabled={locked || localBusy || !draftAvailable}
                   onChange={(event) =>
                     void identityLocal("source", event.target.value)
                   }
@@ -792,7 +969,7 @@ export function NativeInstancePanel(
                   <label>
                     New controller name
                     <input
-                      disabled={!localReady || locked}
+                      disabled={!localReady || locked || !draftAvailable}
                       value={proposedName}
                       readOnly={!!recoveryActive && !!recovery.data.proposal}
                       maxLength={128}
@@ -804,7 +981,7 @@ export function NativeInstancePanel(
                     New application Device instance (0–4194302)
                     <input
                       inputMode="numeric"
-                      disabled={!localReady || locked}
+                      disabled={!localReady || locked || !draftAvailable}
                       value={proposedNumber}
                       readOnly={!!recoveryActive && !!recovery.data.proposal}
                       onChange={(e) => editNumber(e.target.value)}

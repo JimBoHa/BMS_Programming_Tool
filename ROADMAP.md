@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
-Updated: 2026-11-01. Implementation baseline: GitHub `main` at
-[`b8fab225`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/b8fab22549976742be914fe8a4bf7779371c7b09).
+Updated: 2026-11-02. Implementation baseline: GitHub `main` at
+[`0ba84716`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/0ba847165e227351ea4cd6cf18d8786200813a0c).
 
 ## Baseline and purpose
 
@@ -84,6 +84,13 @@ verified Apply or explicit readback clears only its matching completed proposal.
 This is in-memory workspace retention, not durable draft storage across reloads.
 
 ## Existing capabilities to preserve and credit
+
+[Native identity draft capacity](docs/native-identity-draft-capacity.md) now
+retains unfinished name/instance contexts without evicting earlier work. Empty
+views and passive receipts use no slot; a full 32-context cache refuses new work
+until explicit discard. Retained-source inspection and raw-text JSON export do
+not change the selected controller or grant field authority. Original backups
+and journals stay independent; durable draft storage/import remains separate.
 
 [Weekly workspace continuity](docs/native-weekly-workspace-continuity.md)
 now retains exact unfinished numeric/time/String rows and imported provenance by
