@@ -1,0 +1,12 @@
+.native-enum-source-mode {
+  margin-top: 24px;
+  font-size: 14px;
+}
+.native-enum-source-mode > label {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.native-enum-source-mode select {
+  font-size: 14px;
+}
