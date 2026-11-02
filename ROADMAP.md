@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-02. Implementation baseline: GitHub `main` at
-[`ef04a16b`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/ef04a16b4f546c0f6fbb6955afa39ea035f04a0a).
+[`2eb1db94`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/2eb1db94f00205cc0191a8b041718d78edcc26ae).
 
 ## Baseline and purpose
 
@@ -94,7 +94,12 @@ File provenance stays separate from reviewed encoding proof. Separately qualifie
 [Calendar text recovery](docs/unfinished-calendar-recovery.md) now preserve their
 own exact source-bound raw buffers after reload. They retain existing workspace
 limits, require explicit discard before replacement and never restore review or
-field authority. Identity raw recovery remains a separate planned workflow.
+field authority. [Native identity text recovery](docs/unfinished-identity-recovery.md)
+now restores name/instance proposals for the same interface configuration and
+exact route/Device/edit kind, verifies locally retained original backups and
+keeps receipt/recovery references unverified. It restores no plan, confirmation
+or field authority. All four recovery families retain separate native admission
+and physical acceptance requirements.
 
 [Native review cancellation](docs/native-review-cancellation.md) now retires owned
 completed Calendar and numeric/String weekly reviews, including weekly workspace

@@ -4,6 +4,12 @@ export type NativeIdentityWork = {
   newName: string;
   number: string;
   recovery: any;
+  rawImported?: {
+    filename: string;
+    file_sha256: string;
+    receipt_id: string | null;
+    recovery_origin_sha256: string | null;
+  };
 };
 export const IDENTITY_DRAFT_LIMIT = 32;
 export const emptyIdentityWork = (): NativeIdentityWork => ({
@@ -31,7 +37,10 @@ export function rememberIdentityWork(
     return true;
   }
   if (!canRememberIdentityWork(drafts, key)) return false;
-  drafts.set(key, { ...work });
+  drafts.set(key, {
+    ...work,
+    ...(work.rawImported ? { rawImported: { ...work.rawImported } } : {}),
+  });
   return true;
 }
 export function releaseEmptyIdentityWork(
@@ -61,7 +70,19 @@ export function identityDraftDocument(key: string, work: NativeIdentityWork) {
     capture_id: work.capture?.id ?? null,
     captured_target: work.capture?.target ?? null,
     snapshot_sha256: work.capture?.snapshot_evidence_sha256 ?? null,
-    receipt_id: work.receipt?.intent?.id ?? null,
-    recovery_origin_sha256: work.recovery?.data?.origin_sha256 ?? null,
+    receipt_id:
+      work.receipt?.intent?.id ?? work.rawImported?.receipt_id ?? null,
+    recovery_origin_sha256:
+      work.recovery?.data?.origin_sha256 ??
+      work.rawImported?.recovery_origin_sha256 ??
+      null,
+    ...(work.rawImported
+      ? {
+          raw_imported: {
+            filename: work.rawImported.filename,
+            file_sha256: work.rawImported.file_sha256,
+          },
+        }
+      : {}),
   };
 }

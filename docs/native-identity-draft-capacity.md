@@ -20,12 +20,15 @@ the exact raw proposal text, its UI context, the distinct captured target and
 capture/receipt/recovery references. Leading whitespace and incomplete numeric
 text are preserved. This reference document has no field authority, executable
 plan, credentials or confirmations. It does not contain original application
-files or complete recovery evidence, and there is no import action for it.
+files or complete recovery evidence. The separately qualified
+[unfinished identity recovery](unfinished-identity-recovery.md) now imports raw
+text for the same interface configuration, route, Device and edit kind while
+requiring any referenced original backups locally. It restores no authority.
 
 Save original backups, original receipts and exact prepared recovery evidence
 through their existing actions when those artifacts are needed. They remain in
 the local backend independently of this in-memory list. Exported proposal text
-can be read and re-entered after reopening its original source; it is not an
+can be restored through that local importer; it is not an
 application backup or a transferable write authorization.
 
 **Discard local identity draft** clears only the current context's capture,
@@ -37,7 +40,8 @@ as the current controller or communicate with a device.
 
 Drafts remain in memory for the current page session. Reloading, restarting or
 moving computers requires saving proposal text and the separate original
-artifacts first. This slice does not add durable draft storage or JSON restore.
+artifacts first. The separate explicit JSON importer does not add automatic
+durable draft storage or restore native/field authorization.
 
 ## Field ownership and verification
 
