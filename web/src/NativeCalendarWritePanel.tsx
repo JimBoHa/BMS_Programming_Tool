@@ -176,6 +176,7 @@ export function NativeCalendarWritePanel({
         );
       if (valid(op)) accept(document, op);
     } catch (e) {
+      if (kind === "preview") cancelId(op.id);
       if (valid(op))
         setError(
           kind === "apply"

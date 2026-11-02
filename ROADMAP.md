@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-02. Implementation baseline: GitHub `main` at
-[`3c5d4e54`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/3c5d4e549c514177a241929ddcda59d3c3d57788).
+[`261b618f`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/261b618faf8ac70a53d10ca7f983ceea092e2160).
 
 ## Baseline and purpose
 
@@ -84,6 +84,13 @@ verified Apply or explicit readback clears only its matching completed proposal.
 This is in-memory workspace retention, not durable draft storage across reloads.
 
 ## Existing capabilities to preserve and credit
+
+[Native review cancellation](docs/native-review-cancellation.md) now retires owned
+completed Calendar and numeric/String weekly reviews, including weekly workspace
+lifecycle changes. Invalid returned previews also retire their owned server
+review. Valid Apply, active-write uncertainty, unrelated reviews and immutable
+historical receipts retain their existing contracts. The original profile/rule
+seals and journal formats stay unchanged.
 
 [Matching weekday assistance](docs/calendar-weekday-assistance.md) now supplies an
 explicit civil-date action in shared Calendar and exception controls. It changes
