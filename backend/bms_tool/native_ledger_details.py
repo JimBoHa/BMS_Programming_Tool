@@ -195,6 +195,10 @@ def recovery_lineage(body, kind, reference):
         return None
     if kind == "boolean-default":
         return boolean_recovery_lineage(body, reference)
+    if kind == "enum-default":
+        from .native_enum_recovery_ledger import enum_recovery_lineage
+
+        return enum_recovery_lineage(body, reference)
     if kind == "wire-source":
         return wire_recovery_lineage(body, reference)
     if kind == "name":

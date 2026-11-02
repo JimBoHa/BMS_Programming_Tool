@@ -723,3 +723,20 @@ cover new transfers and restart reconciliation without replay. Common Changes
 lineage projection, historical slot capacity after removal, Enum semantics,
 general native authoring and physical acceptance remain separate. These JCI
 groups remain partial overall. See [the recovery profile](docs/native-enum-default-recovery.md).
+
+## 2026-11-02 JCI-03/JCI-09 delivery: recorded Enum recovery lineage
+
+`COMM-NATIVE-ENUM-RECOVERY-LEDGER-001` projects a known sealed previous-Enum
+origin and its child receipt into the existing Changes/History table and evidence
+drawer. It binds strict codes, actual encodings, selected storage/state metadata,
+review snapshot, unchanged identity and recorded confirmations. Original dispatch
+facts remain separate from later observations. Missing parent/source availability
+does not erase recorded lineage or establish current live state.
+
+The browser validates the projection independently, retains unavailable markers
+and exact original JSON, and supports local parent-reference search. No controller
+query, original backup load, parent-proof lookup or new field authority is added.
+Existing workspace routes, source filters and styles remain in place. Historical
+capacity after a saved slot is removed, Enum meanings, general native authoring
+and physical acceptance remain separate; these JCI groups remain partial overall.
+See [the projection and evidence scope](docs/native-enum-recovery-ledger.md).

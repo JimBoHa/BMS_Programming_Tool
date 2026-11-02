@@ -55,8 +55,8 @@ reviews and late preparation/review replies. A response to an already dispatched
 operation can still retain its uncertain receipt. Lost acknowledgements or failed
 verification block another write and retain readback/restart reconciliation
 without replay. No automatic inverse, whole-backup restore or batch transaction
-is introduced. Structured recovery lineage in the common Changes view is a
-separate follow-up; exact native receipt evidence remains available here.
+is introduced. [Recorded recovery lineage in the common Changes view](native-enum-recovery-ledger.md)
+is a separate local projection; exact native receipt evidence remains available here.
 
 The token-admitted preparation endpoint is `POST
 /api/bacnet/controller/native-application/enum-default/recovery/prepare` with
