@@ -676,6 +676,12 @@ export function ScheduleInventoryPanel({
         </div>
       )}
       <ScheduleLibraryPanel
+        selectedTarget={{
+          address: defaultAddress,
+          device: defaultDevice,
+          router: defaultRouter || null,
+          dnet: defaultDnet,
+        }}
         calendarWorkspace={calendarWorkspace}
         sessionReportId={report?.id || null}
         connected={connected}

@@ -267,10 +267,12 @@ export function NativeScheduleWritePanel({
   draft,
   connected,
   connectionKey,
+  selectedTarget,
 }: {
   draft: Binding | null;
   connected: boolean;
   connectionKey: string;
+  selectedTarget: Target | null;
 }) {
   const [opened, setOpened] = useState(false),
     [profile, setProfile] = useState<any>(null),
@@ -287,16 +289,38 @@ export function NativeScheduleWritePanel({
     own = useRef<Owned | null>(null),
     localTicket = useRef(0),
     historyTicket = useRef(0);
+  const selectedKey = target(selectedTarget) ? targetKey(selectedTarget) : null;
+  const draftMatchesSelection =
+    !!draft &&
+    selectedKey !== null &&
+    targetKey(draft.source.target) === selectedKey;
+  const receiptMatchesSelection =
+    !!receipt &&
+    selectedKey !== null &&
+    targetKey(receipt.data.target) === selectedKey;
+  const boundary = JSON.stringify([
+    draft?.id ?? null,
+    connectionKey,
+    selectedKey,
+    connected,
+    operator,
+    rationale,
+    profile?.rules_sha256 ?? null,
+    profile?.string_profile?.rules_sha256 ?? null,
+  ]);
+  const boundaryRevision = useRef({ value: boundary, revision: 0 });
+  if (boundaryRevision.current.value !== boundary) {
+    boundaryRevision.current = {
+      value: boundary,
+      revision: boundaryRevision.current.revision + 1,
+    };
+  }
+  // An A → B → A selection cannot revive a request waiting before dispatch.
   const authority = JSON.stringify([
-      draft?.id ?? null,
-      connectionKey,
-      connected,
-      operator,
-      rationale,
-      profile?.rules_sha256 ?? null,
-      profile?.string_profile?.rules_sha256 ?? null,
-    ]),
-    authorityNow = useRef(authority);
+    boundary,
+    boundaryRevision.current.revision,
+  ]);
+  const authorityNow = useRef(authority);
   authorityNow.current = authority;
   const receiptNow = useRef(receipt?.data.id || "");
   receiptNow.current = receipt?.data.id || "";
@@ -406,7 +430,14 @@ export function NativeScheduleWritePanel({
     }
   }
   async function preview() {
-    if (!draft || !connected || !operator.trim() || !rationale.trim()) return;
+    if (
+      !draft ||
+      !draftMatchesSelection ||
+      !connected ||
+      !operator.trim() ||
+      !rationale.trim()
+    )
+      return;
     const binding = draft,
       name = operator.trim(),
       why = rationale.trim(),
@@ -431,7 +462,13 @@ export function NativeScheduleWritePanel({
     const candidate = prepared,
       binding = draft,
       domain = writeDomain(binding, profile);
-    if (!candidate?.data.can_apply || !binding || !connected || own.current)
+    if (
+      !candidate?.data.can_apply ||
+      !binding ||
+      !draftMatchesSelection ||
+      !connected ||
+      own.current
+    )
       return;
     // A new render can expose new props before passive cleanup has retired the
     // old plan. The captured authority must match here, before any native POST.
@@ -440,6 +477,8 @@ export function NativeScheduleWritePanel({
       !domain ||
       candidate.data.profile !== domain.profile ||
       candidate.data.rules_sha256 !== domain.rules ||
+      !target(candidate.data.target) ||
+      targetKey(candidate.data.target) !== selectedKey ||
       !sameSource(candidate.data, binding)
     )
       return;
@@ -492,7 +531,8 @@ export function NativeScheduleWritePanel({
     }
   }
   async function reconcile() {
-    if (!receipt || !connected || own.current) return;
+    if (!receipt || !receiptMatchesSelection || !connected || own.current)
+      return;
     const selected = receipt,
       id = selected.data.id,
       ticket = historyTicket.current,
@@ -644,6 +684,17 @@ export function NativeScheduleWritePanel({
               source. Stored receipts remain available disconnected.
             </p>
           )}
+          {selectedTarget && selectedKey !== null && (
+            <p aria-label="Selected controller for native schedule deployment">
+              Selected controller: {endpoint(selectedTarget)}
+            </p>
+          )}
+          {draft && !draftMatchesSelection && (
+            <p role="status">
+              Open and verify the captured controller to deploy this draft.
+              Local draft review and export remain available.
+            </p>
+          )}
           <label>
             Declared native write operator
             <input
@@ -674,6 +725,7 @@ export function NativeScheduleWritePanel({
               !profile ||
               !domain ||
               !draft ||
+              !draftMatchesSelection ||
               !connected ||
               !!busy ||
               !operator.trim() ||
@@ -711,7 +763,9 @@ export function NativeScheduleWritePanel({
                     output behavior or persistence.
                   </p>
                   <button
-                    disabled={!!busy || !connected || expired}
+                    disabled={
+                      !!busy || !connected || !draftMatchesSelection || expired
+                    }
                     onClick={() => void apply()}
                   >
                     Apply one native weekly-day request
@@ -852,11 +906,17 @@ export function NativeScheduleWritePanel({
                 Export exact native write receipt
               </button>
               <button
-                disabled={!connected || !!busy}
+                disabled={!connected || !receiptMatchesSelection || !!busy}
                 onClick={() => void reconcile()}
               >
                 Read-only reconcile selected receipt
               </button>
+              {!receiptMatchesSelection && (
+                <p role="status">
+                  Open and verify this receipt’s original controller before
+                  readback. Its local evidence remains available to export.
+                </p>
+              )}
               {recovered && (
                 <details>
                   <summary>Original pre-send intent snapshot</summary>

@@ -677,6 +677,7 @@ class NativeApplications:
             body = {
                 "profile": PROFILE,
                 "operation_profile": POINT_NAME_PROFILE,
+                "operation_id": options.operation_id,
                 "target": self.target(options),
                 "identity": actual,
                 "old_instance": ObjectIdentifier(options.device)[1],

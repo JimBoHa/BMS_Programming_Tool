@@ -4,6 +4,7 @@ import asyncio
 import copy
 import socket
 import time
+from contextlib import ExitStack
 from types import SimpleNamespace
 
 import pytest
@@ -46,10 +47,18 @@ from .test_device_instance import read_reply
 from .test_moi_parameters import parameters_source
 
 
-def port():
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-        sock.bind(("127.0.0.1", 0))
-        return sock.getsockname()[1]
+def port(*, exclude=()):
+    blocked = set(exclude)
+    with ExitStack() as held:
+        # Keep rejected sockets bound until a distinct candidate is chosen.
+        # Peer startup can still be pending when the client asks for its port.
+        for _ in range(len(blocked) + 1):
+            sock = held.enter_context(socket.socket(socket.AF_INET, socket.SOCK_DGRAM))
+            sock.bind(("127.0.0.1", 0))
+            chosen = sock.getsockname()[1]
+            if chosen not in blocked:
+                return chosen
+    raise AssertionError("Unable to allocate a distinct authored UDP port.")
 
 
 class NativePeer(Application):
@@ -265,7 +274,7 @@ async def native_link(tmp_path, monkeypatch):
     peer.setup()
     store = Store(tmp_path)
     bacnet = Bacnet(store)
-    await bacnet.connect(f"127.0.0.1:{port()}")
+    await bacnet.connect(f"127.0.0.1:{port(exclude={remote})}")
     instances = DeviceInstances(bacnet, store)
     instances.path.request_gap = 0
     instances.path.timeout = 0.1

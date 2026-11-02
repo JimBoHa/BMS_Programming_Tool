@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-01. Implementation baseline: GitHub `main` at
-[`00d62cf5`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/00d62cf556a1b8d98cde5de8abfe3176296aa275).
+[`7eaf0efb`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/7eaf0efbb97b52045332a228d105d044c35875bf).
 
 ## Baseline and purpose
 
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 184 scoped criteria: 130
+The public requirement register currently records 185 scoped criteria: 131
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -85,15 +85,68 @@ This is in-memory workspace retention, not durable draft storage across reloads.
 
 ## Existing capabilities to preserve and credit
 
+[Original native recovery readback](docs/native-original-recovery-readback.md)
+now distinguishes complete original-image/settings recovery from applying the
+proposed change. Fresh identity, operational status, full image/settings and
+published point-name checks precede lock release. Failed intent/results remain
+immutable with appended proof; readback does not send a recovery application.
+The [additional qualification](docs/native-original-recovery-qualification.md)
+also preserves newer local captures and proposals during older receipt readback.
+Broader restore orchestration and physical acceptance remain separate.
+
+[Schedule deployment selection](docs/native-schedule-controller-selection.md)
+now binds preview, Apply and receipt readback to the exact controller and route
+shown in the workspace. Foreign captures remain useful for local review/export,
+and original receipt evidence remains available offline. Target transitions
+retire authority without changing the weekly/String wire services. Source-specific
+unfinished weekly buffers across task navigation remain a separate continuity
+item; the existing export-before-leaving instruction stays explicit.
+
+[Live flow calibration readback](docs/native-runtime-calibration.md) separately
+reports one qualified calculated output from each discovered native Flow
+Primitive. Stored-image/settings verification does not imply live calibration
+equality. Missing/unavailable values and the read budget remain explicit; no
+calibration command or old-value write is introduced. This does not complete
+physical calibration, actuator tests or general runtime verification.
+
+[Native point-name editing](docs/native-point-names.md) now belongs to the
+selected point's Configuration within Points & I/O. It preserves the existing
+point identifier, logic references, I/O setup and other merged settings, and
+requires both full native readback and the published BACnet name to agree.
+Bounded drafts refuse eviction; exact review/operation/receipt ownership and
+uncertainty recovery remain explicit. This does not allocate points, move
+terminals, rename supervisor objects or complete general native authoring.
+
+Native parameter preservation now handles qualified repeated unsaved runtime
+slots, restores typed saved properties omitted from existing application records,
+and resolves only exact declared logical root references across assigned Device
+instances. Binary event timestamp slots now retain their validated original epoch
+as runtime evidence instead of synthesizing an integer application default;
+other saved settings still merge and read back independently. See the
+[timestamp qualification](docs/native-runtime-timestamp-qualification.md).
+Already-present unqualified date/time encodings and wider runtime schemas need
+their own preservation evidence. [Post-restore readiness](docs/native-restore-readiness.md) performs
+bounded identity/status reads after a validated commit ACK before full native
+verification, without repeating the transfer. Preserve these contracts and their
+[additional UDP and recovery regression checks](docs/native-transfer-regression-validation.md).
+This extends the existing preservation scope; it does not complete arbitrary
+logic/hardware generation, broader restore, other transports or physical acceptance.
+
 [Native Calendar date drafts](docs/native-calendar-drafts.md) add a separate
 source-qualified local Date_List editor for captured Date, DateRange and WeekNDay
 entries. Exact original/native bytes, stateless reviewed JSON export/import and
 source-specific unfinished workspace buffers are retained without field traffic.
 Newer week patterns explicitly retain their protocol-revision requirement.
-This is the first Calendar authoring slice of SCH-01, not Calendar deployment,
-special-event/context editing, timezone evaluation or physical acceptance. Next,
-qualify a separate one-use Date_List transfer/readback and uncertainty contract
-before exposing any Calendar Apply action.
+This is the first Calendar authoring slice of SCH-01. A separate
+[Date_List transfer backend](docs/native-calendar-write.md) now adds fresh exact
+source/target checks, actual protocol-revision qualification, one-use dispatch,
+durable intent/results and independent readback/reconciliation. It preserves the
+local-only draft boundary and all older weekly authorities. Next, integrate that
+qualified API into the selected-controller Calendar editor with explicit review,
+Apply, uncertainty and recovery, then qualify its browser workflows. No Calendar
+Apply button is supplied by the backend slice. Special-event/context/link editing,
+timezone evaluation and physical acceptance remain separate; SCH-01–SCH-03 stay
+partial.
 
 [Schedule inventory continuation](docs/schedule-inventory-continuation.md)
 retains a verified controller's last completed Object_List offset after a
