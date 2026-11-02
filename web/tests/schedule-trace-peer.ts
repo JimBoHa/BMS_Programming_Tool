@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { createSocket } from "node:dgram";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { chooseWorkspaceTask } from "./workspace-navigation";
 import { expect, type Page, type APIRequestContext } from "@playwright/test";
 const root = fileURLToPath(new URL("../..", import.meta.url));
 export async function scheduleTracePeer(routed = false, mode = "normal") {
@@ -136,10 +137,7 @@ export async function openScheduleController(
     .getByRole("button", { name: "Open controller", exact: true })
     .click();
   await expect(page.getByLabel("Working context")).toContainText("device,42");
-  await page
-    .getByRole("navigation", { name: "Workspace tasks" })
-    .getByRole("button", { name: "Schedules", exact: true })
-    .click();
+  await chooseWorkspaceTask(page, "Schedules");
   const panel = page.getByRole("region", {
     name: "Native Calendar and Schedule inventory",
     exact: true,
