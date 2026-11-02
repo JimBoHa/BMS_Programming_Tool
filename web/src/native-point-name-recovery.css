@@ -1,0 +1,21 @@
+.native-point-name-recovery {
+  min-width: 0;
+  padding: 16px;
+  margin-block: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.native-point-name-recovery p {
+  overflow-wrap: anywhere;
+}
+.native-point-name-recovery .button-row {
+  flex-wrap: wrap;
+  margin-block: 16px;
+}
+.native-point-name-recovery pre {
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}

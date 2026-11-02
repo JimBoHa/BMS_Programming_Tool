@@ -3,6 +3,12 @@ export type PointNameWork = {
   capture: any;
   field: any;
   receipt: any;
+  recovery?: {
+    data: any;
+    blob: Blob;
+    active: boolean;
+    ordinaryName: string | null;
+  } | null;
 };
 
 export const emptyPointNameWork = (): PointNameWork => ({
@@ -10,10 +16,13 @@ export const emptyPointNameWork = (): PointNameWork => ({
   capture: null,
   field: null,
   receipt: null,
+  recovery: null,
 });
 
 export const hasPointNameWork = (work: PointNameWork) =>
-  Boolean(work.name || work.capture || work.field || work.receipt);
+  Boolean(
+    work.name || work.capture || work.field || work.receipt || work.recovery,
+  );
 
 export const canRememberPointNameWork = (
   drafts: Map<string, PointNameWork>,

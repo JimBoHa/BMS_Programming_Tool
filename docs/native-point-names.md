@@ -5,6 +5,11 @@ Open a verified controller, choose **Points & I/O**, select a point's
 enter a name, review, confirm and apply. This stays inside the selected point's
 configuration; it adds no workspace destination or feature tile.
 
+The separate [previous point-name workflow](native-point-name-recovery.md) derives
+a local proposal from a verified retained transfer and a current backup. It
+retains ordinary draft text and requires a new confirmed transfer, fresh-setting
+preservation and complete readback; it never replays the original receipt.
+
 The native format profile discovers existing analog, binary and multistate value
 objects through their typed BACnet identifiers and engineering references. It
 edits only the existing typed native Name property (2390). It does not select an

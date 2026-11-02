@@ -3,6 +3,12 @@ import { NativeRuntimeCalibration } from "./NativeRuntimeCalibration";
 import { NativeRuntimeParametersNotice } from "./NativeRuntimeParametersNotice";
 import { api, apiKeepalive, apiJsonDocument, saveBlob } from "./api";
 import { controllerKey, type ControllerContext } from "./workflow";
+import "./native-point-name-recovery.css";
+import {
+  activePointNameRecovery,
+  previousPointNameMatches,
+  pointNameRecoveryTransferMatches,
+} from "./nativePointNameRecovery";
 import {
   canRememberPointNameWork,
   emptyPointNameWork,
@@ -137,16 +143,50 @@ export function NativePointName({
         }).catch(() => {});
     }
   }, [connected]);
-  async function run(kind: "capture" | "review" | "apply" | "readback") {
-    if (!connected || busy) return;
+  async function run(
+    kind: "capture" | "review" | "apply" | "readback" | "prepare",
+  ) {
+    if ((!connected && kind !== "prepare") || busy) return;
     const current = ++epoch.current,
       operation_id = crypto.randomUUID();
     active.current = operation_id;
     setBusy(true);
-    onBusy(true);
+    if (kind !== "prepare") onBusy(true);
     setError("");
     try {
-      if (kind === "capture") {
+      if (kind === "prepare") {
+        cancelReview();
+        const document = await apiJsonDocument(
+          base + "/point-name/recovery/prepare",
+          {
+            receipt_id: work.receipt.intent.id,
+            capture_id: work.capture.id,
+            snapshot_sha256: work.capture.snapshot_evidence_sha256,
+          },
+        );
+        if (!currentOwner(current)) return;
+        if (
+          !previousPointNameMatches(
+            document.data,
+            work.capture,
+            work.field,
+            work.receipt,
+          )
+        )
+          throw new Error(
+            "Previous point-name evidence differs from this receipt, point or captured source.",
+          );
+        setWork((w) => ({
+          ...w,
+          name: w.recovery?.ordinaryName ?? w.name,
+          recovery: {
+            data: document.data,
+            blob: document.blob,
+            active: false,
+            ordinaryName: w.recovery?.ordinaryName ?? null,
+          },
+        }));
+      } else if (kind === "capture") {
         if (!canRememberPointNameWork(drafts, source))
           throw new Error(capacityMessage);
         cancelReview();
@@ -187,9 +227,16 @@ export function NativePointName({
           throw new Error(
             "This application has no supported native name for the selected point.",
           );
-        setWork((w) => ({ ...w, capture, field }));
+        setWork((w) => ({
+          ...w,
+          capture,
+          field,
+          name: w.recovery?.ordinaryName ?? w.name,
+          recovery: null,
+        }));
       } else if (kind === "review") {
         cancelReview();
+        const recovery = activePointNameRecovery(work);
         const result = await api(base + "/point-name/preview", {
           ...target,
           operation_id,
@@ -199,6 +246,12 @@ export function NativePointName({
           record_ref: work.field.record_ref,
           encoded_sha256: work.field.encoded_sha256,
           new_name: work.name,
+          ...(recovery
+            ? {
+                recovery_parent_receipt: recovery.origin.parent_receipt_id,
+                recovery_origin_sha256: recovery.origin_sha256,
+              }
+            : {}),
         });
         if (!currentOwner(current)) {
           void apiKeepalive(base + "/cancel", { operation_id }).catch(() => {});
@@ -221,6 +274,15 @@ export function NativePointName({
           result.capture_id !== work.capture.id ||
           result.snapshot_sha256 !== work.capture.snapshot_evidence_sha256 ||
           !sameEdit(result.point_name_edit, expectedEdit) ||
+          !pointNameRecoveryTransferMatches(
+            result,
+            recovery
+              ? {
+                  recovery_origin: recovery.origin,
+                  recovery_origin_sha256: recovery.origin_sha256,
+                }
+              : {},
+          ) ||
           result.compilation?.selected_edit?.before !== work.field.name ||
           result.can_apply !== true ||
           !/^[A-Za-z0-9_-]{32}$/.test(result.token) ||
@@ -265,11 +327,13 @@ export function NativePointName({
               ? intent.operation_id !== operation_id ||
                 intent.review_sha256 !== plan.review_sha256 ||
                 intent.review_capture_id !== plan.capture_id ||
+                !pointNameRecoveryTransferMatches(intent, plan) ||
                 !sameEdit(intent.point_name_edit, plan.point_name_edit)
               : intent.id !== original?.id ||
                 intent.operation_id !== original.operation_id ||
                 intent.review_sha256 !== original.review_sha256 ||
                 intent.evidence_sha256 !== original.evidence_sha256 ||
+                !pointNameRecoveryTransferMatches(intent, original) ||
                 !sameEdit(intent.point_name_edit, original.point_name_edit)))
         )
           throw new Error(
@@ -296,7 +360,12 @@ export function NativePointName({
             // An older retained transfer must not clear a newer local proposal.
             ...(w.name === intent.point_name_edit.new_name &&
             w.capture?.id === intent.review_capture_id
-              ? { name: "", capture: null, field: null }
+              ? {
+                  name: w.recovery?.ordinaryName ?? "",
+                  capture: null,
+                  field: null,
+                  recovery: null,
+                }
               : {}),
             receipt: result,
           }));
@@ -309,7 +378,12 @@ export function NativePointName({
           setWork((w) => ({
             ...w,
             ...(w.capture?.id === intent.review_capture_id
-              ? { capture: null, field: null }
+              ? {
+                  capture: null,
+                  field: null,
+                  name: w.recovery?.ordinaryName ?? w.name,
+                  recovery: null,
+                }
               : {}),
             receipt: result,
           }));
@@ -419,12 +493,18 @@ export function NativePointName({
                 onChange={(e) => {
                   epoch.current++;
                   cancelReview();
-                  setWork((w) => ({ ...w, name: e.target.value }));
+                  setWork((w) => ({
+                    ...w,
+                    name: e.target.value,
+                    recovery: w.recovery
+                      ? { ...w.recovery, active: false }
+                      : null,
+                  }));
                 }}
               />
             </label>
             <button
-              className="primary"
+              className={review ? undefined : "primary"}
               disabled={
                 !connected ||
                 busy ||
@@ -522,6 +602,93 @@ export function NativePointName({
             )}
           </section>
         )}
+        {work.receipt?.intent && work.capture && work.field && (
+          <details>
+            <summary>Previous point name</summary>
+            <p>
+              Prepare a local proposal from this retained verified transfer and
+              the current captured point source. A new confirmed transfer is
+              required. Capture current configuration first when the old source
+              is no longer current.
+            </p>
+            <button disabled={busy} onClick={() => void run("prepare")}>
+              Prepare previous point name
+            </button>
+          </details>
+        )}
+        {work.recovery && (
+          <section
+            aria-label="Previous point name proposal"
+            className="native-point-name-recovery"
+          >
+            <p>
+              Previous name: <strong>{work.recovery.data.previous_name}</strong>{" "}
+              · captured name: {work.recovery.data.current_name} · {object}
+            </p>
+            <p>
+              Local captured evidence only. No current controller state or new
+              transfer authority is established.
+            </p>
+            <div className="button-row">
+              {work.recovery.data.already_recorded ? (
+                <p>
+                  The captured point already has the recorded previous name. No
+                  recovery change is proposed.
+                </p>
+              ) : (
+                <button
+                  disabled={busy || work.recovery.active}
+                  onClick={() => {
+                    epoch.current++;
+                    cancelReview();
+                    setWork((w) => ({
+                      ...w,
+                      name: w.recovery!.data.previous_name,
+                      recovery: {
+                        ...w.recovery!,
+                        active: true,
+                        ordinaryName: w.recovery!.ordinaryName ?? w.name,
+                      },
+                    }));
+                  }}
+                >
+                  Use previous point name
+                </button>
+              )}
+              {work.recovery.ordinaryName !== null && (
+                <button
+                  disabled={busy}
+                  onClick={() => {
+                    epoch.current++;
+                    cancelReview();
+                    setWork((w) => ({
+                      ...w,
+                      name: w.recovery!.ordinaryName!,
+                      recovery: null,
+                    }));
+                  }}
+                >
+                  Return to saved point name draft
+                </button>
+              )}
+              <button
+                disabled={busy}
+                onClick={() =>
+                  saveBlob(
+                    work.recovery!.blob,
+                    "previous-point-name-proposal.json",
+                  )
+                }
+              >
+                Save previous point name proposal
+              </button>
+            </div>
+            <details>
+              <summary>Previous point name evidence</summary>
+              <pre>{JSON.stringify(work.recovery.data, null, 2)}</pre>
+            </details>
+          </section>
+        )}
         {retained.length > 0 && (
           <label>
             Retained point name transfer
@@ -543,7 +710,12 @@ export function NativePointName({
                       throw new Error(
                         "The retained receipt differs from the selected transfer.",
                       );
-                    setWork((w) => ({ ...w, receipt }));
+                    setWork((w) => ({
+                      ...w,
+                      receipt,
+                      name: w.recovery?.ordinaryName ?? w.name,
+                      recovery: null,
+                    }));
                   })
                   .catch((e) => {
                     if (currentOwner(current)) setError(String(e));

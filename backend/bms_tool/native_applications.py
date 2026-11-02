@@ -73,6 +73,8 @@ from .native_instance_recovery import NativeInstanceRecovery
 from .native_name_recovery import PROFILE as NAME_RECOVERY_PROFILE
 from .native_name_recovery import NativeNameRecovery
 from .native_parameter_qualification import qualify_parameter_additions
+from .native_point_name_recovery import PROFILE as POINT_NAME_RECOVERY_PROFILE
+from .native_point_name_recovery import NativePointNameRecovery
 from .native_point_names import PROFILE as POINT_NAME_PROFILE
 from .native_point_names import SCOPE as POINT_NAME_SCOPE
 from .native_point_names import (
@@ -194,6 +196,7 @@ class NativeApplications(NativeInputOperations):
         self.boolean_recovery = NativeBooleanRecovery(NativeBackupRecords(self.storage))
         self.wire_recovery = NativeHistoricalWireRecovery(NativeBackupRecords(self.storage))
         self.name_recovery = NativeNameRecovery(NativeBackupRecords(self.storage), self.compile)
+        self.point_name_recovery = NativePointNameRecovery(NativeBackupRecords(self.storage))
         self.instance_recovery = NativeInstanceRecovery(
             NativeBackupRecords(self.storage), self.compile
         )
@@ -218,6 +221,7 @@ class NativeApplications(NativeInputOperations):
             "wire_source_recovery_profile": WIRE_RECOVERY_PROFILE,
             "historical_wire_pin_recovery_profile": HISTORICAL_WIRE_RECOVERY_PROFILE,
             "controller_name_recovery_profile": NAME_RECOVERY_PROFILE,
+            "point_name_recovery_profile": POINT_NAME_RECOVERY_PROFILE,
             "controller_instance_recovery_profile": INSTANCE_RECOVERY_PROFILE,
             "boolean_default_transfer_profile": BOOLEAN_DEFAULT_PROFILE,
             "boolean_default_transfer_scope": BOOLEAN_DEFAULT_SCOPE,
@@ -702,6 +706,7 @@ class NativeApplications(NativeInputOperations):
             captured, files = self.check_capture(options)
             edit = options.model_dump(include=set(PointNameEdit.model_fields))
             output, compilation = compile_point_name(files, edit)
+            recovery = self.point_name_recovery_origin(options, compilation)
             if not compilation["selected_edit"]["changed"]:
                 raise ValueError("Choose a different point name before transfer.")
             config, app = copy.deepcopy(self.bacnet.config), self.bacnet.require()
@@ -741,8 +746,37 @@ class NativeApplications(NativeInputOperations):
                 "connector_config": config,
                 "created_at": utc(),
                 "expires_at": (datetime.now(UTC) + timedelta(seconds=PLAN_SECONDS)).isoformat(),
+                **recovery,
             }
             return self.retain_plan(body, options, app, config)
+
+    def point_name_recovery_origin(self, options, compilation):
+        if options.recovery_parent_receipt is None:
+            return {}
+        prepared = self.point_name_recovery.prepare(
+            {
+                "receipt_id": options.recovery_parent_receipt,
+                "capture_id": options.capture_id,
+                "snapshot_sha256": options.snapshot_sha256,
+            }
+        )
+        proposal = prepared["proposal"]
+        selected = compilation.get("selected_edit", {})
+        edit = options.model_dump(include=set(PointNameEdit.model_fields))
+        if (
+            proposal is None
+            or prepared["already_recorded"]
+            or prepared["origin_sha256"] != options.recovery_origin_sha256
+            or any(proposal.get(k) != v for k, v in edit.items())
+            or selected.get("before") != prepared["current_name"]
+            or selected.get("after") != prepared["previous_name"]
+            or selected.get("character_encoding") != prepared["origin"]["character_encoding"]
+        ):
+            raise ValueError("Previous point-name proposal changed; prepare and review it again.")
+        return {
+            "recovery_origin": prepared["origin"],
+            "recovery_origin_sha256": prepared["origin_sha256"],
+        }
 
     async def preview_boolean_default(self, **arguments):
         options = BooleanTransferPreview(**arguments)
@@ -1440,7 +1474,9 @@ class NativeApplications(NativeInputOperations):
                         )
                     recovery = (
                         {}
-                        if point_name_edit or input_edit
+                        if input_edit
+                        else self.point_name_recovery_origin(options, compilation)
+                        if point_name_edit
                         else self.wire_recovery_origin(options, compilation)
                         if wire_edit
                         else self.recovery_origin(options, compilation, boolean=boolean_edit)
@@ -1738,6 +1774,10 @@ def native_application_router(service):
     @router.post("/name/recovery/prepare")
     def prepare_name_recovery(body: DefaultRecoveryPrepare):
         return service.name_recovery.prepare(body.model_dump())
+
+    @router.post("/point-name/recovery/prepare")
+    def prepare_point_name_recovery(body: DefaultRecoveryPrepare):
+        return service.point_name_recovery.prepare(body.model_dump())
 
     @router.post("/name/recovery/source")
     def name_recovery_source(body: BackupInspectionSource):

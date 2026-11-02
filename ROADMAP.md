@@ -204,6 +204,14 @@ shows attributable before/after metadata in Changes and History without querying
 live names or reopening backups. Its tool link retains the current controller
 and requires the user to choose a point for any fresh operation.
 
+[Previous point-name recovery](docs/native-point-name-recovery.md) now derives a
+local proposal from verified original receipt/backup evidence and an exact current
+point source. The web workflow preserves ordinary name text separately, stages
+the previous name explicitly, and requires a new confirmed transfer and complete
+readback with durable origin binding. JCI-10 remains partial overall; general
+application rollback and recorded point-name recovery lineage search remain
+separate.
+
 Native parameter preservation now handles qualified repeated unsaved runtime
 slots, restores typed saved properties omitted from existing application records,
 and resolves only exact declared logical root references across assigned Device
