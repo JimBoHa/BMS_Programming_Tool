@@ -132,6 +132,31 @@ def model_capacity(model):
     if not isinstance(model, str):
         return None
     name = model.upper().strip()
+    if name in {
+        "M4-CVM03050-0",
+        "M4-CVM03050-0P",
+        "M4-CVE03050-0P",
+        "F4-CVM03050-0",
+        "F4-CVM03050-0P",
+        "F4-CVE03050-0P",
+    }:
+        return {
+            "profile": "jci-cv-physical-inputs/1",
+            "model": name,
+            "universal_inputs": [1, 2, 3],
+            "binary_inputs": [],
+            "voltage_input_range": "0–10 VDC",
+            "source": (
+                "https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/"
+                "M4-CV-Series-VAV-Box-Controllers-Catalog-Page/13.0/"
+                "VAV-Box-Controllers-CV-Series/CV-series-model-information"
+                if name.startswith("M4-")
+                else "https://docs.johnsoncontrols.com/bas/r/Facility-Explorer/en-US/"
+                "F4-CV-Series-VAV-Box-Controllers-Catalog-Page/"
+                "VAV-Box-Controllers-CV-Series/CV-series-model-information"
+            ),
+            "physical_terminal_scope": "External UI1–UI3; voltage/resistance/dry contact. No direct current input; integral DPT is not a spare terminal.",
+        }
     if name in VAV_CAPACITY_MODELS:
         source = copy.deepcopy(VAV_CAPACITY_SOURCES[VAV_CAPACITY_MODELS[name]])
         return {
