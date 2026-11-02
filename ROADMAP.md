@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-01. Implementation baseline: GitHub `main` at
-[`a39d7770`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/a39d7770ee4a04c8a5773b8ac7b31bd332e2933c).
+[`94921842`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/9492184201cf6f91c92ddea0896b602eeed32ee1).
 
 ## Baseline and purpose
 
@@ -84,6 +84,21 @@ verified Apply or explicit readback clears only its matching completed proposal.
 This is in-memory workspace retention, not durable draft storage across reloads.
 
 ## Existing capabilities to preserve and credit
+
+[Schedule deployment selection](docs/native-schedule-controller-selection.md)
+now binds preview, Apply and receipt readback to the exact controller and route
+shown in the workspace. Foreign captures remain useful for local review/export,
+and original receipt evidence remains available offline. Target transitions
+retire authority without changing the weekly/String wire services. Source-specific
+unfinished weekly buffers across task navigation remain a separate continuity
+item; the existing export-before-leaving instruction stays explicit.
+
+[Live flow calibration readback](docs/native-runtime-calibration.md) separately
+reports one qualified calculated output from each discovered native Flow
+Primitive. Stored-image/settings verification does not imply live calibration
+equality. Missing/unavailable values and the read budget remain explicit; no
+calibration command or old-value write is introduced. This does not complete
+physical calibration, actuator tests or general runtime verification.
 
 [Native point-name editing](docs/native-point-names.md) now belongs to the
 selected point's Configuration within Points & I/O. It preserves the existing
