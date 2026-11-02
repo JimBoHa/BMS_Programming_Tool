@@ -1672,7 +1672,20 @@ def create_app(state_dir=None, *, operation_power=None):
         return Response(
             content,
             media_type="application/octet-stream",
-            headers={"Content-Disposition": 'attachment; filename="edited-copy.caf"'},
+            headers={
+                "Content-Disposition": 'attachment; filename="edited-copy.caf"',
+                "X-CAF-Source-SHA256": id,
+                "X-CAF-Output-SHA256": hashlib.sha256(content).hexdigest(),
+                "X-CAF-Request-SHA256": hashlib.sha256(
+                    json.dumps(
+                        body.model_dump(),
+                        ensure_ascii=False,
+                        sort_keys=True,
+                        separators=(",", ":"),
+                        allow_nan=False,
+                    ).encode("utf-8")
+                ).hexdigest(),
+            },
         )
 
     @app.get("/api/ports")

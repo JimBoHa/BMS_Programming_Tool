@@ -186,8 +186,39 @@ class CafArchive:
             "attributes": dict(value.attrib),
         }
 
-    def _editable(self, prop):
+    def _enum_copy(self, prop, class_id):
         scalar = self.scalar(prop)
+        if (
+            not self._patchable_xml
+            or class_id not in {"528", "529"}
+            or prop.tag != Q + "property"
+            or prop.get("id") != "3113"
+            or scalar is None
+            or scalar["type"] != "enum"
+            or set(scalar["attributes"]) not in (set(), {"set"})
+            or not re.fullmatch(r"0|[1-9][0-9]{0,9}", scalar["text"])
+            or int(scalar["text"]) > 4294967295
+        ):
+            return None
+        try:
+            self._scalar_span(prop[0][0])
+        except ValueError:
+            return None
+        return {
+            "profile": "caf-enum-default-code-copy/1",
+            "source_sha256": self.hash,
+            "class_id": class_id,
+            "property": "3113",
+            "original_code": int(scalar["text"]),
+            "set_reference": scalar["attributes"].get("set"),
+            "enum_semantics_verified": False,
+            "controller_write": False,
+        }
+
+    def _editable(self, prop, *, class_id=None):
+        scalar = self.scalar(prop)
+        if self._enum_copy(prop, class_id) is not None:
+            return True
         return (
             self._patchable_xml
             and prop.tag == Q + "property"
@@ -214,7 +245,12 @@ class CafArchive:
                 ),
                 "scalar": self.scalar(p),
                 "xml": ET.tostring(p, encoding="unicode") if self.scalar(p) is None else None,
-                "editable": self._editable(p),
+                "editable": self._editable(p, class_id=obj.get("classid")),
+                **(
+                    {"enum_code_copy": {**enum_copy, "record_ref": ref}}
+                    if (enum_copy := self._enum_copy(p, obj.get("classid"))) is not None
+                    else {}
+                ),
             }
             for p in self.objects[ref]
         ]
@@ -297,12 +333,14 @@ class CafArchive:
             seen.add((ref, pid))
             if pid not in EDITABLE:
                 raise ValueError(
-                    "Identity, resource, enum and wiring properties cannot be patched by this adapter."
+                    "Identity, resource and wiring properties cannot be patched by this adapter."
                 )
             if ref not in self.objects:
                 raise ValueError("CAF object reference not found.")
             props = [p for p in self.objects[ref] if p.get("id") == pid and p.tag == Q + "property"]
-            if len(props) != 1 or not self._editable(props[0]):
+            if len(props) != 1 or not self._editable(
+                props[0], class_id=self.objects[ref].get("classid")
+            ):
                 raise ValueError("Property is not an editable scalar.")
             prop = props[0]
             scalar = self.scalar(prop)
@@ -332,6 +370,19 @@ class CafArchive:
             elif kind == "boolean":
                 if value not in ("0", "1"):
                     raise ValueError("CAF booleans use 0 or 1.")
+            elif kind == "enum":
+                if (
+                    type(change["value"]) not in (str, int)
+                    or len(value) > 128
+                    or not re.fullmatch(r"[0-9]+", value.strip())
+                    or int(value.strip()) > 4294967295
+                ):
+                    raise ValueError(
+                        "CAF Enum codes require a decimal integer from 0 through 4294967295."
+                    )
+                value = str(int(value.strip()))
+                if value == old:
+                    continue
             elif kind == "string":
                 if (
                     not isinstance(change["value"], str)
@@ -354,7 +405,24 @@ class CafArchive:
             escaped = html.escape(value, quote=False).replace("\r", "&#13;")
             encoding = "ascii" if self.encoding in {"ascii", "us-ascii"} else "utf-8"
             edits.append((a, b, before + escaped.encode(encoding, "xmlcharrefreplace") + after))
-            report.append({"ref": ref, "property": pid, "type": kind, "old": old, "value": value})
+            report.append(
+                {
+                    "ref": ref,
+                    "property": pid,
+                    "type": kind,
+                    "old": old,
+                    "value": value,
+                    **(
+                        {
+                            "profile": "caf-enum-default-code-copy/1",
+                            "set_reference": scalar["attributes"].get("set"),
+                            "enum_semantics_verified": False,
+                        }
+                        if kind == "enum"
+                        else {}
+                    ),
+                }
+            )
         if not edits:
             return self.original, []
         xml = self.xml
