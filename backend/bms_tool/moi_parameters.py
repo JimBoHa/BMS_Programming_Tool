@@ -79,7 +79,7 @@ class ParameterApplication:
                 raise ValueError("Duplicate native object identifiers prevent parameter matching.")
             objects[oid] = record
         self.replacements, self.parameters = {}, []
-        used, selectors, offset = {}, set(), 0
+        used, selectors, offset = {}, {}, 0
         while offset < len(static):
             length = int.from_bytes(static[offset : offset + 2], "big")
             if length < 14 or offset + length > len(static):
@@ -87,13 +87,18 @@ class ParameterApplication:
             row = static[offset : offset + length]
             oid, pid = int.from_bytes(row[2:6], "big"), int.from_bytes(row[6:8], "big")
             flags, datatype, cid = row[8], row[9], int.from_bytes(row[10:12], "big")
-            if cid > 1023 or (oid, pid) in selectors:
+            selector = (oid, pid)
+            # Unsaved command/runtime slots can repeat the same selector while
+            # owning distinct storage ranges. This is not permission to accept
+            # duplicate saved values, mixed flags or different native classes.
+            repeated_unsaved = flags == 0x27 and selectors.get(selector) == (0x27, cid)
+            if cid > 1023 or (selector in selectors and not repeated_unsaved):
                 raise ValueError("Static parameter selector is invalid or duplicated.")
-            selectors.add((oid, pid))
+            selectors[selector] = (flags, cid)
             record = objects.get((cid << 22) | (oid & 4194303))
             prop = record["properties"].get(pid) if record else None
             value = None
-            if flags in (0x6F, 0xEF, 0x67):
+            if flags in (0x6F, 0xEF, 0x67, 0x27):
                 if length != 16 or datatype not in STORAGE:
                     raise ValueError("Unsupported dynamic parameter storage datatype.")
                 width, kind = STORAGE[datatype]
@@ -103,7 +108,7 @@ class ParameterApplication:
                     raise ValueError("Dynamic parameter offsets overlap or exceed the capture.")
                 payload = dynamic[position:end]
                 used.update(dict.fromkeys(range(position, end + 1)))
-                if flags == 0x67:
+                if flags in (0x67, 0x27):
                     if prop is not None:
                         raise ValueError("Application parameter has no valid saved value.")
                     # An explicitly unsaved, unreferenced slot has no value to
@@ -130,6 +135,14 @@ class ParameterApplication:
                 value = _inline(row[12:-2], datatype)
             else:
                 raise ValueError("Unsupported saved parameter storage flags.")
+            if record is not None and prop is None:
+                # A valid saved value belonging to an existing application
+                # object must not be silently lost because File 3 omitted it.
+                # Materializing such properties needs separate qualification.
+                raise ValueError(
+                    "Saved parameter belongs to an application object but its property "
+                    "is absent from the archive; preservation is not supported."
+                )
             if prop is not None:
                 start, end = prop["value_start_offset"], prop["value_end_offset"]
                 # A parameter must keep the property's native BACnet datatype.
