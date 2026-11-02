@@ -18,7 +18,7 @@ export async function nativeDefaultPeer(
       "-u",
       "-c",
       `
-import asyncio,json,sys,struct
+import asyncio,json,sys,struct,copy
 from tests.test_native_applications import NativePeer,port
 from tests.test_native_signal_compiler import signal_files
 from tests.test_native_default_transfer import controller_storage,real_slot,NativeRouter
@@ -38,11 +38,14 @@ async def main():
   app.files=point_files();attach_point_reads(app,published_old=sys.argv[1]=='published-old')
   import gzip,types
   from tests.test_controller_application import native_record,encoded
+  from tests.test_moi_parameters import binary_saved_state
   from bacpypes3.primitivedata import ObjectIdentifier,CharacterString,Real
   from bacpypes3.apdu import ReadPropertyACK
   from bacpypes3.constructeddata import Any
   flow=native_record(570,73,[(32527,encoded(CharacterString('controller/flow'))),(75,encoded(ObjectIdentifier((570,73)))),(3506,encoded(Real(3.5)))])
-  raw=bytearray(gzip.decompress(app.files[3]));struct.pack_into('<I',raw,10,struct.unpack_from('<I',raw,10)[0]+1);raw.extend(struct.pack('<H',len(flow)+2)+flow);app.files[3]=gzip.compress(bytes(raw),mtime=0)
+  binary=native_record(242,73,[(32527,encoded(CharacterString('controller/binary'))),(75,encoded(ObjectIdentifier((3,73))))])
+  _,app.files[11],app.files[12]=binary_saved_state()
+  raw=bytearray(gzip.decompress(app.files[3]));struct.pack_into('<I',raw,10,struct.unpack_from('<I',raw,10)[0]+2);raw.extend(struct.pack('<H',len(flow)+2)+flow+struct.pack('<H',len(binary)+2)+binary);app.files[3]=gzip.compress(bytes(raw),mtime=0)
   point_read=app.do_ReadPropertyRequest
   async def runtime_read(self,request):
    if request.objectIdentifier==ObjectIdentifier((570,73)) and int(request.propertyIdentifier)==3506:
@@ -56,6 +59,7 @@ async def main():
   app.files=signal_files();instance_storage(app);app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
  elif sys.argv[2]=='boolean':app.files=boolean_files();storage_outcome(app,mode=sys.argv[1])
  else:app.files=signal_files();controller_storage(app,mode=sys.argv[1])
+ original_files=copy.deepcopy(app.files)
  router_type=NativeRouter
  if sys.argv[2]=='instance':
   from tests.test_native_instance_recovery_transfer import InstanceRouter
@@ -80,6 +84,13 @@ async def main():
    import types
    app.do_ReinitializeDeviceRequest=types.MethodType(NativePeer.do_ReinitializeDeviceRequest,app);storage_outcome(app,value=True)
   elif line=='boolean-second-true':boolean_slot(app.files,'controller/boolean-21',True)
+  elif line=='point-name-publish-current':
+   from tests.test_native_point_names import attach_point_reads
+   attach_point_reads(app)
+  elif line=='recover-original':
+   from bms_tool.moi_parameters import ParameterApplication
+   app.files=copy.deepcopy(original_files);app.files[3]=ParameterApplication(app.files[3],app.files[11],app.files[12]).compile()[0]
+   app.instance=5136;app.metadata['object-name']='Authored controller';app.metadata['system-status']=0;app.mode='normal'
   elif line=='repair':
    if sys.argv[2]=='boolean':boolean_slot(app.files,FIRST,False)
    else:real_slot(app.files,-10,bytes.fromhex('3dcccccd'))

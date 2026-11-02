@@ -461,16 +461,28 @@ export function NativeInstancePanel(
             epoch === generation.current &&
             ["verified", "recovered_original"].includes(observed?.status)
           ) {
-            setRecovery(null);
-            setCapture(null);
-            setNumber("");
-            setNewName("");
+            // A retained receipt must not retire a newer capture or proposal.
+            // Original recovery did not apply the proposed identity change.
+            if (capture?.id === result.intent?.review_capture_id) {
+              setRecovery(null);
+              setCapture(null);
+              if (observed.status === "verified") {
+                if (renaming && newName === result.intent.new_name)
+                  setNewName("");
+                if (
+                  !renaming &&
+                  number.trim() &&
+                  Number(number) === result.intent.new_instance
+                )
+                  setNumber("");
+              }
+            }
             props.onVerified?.({
               ...result.intent,
               ...observed,
               ...(observed.status === "recovered_original"
                 ? {
-                      old_instance: Number(props.defaultDevice.split(",")[1]),
+                    old_instance: Number(props.defaultDevice.split(",")[1]),
                     new_instance: result.intent.old_instance,
                     new_name: result.intent.old_name,
                   }

@@ -33,6 +33,23 @@ the previous component's review and late responses. Retained receipts remain
 available for their exact original station and point, including after restart.
 Saving a receipt does not communicate with the controller.
 
+The workspace holds up to 32 point-specific drafts without evicting earlier
+work. Empty point views do not consume a slot. At capacity, a new capture is
+refused until the operator opens an earlier point and explicitly chooses
+**Discard local point name work**. This clears only that workspace buffer; it
+does not delete original backups or the durable transfer journal. Draft buffers
+last for the current page session, while retained receipts survive restart.
+
+Reviews bind the exact preview operation, profile, source capture and digest,
+point record/hash and proposed name. Apply responses must match the dispatched
+operation, reviewed digest and selected edit. Readback must retain the original
+receipt identity. A substituted response cannot clear the proposal or display
+verified success; the original journal remains available for explicit readback.
+Reading an older receipt does not clear a newer source-specific proposal.
+Visibility changes retire reviews, and late receipt exports cannot trigger a
+download after leaving the owning task. Receipt downloads retain their original
+response bytes.
+
 Authored tests cover compressed/plain archives, four supported string encodings,
 Unicode, short/extended framing, opaque bytes, saved settings, stale selection,
 duplicate names/identifiers, endpoint/confirmation guards, one-use transfer and
