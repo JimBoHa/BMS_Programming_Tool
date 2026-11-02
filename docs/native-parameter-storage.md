@@ -21,11 +21,19 @@ class receive this treatment. Mixed saved/unsaved flags, repeated saved selector
 class substitutions and overlapping storage remain errors. No retired command
 value becomes a default or a new controller command.
 
-A valid saved selector for an existing application object whose property is
-absent from File 3 now stops compilation explicitly. Silently dropping that
-setting would create a false preservation claim. Supporting such an omitted
-property requires a separately qualified merge; accepting unsaved storage flags
-does not grant that support.
+A valid saved selector can declare a property omitted from File 3 on an existing
+native object. The merger now retains that captured typed value on that exact
+object and reframes its record. It preserves the source storage datatype and
+Float bits, including negative zero. It does not create objects or select fields
+from a controller-model inventory. CRC, complete storage coverage, unambiguous
+selectors and native framing remain required. Non-application objects remain in
+the original backup; this does not allocate them into the application.
+
+The merge report marks a newly materialized property with `added: true` and its
+native class, instance and property. Re-merging the same snapshot is idempotent.
+Identity/default/wire transfer preservation compares the complete merged image,
+so these retained fields receive the same byte and saved-value verification as
+properties originally present in File 3.
 
 This distinction prevents an unused runtime value from blocking an otherwise
 supported instance edit. It never substitutes a default, repairs a stored value,

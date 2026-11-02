@@ -266,10 +266,96 @@ def test_unsaved_runtime_slot_cannot_replace_a_serialized_application_property()
         ParameterApplication(archive, bytes(invalid), dynamic).compile()
 
 
-def test_valid_setting_on_an_existing_object_cannot_be_silently_ignored():
-    archive, static, dynamic = parameters_source()
+@pytest.mark.parametrize("compressed", [True, False])
+def test_valid_setting_on_an_existing_object_is_preserved_when_archive_omitted_it(compressed):
+    archive, static, dynamic = parameters_source(compressed=compressed)
     invalid = bytearray(static)
     # A new saved property on the existing root, absent from the archive.
     invalid[6:8] = (65002).to_bytes(2, "big")
-    with pytest.raises(ValueError, match="property is absent"):
-        ParameterApplication(archive, bytes(invalid), dynamic).compile()
+    output, report = ParameterApplication(archive, bytes(invalid), dynamic).compile()
+    merged = MoiIdentity(output)
+    assert merged.reader.scalar(merged.root, 65002) == 62
+    assert merged.reader.scalar(merged.root, 4128) == 62
+    assert {
+        "class": 470,
+        "instance": 5136,
+        "property": 65002,
+        "changed": True,
+        "added": True,
+    } in report["changed_parameters"]
+    again, second = ParameterApplication(output, bytes(invalid), dynamic).compile()
+    assert MoiIdentity(again).data == merged.data
+    assert not second["changed_parameters"]
+
+
+@pytest.mark.parametrize(
+    "datatype,payload,expected",
+    [
+        (1, b"\x01", True),
+        (4, bytes.fromhex("80000000"), -0.0),
+        (17, (-700).to_bytes(2, "big", signed=True), -700),
+        (18, (65530).to_bytes(2, "big"), 65530),
+    ],
+)
+def test_omitted_saved_property_uses_original_native_datatype_bits_and_record(
+    datatype, payload, expected
+):
+    archive, static, dynamic = parameters_source(modules=12)
+    original = MoiIdentity(archive)
+    body = ((8 << 22) | 5136).to_bytes(4, "big") + (65003).to_bytes(2, "big")
+    body += bytes([0xEF, datatype]) + (470).to_bytes(2, "big")
+    body += len(dynamic).to_bytes(2, "big") + b"\x12\x34"
+    static += (len(body) + 2).to_bytes(2, "big") + body
+    dynamic += payload + bytes([header_crc(payload) ^ 255])
+    output, _ = ParameterApplication(archive, static, dynamic).compile()
+    actual = MoiIdentity(output)
+    assert actual.reader.scalar(actual.root, 65003) == expected
+    if datatype == 4:
+        p = actual.root["properties"][65003]
+        assert (
+            actual.data[p["value_start_offset"] : p["value_end_offset"]]
+            == b"\x44" + payload + b"\x2f"
+        )
+    for before, after in zip(original.records[1:], actual.records[1:], strict=True):
+        assert (
+            original.data[before["offset"] : before["end_offset"]]
+            == actual.data[after["offset"] : after["end_offset"]]
+        )
+
+
+def test_omitted_inline_string_is_preserved_with_its_source_encoding():
+    archive, static, dynamic = parameters_source()
+    directory = bytearray(static)
+    offset = 0
+    while offset + int.from_bytes(directory[offset : offset + 2], "big") < len(directory):
+        offset += int.from_bytes(directory[offset : offset + 2], "big")
+    directory[offset + 6 : offset + 8] = (65004).to_bytes(2, "big")
+    output, _ = ParameterApplication(archive, bytes(directory), dynamic).compile()
+    actual = MoiIdentity(output)
+    assert actual.reader.scalar(actual.root, 65004) == "saved"
+    assert actual.reader.scalar(actual.root, 904) == "draft"
+
+
+def test_omitted_property_reframes_a_record_that_outgrows_its_short_length():
+    archive, static, dynamic = parameters_source(compressed=False)
+    source = MoiIdentity(archive)
+    root = source.root
+    raw = archive[root["offset"] : root["end_offset"]]
+    # The author-selected opaque property leaves the original short record at
+    # its exact maximum size. Adding the saved field requires extended framing.
+    prefix = bytes.fromhex("0afde82e")
+    pad = 65533 - len(raw) - len(prefix) - 6
+    extra = prefix + encoded(CharacterString("z" * pad)) + b"\x2f"
+    widened = raw[:-1] + extra + raw[-1:]
+    assert len(widened) == 65533
+    archive = archive[:14] + struct.pack("<H", 65535) + widened + archive[root["end_offset"] :]
+    directory = bytearray(static)
+    directory[6:8] = (65002).to_bytes(2, "big")
+    output, _ = ParameterApplication(archive, bytes(directory), dynamic).compile()
+    actual = MoiIdentity(output)
+    assert output[14:16] == b"\x00\x00"
+    assert actual.reader.scalar(actual.root, 65002) == 62
+    assert (
+        actual.root["properties"][65000]["encoded_sha256"]
+        == MoiIdentity(archive).root["properties"][65000]["encoded_sha256"]
+    )
