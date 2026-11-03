@@ -2,7 +2,8 @@
 
 This module changes existing simulationProperty records only. It neither runs
 JCI logic nor changes the ordinary property with the same native identifier.
-Unknown types, enum domains and unobserved class versions remain read-only.
+Profile2 adds numeric Enum code copies while leaving state meanings unverified.
+Unknown representations and unobserved class versions remain read-only.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ from .caf import CLASSES, CafArchive, Q
 
 FORMAT = "bms.caf-simulation-profile"
 VERSION = 1
+ENUM_VERSION = 2
 MAX_RECORDS = 10000
 MAX_PROFILE_BYTES = 2 * 1024 * 1024
 VALIDATION = (
@@ -51,6 +53,11 @@ def _value(text: str, kind: str) -> str:
             raise ValueError("Simulation value exceeds the native float32 range.") from exc
         if Decimal(value) != 0 and rounded == 0:
             raise ValueError("Simulation value underflows the native float32 range.")
+    elif kind == "enum":
+        if not re.fullmatch(r"0|[1-9][0-9]{0,9}", text) or int(text) > 4294967295:
+            raise ValueError(
+                "Simulation Enum values require canonical unsigned32 numeric code text."
+            )
     else:
         raise ValueError("The native simulation scalar type is read-only.")
     return text
@@ -59,7 +66,10 @@ def _value(text: str, kind: str) -> str:
 class CafSimulationProfile:
     """Export and apply a complete, exact-source profile without creating objects."""
 
-    def __init__(self, content: bytes | CafArchive):
+    def __init__(self, content: bytes | CafArchive, *, profile_version=VERSION):
+        if type(profile_version) is not int or profile_version not in (VERSION, ENUM_VERSION):
+            raise ValueError("Choose saved simulation profile version 1 or 2.")
+        self.profile_version = profile_version
         self.archive = content if isinstance(content, CafArchive) else CafArchive(content)
 
     def _records(self) -> list[dict]:
@@ -80,6 +90,23 @@ class CafSimulationProfile:
                 editable = False
                 if kind == "enum":
                     reason = "Matching release-specific enum domain is unavailable; read-only."
+                    if self.profile_version == ENUM_VERSION:
+                        supported = obj.get("classVersion") == "1.0" and self.archive._enum_copy(
+                            prop,
+                            obj.get("classid"),
+                            property_tag="simulationProperty",
+                            allow_cdata=True,
+                        )
+                        if supported:
+                            editable = True
+                            reason = (
+                                "Source-qualified saved Enum numeric code copy. "
+                                "Allowed states and code meanings remain unverified."
+                            )
+                        else:
+                            reason = (
+                                "Unobserved saved Enum code representation; preserved read-only."
+                            )
                 elif (
                     self.archive._patchable_xml
                     and prop.get("id") == "3113"
@@ -113,6 +140,8 @@ class CafSimulationProfile:
                     "editable": editable,
                     "reason": reason,
                 }
+                if kind == "enum" and self.profile_version == ENUM_VERSION:
+                    row.update(enum_semantics_verified=False, maximum_code=4294967295)
                 # Refuse a single huge scalar before serializing duplicate old/value text.
                 if any(
                     len(value) > MAX_PROFILE_BYTES
@@ -141,23 +170,33 @@ class CafSimulationProfile:
                 "types": dict(Counter(row["native_type"] or "opaque" for row in rows)),
             },
             "validation": VALIDATION,
+            **({"profile_version": ENUM_VERSION} if self.profile_version == ENUM_VERSION else {}),
         }
 
     def export_profile(self) -> dict:
         return {
             "format": FORMAT,
-            "version": VERSION,
+            "version": self.profile_version,
             "source_sha256": self.archive.hash,
             "entries": self._records(),
         }
 
     def apply(self, profile: dict) -> tuple[bytes, list[dict]]:
         if (
+            type(profile) is dict
+            and type(profile.get("version")) is int
+            and profile["version"] in (VERSION, ENUM_VERSION)
+            and profile["version"] != self.profile_version
+        ):
+            return CafSimulationProfile(self.archive, profile_version=profile["version"]).apply(
+                profile
+            )
+        if (
             not isinstance(profile, dict)
             or set(profile) != {"format", "version", "source_sha256", "entries"}
             or profile["format"] != FORMAT
             or type(profile["version"]) is not int
-            or profile["version"] != VERSION
+            or profile["version"] != self.profile_version
             or not isinstance(profile["source_sha256"], str)
             or profile["source_sha256"] != self.archive.hash
         ):
@@ -208,7 +247,10 @@ class CafSimulationProfile:
                 for p in self.archive.objects[key[0]]
                 if p.tag == Q + "simulationProperty" and p.get("id") == key[1]
             )
-            start, end, before, after = self.archive._scalar_span(prop[0][0])
+            start, end, before, after = self.archive._scalar_span(
+                prop[0][0],
+                allow_cdata=old["native_type"] == "enum" and self.profile_version == ENUM_VERSION,
+            )
             # Values contain only validated native numeric/boolean text and XML whitespace.
             encoded = value.replace("\r", "&#13;").encode("ascii")
             edits.append((start, end, before + encoded + after))
@@ -221,6 +263,11 @@ class CafSimulationProfile:
                     "old": old["old"],
                     "value": value,
                     "validation": VALIDATION,
+                    **(
+                        {"enum_semantics_verified": False, "maximum_code": 4294967295}
+                        if old["native_type"] == "enum"
+                        else {}
+                    ),
                 }
             )
         if not edits:
@@ -231,9 +278,14 @@ class CafSimulationProfile:
         output = io.BytesIO()
         with zipfile.ZipFile(output, "w") as archive:
             archive.comment = self.archive.comment
-            archive.writestr(copy.copy(self.archive.info), xml)
+            info = copy.copy(self.archive.info)
+            archive.writestr(info, xml)
+            if self.profile_version == ENUM_VERSION:
+                # zipfile supplies Unix permissions when the original is zero.
+                # Restore the recorded value before writing the central directory.
+                info.external_attr = self.archive.info.external_attr
         result = output.getvalue()
-        verified = CafSimulationProfile(result)
+        verified = CafSimulationProfile(result, profile_version=self.profile_version)
         if list(verified.archive.objects) != list(self.archive.objects):
             raise ValueError("CAF object identities changed during simulation profile editing.")
         actual = {(row["ref"], row["property_id"]): row for row in verified.summary()["records"]}

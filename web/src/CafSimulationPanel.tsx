@@ -1,114 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { Download, FileArchive, RotateCcw, Upload } from "lucide-react";
-import { api, download, saveBlob } from "./api";
+import { api, apiBlobDocument, saveBlob } from "./api";
+import { sha256Blob } from "./activityContracts";
 import "./caf-simulation.css";
 import { CafLocalScenarios } from "./CafLocalScenarios";
 import type { FileRequest } from "./workflow";
 
-type SimulationRecord = {
-  ref: string;
-  class_id: string | null;
-  class_version: string | null;
-  class_name: string;
-  name: string;
-  property_id: string;
-  kind: "simulationProperty";
-  native_type: string | null;
-  attributes: Record<string, string> | null;
-  old: string | null;
-  value: string | null;
-  editable: boolean;
-  reason: string;
-};
-type Profile = {
-  format: "bms.caf-simulation-profile";
-  version: 1;
-  source_sha256: string;
-  entries: SimulationRecord[];
-};
-type Summary = {
-  sha256: string;
-  records: SimulationRecord[];
-  counts: { total: number; editable: number; read_only: number };
-  validation: string;
-};
-
-function stable(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
-  if (value !== null && typeof value === "object") {
-    return `{${Object.entries(value)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, item]) => `${JSON.stringify(key)}:${stable(item)}`)
-      .join(",")}}`;
-  }
-  return JSON.stringify(value);
-}
-
-function signature(profile: Profile | null): string {
-  return stable(
-    profile?.entries.map(({ ref, property_id, value }) => ({
-      ref,
-      property_id,
-      value,
-    })) || [],
-  );
-}
-
-function importProfile(value: unknown, original: Profile): Profile {
-  if (value === null || typeof value !== "object" || Array.isArray(value))
-    throw new Error("Choose a saved CAF simulation profile JSON object.");
-  const next = value as Record<string, unknown>;
-  if (
-    stable(Object.keys(next).sort()) !==
-      stable(["entries", "format", "source_sha256", "version"]) ||
-    next.format !== original.format ||
-    next.version !== 1 ||
-    next.source_sha256 !== original.source_sha256 ||
-    !Array.isArray(next.entries) ||
-    next.entries.length !== original.entries.length
-  )
-    throw new Error(
-      "Profile must match this exact CAF SHA-256, format, version and complete record count.",
-    );
-  const expected = new Map(
-    original.entries.map((row) => [stable([row.ref, row.property_id]), row]),
-  );
-  const seen = new Set<string>();
-  const values = new Map<string, string | null>();
-  for (const candidate of next.entries) {
-    if (
-      candidate === null ||
-      typeof candidate !== "object" ||
-      Array.isArray(candidate)
-    )
-      throw new Error("Profile contains an invalid native record.");
-    const row = candidate as SimulationRecord;
-    const key = stable([row.ref, row.property_id]);
-    const prior = expected.get(key);
-    if (!prior || seen.has(key))
-      throw new Error("Profile contains duplicate or unknown native records.");
-    seen.add(key);
-    const { value: replacement, ...guards } = row;
-    const { value: previous, ...expectedGuards } = prior;
-    void previous;
-    if (stable(guards) !== stable(expectedGuards))
-      throw new Error(
-        "Profile identity, native type or old-value guard changed.",
-      );
-    if (!prior.editable && replacement !== prior.old)
-      throw new Error("Profile attempted to edit a read-only native record.");
-    if (prior.editable && typeof replacement !== "string")
-      throw new Error("Editable profile values must use native scalar text.");
-    values.set(key, replacement);
-  }
-  return {
-    ...original,
-    entries: original.entries.map((row) => ({
-      ...row,
-      value: values.get(stable([row.ref, row.property_id]))!,
-    })),
-  };
-}
+import {
+  admitSimulationSource,
+  carryLegacySimulation,
+  importProfile,
+  signature,
+  type Profile,
+  type Summary,
+} from "./cafSimulationProfile";
 
 export function CafSimulationPanel({
   visible = true,
@@ -164,6 +69,26 @@ export function CafSimulationPanel({
     };
   }, []);
   useEffect(() => {
+    const retire = () => {
+      openRequest.current++;
+      importRequest.current++;
+      exportRequest.current++;
+      setOpening(false);
+      setImporting(false);
+      setExporting(false);
+    };
+    const hidden = () => {
+      if (document.hidden) retire();
+    };
+    if (!visible) retire();
+    window.addEventListener("pagehide", retire);
+    document.addEventListener("visibilitychange", hidden);
+    return () => {
+      window.removeEventListener("pagehide", retire);
+      document.removeEventListener("visibilitychange", hidden);
+    };
+  }, [visible]);
+  useEffect(() => {
     if (!unsaved) return;
     const warn = (event: BeforeUnloadEvent) => {
       event.preventDefault();
@@ -187,14 +112,31 @@ export function CafSimulationPanel({
     setError("");
     setMessage("");
     try {
+      const sourceSha = await sha256Blob(file);
+      if (
+        !mounted.current ||
+        !visibleNow.current ||
+        request !== openRequest.current
+      )
+        return;
       const data = new FormData();
       data.append("file", file);
       const archive = await api("/caf", data);
+      if (archive.sha256 !== sourceSha)
+        throw new Error(
+          "Opened simulation archive does not match the selected file bytes.",
+        );
       const [inventory, exportedProfile] = await Promise.all([
-        api(`/caf/${archive.sha256}/simulation`),
-        api(`/caf/${archive.sha256}/simulation/profile`),
+        api(`/caf/${archive.sha256}/simulation?profile_version=2`),
+        api(`/caf/${archive.sha256}/simulation/profile?profile_version=2`),
       ]);
-      if (!mounted.current || request !== openRequest.current) return;
+      if (
+        !mounted.current ||
+        !visibleNow.current ||
+        request !== openRequest.current
+      )
+        return;
+      admitSimulationSource(inventory, exportedProfile, archive.sha256, 2);
       active.current = archive.sha256;
       importRequest.current++;
       exportRequest.current++;
@@ -230,16 +172,32 @@ export function CafSimulationPanel({
     try {
       if (file.size > 2 * 1024 * 1024)
         throw new Error("Simulation profile JSON exceeds 2 MiB.");
-      const imported = importProfile(JSON.parse(await file.text()), original);
+      const parsed = JSON.parse(await file.text());
+      let imported: Profile;
+      const legacy = parsed?.version === 1 && original.version === 2;
+      if (legacy) {
+        const [inventory, baseline] = await Promise.all([
+          api(`/caf/${archive}/simulation`),
+          api(`/caf/${archive}/simulation/profile`),
+        ]);
+        admitSimulationSource(inventory, baseline, archive!, 1);
+        imported = carryLegacySimulation(
+          importProfile(parsed, baseline),
+          original,
+        );
+      } else imported = importProfile(parsed, original);
       if (
         !mounted.current ||
+        !visibleNow.current ||
         request !== importRequest.current ||
         archive !== active.current
       )
         return;
       setProfile(imported);
       setMessage(
-        "Profile loaded into the draft. Native scalar ranges are checked when exporting the CAF copy.",
+        legacy
+          ? "Legacy profile values adapted to the current source profile. Enums retain original values. Numeric ranges are checked when exporting the CAF copy."
+          : "Profile loaded into the draft. Native scalar ranges are checked when exporting the CAF copy.",
       );
     } catch (e) {
       if (mounted.current && request === importRequest.current)
@@ -295,13 +253,21 @@ export function CafSimulationPanel({
     setError("");
     setMessage("");
     try {
-      const saved = await download(
-        `/caf/${archive}/simulation`,
-        { profile: snapshot },
-        name,
-        current,
-      );
-      if (!saved || !current()) return;
+      const result = await apiBlobDocument(`/caf/${archive}/simulation`, {
+        profile: snapshot,
+      });
+      if (
+        result.headers.get("X-Studio-Source-Sha256") !== archive ||
+        result.headers.get("X-Studio-Simulation-Version") !==
+          String(snapshot.version) ||
+        result.headers.get("X-Studio-Artifact-Sha256") !==
+          (await sha256Blob(result.blob))
+      )
+        throw new Error(
+          "Simulation CAF copy differs from its source, profile version or artifact digest.",
+        );
+      if (!current()) return;
+      saveBlob(result.blob, name);
       setSaved(snapshotSignature);
       setMessage(
         `Browser download requested for ${name}. Only saved simulation records changed. This view retains the original CAF and draft; JCI execution remains unverified.`,
@@ -386,10 +352,11 @@ export function CafSimulationPanel({
           Offline saved values. Native JCI logic is not executed here.
         </strong>
         <p>
-          Existing float and Boolean simulation records support guarded edits.
-          Ordinary program properties stay unchanged. Enum domains and unknown
-          records remain read-only. Exported CAFs need validation in matching
-          CCT/PCT before use.
+          Existing float, Boolean and qualified numeric Enum simulation records
+          support guarded edits. Ordinary program properties stay unchanged.
+          Enum meanings and allowed states remain unverified; unknown records
+          remain read-only. Validate exported CAFs in matching CCT/PCT before
+          use.
         </p>
       </div>
       {error && (
@@ -499,6 +466,10 @@ export function CafSimulationPanel({
                             type="text"
                             aria-label={`Simulation value ${row.ref}`}
                             value={row.value || ""}
+                            inputMode={
+                              row.native_type === "enum" ? "numeric" : undefined
+                            }
+                            maxLength={128}
                             disabled={busy || !visible}
                             onChange={(e) => change(index, e.target.value)}
                           />
@@ -516,7 +487,10 @@ export function CafSimulationPanel({
               {!shown.length && <p>No simulation records match this search.</p>}
             </div>
           )}
-          <p className="caf-simulation-validation">{summary.validation}</p>
+          <p className="caf-simulation-validation">
+            {summary.validation} Enum codes use the unsigned32 numeric
+            representation; allowed states and code meanings remain unverified.
+          </p>
           <CafLocalScenarios
             key={`${summary.sha256}:${scenarioEpoch}`}
             sha={summary.sha256}

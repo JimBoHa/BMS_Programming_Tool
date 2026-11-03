@@ -757,3 +757,21 @@ computer. This is source/artifact provenance, not a claim of hermetic builds,
 cross-platform bit reproducibility, a manufacturer compiler or physical acceptance.
 Broader environment/toolchain delivery remains partial. See
 [the portable build contract](docs/portable-distribution.md).
+
+
+## 2026-11-02 JCI-02/JCI-03/JCI-05 delivery: saved CAF Enum simulation codes
+
+`FMT-CAF-ENUM-SIMULATION-001` adds explicit saved-simulation profile version 2 for
+existing class 528/529 version 1.0 `simulationProperty 3113` numeric Enum leaves.
+Canonical UInt32 text, retained set references, exact-source/full-record guards,
+mixed Float/Boolean edits, unchanged ordinary defaults and byte-exact no-ops apply.
+Program → Simulate uses the existing searchable table, validates source/profile
+and artifact digests, adapts version 1 imports without granting legacy Enum edits,
+and retires late file replies through navigation/document lifecycle changes.
+Default version 1 APIs and the separate Float/Boolean scenario contract remain.
+
+Authored and authorized private archive tests, browser controls and installed
+package checks qualify this local-copy scope. Enum membership/meaning, native
+execution, CCT reopen, arbitrary native authoring and physical acceptance remain
+separate; these JCI groups remain partial overall. See
+[the saved simulation profile](docs/caf-simulation-profiles.md).

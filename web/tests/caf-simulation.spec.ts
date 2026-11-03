@@ -1,35 +1,10 @@
-import { test, expect } from "@playwright/test";
-import { execFileSync } from "node:child_process";
+import { test, expect } from "./nativeScheduleWriteFixture";
 import { readFileSync } from "node:fs";
-import path from "node:path";
 
-const root = path.resolve("..");
-function synthetic() {
-  return execFileSync(
-    path.join(root, ".venv/bin/python"),
-    [
-      "-c",
-      "from tests.test_caf_simulation import make_caf; import sys; sys.stdout.buffer.write(make_caf())",
-    ],
-    { cwd: root },
-  );
-}
-
+import { openSimulation, python, simulation } from "./caf-simulation-fixture";
+import { chooseWorkspaceSurface } from "./workspace-navigation";
 async function open(page: import("@playwright/test").Page) {
-  await page.goto("/");
-  await page.getByRole("button", { name: "Program", exact: true }).click();
-  await page.getByRole("button", { name: "Simulate", exact: true }).click();
-  await page
-    .getByRole("button", { name: "CAF simulation inputs", exact: true })
-    .click();
-  await page.getByLabel("Simulation CAF file", { exact: true }).setInputFiles({
-    name: "authored.caf",
-    mimeType: "application/octet-stream",
-    buffer: synthetic(),
-  });
-  await expect(
-    page.getByRole("region", { name: "Simulation file summary" }),
-  ).toContainText("3 editable");
+  await openSimulation(page);
 }
 
 test("native CAF simulation profile edits save real simulation leaves and ordinary properties stay exact", async ({
@@ -55,21 +30,17 @@ test("native CAF simulation profile edits save real simulation leaves and ordina
   const profile = JSON.parse(readFileSync((await profileFile.path())!, "utf8"));
   expect(profile.format).toBe("bms.caf-simulation-profile");
   expect(profile.entries[0].value).toBe("73.25");
-  expect(profile.entries[3].editable).toBe(false);
+  expect(profile.version).toBe(2);
+  expect(profile.entries[3].editable).toBe(true);
   const pendingNative = page.waitForEvent("download");
   await page
     .getByRole("button", { name: "Export simulation CAF", exact: true })
     .click();
   const file = await pendingNative;
   expect(file.suggestedFilename()).toBe("authored-simulation.caf");
-  const result = execFileSync(
-    path.join(root, ".venv/bin/python"),
-    [
-      "-c",
-      "from pathlib import Path; import sys,json; from bms_tool.caf import CafArchive; from bms_tool.caf_simulation import CafSimulationProfile; a=CafArchive(Path(sys.argv[1]).read_bytes()); print(json.dumps({'ordinary_unchanged':a.xml.count(b'<float>111.000</float>')==5,'values':[r['old'] for r in CafSimulationProfile(a).summary()['records']]}))",
-      (await file.path())!,
-    ],
-    { cwd: root },
+  const result = python(
+    "from pathlib import Path; import sys,json; from bms_tool.caf import CafArchive; from bms_tool.caf_simulation import CafSimulationProfile; a=CafArchive(Path(sys.argv[1]).read_bytes()); print(json.dumps({'ordinary_unchanged':a.xml.count(b'<float>111.000</float>')==5,'values':[r['old'] for r in CafSimulationProfile(a).summary()['records']]}))",
+    (await file.path())!,
   );
   expect(JSON.parse(result.toString())).toEqual({
     ordinary_unchanged: true,
@@ -111,7 +82,7 @@ test("profile import guards, invalid scalar refusal and explicit draft discard r
   await uploadProfile({ ...baseline, source_sha256: "0".repeat(64) });
   await expect(page.getByRole("alert")).toContainText("exact CAF SHA-256");
   const readOnly = structuredClone(baseline);
-  readOnly.entries[3].value = "2";
+  readOnly.entries[4].value = "2";
   await uploadProfile(readOnly);
   await expect(page.getByRole("alert")).toContainText(
     "read-only native record",
@@ -142,7 +113,9 @@ test("profile import guards, invalid scalar refusal and explicit draft discard r
   await page.getByLabel("Simulation CAF file", { exact: true }).setInputFiles({
     name: "other.caf",
     mimeType: "application/octet-stream",
-    buffer: synthetic(),
+    buffer: python(
+      "from tests.test_caf_simulation import make_caf;import sys;sys.stdout.buffer.write(make_caf())",
+    ),
   });
   await expect(
     page.getByRole("region", { name: "Simulation file summary" }),
@@ -187,17 +160,15 @@ test("leaving simulation workspace suppresses a late native download", async ({
   await expect(
     page.getByRole("button", { name: "Validating copy…", exact: true }),
   ).toBeDisabled();
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Library");
   release!();
   await expect(
     page
       .locator(".caf-simulation button")
       .filter({ hasText: "Export simulation CAF" }),
   ).toHaveCount(1);
-  await page.getByRole("button", { name: "Simulate", exact: true }).click();
-  await page
-    .getByRole("button", { name: "CAF simulation inputs", exact: true })
-    .click();
+  await chooseWorkspaceSurface(page, "Workspace");
+  await simulation(page);
   await expect(
     page.getByRole("button", { name: "Export simulation CAF", exact: true }),
   ).toBeEnabled();

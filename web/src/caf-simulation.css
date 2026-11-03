@@ -115,6 +115,9 @@
 :is(.caf-simulation-table, .caf-local-table) input {
   width: 150px;
 }
+.caf-simulation-table input {
+  font-size: 14px;
+}
 .caf-simulation-validation {
   font-size: 12px;
   color: var(--muted, #64748b);

@@ -186,12 +186,15 @@ class CafArchive:
             "attributes": dict(value.attrib),
         }
 
-    def _enum_copy(self, prop, class_id):
+    def _enum_copy(self, prop, class_id, *, property_tag="property", allow_cdata=False):
         scalar = self.scalar(prop)
         if (
             not self._patchable_xml
+            or property_tag not in {"property", "simulationProperty"}
+            or allow_cdata
+            and property_tag != "simulationProperty"
             or class_id not in {"528", "529"}
-            or prop.tag != Q + "property"
+            or prop.tag != Q + property_tag
             or prop.get("id") != "3113"
             or scalar is None
             or scalar["type"] != "enum"
@@ -201,11 +204,15 @@ class CafArchive:
         ):
             return None
         try:
-            self._scalar_span(prop[0][0])
+            self._scalar_span(prop[0][0], allow_cdata=allow_cdata)
         except ValueError:
             return None
         return {
-            "profile": "caf-enum-default-code-copy/1",
+            "profile": (
+                "caf-enum-default-code-copy/1"
+                if property_tag == "property"
+                else "caf-enum-simulation-code-copy/1"
+            ),
             "source_sha256": self.hash,
             "class_id": class_id,
             "property": "3113",
@@ -447,7 +454,7 @@ class CafArchive:
                 raise ValueError("CAF scalar readback does not match the requested edit.")
         return edited, report
 
-    def _scalar_span(self, element):
+    def _scalar_span(self, element, *, allow_cdata=False):
         """Splice only an actual parsed leaf, preserving surrounding original bytes."""
         start, closing = self._spans[id(element)]
         quote = None
@@ -469,6 +476,14 @@ class CafArchive:
             if closing != opening_end or name is None:
                 raise ValueError("Unrecognized CAF scalar serialization; refusing to rewrite.")
             return start, opening_end, opening[:-2] + b">", b"</" + name[1] + b">"
+        if (
+            allow_cdata
+            and closing >= opening_end
+            and self.xml[closing : closing + 2] == b"</"
+            and re.fullmatch(rb"<!\[CDATA\[[^<]*\]\]>", self.xml[opening_end:closing])
+            and b"]]>" not in self.xml[opening_end + 9 : closing - 3]
+        ):
+            return opening_end, closing, b"<![CDATA[", b"]]>"
         if (
             closing < opening_end
             or self.xml[closing : closing + 2] != b"</"
