@@ -789,3 +789,19 @@ contracts remain. A regression reproduces the stale-response gap against the
 prior installed wheel, then refuses it in source and installed applications.
 This local-copy guard adds no native execution/transfer or physical acceptance.
 See [the request descriptor](docs/caf-simulation-profiles.md#request-bound-simulation-artifacts).
+
+
+## 2026-11-02 JCI-02/JCI-03/JCI-05 delivery: selected scenario startup copies
+
+`FMT-CAF-SCENARIO-STARTUP-PROOF-001` independently projects the captured local
+scenario/selected frame against a complete exact-source version 1 baseline.
+Only original supported Float/Boolean input values change; unselected output,
+Enum and opaque records remain original. Prepared profiles must match before a
+copy request, and the shared verifier checks source/version/request/artifact proof
+before download. Startup ownership retires permanently on navigation/document
+lifecycle changes and file replacement while preserving local buffers/preview.
+An actual wrong-value startup download is retained from the prior installed
+application; source and packaged regressions now refuse that case. Backend native
+algorithms/styles remain exact. No native execution, Enum scenario semantics,
+field transfer or CCT/physical acceptance is added. See
+[selected-frame startup checks](docs/caf-local-input-scenarios.md#selected-frame-startup-copies).

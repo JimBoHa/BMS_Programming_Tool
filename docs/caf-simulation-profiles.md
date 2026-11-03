@@ -104,3 +104,9 @@ reordered/empty profiles, mixed native values, Unicode and escaping, typed bound
 missing/wrong proof and actual installed UI/module parity. This is request/artifact
 correlation for a local copy, not a manufacturer compiler, authenticated signature,
 native execution or physical acceptance result.
+
+
+The browser's scenario startup path now uses the same captured-profile verifier
+and separately [checks the chosen input frame](caf-local-input-scenarios.md#selected-frame-startup-copies)
+before requesting a copy. Version 1 scenario semantics and version 2 Enum editing
+remain separate. Other API consumers keep the additive-header compatibility rule.

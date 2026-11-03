@@ -1,32 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import { api, download, saveBlob } from "./api";
+import { api, saveBlob } from "./api";
 
-type Input = {
-  id: string;
-  ref: string;
-  property_id: string;
-  class_id: string;
-  class_version: string;
-  name: string;
-  native_type: string;
-  units_native: unknown;
-  unit_status: string;
-  initial_value: string;
-};
-type Sample = { value: string; quality: string };
-type Event = { time: number; values: Record<string, Sample> };
-type Scenario = {
-  format: string;
-  version: number;
-  source_sha256: string;
-  profile_sha256: string;
-  inputs: Input[];
-  name: string;
-  description: string;
-  duration: number;
-  dt: number;
-  events: Event[];
-};
+import { apiBlobDocument } from "./api";
+import {
+  admitSimulationSource,
+  simulationCopyVerifier,
+} from "./cafSimulationProfile";
+import {
+  scenarioStartupProfile,
+  admitStartupProfile,
+  type InputScenario as Scenario,
+  type ScenarioSample as Sample,
+  type ScenarioEvent as Event,
+} from "./cafScenarioStartup";
+
 type Saved = { id: string; revision: number; name: string; updated: string };
 type Trace = {
   scope: string;
@@ -65,6 +52,7 @@ export function CafLocalScenarios({
   const [cursor, setCursor] = useState(0);
   const importer = useRef<HTMLInputElement>(null);
   const mounted = useRef(false);
+  const startupRequest = useRef(0);
   const visibleNow = useRef(visible);
   visibleNow.current = visible;
   const liveSignature = useRef("");
@@ -74,6 +62,8 @@ export function CafLocalScenarios({
   const disabled = busy || parentBusy || !visible;
   const supported = !!draft?.inputs.length;
   const frame = trace?.frames[cursor];
+  const liveFrame = useRef("");
+  liveFrame.current = JSON.stringify(frame);
 
   useEffect(() => {
     mounted.current = true;
@@ -100,8 +90,24 @@ export function CafLocalScenarios({
       });
     return () => {
       mounted.current = false;
+      startupRequest.current++;
     };
   }, [sha]);
+  useEffect(() => {
+    const retire = () => {
+      startupRequest.current++;
+    };
+    const hidden = () => {
+      if (document.hidden) retire();
+    };
+    if (!visible) retire();
+    window.addEventListener("pagehide", retire);
+    document.addEventListener("visibilitychange", hidden);
+    return () => {
+      window.removeEventListener("pagehide", retire);
+      document.removeEventListener("visibilitychange", hidden);
+    };
+  }, [visible]);
   useEffect(() => {
     onDirtyChange(dirty);
     return () => onDirtyChange(false);
@@ -310,31 +316,63 @@ export function CafLocalScenarios({
     });
   }
   async function exportStartup() {
-    if (!draft || !frame) return;
+    if (!draft || !frame || !template || disabled) return;
     const snapshot = draft;
+    const originalTemplate = template;
+    const selectedFrame = frame;
     const expected = signature;
+    const frameSignature = JSON.stringify(selectedFrame);
+    const request = ++startupRequest.current;
     const current = () =>
       mounted.current &&
       visibleNow.current &&
-      liveSignature.current === expected;
+      request === startupRequest.current &&
+      liveSignature.current === expected &&
+      liveFrame.current === frameSignature;
     await perform(async () => {
-      const result = await api(`/caf/${sha}/local-scenarios/startup-profile`, {
-        scenario: snapshot,
-        time: frame.time,
-      });
-      if (!current()) return;
-      const name =
-        filename.replace(/\.caf$/i, "") + `-startup-${frame.time}s.caf`;
-      const downloaded = await download(
-        `/caf/${sha}/simulation`,
-        { profile: result.profile },
-        name,
-        current,
-      );
-      if (downloaded && current())
+      try {
+        const [inventory, baseline] = await Promise.all([
+          api(`/caf/${sha}/simulation`),
+          api(`/caf/${sha}/simulation/profile`),
+        ]);
+        if (!current()) return;
+        admitSimulationSource(inventory, baseline, sha, 1);
+        const expectedProfile = scenarioStartupProfile(
+          snapshot,
+          selectedFrame.time,
+          baseline,
+          originalTemplate,
+        );
+        const prepared = await api(
+          `/caf/${sha}/local-scenarios/startup-profile`,
+          {
+            scenario: snapshot,
+            time: selectedFrame.time,
+          },
+        );
+        if (!current()) return;
+        const profile = admitStartupProfile(
+          prepared.profile,
+          expectedProfile,
+          baseline,
+        );
+        const verifyCopy = await simulationCopyVerifier(profile, sha);
+        if (!current()) return;
+        const result = await apiBlobDocument(`/caf/${sha}/simulation`, {
+          profile,
+        });
+        await verifyCopy(result);
+        if (!current()) return;
+        const name =
+          filename.replace(/\.caf$/i, "") +
+          `-startup-${selectedFrame.time}s.caf`;
+        saveBlob(result.blob, name);
         setMessage(
           "Startup CAF download requested through the guarded native scalar editor. No trajectory or quality structures encoded; CCT/PCT acceptance remains unverified.",
         );
+      } catch (error) {
+        if (current()) throw error;
+      }
     });
   }
 
