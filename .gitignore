@@ -1,6 +1,7 @@
 .venv*
 node_modules/
 web/dist/
+web/.bms-ui-*
 .state/
 .pytest_cache/
 __pycache__/

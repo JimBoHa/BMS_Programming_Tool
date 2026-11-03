@@ -26,9 +26,31 @@ The builder copies Git-tracked package files, three named public JSON documents,
 and the known Vite asset layout into a temporary staging directory. It excludes
 user state, controller programs, manuals, credentials, VMs and local toolchains.
 The embedded `bms_tool/data/distribution.json` records the source commit, dirty
-state and SHA-256 hashes of browser files. Browser assets must be freshly built
-from the reviewed source; their hashes establish artifact identity, not compiler
-acceptance or physical controller compatibility.
+state, SHA-256 hashes of browser files and the separate
+`bms-ui-build-provenance/1` proof. The standard `npm run build` compiles a frozen
+copy of the declared UI inputs with the locked TypeScript/Vite versions. Source,
+public assets, build configuration, package lock and optional production dotenv
+files are hashed before compilation. Other source edits cannot alter that frozen
+copy. Publication also requires that the current inputs and relevant environment
+hashes still match. A failed build invalidates its old proof and keeps the prior
+assets available without making them eligible for packaging.
+
+The Python packager independently checks the known proof, every current input,
+every emitted asset and the recorded compiler versions against the lock file.
+It copies the checked asset bytes and checks again before invoking pip. Missing,
+stale, added, removed or altered inputs/assets/proof require a fresh `npm run
+build`; `--allow-dirty` does not bypass these checks. A valid prebuilt cache remains
+usable when those exact inputs, assets and relevant environment hashes match.
+Packaging prebuilt assets still requires no Node.js. The receiving installed
+application also needs no Node.js or source checkout.
+
+The proof records relative paths, byte lengths, hashes and tool versions, with
+hashes of `NODE_ENV` and `VITE_*` values rather than their raw values. Its generated
+file is `web/.bms-ui-build.json`, outside the distributed browser directory. The
+supported recipe uses the standard production build without extra arguments.
+The proof establishes declared input/output identity; it does not establish a
+hermetic toolchain, bit-for-bit reproducibility across platforms, native
+manufacturer compiler acceptance or physical controller compatibility.
 
 On the other computer, copy the wheel, create an environment and install it:
 
@@ -62,8 +84,8 @@ Studio` on macOS, `%LOCALAPPDATA%\BMS Studio` on Windows, or
 its package directory. All interfaces remain closed until explicitly connected.
 
 Native Sedona/Temco/IEC toolchains, licensed CCT/PCT and controller packages are
-separate dependencies. This wheel does not add BTCVT drivers, native JCI program
-transfer or vendor acceptance. Local manual links need the corresponding manual
+separate dependencies. Packaging adds no BTCVT driver, adapter, license or vendor
+acceptance beyond the application's separately qualified operations. Local manual links need the corresponding manual
 library on the receiving computer.
 
 Acceptance tests build and install the actual wheel into a separate directory,
