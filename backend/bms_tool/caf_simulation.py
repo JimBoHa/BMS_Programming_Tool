@@ -9,6 +9,7 @@ Unknown representations and unobserved class versions remain read-only.
 from __future__ import annotations
 
 import copy
+import hashlib
 import io
 import json
 import math
@@ -31,6 +32,46 @@ VALIDATION = (
 )
 OBSERVED = {("526", "float"), ("527", "float"), ("530", "boolean")}
 DECIMAL = re.compile(r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?")
+
+
+def simulation_request_sha256(profile: dict) -> str:
+    """Bind the ordered value proposal; apply() separately validates every guard."""
+    if (
+        type(profile) is not dict
+        or set(profile) != {"format", "version", "source_sha256", "entries"}
+        or profile.get("format") != FORMAT
+        or type(profile.get("version")) is not int
+        or profile["version"] not in (VERSION, ENUM_VERSION)
+        or not isinstance(profile.get("source_sha256"), str)
+        or not re.fullmatch(r"[a-f0-9]{64}", profile["source_sha256"])
+        or type(profile.get("entries")) is not list
+        or len(profile["entries"]) > MAX_RECORDS
+    ):
+        raise ValueError("Unsupported saved simulation request descriptor.")
+    rows = []
+    for row in profile["entries"]:
+        if (
+            type(row) is not dict
+            or not isinstance(row.get("ref"), str)
+            or not isinstance(row.get("property_id"), str)
+            or "value" not in row
+            or not (row["value"] is None or isinstance(row["value"], str))
+        ):
+            raise ValueError("Unsupported saved simulation request record.")
+        rows.append({"property_id": row["property_id"], "ref": row["ref"], "value": row["value"]})
+    descriptor = {
+        "entries": rows,
+        "format": profile["format"],
+        "source_sha256": profile["source_sha256"],
+        "version": profile["version"],
+    }
+    try:
+        content = json.dumps(descriptor, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    except (UnicodeError, ValueError, TypeError) as exc:
+        raise ValueError("Simulation request requires valid Unicode scalar text.") from exc
+    if len(content) + 1024 > MAX_PROFILE_BYTES:
+        raise ValueError("Simulation request descriptor exceeds the 2 MiB limit.")
+    return hashlib.sha256(content).hexdigest()
 
 
 def _value(text: str, kind: str) -> str:

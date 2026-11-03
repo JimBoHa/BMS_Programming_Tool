@@ -775,3 +775,17 @@ package checks qualify this local-copy scope. Enum membership/meaning, native
 execution, CCT reopen, arbitrary native authoring and physical acceptance remain
 separate; these JCI groups remain partial overall. See
 [the saved simulation profile](docs/caf-simulation-profiles.md).
+
+
+## 2026-11-02 JCI-02/JCI-03/JCI-05 delivery: requested simulation artifact proof
+
+`FMT-CAF-SIMULATION-REQUEST-PROOF-001` binds saved CAF simulation downloads to the
+exact captured ordered value proposal. Source/version and an artifact's own hash
+cannot alone distinguish an earlier valid response. Both profile versions now
+return a typed, bounded compact-UTF8 request digest; the browser independently
+checks it before download or exported-state changes. Complete native metadata,
+readonly/range checks, lifecycle retirement and legacy scenario/ordinary Save
+contracts remain. A regression reproduces the stale-response gap against the
+prior installed wheel, then refuses it in source and installed applications.
+This local-copy guard adds no native execution/transfer or physical acceptance.
+See [the request descriptor](docs/caf-simulation-profiles.md#request-bound-simulation-artifacts).
