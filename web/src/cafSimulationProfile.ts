@@ -1,4 +1,24 @@
-import { sha256Text } from "./activityContracts";
+import { sha256Text, sha256Blob } from "./activityContracts";
+
+/** Capture the request before dispatch; a self-hash alone cannot bind its values. */
+export async function simulationCopyVerifier(profile: Profile, source: string) {
+  if (profile.source_sha256 !== source)
+    throw new Error("Simulation copy does not match the selected source.");
+  const version = profile.version;
+  const request = await simulationRequestSha256(profile);
+  return async (result: { blob: Blob; headers: Headers }) => {
+    if (
+      result.headers.get("X-Studio-Source-Sha256") !== source ||
+      result.headers.get("X-Studio-Simulation-Version") !== String(version) ||
+      result.headers.get("X-Studio-Simulation-Request-Sha256") !== request ||
+      result.headers.get("X-Studio-Artifact-Sha256") !==
+        (await sha256Blob(result.blob))
+    )
+      throw new Error(
+        "Simulation CAF copy differs from its source, profile version, requested simulation values or artifact digest.",
+      );
+  };
+}
 
 /** Ordered values are request evidence, separately from source metadata guards. */
 export async function simulationRequestSha256(profile: Profile) {

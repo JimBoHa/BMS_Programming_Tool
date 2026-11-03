@@ -74,3 +74,38 @@ optimistic revision conflicts, confirmed replacement and hidden late-download
 suppression. All six Chromium/WebKit cases pass with zero retries and unchanged
 limits. Production source and scenario semantics are unchanged. Broader software
 results and unresolved observations are recorded [separately](software-validation-2026-11-01.md).
+
+
+## Selected-frame startup copies
+
+`FMT-CAF-SCENARIO-STARTUP-PROOF-001` independently checks the selected scenario
+frame before exporting a native startup CAF. The browser admits the complete
+exact-source version 1 inventory/profile, binds the original input identities,
+classes/types/initial text and semantic contract, and projects the captured draft
+using inclusive zero-order hold. Exact decimal interval boundaries avoid binary
+multiplication drift. Only original editable Float/Boolean inputs participate;
+all unselected output, Enum and opaque records retain original values. Existing
+backend scenario/native-range/metadata admission still applies.
+
+The prepared profile must match that independent projection and every original
+record guard before a copy request. The shared copy verifier captures the actual
+value proposal before dispatch and checks source/version/request/artifact headers
+and the returned bytes before download. A correct artifact hash for a valid but
+wrong prepared profile is insufficient. The old installed application is verified
+to accept a wrong `73.25` startup value for a frame whose initial input was
+`70.000`; the actual incorrect CAF and traces remain retained locally. The new
+source and installed regressions refuse this case before requesting native copy.
+
+Startup preparation/copy operations retain draft, selected-frame and source
+ownership. Navigation, pagehide or document hiding retires the operation even
+if the user returns. Late failures also stay with the retired operation. File
+replacement preserves the new source. Existing scenario buffers, preview and
+optimistic save behavior remain; a fresh explicit export is available after the
+retired action finishes. No retry, timeout or capacity expansion is added.
+
+Authored checks cover exact decimal/event timing, signed raw text, Unicode,
+fault/quality recovery, unchanged output/Enum/opaque records, wrong prepared
+input/output/Boolean/source/version proposals, artifact/proof faults and delayed
+preparation/copy across lifecycle/source changes. The backend algorithms and all
+styles remain unchanged. This verifies local startup copies, not native CAF logic,
+controller outputs, native trajectory/quality encoding or CCT/physical acceptance.
