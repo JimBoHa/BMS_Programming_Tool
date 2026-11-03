@@ -11,6 +11,7 @@ import {
   carryLegacySimulation,
   importProfile,
   signature,
+  simulationRequestSha256,
   type Profile,
   type Summary,
 } from "./cafSimulationProfile";
@@ -253,6 +254,8 @@ export function CafSimulationPanel({
     setError("");
     setMessage("");
     try {
+      const requestSha256 = await simulationRequestSha256(snapshot);
+      if (!current()) return;
       const result = await apiBlobDocument(`/caf/${archive}/simulation`, {
         profile: snapshot,
       });
@@ -260,11 +263,13 @@ export function CafSimulationPanel({
         result.headers.get("X-Studio-Source-Sha256") !== archive ||
         result.headers.get("X-Studio-Simulation-Version") !==
           String(snapshot.version) ||
+        result.headers.get("X-Studio-Simulation-Request-Sha256") !==
+          requestSha256 ||
         result.headers.get("X-Studio-Artifact-Sha256") !==
           (await sha256Blob(result.blob))
       )
         throw new Error(
-          "Simulation CAF copy differs from its source, profile version or artifact digest.",
+          "Simulation CAF copy differs from its source, profile version, requested simulation values or artifact digest.",
         );
       if (!current()) return;
       saveBlob(result.blob, name);

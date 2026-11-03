@@ -1,3 +1,46 @@
+import { sha256Text } from "./activityContracts";
+
+/** Ordered values are request evidence, separately from source metadata guards. */
+export async function simulationRequestSha256(profile: Profile) {
+  const text = (value: any) =>
+    typeof value === "string" && !/[\uD800-\uDFFF]/u.test(value);
+  if (
+    !profile ||
+    typeof profile !== "object" ||
+    Array.isArray(profile) ||
+    Object.keys(profile).sort().join() !==
+      "entries,format,source_sha256,version" ||
+    profile.format !== "bms.caf-simulation-profile" ||
+    ![1, 2].includes(profile.version) ||
+    typeof profile.source_sha256 !== "string" ||
+    !/^[a-f0-9]{64}$/.test(profile.source_sha256) ||
+    !Array.isArray(profile.entries) ||
+    profile.entries.length > 10000
+  )
+    throw new Error("Unsupported saved simulation request descriptor.");
+  const entries = profile.entries.map((row) => {
+    if (
+      !row ||
+      typeof row !== "object" ||
+      Array.isArray(row) ||
+      !text(row.ref) ||
+      !text(row.property_id) ||
+      !(row.value === null || text(row.value))
+    )
+      throw new Error("Unsupported saved simulation request record.");
+    return { property_id: row.property_id, ref: row.ref, value: row.value };
+  });
+  const content = JSON.stringify({
+    entries,
+    format: profile.format,
+    source_sha256: profile.source_sha256,
+    version: profile.version,
+  });
+  if (new Blob([content]).size + 1024 > 2 * 1024 * 1024)
+    throw new Error("Simulation request descriptor exceeds the 2 MiB limit.");
+  return sha256Text(content);
+}
+
 export type SimulationRecord = {
   ref: string;
   class_id: string | null;

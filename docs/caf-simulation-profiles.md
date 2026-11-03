@@ -30,7 +30,7 @@ Float replacements require native decimal text, finite float32 range, and no non
 
 Profiles are bounded to 10,000 records and 2 MiB of compact serialized JSON, with reserved API/header space. Oversized metadata is rejected explicitly rather than truncating guard identities. The editor uses the CAF parser's actual XML token spans, copies ZIP metadata, reparses the result and verifies changed native values. The browser preserves drafts across workspace tabs, requires explicit discard before replacement/reset, and retires pending open/import/download responses when its workspace is hidden, the document becomes hidden or pagehide occurs. Returning does not revive those responses.
 
-The API uses `GET /api/caf/{id}/simulation`, `GET /api/caf/{id}/simulation/profile`, and `POST /api/caf/{id}/simulation` with `{ "profile": ... }`. GET defaults remain version 1; add canonical `?profile_version=2` to request version 2 inventory or profile. POST explicitly dispatches only a known integer profile version and checks every source/record guard for that version. The response includes `X-Studio-Source-Sha256`, `X-Studio-Simulation-Version` and `X-Studio-Artifact-Sha256`; the browser verifies all three and hashes the actual downloaded bytes. The audit records source hash/change count, and version 2 adds version and unverified Enum scope. The cached source stays unchanged.
+The API uses `GET /api/caf/{id}/simulation`, `GET /api/caf/{id}/simulation/profile`, and `POST /api/caf/{id}/simulation` with `{ "profile": ... }`. GET defaults remain version 1; add canonical `?profile_version=2` to request version 2 inventory or profile. POST explicitly dispatches only a known integer profile version and checks every source/record guard for that version. The response includes `X-Studio-Source-Sha256`, `X-Studio-Simulation-Version` and `X-Studio-Artifact-Sha256`, plus the separately qualified request proof below; the browser verifies these and hashes the actual downloaded bytes. The audit records source hash/change count, and version 2 adds version and unverified Enum scope. The cached source stays unchanged.
 
 ## Version 2: saved Enum numeric codes
 
@@ -69,3 +69,38 @@ The original version 1 qualification included fifty module tests and two API tes
 Native JCI completion still requires a matching authorized CCT/PCT installation, release-specific Function.xml/FDB definitions, controller packages and an accepted serialization/transfer interface or independently verified equivalent. It also requires independent vendor save/reopen/simulation and target acceptance evidence. See [the native toolchain investigation](jci-native-research-2026-10-19.md).
 
 The existing ALC Integration Builder source depends on licensed WebCTRL/EIKON to generate and compile equipment logic. A complete independent ALC equipment compiler/runtime remains unverified. Honeywell Spyder/CIPer requires its matching Niagara modules, target-specific component/compiler metadata, licensed execution context and loader; generic BOG archive preservation or standard BACnet object access supplies none of those proprietary execution semantics. This saved-JCI-value feature does not remove those target-specific dependencies.
+
+
+## Request-bound simulation artifacts
+
+`FMT-CAF-SIMULATION-REQUEST-PROOF-001` adds
+`X-Studio-Simulation-Request-Sha256` to both version 1 and version 2 exports.
+A response for an earlier value proposal can have the same source/version and
+an internally correct artifact hash. The browser now refuses that stale reply
+before downloading or marking the current draft exported.
+
+The descriptor uses compact UTF-8 JSON with these exact top-level keys in this
+order: `entries`, `format`, `source_sha256`, `version`. Each ordered entry contains
+`property_id`, `ref`, `value`, in that order. Values retain exact text or null;
+record order, Unicode, escapes, numeric spelling and profile version are not
+normalized. Only known integer versions, lowercase source SHA-256, bounded record
+counts and valid Unicode scalar strings are accepted. The descriptor plus header
+reserve stays within the existing 2 MiB limit. No values or metadata are truncated.
+The browser and backend independently compute SHA-256 over those exact bytes.
+
+The backend checks the complete original profile, metadata, readonly records and
+native ranges before issuing proof. Display metadata stays under those existing
+exact-source guards; the request descriptor grants no additional edit authority.
+Missing, wrong or earlier-proposal proof preserves the current draft and leaves
+it unexported. Current draft ownership and lifecycle retirement remain required.
+Legacy scenario consumers can ignore the additive header; ordinary top-level CAF
+Save keeps its distinct clicked-snapshot behavior.
+
+The earlier-reply case is reproduced against the retained installed pre-change
+application: code `3` accepted a reply containing code `2`. The regression now
+refuses that same replay even when source/version/artifact headers are internally
+consistent. Authored checks also cover no-op/changed exports, both versions,
+reordered/empty profiles, mixed native values, Unicode and escaping, typed bounds,
+missing/wrong proof and actual installed UI/module parity. This is request/artifact
+correlation for a local copy, not a manufacturer compiler, authenticated signature,
+native execution or physical acceptance result.

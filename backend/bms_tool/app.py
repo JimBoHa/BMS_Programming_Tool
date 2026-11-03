@@ -42,7 +42,7 @@ from .caf_instance import CafInstanceChange, CafInstanceEditor, CafInstanceExpor
 from .caf_native_correlation import CafNativeCorrelationRequest, correlate
 from .caf_native_file_correlation import CafNativeFileCorrelationRequest, NativeFileCorrelation
 from .caf_scenarios import CafInputScenarios, CafScenarioStore
-from .caf_simulation import CafSimulationProfile
+from .caf_simulation import CafSimulationProfile, simulation_request_sha256
 from .cancelable_pulse_template import cancelable_pulse_template_router
 from .change_ledger import ChangeLedger, LedgerQuery
 from .co2_minimum_flow_template import co2_minimum_flow_template_router
@@ -1619,6 +1619,7 @@ def create_app(state_dir=None, *, operation_power=None):
     @app.post("/api/caf/{id}/simulation")
     def caf_simulation_export(id: str, body: CafSimulationRequest):
         content, changes = CafSimulationProfile(get_caf(id)).apply(body.profile)
+        request_sha256 = simulation_request_sha256(body.profile)
         store.record(
             "caf.simulation.export",
             {
@@ -1639,6 +1640,7 @@ def create_app(state_dir=None, *, operation_power=None):
                 "Content-Disposition": 'attachment; filename="simulation-copy.caf"',
                 "X-Studio-Source-Sha256": id,
                 "X-Studio-Simulation-Version": str(body.profile["version"]),
+                "X-Studio-Simulation-Request-Sha256": request_sha256,
                 "X-Studio-Artifact-Sha256": hashlib.sha256(content).hexdigest(),
             },
         )
