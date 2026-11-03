@@ -1,0 +1,27 @@
+{
+  "profile": "bms-ui-build-inputs/1",
+  "fixed": [
+    "web/package.json",
+    "web/package-lock.json",
+    "web/index.html",
+    "web/tsconfig.json",
+    "web/vite.config.ts",
+    "scripts/build_ui.mjs",
+    "scripts/ui_build_provenance.py",
+    "scripts/ui_build_profile.json"
+  ],
+  "trees": ["web/src", "web/public"],
+  "optional": [
+    "web/.env",
+    "web/.env.local",
+    "web/.env.production",
+    "web/.env.production.local"
+  ],
+  "limits": {
+    "files": 4096,
+    "file_bytes": 16777216,
+    "input_bytes": 67108864,
+    "output_bytes": 134217728,
+    "proof_bytes": 1048576
+  }
+}

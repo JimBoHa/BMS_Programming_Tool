@@ -740,3 +740,20 @@ Existing workspace routes, source filters and styles remain in place. Historical
 capacity after a saved slot is removed, Enum meanings, general native authoring
 and physical acceptance remain separate; these JCI groups remain partial overall.
 See [the projection and evidence scope](docs/native-enum-recovery-ledger.md).
+
+## 2026-11-02 PORT-03 / QA-03 delivery: browser build input/output provenance
+
+`UI-BUILD-PROVENANCE-001` prevents a portable package from stamping current source
+while reusing unrelated prebuilt browser assets. The standard build compiles a
+frozen UI input snapshot, records exact input/output hashes and checks current
+input/environment continuity before publication. Failed or changed-source builds
+invalidate prior proof; ordinary and development packaging both require a known
+matching proof. The Python packager independently checks the declared inputs,
+locked compiler versions and actual staged bytes before invoking pip.
+
+The application layout, controller operations and all styles remain unchanged.
+The wheel keeps prebuilt browser assets and requires no Node.js on the receiving
+computer. This is source/artifact provenance, not a claim of hermetic builds,
+cross-platform bit reproducibility, a manufacturer compiler or physical acceptance.
+Broader environment/toolchain delivery remains partial. See
+[the portable build contract](docs/portable-distribution.md).

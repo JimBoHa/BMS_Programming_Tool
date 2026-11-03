@@ -17,6 +17,11 @@ import sys
 import tempfile
 from pathlib import Path
 
+if __package__:
+    from .ui_build_provenance import validate as validate_ui_build
+else:
+    from ui_build_provenance import validate as validate_ui_build
+
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_DOCS = ("capabilities.json", "references.json", "requirements.json")
 
@@ -32,6 +37,7 @@ def build(destination, *, allow_dirty=False):
     dist = ROOT / "web" / "dist"
     if not (dist / "index.html").is_file():
         raise ValueError("Build web/ with npm run build before packaging.")
+    ui_build = validate_ui_build(ROOT)
     paths = (
         subprocess.check_output(["git", "ls-files", "-z", "--", "backend/bms_tool"], cwd=ROOT)
         .decode()
@@ -65,6 +71,7 @@ def build(destination, *, allow_dirty=False):
             "source_commit": commit,
             "source_dirty": bool(status.strip()),
             "ui_files": {},
+            "ui_build": ui_build,
         }
         for source in sorted(dist.rglob("*")):
             if source.is_symlink():
@@ -82,10 +89,17 @@ def build(destination, *, allow_dirty=False):
                 raise ValueError("Unexpected built UI file: " + str(relative))
             target = package / "web_assets" / relative
             target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source, target)
-            manifest["ui_files"][relative.as_posix()] = hashlib.sha256(
-                source.read_bytes()
-            ).hexdigest()
+            raw = source.read_bytes()
+            digest = hashlib.sha256(raw).hexdigest()
+            if ui_build["outputs"].get(relative.as_posix()) != {
+                "bytes": len(raw),
+                "sha256": digest,
+            }:
+                raise ValueError("UI assets changed during packaging; rebuild the UI.")
+            target.write_bytes(raw)
+            manifest["ui_files"][relative.as_posix()] = digest
+        if validate_ui_build(ROOT) != ui_build:
+            raise ValueError("UI build proof changed during packaging; rebuild the UI.")
         (package / "data" / "distribution.json").write_text(json.dumps(manifest, indent=2) + "\n")
         subprocess.run(
             [
