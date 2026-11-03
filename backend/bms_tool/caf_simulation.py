@@ -8,14 +8,11 @@ Unknown representations and unobserved class versions remain read-only.
 
 from __future__ import annotations
 
-import copy
 import hashlib
-import io
 import json
 import math
 import re
 import struct
-import zipfile
 from collections import Counter
 from decimal import Decimal
 
@@ -316,16 +313,7 @@ class CafSimulationProfile:
         xml = self.archive.xml
         for start, end, replacement in sorted(edits, reverse=True):
             xml = xml[:start] + replacement + xml[end:]
-        output = io.BytesIO()
-        with zipfile.ZipFile(output, "w") as archive:
-            archive.comment = self.archive.comment
-            info = copy.copy(self.archive.info)
-            archive.writestr(info, xml)
-            if self.profile_version == ENUM_VERSION:
-                # zipfile supplies Unix permissions when the original is zero.
-                # Restore the recorded value before writing the central directory.
-                info.external_attr = self.archive.info.external_attr
-        result = output.getvalue()
+        result = self.archive._copy_xml(xml)
         verified = CafSimulationProfile(result, profile_version=self.profile_version)
         if list(verified.archive.objects) != list(self.archive.objects):
             raise ValueError("CAF object identities changed during simulation profile editing.")

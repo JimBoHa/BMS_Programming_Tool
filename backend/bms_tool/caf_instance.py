@@ -5,12 +5,9 @@ and objectid attribute together. Internal refs, peers, points, I/O and logic
 remain unchanged. Preparing a file does not transfer it to a controller.
 """
 
-import copy
 import hashlib
-import io
 import json
 import re
-import zipfile
 
 from pydantic import Field
 
@@ -190,11 +187,7 @@ class CafInstanceEditor:
         xml = self.caf.xml
         for start, end, replacement in sorted(self._edits(request.new_instance), reverse=True):
             xml = xml[:start] + replacement + xml[end:]
-        output = io.BytesIO()
-        with zipfile.ZipFile(output, "w") as archive:
-            archive.comment = self.caf.comment
-            archive.writestr(copy.copy(self.caf.info), xml)
-        data = output.getvalue()
+        data = self.caf._copy_xml(xml)
         readback = CafArchive(data)
         actual = CafInstanceEditor(readback)
         if readback.xml != xml or list(readback.objects) != list(self.caf.objects):
