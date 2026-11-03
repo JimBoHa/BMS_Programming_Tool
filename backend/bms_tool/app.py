@@ -1607,24 +1607,40 @@ def create_app(state_dir=None, *, operation_power=None):
         )
 
     @app.get("/api/caf/{id}/simulation")
-    def caf_simulation(id: str):
-        return CafSimulationProfile(get_caf(id)).summary()
+    def caf_simulation(id: str, profile_version: Literal["1", "2"] = "1"):
+        return CafSimulationProfile(get_caf(id), profile_version=int(profile_version)).summary()
 
     @app.get("/api/caf/{id}/simulation/profile")
-    def caf_simulation_profile(id: str):
-        return CafSimulationProfile(get_caf(id)).export_profile()
+    def caf_simulation_profile(id: str, profile_version: Literal["1", "2"] = "1"):
+        return CafSimulationProfile(
+            get_caf(id), profile_version=int(profile_version)
+        ).export_profile()
 
     @app.post("/api/caf/{id}/simulation")
     def caf_simulation_export(id: str, body: CafSimulationRequest):
         content, changes = CafSimulationProfile(get_caf(id)).apply(body.profile)
         store.record(
             "caf.simulation.export",
-            {"source_sha256": id, "changed_records": len(changes), "native_validation": "pending"},
+            {
+                "source_sha256": id,
+                "changed_records": len(changes),
+                "native_validation": "pending",
+                **(
+                    {"profile_version": 2, "enum_semantics_verified": False}
+                    if body.profile["version"] == 2
+                    else {}
+                ),
+            },
         )
         return Response(
             content,
             media_type="application/octet-stream",
-            headers={"Content-Disposition": 'attachment; filename="simulation-copy.caf"'},
+            headers={
+                "Content-Disposition": 'attachment; filename="simulation-copy.caf"',
+                "X-Studio-Source-Sha256": id,
+                "X-Studio-Simulation-Version": str(body.profile["version"]),
+                "X-Studio-Artifact-Sha256": hashlib.sha256(content).hexdigest(),
+            },
         )
 
     @app.get("/api/caf/{id}/local-scenarios")
