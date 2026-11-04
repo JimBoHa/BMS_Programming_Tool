@@ -163,12 +163,14 @@ class CafComparisonCopies(CafConstantCopies):
 
     def inspect(self, diagram_ref, prototype_ref):
         first = self._allocation()
-        if first + 4 > MAX_ID:
+        graph, block, setup, standard, children = self._prototype(diagram_ref, prototype_ref)
+        if first + len(children) > MAX_ID:
             raise ValueError(
                 "Five fresh comparison identities do not fit the local allocation range."
+                if self.spec.class_id == "560"
+                else "Fresh Math identities do not fit the local allocation range."
             )
-        graph, block, setup, standard, children = self._prototype(diagram_ref, prototype_ref)
-        new_ref = f"{diagram_ref}.560_{first}"
+        new_ref = f"{diagram_ref}.{self.spec.class_id}_{first}"
         if any(c in new_ref for c in "\r\n\t"):
             raise ValueError("Unsupported comparison reference framing.")
         for offset, row in enumerate(children, 1):
@@ -179,6 +181,7 @@ class CafComparisonCopies(CafConstantCopies):
         for ref in [new_ref, *[r["new_ref"] for r in children]]:
             if ref in self.archive.objects or len(ref) > 512:
                 raise ValueError("Fresh comparison references are unavailable in this profile.")
+        output = next(r for r in children if r["port"] == 85)
         position = {}
         for axis, offset in (("x", 80), ("y", 40)):
             original = coordinate(block["layout"][axis])
@@ -187,8 +190,8 @@ class CafComparisonCopies(CafConstantCopies):
             except ValueError:
                 position[axis] = original
         body = {
-            "profile": PROFILE,
-            "scope": SCOPE,
+            "profile": self.spec.profile,
+            "scope": self.spec.scope,
             "source_sha256": self.archive.hash,
             "diagram_ref": diagram_ref,
             "diagram_sha256": sha(self._raw(self.archive.objects[diagram_ref])),
@@ -202,16 +205,16 @@ class CafComparisonCopies(CafConstantCopies):
             "execution_order": graph["execution_order"],
             "new_instance": first,
             "new_ref": new_ref,
-            "new_output_instance": children[0]["new_instance"],
-            "new_output_ref": children[0]["new_ref"],
-            "output_ref": children[0]["ref"],
-            "output_sha256": children[0]["sha256"],
+            "new_output_instance": output["new_instance"],
+            "new_output_ref": output["new_ref"],
+            "output_ref": output["ref"],
+            "output_sha256": output["sha256"],
             "recorded_value": None,
             "new_index": len(graph["blocks"]),
             "execution_after": block["execution_index"],
             "opaque_layout_code": block["layout"]["opaque_code"],
             "suggested_position": position,
-            "object_count": 5,
+            "object_count": len(children) + 1,
             "operator_meaning_verified": False,
             "children": children,
             "controller_write": False,
@@ -297,7 +300,9 @@ class CafComparisonCopies(CafConstantCopies):
             "output_sha256": sha(output),
             "output_xml_sha256": sha(xml),
             "new_object_sha256": sha(parent),
-            "new_output_sha256": sha(clones[0]),
+            "new_output_sha256": sha(
+                clones[next(i for i, r in enumerate(s["children"]) if r["ref"] == s["output_ref"])]
+            ),
             "new_child_sha256": [sha(b) for b in clones],
             "controller_write": False,
             "field_transfer_enabled": False,
