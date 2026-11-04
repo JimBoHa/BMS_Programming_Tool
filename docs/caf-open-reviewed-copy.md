@@ -58,7 +58,9 @@ and acceptance, rejected uploads and wrong identities, stale completions, compac
 controls, duplicate clicks and controller entry through an authored routed peer.
 Pure handoff checks cover byte identity, location bounds and actual graph hints.
 The separately qualified [Enum-valued Multiplexer](caf-recorded-enum-multiplexer-creation.md)
-adds continuation from its typed output and optional state metadata.
+adds continuation from its typed output and optional state metadata. The
+[Enum-selector Enum I/O profile](caf-recorded-enum-io-enum-selector-creation.md)
+separately preserves its distinct selector and data state metadata.
 
 These checks qualify local file continuation. Native CCT/PCT reopening, runtime
 semantics, general File-3 generation, vendor resources/packages and physical or

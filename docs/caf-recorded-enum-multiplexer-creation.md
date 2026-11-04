@@ -12,6 +12,8 @@ fall back to another profile. For compatibility the existing technical
 `float-multiplexer-copy` route remains. Enum-valued artifacts use an
 `enum-multiplexer-copy.caf` filename; original Float filenames remain unchanged.
 No controller request, Apply operation or native runtime authority is added.
+An [Enum-selector Enum I/O profile](caf-recorded-enum-io-enum-selector-creation.md)
+has separate admission and selector metadata; it does not widen this profile.
 
 ## Recorded configuration
 
