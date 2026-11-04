@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`316007ef`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/316007ef3002c307d8c68395af6a7818ab871f7f).
+[`3f57c626`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/3f57c6261cd572e8c8cb8d15021229fc2b4f1529).
 
 ## Baseline and purpose
 
@@ -1200,3 +1200,18 @@ their original logs and available state are retained. A passing later run does
 not establish their cause or repair. QA-01 remains open. Continue diagnosis and
 the separately planned native matching-connection transfer; no physical or
 Bluetooth acceptance is inferred.
+
+## 2026-11-04 QA-01/QA-02 delivery: isolate authored native peer setup
+
+`QA-NATIVE-PEER-GC-ISOLATION-001` reclaims completed-test cyclic garbage before
+the shared native peer fixture opens its UDP endpoints. A traced original-order
+reproduction observed a 107.936 ms generation-2 collection between receiving
+an input-property request and handing off its reply, exceeding the unchanged
+100 ms test request window. The attempt correctly stayed unsent without a new
+intent. Existing transfer assertions, protocol requests, reply validation,
+deadlines, automatic-GC state and production code remain unchanged.
+
+This addresses cross-test heap coupling in that authored peer fixture. It does
+not retroactively identify the cause of untraced historical failures or establish
+physical acceptance. Preserve those originals and the separate native timeout
+diagnostic work. See [fixture isolation evidence](docs/native-peer-fixture-isolation.md).
