@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, GitBranch, RefreshCw } from "lucide-react";
 import { api, download } from "./api";
 import { CafLogicCanvas } from "./CafLogicCanvas";
+import { CafConstantCopy } from "./CafConstantCopy";
+import { constantDraftDirty, type ConstantDrafts } from "./cafConstantContract";
 import type { WiringProposal } from "./cafLogic";
 import "./caf-graph.css";
 
@@ -71,6 +73,8 @@ export function CafGraphPanel({
   scalarChangeCount = 0,
   onDirtyChange,
   onInspectObject,
+  constantDrafts: sharedConstantDrafts,
+  reviewContext = "offline",
 }: {
   id: string;
   filename: string;
@@ -78,7 +82,13 @@ export function CafGraphPanel({
   scalarChangeCount?: number;
   onDirtyChange?: (dirty: boolean) => void;
   onInspectObject?: (block: NativeBlock) => void;
+  constantDrafts?: ConstantDrafts;
+  reviewContext?: string;
 }) {
+  const localConstantDrafts = useRef<ConstantDrafts>(new Map());
+  const constantDrafts = sharedConstantDrafts || localConstantDrafts.current;
+  const [, constantChanged] = useState(0);
+  const onConstantChange = () => constantChanged((n) => n + 1);
   const [inventory, setInventory] = useState<GraphInventory | null>(null);
   const [diagramRef, setDiagramRef] = useState("");
   const [diagram, setDiagram] = useState<NativeDiagram | null>(null);
@@ -235,9 +245,14 @@ export function CafGraphPanel({
     (rewireKey && !savedProposals.current.has(rewireKey)) ||
       (connectionKey && !savedProposals.current.has(connectionKey)),
   );
+  const structuralDirty =
+    dirty ||
+    [...constantDrafts.values()].some(
+      (d) => d.archive === id && constantDraftDirty(d),
+    );
   useEffect(() => {
-    onDirtyChange?.(dirty);
-  }, [dirty, onDirtyChange]);
+    onDirtyChange?.(structuralDirty);
+  }, [structuralDirty, onDirtyChange]);
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
 
   function discardProposals() {
@@ -509,6 +524,16 @@ export function CafGraphPanel({
                 }
               />
             )}
+            <CafConstantCopy
+              key={"constant-copy:" + id + diagram.ref}
+              archive={id}
+              filename={filename}
+              diagram={diagram}
+              disabled={disabled || dirty || diagram.ref !== diagramRef}
+              reviewContext={reviewContext}
+              drafts={constantDrafts}
+              onDraftChange={onConstantChange}
+            />
             <details
               open={advancedOpen}
               onToggle={(e) => setAdvancedOpen(e.currentTarget.open)}

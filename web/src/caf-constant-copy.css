@@ -1,0 +1,66 @@
+.caf-constant-copy {
+  margin: 16px 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+.caf-constant-copy summary {
+  cursor: pointer;
+  font-weight: 600;
+  min-height: 36px;
+}
+.caf-constant-copy section {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.caf-constant-copy p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.caf-constant-copy label {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.caf-constant-copy input,
+.caf-constant-copy select,
+.caf-constant-copy button {
+  min-height: 36px;
+  max-width: 100%;
+}
+.caf-constant-copy code {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.caf-constant-select {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+.caf-constant-select select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  min-width: 0;
+  padding-right: 36px;
+  font-size: 14px;
+}
+.caf-constant-select svg {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.caf-constant-position {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+@media (max-width: 600px) {
+  .caf-constant-position {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

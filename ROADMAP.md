@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`1ad112a4`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/1ad112a405e892abc88b596883ab317f0bb7d708).
+[`5faa45f4`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/5faa45f4ad1bdf3f5e4b9b29872ccd125442d964).
 
 ## Baseline and purpose
 
@@ -871,3 +871,21 @@ and exports exact admitted analysis JSON, retiring source-stale results. Final
 compilation size/readback and all field, resource/package, arbitrary authoring and
 physical/CCT/BTCVT acceptance requirements remain separate. JCI-01 remains partial.
 See [native connection capability discovery](docs/native-connection-capabilities.md).
+
+## 2026-11-04 JCI-02/JCI-03 delivery: recorded CAF constant creation
+
+`FMT-CAF-CONSTANT-COPY-001` creates one new unconnected Float Constant and its
+required output child from actual version 1.0 recorded configuration. Two fresh
+local identities derive from actual objects and typed references; the graph gains
+one member, execution entry and operator position. Original objects, wires,
+continuations and opaque bookkeeping retain exact bytes. Numeric values and
+standard-name codes are copied as recorded, including omitted values.
+
+The existing Program CAF logic view supplies source inspection, local review and
+verified separate export, bounded unfinished drafts and stale-result retirement.
+The new block can enter the existing separately guarded connection-copy workflow.
+All 121 private original prototypes were copied/read back in memory without
+changing their files. No vendor allocator, reserved-resource accounting, arbitrary
+block authoring, native File-3 compiler, hardware allocation, CCT/firmware/physical
+acceptance or field transfer is granted. JCI-02, JCI-03, JCI-06 and JCI-09 remain
+partial. See [recorded constant creation](docs/caf-recorded-constant-creation.md).
