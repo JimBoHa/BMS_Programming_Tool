@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`0464f39a`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/0464f39a4fff722b3269bb87d25276cf6cae505b).
+[`b6417e66`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/b6417e669263d0119bec2690a526b456304c8c75).
 
 ## Baseline and purpose
 
@@ -996,5 +996,23 @@ version; current-archive compatibility and runtime meaning remain unverified.
 They do not reinterpret Enum defaults, change typed admission or grant compiler
 or field authority. Existing graphics, draft limits, routes and reviews remain.
 JCI-01/JCI-02 stay partial. See [CAF reference names](docs/caf-reference-labels.md).
-Recorded Timer creation remains the next authoring slice, including all hidden
-ports and both outputs; reference labels do not qualify its runtime behavior.
+Recorded Timer creation has the separately qualified authoring profile below,
+including hidden ports and both outputs; reference labels do not qualify runtime behavior.
+
+## 2026-11-04 JCI-02/JCI-03 delivery: recorded Timer creation
+
+`FMT-CAF-TIMER-COPY-001` copies an actual version 1.0 Timer and seven recorded
+ports into a separate local CAF. All four hidden ports, both outputs, original
+exposure/order, stored/omitted defaults and metadata remain. Eight local
+identities fit the unchanged ceiling. The absent parent setup is explicitly
+null; the separate Enum input at port 518 retains its own source metadata.
+All seven actual templates qualify in memory and all 538 previous structural
+artifacts match PR232.
+
+The contextual Program Logic task shows actual port directions and both outputs,
+retains reference-name provenance, drafts, routes, review retirement and exact
+export proof, and preserves existing graphics/labels/Save behavior. Timer/Enum
+semantics, restart/scan behavior, native File-3 generation, package/resource
+validation, CCT/firmware/physical acceptance and transfer remain separate.
+JCI-02/JCI-03/JCI-05/JCI-06/JCI-09 stay partial. See
+[recorded Timer creation](docs/caf-recorded-timer-creation.md).

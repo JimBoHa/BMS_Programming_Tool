@@ -49,6 +49,7 @@ from .caf_native_file_correlation import CafNativeFileCorrelationRequest, Native
 from .caf_reference_labels import CafReferenceLabels
 from .caf_scenarios import CafInputScenarios, CafScenarioStore
 from .caf_simulation import CafSimulationProfile, simulation_request_sha256
+from .caf_timer_api import timer_router
 from .cancelable_pulse_template import cancelable_pulse_template_router
 from .change_ledger import ChangeLedger, LedgerQuery
 from .co2_minimum_flow_template import co2_minimum_flow_template_router
@@ -1502,6 +1503,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.include_router(enum_constant_router(get_caf))
     app.include_router(comparison_router(get_caf))
     app.include_router(math_router(get_caf))
+    app.include_router(timer_router(get_caf))
 
     @app.post("/api/caf/{id}/native-correlation")
     def caf_native_correlation(id: str, body: CafNativeCorrelationRequest):

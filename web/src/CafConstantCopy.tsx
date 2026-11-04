@@ -42,7 +42,8 @@ export function CafConstantCopy({
 }) {
   const spec = constantKinds[kind];
   const comparison = kind === "comparison";
-  const primitive = comparison || kind === "math";
+  const timer = kind === "timer";
+  const primitive = comparison || kind === "math" || timer;
   const subject = primitive ? "block" : "constant";
   const base = `/caf/${archive}/${spec.path}`;
   const prototypes = diagram.blocks.filter(
@@ -316,6 +317,13 @@ export function CafConstantCopy({
             input configuration are copied as recorded. CCT/PCT acceptance and
             controller allocation remain unverified.
           </p>
+        ) : timer ? (
+          <p>
+            Create a local CAF copy containing a new unconnected Timer and all
+            seven recorded ports, including four hidden ports and both outputs.
+            Stored values and metadata stay exact. Timer behavior, CCT/PCT
+            acceptance and controller allocation remain unverified.
+          </p>
         ) : (
           <p>
             Create a local CAF copy containing a new unconnected constant and
@@ -415,11 +423,22 @@ export function CafConstantCopy({
           <>
             {primitive ? (
               <p>
-                Recorded setup code {source.setup_code}; standard-name code{" "}
+                {timer ? (
+                  "Recorded standard-name code "
+                ) : (
+                  <>
+                    Recorded setup code {source.setup_code}; standard-name
+                    code{" "}
+                  </>
+                )}
                 {source.standard_name_code}.{" "}
-                {source.children.length === 3 ? "Three" : "Four"} port objects
-                are copied as recorded; operator meanings and runtime output are
-                unverified.
+                {timer
+                  ? "Seven"
+                  : source.children.length === 3
+                    ? "Three"
+                    : "Four"}{" "}
+                port objects are copied as recorded; operator meanings and
+                runtime output are unverified.
               </p>
             ) : (
               <p>
@@ -439,24 +458,36 @@ export function CafConstantCopy({
             {primitive && (
               <details>
                 <summary>
-                  Recorded {comparison ? "comparison" : "math"} inputs
+                  {timer ? (
+                    "Recorded Timer ports"
+                  ) : (
+                    <>Recorded {comparison ? "comparison" : "math"} inputs</>
+                  )}
                 </summary>
                 {source.children
-                  .filter((r: Data) => r.port !== 85)
+                  .filter((r: Data) => timer || r.port !== 85)
                   .map((r: Data) => (
                     <p key={r.ref}>
-                      Port {r.port}:{" "}
+                      {timer ? `${r.direction} port` : "Port"} {r.port}:{" "}
                       {r.recorded_default === null
                         ? "default omitted in source"
                         : `recorded default ${r.recorded_default}`}
                       ; {r.exposed ? "exposed" : "not exposed"} in source.
-                      {comparison && r.bacnet_type === 19 && (
+                      {(comparison || timer) && r.bacnet_type === 19 && (
                         <>
                           {" "}
                           Number Of States: {r.number_of_states}. States Text
                           code: {r.states_text_code} (encoding set{" "}
                           {r.states_text_encoding_set}). Default Value encoding
                           set: {r.default_encoding_set ?? "omitted with value"}.
+                        </>
+                      )}
+                      {timer && r.units_code !== null && (
+                        <>
+                          {" "}
+                          Recorded units code {r.units_code} (encoding set{" "}
+                          {r.units_encoding_set}); Float metadata{" "}
+                          {r.recorded_metadata_661}.
                         </>
                       )}
                       {kind === "math" &&
@@ -543,15 +574,17 @@ export function CafConstantCopy({
               <code>{shown.data.creation.selection.new_ref}</code>
             </p>
             <p>
-              Required output:{" "}
+              {timer ? "Primary output:" : "Required output:"}{" "}
               <code>{shown.data.creation.selection.new_output_ref}</code>
             </p>
             <p>
               One graph member and{" "}
               {primitive
-                ? shown.data.creation.selection.object_count === 4
-                  ? "four"
-                  : "five"
+                ? timer
+                  ? "eight"
+                  : shown.data.creation.selection.object_count === 4
+                    ? "four"
+                    : "five"
                 : "two"}{" "}
               objects added. Existing connections and continuation records stay
               unchanged.
