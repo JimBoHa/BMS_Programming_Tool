@@ -90,3 +90,8 @@ This profile does not establish saved-effective connection additions, controller
 transfer, general logic compilation, arbitrary new blocks or I/O allocation,
 resource/package/release compatibility, native execution, CCT/PCT reopening or
 physical/BTCVT acceptance. JCI-02, JCI-03 and JCI-09 remain partial overall.
+
+**Saved effective snapshot** now selects a separate
+[saved-effective connection compiler](native-effective-connection-compiler.md).
+It merges and validates the retained saved values before the append. The original
+archive basis described above retains its own unmerged contract and draft keys.

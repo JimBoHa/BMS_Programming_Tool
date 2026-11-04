@@ -6,6 +6,8 @@ type Data = Record<string, any>;
 export const connectionBase =
   "/bacnet/controller/native-application/inspection/connection-copy";
 export const connectionProfile = "native-archive-connection-copy/1";
+export const effectiveConnectionProfile =
+  "native-effective-connection-compiler/1";
 export const connectionCompiler = "tagged-moi-connection-copy/1";
 const hash = (v: unknown) => typeof v === "string" && /^[a-f0-9]{64}$/.test(v);
 const integer = (v: unknown, max = 65535) =>
@@ -32,10 +34,17 @@ const same = (a: any, b: any): boolean => {
   return false;
 };
 
-export function connectionEnvelope(value: Data, source: NativeArchiveSource) {
+export function connectionEnvelope(
+  value: Data,
+  source: NativeArchiveSource,
+  basis: "archive" | "effective" = "archive",
+) {
   return (
     !!value &&
-    value.profile === connectionProfile &&
+    value.profile ===
+      (basis === "effective"
+        ? effectiveConnectionProfile
+        : connectionProfile) &&
     value.compiler_profile === connectionCompiler &&
     value.source_kind === "native-backup-archive" &&
     value.capture_id === source.capture_id &&
@@ -53,7 +62,7 @@ export function connectionEnvelope(value: Data, source: NativeArchiveSource) {
     value.controller_queries === false &&
     value.field_actions === false &&
     value.identity_verified === false &&
-    value.saved_settings_merged === false &&
+    value.saved_settings_merged === (basis === "effective") &&
     value.field_transfer_enabled === false &&
     value.can_apply === false
   );
@@ -64,9 +73,14 @@ export function connectionSource(
   source: NativeArchiveSource,
   request: Data,
 ) {
-  const s = value?.selection;
+  return (
+    connectionEnvelope(value, source) &&
+    connectionSelection(value?.selection, request)
+  );
+}
+
+export function connectionSelection(s: Data, request: Data) {
   if (
-    !connectionEnvelope(value, source) ||
     !s ||
     s.diagram_ref !== request.diagram_ref ||
     s.record_sha256 !== request.record_sha256 ||
@@ -188,15 +202,31 @@ export async function connectionReview(
   request: Data,
   selection: Data,
 ) {
-  const c = value?.compilation;
-  const src = selection.sources.find((r: Data) => r.ref === request.source_ref);
-  const dst = selection.targets.find((r: Data) => r.ref === request.target_ref);
   if (
     !connectionEnvelope(value, source) ||
     !same(value.request, request) ||
     !hash(value.review_sha256) ||
     !hash(value.output_sha256) ||
-    value.controller_write !== false ||
+    value.controller_write !== false
+  )
+    return false;
+  return connectionCompilation(
+    value.compilation,
+    value.output_sha256,
+    request,
+    selection,
+  );
+}
+
+export async function connectionCompilation(
+  c: Data,
+  outputSha256: string,
+  request: Data,
+  selection: Data,
+) {
+  const src = selection.sources.find((r: Data) => r.ref === request.source_ref);
+  const dst = selection.targets.find((r: Data) => r.ref === request.target_ref);
+  if (
     !c ||
     !src ||
     !dst ||
@@ -220,7 +250,7 @@ export async function connectionReview(
     ]) ||
     c.connection_count_before !== request.connection_count ||
     c.connection_count_after !== request.connection_count + 1 ||
-    c.output_sha256 !== value.output_sha256 ||
+    c.output_sha256 !== outputSha256 ||
     !hash(c.output_native_sha256) ||
     !hash(c.source_native_sha256) ||
     !hash(c.compilation_sha256) ||
@@ -246,8 +276,11 @@ export async function connectionReview(
   )
     return false;
   const { compilation_sha256, ...body } = c;
-  return (await sha256Text(sealedJSON(body))) === compilation_sha256;
+  return (await connectionSeal(body)) === compilation_sha256;
 }
+
+export const connectionSame = same;
+export const connectionSeal = (value: Data) => sha256Text(sealedJSON(value));
 
 export async function connectionExport(
   result: { blob: Blob; headers: Headers },

@@ -12,6 +12,11 @@ import {
   connectionReview,
   connectionExport,
 } from "./nativeConnectionContract";
+import {
+  effectiveConnectionBase,
+  effectiveConnectionSource,
+  effectiveConnectionReview,
+} from "./nativeEffectiveConnectionContract";
 
 type Data = Record<string, any>;
 const full =
@@ -49,11 +54,19 @@ export function NativeConnectionCopy({
 }) {
   const fieldBusy =
     useContext(NativeBooleanTransferContext)?.fieldBusy ?? false;
-  const baseKey = connectionDraftKey(source, record);
-  const cached = Number(drafts.get(baseKey + "/prototype") || 0);
-  const [index, setIndex] = useState(
-    Number.isInteger(cached) && cached >= 0 && cached <= 4095 ? cached : 0,
+  const archiveKey = connectionDraftKey(source, record);
+  const [basis, setBasis] = useState<"archive" | "effective">(
+    drafts.get(archiveKey + "/basis") === "effective" ? "effective" : "archive",
   );
+  const effective = basis === "effective";
+  const apiBase = effective ? effectiveConnectionBase : connectionBase;
+  const baseKey = archiveKey + (effective ? "/effective" : "");
+  const cached = Number(drafts.get(baseKey + "/prototype") || 0);
+  const validIndex =
+    Number.isInteger(cached) && cached >= 0 && cached <= 4095 ? cached : 0;
+  const [chosen, setChosen] = useState({ key: baseKey, index: validIndex });
+  const index = chosen.key === baseKey ? chosen.index : validIndex;
+  const setIndex = (value: number) => setChosen({ key: baseKey, index: value });
   const pairKey = baseKey + "/pair/" + index;
   const pair = draft(drafts.get(pairKey));
   const [, repaint] = useState(0);
@@ -113,6 +126,11 @@ export function NativeConnectionCopy({
   } | null>(null);
   const shown =
     review?.owner === owner && review.epoch === epoch.current ? review : null;
+  const shownEdit =
+    shown &&
+    (effective
+      ? shown.data.compilation.connection_edit
+      : shown.data.compilation);
   const [pending, setPending] = useState<{
     owner: string;
     epoch: number;
@@ -145,6 +163,12 @@ export function NativeConnectionCopy({
           metadata_property_sha256: selection.metadata_property_sha256,
           prototype_old: selection.prototype.old,
           connection_count: selection.connection_count,
+          ...(effective
+            ? {
+                effective_sha256: loaded!.data.effective_sha256,
+                effective_record_sha256: selection.record_sha256,
+              }
+            : {}),
         }
       : null;
   useEffect(() => {
@@ -189,8 +213,12 @@ export function NativeConnectionCopy({
     setLoading(key);
     void (async () => {
       try {
-        const result = await api(connectionBase + "/source", sourceRequest);
-        if (!connectionSource(result, source, sourceRequest))
+        const result = await api(apiBase + "/source", sourceRequest);
+        if (
+          !(effective
+            ? effectiveConnectionSource(result, source, sourceRequest)
+            : connectionSource(result, source, sourceRequest))
+        )
           throw new Error(
             "Native connection candidates do not match this original archive, graph and prototype.",
           );
@@ -225,17 +253,24 @@ export function NativeConnectionCopy({
     const key = owner,
       ticket = ++epoch.current,
       request = body,
-      original = selection;
+      original = selection,
+      openedSource = loaded!.data;
     setReview(null);
     setError(null);
     setSaved(null);
     setPending({ owner: key, epoch: ticket });
     try {
-      const result = await apiJsonDocument(
-        connectionBase + "/preview",
-        request,
-      );
-      if (!(await connectionReview(result.data, source, request, original)))
+      const result = await apiJsonDocument(apiBase + "/preview", request);
+      if (
+        !(effective
+          ? await effectiveConnectionReview(
+              result.data,
+              source,
+              request,
+              openedSource,
+            )
+          : await connectionReview(result.data, source, request, original))
+      )
         throw new Error(
           "Native connection review does not match this exact proposal and compilation proof.",
         );
@@ -255,7 +290,7 @@ export function NativeConnectionCopy({
     setSaved(null);
     setPending({ owner: key, epoch: ticket });
     try {
-      const result = await apiBlobDocument(connectionBase + "/export", {
+      const result = await apiBlobDocument(apiBase + "/export", {
         ...body,
         review_sha256: shown.data.review_sha256,
       });
@@ -264,7 +299,12 @@ export function NativeConnectionCopy({
           "Native connection output bytes or export proof differ from the reviewed copy.",
         );
       if (current(key, ticket)) {
-        saveBlob(result.blob, "native-connection-copy.moi");
+        saveBlob(
+          result.blob,
+          effective
+            ? "native-effective-connection.moi"
+            : "native-connection-copy.moi",
+        );
         setSaved(owner);
       }
     } catch (failure) {
@@ -280,10 +320,42 @@ export function NativeConnectionCopy({
       aria-label="Native matching connection copy"
     >
       <summary>Add a matching native connection to a local copy</summary>
+      <label>
+        Native connection basis
+        <span className="wire-copy-select">
+          <select
+            aria-label="Native connection basis"
+            value={basis}
+            disabled={fieldBusy || !visible}
+            onChange={(event) => {
+              const value = event.target.value as "archive" | "effective";
+              if (value === "archive") drafts.delete(archiveKey + "/basis");
+              else if (
+                !rememberWireDraft(drafts, archiveKey + "/basis", value)
+              ) {
+                setError({ owner, text: full });
+                return;
+              }
+              epoch.current++;
+              setReview(null);
+              setOpened(false);
+              setError(null);
+              setSaved(null);
+              setBasis(value);
+            }}
+          >
+            <option value="archive">Original archive</option>
+            <option value="effective">Saved effective snapshot</option>
+          </select>
+          <ChevronDown size={16} aria-hidden="true" />
+        </span>
+      </label>
       <p>
-        Original retained archive only. Choose a recorded connection as the port
-        and configuration prototype, then an unused matching input. Saved
-        settings are not merged. Saving sends no program to a controller.
+        {effective
+          ? "Merge this retained snapshot's saved application values before adding the connection. These are captured effective values, not current controller readings."
+          : "Original retained archive only. Saved settings are not merged."}{" "}
+        Choose a recorded connection as the port and configuration prototype,
+        then an unused matching input. Saving sends no program to a controller.
       </p>
       <button
         className={!selection ? "primary" : undefined}
@@ -295,7 +367,9 @@ export function NativeConnectionCopy({
           setReload((n) => n + 1);
         }}
       >
-        Open native connection candidates
+        {effective
+          ? "Open saved connection candidates"
+          : "Open native connection candidates"}
       </button>
       {loading === loadKey && (
         <p role="status">Inspecting recorded connection candidates…</p>
@@ -303,6 +377,12 @@ export function NativeConnectionCopy({
       {error?.owner === owner && <p role="alert">{error.text}</p>}
       {selection && (
         <>
+          {effective && (
+            <p role="status">
+              {loaded!.data.parameter_merge.matched_parameters} saved
+              application parameters merged before the connection addition.
+            </p>
+          )}
           {!selection.prototype ? (
             <p>
               No recorded native connection prototype is available. No pin or
@@ -424,7 +504,9 @@ export function NativeConnectionCopy({
                   disabled={disabled || busy || !body}
                   onClick={() => void prepare()}
                 >
-                  Review native connection copy
+                  {effective
+                    ? "Review saved connection compilation"
+                    : "Review native connection copy"}
                 </button>
               </div>
             </>
@@ -453,11 +535,17 @@ export function NativeConnectionCopy({
         )}
       </div>
       {shown && (
-        <section aria-label="Reviewed native connection copy">
+        <section
+          aria-label={
+            effective
+              ? "Reviewed saved connection compilation"
+              : "Reviewed native connection copy"
+          }
+        >
           <p>
-            New connection: {shown.data.compilation.new.join(", ")}.
-            Connections: {shown.data.compilation.connection_count_before} →{" "}
-            {shown.data.compilation.connection_count_after}.
+            New connection: {shownEdit.new.join(", ")}. Connections:{" "}
+            {shownEdit.connection_count_before} →{" "}
+            {shownEdit.connection_count_after}.
           </p>
           <p>
             Native structure readback verified. Other expanded bytes preserved.
@@ -470,16 +558,25 @@ export function NativeConnectionCopy({
               disabled={busy || fieldBusy || !visible}
               onClick={() => void save()}
             >
-              Save native connection copy
+              {effective
+                ? "Save effective connection compilation"
+                : "Save native connection copy"}
             </button>
             <button
               disabled={busy || fieldBusy || !visible}
               onClick={() => {
                 if (current(shown.owner, shown.epoch))
-                  saveBlob(shown.blob, "native-connection-review.json");
+                  saveBlob(
+                    shown.blob,
+                    effective
+                      ? "native-effective-connection-review.json"
+                      : "native-connection-review.json",
+                  );
               }}
             >
-              Save exact native connection review
+              {effective
+                ? "Save exact effective connection review"
+                : "Save exact native connection review"}
             </button>
           </div>
           <details>
@@ -489,7 +586,11 @@ export function NativeConnectionCopy({
         </section>
       )}
       {saved === owner && (
-        <p role="status">Saved reviewed local native connection copy.</p>
+        <p role="status">
+          {effective
+            ? "Saved reviewed local effective connection compilation."
+            : "Saved reviewed local native connection copy."}
+        </p>
       )}
     </details>
   );
