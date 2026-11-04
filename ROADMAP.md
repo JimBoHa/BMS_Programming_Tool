@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`a9cf8af2`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/a9cf8af2595a6ce31583efbd793a67f52b10f6e6).
+[`91c5a2d5`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/91c5a2d5518b79f271df1da1ce5f5776c40f9f2f).
 
 ## Baseline and purpose
 
@@ -1155,3 +1155,29 @@ No field authority or native assignment/runtime meaning is granted. CCT/PCT,
 general File-3, resources/packages and physical/BTCVT acceptance remain separate.
 JCI-02/JCI-03/JCI-05/JCI-06/JCI-09 stay partial. See
 [the recorded Enum I/O / Enum-selector profile](docs/caf-recorded-enum-io-enum-selector-creation.md).
+
+## 2026-11-04 JCI-02/JCI-03/JCI-05 delivery: Boolean-output Multiplexers
+
+`FMT-CAF-BOOLEAN-MULTIPLEXER-COPY-001` adds two separately admitted class-562
+profiles: StandardName 18 with a Boolean selector and StandardName 19 with an
+Enum selector. Both retain a Boolean output and two Boolean data inputs. Copies
+preserve selector naming, all four recorded bookkeeping/metadata forms, absent
+setup, exposure/child order and exact Boolean default spellings. The Enum-selector
+profile retains the required second-input default; the Boolean-selector profile
+keeps all defaults absent. Five identities must fit the unchanged ceiling.
+
+The existing contextual Multiplexer task identifies the actual I/O and selector
+types. It adds a Boolean filename while retaining the original technical route,
+earlier typed artifacts, six-profile drafts, review/export proof, Open CAF copy,
+one primary action, controller routes and current graphics. Source dispatch uses
+separate strict engines without fallback. Neither saving nor opening sends a
+controller request or grants native runtime or transfer authority.
+
+These profiles cover the remaining observed Multiplexer copy shapes in the local
+compatibility corpus. Unknown structures still require qualification. Next work
+must verify native assignments, fallback, Enum meaning and runtime behavior before
+claiming native editing or simulation. Continue the broader prioritized roadmap
+and justified software regression work; vendor resources/packages, CCT/PCT,
+general File-3 and physical/BTCVT acceptance remain separate. JCI-02/JCI-03/
+JCI-05/JCI-06/JCI-09 remain partial. See
+[recorded Boolean-output Multiplexer creation](docs/caf-recorded-boolean-multiplexer-creation.md).

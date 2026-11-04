@@ -1,6 +1,8 @@
 """Select a separately admitted Multiplexer schema from actual source configuration."""
 
 from .caf import CafArchive
+from .caf_boolean_enum_selector_multiplexer_copy import CafBooleanEnumSelectorMultiplexerCopies
+from .caf_boolean_multiplexer_copy import CafBooleanMultiplexerCopies
 from .caf_enum_enum_selector_multiplexer_copy import CafEnumEnumSelectorMultiplexerCopies
 from .caf_enum_multiplexer_copy import CafEnumMultiplexerCopies
 from .caf_enum_selector_multiplexer_copy import CafEnumSelectorMultiplexerCopies
@@ -15,6 +17,11 @@ class CafFloatMultiplexerService:
     def _engine(self, prototype_ref):
         obj = self.archive.objects.get(prototype_ref)
         props = _properties(obj) if obj is not None else {}
+        standard = self.archive.scalar(props.get("3670"))
+        if standard == {"type": "enum", "text": "18", "attributes": {"set": "432"}}:
+            return CafBooleanMultiplexerCopies(self.archive)
+        if standard == {"type": "enum", "text": "19", "attributes": {"set": "432"}}:
+            return CafBooleanEnumSelectorMultiplexerCopies(self.archive)
         if self.archive.scalar(props.get("3670")) == {
             "type": "enum",
             "text": "17",
