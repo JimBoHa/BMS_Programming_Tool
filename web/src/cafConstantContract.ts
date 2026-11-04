@@ -8,6 +8,14 @@ export const enumComparisonProfile =
 export const enumSelectorMultiplexerProfile =
   "caf-recorded-float-enum-selector-multiplexer-copy/1";
 export const enumMultiplexerProfile = "caf-recorded-enum-multiplexer-copy/1";
+export const enumEnumSelectorMultiplexerProfile =
+  "caf-recorded-enum-enum-selector-multiplexer-copy/1";
+export function hasEnumMultiplexerOutput(profile: unknown) {
+  return (
+    profile === enumMultiplexerProfile ||
+    profile === enumEnumSelectorMultiplexerProfile
+  );
+}
 export type ConstantKind =
   | "float"
   | "boolean"
@@ -80,7 +88,7 @@ export const constantKinds = {
     profile: "caf-recorded-float-multiplexer-copy/1",
     classId: "562",
     outputType: 2,
-    codes: [14, 15, 16],
+    codes: [14, 15, 16, 17],
     path: "float-multiplexer-copy",
   },
   timer: {
@@ -122,11 +130,13 @@ export async function constantSource(
     s?.profile === spec.profile ||
     (kind === "comparison" && s?.profile === enumComparisonProfile) ||
     (kind === "multiplexer" &&
-      [enumSelectorMultiplexerProfile, enumMultiplexerProfile].includes(
-        s?.profile,
-      ));
+      [
+        enumSelectorMultiplexerProfile,
+        enumMultiplexerProfile,
+        enumEnumSelectorMultiplexerProfile,
+      ].includes(s?.profile));
   const outputType =
-    kind === "multiplexer" && s?.profile === enumMultiplexerProfile
+    kind === "multiplexer" && hasEnumMultiplexerOutput(s?.profile)
       ? 19
       : spec.outputType;
   const outputPrefix = request.prototype_ref + `.${outputType}_`;
@@ -542,6 +552,61 @@ function reliabilitySelection(s: Data, block: Data) {
     output.sha256 === s.output_sha256
   );
 }
+function enumEnumSelectorMultiplexerSelection(s: Data, block: Data) {
+  if (
+    !s ||
+    s.object_count !== 5 ||
+    s.setup_code !== null ||
+    s.standard_name_code !== 17 ||
+    s.operator_meaning_verified !== false ||
+    s.multiplexer_semantics_verified !== false ||
+    s.enum_semantics_verified !== false ||
+    !integer(s.new_instance, 1, 4194298) ||
+    !Array.isArray(s.children) ||
+    s.children.length !== 4 ||
+    !connectionSame(s.recorded_property_2381, ["0", "1", "0", "0"]) ||
+    s.recorded_property_3122 !== "2" ||
+    !connectionSame(
+      block.exposed_ports.map((p: Data) => p.id),
+      [961, 7000, 7001, 85],
+    )
+  )
+    return false;
+  const ports = [85, 961, 7000, 7001];
+  for (let i = 0; i < 4; i++) {
+    const r = s.children[i];
+    if (
+      !r ||
+      r.port !== ports[i] ||
+      r.class_id !== (i === 0 ? "529" : "528") ||
+      r.bacnet_type !== 19 ||
+      !integer(r.instance, 0, 4194302) ||
+      r.ref !== `${s.prototype_ref}.19_${r.instance}` ||
+      r.new_instance !== s.new_instance + i + 1 ||
+      r.new_ref !== `${s.new_ref}.19_${r.new_instance}` ||
+      [...r.new_ref].length > 512 ||
+      !hash(r.sha256) ||
+      r.direction !== (i === 0 ? "output" : "input") ||
+      r.exposed !== true ||
+      r.recorded_default !== null ||
+      r.recorded_metadata_661 !== null ||
+      r.default_encoding_set !== null ||
+      r.number_of_states !== (i === 1 ? 4 : 2) ||
+      r.states_text_code !== (i === 1 ? 345 : 418) ||
+      r.states_text_encoding_set !== 802 ||
+      r.recorded_standard_name_code !== (i === 1 ? 0 : null)
+    )
+      return false;
+  }
+  const output = s.children[0];
+  return (
+    output.ref === s.output_ref &&
+    output.new_ref === s.new_output_ref &&
+    output.sha256 === s.output_sha256 &&
+    output.new_instance === s.new_output_instance
+  );
+}
+
 function enumMultiplexerSelection(s: Data, block: Data) {
   if (
     !s ||
@@ -643,6 +708,8 @@ function enumMultiplexerSelection(s: Data, block: Data) {
 }
 
 function multiplexerSelection(s: Data, block: Data) {
+  if (s?.profile === enumEnumSelectorMultiplexerProfile)
+    return enumEnumSelectorMultiplexerSelection(s, block);
   if (s?.profile === enumMultiplexerProfile)
     return enumMultiplexerSelection(s, block);
   if (s?.profile === enumSelectorMultiplexerProfile)
@@ -879,6 +946,7 @@ export async function constantReview(v: Data, request: Data, source: Data) {
       constantKinds.multiplexer.profile,
       enumSelectorMultiplexerProfile,
       enumMultiplexerProfile,
+      enumEnumSelectorMultiplexerProfile,
     ].some((p) => p === source.profile) &&
       (!Array.isArray(c.new_child_sha256) ||
         c.new_child_sha256.length !== source.object_count - 1 ||

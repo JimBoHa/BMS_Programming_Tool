@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`378c7791`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/378c7791d915015e4027119886c4aac38383ad43).
+[`a9cf8af2`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/a9cf8af2595a6ce31583efbd793a67f52b10f6e6).
 
 ## Baseline and purpose
 
@@ -1137,3 +1137,21 @@ ordinary Save remain. No controller traffic or native assignment/runtime meaning
 is granted. CCT/PCT, general File-3, resources/packages and physical/BTCVT acceptance
 remain separate. JCI-02/JCI-03/JCI-05/JCI-06/JCI-09 stay partial. See
 [recorded Enum Multiplexer creation](docs/caf-recorded-enum-multiplexer-creation.md).
+
+## 2026-11-04 JCI-02/JCI-03/JCI-05 delivery: Enum I/O with an Enum selector
+
+`FMT-CAF-ENUM-ENUM-SELECTOR-MULTIPLEXER-COPY-001` separately qualifies class-562
+StandardName 17. The five-object copy retains the Enum output, Enum selector and
+two Enum inputs, including their deliberately different state metadata. Four-state
+selector/code 345 stays distinct from two-state data/code 418. Four-entry raw
+bookkeeping, retained short 2, selector naming, absent defaults/setup and source
+child/exposure order remain exact. Five identities must fit the unchanged ceiling.
+
+The current Multiplexer task identifies the inspected selector type and retains
+both selector drafts, exact proof, typed Enum filename, Open CAF copy, controller
+routes, graphics and ordinary Save. Earlier engines/results remain compatible;
+actual source selects the separate engine, with no fallback after rejection.
+No field authority or native assignment/runtime meaning is granted. CCT/PCT,
+general File-3, resources/packages and physical/BTCVT acceptance remain separate.
+JCI-02/JCI-03/JCI-05/JCI-06/JCI-09 stay partial. See
+[the recorded Enum I/O / Enum-selector profile](docs/caf-recorded-enum-io-enum-selector-creation.md).

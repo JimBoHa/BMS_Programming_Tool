@@ -12,6 +12,8 @@ import {
   constantKinds,
   enumSelectorMultiplexerProfile,
   enumMultiplexerProfile,
+  enumEnumSelectorMultiplexerProfile,
+  hasEnumMultiplexerOutput,
   type ConstantKind,
   type ConstantDrafts,
 } from "./cafConstantContract";
@@ -313,10 +315,9 @@ export function CafConstantCopy({
         throw new Error(
           "CAF download bytes or proof do not match the review. Review again before saving.",
         );
-      const suffix =
-        source?.profile === enumMultiplexerProfile
-          ? "enum-multiplexer-copy"
-          : spec.path;
+      const suffix = hasEnumMultiplexerOutput(source?.profile)
+        ? "enum-multiplexer-copy"
+        : spec.path;
       const name = filename.replace(/\.caf$/i, "") + `-${suffix}.caf`;
       saveBlob(result.blob, name);
       setCreated({
@@ -570,9 +571,11 @@ export function CafConstantCopy({
                 Recorded I/O:{" "}
                 {source.profile === enumMultiplexerProfile
                   ? "Enum inputs and output; Boolean selector."
-                  : source.profile === enumSelectorMultiplexerProfile
-                    ? "Float inputs and output; Enum selector."
-                    : "Float inputs and output; Boolean selector."}
+                  : source.profile === enumEnumSelectorMultiplexerProfile
+                    ? "Enum inputs and output; Enum selector."
+                    : source.profile === enumSelectorMultiplexerProfile
+                      ? "Float inputs and output; Enum selector."
+                      : "Float inputs and output; Boolean selector."}
               </p>
             )}
             {primitive && (
@@ -637,6 +640,7 @@ export function CafConstantCopy({
                           [
                             enumSelectorMultiplexerProfile,
                             enumMultiplexerProfile,
+                            enumEnumSelectorMultiplexerProfile,
                           ].includes(source.profile))) &&
                         r.recorded_standard_name_code !== null && (
                           <>
