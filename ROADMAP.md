@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`b6417e66`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/b6417e669263d0119bec2690a526b456304c8c75).
+[`be909002`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/be90900243db2d4926e568a6d3cb27cacebd9c19).
 
 ## Baseline and purpose
 
@@ -1016,3 +1016,24 @@ semantics, restart/scan behavior, native File-3 generation, package/resource
 validation, CCT/firmware/physical acceptance and transfer remain separate.
 JCI-02/JCI-03/JCI-05/JCI-06/JCI-09 stay partial. See
 [recorded Timer creation](docs/caf-recorded-timer-creation.md).
+
+## 2026-11-04 JCI-02/JCI-03 delivery: recorded Boolean logic creation
+
+`FMT-CAF-BOOLEAN-LOGIC-COPY-001` adds separate class-559 Boolean logic copies
+from actual version 1.0 subtrees. Three observed Setup/StandardName pairs retain
+their original codes. Three- and four-port forms preserve omitted defaults,
+additional-input metadata, actual output position and source child/exposure order.
+Four or five identities must fit the existing local ceiling; unknown shapes are
+refused. Original objects, wires, continuations and unrelated bytes remain exact.
+
+Program Logic gains a contextual Boolean Logic task distinct from Boolean
+Constant. It retains reference provenance, mixed drafts, target/lifecycle review
+retirement, exact review/export proof and current graphics. The separate local
+API family grants no controller write. All earlier constant, comparison, Math and
+Timer profiles retain their results. Reference setup set 286 stays unsupported by
+the separate three-set label reader; names do not supply runtime semantics.
+
+Native operator execution, restart/retention, scan behavior, package/resource
+validation, CCT/PCT/native File-3 and physical/BTCVT acceptance remain separate.
+JCI-02/JCI-03/JCI-05/JCI-06/JCI-09 stay partial. See
+[recorded Boolean logic creation](docs/caf-recorded-boolean-logic-creation.md).

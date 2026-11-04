@@ -43,7 +43,8 @@ export function CafConstantCopy({
   const spec = constantKinds[kind];
   const comparison = kind === "comparison";
   const timer = kind === "timer";
-  const primitive = comparison || kind === "math" || timer;
+  const booleanLogic = kind === "booleanLogic";
+  const primitive = comparison || kind === "math" || timer || booleanLogic;
   const subject = primitive ? "block" : "constant";
   const base = `/caf/${archive}/${spec.path}`;
   const prototypes = diagram.blocks.filter(
@@ -317,6 +318,13 @@ export function CafConstantCopy({
             input configuration are copied as recorded. CCT/PCT acceptance and
             controller allocation remain unverified.
           </p>
+        ) : booleanLogic ? (
+          <p>
+            Create a local CAF copy containing a new unconnected Boolean logic
+            block and its three or four recorded ports. Child order and omitted
+            defaults stay exact. Operator behavior, CCT/PCT acceptance and
+            controller allocation remain unverified.
+          </p>
         ) : timer ? (
           <p>
             Create a local CAF copy containing a new unconnected Timer and all
@@ -461,7 +469,15 @@ export function CafConstantCopy({
                   {timer ? (
                     "Recorded Timer ports"
                   ) : (
-                    <>Recorded {comparison ? "comparison" : "math"} inputs</>
+                    <>
+                      Recorded{" "}
+                      {comparison
+                        ? "comparison"
+                        : booleanLogic
+                          ? "Boolean logic"
+                          : "math"}{" "}
+                      inputs
+                    </>
                   )}
                 </summary>
                 {source.children
@@ -490,7 +506,7 @@ export function CafConstantCopy({
                           {r.recorded_metadata_661}.
                         </>
                       )}
-                      {kind === "math" &&
+                      {(kind === "math" || booleanLogic) &&
                         r.recorded_standard_name_code !== null && (
                           <>
                             {" "}

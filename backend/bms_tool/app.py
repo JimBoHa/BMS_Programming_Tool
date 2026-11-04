@@ -36,6 +36,7 @@ from .blocks import catalog
 from .bus_preflight import bus_preflight_router
 from .caf import CafArchive
 from .caf_boolean_api import boolean_constant_router
+from .caf_boolean_logic_api import boolean_logic_router
 from .caf_compare import compare_cafs
 from .caf_comparison_api import comparison_router
 from .caf_constant_api import constant_router
@@ -1504,6 +1505,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.include_router(comparison_router(get_caf))
     app.include_router(math_router(get_caf))
     app.include_router(timer_router(get_caf))
+    app.include_router(boolean_logic_router(get_caf))
 
     @app.post("/api/caf/{id}/native-correlation")
     def caf_native_correlation(id: str, body: CafNativeCorrelationRequest):

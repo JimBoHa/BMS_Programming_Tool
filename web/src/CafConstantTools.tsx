@@ -40,7 +40,11 @@ export function CafConstantTools(
     available.length > 0 && !props.disabled,
   );
   const choiceLabel = available.some(
-    (kind) => kind === "comparison" || kind === "math" || kind === "timer",
+    (kind) =>
+      kind === "comparison" ||
+      kind === "math" ||
+      kind === "timer" ||
+      kind === "booleanLogic",
   )
     ? "Recorded block type"
     : "Constant type";
