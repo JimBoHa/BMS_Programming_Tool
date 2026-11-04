@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`e02e4fa4`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/e02e4fa44b506df2339216689af5b48a3cb00957).
+[`54ae6424`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/54ae6424d1e37f086a8fd0f98650b27547fbbd76).
 
 ## Baseline and purpose
 
@@ -927,3 +927,23 @@ match PR227 exactly. Enum semantics, vendor allocation/resources, arbitrary
 logic/hardware/ports, native File-3 compilation, CCT/firmware/physical acceptance
 and transfer remain unqualified. JCI-02, JCI-03, JCI-06 and JCI-09 remain partial.
 See [recorded Enumeration creation](docs/caf-recorded-enum-creation.md).
+
+## 2026-11-04 JCI-02/JCI-03 delivery: recorded Float Comparison creation
+
+`FMT-CAF-COMPARISON-COPY-001` creates one class-560 Float Comparison and its four
+recorded port objects as a local CAF copy. Five fresh local identities preserve
+native hierarchy/types, setup/standard-name pairs, input defaults, omission and
+actual exposure, including a port-637 child that may be unexposed. One graph
+member/order/layout record is added; original objects/wires/continuations remain
+exact. Enum-input comparisons stay outside this profile.
+
+The existing Program Logic creation task now offers actual comparison templates,
+keeps constant labels unchanged in constant-only diagrams, and retains one visible
+action, source/target context, exact proof and bounded unfinished drafts with
+stale-result retirement. All 93 private Float prototypes were created/read back
+in memory; 13 enum-input variants are refused, and all 276 prior constant reports,
+seals and artifacts match PR228 exactly. Operator evaluation, vendor resources,
+arbitrary logic/hardware/ports, native File-3 compilation, CCT/firmware/physical
+acceptance and transfer remain unqualified. JCI-02, JCI-03, JCI-06 and JCI-09
+remain partial. See
+[recorded Float Comparison creation](docs/caf-recorded-comparison-creation.md).

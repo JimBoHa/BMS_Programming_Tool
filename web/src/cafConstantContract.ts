@@ -3,7 +3,7 @@ import { connectionSame, connectionSeal } from "./nativeConnectionContract";
 
 type Data = Record<string, any>;
 export const constantProfile = "caf-recorded-float-constant-copy/1";
-export type ConstantKind = "float" | "boolean" | "enumeration";
+export type ConstantKind = "float" | "boolean" | "enumeration" | "comparison";
 export const constantKinds = {
   float: {
     label: "Float Constant",
@@ -28,6 +28,14 @@ export const constantKinds = {
     outputType: 19,
     codes: [12],
     path: "enum-constant-copy",
+  },
+  comparison: {
+    label: "Float Comparison",
+    profile: "caf-recorded-float-comparison-copy/1",
+    classId: "560",
+    outputType: 5,
+    codes: [28, 31, 32],
+    path: "comparison-copy",
   },
 } as const;
 const hash = (v: unknown) => typeof v === "string" && /^[a-f0-9]{64}$/.test(v);
@@ -59,15 +67,18 @@ export async function constantSource(
   const outputPrefix = request.prototype_ref + `.${spec.outputType}_`;
   const value = s?.recorded_value;
   const valueValid =
-    kind === "boolean"
-      ? typeof value === "string" && ["true", "false", "0", "1"].includes(value)
-      : kind === "enumeration"
-        ? value === null ||
-          (typeof value === "string" &&
-            /^(0|[1-9][0-9]{0,9})$/.test(value) &&
-            Number(value) <= 4294967295)
-        : value === null ||
-          (typeof value === "string" && constantCoordinate(value));
+    kind === "comparison"
+      ? value === null
+      : kind === "boolean"
+        ? typeof value === "string" &&
+          ["true", "false", "0", "1"].includes(value)
+        : kind === "enumeration"
+          ? value === null ||
+            (typeof value === "string" &&
+              /^(0|[1-9][0-9]{0,9})$/.test(value) &&
+              Number(value) <= 4294967295)
+          : value === null ||
+            (typeof value === "string" && constantCoordinate(value));
   const enumValid =
     kind !== "enumeration" ||
     (!!s &&
@@ -107,6 +118,7 @@ export async function constantSource(
     !/^(0|[1-9][0-9]{0,9})$/.test(s.output_ref.slice(outputPrefix.length)) ||
     !valueValid ||
     !enumValid ||
+    (kind === "comparison" && !comparisonSelection(s, block)) ||
     !spec.codes.some((code) => code === s.standard_name_code) ||
     s.exposed_port !== 85 ||
     [
@@ -126,6 +138,58 @@ export async function constantSource(
   const { selection_sha256, ...body } = s;
   return (await connectionSeal(body)) === selection_sha256;
 }
+
+function comparisonSelection(s: Data, block: Data) {
+  if (
+    !s ||
+    s.object_count !== 5 ||
+    s.operator_meaning_verified !== false ||
+    !integer(s.new_instance, 1, 4194298) ||
+    ![
+      { setup: 1, standard: 28 },
+      { setup: 2, standard: 31 },
+      { setup: 3, standard: 32 },
+    ].some(
+      (p) => p.setup === s.setup_code && p.standard === s.standard_name_code,
+    ) ||
+    !Array.isArray(s.children) ||
+    s.children.length !== 4
+  )
+    return false;
+  const ports = [85, 50083, 50084, 637];
+  for (let i = 0; i < 4; i++) {
+    const r = s.children[i],
+      type = i === 0 ? 5 : 2;
+    if (
+      !r ||
+      r.port !== ports[i] ||
+      r.class_id !== (i === 0 ? "531" : "526") ||
+      r.bacnet_type !== type ||
+      !integer(r.instance, 0, 4194302) ||
+      r.ref !== `${s.prototype_ref}.${type}_${r.instance}` ||
+      r.new_instance !== s.new_instance + i + 1 ||
+      r.new_ref !== `${s.new_ref}.${type}_${r.new_instance}` ||
+      [...r.new_ref].length > 512 ||
+      !hash(r.sha256) ||
+      r.exposed !== block.exposed_ports.some((p: Data) => p.id === r.port) ||
+      (r.recorded_default === null
+        ? r.recorded_metadata_661 !== null
+        : i === 0 ||
+          typeof r.recorded_default !== "string" ||
+          !constantCoordinate(r.recorded_default) ||
+          typeof r.recorded_metadata_661 !== "string" ||
+          !/^(0|[1-9][0-9]{0,9})$/.test(r.recorded_metadata_661) ||
+          Number(r.recorded_metadata_661) > 4294967295)
+    )
+      return false;
+  }
+  const output = s.children[0];
+  return (
+    output.ref === s.output_ref &&
+    output.new_ref === s.new_output_ref &&
+    output.sha256 === s.output_sha256
+  );
+}
 export async function constantReview(v: Data, request: Data, source: Data) {
   const c = v?.creation;
   if (
@@ -136,6 +200,11 @@ export async function constantReview(v: Data, request: Data, source: Data) {
     !connectionSame(v.request, request) ||
     !connectionSame(c.selection, source) ||
     !connectionSame(c.position, { x: request.x, y: request.y }) ||
+    (source.profile === constantKinds.comparison.profile &&
+      (!Array.isArray(c.new_child_sha256) ||
+        c.new_child_sha256.length !== 4 ||
+        c.new_child_sha256.some((s: unknown) => !hash(s)) ||
+        c.new_child_sha256[0] !== c.new_output_sha256)) ||
     [
       "output_sha256",
       "output_xml_sha256",
