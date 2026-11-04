@@ -49,7 +49,7 @@ retention across accepted file replacement.
 
 ## Qualified scope
 
-Authored browser fixtures cover all twelve supported creator shapes: Float,
+Authored browser fixtures cover the twelve initial creator shapes: Float,
 Boolean and Enumeration constants; Float and Enumeration comparisons; Math;
 Boolean logic; Timer; Float- and Enum-input Reliability Check; and Float
 Multiplexers with Boolean or Enum selectors. Further cases cover mixed types,
@@ -57,6 +57,8 @@ nested diagrams, source-specific unfinished drafts, pending-edit cancellation
 and acceptance, rejected uploads and wrong identities, stale completions, compact
 controls, duplicate clicks and controller entry through an authored routed peer.
 Pure handoff checks cover byte identity, location bounds and actual graph hints.
+The separately qualified [Enum-valued Multiplexer](caf-recorded-enum-multiplexer-creation.md)
+adds continuation from its typed output and optional state metadata.
 
 These checks qualify local file continuation. Native CCT/PCT reopening, runtime
 semantics, general File-3 generation, vendor resources/packages and physical or

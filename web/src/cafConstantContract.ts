@@ -7,6 +7,7 @@ export const enumComparisonProfile =
   "caf-recorded-enumeration-comparison-copy/1";
 export const enumSelectorMultiplexerProfile =
   "caf-recorded-float-enum-selector-multiplexer-copy/1";
+export const enumMultiplexerProfile = "caf-recorded-enum-multiplexer-copy/1";
 export type ConstantKind =
   | "float"
   | "boolean"
@@ -75,11 +76,11 @@ export const constantKinds = {
     path: "reliability-copy",
   },
   multiplexer: {
-    label: "Float Multiplexer",
+    label: "Multiplexer",
     profile: "caf-recorded-float-multiplexer-copy/1",
     classId: "562",
     outputType: 2,
-    codes: [14, 15],
+    codes: [14, 15, 16],
     path: "float-multiplexer-copy",
   },
   timer: {
@@ -120,8 +121,15 @@ export async function constantSource(
   const profileValid =
     s?.profile === spec.profile ||
     (kind === "comparison" && s?.profile === enumComparisonProfile) ||
-    (kind === "multiplexer" && s?.profile === enumSelectorMultiplexerProfile);
-  const outputPrefix = request.prototype_ref + `.${spec.outputType}_`;
+    (kind === "multiplexer" &&
+      [enumSelectorMultiplexerProfile, enumMultiplexerProfile].includes(
+        s?.profile,
+      ));
+  const outputType =
+    kind === "multiplexer" && s?.profile === enumMultiplexerProfile
+      ? 19
+      : spec.outputType;
+  const outputPrefix = request.prototype_ref + `.${outputType}_`;
   const value = s?.recorded_value;
   const valueValid =
     kind === "comparison" ||
@@ -175,7 +183,7 @@ export async function constantSource(
     diagram.blocks.some((b: Data) => s.new_instance <= b.instance) ||
     s.new_ref !== `${request.diagram_ref}.${spec.classId}_${s.new_instance}` ||
     s.new_output_ref !==
-      `${s.new_ref}.${spec.outputType}_${s.new_output_instance}` ||
+      `${s.new_ref}.${outputType}_${s.new_output_instance}` ||
     [...s.new_output_ref].length > 512 ||
     typeof s.output_ref !== "string" ||
     !s.output_ref.startsWith(outputPrefix) ||
@@ -534,7 +542,109 @@ function reliabilitySelection(s: Data, block: Data) {
     output.sha256 === s.output_sha256
   );
 }
+function enumMultiplexerSelection(s: Data, block: Data) {
+  if (
+    !s ||
+    s.object_count !== 5 ||
+    s.setup_code !== null ||
+    s.standard_name_code !== 16 ||
+    s.operator_meaning_verified !== false ||
+    s.multiplexer_semantics_verified !== false ||
+    s.enum_semantics_verified !== false ||
+    !integer(s.new_instance, 1, 4194298) ||
+    !Array.isArray(s.children) ||
+    s.children.length !== 4 ||
+    !connectionSame(
+      block.exposed_ports.map((p: Data) => p.id),
+      [961, 7000, 7001, 85],
+    )
+  )
+    return false;
+  const first = s.children[0];
+  if (
+    !first ||
+    ![
+      { modes: ["0", "2"], retained: "1", states: 4, text: 366 },
+      { modes: ["1", "2"], retained: "0", states: 2, text: 418 },
+      { modes: ["1", "2"], retained: "0", states: 2, text: null },
+    ].some(
+      (v) =>
+        connectionSame(s.recorded_property_2381, v.modes) &&
+        s.recorded_property_3122 === v.retained &&
+        first.number_of_states === v.states &&
+        first.states_text_code === v.text,
+    )
+  )
+    return false;
+  const ports = [85, 961, 7000, 7001],
+    types = [19, 5, 19, 19],
+    classes = ["529", "530", "528", "528"];
+  for (let i = 0; i < 4; i++) {
+    const r = s.children[i];
+    if (
+      !r ||
+      r.port !== ports[i] ||
+      r.bacnet_type !== types[i] ||
+      r.class_id !== classes[i] ||
+      !integer(r.instance, 0, 4194302) ||
+      r.ref !== `${s.prototype_ref}.${types[i]}_${r.instance}` ||
+      r.new_instance !== s.new_instance + i + 1 ||
+      r.new_ref !== `${s.new_ref}.${types[i]}_${r.new_instance}` ||
+      [...r.new_ref].length > 512 ||
+      !hash(r.sha256) ||
+      r.direction !== (i === 0 ? "output" : "input") ||
+      r.exposed !== true ||
+      r.recorded_metadata_661 !== null ||
+      (i === 1
+        ? ![null, 0].includes(r.recorded_standard_name_code)
+        : r.recorded_standard_name_code !== null)
+    )
+      return false;
+    if (i === 1) {
+      if (
+        [
+          r.recorded_default,
+          r.number_of_states,
+          r.states_text_code,
+          r.states_text_encoding_set,
+          r.default_encoding_set,
+        ].some((v) => v !== null)
+      )
+        return false;
+    } else {
+      if (
+        r.number_of_states !== first.number_of_states ||
+        r.states_text_code !== first.states_text_code ||
+        r.states_text_encoding_set !==
+          (first.states_text_code === null ? null : 802)
+      )
+        return false;
+      if (i === 0 && r.recorded_default !== null) return false;
+      if (
+        r.recorded_default === null
+          ? r.default_encoding_set !== null
+          : typeof r.recorded_default !== "string" ||
+            !/^(0|[1-9][0-9]{0,9})$/.test(r.recorded_default) ||
+            Number(r.recorded_default) > 4294967295 ||
+            ![
+              647,
+              ...(r.states_text_code === null ? [] : [r.states_text_code]),
+            ].includes(r.default_encoding_set)
+      )
+        return false;
+    }
+  }
+  return (
+    first.ref === s.output_ref &&
+    first.new_ref === s.new_output_ref &&
+    first.sha256 === s.output_sha256 &&
+    first.new_instance === s.new_output_instance
+  );
+}
+
 function multiplexerSelection(s: Data, block: Data) {
+  if (s?.profile === enumMultiplexerProfile)
+    return enumMultiplexerSelection(s, block);
   if (s?.profile === enumSelectorMultiplexerProfile)
     return enumSelectorMultiplexerSelection(s, block);
   if (
@@ -768,6 +878,7 @@ export async function constantReview(v: Data, request: Data, source: Data) {
       constantKinds.reliability.profile,
       constantKinds.multiplexer.profile,
       enumSelectorMultiplexerProfile,
+      enumMultiplexerProfile,
     ].some((p) => p === source.profile) &&
       (!Array.isArray(c.new_child_sha256) ||
         c.new_child_sha256.length !== source.object_count - 1 ||

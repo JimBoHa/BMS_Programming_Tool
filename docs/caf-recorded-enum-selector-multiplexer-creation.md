@@ -1,7 +1,7 @@
 # Recorded Float Multiplexer with an Enum selector
 
 Program → CAF file → Logic supports a separately qualified Float Multiplexer
-profile with an Enum selector. Use the existing **Float Multiplexer** task,
+profile with an Enum selector. Use the existing **Multiplexer** task,
 choose its actual source prototype, inspect the six recorded ports, enter
 coordinates, review the copy and save it. The original archive stays unchanged.
 
