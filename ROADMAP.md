@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`a9066da1`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/a9066da182d5c0f81ced13f359483abe3c03d5f5).
+[`ccb221ec`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/ccb221ecbb4c1c65a241d0295830c05503dafdfa).
 
 ## Baseline and purpose
 
@@ -837,3 +837,20 @@ saved-effective connection compilation, new blocks/I/O, full compiler/resource
 or CCT/physical acceptance. Existing source substitution/transfer/recovery keep
 their contracts. JCI-02, JCI-03 and JCI-09 remain partial. See
 [native matching connection copies](docs/native-matching-connection-copies.md).
+
+## 2026-11-04 JCI-02/JCI-03 delivery: saved-effective matching connections
+
+`FMT-NATIVE-EFFECTIVE-CONNECTION-001` merges identity-qualified retained saved
+settings before the separately guarded existing-member connection addition.
+Existing native identity/membership/wire/order/layout preservation remains, with
+an additional exact continuation-property guard across the merge. Original and
+effective sources, all three files, prototype/count/endpoints and nested/outer
+compilation proofs bind the strict local source/review/export workflow.
+
+The existing Program editor now offers a saved-effective basis with separate
+bounded drafts, explicit inspection and stale-result retirement. Original archive
+copying and existing wire transfer/recovery keep their own contracts. Captured
+effective settings are not current readings; no field transfer, arbitrary blocks
+or I/O, full compiler/resources, CCT reopening or physical/BTCVT acceptance is
+granted. JCI-02, JCI-03 and JCI-09 remain partial. See
+[saved-effective connection compilation](docs/native-effective-connection-compiler.md).
