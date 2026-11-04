@@ -8,10 +8,8 @@ from __future__ import annotations
 
 import copy
 import hashlib
-import io
 import json
 import re
-import zipfile
 
 from pydantic import Field
 
@@ -282,11 +280,7 @@ class CafHardwareBindings:
         xml = self.caf.xml
         for a, b, replacement in sorted(edits, reverse=True):
             xml = xml[:a] + replacement + xml[b:]
-        output = io.BytesIO()
-        with zipfile.ZipFile(output, "w") as container:
-            container.comment = self.caf.comment
-            container.writestr(copy.copy(self.caf.info), xml)
-        data = output.getvalue()
+        data = self.caf._copy_xml(xml)
         verified = CafArchive(data)
         if verified.xml != xml or list(verified.objects) != list(self.caf.objects):
             raise ValueError("Edited CAF failed exact XML/identity readback.")

@@ -11,10 +11,8 @@ from __future__ import annotations
 import copy
 import hashlib
 import html
-import io
 import math
 import re
-import zipfile
 from typing import Any
 
 from .caf import ATTRIBUTES, BY_CLASS, CLASSES, CafArchive, Q
@@ -548,11 +546,7 @@ class CafGraph:
     def _export_edits(
         self, xml: bytes, graphs: dict, edits: list[dict]
     ) -> tuple[bytes, list[dict]]:
-        out = io.BytesIO()
-        with zipfile.ZipFile(out, "w") as archive:
-            archive.comment = self.archive.comment
-            archive.writestr(copy.copy(self.archive.info), xml)
-        result = out.getvalue()
+        result = self.archive._copy_xml(xml)
         verified = CafGraph(result)
         if list(verified.archive.objects) != list(self.archive.objects) or any(
             verified.archive.objects[ref].attrib != obj.attrib

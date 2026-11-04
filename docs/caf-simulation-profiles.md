@@ -110,3 +110,10 @@ The browser's scenario startup path now uses the same captured-profile verifier
 and separately [checks the chosen input frame](caf-local-input-scenarios.md#selected-frame-startup-copies)
 before requesting a copy. Version 1 scenario semantics and version 2 Enum editing
 remain separate. Other API consumers keep the additive-header compatibility rule.
+
+
+[Shared archive attribute preservation](caf-archive-preservation.md) now also
+retains recorded zero ZIP attributes for changed version 1/startup copies. Version
+2 retains its earlier behavior. Profiles, native values, source/request proof and
+byte-exact no-ops remain unchanged; affected edited artifact hashes change with
+the corrected metadata.

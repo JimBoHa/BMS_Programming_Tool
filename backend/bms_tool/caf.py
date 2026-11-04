@@ -312,6 +312,18 @@ class CafArchive:
             },
         }
 
+    def _copy_xml(self, xml: bytes) -> bytes:
+        """Serialize changed XML with the original entry metadata and comment."""
+        output = io.BytesIO()
+        with zipfile.ZipFile(output, "w") as archive:
+            archive.comment = self.comment
+            info = copy.copy(self.info)
+            archive.writestr(info, xml)
+            # zipfile supplies Unix permissions when the original is zero.
+            # Restore the recorded value before writing the central directory.
+            info.external_attr = self.info.external_attr
+        return output.getvalue()
+
     def patch(self, changes):
         if not isinstance(changes, list):
             raise ValueError("CAF changes must be a list of guarded scalar edits.")
@@ -435,11 +447,7 @@ class CafArchive:
         xml = self.xml
         for a, b, replacement in sorted(edits, reverse=True):
             xml = xml[:a] + replacement + xml[b:]
-        out = io.BytesIO()
-        with zipfile.ZipFile(out, "w") as archive:
-            archive.comment = self.comment
-            archive.writestr(copy.copy(self.info), xml)
-        edited = out.getvalue()
+        edited = self._copy_xml(xml)
         verified = CafArchive(edited)
         if list(verified.objects) != list(self.objects):
             raise ValueError("CAF object references changed unexpectedly.")

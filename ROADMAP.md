@@ -805,3 +805,17 @@ application; source and packaged regressions now refuse that case. Backend nativ
 algorithms/styles remain exact. No native execution, Enum scenario semantics,
 field transfer or CCT/physical acceptance is added. See
 [selected-frame startup checks](docs/caf-local-input-scenarios.md#selected-frame-startup-copies).
+
+
+## 2026-11-02 JCI-02/JCI-03 delivery: CAF archive attribute preservation
+
+`FMT-CAF-ZIP-ATTRIBUTES-001` retains actual recorded external ZIP entry attributes
+across scalar/Enum, graph, hardware, instance and both saved simulation copy paths,
+including scenario startup. One shared writer restores even original zero values
+before central-directory serialization, rather than accepting zipfile's Unix
+permission default. Existing native guards/readbacks, API/profile formats and
+byte-exact no-op paths remain. The prior installed wheel reproduces eight affected
+variants; the earlier version 2 fix is retained. All original UI/styles/prior tests
+and private source files remain unchanged. No native execution, general compiler,
+field transfer or physical acceptance is added. See
+[the archive preservation scope](docs/caf-archive-preservation.md).
