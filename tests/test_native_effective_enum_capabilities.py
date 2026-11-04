@@ -32,8 +32,8 @@ def test_actual_effective_enum_qualification_is_independent_of_captured_transpor
     digests = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in folder.iterdir()}
     report = records.capabilities(request)
     rows, evidence = operations(report), report["qualification"]
-    assert report["capability_profile"] == "native-backup-operation-capabilities/11"
-    assert len(rows) == len(report["operations"]) == 22
+    assert report["capability_profile"] == "native-backup-operation-capabilities/12"
+    assert len(rows) == len(report["operations"]) == 24
     assert rows["enum-default-copy"]["status"] == "source-qualified"
     assert rows["effective-enum-compile"]["status"] == "source-qualified"
     assert "1 have captured fixed numeric storage" in rows["effective-enum-compile"]["basis"]

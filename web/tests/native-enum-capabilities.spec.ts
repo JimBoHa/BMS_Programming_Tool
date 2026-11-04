@@ -114,7 +114,7 @@ for (const caf of [false, true]) {
       support
         .getByRole("table", { name: "Native backup operations", exact: true })
         .getByRole("row"),
-    ).toHaveCount(23);
+    ).toHaveCount(25);
     await expect(row(support).locator("td").first()).toHaveText(
       "source qualified",
     );

@@ -106,6 +106,7 @@ from .native_applications import NativeApplications, native_application_router
 from .native_backup_comparison import BackupComparisonRequest, NativeBackupComparison
 from .native_backup_import import backup_import_router
 from .native_backup_records import (
+    BackupCapabilitiesRequest,
     BackupInspectionSource,
     BackupRecordRequest,
     BackupRecordsRequest,
@@ -788,7 +789,7 @@ def create_app(state_dir=None, *, operation_power=None):
         return backup_comparison.compare(body.model_dump())
 
     @app.post("/api/bacnet/controller/native-application/inspection/capabilities")
-    def native_backup_operation_capabilities(body: BackupInspectionSource):
+    def native_backup_operation_capabilities(body: BackupCapabilitiesRequest):
         return backup_records.capabilities(body.model_dump())
 
     @app.post("/api/bacnet/controller/native-application/inspection/boolean-default/preview")

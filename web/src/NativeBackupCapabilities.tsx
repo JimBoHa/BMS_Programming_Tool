@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { api } from "./api";
+import { apiJsonDocument, saveBlob } from "./api";
+import { connectionCapabilityEvidence } from "./nativeConnectionCapabilityContract";
 import type { NativeArchiveSource } from "./NativeRecords";
 import { controllerKey } from "./workflow";
 
@@ -27,6 +28,8 @@ const operationIds = [
   "enum-default-copy",
   "wire-source-copy",
   "effective-wire-compile",
+  "matching-connection-copy",
+  "effective-connection-compile",
   "effective-boolean-compile",
   "effective-enum-compile",
   "effective-default-compile",
@@ -103,13 +106,16 @@ export function NativeBackupCapabilities({
     epoch.current++;
   }
   type Owned<T> = { owner: string; epoch: number; value: T };
-  const [loaded, setLoaded] = useState<Owned<Report> | null>(null);
+  const [loaded, setLoaded] = useState<Owned<{
+    report: Report;
+    blob: Blob;
+  }> | null>(null);
   const [failure, setFailure] = useState<Owned<string> | null>(null);
   const [pending, setPending] = useState<Owned<boolean> | null>(null);
   const current = (key: string, ticket: number) =>
     alive.current && ownerNow.current === key && epoch.current === ticket;
   const report =
-    loaded && current(loaded.owner, loaded.epoch) ? loaded.value : null;
+    loaded && current(loaded.owner, loaded.epoch) ? loaded.value.report : null;
   const error =
     failure && current(failure.owner, failure.epoch) ? failure.value : null;
   const busy = Boolean(pending && current(pending.owner, pending.epoch));
@@ -128,16 +134,18 @@ export function NativeBackupCapabilities({
     setFailure(null);
     setPending({ owner: key, epoch: ticket, value: true });
     try {
-      const data = await api(
+      const document = await apiJsonDocument(
         "/bacnet/controller/native-application/inspection/capabilities",
         {
           capture_id: source.capture_id,
           snapshot_sha256: source.snapshot_sha256,
+          capability_profile: "native-backup-operation-capabilities/12",
         },
       );
+      const data = document.data;
       if (
         data.profile !== "native-backup-record-inspection/1" ||
-        data.capability_profile !== "native-backup-operation-capabilities/11" ||
+        data.capability_profile !== "native-backup-operation-capabilities/12" ||
         data.source_kind !== "native-backup-archive" ||
         data.capture_id !== source.capture_id ||
         data.snapshot_sha256 !== source.snapshot_sha256 ||
@@ -173,6 +181,7 @@ export function NativeBackupCapabilities({
               (value) => typeof value === "string",
             ),
         ) ||
+        !connectionCapabilityEvidence(data, source) ||
         data.operations.find((row: Operation) => row.id === "enum-default-copy")
           ?.status !==
           (data.qualification.archive_enum_default_count > 0
@@ -199,7 +208,11 @@ export function NativeBackupCapabilities({
           "Native backup operation analysis differs from the selected source. Inspect this snapshot again.",
         );
       if (current(key, ticket))
-        setLoaded({ owner: key, epoch: ticket, value: data });
+        setLoaded({
+          owner: key,
+          epoch: ticket,
+          value: { report: data, blob: document.blob },
+        });
     } catch (error) {
       if (current(key, ticket))
         setFailure({ owner: key, epoch: ticket, value: String(error) });
@@ -276,6 +289,14 @@ export function NativeBackupCapabilities({
             <pre>{JSON.stringify(report.qualification, null, 2)}</pre>
             <p>{report.scope}</p>
           </details>
+          <button
+            onClick={() => {
+              if (loaded && current(loaded.owner, loaded.epoch))
+                saveBlob(loaded.value.blob, "native-operation-analysis.json");
+            }}
+          >
+            Save exact operation analysis
+          </button>
         </>
       )}
     </details>

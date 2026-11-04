@@ -1,37 +1,26 @@
 """Operation evidence from one immutable native backup, with no field actions."""
 
 from .moi_boolean_defaults import MoiBooleanDefaults
+from .moi_connection_copies import MoiConnectionCopies
 from .moi_effective_boolean import compiler_from_snapshot as boolean_compiler_from_snapshot
+from .moi_effective_connection import compiler_from_snapshot as connection_compiler_from_snapshot
 from .moi_effective_enum import compiler_from_snapshot as enum_compiler_from_snapshot
 from .moi_effective_wire import compiler_from_snapshot as wire_compiler_from_snapshot
 from .moi_enum_defaults import MoiEnumDefaults
+from .moi_graph_candidates import eligible_connection, eligible_wire
 from .moi_identity import MoiIdentity
 from .moi_parameters import ParameterApplication
 from .moi_signal_defaults import MoiSignalDefaults
 from .moi_wire_sources import MoiWireSources
 from .native_signal_compiler import compiler_from_snapshot
 
-PROFILE = "native-backup-operation-capabilities/11"
+LEGACY_PROFILE = "native-backup-operation-capabilities/11"
+PROFILE = "native-backup-operation-capabilities/12"
 
 
-def eligible_wire(editor):
-    failure = None
-    for diagram in editor.reader.summary()["diagrams"]:
-        try:
-            for index in range(diagram["connections"]):
-                info = editor.inspect(diagram["ref"], index)
-                if info["available"]:
-                    return {
-                        "diagram_ref": diagram["ref"],
-                        "wire_index": index,
-                        "candidate_count": len(info["candidates"]) - 1,
-                    }, failure
-        except ValueError as exc:
-            failure = str(exc)[:512]
-    return None, failure
-
-
-def backup_capabilities(snapshot, files, application):
+def backup_capabilities(snapshot, files, application, *, capability_profile=PROFILE):
+    if capability_profile not in (PROFILE, LEGACY_PROFILE):
+        raise ValueError("Select a supported native operation capability profile.")
     identity = snapshot["identity"]
     config = snapshot.get("connector_config", {})
     native, native_error, named = None, None, False
@@ -106,6 +95,22 @@ def backup_capabilities(snapshot, files, application):
         )
     except ValueError as exc:
         effective_wire_error = str(exc)[:512]
+
+    connection_copy = effective_connection = None
+    connection_copy_error = effective_connection_error = None
+    if capability_profile == PROFILE:
+        try:
+            connection_copy, connection_copy_error = eligible_connection(
+                MoiConnectionCopies(files[3])
+            )
+        except ValueError as exc:
+            connection_copy_error = str(exc)[:512]
+        try:
+            effective_connection, effective_connection_error = eligible_connection(
+                connection_compiler_from_snapshot(snapshot, files).effective
+            )
+        except ValueError as exc:
+            effective_connection_error = str(exc)[:512]
 
     rows = []
 
@@ -208,6 +213,27 @@ def backup_capabilities(snapshot, files, application):
         or "No alternate existing source passes the saved-effective wire profile.",
         "Open saved wire sources in the recorded diagram and review a separate compiled file. Retained settings are not current live values; no field transfer, new blocks/connections or general compiler is granted.",
     )
+    if capability_profile == PROFILE:
+        add(
+            "matching-connection-copy",
+            "Save a matching native connection archive copy",
+            "source-qualified" if connection_copy else "unsupported-source",
+            "An actual recorded prototype has a matching observed source and unused compatible input under the connection-copy profile."
+            if connection_copy
+            else connection_copy_error
+            or "No existing-member connection passes this archive's prototype, pin, input ownership, order, cycle and tag profile.",
+            "Inspect the recorded diagram, choose Add matching connection and Original archive, then review a separate file. Review still checks final output size and exact native readback. No new blocks/I/O, field transfer or physical acceptance is granted.",
+        )
+        add(
+            "effective-connection-compile",
+            "Compile a matching saved-effective native connection",
+            "source-qualified" if effective_connection else "unsupported-source",
+            "The identity-qualified retained saved merge preserves graph/continuation structure and admits an actual matching existing-member connection."
+            if effective_connection
+            else effective_connection_error
+            or "No existing-member connection passes the saved-effective connection profile.",
+            "Choose Add matching connection and Saved effective snapshot in the recorded diagram. Review a separate compiled file with final size/readback checks. Captured settings are not current live values; no fresh-setting guarantee, new blocks/I/O or field transfer is prepared.",
+        )
     add(
         "effective-boolean-compile",
         "Compile an effective native Boolean default",
@@ -328,8 +354,8 @@ def backup_capabilities(snapshot, files, application):
         "Local parsing and saved-value compilation do not establish acceptance by a physical controller.",
         "Keep actual transfer/readback outcomes tied to their target and time; this analysis does not correlate or replace those receipts.",
     )
-    return {
-        "capability_profile": PROFILE,
+    result = {
+        "capability_profile": capability_profile,
         "operations": rows,
         "qualification": {
             "native_identity": native,
@@ -361,3 +387,14 @@ def backup_capabilities(snapshot, files, application):
         "current_identity_verified": False,
         "scope": "Local analysis of original File 3 and retained saved Files 11/12. Source-qualified means recognized by installed software, not a prepared write, current setting or physical acceptance. No controller query, backup-state command, compilation intent or transfer is performed.",
     }
+    if capability_profile == PROFILE:
+        result["qualification"].update(
+            archive_matching_connection=connection_copy,
+            archive_matching_connection_error=connection_copy_error,
+            effective_matching_connection=effective_connection,
+            effective_matching_connection_error=effective_connection_error,
+        )
+        next(row for row in rows if row["id"] == "general-logic")["basis"] = (
+            "Installed compilers cover typed identity/defaults and scoped existing-member wire source or matching connection copies, including separately qualified retained saved merges. Arbitrary blocks, hardware allocation and general native logic remain unavailable."
+        )
+    return result

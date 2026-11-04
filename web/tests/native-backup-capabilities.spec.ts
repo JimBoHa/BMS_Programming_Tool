@@ -94,7 +94,7 @@ test("offline backup analysis qualifies exact saved values while keeping local d
     name: "Native backup operations",
     exact: true,
   });
-  await expect(table.getByRole("row")).toHaveCount(23);
+  await expect(table.getByRole("row")).toHaveCount(25);
   await expect(
     table.locator('[data-operation="effective-default-compile"] td').first(),
   ).toHaveText("source qualified");

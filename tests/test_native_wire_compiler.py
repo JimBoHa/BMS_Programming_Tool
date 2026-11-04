@@ -379,8 +379,8 @@ def test_capabilities_use_actual_effective_candidates_independently_of_transport
         {"capture_id": snapshot["id"], "snapshot_sha256": snapshot["evidence_sha256"]}
     )
     rows = {r["id"]: r for r in report["operations"]}
-    assert report["capability_profile"] == "native-backup-operation-capabilities/11"
-    assert len(rows) == 22
+    assert report["capability_profile"] == "native-backup-operation-capabilities/12"
+    assert len(rows) == 24
     assert rows["wire-source-copy"]["status"] == "source-qualified"
     assert rows["effective-wire-compile"]["status"] == expected
     assert rows["wire-source-transfer"]["status"] == (
