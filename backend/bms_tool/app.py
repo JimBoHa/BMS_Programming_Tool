@@ -116,6 +116,7 @@ from .native_boolean_copies import BooleanCopyExport, BooleanCopyPreview, Native
 from .native_calendar_drafts import calendar_draft_router
 from .native_calendar_text import calendar_text_router
 from .native_calendar_write import NativeCalendarWrites, calendar_write_router
+from .native_connection_copies import NativeConnectionCopies, native_connection_router
 from .native_enum_compiler import native_enum_compiler_router
 from .native_enum_copies import native_enum_copy_router
 from .native_exception_text import exception_text_router
@@ -594,6 +595,7 @@ def create_app(state_dir=None, *, operation_power=None):
     boolean_copies = NativeBooleanCopies(backup_records)
     boolean_compiler = EffectiveBooleanService(backup_records)
     wire_copies = NativeWireCopies(backup_records)
+    connection_copies = NativeConnectionCopies(backup_records)
     wire_compiler = EffectiveWireService(backup_records)
     historical_wire_copies = NativeHistoricalWireCopies(
         backup_records, native_applications.wire_recovery
@@ -770,6 +772,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.include_router(calendar_write_router(calendar_writes))
     app.include_router(exception_write_router(exception_writes))
     app.include_router(native_wire_router(wire_copies))
+    app.include_router(native_connection_router(connection_copies))
     app.include_router(effective_wire_router(wire_compiler))
     app.include_router(historical_wire_copy_router(historical_wire_copies))
 

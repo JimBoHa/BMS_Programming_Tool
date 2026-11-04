@@ -8,10 +8,8 @@ import {
 import { NativeBooleanTransferContext } from "./NativeBooleanTransferContext";
 import { NativeEnumDefaultCopy } from "./NativeEnumDefaultCopy";
 import { api } from "./api";
-import {
-  NativeWireSourceCopy,
-  type WireCopyDrafts,
-} from "./NativeWireSourceCopy";
+import { NativeGraphEdits } from "./NativeGraphEdits";
+import type { WireCopyDrafts } from "./nativeWireDrafts";
 import { controllerKey, type ControllerContext } from "./workflow";
 import {
   NativeBooleanDefaultCopy,
@@ -522,7 +520,7 @@ export function NativeRecords(props: RecordSource) {
             props.wireDrafts &&
             [536, 575].includes(detail.record.class_id) &&
             typeof detail.record.ref === "string" && (
-              <NativeWireSourceCopy
+              <NativeGraphEdits
                 key={JSON.stringify([
                   owner,
                   ownerGeneration.current,

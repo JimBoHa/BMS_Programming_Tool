@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
-Updated: 2026-11-02. Implementation baseline: GitHub `main` at
-[`b89ea258`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/b89ea25866e3793faaec749dc5561e488bb92b44).
+Updated: 2026-11-04. Implementation baseline: GitHub `main` at
+[`a9066da1`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/a9066da182d5c0f81ced13f359483abe3c03d5f5).
 
 ## Baseline and purpose
 
@@ -819,3 +819,21 @@ variants; the earlier version 2 fix is retained. All original UI/styles/prior te
 and private source files remain unchanged. No native execution, general compiler,
 field transfer or physical acceptance is added. See
 [the archive preservation scope](docs/caf-archive-preservation.md).
+
+## 2026-11-04 JCI-02/JCI-03 delivery: native matching connection archive copies
+
+`FMT-NATIVE-CONNECTION-COPY-001` appends one prototype-matched connection between
+existing native activity/sequence members. It derives matching endpoint classes,
+configuration, observed source pins and unused target inputs from the actual
+captured graph, guards execution order/cycles and copies only known aligned
+continuation metadata. Original tuples, other records, membership, IDs, order and
+layout remain exact; native framing, required index-width growth and independent
+readback are checked. Strict immutable-backup APIs and the existing Program record
+editor provide review and separate file export, retain bounded source-specific
+drafts and retire stale reviews through navigation and lifecycle changes.
+
+This separately qualified archive-copy operation grants no new field transfer,
+saved-effective connection compilation, new blocks/I/O, full compiler/resource
+or CCT/physical acceptance. Existing source substitution/transfer/recovery keep
+their contracts. JCI-02, JCI-03 and JCI-09 remain partial. See
+[native matching connection copies](docs/native-matching-connection-copies.md).
