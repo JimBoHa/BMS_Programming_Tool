@@ -32,15 +32,18 @@ export function CafConstantTools(
       "float",
   );
   const active = available.includes(chosen) ? chosen : available[0];
+  const choiceLabel = available.includes("comparison")
+    ? "Recorded block type"
+    : "Constant type";
   if (!active) return null;
   return (
     <div>
       {available.length > 1 && (
         <label className="caf-constant-kind">
-          Constant type
+          {choiceLabel}
           <span className="caf-constant-select">
             <select
-              aria-label="Constant type"
+              aria-label={choiceLabel}
               value={active}
               disabled={props.disabled}
               onChange={(e) => setChosen(e.target.value as ConstantKind)}

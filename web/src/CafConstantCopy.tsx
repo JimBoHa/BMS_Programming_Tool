@@ -38,6 +38,8 @@ export function CafConstantCopy({
   kind?: ConstantKind;
 }) {
   const spec = constantKinds[kind];
+  const subject = kind === "comparison" ? "block" : "constant";
+  const comparison = kind === "comparison";
   const base = `/caf/${archive}/${spec.path}`;
   const prototypes = diagram.blocks.filter(
     (b: Data) => b.class_id === spec.classId && b.class_version === "1.0",
@@ -283,21 +285,33 @@ export function CafConstantCopy({
       }}
     >
       <summary>Copy a recorded {spec.label}</summary>
-      <section aria-label="CAF constant creation">
-        <p>
-          Create a local CAF copy containing a new unconnected constant and its
-          output object. Recorded configuration and output value stay with the
-          copy. CCT/PCT acceptance and controller allocation remain unverified.
-        </p>
+      <section
+        aria-label={comparison ? "CAF block creation" : "CAF constant creation"}
+      >
+        {comparison ? (
+          <p>
+            Create a local CAF copy containing a new unconnected comparison and
+            four recorded port objects. Setup and input configuration are copied
+            as recorded. CCT/PCT acceptance and controller allocation remain
+            unverified.
+          </p>
+        ) : (
+          <p>
+            Create a local CAF copy containing a new unconnected constant and
+            its output object. Recorded configuration and output value stay with
+            the copy. CCT/PCT acceptance and controller allocation remain
+            unverified.
+          </p>
+        )}
         <p>
           This copy starts from the opened archive. Other pending edits are not
           included.
         </p>
         <label>
-          Constant prototype
+          {comparison ? "Block prototype" : "Constant prototype"}
           <span className="caf-constant-select">
             <select
-              aria-label="Constant prototype"
+              aria-label={comparison ? "Block prototype" : "Constant prototype"}
               value={chosen}
               disabled={disabled || busy}
               onChange={(e) => select(e.target.value)}
@@ -319,17 +333,39 @@ export function CafConstantCopy({
             setOpened(true);
           }}
         >
-          Inspect constant prototype
+          Inspect {subject} prototype
         </button>
         {source && (
           <>
-            <p>
-              Recorded standard-name code {source.standard_name_code}; output{" "}
-              {source.recorded_value === null
-                ? "value omitted in source"
-                : source.recorded_value}
-              . Both are copied as recorded.
-            </p>
+            {comparison ? (
+              <p>
+                Recorded setup code {source.setup_code}; standard-name code{" "}
+                {source.standard_name_code}. Four port objects are copied as
+                recorded; operator meanings and runtime output are unverified.
+              </p>
+            ) : (
+              <p>
+                Recorded standard-name code {source.standard_name_code}; output{" "}
+                {source.recorded_value === null
+                  ? "value omitted in source"
+                  : source.recorded_value}
+                . Both are copied as recorded.
+              </p>
+            )}
+            {comparison && (
+              <details>
+                <summary>Recorded comparison inputs</summary>
+                {source.children.slice(1).map((r: Data) => (
+                  <p key={r.ref}>
+                    Port {r.port}:{" "}
+                    {r.recorded_default === null
+                      ? "default omitted in source"
+                      : `recorded default ${r.recorded_default}`}
+                    ; {r.exposed ? "exposed" : "not exposed"} in source.
+                  </p>
+                ))}
+              </details>
+            )}
             {kind === "enumeration" && (
               <details>
                 <summary>Recorded enumeration metadata</summary>
@@ -348,9 +384,9 @@ export function CafConstantCopy({
             <div className="caf-constant-position">
               {(["x", "y"] as const).map((axis) => (
                 <label key={axis}>
-                  New constant {axis.toUpperCase()}
+                  New {subject} {axis.toUpperCase()}
                   <input
-                    aria-label={`New constant ${axis.toUpperCase()}`}
+                    aria-label={`New ${subject} ${axis.toUpperCase()}`}
                     value={axis === "x" ? x : y}
                     disabled={disabled || busy}
                     onChange={(e) => remember({ [axis]: e.target.value })}
@@ -368,7 +404,7 @@ export function CafConstantCopy({
               }
               onClick={prepare}
             >
-              Review constant CAF copy
+              Review {subject} CAF copy
             </button>
           </>
         )}
@@ -384,45 +420,52 @@ export function CafConstantCopy({
               onDraftChange();
             }}
           >
-            Discard constant draft
+            Discard {subject} draft
           </button>
         )}
         {error?.owner === owner && <p role="alert">{error.text}</p>}
         {busy && <p role="status">Checking local CAF copy…</p>}
         {shown && (
-          <section aria-label="Reviewed CAF constant copy">
+          <section
+            aria-label={
+              comparison
+                ? "Reviewed CAF block copy"
+                : "Reviewed CAF constant copy"
+            }
+          >
             <p>
-              New constant: <code>{shown.data.creation.selection.new_ref}</code>
+              New {subject}:{" "}
+              <code>{shown.data.creation.selection.new_ref}</code>
             </p>
             <p>
               Required output:{" "}
               <code>{shown.data.creation.selection.new_output_ref}</code>
             </p>
             <p>
-              One graph member and two objects added. Existing connections and
-              continuation records stay unchanged.
+              One graph member and {comparison ? "five" : "two"} objects added.
+              Existing connections and continuation records stay unchanged.
             </p>
             <button
               className="primary"
               disabled={disabled || busy}
               onClick={save}
             >
-              Save constant CAF copy
+              Save {subject} CAF copy
             </button>
             <button
               disabled={disabled || busy}
               onClick={() => {
                 if (current(shown.owner, shown.epoch))
-                  saveBlob(shown.blob, "caf-constant-review.json");
+                  saveBlob(shown.blob, `caf-${subject}-review.json`);
               }}
             >
-              Save exact constant review
+              Save exact {subject} review
             </button>
           </section>
         )}
         {saved === owner && (
           <p role="status">
-            Local constant CAF copy saved. Open that copy to inspect or connect
+            Local {subject} CAF copy saved. Open that copy to inspect or connect
             its new block. No controller write was sent.
           </p>
         )}
