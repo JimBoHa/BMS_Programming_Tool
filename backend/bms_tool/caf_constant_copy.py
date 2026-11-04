@@ -12,6 +12,7 @@ import html
 import math
 import re
 import struct
+from dataclasses import dataclass
 from decimal import Decimal
 
 from .caf import NS, CafArchive, Q
@@ -26,6 +27,39 @@ SCOPE = (
 )
 MAX_ID = 4194302
 _ATTR = re.compile(rb"\s+([A-Za-z_][\w.:-]*)\s*=\s*([\"'])(.*?)\2", re.S)
+
+
+@dataclass(frozen=True)
+class ConstantProfile:
+    profile: str
+    scope: str
+    label: str
+    class_id: str
+    output_class: str
+    output_type: int
+    standard_codes: frozenset[str]
+    value_kind: str
+    output_schemas: tuple[frozenset[str], ...]
+
+
+_REQUIRED = frozenset({"75", "32527", "3365"})
+FLOAT_PROFILE = ConstantProfile(
+    PROFILE,
+    SCOPE,
+    "Float Constant",
+    "551",
+    "527",
+    2,
+    frozenset({"11", "796"}),
+    "float",
+    (
+        _REQUIRED,
+        _REQUIRED | {"3113"},
+        _REQUIRED | {"117", "3113"},
+        _REQUIRED | {"661", "3113"},
+        _REQUIRED | {"117", "661", "2390", "3113", "3807"},
+    ),
+)
 
 
 def coordinate(value):
@@ -61,6 +95,8 @@ def _splice(content, edits):
 
 
 class CafConstantCopies:
+    spec = FLOAT_PROFILE
+
     def __init__(self, source):
         self.archive = source if isinstance(source, CafArchive) else CafArchive(source)
         self.graph = CafGraph(self.archive)
@@ -149,13 +185,17 @@ class CafConstantCopies:
                 "CAF creation requires version 1.0 and a free unsigned-short member index."
             )
         block = next((b for b in graph["blocks"] if b["ref"] == prototype_ref), None)
-        if block is None or block["class_id"] != "551" or block["class_version"] != "1.0":
-            raise ValueError("Select an actual version 1.0 Float Constant in this diagram.")
-        if block["bacnet_type"] != 551 or any(
+        if (
+            block is None
+            or block["class_id"] != self.spec.class_id
+            or block["class_version"] != "1.0"
+        ):
+            raise ValueError(f"Select an actual version 1.0 {self.spec.label} in this diagram.")
+        if block["bacnet_type"] != int(self.spec.class_id) or any(
             w["target_ref"] == prototype_ref for w in graph["connections"]
         ):
             raise ValueError(
-                "CAF constant prototypes must have recorded type 551 and no incoming connections."
+                f"CAF constant prototypes must have recorded type {self.spec.class_id} and no incoming connections."
             )
         output = self._output(prototype_ref)
         obj = a.objects[prototype_ref]
@@ -179,7 +219,7 @@ class CafConstantCopies:
         if (
             standard["type"] != "enum"
             or standard["attributes"] != {"set": "432"}
-            or standard["text"] not in {"11", "796"}
+            or standard["text"] not in self.spec.standard_codes
         ):
             raise ValueError("CAF constant standard name is outside the recorded profile.")
         ports = _collection(props, "3184", "array")
@@ -206,11 +246,12 @@ class CafConstantCopies:
                 raise ValueError("Unrecognized CAF parent collection bookkeeping.")
             self._outer(collection)
         self._outer(obj)
-        new_ref = f"{diagram_ref}.551_{new_id}"
+        new_ref = f"{diagram_ref}.{self.spec.class_id}_{new_id}"
+        new_output_ref = f"{new_ref}.{self.spec.output_type}_{new_id + 1}"
         if (
             new_ref in a.objects
-            or f"{new_ref}.2_{new_id + 1}" in a.objects
-            or len(f"{new_ref}.2_{new_id + 1}") > 512
+            or new_output_ref in a.objects
+            or len(new_output_ref) > 512
             or any(c in new_ref for c in "\r\n\t")
         ):
             raise ValueError("Fresh local CAF reference is unavailable in this profile.")
@@ -223,8 +264,8 @@ class CafConstantCopies:
             except ValueError:
                 suggested[axis] = block["layout"][axis]
         body = {
-            "profile": PROFILE,
-            "scope": SCOPE,
+            "profile": self.spec.profile,
+            "scope": self.spec.scope,
             "source_sha256": a.hash,
             "diagram_ref": diagram_ref,
             "diagram_sha256": sha(self._raw(parent)),
@@ -240,7 +281,7 @@ class CafConstantCopies:
             "output_ref": output.get("ref"),
             "output_sha256": sha(self._raw(output)),
             "new_output_instance": new_id + 1,
-            "new_output_ref": f"{new_ref}.2_{new_id + 1}",
+            "new_output_ref": new_output_ref,
             "recorded_value": (a.scalar(_properties(output).get("3113")) or {}).get("text"),
             "new_index": len(graph["blocks"]),
             "execution_after": block["execution_index"],
@@ -256,33 +297,27 @@ class CafConstantCopies:
         a = self.archive
         children = [obj for ref, obj in a.objects.items() if ref.startswith(prototype_ref + ".")]
         if len(children) != 1:
-            raise ValueError("A recorded Float Constant requires exactly one output child object.")
+            raise ValueError(
+                f"A recorded {self.spec.label} requires exactly one output child object."
+            )
         obj = children[0]
         props = _properties(obj)
-        required = {"75", "32527", "3365"}
-        schemas = (
-            required,
-            required | {"3113"},
-            required | {"117", "3113"},
-            required | {"661", "3113"},
-            required | {"117", "661", "2390", "3113", "3807"},
-        )
         if (
-            obj.get("classid") != "527"
+            obj.get("classid") != self.spec.output_class
             or obj.get("classVersion") != "1.0"
             or set(obj.attrib) != {"classid", "classVersion", "objectid", "ref"}
-            or set(props) not in schemas
+            or set(props) not in self.spec.output_schemas
             or len(obj) != len(props)
         ):
             raise ValueError("CAF constant output is outside the recorded version 1.0 schemas.")
         instance = _decimal(obj.get("objectid"))
-        if obj.get("ref") != f"{prototype_ref}.2_{instance}":
+        if obj.get("ref") != f"{prototype_ref}.{self.spec.output_type}_{instance}":
             raise ValueError("CAF constant output reference disagrees with its identity.")
         expected = {
-            "75": ("BACoid", {"id": "2"}),
+            "75": ("BACoid", {"id": str(self.spec.output_type)}),
             "32527": ("string", {}),
             "3365": ("enum", {"set": "509"}),
-            "3113": ("float", {}),
+            "3113": (self.spec.value_kind, {}),
             "117": ("enum", {"set": "507"}),
             "661": ("enum", {"set": "0"}),
             "2390": ("string", {}),
@@ -296,7 +331,12 @@ class CafConstantCopies:
             if pid in {"117", "661"}:
                 _decimal(value["text"], 4294967295)
             if pid == "3113":
-                coordinate(value["text"])
+                if self.spec.value_kind == "float":
+                    coordinate(value["text"])
+                elif value["text"] not in {"true", "false", "0", "1"}:
+                    raise ValueError(
+                        "CAF Boolean constant output requires a recorded native Boolean."
+                    )
             if pid == "3807" and value["text"] not in {"true", "false", "0", "1"}:
                 raise ValueError("Unrecognized CAF constant output Boolean configuration.")
         if (
@@ -361,7 +401,7 @@ class CafConstantCopies:
         xml = _splice(a.xml, edits)
         output = a._copy_xml(xml)
         readback = CafArchive(output)
-        verifier = CafConstantCopies(readback)
+        verifier = type(self)(readback)
         before = self.graph.diagram(diagram_ref)
         expected = copy.deepcopy(before)
         for block in expected["blocks"]:

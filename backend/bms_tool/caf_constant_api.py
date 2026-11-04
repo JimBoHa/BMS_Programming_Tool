@@ -30,18 +30,18 @@ class ConstantExport(ConstantPreview):
     review_sha256: Hash
 
 
-def constant_router(get_caf):
-    router = APIRouter(prefix="/api/caf/{id}/constant-copy")
+def constant_router(get_caf, *, compiler=CafConstantCopies, suffix="constant-copy"):
+    router = APIRouter(prefix="/api/caf/{id}/" + suffix)
 
     def load(id, request):
         archive = get_caf(id)
         if archive.hash != request.source_sha256:
             raise ValueError("CAF creation source changed; open the intended original file.")
-        return CafConstantCopies(archive)
+        return compiler(archive)
 
     def preview(id, request):
-        compiler = load(id, request)
-        output, creation = compiler.compile(**request.model_dump(exclude={"source_sha256"}))
+        source = load(id, request)
+        output, creation = source.compile(**request.model_dump(exclude={"source_sha256"}))
         body = {
             "request": request.model_dump(),
             "creation": creation,
@@ -68,7 +68,7 @@ def constant_router(get_caf):
             output,
             media_type="application/octet-stream",
             headers={
-                "Content-Disposition": 'attachment; filename="caf-constant-copy.caf"',
+                "Content-Disposition": f'attachment; filename="caf-{suffix}.caf"',
                 "X-Studio-Artifact-Sha256": sha(output),
                 "X-Studio-Review-Sha256": reviewed["review_sha256"],
                 "X-Studio-Source-Sha256": body.source_sha256,

@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`5faa45f4`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/5faa45f4ad1bdf3f5e4b9b29872ccd125442d964).
+[`aec31d63`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/aec31d6352992979e4536c3e5ebd00d9189d2186).
 
 ## Baseline and purpose
 
@@ -889,3 +889,22 @@ changing their files. No vendor allocator, reserved-resource accounting, arbitra
 block authoring, native File-3 compiler, hardware allocation, CCT/firmware/physical
 acceptance or field transfer is granted. JCI-02, JCI-03, JCI-06 and JCI-09 remain
 partial. See [recorded constant creation](docs/caf-recorded-constant-creation.md).
+
+## 2026-11-04 JCI-02/JCI-03 delivery: recorded Boolean constant creation
+
+`FMT-CAF-BOOLEAN-COPY-001` separately qualifies actual class-552 constants and
+their required class-531/type-5 Boolean outputs. Frozen profile specifications
+share the existing local identity-pair, graph and lexical preservation writer;
+the original Float selections, seals and artifacts remain exact. Separate strict
+Boolean source/review/export routes grant no field authority.
+
+The existing Program Logic task offers a constant-kind selector only when both
+types occur in the actual diagram. One focused editor remains visible; unfinished
+Float/Boolean drafts share the unchanged bounded cache and inactive reviews/late
+outputs retire. Client Unicode reference counting matches the existing backend
+codepoint rule without increasing its limit. All four private Boolean pairs were
+created/read back in memory, and all 121 Float pairs match PR226 exactly.
+Vendor allocation/resources, arbitrary blocks/hardware, native File-3 compilation,
+CCT/firmware/physical acceptance and transfer remain unqualified. JCI-02, JCI-03,
+JCI-06 and JCI-09 remain partial. See
+[recorded Boolean creation](docs/caf-recorded-boolean-creation.md).

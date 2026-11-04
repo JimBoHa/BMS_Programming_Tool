@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, GitBranch, RefreshCw } from "lucide-react";
 import { api, download } from "./api";
 import { CafLogicCanvas } from "./CafLogicCanvas";
-import { CafConstantCopy } from "./CafConstantCopy";
+import { CafConstantTools } from "./CafConstantTools";
 import { constantDraftDirty, type ConstantDrafts } from "./cafConstantContract";
 import type { WiringProposal } from "./cafLogic";
 import "./caf-graph.css";
@@ -524,7 +524,7 @@ export function CafGraphPanel({
                 }
               />
             )}
-            <CafConstantCopy
+            <CafConstantTools
               key={"constant-copy:" + id + diagram.ref}
               archive={id}
               filename={filename}

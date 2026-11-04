@@ -9,6 +9,8 @@ import {
   constantDraftKey,
   constantDraftSignature,
   rememberConstant,
+  constantKinds,
+  type ConstantKind,
   type ConstantDrafts,
 } from "./cafConstantContract";
 import "./caf-constant-copy.css";
@@ -24,6 +26,7 @@ export function CafConstantCopy({
   drafts,
   onDraftChange,
   reviewContext,
+  kind = "float",
 }: {
   archive: string;
   filename: string;
@@ -32,13 +35,21 @@ export function CafConstantCopy({
   drafts: ConstantDrafts;
   onDraftChange: () => void;
   reviewContext: string;
+  kind?: ConstantKind;
 }) {
+  const spec = constantKinds[kind];
+  const base = `/caf/${archive}/${spec.path}`;
   const prototypes = diagram.blocks.filter(
-    (b: Data) => b.class_id === "551" && b.class_version === "1.0",
+    (b: Data) => b.class_id === spec.classId && b.class_version === "1.0",
   );
   const cached = [...drafts.values()]
     .reverse()
-    .find((d) => d.archive === archive && d.diagram === diagram.ref);
+    .find(
+      (d) =>
+        d.archive === archive &&
+        d.diagram === diagram.ref &&
+        prototypes.some((b: Data) => b.ref === d.prototype),
+    );
   const [chosen, setChosen] = useState(
     cached?.prototype || prototypes[0]?.ref || "",
   );
@@ -58,6 +69,7 @@ export function CafConstantCopy({
     disabled,
     life,
     reviewContext,
+    kind,
   ]);
   const contextNow = useRef(context),
     generation = useRef(0),
@@ -134,9 +146,15 @@ export function CafConstantCopy({
     let active = true;
     const ticket = generation.current;
     setError(null);
-    api(`/caf/${archive}/constant-copy/source`, sourceRequest)
+    api(base + "/source", sourceRequest)
       .then(async (data) => {
-        const valid = await constantSource(data, sourceRequest, diagram, block);
+        const valid = await constantSource(
+          data,
+          sourceRequest,
+          diagram,
+          block,
+          kind,
+        );
         if (!active || ticket !== generation.current) return;
         if (!valid)
           throw new Error(
@@ -200,10 +218,7 @@ export function CafConstantCopy({
     setSaved(null);
     setError(null);
     try {
-      const result = await apiJsonDocument(
-        `/caf/${archive}/constant-copy/preview`,
-        request,
-      );
+      const result = await apiJsonDocument(base + "/preview", request);
       const valid = await constantReview(result.data, request, source!);
       if (!current(o, n)) return;
       if (!valid)
@@ -225,10 +240,10 @@ export function CafConstantCopy({
     setPending({ owner: o, epoch: n });
     setError(null);
     try {
-      const result = await apiBlobDocument(
-        `/caf/${archive}/constant-copy/export`,
-        { ...request, review_sha256: snapshot.data.review_sha256 },
-      );
+      const result = await apiBlobDocument(base + "/export", {
+        ...request,
+        review_sha256: snapshot.data.review_sha256,
+      });
       const valid = await constantExport(result, snapshot.data);
       if (!current(o, n)) return;
       if (!valid)
@@ -237,7 +252,7 @@ export function CafConstantCopy({
         );
       saveBlob(
         result.blob,
-        filename.replace(/\.caf$/i, "") + "-constant-copy.caf",
+        filename.replace(/\.caf$/i, "") + `-${spec.path}.caf`,
       );
       const value = drafts.get(key);
       if (value && value.x === request.x && value.y === request.y) {
@@ -267,7 +282,7 @@ export function CafConstantCopy({
         }
       }}
     >
-      <summary>Copy a recorded Float Constant</summary>
+      <summary>Copy a recorded {spec.label}</summary>
       <section aria-label="CAF constant creation">
         <p>
           Create a local CAF copy containing a new unconnected constant and its

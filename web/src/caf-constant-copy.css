@@ -54,6 +54,18 @@
   transform: translateY(-50%);
   pointer-events: none;
 }
+.caf-constant-kind {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0;
+}
+.caf-constant-kind select {
+  min-height: 36px;
+  max-width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 8px 36px 8px 8px;
+}
 .caf-constant-position {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
