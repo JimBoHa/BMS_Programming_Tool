@@ -1,0 +1,28 @@
+{
+  "profile": "authored-native-peer-gc-reproduction/1",
+  "source_commit": "e8b958eb489ca17782d39332b6e3f58fc6970783",
+  "original_trace_sha256": "b576c639631f3b961a98f91e7d42d0866e5f2f3ce6101f3779b10881b702ef1c",
+  "network": "Authored loopback peer; no building controller",
+  "request_bound_ms": 100,
+  "overall_operation_bound_seconds": 1800,
+  "request": {
+    "object": "analog-input,3000010",
+    "property": "device-type",
+    "invoke": "119"
+  },
+  "events_relative_ms": {
+    "native_exchange_start": 0,
+    "peer_request_observed": 0.157541,
+    "generation_2_gc_start": 1.152958,
+    "generation_2_gc_stop": 109.0885,
+    "peer_ACK_handoff_call": 109.723458,
+    "native_timeout_observed": 110.008375
+  },
+  "garbage_collection": {
+    "generation": 2,
+    "duration_ms": 107.935542,
+    "objects_collected": 152913
+  },
+  "outcome": "not_sent; no new transfer intent in this attempt",
+  "qualification": "API receive/handoff metadata and process GC callbacks, not a socket packet capture. Callback tracing may affect scheduling. Explains this traced reproduction only; original untraced failures remain unresolved."
+}

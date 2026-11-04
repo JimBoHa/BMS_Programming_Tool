@@ -2,6 +2,7 @@
 
 import asyncio
 import copy
+import gc
 import socket
 import time
 from contextlib import ExitStack
@@ -257,6 +258,9 @@ class NativePeer(Application):
 
 @pytest.fixture
 async def native_link(tmp_path, monkeypatch):
+    # Reclaim completed-test cycles before this fixture opens timed UDP exchanges.
+    # A traced collection during a reply exceeded the unchanged 100 ms test bound.
+    gc.collect()
     monkeypatch.setattr("bms_tool.native_applications.RESTORE_PREPARATION_SECONDS", 0.03)
     monkeypatch.setattr("bms_tool.native_applications.RESTORE_READINESS_SECONDS", 0.15)
     monkeypatch.setattr("bms_tool.native_applications.RESTORE_READINESS_INTERVAL", 0.01)
