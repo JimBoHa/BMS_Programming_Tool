@@ -16,6 +16,16 @@ export function hasEnumMultiplexerOutput(profile: unknown) {
     profile === enumEnumSelectorMultiplexerProfile
   );
 }
+export const booleanMultiplexerProfile =
+  "caf-recorded-boolean-multiplexer-copy/1";
+export const booleanEnumSelectorMultiplexerProfile =
+  "caf-recorded-boolean-enum-selector-multiplexer-copy/1";
+export function hasBooleanMultiplexerOutput(profile: unknown) {
+  return (
+    profile === booleanMultiplexerProfile ||
+    profile === booleanEnumSelectorMultiplexerProfile
+  );
+}
 export type ConstantKind =
   | "float"
   | "boolean"
@@ -88,7 +98,7 @@ export const constantKinds = {
     profile: "caf-recorded-float-multiplexer-copy/1",
     classId: "562",
     outputType: 2,
-    codes: [14, 15, 16, 17],
+    codes: [14, 15, 16, 17, 18, 19],
     path: "float-multiplexer-copy",
   },
   timer: {
@@ -134,11 +144,15 @@ export async function constantSource(
         enumSelectorMultiplexerProfile,
         enumMultiplexerProfile,
         enumEnumSelectorMultiplexerProfile,
+        booleanMultiplexerProfile,
+        booleanEnumSelectorMultiplexerProfile,
       ].includes(s?.profile));
   const outputType =
     kind === "multiplexer" && hasEnumMultiplexerOutput(s?.profile)
       ? 19
-      : spec.outputType;
+      : kind === "multiplexer" && hasBooleanMultiplexerOutput(s?.profile)
+        ? 5
+        : spec.outputType;
   const outputPrefix = request.prototype_ref + `.${outputType}_`;
   const value = s?.recorded_value;
   const valueValid =
@@ -552,6 +566,100 @@ function reliabilitySelection(s: Data, block: Data) {
     output.sha256 === s.output_sha256
   );
 }
+function booleanMultiplexerSelection(s: Data, block: Data) {
+  const enumeration = s?.profile === booleanEnumSelectorMultiplexerProfile;
+  if (
+    !s ||
+    s.object_count !== 5 ||
+    s.setup_code !== null ||
+    s.standard_name_code !== (enumeration ? 19 : 18) ||
+    s.operator_meaning_verified !== false ||
+    s.multiplexer_semantics_verified !== false ||
+    (enumeration && s.enum_semantics_verified !== false) ||
+    !integer(s.new_instance, 1, 4194298) ||
+    !Array.isArray(s.children) ||
+    s.children.length !== 4 ||
+    !connectionSame(
+      block.exposed_ports.map((p: Data) => p.id),
+      [961, 7000, 7001, 85],
+    )
+  )
+    return false;
+  const selector = s.children[1];
+  if (!selector) return false;
+  if (
+    enumeration
+      ? ![
+          { modes: ["1", "2"], retained: "0", states: 2, text: 350 },
+          {
+            modes: ["1", "0", "0", "0", "0"],
+            retained: "2",
+            states: 5,
+            text: 1347,
+          },
+          {
+            modes: ["0", "0", "0", "2", "0"],
+            retained: "1",
+            states: 5,
+            text: 359,
+          },
+        ].some(
+          (v) =>
+            connectionSame(s.recorded_property_2381, v.modes) &&
+            s.recorded_property_3122 === v.retained &&
+            selector.number_of_states === v.states &&
+            selector.states_text_code === v.text,
+        )
+      : !connectionSame(s.recorded_property_2381, ["1", "2"]) ||
+        s.recorded_property_3122 !== "0"
+  )
+    return false;
+  const ports = [85, 961, 7000, 7001];
+  for (let i = 0; i < 4; i++) {
+    const r = s.children[i],
+      enumPort = enumeration && i === 1,
+      type = enumPort ? 19 : 5;
+    if (
+      !r ||
+      r.port !== ports[i] ||
+      r.class_id !== (i === 0 ? "531" : enumPort ? "528" : "530") ||
+      r.bacnet_type !== type ||
+      !integer(r.instance, 0, 4194302) ||
+      r.ref !== `${s.prototype_ref}.${type}_${r.instance}` ||
+      r.new_instance !== s.new_instance + i + 1 ||
+      r.new_ref !== `${s.new_ref}.${type}_${r.new_instance}` ||
+      [...r.new_ref].length > 512 ||
+      !hash(r.sha256) ||
+      r.direction !== (i === 0 ? "output" : "input") ||
+      r.exposed !== true ||
+      r.recorded_metadata_661 !== null ||
+      r.default_encoding_set !== null ||
+      r.recorded_standard_name_code !== (i === 1 ? 0 : null) ||
+      (enumeration && i === 3
+        ? !["true", "false", "1", "0"].includes(r.recorded_default)
+        : r.recorded_default !== null)
+    )
+      return false;
+    if (
+      enumPort
+        ? r.states_text_encoding_set !== 802
+        : [
+            r.number_of_states,
+            r.states_text_code,
+            r.states_text_encoding_set,
+          ].some((v) => v !== null)
+    )
+      return false;
+  }
+  const output = s.children[0];
+  return (
+    output.ref === s.output_ref &&
+    output.new_ref === s.new_output_ref &&
+    output.sha256 === s.output_sha256 &&
+    output.new_instance === s.new_output_instance
+  );
+}
+
 function enumEnumSelectorMultiplexerSelection(s: Data, block: Data) {
   if (
     !s ||
@@ -708,6 +816,8 @@ function enumMultiplexerSelection(s: Data, block: Data) {
 }
 
 function multiplexerSelection(s: Data, block: Data) {
+  if (hasBooleanMultiplexerOutput(s?.profile))
+    return booleanMultiplexerSelection(s, block);
   if (s?.profile === enumEnumSelectorMultiplexerProfile)
     return enumEnumSelectorMultiplexerSelection(s, block);
   if (s?.profile === enumMultiplexerProfile)
@@ -947,6 +1057,8 @@ export async function constantReview(v: Data, request: Data, source: Data) {
       enumSelectorMultiplexerProfile,
       enumMultiplexerProfile,
       enumEnumSelectorMultiplexerProfile,
+      booleanMultiplexerProfile,
+      booleanEnumSelectorMultiplexerProfile,
     ].some((p) => p === source.profile) &&
       (!Array.isArray(c.new_child_sha256) ||
         c.new_child_sha256.length !== source.object_count - 1 ||

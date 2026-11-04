@@ -14,6 +14,8 @@ import {
   enumMultiplexerProfile,
   enumEnumSelectorMultiplexerProfile,
   hasEnumMultiplexerOutput,
+  hasBooleanMultiplexerOutput,
+  booleanEnumSelectorMultiplexerProfile,
   type ConstantKind,
   type ConstantDrafts,
 } from "./cafConstantContract";
@@ -317,7 +319,9 @@ export function CafConstantCopy({
         );
       const suffix = hasEnumMultiplexerOutput(source?.profile)
         ? "enum-multiplexer-copy"
-        : spec.path;
+        : hasBooleanMultiplexerOutput(source?.profile)
+          ? "boolean-multiplexer-copy"
+          : spec.path;
       const name = filename.replace(/\.caf$/i, "") + `-${suffix}.caf`;
       saveBlob(result.blob, name);
       setCreated({
@@ -416,11 +420,11 @@ export function CafConstantCopy({
         ) : multiplexer ? (
           <p>
             Create a local CAF copy containing a new unconnected Multiplexer and
-            its recorded ports. Inspection identifies the supported Float or
-            Enum I/O profile and selector. Stored configuration and omitted
-            defaults stay exact. Other variants require a separate profile.
-            Mode/Enum behavior, CCT/PCT acceptance and controller allocation
-            remain unverified.
+            its recorded ports. Inspection identifies the supported Float,
+            Boolean or Enum I/O profile and selector. Stored configuration and
+            omitted defaults stay exact. Other variants require a separate
+            profile. Mode/Enum behavior, CCT/PCT acceptance and controller
+            allocation remain unverified.
           </p>
         ) : timer ? (
           <p>
@@ -569,13 +573,17 @@ export function CafConstantCopy({
             {multiplexer && (
               <p>
                 Recorded I/O:{" "}
-                {source.profile === enumMultiplexerProfile
-                  ? "Enum inputs and output; Boolean selector."
-                  : source.profile === enumEnumSelectorMultiplexerProfile
-                    ? "Enum inputs and output; Enum selector."
-                    : source.profile === enumSelectorMultiplexerProfile
-                      ? "Float inputs and output; Enum selector."
-                      : "Float inputs and output; Boolean selector."}
+                {hasBooleanMultiplexerOutput(source.profile)
+                  ? source.profile === booleanEnumSelectorMultiplexerProfile
+                    ? "Boolean inputs and output; Enum selector."
+                    : "Boolean inputs and output; Boolean selector."
+                  : source.profile === enumMultiplexerProfile
+                    ? "Enum inputs and output; Boolean selector."
+                    : source.profile === enumEnumSelectorMultiplexerProfile
+                      ? "Enum inputs and output; Enum selector."
+                      : source.profile === enumSelectorMultiplexerProfile
+                        ? "Float inputs and output; Enum selector."
+                        : "Float inputs and output; Boolean selector."}
               </p>
             )}
             {primitive && (
@@ -637,11 +645,12 @@ export function CafConstantCopy({
                       {(kind === "math" ||
                         booleanLogic ||
                         (multiplexer &&
-                          [
-                            enumSelectorMultiplexerProfile,
-                            enumMultiplexerProfile,
-                            enumEnumSelectorMultiplexerProfile,
-                          ].includes(source.profile))) &&
+                          (hasBooleanMultiplexerOutput(source.profile) ||
+                            [
+                              enumSelectorMultiplexerProfile,
+                              enumMultiplexerProfile,
+                              enumEnumSelectorMultiplexerProfile,
+                            ].includes(source.profile)))) &&
                         r.recorded_standard_name_code !== null && (
                           <>
                             {" "}

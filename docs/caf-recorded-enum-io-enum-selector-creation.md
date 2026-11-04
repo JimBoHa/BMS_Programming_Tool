@@ -58,3 +58,6 @@ Native Enum membership, mode assignments, fallback behavior, runtime/reliability
 restart/scan semantics, vendor resources/packages, CCT/PCT reopening, general
 File-3 generation and physical/BTCVT acceptance remain separate. JCI-02/JCI-03/
 JCI-05/JCI-06/JCI-09 remain partial.
+
+The separately admitted [Boolean-output profiles](caf-recorded-boolean-multiplexer-creation.md)
+retain native type 5 and distinct selector metadata without changing this profile.

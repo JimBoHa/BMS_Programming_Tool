@@ -61,6 +61,9 @@ The separately qualified [Enum-valued Multiplexer](caf-recorded-enum-multiplexer
 adds continuation from its typed output and optional state metadata. The
 [Enum-selector Enum I/O profile](caf-recorded-enum-io-enum-selector-creation.md)
 separately preserves its distinct selector and data state metadata.
+The [Boolean-output profiles](caf-recorded-boolean-multiplexer-creation.md) add
+Boolean and Enum selectors while retaining native Boolean output identities,
+exact default spellings and all six source-specific Multiplexer drafts.
 
 These checks qualify local file continuation. Native CCT/PCT reopening, runtime
 semantics, general File-3 generation, vendor resources/packages and physical or
