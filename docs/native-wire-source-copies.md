@@ -2,11 +2,16 @@
 
 In **Program → Native backup defaults**, select a retained backup, inspect its
 records, and inspect an actual activity or control-sequence record (class 536 or
-575). Expand **Copy an existing native wire source**, open its recorded sources,
+575). Keep **Native diagram operation → Change existing source**, expand
+**Copy an existing native wire source**, open its recorded sources,
 choose an existing connection and replacement source, then **Review native wire
 copy**. **Save native wire copy** exports a separate file; **Save exact native
 wire review** retains the original response JSON. Neither action contacts a
 controller or applies the change.
+
+**Add matching connection** now opens a separately qualified
+[local connection addition](native-matching-connection-copies.md). Switching
+operations retains source drafts and recovery ownership while retiring reviews.
 
 The web entry uses an original retained native backup. Its manifest and all three
 Files 3/11/12 are checked before source inspection, review and export. Unknown
