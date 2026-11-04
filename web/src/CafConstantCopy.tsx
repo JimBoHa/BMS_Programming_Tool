@@ -11,6 +11,7 @@ import {
   rememberConstant,
   constantKinds,
   enumSelectorMultiplexerProfile,
+  enumMultiplexerProfile,
   type ConstantKind,
   type ConstantDrafts,
 } from "./cafConstantContract";
@@ -312,7 +313,11 @@ export function CafConstantCopy({
         throw new Error(
           "CAF download bytes or proof do not match the review. Review again before saving.",
         );
-      const name = filename.replace(/\.caf$/i, "") + `-${spec.path}.caf`;
+      const suffix =
+        source?.profile === enumMultiplexerProfile
+          ? "enum-multiplexer-copy"
+          : spec.path;
+      const name = filename.replace(/\.caf$/i, "") + `-${suffix}.caf`;
       saveBlob(result.blob, name);
       setCreated({
         owner: o,
@@ -409,12 +414,12 @@ export function CafConstantCopy({
           </p>
         ) : multiplexer ? (
           <p>
-            Create a local CAF copy containing a new unconnected Float
-            Multiplexer with its recorded Float inputs, output and Boolean or
-            Enum selector. Selector configuration, stored values and omitted
-            defaults stay exact. Other multiplexer variants require a separate
-            profile. Mode/Enum behavior, CCT/PCT acceptance and controller
-            allocation remain unverified.
+            Create a local CAF copy containing a new unconnected Multiplexer and
+            its recorded ports. Inspection identifies the supported Float or
+            Enum I/O profile and selector. Stored configuration and omitted
+            defaults stay exact. Other variants require a separate profile.
+            Mode/Enum behavior, CCT/PCT acceptance and controller allocation
+            remain unverified.
           </p>
         ) : timer ? (
           <p>
@@ -552,10 +557,22 @@ export function CafConstantCopy({
                 . Both are copied as recorded.
               </p>
             )}
-            {comparison && source.enum_semantics_verified === false && (
+            {(comparison || multiplexer) &&
+              source.enum_semantics_verified === false && (
+                <p>
+                  Enumeration input codes, state metadata and encoding
+                  namespaces are copied as recorded. Enum meanings remain
+                  unverified.
+                </p>
+              )}
+            {multiplexer && (
               <p>
-                Enumeration input codes, state metadata and encoding namespaces
-                are copied as recorded. Enum meanings remain unverified.
+                Recorded I/O:{" "}
+                {source.profile === enumMultiplexerProfile
+                  ? "Enum inputs and output; Boolean selector."
+                  : source.profile === enumSelectorMultiplexerProfile
+                    ? "Float inputs and output; Enum selector."
+                    : "Float inputs and output; Boolean selector."}
               </p>
             )}
             {primitive && (
@@ -599,9 +616,10 @@ export function CafConstantCopy({
                           <>
                             {" "}
                             Number Of States: {r.number_of_states}. States Text
-                            code: {r.states_text_code} (encoding set{" "}
-                            {r.states_text_encoding_set}). Default Value
-                            encoding set:{" "}
+                            code: {r.states_text_code ?? "omitted in source"}{" "}
+                            (encoding set{" "}
+                            {r.states_text_encoding_set ?? "omitted"}). Default
+                            Value encoding set:{" "}
                             {r.default_encoding_set ?? "omitted with value"}.
                           </>
                         )}
@@ -616,7 +634,10 @@ export function CafConstantCopy({
                       {(kind === "math" ||
                         booleanLogic ||
                         (multiplexer &&
-                          source.profile === enumSelectorMultiplexerProfile)) &&
+                          [
+                            enumSelectorMultiplexerProfile,
+                            enumMultiplexerProfile,
+                          ].includes(source.profile))) &&
                         r.recorded_standard_name_code !== null && (
                           <>
                             {" "}

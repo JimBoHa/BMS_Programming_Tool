@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`d33c0dd2`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/d33c0dd236533cec7d93d4a3c54eccc30beb20e8).
+[`378c7791`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/378c7791d915015e4027119886c4aac38383ad43).
 
 ## Baseline and purpose
 
@@ -1119,3 +1119,21 @@ pending edits, failed/mismatched uploads, stale completions and both entry paths
 Native runtime, vendor resources/packages, CCT/PCT, general File-3 and physical /
 BTCVT acceptance remain separate. JCI-02/JCI-03/JCI-05/JCI-06/JCI-09 stay partial.
 See [continuing from a reviewed CAF copy](docs/caf-open-reviewed-copy.md).
+
+## 2026-11-04 JCI-02/JCI-03/JCI-05 delivery: recorded Enum Multiplexer creation
+
+`FMT-CAF-ENUM-BOOLEAN-SELECTOR-MULTIPLEXER-COPY-001` separately qualifies class-562
+StandardName 16 with an Enum output, two Enum inputs and a Boolean selector.
+The five-object copy retains both observed bookkeeping pairs, all three state
+metadata shapes, missing States Text, optional selector naming, exact default
+namespaces and omissions, exposure/child order and absent setup. Five identities
+must fit the existing allocation ceiling.
+
+The contextual task is now named Multiplexer and identifies actual I/O and selector
+types. The original route and both Float engines remain compatible; their old
+artifacts and Float filenames stay exact. Enum artifacts receive a typed filename.
+Mixed drafts, exact review/export proof, Open CAF copy, routes, graphics and
+ordinary Save remain. No controller traffic or native assignment/runtime meaning
+is granted. CCT/PCT, general File-3, resources/packages and physical/BTCVT acceptance
+remain separate. JCI-02/JCI-03/JCI-05/JCI-06/JCI-09 stay partial. See
+[recorded Enum Multiplexer creation](docs/caf-recorded-enum-multiplexer-creation.md).

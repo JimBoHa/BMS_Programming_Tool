@@ -2,7 +2,7 @@
 
 Program → CAF file → Logic can copy an actual version 1.0 Float Multiplexer and
 its four recorded port objects into a separate local CAF archive. Select
-**Float Multiplexer**, choose a compatible source prototype, inspect it, enter
+**Multiplexer**, choose a compatible source prototype, inspect it, enter
 coordinates, review the copy and save it. Open the saved copy to inspect or connect
 its Float output through the existing guarded graph workflow.
 
