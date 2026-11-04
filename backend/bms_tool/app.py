@@ -36,6 +36,7 @@ from .blocks import catalog
 from .bus_preflight import bus_preflight_router
 from .caf import CafArchive
 from .caf_compare import compare_cafs
+from .caf_constant_api import constant_router
 from .caf_graph import CafGraph
 from .caf_hardware import CafHardwareBindings, HardwareExportRequest, HardwareMoveRequest
 from .caf_instance import CafInstanceChange, CafInstanceEditor, CafInstanceExport
@@ -1490,6 +1491,8 @@ def create_app(state_dir=None, *, operation_power=None):
         if id not in caf_files:
             raise ValueError("Open the CAF file first.")
         return caf_files[id]
+
+    app.include_router(constant_router(get_caf))
 
     @app.post("/api/caf/{id}/native-correlation")
     def caf_native_correlation(id: str, body: CafNativeCorrelationRequest):

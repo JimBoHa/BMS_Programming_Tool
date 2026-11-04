@@ -10,11 +10,13 @@ import { api, apiBlobDocument, saveBlob } from "./api";
 import { sha256Blob } from "./activityContracts";
 import { cafEnumMetadata, cafScalarRequestSha } from "./cafScalarCopy";
 import { CafGraphPanel } from "./CafGraphPanel";
+import type { ConstantDrafts } from "./cafConstantContract";
 import { CafHardwarePanel } from "./CafHardwarePanel";
 import { CafInstancePanel } from "./CafInstancePanel";
 import { JciPreflight } from "./JciPreflight";
 import { CafNativeCorrelation } from "./CafNativeCorrelation";
 import type { CafDocument, ControllerContext, FileRequest } from "./workflow";
+import { controllerKey } from "./workflow";
 import { WorkflowToolTabs } from "./WorkflowChrome";
 import { ResponsivePanel } from "./ResponsivePanel";
 import "./caf-enum-copy.css";
@@ -80,6 +82,7 @@ export function NativeCaf({
   const [loadingProperties, setLoadingProperties] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [graphDirty, setGraphDirty] = useState(false);
+  const constantDrafts = useRef<ConstantDrafts>(new Map());
   const [hardwareDirty, setHardwareDirty] = useState(false);
   const [instanceDirty, setInstanceDirty] = useState(false);
   const [savedScalarKey, setSavedScalarKey] = useState("[]");
@@ -467,6 +470,16 @@ export function NativeCaf({
           </div>
           <div hidden={currentView !== "logic"}>
             <CafGraphPanel
+              constantDrafts={constantDrafts.current}
+              reviewContext={
+                controller
+                  ? JSON.stringify([
+                      controllerKey(controller),
+                      controller.interfaceKey,
+                      controller.interfaceOpen,
+                    ])
+                  : "offline"
+              }
               key={`${caf.sha256}:${archiveGeneration}`}
               id={caf.sha256}
               filename={filename}
