@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`be909002`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/be90900243db2d4926e568a6d3cb27cacebd9c19).
+[`e8d6385d`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/e8d6385d1f7062ffdcd1b5e1b9a9739ca7dbc57c).
 
 ## Baseline and purpose
 
@@ -1037,3 +1037,21 @@ Native operator execution, restart/retention, scan behavior, package/resource
 validation, CCT/PCT/native File-3 and physical/BTCVT acceptance remain separate.
 JCI-02/JCI-03/JCI-05/JCI-06/JCI-09 stay partial. See
 [recorded Boolean logic creation](docs/caf-recorded-boolean-logic-creation.md).
+
+## 2026-11-04 JCI-02/JCI-03 delivery: recorded Reliability Check creation
+
+`FMT-CAF-RELIABILITY-COPY-001` separately qualifies actual class-539 version 1.0
+Reliability Check subtrees with Float or Enum input. The three-object copy retains
+both ports, exposure/child order, absent parent setup, exact Boolean output
+spellings and omitted defaults. Enum state metadata stays recorded without
+inferring logical membership or reliability behavior. Unknown shapes are refused;
+three identities must fit the existing local ceiling.
+
+Program Logic gains one contextual Reliability Check task with explicit recorded
+input/output details, reference provenance, both variant drafts, review retirement
+and exact review/export proof. Existing graphics, routes, ordinary Save, draft
+capacity and earlier profile results remain. A separate local API family grants
+no field authority. Native reliability/runtime semantics, package/resources,
+CCT/PCT/native File-3 and physical/BTCVT acceptance remain separate.
+JCI-02/JCI-03/JCI-05/JCI-06/JCI-09 stay partial. See
+[recorded Reliability Check creation](docs/caf-recorded-reliability-creation.md).

@@ -48,6 +48,7 @@ from .caf_math_api import math_router
 from .caf_native_correlation import CafNativeCorrelationRequest, correlate
 from .caf_native_file_correlation import CafNativeFileCorrelationRequest, NativeFileCorrelation
 from .caf_reference_labels import CafReferenceLabels
+from .caf_reliability_api import reliability_router
 from .caf_scenarios import CafInputScenarios, CafScenarioStore
 from .caf_simulation import CafSimulationProfile, simulation_request_sha256
 from .caf_timer_api import timer_router
@@ -1506,6 +1507,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.include_router(math_router(get_caf))
     app.include_router(timer_router(get_caf))
     app.include_router(boolean_logic_router(get_caf))
+    app.include_router(reliability_router(get_caf))
 
     @app.post("/api/caf/{id}/native-correlation")
     def caf_native_correlation(id: str, body: CafNativeCorrelationRequest):

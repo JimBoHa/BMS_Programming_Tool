@@ -44,7 +44,9 @@ export function CafConstantCopy({
   const comparison = kind === "comparison";
   const timer = kind === "timer";
   const booleanLogic = kind === "booleanLogic";
-  const primitive = comparison || kind === "math" || timer || booleanLogic;
+  const reliability = kind === "reliability";
+  const primitive =
+    comparison || kind === "math" || timer || booleanLogic || reliability;
   const subject = primitive ? "block" : "constant";
   const base = `/caf/${archive}/${spec.path}`;
   const prototypes = diagram.blocks.filter(
@@ -325,6 +327,13 @@ export function CafConstantCopy({
             defaults stay exact. Operator behavior, CCT/PCT acceptance and
             controller allocation remain unverified.
           </p>
+        ) : reliability ? (
+          <p>
+            Create a local CAF copy containing a new unconnected Reliability
+            Check and its two recorded ports. Boolean output spelling, omitted
+            defaults and Enum metadata stay exact. Reliability behavior, CCT/PCT
+            acceptance and controller allocation remain unverified.
+          </p>
         ) : timer ? (
           <p>
             Create a local CAF copy containing a new unconnected Timer and all
@@ -431,7 +440,7 @@ export function CafConstantCopy({
           <>
             {primitive ? (
               <p>
-                {timer ? (
+                {timer || reliability ? (
                   "Recorded standard-name code "
                 ) : (
                   <>
@@ -442,9 +451,11 @@ export function CafConstantCopy({
                 {source.standard_name_code}.{" "}
                 {timer
                   ? "Seven"
-                  : source.children.length === 3
-                    ? "Three"
-                    : "Four"}{" "}
+                  : reliability
+                    ? "Two"
+                    : source.children.length === 3
+                      ? "Three"
+                      : "Four"}{" "}
                 port objects are copied as recorded; operator meanings and
                 runtime output are unverified.
               </p>
@@ -468,6 +479,8 @@ export function CafConstantCopy({
                 <summary>
                   {timer ? (
                     "Recorded Timer ports"
+                  ) : reliability ? (
+                    "Recorded reliability ports"
                   ) : (
                     <>
                       Recorded{" "}
@@ -481,23 +494,26 @@ export function CafConstantCopy({
                   )}
                 </summary>
                 {source.children
-                  .filter((r: Data) => timer || r.port !== 85)
+                  .filter((r: Data) => timer || reliability || r.port !== 85)
                   .map((r: Data) => (
                     <p key={r.ref}>
-                      {timer ? `${r.direction} port` : "Port"} {r.port}:{" "}
+                      {timer || reliability ? `${r.direction} port` : "Port"}{" "}
+                      {r.port}:{" "}
                       {r.recorded_default === null
                         ? "default omitted in source"
                         : `recorded default ${r.recorded_default}`}
                       ; {r.exposed ? "exposed" : "not exposed"} in source.
-                      {(comparison || timer) && r.bacnet_type === 19 && (
-                        <>
-                          {" "}
-                          Number Of States: {r.number_of_states}. States Text
-                          code: {r.states_text_code} (encoding set{" "}
-                          {r.states_text_encoding_set}). Default Value encoding
-                          set: {r.default_encoding_set ?? "omitted with value"}.
-                        </>
-                      )}
+                      {(comparison || timer || reliability) &&
+                        r.bacnet_type === 19 && (
+                          <>
+                            {" "}
+                            Number Of States: {r.number_of_states}. States Text
+                            code: {r.states_text_code} (encoding set{" "}
+                            {r.states_text_encoding_set}). Default Value
+                            encoding set:{" "}
+                            {r.default_encoding_set ?? "omitted with value"}.
+                          </>
+                        )}
                       {timer && r.units_code !== null && (
                         <>
                           {" "}
@@ -598,9 +614,11 @@ export function CafConstantCopy({
               {primitive
                 ? timer
                   ? "eight"
-                  : shown.data.creation.selection.object_count === 4
-                    ? "four"
-                    : "five"
+                  : reliability
+                    ? "three"
+                    : shown.data.creation.selection.object_count === 4
+                      ? "four"
+                      : "five"
                 : "two"}{" "}
               objects added. Existing connections and continuation records stay
               unchanged.

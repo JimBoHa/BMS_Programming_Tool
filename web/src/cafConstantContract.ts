@@ -12,7 +12,8 @@ export type ConstantKind =
   | "comparison"
   | "math"
   | "timer"
-  | "booleanLogic";
+  | "booleanLogic"
+  | "reliability";
 export const constantKinds = {
   float: {
     label: "Float Constant",
@@ -62,6 +63,14 @@ export const constantKinds = {
     codes: [24, 25, 26],
     path: "boolean-logic-copy",
   },
+  reliability: {
+    label: "Reliability Check",
+    profile: "caf-recorded-reliability-copy/1",
+    classId: "539",
+    outputType: 5,
+    codes: [21, 22],
+    path: "reliability-copy",
+  },
   timer: {
     label: "Timer",
     profile: "caf-recorded-timer-copy/1",
@@ -106,7 +115,8 @@ export async function constantSource(
     kind === "comparison" ||
     kind === "math" ||
     kind === "timer" ||
-    kind === "booleanLogic"
+    kind === "booleanLogic" ||
+    kind === "reliability"
       ? value === null
       : kind === "boolean"
         ? typeof value === "string" &&
@@ -163,6 +173,7 @@ export async function constantSource(
     (kind === "math" && !mathSelection(s, block)) ||
     (kind === "timer" && !timerSelection(s, block)) ||
     (kind === "booleanLogic" && !booleanLogicSelection(s, block)) ||
+    (kind === "reliability" && !reliabilitySelection(s, block)) ||
     !spec.codes.some((code) => code === s.standard_name_code) ||
     s.exposed_port !== 85 ||
     [
@@ -441,6 +452,74 @@ function booleanLogicSelection(s: Data, block: Data) {
     output.new_instance === s.new_output_instance
   );
 }
+function reliabilitySelection(s: Data, block: Data) {
+  if (
+    !s ||
+    s.object_count !== 3 ||
+    s.setup_code !== null ||
+    ![21, 22].includes(s.standard_name_code) ||
+    s.operator_meaning_verified !== false ||
+    s.reliability_semantics_verified !== false ||
+    s.enum_semantics_verified !== false ||
+    !integer(s.new_instance, 1, 4194300) ||
+    !Array.isArray(s.children) ||
+    s.children.length !== 2 ||
+    !connectionSame(
+      block.exposed_ports.map((p: Data) => p.id),
+      [513, 85],
+    )
+  )
+    return false;
+  const enumeration = s.standard_name_code === 22;
+  for (let i = 0; i < 2; i++) {
+    const r = s.children[i],
+      type = i === 0 ? 5 : enumeration ? 19 : 2;
+    if (
+      !r ||
+      r.port !== (i === 0 ? 85 : 513) ||
+      r.class_id !== (i === 0 ? "531" : enumeration ? "528" : "526") ||
+      r.bacnet_type !== type ||
+      !integer(r.instance, 0, 4194302) ||
+      r.ref !== `${s.prototype_ref}.${type}_${r.instance}` ||
+      r.new_instance !== s.new_instance + i + 1 ||
+      r.new_ref !== `${s.new_ref}.${type}_${r.new_instance}` ||
+      [...r.new_ref].length > 512 ||
+      !hash(r.sha256) ||
+      r.direction !== (i === 0 ? "output" : "input") ||
+      r.exposed !== true ||
+      [
+        r.recorded_metadata_661,
+        r.default_encoding_set,
+        r.units_code,
+        r.units_encoding_set,
+      ].some((v) => v !== null)
+    )
+      return false;
+    if (i === 1 && enumeration) {
+      if (
+        r.number_of_states !== 2 ||
+        r.states_text_code !== 349 ||
+        r.states_text_encoding_set !== 802 ||
+        r.recorded_default !== null
+      )
+        return false;
+    } else if (
+      [r.number_of_states, r.states_text_code, r.states_text_encoding_set].some(
+        (v) => v !== null,
+      ) ||
+      (i === 0 && !enumeration
+        ? !["true", "1"].includes(r.recorded_default)
+        : r.recorded_default !== null)
+    )
+      return false;
+  }
+  const output = s.children[0];
+  return (
+    output.ref === s.output_ref &&
+    output.new_ref === s.new_output_ref &&
+    output.sha256 === s.output_sha256
+  );
+}
 function timerSelection(s: Data, block: Data) {
   if (
     !s ||
@@ -554,6 +633,7 @@ export async function constantReview(v: Data, request: Data, source: Data) {
       constantKinds.math.profile,
       constantKinds.timer.profile,
       constantKinds.booleanLogic.profile,
+      constantKinds.reliability.profile,
     ].some((p) => p === source.profile) &&
       (!Array.isArray(c.new_child_sha256) ||
         c.new_child_sha256.length !== source.object_count - 1 ||
