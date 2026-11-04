@@ -3,6 +3,8 @@ import { connectionSame, connectionSeal } from "./nativeConnectionContract";
 
 type Data = Record<string, any>;
 export const constantProfile = "caf-recorded-float-constant-copy/1";
+export const enumComparisonProfile =
+  "caf-recorded-enumeration-comparison-copy/1";
 export type ConstantKind =
   | "float"
   | "boolean"
@@ -35,11 +37,11 @@ export const constantKinds = {
     path: "enum-constant-copy",
   },
   comparison: {
-    label: "Float Comparison",
+    label: "Comparison",
     profile: "caf-recorded-float-comparison-copy/1",
     classId: "560",
     outputType: 5,
-    codes: [28, 31, 32],
+    codes: [28, 31, 32, 34],
     path: "comparison-copy",
   },
   math: {
@@ -77,6 +79,9 @@ export async function constantSource(
 ) {
   const spec = constantKinds[kind];
   if (!spec) return false;
+  const profileValid =
+    s?.profile === spec.profile ||
+    (kind === "comparison" && s?.profile === enumComparisonProfile);
   const outputPrefix = request.prototype_ref + `.${spec.outputType}_`;
   const value = s?.recorded_value;
   const valueValid =
@@ -107,7 +112,7 @@ export async function constantSource(
     block.bacnet_type !== Number(spec.classId) ||
     block.class_id !== spec.classId ||
     block.class_version !== "1.0" ||
-    s.profile !== spec.profile ||
+    !profileValid ||
     typeof s.scope !== "string" ||
     ["source_sha256", "diagram_ref", "prototype_ref"].some(
       (k) => s[k] !== request[k],
@@ -154,6 +159,8 @@ export async function constantSource(
 }
 
 function comparisonSelection(s: Data, block: Data) {
+  if (s?.profile === enumComparisonProfile)
+    return enumComparisonSelection(s, block);
   if (
     !s ||
     s.object_count !== 5 ||
@@ -194,6 +201,80 @@ function comparisonSelection(s: Data, block: Data) {
           typeof r.recorded_metadata_661 !== "string" ||
           !/^(0|[1-9][0-9]{0,9})$/.test(r.recorded_metadata_661) ||
           Number(r.recorded_metadata_661) > 4294967295)
+    )
+      return false;
+  }
+  const output = s.children[0];
+  return (
+    output.ref === s.output_ref &&
+    output.new_ref === s.new_output_ref &&
+    output.sha256 === s.output_sha256
+  );
+}
+
+function enumComparisonSelection(s: Data, block: Data) {
+  if (
+    !s ||
+    s.object_count !== 5 ||
+    s.operator_meaning_verified !== false ||
+    s.enum_semantics_verified !== false ||
+    !integer(s.new_instance, 1, 4194298) ||
+    s.setup_code !== 5 ||
+    s.standard_name_code !== 34 ||
+    !Array.isArray(s.children) ||
+    s.children.length !== 4 ||
+    !connectionSame(
+      block.exposed_ports.map((p: Data) => p.id),
+      [50083, 50084, 85],
+    )
+  )
+    return false;
+  const ports = [85, 637, 50083, 50084],
+    types = [5, 2, 19, 19],
+    classes = ["531", "526", "528", "528"];
+  for (let i = 0; i < 4; i++) {
+    const r = s.children[i];
+    if (
+      !r ||
+      r.port !== ports[i] ||
+      r.bacnet_type !== types[i] ||
+      r.class_id !== classes[i] ||
+      !integer(r.instance, 0, 4194302) ||
+      r.ref !== `${s.prototype_ref}.${types[i]}_${r.instance}` ||
+      r.new_instance !== s.new_instance + i + 1 ||
+      r.new_ref !== `${s.new_ref}.${types[i]}_${r.new_instance}` ||
+      [...r.new_ref].length > 512 ||
+      !hash(r.sha256) ||
+      r.exposed !== (i !== 1) ||
+      r.recorded_metadata_661 !== null
+    )
+      return false;
+    if (i < 2) {
+      if (
+        [
+          r.recorded_default,
+          r.number_of_states,
+          r.states_text_code,
+          r.states_text_encoding_set,
+          r.default_encoding_set,
+        ].some((v) => v !== null)
+      )
+        return false;
+    } else if (
+      ![
+        [4, 366],
+        [6, 387],
+      ].some(
+        ([states, text]) =>
+          states === r.number_of_states && text === r.states_text_code,
+      ) ||
+      r.states_text_encoding_set !== 802 ||
+      (r.recorded_default === null
+        ? r.default_encoding_set !== null
+        : typeof r.recorded_default !== "string" ||
+          !/^(0|[1-9][0-9]{0,9})$/.test(r.recorded_default) ||
+          Number(r.recorded_default) > 4294967295 ||
+          ![647, r.states_text_code].includes(r.default_encoding_set))
     )
       return false;
   }
@@ -286,9 +367,11 @@ export async function constantReview(v: Data, request: Data, source: Data) {
     !connectionSame(v.request, request) ||
     !connectionSame(c.selection, source) ||
     !connectionSame(c.position, { x: request.x, y: request.y }) ||
-    ([constantKinds.comparison.profile, constantKinds.math.profile].some(
-      (p) => p === source.profile,
-    ) &&
+    ([
+      constantKinds.comparison.profile,
+      enumComparisonProfile,
+      constantKinds.math.profile,
+    ].some((p) => p === source.profile) &&
       (!Array.isArray(c.new_child_sha256) ||
         c.new_child_sha256.length !== source.object_count - 1 ||
         c.new_child_sha256.some((s: unknown) => !hash(s)) ||

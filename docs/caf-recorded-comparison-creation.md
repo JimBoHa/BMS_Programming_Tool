@@ -45,7 +45,7 @@ field plan or controller query/write in this operation.
 ## Existing Program workspace
 
 Open a CAF, select **Program → CAF file → Logic** and inspect **Copy a recorded
-Float Comparison**. When an actual comparison is present with other supported
+Comparison**. When an actual comparison is present with other supported
 families, **Recorded block type** selects the focused task. Constant-only diagrams
 retain their existing **Constant type** labels and controls. One creation task
 and primary action stay visible, without a new destination or tile.
@@ -66,8 +66,10 @@ selected route and the file/controller match unverified.
 ## Evidence and remaining scope
 
 All 93 actual Float Comparison prototypes across seven private CAF originals
-were created/read back in memory. The 13 enum-input variants are explicitly
-rejected. All 276 prior constant selections, reports, seals and artifacts match
+were created/read back in memory. The Float-only inspector continues refusing
+the 13 enum-input variants. The same comparison API now selects their separately
+qualified [Enumeration profile](caf-recorded-enum-comparison-creation.md) from
+actual setup fields. All 276 prior constant selections, reports, seals and artifacts match
 the exact PR228 implementation. Original files remain unchanged; no derived
 private CAF is saved or committed.
 

@@ -362,6 +362,12 @@ export function CafConstantCopy({
                 . Both are copied as recorded.
               </p>
             )}
+            {comparison && source.enum_semantics_verified === false && (
+              <p>
+                Enumeration input codes, state metadata and encoding namespaces
+                are copied as recorded. Enum meanings remain unverified.
+              </p>
+            )}
             {primitive && (
               <details>
                 <summary>
@@ -376,6 +382,15 @@ export function CafConstantCopy({
                         ? "default omitted in source"
                         : `recorded default ${r.recorded_default}`}
                       ; {r.exposed ? "exposed" : "not exposed"} in source.
+                      {comparison && r.bacnet_type === 19 && (
+                        <>
+                          {" "}
+                          Number Of States: {r.number_of_states}. States Text
+                          code: {r.states_text_code} (encoding set{" "}
+                          {r.states_text_encoding_set}). Default Value encoding
+                          set: {r.default_encoding_set ?? "omitted with value"}.
+                        </>
+                      )}
                       {kind === "math" &&
                         r.recorded_standard_name_code !== null && (
                           <>

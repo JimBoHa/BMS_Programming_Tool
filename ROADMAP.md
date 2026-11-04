@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`6b733e4c`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/6b733e4ce0ebe12ff138b3c89ac489301b340e7b).
+[`09c6718a`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/09c6718afa6c0895f2f3420283c1adadd43b1d4a).
 
 ## Baseline and purpose
 
@@ -964,3 +964,20 @@ structural selections/reports/seals/artifacts match PR229. Native operator
 evaluation, File-3 generation, resource/package validation, CCT/firmware/physical
 acceptance and transfer remain separate. JCI-02, JCI-03, JCI-06 and JCI-09 remain
 partial. See [recorded Math creation](docs/caf-recorded-math-creation.md).
+
+## 2026-11-04 JCI-02/JCI-03/JCI-05 delivery: recorded Enumeration Comparison creation
+
+`FMT-CAF-ENUM-COMPARISON-COPY-001` adds a separately typed Enumeration Comparison
+profile to the existing contextual comparison task and strict API. Actual source
+setup selects Float or Enum admission. Four recorded children, including the
+hidden Float input, preserve state metadata, default namespaces and omissions.
+No guessed Enum meaning or membership is introduced. The five-ID clone/readback
+path preserves original objects, graph, connections and unrelated bytes.
+
+All 13 actual Enum comparisons qualify in memory; all 106 comparison-facade
+results match their separate inspectors. All 525 prior structural artifacts
+match PR230. Existing graphics, constant/Math tasks, draft capacity, controller
+provenance and review retirement remain. Native semantics, File-3 generation,
+resource/package validation, CCT/firmware/physical acceptance and transfer remain
+separate. JCI-02, JCI-03, JCI-05, JCI-06 and JCI-09 stay partial. See
+[recorded Enumeration Comparison creation](docs/caf-recorded-enum-comparison-creation.md).
