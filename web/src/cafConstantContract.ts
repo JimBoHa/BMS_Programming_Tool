@@ -3,7 +3,7 @@ import { connectionSame, connectionSeal } from "./nativeConnectionContract";
 
 type Data = Record<string, any>;
 export const constantProfile = "caf-recorded-float-constant-copy/1";
-export type ConstantKind = "float" | "boolean";
+export type ConstantKind = "float" | "boolean" | "enumeration";
 export const constantKinds = {
   float: {
     label: "Float Constant",
@@ -20,6 +20,14 @@ export const constantKinds = {
     outputType: 5,
     codes: [13],
     path: "boolean-constant-copy",
+  },
+  enumeration: {
+    label: "Enumeration Constant",
+    profile: "caf-recorded-enumeration-constant-copy/1",
+    classId: "568",
+    outputType: 19,
+    codes: [12],
+    path: "enum-constant-copy",
   },
 } as const;
 const hash = (v: unknown) => typeof v === "string" && /^[a-f0-9]{64}$/.test(v);
@@ -53,8 +61,23 @@ export async function constantSource(
   const valueValid =
     kind === "boolean"
       ? typeof value === "string" && ["true", "false", "0", "1"].includes(value)
-      : value === null ||
-        (typeof value === "string" && constantCoordinate(value));
+      : kind === "enumeration"
+        ? value === null ||
+          (typeof value === "string" &&
+            /^(0|[1-9][0-9]{0,9})$/.test(value) &&
+            Number(value) <= 4294967295)
+        : value === null ||
+          (typeof value === "string" && constantCoordinate(value));
+  const enumValid =
+    kind !== "enumeration" ||
+    (!!s &&
+      s.enum_semantics_verified === false &&
+      integer(s.number_of_states, 0, 65535) &&
+      s.states_text_encoding_set === 802 &&
+      [351, 886, 405].includes(s.states_text_code) &&
+      (value === null
+        ? s.default_encoding_set === null
+        : [647, 351, 886, 405].includes(s.default_encoding_set)));
   if (
     !local(s) ||
     block.bacnet_type !== Number(spec.classId) ||
@@ -83,6 +106,7 @@ export async function constantSource(
     !s.output_ref.startsWith(outputPrefix) ||
     !/^(0|[1-9][0-9]{0,9})$/.test(s.output_ref.slice(outputPrefix.length)) ||
     !valueValid ||
+    !enumValid ||
     !spec.codes.some((code) => code === s.standard_name_code) ||
     s.exposed_port !== 85 ||
     [
