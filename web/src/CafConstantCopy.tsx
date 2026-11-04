@@ -15,6 +15,12 @@ import {
   type ConstantDrafts,
 } from "./cafConstantContract";
 import "./caf-constant-copy.css";
+import {
+  creationHintFor,
+  type CafCreationHint,
+  type CreatedCafCopy,
+  type OpenCafCopy,
+} from "./cafCreatedCopy";
 import type { ReferenceState } from "./cafReferenceLabels";
 
 type Data = Record<string, any>;
@@ -30,6 +36,8 @@ export function CafConstantCopy({
   reviewContext,
   kind = "float",
   referenceLabels,
+  creationHint,
+  onOpenCopy,
 }: {
   archive: string;
   filename: string;
@@ -40,6 +48,8 @@ export function CafConstantCopy({
   reviewContext: string;
   kind?: ConstantKind;
   referenceLabels?: ReferenceState;
+  creationHint?: CafCreationHint | null;
+  onOpenCopy?: OpenCafCopy;
 }) {
   const spec = constantKinds[kind];
   const comparison = kind === "comparison";
@@ -67,8 +77,15 @@ export function CafConstantCopy({
         d.diagram === diagram.ref &&
         prototypes.some((b: Data) => b.ref === d.prototype),
     );
+  const preferred = creationHintFor(creationHint, archive, {
+    ref: diagram.ref,
+    blocks: diagram.blocks,
+  });
   const [chosen, setChosen] = useState(
-    cached?.prototype || prototypes[0]?.ref || "",
+    (preferred?.kind === kind ? preferred.prototype : "") ||
+      cached?.prototype ||
+      prototypes[0]?.ref ||
+      "",
   );
   const block = prototypes.find((b: Data) => b.ref === chosen);
   const references = useMemo(
@@ -143,6 +160,23 @@ export function CafConstantCopy({
     ? { ...sourceRequest, selection_sha256: source.selection_sha256, x, y }
     : null;
   const [saved, setSaved] = useState<string | null>(null);
+  const [created, setCreated] = useState<{
+    owner: string;
+    epoch: number;
+    copy: CreatedCafCopy;
+  } | null>(null);
+  const openingCopy = useRef<{ owner: string; epoch: number } | null>(null);
+  const openable =
+    onOpenCopy &&
+    created?.owner === owner &&
+    created.epoch === epoch.current &&
+    saved === owner
+      ? created
+      : null;
+  useEffect(() => {
+    setCreated(null);
+  }, [owner]);
+
   useEffect(() => {
     alive.current = true;
     const retire = () => {
@@ -154,6 +188,7 @@ export function CafConstantCopy({
       setReview(null);
       setPending(null);
       setSaved(null);
+      setCreated(null);
     };
     const hidden = () => {
       if (document.visibilityState === "hidden") retire();
@@ -277,10 +312,21 @@ export function CafConstantCopy({
         throw new Error(
           "CAF download bytes or proof do not match the review. Review again before saving.",
         );
-      saveBlob(
-        result.blob,
-        filename.replace(/\.caf$/i, "") + `-${spec.path}.caf`,
-      );
+      const name = filename.replace(/\.caf$/i, "") + `-${spec.path}.caf`;
+      saveBlob(result.blob, name);
+      setCreated({
+        owner: o,
+        epoch: n,
+        copy: {
+          blob: result.blob,
+          name,
+          sha256: snapshot.data.creation.output_sha256,
+          sourceArchive: archive,
+          diagram: diagram.ref,
+          prototype: snapshot.data.creation.selection.new_ref,
+          kind,
+        },
+      });
       const value = drafts.get(key);
       if (value && value.x === request.x && value.y === request.y) {
         drafts.set(key, { ...value, saved: constantDraftSignature(value) });
@@ -290,6 +336,26 @@ export function CafConstantCopy({
     } catch (e: any) {
       if (current(o, n)) setError({ owner: o, text: e.message });
     } finally {
+      if (current(o, n)) setPending(null);
+    }
+  }
+  async function openCopy() {
+    if (!openable || !onOpenCopy || disabled || busy) return;
+    const o = owner,
+      n = epoch.current,
+      copy = openable.copy;
+    if (openingCopy.current?.owner === o && openingCopy.current.epoch === n)
+      return;
+    openingCopy.current = { owner: o, epoch: n };
+    setPending({ owner: o, epoch: n });
+    setError(null);
+    try {
+      await onOpenCopy(copy, () => current(o, n));
+    } catch (e: any) {
+      if (current(o, n)) setError({ owner: o, text: e.message });
+    } finally {
+      if (openingCopy.current?.owner === o && openingCopy.current.epoch === n)
+        openingCopy.current = null;
       if (current(o, n)) setPending(null);
     }
   }
@@ -655,12 +721,22 @@ export function CafConstantCopy({
               unchanged.
             </p>
             <button
-              className="primary"
+              className={openable ? "" : "primary"}
               disabled={disabled || busy}
               onClick={save}
             >
               Save {subject} CAF copy
             </button>
+            {openable && (
+              <button
+                className="primary"
+                disabled={disabled || busy}
+                onClick={openCopy}
+              >
+                Open CAF copy
+              </button>
+            )}
+
             <button
               disabled={disabled || busy}
               onClick={() => {

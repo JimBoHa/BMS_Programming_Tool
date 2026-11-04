@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, GitBranch, RefreshCw } from "lucide-react";
 import { api, download } from "./api";
 import { CafLogicCanvas } from "./CafLogicCanvas";
+import type { CafCreationHint, OpenCafCopy } from "./cafCreatedCopy";
 import { CafConstantTools } from "./CafConstantTools";
 import { constantDraftDirty, type ConstantDrafts } from "./cafConstantContract";
 import type { WiringProposal } from "./cafLogic";
@@ -75,6 +76,8 @@ export function CafGraphPanel({
   onInspectObject,
   constantDrafts: sharedConstantDrafts,
   reviewContext = "offline",
+  creationHint,
+  onOpenCopy,
 }: {
   id: string;
   filename: string;
@@ -84,6 +87,8 @@ export function CafGraphPanel({
   onInspectObject?: (block: NativeBlock) => void;
   constantDrafts?: ConstantDrafts;
   reviewContext?: string;
+  creationHint?: CafCreationHint | null;
+  onOpenCopy?: OpenCafCopy;
 }) {
   const localConstantDrafts = useRef<ConstantDrafts>(new Map());
   const constantDrafts = sharedConstantDrafts || localConstantDrafts.current;
@@ -135,7 +140,12 @@ export function CafGraphPanel({
       .then((result: GraphInventory) => {
         if (!active) return;
         setInventory(result);
-        setDiagramRef(result.diagrams[0]?.ref || "");
+        setDiagramRef(
+          creationHint?.archive === id &&
+            result.diagrams.some((d) => d.ref === creationHint.diagram)
+            ? creationHint.diagram
+            : result.diagrams[0]?.ref || "",
+        );
       })
       .catch((e) => {
         if (active) setError(e.message);
@@ -527,6 +537,8 @@ export function CafGraphPanel({
             <CafConstantTools
               key={"constant-copy:" + id + diagram.ref}
               archive={id}
+              creationHint={creationHint}
+              onOpenCopy={onOpenCopy}
               filename={filename}
               diagram={diagram}
               disabled={disabled || dirty || diagram.ref !== diagramRef}
