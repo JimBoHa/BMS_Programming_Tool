@@ -327,8 +327,10 @@ class NativeApplications(NativeInputOperations):
             "phase": "preflight",
             "task": asyncio.current_task(),
         }
+        deadline = None
         try:
-            async with asyncio.timeout(self.operation_timeout):
+            deadline = asyncio.timeout(self.operation_timeout)
+            async with deadline:
                 yield
         except asyncio.CancelledError as exc:
             raise ValueError(
@@ -340,7 +342,13 @@ class NativeApplications(NativeInputOperations):
             if not detail and isinstance(exc.__cause__, asyncio.CancelledError):
                 detail = str(exc.__cause__)
             raise ValueError(
-                "Native operation timed out. Consult retained transfer receipts before any further write."
+                f"Native operation timed out. Last reported phase: {self.active['phase']}. "
+                + (
+                    "The overall operation time limit expired. "
+                    if deadline is not None and deadline.expired()
+                    else "The overall operation time limit did not expire. "
+                )
+                + "Consult retained transfer receipts before any further write."
                 + (" " + detail if detail else "")
             ) from exc
         finally:

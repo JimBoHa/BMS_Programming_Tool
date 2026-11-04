@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`3f57c626`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/3f57c6261cd572e8c8cb8d15021229fc2b4f1529).
+[`bb2bb42d`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/bb2bb42de84ee4c5a7ea92ef3da80722adc10357).
 
 ## Baseline and purpose
 
@@ -1215,3 +1215,17 @@ This addresses cross-test heap coupling in that authored peer fixture. It does
 not retroactively identify the cause of untraced historical failures or establish
 physical acceptance. Preserve those originals and the separate native timeout
 diagnostic work. See [fixture isolation evidence](docs/native-peer-fixture-isolation.md).
+
+## 2026-11-04 QA-01 delivery: native timeout stage and deadline evidence
+
+`COMM-NATIVE-TIMEOUT-STAGE-001` retains the last owned native-operation phase in
+timeout errors and reports whether that operation's actual asyncio timeout
+context expired. A timed-out child step and expiry of the overall operation
+limit are distinguishable. Original error text, cancellation-cause detail,
+receipt guidance, cancellation, ownership and final cleanup remain intact.
+
+No operation deadline, request, retry, compiler, transfer or receipt authority
+changes. Existing error views show the extra diagnostic text. This improves
+future failure evidence; it does not reconstruct missing original packet traces,
+locate a first lost reply or repair the retained timeout observations. QA-01
+remains open. See [native timeout evidence](docs/native-timeout-stage.md).
