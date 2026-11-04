@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`9f22ef5e`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/9f22ef5e574c4c30b971bf6d97cdde04de8c5af6).
+[`d33c0dd2`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/d33c0dd236533cec7d93d4a3c54eccc30beb20e8).
 
 ## Baseline and purpose
 
@@ -1097,8 +1097,25 @@ general File-3, vendor resources/packages and physical/BTCVT acceptance remain
 separate. JCI-02/JCI-03/JCI-05/JCI-06/JCI-09 stay partial. See
 [the separately qualified Enum-selector profile](docs/caf-recorded-enum-selector-multiplexer-creation.md).
 
-A subsequent Program Logic workflow should offer **Open CAF copy** after a proven
-local export, so users can continue authoring from the new archive without finding
-it through a file picker. Keep earlier source drafts, preserve the controller
-route, retire old reviews, distinguish the new file from the controller and retain
-one primary task action. This remains planned separately from the present copy.
+The subsequent Program Logic continuation workflow is delivered separately below.
+
+## 2026-11-04 JCI-02/JCI-03 delivery: open a proven CAF copy
+
+`UX-CAF-OPEN-COPY-001` offers **Open CAF copy** after successful exact export
+verification and the ordinary browser download request. It hands the immutable
+bytes to the existing local CAF validator, rechecks their digest and rejects
+stale ownership or a mismatched returned identity before replacing the source.
+Actual loaded graph inventory confirms the copied diagram, kind and new prototype.
+
+The task retains one primary action, current graphics, controller route and an
+explicitly unverified controller/application match. Source-bound creation drafts
+retain unfinished text in the existing cache. Other unexported edits require
+explicit confirmation before a successful replacement clears them; cancellation
+and failure preserve the source and its edits. Ordinary Save remains unchanged.
+No field traffic or deployment authority is added.
+
+Both browsers cover all twelve creator shapes, mixed/nested selection, drafts,
+pending edits, failed/mismatched uploads, stale completions and both entry paths.
+Native runtime, vendor resources/packages, CCT/PCT, general File-3 and physical /
+BTCVT acceptance remain separate. JCI-02/JCI-03/JCI-05/JCI-06/JCI-09 stay partial.
+See [continuing from a reviewed CAF copy](docs/caf-open-reviewed-copy.md).

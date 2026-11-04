@@ -10,6 +10,11 @@ import { api, apiBlobDocument, saveBlob } from "./api";
 import { sha256Blob } from "./activityContracts";
 import { cafEnumMetadata, cafScalarRequestSha } from "./cafScalarCopy";
 import { CafGraphPanel } from "./CafGraphPanel";
+import {
+  createdCafFile,
+  type CafCreationHint,
+  type CreatedCafCopy,
+} from "./cafCreatedCopy";
 import type { ConstantDrafts } from "./cafConstantContract";
 import { CafHardwarePanel } from "./CafHardwarePanel";
 import { CafInstancePanel } from "./CafInstancePanel";
@@ -78,6 +83,9 @@ export function NativeCaf({
   const [filename, setFilename] = useState("controller.caf");
   const [archiveGeneration, setArchiveGeneration] = useState(0);
   const [opening, setOpening] = useState(false);
+  const [creationHint, setCreationHint] = useState<CafCreationHint | null>(
+    null,
+  );
   const [loadingObjects, setLoadingObjects] = useState(false);
   const [loadingProperties, setLoadingProperties] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -179,26 +187,60 @@ export function NativeCaf({
       active = false;
     };
   }, [caf, query, offset]);
-  async function upload(file?: File) {
-    if (!file || !visible) return;
+  async function openCreatedCopy(copy: CreatedCafCopy, current: () => boolean) {
+    if (!visible || !current() || activeArchive.current !== copy.sourceArchive)
+      return false;
+    const file = await createdCafFile(copy, current);
+    if (!file) return false;
+    return upload(file, { copy, current });
+  }
+  async function upload(
+    file?: File,
+    handoff?: { copy: CreatedCafCopy; current: () => boolean },
+  ) {
+    const owned = () =>
+      !handoff ||
+      (handoff.current() &&
+        activeArchive.current === handoff.copy.sourceArchive);
+    if (!file || !visible || !owned()) return false;
     if (
       (unsavedScalars || graphDirty || hardwareDirty || instanceDirty) &&
       !window.confirm(
-        "Discard unexported CAF edits and open another file? Cancel to keep editing or export the current changes first.",
+        handoff
+          ? "Open the reviewed CAF copy? Creation drafts remain available with their original file. Other unexported CAF edits will be cleared. Cancel to keep editing or export those changes first."
+          : "Discard unexported CAF edits and open another file? Cancel to keep editing or export the current changes first.",
       )
     )
-      return;
+      return false;
+    if (!owned()) return false;
     const request = ++uploadRequest.current;
     exportRequest.current++;
     setExporting(false);
-    setOpening(true);
+    // A creator owns its handoff. Globally disabling it would retire that same
+    // ownership guard; its own pending state already locks the action.
+    if (!handoff) setOpening(true);
     setError("");
     try {
       const form = new FormData();
       form.append("file", file);
       const next = await api("/caf", form);
-      if (!mounted.current || request !== uploadRequest.current) return;
+      if (!mounted.current || request !== uploadRequest.current || !owned())
+        return false;
+      if (handoff && next.sha256 !== handoff.copy.sha256)
+        throw new Error(
+          "The opened CAF identity does not match the reviewed copy. The original file remains active.",
+        );
       activeArchive.current = next.sha256;
+      setCreationHint(
+        handoff
+          ? {
+              archive: next.sha256,
+              diagram: handoff.copy.diagram,
+              prototype: handoff.copy.prototype,
+              kind: handoff.copy.kind,
+            }
+          : null,
+      );
       sourceFile.current = file;
       propertyRequest.current++;
       exportRequest.current++;
@@ -221,11 +263,15 @@ export function NativeCaf({
       setLoadingProperties(false);
       setError("");
       setOffset(0);
+      return true;
     } catch (e) {
-      if (mounted.current && request === uploadRequest.current)
+      if (mounted.current && request === uploadRequest.current && owned()) {
+        if (handoff) throw e;
         setError(String(e));
+      }
+      return false;
     } finally {
-      if (mounted.current && request === uploadRequest.current)
+      if (!handoff && mounted.current && request === uploadRequest.current)
         setOpening(false);
     }
   }
@@ -471,6 +517,8 @@ export function NativeCaf({
           <div hidden={currentView !== "logic"}>
             <CafGraphPanel
               constantDrafts={constantDrafts.current}
+              creationHint={creationHint}
+              onOpenCopy={openCreatedCopy}
               reviewContext={
                 controller
                   ? JSON.stringify([

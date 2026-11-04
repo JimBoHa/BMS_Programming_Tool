@@ -2,6 +2,7 @@ import { useState, type ComponentProps } from "react";
 import { ChevronDown } from "lucide-react";
 import { CafConstantCopy } from "./CafConstantCopy";
 import { constantKinds, type ConstantKind } from "./cafConstantContract";
+import { creationHintFor } from "./cafCreatedCopy";
 import { useCafReferenceLabels } from "./cafReferenceLabels";
 
 /** Keep one active creation task; hidden type editors retain only local drafts. */
@@ -21,14 +22,19 @@ export function CafConstantTools(
     .find(
       (d) => d.archive === props.archive && d.diagram === props.diagram.ref,
     );
+  const preferred = creationHintFor(props.creationHint, props.archive, {
+    ref: props.diagram.ref,
+    blocks: props.diagram.blocks,
+  });
   const [chosen, setChosen] = useState<ConstantKind>(
-    available.find((kind) =>
-      props.diagram.blocks.some(
-        (b: Record<string, any>) =>
-          b.ref === last?.prototype &&
-          b.class_id === constantKinds[kind].classId,
-      ),
-    ) ||
+    (preferred && available.includes(preferred.kind) ? preferred.kind : null) ||
+      available.find((kind) =>
+        props.diagram.blocks.some(
+          (b: Record<string, any>) =>
+            b.ref === last?.prototype &&
+            b.class_id === constantKinds[kind].classId,
+        ),
+      ) ||
       available[0] ||
       "float",
   );
