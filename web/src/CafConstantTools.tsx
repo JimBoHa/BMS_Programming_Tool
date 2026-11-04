@@ -44,7 +44,8 @@ export function CafConstantTools(
       kind === "comparison" ||
       kind === "math" ||
       kind === "timer" ||
-      kind === "booleanLogic",
+      kind === "booleanLogic" ||
+      kind === "reliability",
   )
     ? "Recorded block type"
     : "Constant type";
