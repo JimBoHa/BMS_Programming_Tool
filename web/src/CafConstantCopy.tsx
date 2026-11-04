@@ -330,6 +330,21 @@ export function CafConstantCopy({
                 : source.recorded_value}
               . Both are copied as recorded.
             </p>
+            {kind === "enumeration" && (
+              <details>
+                <summary>Recorded enumeration metadata</summary>
+                <p>
+                  Number Of States: {source.number_of_states}. States Text code:{" "}
+                  {source.states_text_code} (encoding set{" "}
+                  {source.states_text_encoding_set}). Default Value encoding
+                  set: {source.default_encoding_set ?? "omitted with value"}.
+                </p>
+                <p>
+                  Enum meanings are unverified. This copy preserves the recorded
+                  code and metadata.
+                </p>
+              </details>
+            )}
             <div className="caf-constant-position">
               {(["x", "y"] as const).map((axis) => (
                 <label key={axis}>

@@ -4,6 +4,9 @@ A separate [recorded Boolean profile](caf-recorded-boolean-creation.md) now shar
 the preservation writer and bounded draft workspace while keeping its own schema,
 source route and review proof. The Float contract below remains unchanged.
 
+A separate [recorded Enumeration profile](caf-recorded-enum-creation.md) also
+shares the writer while preserving enum data and metadata without inferred meanings.
+
 `FMT-CAF-CONSTANT-COPY-001` adds one unconnected Float Constant to an existing
 version 1.0 CAF activity/sequence. It copies an actual class-551 prototype and its
 required class-527 output child. Both receive fresh local identities and exact

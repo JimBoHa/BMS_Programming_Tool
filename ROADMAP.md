@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`aec31d63`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/aec31d6352992979e4536c3e5ebd00d9189d2186).
+[`e02e4fa4`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/e02e4fa44b506df2339216689af5b48a3cb00957).
 
 ## Baseline and purpose
 
@@ -908,3 +908,22 @@ Vendor allocation/resources, arbitrary blocks/hardware, native File-3 compilatio
 CCT/firmware/physical acceptance and transfer remain unqualified. JCI-02, JCI-03,
 JCI-06 and JCI-09 remain partial. See
 [recorded Boolean creation](docs/caf-recorded-boolean-creation.md).
+
+## 2026-11-04 JCI-02/JCI-03 delivery: recorded Enumeration constant creation
+
+`FMT-CAF-ENUM-COPY-001` separately qualifies actual class-568 constants and their
+required class-529/type-19 outputs. Exact recorded defaults, omissions, counts,
+States Text and encoding namespaces remain separate; no enum meaning or code
+ceiling is inferred. The shared identity/graph/lexical writer and all prior Float
+and Boolean selections/reports/seals/artifacts remain unchanged. Separate strict
+Enum source/review/export grants no field authority.
+
+The existing actual-data constant selector now includes Enumeration where it
+occurs in the diagram. One task/action remains visible and all three families
+share the unchanged bounded unfinished-draft workspace with stale-result
+retirement. All 151 private Enum pairs were created/read back in memory, including
+six missing defaults and 79 differing recorded namespaces; all 125 prior pairs
+match PR227 exactly. Enum semantics, vendor allocation/resources, arbitrary
+logic/hardware/ports, native File-3 compilation, CCT/firmware/physical acceptance
+and transfer remain unqualified. JCI-02, JCI-03, JCI-06 and JCI-09 remain partial.
+See [recorded Enumeration creation](docs/caf-recorded-enum-creation.md).
