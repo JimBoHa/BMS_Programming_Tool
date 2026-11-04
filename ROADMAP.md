@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`ccb221ec`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/ccb221ecbb4c1c65a241d0295830c05503dafdfa).
+[`1ad112a4`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/1ad112a405e892abc88b596883ab317f0bb7d708).
 
 ## Baseline and purpose
 
@@ -854,3 +854,20 @@ effective settings are not current readings; no field transfer, arbitrary blocks
 or I/O, full compiler/resources, CCT reopening or physical/BTCVT acceptance is
 granted. JCI-02, JCI-03 and JCI-09 remain partial. See
 [saved-effective connection compilation](docs/native-effective-connection-compiler.md).
+
+## 2026-11-04 JCI-01 delivery: actual native connection capability discovery
+
+`CAP-NATIVE-CONNECTION-001` adds separate archive and saved-effective matching
+connection rows to the existing retained-backup table. Source-bound actual
+prototype/endpoints/counts/hashes and original inspector checks qualify a witness;
+unsupported saved or identity evidence does not suppress independent original
+copying. Bounded native graph reachability preserves existing source-substitution
+predicates while avoiding per-edge/per-candidate reparsing. No model inventory or
+replacement application supplies results.
+
+Current profile 12 has 24 ordered rows; explicit legacy 11 retains its original
+22-row response. The existing Program view checks witness/status/merge/provenance
+and exports exact admitted analysis JSON, retiring source-stale results. Final
+compilation size/readback and all field, resource/package, arbitrary authoring and
+physical/CCT/BTCVT acceptance requirements remain separate. JCI-01 remains partial.
+See [native connection capability discovery](docs/native-connection-capabilities.md).

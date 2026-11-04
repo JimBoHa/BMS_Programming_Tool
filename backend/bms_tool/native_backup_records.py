@@ -1,5 +1,7 @@
 """Local inspection of retained native archive bytes, independent of compilation."""
 
+from typing import Literal
+
 from pydantic import Field
 
 from .models import StrictModel
@@ -24,6 +26,12 @@ class BackupRecordsRequest(BackupInspectionSource):
     query: str = Field(default="", max_length=256, strict=True)
     offset: int = Field(default=0, ge=0, le=100000, strict=True)
     limit: int = Field(default=64, ge=1, le=128, strict=True)
+
+
+class BackupCapabilitiesRequest(BackupInspectionSource):
+    capability_profile: Literal[
+        "native-backup-operation-capabilities/11", "native-backup-operation-capabilities/12"
+    ] = "native-backup-operation-capabilities/12"
 
 
 class BackupRecordRequest(BackupRecordsRequest):
@@ -80,10 +88,18 @@ class NativeBackupRecords:
         return {**self.envelope(snapshot, files), "application": application.summary()}
 
     def capabilities(self, request):
-        snapshot, files, application = self.load(request)
+        options = BackupCapabilitiesRequest.model_validate(request)
+        snapshot, files, application = self.load(
+            options.model_dump(include={"capture_id", "snapshot_sha256"})
+        )
         return {
             **self.envelope(snapshot, files),
-            **backup_capabilities(snapshot, files, application.summary()),
+            **backup_capabilities(
+                snapshot,
+                files,
+                application.summary(),
+                capability_profile=options.capability_profile,
+            ),
         }
 
     def records(self, request, *, detail=False):
