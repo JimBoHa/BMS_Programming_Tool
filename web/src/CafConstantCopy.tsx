@@ -45,8 +45,14 @@ export function CafConstantCopy({
   const timer = kind === "timer";
   const booleanLogic = kind === "booleanLogic";
   const reliability = kind === "reliability";
+  const multiplexer = kind === "multiplexer";
   const primitive =
-    comparison || kind === "math" || timer || booleanLogic || reliability;
+    comparison ||
+    kind === "math" ||
+    timer ||
+    booleanLogic ||
+    reliability ||
+    multiplexer;
   const subject = primitive ? "block" : "constant";
   const base = `/caf/${archive}/${spec.path}`;
   const prototypes = diagram.blocks.filter(
@@ -334,6 +340,15 @@ export function CafConstantCopy({
             defaults and Enum metadata stay exact. Reliability behavior, CCT/PCT
             acceptance and controller allocation remain unverified.
           </p>
+        ) : multiplexer ? (
+          <p>
+            Create a local CAF copy containing a new unconnected Float
+            Multiplexer and all four ports: a Float output, a Boolean selector
+            and two Float inputs. Recorded selector configuration and omitted
+            defaults stay exact. Other multiplexer variants require a separate
+            profile. Mode behavior, CCT/PCT acceptance and controller allocation
+            remain unverified.
+          </p>
         ) : timer ? (
           <p>
             Create a local CAF copy containing a new unconnected Timer and all
@@ -440,7 +455,7 @@ export function CafConstantCopy({
           <>
             {primitive ? (
               <p>
-                {timer || reliability ? (
+                {timer || reliability || multiplexer ? (
                   "Recorded standard-name code "
                 ) : (
                   <>
@@ -481,6 +496,8 @@ export function CafConstantCopy({
                     "Recorded Timer ports"
                   ) : reliability ? (
                     "Recorded reliability ports"
+                  ) : multiplexer ? (
+                    "Recorded multiplexer ports"
                   ) : (
                     <>
                       Recorded{" "}
@@ -494,10 +511,15 @@ export function CafConstantCopy({
                   )}
                 </summary>
                 {source.children
-                  .filter((r: Data) => timer || reliability || r.port !== 85)
+                  .filter(
+                    (r: Data) =>
+                      timer || reliability || multiplexer || r.port !== 85,
+                  )
                   .map((r: Data) => (
                     <p key={r.ref}>
-                      {timer || reliability ? `${r.direction} port` : "Port"}{" "}
+                      {timer || reliability || multiplexer
+                        ? `${r.direction} port`
+                        : "Port"}{" "}
                       {r.port}:{" "}
                       {r.recorded_default === null
                         ? "default omitted in source"

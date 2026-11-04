@@ -41,6 +41,7 @@ from .caf_compare import compare_cafs
 from .caf_comparison_api import comparison_router
 from .caf_constant_api import constant_router
 from .caf_enum_api import enum_constant_router
+from .caf_float_multiplexer_api import float_multiplexer_router
 from .caf_graph import CafGraph
 from .caf_hardware import CafHardwareBindings, HardwareExportRequest, HardwareMoveRequest
 from .caf_instance import CafInstanceChange, CafInstanceEditor, CafInstanceExport
@@ -1508,6 +1509,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.include_router(timer_router(get_caf))
     app.include_router(boolean_logic_router(get_caf))
     app.include_router(reliability_router(get_caf))
+    app.include_router(float_multiplexer_router(get_caf))
 
     @app.post("/api/caf/{id}/native-correlation")
     def caf_native_correlation(id: str, body: CafNativeCorrelationRequest):

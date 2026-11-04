@@ -13,7 +13,8 @@ export type ConstantKind =
   | "math"
   | "timer"
   | "booleanLogic"
-  | "reliability";
+  | "reliability"
+  | "multiplexer";
 export const constantKinds = {
   float: {
     label: "Float Constant",
@@ -71,6 +72,14 @@ export const constantKinds = {
     codes: [21, 22],
     path: "reliability-copy",
   },
+  multiplexer: {
+    label: "Float Multiplexer",
+    profile: "caf-recorded-float-multiplexer-copy/1",
+    classId: "562",
+    outputType: 2,
+    codes: [14],
+    path: "float-multiplexer-copy",
+  },
   timer: {
     label: "Timer",
     profile: "caf-recorded-timer-copy/1",
@@ -116,7 +125,8 @@ export async function constantSource(
     kind === "math" ||
     kind === "timer" ||
     kind === "booleanLogic" ||
-    kind === "reliability"
+    kind === "reliability" ||
+    kind === "multiplexer"
       ? value === null
       : kind === "boolean"
         ? typeof value === "string" &&
@@ -174,6 +184,7 @@ export async function constantSource(
     (kind === "timer" && !timerSelection(s, block)) ||
     (kind === "booleanLogic" && !booleanLogicSelection(s, block)) ||
     (kind === "reliability" && !reliabilitySelection(s, block)) ||
+    (kind === "multiplexer" && !multiplexerSelection(s, block)) ||
     !spec.codes.some((code) => code === s.standard_name_code) ||
     s.exposed_port !== 85 ||
     [
@@ -520,6 +531,55 @@ function reliabilitySelection(s: Data, block: Data) {
     output.sha256 === s.output_sha256
   );
 }
+function multiplexerSelection(s: Data, block: Data) {
+  if (
+    !s ||
+    s.object_count !== 5 ||
+    s.setup_code !== null ||
+    s.standard_name_code !== 14 ||
+    s.operator_meaning_verified !== false ||
+    s.multiplexer_semantics_verified !== false ||
+    !integer(s.new_instance, 1, 4194298) ||
+    !Array.isArray(s.children) ||
+    s.children.length !== 4 ||
+    !connectionSame(s.recorded_property_2381, ["0", "2"]) ||
+    s.recorded_property_3122 !== "1" ||
+    !connectionSame(
+      block.exposed_ports.map((p: Data) => p.id),
+      [961, 7000, 7001, 85],
+    )
+  )
+    return false;
+  const ports = [85, 961, 7000, 7001],
+    types = [2, 5, 2, 2],
+    classes = ["527", "530", "526", "526"];
+  for (let i = 0; i < 4; i++) {
+    const r = s.children[i];
+    if (
+      !r ||
+      r.port !== ports[i] ||
+      r.class_id !== classes[i] ||
+      r.bacnet_type !== types[i] ||
+      !integer(r.instance, 0, 4194302) ||
+      r.ref !== `${s.prototype_ref}.${types[i]}_${r.instance}` ||
+      r.new_instance !== s.new_instance + i + 1 ||
+      r.new_ref !== `${s.new_ref}.${types[i]}_${r.new_instance}` ||
+      [...r.new_ref].length > 512 ||
+      !hash(r.sha256) ||
+      r.direction !== (i === 0 ? "output" : "input") ||
+      r.exposed !== true ||
+      r.recorded_default !== null ||
+      r.recorded_metadata_661 !== null
+    )
+      return false;
+  }
+  const output = s.children[0];
+  return (
+    output.ref === s.output_ref &&
+    output.new_ref === s.new_output_ref &&
+    output.sha256 === s.output_sha256
+  );
+}
 function timerSelection(s: Data, block: Data) {
   if (
     !s ||
@@ -634,6 +694,7 @@ export async function constantReview(v: Data, request: Data, source: Data) {
       constantKinds.timer.profile,
       constantKinds.booleanLogic.profile,
       constantKinds.reliability.profile,
+      constantKinds.multiplexer.profile,
     ].some((p) => p === source.profile) &&
       (!Array.isArray(c.new_child_sha256) ||
         c.new_child_sha256.length !== source.object_count - 1 ||

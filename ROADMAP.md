@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`e8d6385d`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/e8d6385d1f7062ffdcd1b5e1b9a9739ca7dbc57c).
+[`31cc6ceb`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/31cc6ceb8238aa08b14f9086bb3d21f7c035b1c7).
 
 ## Baseline and purpose
 
@@ -1055,3 +1055,26 @@ no field authority. Native reliability/runtime semantics, package/resources,
 CCT/PCT/native File-3 and physical/BTCVT acceptance remain separate.
 JCI-02/JCI-03/JCI-05/JCI-06/JCI-09 stay partial. See
 [recorded Reliability Check creation](docs/caf-recorded-reliability-creation.md).
+
+## 2026-11-04 JCI-02/JCI-03 delivery: recorded Float Multiplexer creation
+
+`FMT-CAF-FLOAT-MULTIPLEXER-COPY-001` copies an actual class-562 version 1.0
+Float Multiplexer with a Boolean selector and its four recorded ports. Parent
+bookkeeping 2381/3122, absent setup, child/exposure order and omitted defaults
+remain exact. Five identities must fit the existing local ceiling. Other
+Multiplexer variants and unknown structures require separate qualification.
+
+The contextual Program Logic task retains reference provenance, mixed drafts,
+review/lifecycle retirement, controller routes, exact review/export proof and
+current graphics. A separate local API family grants no field authority. All
+earlier supported profile results and ordinary Save remain unchanged. Native
+selector/mode meaning, runtime, vendor resources/packages, CCT/PCT/native File-3
+and physical/BTCVT acceptance remain separate. JCI-02/JCI-03/JCI-05/JCI-06/JCI-09
+stay partial. See [recorded Float Multiplexer creation](docs/caf-recorded-float-multiplexer-creation.md).
+
+Subsequent Multiplexer work must qualify remaining typed selector/output and
+additional-input profiles, verify native assignment/fallback bindings, then add
+mode editing and simulation. Preserve prior assignments as reviewable drafts
+when changing an Enum set, validate unmapped-state fallback and retain exact
+source/review/target distinctions. These tasks belong in the current Program
+Logic inspector; they do not add global destinations or tiles.
