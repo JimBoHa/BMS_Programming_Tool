@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { api, apiBlobDocument, apiJsonDocument, saveBlob } from "./api";
 import {
@@ -14,6 +14,7 @@ import {
   type ConstantDrafts,
 } from "./cafConstantContract";
 import "./caf-constant-copy.css";
+import type { ReferenceState } from "./cafReferenceLabels";
 
 type Data = Record<string, any>;
 const full =
@@ -27,6 +28,7 @@ export function CafConstantCopy({
   onDraftChange,
   reviewContext,
   kind = "float",
+  referenceLabels,
 }: {
   archive: string;
   filename: string;
@@ -36,6 +38,7 @@ export function CafConstantCopy({
   onDraftChange: () => void;
   reviewContext: string;
   kind?: ConstantKind;
+  referenceLabels?: ReferenceState;
 }) {
   const spec = constantKinds[kind];
   const comparison = kind === "comparison";
@@ -57,6 +60,16 @@ export function CafConstantCopy({
     cached?.prototype || prototypes[0]?.ref || "",
   );
   const block = prototypes.find((b: Data) => b.ref === chosen);
+  const references = useMemo(
+    () =>
+      new Map<string, Data>(
+        (referenceLabels?.data?.rows ?? []).map((r: Data) => [r.ref, r]),
+      ),
+    [referenceLabels?.data],
+  );
+  const referenceRow = references.get(chosen);
+  const [referenceOpen, setReferenceOpen] = useState(false);
+  const referenceId = useId();
   const key = constantDraftKey(archive, diagram.ref, chosen);
   const draft = drafts.get(key);
   const [, repaint] = useState(0);
@@ -324,15 +337,70 @@ export function CafConstantCopy({
               disabled={disabled || busy}
               onChange={(e) => select(e.target.value)}
             >
-              {prototypes.map((b: Data) => (
-                <option key={b.ref} value={b.ref}>
-                  {b.ref.split(".").at(-1)}
-                </option>
-              ))}
+              {prototypes.map((b: Data) => {
+                const referenceName = references.get(b.ref)?.standard_name
+                  .reference_name;
+                return (
+                  <option key={b.ref} value={b.ref}>
+                    {b.ref.split(".").at(-1)}
+                    {referenceName ? ` · ${referenceName} (reference)` : ""}
+                  </option>
+                );
+              })}
             </select>
             <ChevronDown size={16} aria-hidden="true" />
           </span>
         </label>
+        {referenceLabels?.error && (
+          <p role="note" aria-label="Reference-name availability">
+            {referenceLabels.error}
+          </p>
+        )}
+        {source && referenceRow && (
+          <div>
+            <button
+              type="button"
+              aria-expanded={referenceOpen}
+              aria-controls={referenceId}
+              onClick={() => setReferenceOpen((v) => !v)}
+            >
+              Reference names and provenance
+            </button>
+            <div id={referenceId} hidden={!referenceOpen}>
+              <p>
+                Reference standard name:{" "}
+                {referenceRow.standard_name.reference_name ??
+                  "unmapped; raw reference retained"}
+                .
+              </p>
+              <p>
+                Reference setup:{" "}
+                {referenceRow.setup.reference_name ??
+                  "unmapped or absent; no setup inferred"}
+                .
+              </p>
+              <p>
+                Catalog: FDB Control 10.8 / Firmware 12.0. Compatibility with
+                this archive and runtime meaning remain unverified.
+              </p>
+              <p>
+                Actual source codes and names stay unchanged. These labels grant
+                no compile, deployment or field authority.
+              </p>
+              <p>
+                Catalog source:{" "}
+                <a
+                  href="https://github.com/thecontrolscompany/oct/blob/c1d76ba7d6a8f17ca089c4671fa3333e4eba43e2/ui/src/data/fdbEnums.ts"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  OCT exported reference names
+                </a>
+                .
+              </p>
+            </div>
+          </div>
+        )}
         <button
           disabled={disabled || busy || !block}
           onClick={() => {

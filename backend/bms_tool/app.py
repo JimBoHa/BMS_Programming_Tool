@@ -46,6 +46,7 @@ from .caf_instance import CafInstanceChange, CafInstanceEditor, CafInstanceExpor
 from .caf_math_api import math_router
 from .caf_native_correlation import CafNativeCorrelationRequest, correlate
 from .caf_native_file_correlation import CafNativeFileCorrelationRequest, NativeFileCorrelation
+from .caf_reference_labels import CafReferenceLabels
 from .caf_scenarios import CafInputScenarios, CafScenarioStore
 from .caf_simulation import CafSimulationProfile, simulation_request_sha256
 from .cancelable_pulse_template import cancelable_pulse_template_router
@@ -1737,6 +1738,10 @@ def create_app(state_dir=None, *, operation_power=None):
     @app.get("/api/caf/{id}/graph")
     def caf_graph(id: str, ref: str):
         return CafGraph(get_caf(id)).diagram(ref)
+
+    @app.get("/api/caf/{id}/reference-labels")
+    def caf_reference_labels(id: str, ref: str):
+        return CafReferenceLabels(get_caf(id)).diagram(ref)
 
     @app.post("/api/caf/{id}/rewire")
     def caf_rewire(id: str, body: CafPatchRequest):
