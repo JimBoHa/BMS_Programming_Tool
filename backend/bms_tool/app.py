@@ -35,6 +35,7 @@ from .bbmd_tables import BbmdCancel, BbmdInspection, BbmdTables
 from .blocks import catalog
 from .bus_preflight import bus_preflight_router
 from .caf import CafArchive
+from .caf_boolean_api import boolean_constant_router
 from .caf_compare import compare_cafs
 from .caf_constant_api import constant_router
 from .caf_graph import CafGraph
@@ -1493,6 +1494,7 @@ def create_app(state_dir=None, *, operation_power=None):
         return caf_files[id]
 
     app.include_router(constant_router(get_caf))
+    app.include_router(boolean_constant_router(get_caf))
 
     @app.post("/api/caf/{id}/native-correlation")
     def caf_native_correlation(id: str, body: CafNativeCorrelationRequest):
