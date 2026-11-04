@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`91c5a2d5`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/91c5a2d5518b79f271df1da1ce5f5776c40f9f2f).
+[`316007ef`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/316007ef3002c307d8c68395af6a7818ab871f7f).
 
 ## Baseline and purpose
 
@@ -1181,3 +1181,22 @@ and justified software regression work; vendor resources/packages, CCT/PCT,
 general File-3 and physical/BTCVT acceptance remain separate. JCI-02/JCI-03/
 JCI-05/JCI-06/JCI-09 remain partial. See
 [recorded Boolean-output Multiplexer creation](docs/caf-recorded-boolean-multiplexer-creation.md).
+
+## 2026-11-04 QA-01 delivery: current and legacy native capability regression checks
+
+`QA-NATIVE-CAPABILITY-VERSION-001` reconciles two older Boolean/Enum regression
+tests with the previously delivered version-12 default capability API. All nine
+original cases now exercise the current default, explicit version 12 and explicit
+version 11. They retain the complete legacy 22-operation projection, current
+24-operation shape, original datatype/identity/transport/status assertions,
+immutable source files and absence of field authority. Runtime and interface
+sources are unchanged.
+
+The new [combined software regression evidence](docs/software-validation-2026-11-04.md)
+retains the first run's 8,747 passes, 11 failures and three skips. Nine deterministic
+version-assertion failures are addressed by this slice. The separate Sedona DASP
+startup and native input mode-change timeout observations remain unexplained;
+their original logs and available state are retained. A passing later run does
+not establish their cause or repair. QA-01 remains open. Continue diagnosis and
+the separately planned native matching-connection transfer; no physical or
+Bluetooth acceptance is inferred.

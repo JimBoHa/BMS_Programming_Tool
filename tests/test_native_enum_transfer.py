@@ -18,6 +18,7 @@ from bms_tool.native_enum_compiler import EffectiveEnumService
 from bms_tool.native_enum_transfer import compile_enum_default, verify_enum_preservation
 from fastapi.testclient import TestClient
 
+from .native_capability_profiles import capability_profiles
 from .test_moi_effective_enum import enum_files
 from .test_moi_enum_defaults import REF
 from .test_native_applications import native_link as native_link  # noqa: F401
@@ -430,19 +431,22 @@ def test_enum_source_capability_separates_actual_storage_identity_and_transport(
         }
     storage, records, request = source(tmp_path, files, **metadata)
     before = copy.deepcopy(storage.load(request["capture_id"]))
-    report = records.capabilities(request)
-    assert report["capability_profile"] == "native-backup-operation-capabilities/11"
-    assert len(report["operations"]) == 22
-    assert operations(report)["enum-default-transfer"]["status"] == expected
-    if context == "no-fixed-slot":
-        assert operations(report)["effective-enum-compile"]["status"] == "source-qualified"
-        assert report["qualification"]["effective_enum_unknown_storage_count"] == 1
-    assert operations(report)["enum-default-copy"]["status"] == "source-qualified"
-    assert (
-        not report["can_apply"]
-        and not report["controller_queries"]
-        and not report["qualification"]["enum_semantics_verified"]
-    )
+    legacy, current = capability_profiles(records, request)
+    assert legacy["capability_profile"] == "native-backup-operation-capabilities/11"
+    assert len(legacy["operations"]) == 22
+    for report in (legacy, current):
+        assert operations(report)["enum-default-transfer"]["status"] == expected
+        if context == "no-fixed-slot":
+            assert operations(report)["effective-enum-compile"]["status"] == "source-qualified"
+            assert report["qualification"]["effective_enum_unknown_storage_count"] == 1
+        assert operations(report)["enum-default-copy"]["status"] == "source-qualified"
+        assert (
+            not report["can_apply"]
+            and not report["controller_queries"]
+            and not report["qualification"]["enum_semantics_verified"]
+        )
+    for key in ("matching-connection-copy", "effective-connection-compile"):
+        assert operations(current)[key]["status"] == "unsupported-source"
     assert storage.load(request["capture_id"]) == before and not storage.receipts()
 
 
