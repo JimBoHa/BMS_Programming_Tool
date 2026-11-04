@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`09c6718a`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/09c6718afa6c0895f2f3420283c1adadd43b1d4a).
+[`0464f39a`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/0464f39a4fff722b3269bb87d25276cf6cae505b).
 
 ## Baseline and purpose
 
@@ -981,3 +981,20 @@ provenance and review retirement remain. Native semantics, File-3 generation,
 resource/package validation, CCT/firmware/physical acceptance and transfer remain
 separate. JCI-02, JCI-03, JCI-05, JCI-06 and JCI-09 stay partial. See
 [recorded Enumeration Comparison creation](docs/caf-recorded-enum-comparison-creation.md).
+
+## 2026-11-04 JCI-01/JCI-02 delivery: CAF reference operator/component names
+
+`FMT-CAF-REFERENCE-LABELS-001` adds actual-source-bound reference names to the
+existing prototype picker and provenance details. Complete generic Enum sets
+287/288/432 come from the pinned public OCT FDB export, with recorded hashes and
+packaged attribution/license. Original names, codes, graph payloads and all 538
+earlier structural artifacts remain exact. Unknown or unavailable labels retain
+raw references and existing workflows.
+
+The labels explicitly identify their FDB Control 10.8 / Firmware 12.0 reference
+version; current-archive compatibility and runtime meaning remain unverified.
+They do not reinterpret Enum defaults, change typed admission or grant compiler
+or field authority. Existing graphics, draft limits, routes and reviews remain.
+JCI-01/JCI-02 stay partial. See [CAF reference names](docs/caf-reference-labels.md).
+Recorded Timer creation remains the next authoring slice, including all hidden
+ports and both outputs; reference labels do not qualify its runtime behavior.

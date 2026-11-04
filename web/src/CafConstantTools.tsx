@@ -2,6 +2,7 @@ import { useState, type ComponentProps } from "react";
 import { ChevronDown } from "lucide-react";
 import { CafConstantCopy } from "./CafConstantCopy";
 import { constantKinds, type ConstantKind } from "./cafConstantContract";
+import { useCafReferenceLabels } from "./cafReferenceLabels";
 
 /** Keep one active creation task; hidden type editors retain only local drafts. */
 export function CafConstantTools(
@@ -32,6 +33,12 @@ export function CafConstantTools(
       "float",
   );
   const active = available.includes(chosen) ? chosen : available[0];
+  const referenceLabels = useCafReferenceLabels(
+    props.archive,
+    props.diagram,
+    props.reviewContext,
+    available.length > 0 && !props.disabled,
+  );
   const choiceLabel = available.some(
     (kind) => kind === "comparison" || kind === "math",
   )
@@ -65,6 +72,7 @@ export function CafConstantTools(
           <CafConstantCopy
             {...props}
             kind={kind}
+            referenceLabels={referenceLabels}
             disabled={props.disabled || kind !== active}
           />
         </div>

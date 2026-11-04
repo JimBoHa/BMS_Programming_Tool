@@ -6,6 +6,10 @@ from thecontrolscompany/oct (Apache-2.0), commit c1d76ba7d6a8f17ca089c4671fa3333
 Upstream: https://github.com/thecontrolscompany/oct
 The original Apache license is retained in third_party/OCT-LICENSE.txt.
 Mappings are interoperability references, not a vendor SDK or compiler.
+Versioned CAF operator/component reference labels are extracted from OCT's
+ui/src/data/fdbEnums.ts at the same revision (FDB_Control_10_8___Firmware_12_0).
+Their packaged provenance and Apache license are retained beside the data.
+Reference labels do not establish archive compatibility or runtime semantics.
 No JCI binaries, controller applications, credentials, or manuals are redistributed.
 
 The optional native compiler/simulator integrates linsong/sedona, commit
