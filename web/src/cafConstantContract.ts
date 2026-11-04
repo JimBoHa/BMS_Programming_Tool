@@ -10,7 +10,8 @@ export type ConstantKind =
   | "boolean"
   | "enumeration"
   | "comparison"
-  | "math";
+  | "math"
+  | "timer";
 export const constantKinds = {
   float: {
     label: "Float Constant",
@@ -52,6 +53,14 @@ export const constantKinds = {
     codes: [42, 43, 41, 40, 58, 59],
     path: "math-copy",
   },
+  timer: {
+    label: "Timer",
+    profile: "caf-recorded-timer-copy/1",
+    classId: "558",
+    outputType: 5,
+    codes: [62],
+    path: "timer-copy",
+  },
 } as const;
 const hash = (v: unknown) => typeof v === "string" && /^[a-f0-9]{64}$/.test(v);
 const integer = (v: unknown, min: number, max: number) =>
@@ -85,7 +94,7 @@ export async function constantSource(
   const outputPrefix = request.prototype_ref + `.${spec.outputType}_`;
   const value = s?.recorded_value;
   const valueValid =
-    kind === "comparison" || kind === "math"
+    kind === "comparison" || kind === "math" || kind === "timer"
       ? value === null
       : kind === "boolean"
         ? typeof value === "string" &&
@@ -138,6 +147,7 @@ export async function constantSource(
     !enumValid ||
     (kind === "comparison" && !comparisonSelection(s, block)) ||
     (kind === "math" && !mathSelection(s, block)) ||
+    (kind === "timer" && !timerSelection(s, block)) ||
     !spec.codes.some((code) => code === s.standard_name_code) ||
     s.exposed_port !== 85 ||
     [
@@ -357,6 +367,103 @@ function mathSelection(s: Data, block: Data) {
     output.new_instance === s.new_output_instance
   );
 }
+function timerSelection(s: Data, block: Data) {
+  if (
+    !s ||
+    s.object_count !== 8 ||
+    s.setup_code !== null ||
+    s.standard_name_code !== 62 ||
+    s.operator_meaning_verified !== false ||
+    s.timer_semantics_verified !== false ||
+    s.enum_semantics_verified !== false ||
+    !integer(s.new_instance, 1, 4194295) ||
+    !Array.isArray(s.children) ||
+    s.children.length !== 7 ||
+    !connectionSame(
+      block.exposed_ports.map((p: Data) => p.id),
+      [513, 1080, 85],
+    )
+  )
+    return false;
+  const ports = [85, 513, 1082, 518, 1080, 1083, 1081],
+    types = [5, 5, 5, 19, 2, 19, 2],
+    classes = ["531", "530", "530", "528", "526", "528", "527"];
+  for (let i = 0; i < 7; i++) {
+    const r = s.children[i];
+    if (
+      !r ||
+      r.port !== ports[i] ||
+      r.class_id !== classes[i] ||
+      r.bacnet_type !== types[i] ||
+      !integer(r.instance, 0, 4194302) ||
+      r.ref !== `${s.prototype_ref}.${types[i]}_${r.instance}` ||
+      r.new_instance !== s.new_instance + i + 1 ||
+      r.new_ref !== `${s.new_ref}.${types[i]}_${r.new_instance}` ||
+      [...r.new_ref].length > 512 ||
+      !hash(r.sha256) ||
+      r.direction !== (i === 0 || i === 6 ? "output" : "input") ||
+      r.exposed !== [85, 513, 1080].includes(r.port)
+    )
+      return false;
+    if (types[i] === 19) {
+      if (
+        r.number_of_states !== (i === 3 ? 9 : 2) ||
+        r.states_text_code !== (i === 3 ? 21 : 22) ||
+        r.states_text_encoding_set !== 802 ||
+        r.units_code !== null ||
+        r.units_encoding_set !== null ||
+        r.recorded_metadata_661 !== null
+      )
+        return false;
+      if (i === 3) {
+        if (
+          typeof r.recorded_default !== "string" ||
+          !/^(0|[1-9][0-9]{0,9})$/.test(r.recorded_default) ||
+          Number(r.recorded_default) > 4294967295 ||
+          ![647, 21].includes(r.default_encoding_set)
+        )
+          return false;
+      } else if (r.recorded_default !== null || r.default_encoding_set !== null)
+        return false;
+    } else {
+      if (
+        [
+          r.number_of_states,
+          r.states_text_code,
+          r.states_text_encoding_set,
+          r.default_encoding_set,
+        ].some((v) => v !== null)
+      )
+        return false;
+      if (types[i] === 2) {
+        if (
+          r.units_code !== 73 ||
+          r.units_encoding_set !== 507 ||
+          r.recorded_metadata_661 !== "6" ||
+          (i === 4
+            ? typeof r.recorded_default !== "string" ||
+              !constantCoordinate(r.recorded_default)
+            : r.recorded_default !== null)
+        )
+          return false;
+      } else if (
+        [
+          r.recorded_default,
+          r.recorded_metadata_661,
+          r.units_code,
+          r.units_encoding_set,
+        ].some((v) => v !== null)
+      )
+        return false;
+    }
+  }
+  const output = s.children[0];
+  return (
+    output.ref === s.output_ref &&
+    output.new_ref === s.new_output_ref &&
+    output.sha256 === s.output_sha256
+  );
+}
 export async function constantReview(v: Data, request: Data, source: Data) {
   const c = v?.creation;
   if (
@@ -371,6 +478,7 @@ export async function constantReview(v: Data, request: Data, source: Data) {
       constantKinds.comparison.profile,
       enumComparisonProfile,
       constantKinds.math.profile,
+      constantKinds.timer.profile,
     ].some((p) => p === source.profile) &&
       (!Array.isArray(c.new_child_sha256) ||
         c.new_child_sha256.length !== source.object_count - 1 ||

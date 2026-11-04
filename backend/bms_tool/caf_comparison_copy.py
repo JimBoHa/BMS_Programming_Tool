@@ -168,7 +168,7 @@ class CafComparisonCopies(CafConstantCopies):
             raise ValueError(
                 "Five fresh comparison identities do not fit the local allocation range."
                 if self.spec.class_id == "560"
-                else "Fresh Math identities do not fit the local allocation range."
+                else f"Fresh {self.spec.label} identities do not fit the local allocation range."
             )
         new_ref = f"{diagram_ref}.{self.spec.class_id}_{first}"
         if any(c in new_ref for c in "\r\n\t"):
@@ -198,7 +198,7 @@ class CafComparisonCopies(CafConstantCopies):
             "prototype_ref": prototype_ref,
             "prototype_sha256": sha(self._raw(self.archive.objects[prototype_ref])),
             "prototype_index": block["index"],
-            "setup_code": int(setup),
+            "setup_code": int(setup) if setup is not None else None,
             "standard_name_code": int(standard),
             "exposed_port": 85,
             "member_count": len(graph["blocks"]),
