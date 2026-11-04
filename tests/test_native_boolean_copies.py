@@ -19,6 +19,7 @@ from bms_tool.native_signal_compiler import SignalCompilerService
 from bms_tool.storage import Store
 from fastapi.testclient import TestClient
 
+from .native_capability_profiles import capability_profiles
 from .test_controller_application import encoded, native_record
 from .test_moi_parameters import parameters_source
 from .test_native_applications import native_link as native_link  # noqa: F401
@@ -251,14 +252,22 @@ def test_http_admission_strict_values_exact_headers_and_all_original_file_hashes
 def test_boolean_copy_capability_does_not_expand_real_effective_compilation_or_transfer(tmp_path):
     storage = ApplicationStore(Store(tmp_path))
     snapshot = retained(storage, boolean_files())
-    report = NativeBackupRecords(storage).capabilities(
-        {"capture_id": snapshot["id"], "snapshot_sha256": snapshot["evidence_sha256"]}
+    legacy, current = capability_profiles(
+        NativeBackupRecords(storage),
+        {"capture_id": snapshot["id"], "snapshot_sha256": snapshot["evidence_sha256"]},
     )
-    rows = {row["id"]: row for row in report["operations"]}
-    assert report["capability_profile"] == "native-backup-operation-capabilities/11"
-    assert report["qualification"]["archive_boolean_default_count"] == 2
-    assert rows["boolean-default-copy"]["status"] == "source-qualified"
-    assert "no Boolean field transfer" in rows["boolean-default-copy"]["next_step"]
+    assert legacy["capability_profile"] == "native-backup-operation-capabilities/11"
+    for report in (legacy, current):
+        rows = {row["id"]: row for row in report["operations"]}
+        assert report["qualification"]["archive_boolean_default_count"] == 2
+        assert rows["boolean-default-copy"]["status"] == "source-qualified"
+        assert "no Boolean field transfer" in rows["boolean-default-copy"]["next_step"]
+        assert not report["can_apply"] and not report["controller_queries"]
+        assert report["read_only"] and not report["field_actions"]
+    for key in ("matching-connection-copy", "effective-connection-compile"):
+        assert {row["id"]: row for row in current["operations"]}[key][
+            "status"
+        ] == "unsupported-source"
     compiler = SignalCompilerService(storage).source(snapshot["id"])
     assert len(compiler["fields"]) == 2
     assert FIRST not in {field["ref"] for field in compiler["fields"]}
