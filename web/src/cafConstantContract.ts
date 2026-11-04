@@ -11,7 +11,8 @@ export type ConstantKind =
   | "enumeration"
   | "comparison"
   | "math"
-  | "timer";
+  | "timer"
+  | "booleanLogic";
 export const constantKinds = {
   float: {
     label: "Float Constant",
@@ -52,6 +53,14 @@ export const constantKinds = {
     outputType: 2,
     codes: [42, 43, 41, 40, 58, 59],
     path: "math-copy",
+  },
+  booleanLogic: {
+    label: "Boolean Logic",
+    profile: "caf-recorded-boolean-logic-copy/1",
+    classId: "559",
+    outputType: 5,
+    codes: [24, 25, 26],
+    path: "boolean-logic-copy",
   },
   timer: {
     label: "Timer",
@@ -94,7 +103,10 @@ export async function constantSource(
   const outputPrefix = request.prototype_ref + `.${spec.outputType}_`;
   const value = s?.recorded_value;
   const valueValid =
-    kind === "comparison" || kind === "math" || kind === "timer"
+    kind === "comparison" ||
+    kind === "math" ||
+    kind === "timer" ||
+    kind === "booleanLogic"
       ? value === null
       : kind === "boolean"
         ? typeof value === "string" &&
@@ -134,7 +146,9 @@ export async function constantSource(
     s.opaque_layout_code !== block.layout.opaque_code ||
     !integer(s.member_count, 1, 65534) ||
     !integer(s.new_instance, 1, 4194301) ||
-    (kind !== "math" && s.new_output_instance !== s.new_instance + 1) ||
+    (kind !== "math" &&
+      kind !== "booleanLogic" &&
+      s.new_output_instance !== s.new_instance + 1) ||
     diagram.blocks.some((b: Data) => s.new_instance <= b.instance) ||
     s.new_ref !== `${request.diagram_ref}.${spec.classId}_${s.new_instance}` ||
     s.new_output_ref !==
@@ -148,6 +162,7 @@ export async function constantSource(
     (kind === "comparison" && !comparisonSelection(s, block)) ||
     (kind === "math" && !mathSelection(s, block)) ||
     (kind === "timer" && !timerSelection(s, block)) ||
+    (kind === "booleanLogic" && !booleanLogicSelection(s, block)) ||
     !spec.codes.some((code) => code === s.standard_name_code) ||
     s.exposed_port !== 85 ||
     [
@@ -367,6 +382,65 @@ function mathSelection(s: Data, block: Data) {
     output.new_instance === s.new_output_instance
   );
 }
+function booleanLogicSelection(s: Data, block: Data) {
+  if (
+    !s ||
+    ![4, 5].includes(s.object_count) ||
+    s.operator_meaning_verified !== false ||
+    !integer(s.new_instance, 1, 4194303 - s.object_count) ||
+    ![
+      [1, 24],
+      [2, 25],
+      [3, 26],
+    ].some(
+      ([setup, standard]) =>
+        setup === s.setup_code && standard === s.standard_name_code,
+    ) ||
+    !Array.isArray(s.children) ||
+    s.children.length !== s.object_count - 1
+  )
+    return false;
+  const order = s.children.map((r: Data) => r?.port);
+  if (
+    ![
+      [85, 7000, 7001],
+      [7002, 85, 7000, 7001],
+      [85, 7002, 7000, 7001],
+    ].some((p) => connectionSame(p, order)) ||
+    (s.object_count === 5 && s.setup_code !== 1) ||
+    !connectionSame(
+      block.exposed_ports.map((p: Data) => p.id),
+      s.object_count === 4 ? [7000, 7001, 85] : [7000, 7001, 85, 7002],
+    )
+  )
+    return false;
+  for (let i = 0; i < s.children.length; i++) {
+    const r = s.children[i];
+    if (
+      !r ||
+      r.class_id !== (r.port === 85 ? "531" : "530") ||
+      r.bacnet_type !== 5 ||
+      !integer(r.instance, 0, 4194302) ||
+      r.ref !== `${s.prototype_ref}.5_${r.instance}` ||
+      r.new_instance !== s.new_instance + i + 1 ||
+      r.new_ref !== `${s.new_ref}.5_${r.new_instance}` ||
+      [...r.new_ref].length > 512 ||
+      !hash(r.sha256) ||
+      r.exposed !== true ||
+      r.recorded_standard_name_code !== (r.port === 7002 ? 0 : null) ||
+      r.recorded_default !== null ||
+      r.recorded_metadata_661 !== null
+    )
+      return false;
+  }
+  const output = s.children.find((r: Data) => r.port === 85);
+  return (
+    output.ref === s.output_ref &&
+    output.new_ref === s.new_output_ref &&
+    output.sha256 === s.output_sha256 &&
+    output.new_instance === s.new_output_instance
+  );
+}
 function timerSelection(s: Data, block: Data) {
   if (
     !s ||
@@ -479,6 +553,7 @@ export async function constantReview(v: Data, request: Data, source: Data) {
       enumComparisonProfile,
       constantKinds.math.profile,
       constantKinds.timer.profile,
+      constantKinds.booleanLogic.profile,
     ].some((p) => p === source.profile) &&
       (!Array.isArray(c.new_child_sha256) ||
         c.new_child_sha256.length !== source.object_count - 1 ||
