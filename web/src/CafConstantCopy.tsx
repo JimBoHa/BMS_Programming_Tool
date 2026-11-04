@@ -38,8 +38,9 @@ export function CafConstantCopy({
   kind?: ConstantKind;
 }) {
   const spec = constantKinds[kind];
-  const subject = kind === "comparison" ? "block" : "constant";
   const comparison = kind === "comparison";
+  const primitive = comparison || kind === "math";
+  const subject = primitive ? "block" : "constant";
   const base = `/caf/${archive}/${spec.path}`;
   const prototypes = diagram.blocks.filter(
     (b: Data) => b.class_id === spec.classId && b.class_version === "1.0",
@@ -286,7 +287,7 @@ export function CafConstantCopy({
     >
       <summary>Copy a recorded {spec.label}</summary>
       <section
-        aria-label={comparison ? "CAF block creation" : "CAF constant creation"}
+        aria-label={primitive ? "CAF block creation" : "CAF constant creation"}
       >
         {comparison ? (
           <p>
@@ -294,6 +295,13 @@ export function CafConstantCopy({
             four recorded port objects. Setup and input configuration are copied
             as recorded. CCT/PCT acceptance and controller allocation remain
             unverified.
+          </p>
+        ) : kind === "math" ? (
+          <p>
+            Create a local CAF copy containing a new unconnected Math block and
+            its three or four recorded port objects. Setup, child order and
+            input configuration are copied as recorded. CCT/PCT acceptance and
+            controller allocation remain unverified.
           </p>
         ) : (
           <p>
@@ -308,10 +316,10 @@ export function CafConstantCopy({
           included.
         </p>
         <label>
-          {comparison ? "Block prototype" : "Constant prototype"}
+          {primitive ? "Block prototype" : "Constant prototype"}
           <span className="caf-constant-select">
             <select
-              aria-label={comparison ? "Block prototype" : "Constant prototype"}
+              aria-label={primitive ? "Block prototype" : "Constant prototype"}
               value={chosen}
               disabled={disabled || busy}
               onChange={(e) => select(e.target.value)}
@@ -337,11 +345,13 @@ export function CafConstantCopy({
         </button>
         {source && (
           <>
-            {comparison ? (
+            {primitive ? (
               <p>
                 Recorded setup code {source.setup_code}; standard-name code{" "}
-                {source.standard_name_code}. Four port objects are copied as
-                recorded; operator meanings and runtime output are unverified.
+                {source.standard_name_code}.{" "}
+                {source.children.length === 3 ? "Three" : "Four"} port objects
+                are copied as recorded; operator meanings and runtime output are
+                unverified.
               </p>
             ) : (
               <p>
@@ -352,18 +362,30 @@ export function CafConstantCopy({
                 . Both are copied as recorded.
               </p>
             )}
-            {comparison && (
+            {primitive && (
               <details>
-                <summary>Recorded comparison inputs</summary>
-                {source.children.slice(1).map((r: Data) => (
-                  <p key={r.ref}>
-                    Port {r.port}:{" "}
-                    {r.recorded_default === null
-                      ? "default omitted in source"
-                      : `recorded default ${r.recorded_default}`}
-                    ; {r.exposed ? "exposed" : "not exposed"} in source.
-                  </p>
-                ))}
+                <summary>
+                  Recorded {comparison ? "comparison" : "math"} inputs
+                </summary>
+                {source.children
+                  .filter((r: Data) => r.port !== 85)
+                  .map((r: Data) => (
+                    <p key={r.ref}>
+                      Port {r.port}:{" "}
+                      {r.recorded_default === null
+                        ? "default omitted in source"
+                        : `recorded default ${r.recorded_default}`}
+                      ; {r.exposed ? "exposed" : "not exposed"} in source.
+                      {kind === "math" &&
+                        r.recorded_standard_name_code !== null && (
+                          <>
+                            {" "}
+                            Recorded input standard-name code{" "}
+                            {r.recorded_standard_name_code}.
+                          </>
+                        )}
+                    </p>
+                  ))}
               </details>
             )}
             {kind === "enumeration" && (
@@ -428,7 +450,7 @@ export function CafConstantCopy({
         {shown && (
           <section
             aria-label={
-              comparison
+              primitive
                 ? "Reviewed CAF block copy"
                 : "Reviewed CAF constant copy"
             }
@@ -442,8 +464,14 @@ export function CafConstantCopy({
               <code>{shown.data.creation.selection.new_output_ref}</code>
             </p>
             <p>
-              One graph member and {comparison ? "five" : "two"} objects added.
-              Existing connections and continuation records stay unchanged.
+              One graph member and{" "}
+              {primitive
+                ? shown.data.creation.selection.object_count === 4
+                  ? "four"
+                  : "five"
+                : "two"}{" "}
+              objects added. Existing connections and continuation records stay
+              unchanged.
             </p>
             <button
               className="primary"

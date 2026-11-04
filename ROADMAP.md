@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`54ae6424`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/54ae6424d1e37f086a8fd0f98650b27547fbbd76).
+[`6b733e4c`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/6b733e4ce0ebe12ff138b3c89ac489301b340e7b).
 
 ## Baseline and purpose
 
@@ -947,3 +947,20 @@ arbitrary logic/hardware/ports, native File-3 compilation, CCT/firmware/physical
 acceptance and transfer remain unqualified. JCI-02, JCI-03, JCI-06 and JCI-09
 remain partial. See
 [recorded Float Comparison creation](docs/caf-recorded-comparison-creation.md).
+
+## 2026-11-04 JCI-02/JCI-03 delivery: recorded Math creation
+
+`FMT-CAF-MATH-COPY-001` copies an actual version 1.0 Math block and its three or
+four recorded ports into a separate local CAF. Six Setup/StandardName pairs,
+actual exposure, root child order, missing/stored defaults and extra-input
+metadata remain exact. Four or five identities fit the unchanged allocation
+ceiling; output mapping follows the actual output even when another child
+precedes it. Original objects, wires, continuations and unrelated bytes remain.
+
+The focused Program Logic creator retains the selected controller/local source,
+existing graphics, draft limit, review retirement and exact export proof.
+All 156 private Math templates copy/read back in memory and all 369 earlier
+structural selections/reports/seals/artifacts match PR229. Native operator
+evaluation, File-3 generation, resource/package validation, CCT/firmware/physical
+acceptance and transfer remain separate. JCI-02, JCI-03, JCI-06 and JCI-09 remain
+partial. See [recorded Math creation](docs/caf-recorded-math-creation.md).

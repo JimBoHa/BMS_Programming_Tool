@@ -43,6 +43,7 @@ from .caf_enum_api import enum_constant_router
 from .caf_graph import CafGraph
 from .caf_hardware import CafHardwareBindings, HardwareExportRequest, HardwareMoveRequest
 from .caf_instance import CafInstanceChange, CafInstanceEditor, CafInstanceExport
+from .caf_math_api import math_router
 from .caf_native_correlation import CafNativeCorrelationRequest, correlate
 from .caf_native_file_correlation import CafNativeFileCorrelationRequest, NativeFileCorrelation
 from .caf_scenarios import CafInputScenarios, CafScenarioStore
@@ -1499,6 +1500,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.include_router(boolean_constant_router(get_caf))
     app.include_router(enum_constant_router(get_caf))
     app.include_router(comparison_router(get_caf))
+    app.include_router(math_router(get_caf))
 
     @app.post("/api/caf/{id}/native-correlation")
     def caf_native_correlation(id: str, body: CafNativeCorrelationRequest):

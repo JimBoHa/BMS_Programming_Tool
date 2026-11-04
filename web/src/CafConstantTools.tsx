@@ -32,7 +32,9 @@ export function CafConstantTools(
       "float",
   );
   const active = available.includes(chosen) ? chosen : available[0];
-  const choiceLabel = available.includes("comparison")
+  const choiceLabel = available.some(
+    (kind) => kind === "comparison" || kind === "math",
+  )
     ? "Recorded block type"
     : "Constant type";
   if (!active) return null;
