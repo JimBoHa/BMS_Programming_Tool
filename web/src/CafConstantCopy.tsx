@@ -10,6 +10,7 @@ import {
   constantDraftSignature,
   rememberConstant,
   constantKinds,
+  enumSelectorMultiplexerProfile,
   type ConstantKind,
   type ConstantDrafts,
 } from "./cafConstantContract";
@@ -343,11 +344,11 @@ export function CafConstantCopy({
         ) : multiplexer ? (
           <p>
             Create a local CAF copy containing a new unconnected Float
-            Multiplexer and all four ports: a Float output, a Boolean selector
-            and two Float inputs. Recorded selector configuration and omitted
+            Multiplexer with its recorded Float inputs, output and Boolean or
+            Enum selector. Selector configuration, stored values and omitted
             defaults stay exact. Other multiplexer variants require a separate
-            profile. Mode behavior, CCT/PCT acceptance and controller allocation
-            remain unverified.
+            profile. Mode/Enum behavior, CCT/PCT acceptance and controller
+            allocation remain unverified.
           </p>
         ) : timer ? (
           <p>
@@ -468,9 +469,11 @@ export function CafConstantCopy({
                   ? "Seven"
                   : reliability
                     ? "Two"
-                    : source.children.length === 3
-                      ? "Three"
-                      : "Four"}{" "}
+                    : multiplexer && source.children.length === 6
+                      ? "Six"
+                      : source.children.length === 3
+                        ? "Three"
+                        : "Four"}{" "}
                 port objects are copied as recorded; operator meanings and
                 runtime output are unverified.
               </p>
@@ -525,7 +528,7 @@ export function CafConstantCopy({
                         ? "default omitted in source"
                         : `recorded default ${r.recorded_default}`}
                       ; {r.exposed ? "exposed" : "not exposed"} in source.
-                      {(comparison || timer || reliability) &&
+                      {(comparison || timer || reliability || multiplexer) &&
                         r.bacnet_type === 19 && (
                           <>
                             {" "}
@@ -544,7 +547,10 @@ export function CafConstantCopy({
                           {r.recorded_metadata_661}.
                         </>
                       )}
-                      {(kind === "math" || booleanLogic) &&
+                      {(kind === "math" ||
+                        booleanLogic ||
+                        (multiplexer &&
+                          source.profile === enumSelectorMultiplexerProfile)) &&
                         r.recorded_standard_name_code !== null && (
                           <>
                             {" "}
@@ -638,9 +644,12 @@ export function CafConstantCopy({
                   ? "eight"
                   : reliability
                     ? "three"
-                    : shown.data.creation.selection.object_count === 4
-                      ? "four"
-                      : "five"
+                    : multiplexer &&
+                        shown.data.creation.selection.object_count === 7
+                      ? "seven"
+                      : shown.data.creation.selection.object_count === 4
+                        ? "four"
+                        : "five"
                 : "two"}{" "}
               objects added. Existing connections and continuation records stay
               unchanged.

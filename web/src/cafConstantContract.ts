@@ -5,6 +5,8 @@ type Data = Record<string, any>;
 export const constantProfile = "caf-recorded-float-constant-copy/1";
 export const enumComparisonProfile =
   "caf-recorded-enumeration-comparison-copy/1";
+export const enumSelectorMultiplexerProfile =
+  "caf-recorded-float-enum-selector-multiplexer-copy/1";
 export type ConstantKind =
   | "float"
   | "boolean"
@@ -77,7 +79,7 @@ export const constantKinds = {
     profile: "caf-recorded-float-multiplexer-copy/1",
     classId: "562",
     outputType: 2,
-    codes: [14],
+    codes: [14, 15],
     path: "float-multiplexer-copy",
   },
   timer: {
@@ -117,7 +119,8 @@ export async function constantSource(
   if (!spec) return false;
   const profileValid =
     s?.profile === spec.profile ||
-    (kind === "comparison" && s?.profile === enumComparisonProfile);
+    (kind === "comparison" && s?.profile === enumComparisonProfile) ||
+    (kind === "multiplexer" && s?.profile === enumSelectorMultiplexerProfile);
   const outputPrefix = request.prototype_ref + `.${spec.outputType}_`;
   const value = s?.recorded_value;
   const valueValid =
@@ -532,6 +535,8 @@ function reliabilitySelection(s: Data, block: Data) {
   );
 }
 function multiplexerSelection(s: Data, block: Data) {
+  if (s?.profile === enumSelectorMultiplexerProfile)
+    return enumSelectorMultiplexerSelection(s, block);
   if (
     !s ||
     s.object_count !== 5 ||
@@ -570,6 +575,73 @@ function multiplexerSelection(s: Data, block: Data) {
       r.exposed !== true ||
       r.recorded_default !== null ||
       r.recorded_metadata_661 !== null
+    )
+      return false;
+  }
+  const output = s.children[0];
+  return (
+    output.ref === s.output_ref &&
+    output.new_ref === s.new_output_ref &&
+    output.sha256 === s.output_sha256
+  );
+}
+function enumSelectorMultiplexerSelection(s: Data, block: Data) {
+  if (
+    !s ||
+    s.object_count !== 7 ||
+    s.setup_code !== null ||
+    s.standard_name_code !== 15 ||
+    s.operator_meaning_verified !== false ||
+    s.multiplexer_semantics_verified !== false ||
+    s.enum_semantics_verified !== false ||
+    !integer(s.new_instance, 1, 4194296) ||
+    !Array.isArray(s.children) ||
+    s.children.length !== 6 ||
+    !connectionSame(s.recorded_property_2381, ["0", "2", "0", "0", "3", "4"]) ||
+    s.recorded_property_3122 !== "1" ||
+    !connectionSame(
+      block.exposed_ports.map((p: Data) => p.id),
+      [961, 7000, 7001, 85, 7002, 7003],
+    )
+  )
+    return false;
+  const ports = [85, 7002, 7003, 7000, 7001, 961],
+    types = [2, 2, 2, 2, 2, 19],
+    classes = ["527", "526", "526", "526", "526", "528"];
+  for (let i = 0; i < 6; i++) {
+    const r = s.children[i];
+    if (
+      !r ||
+      r.port !== ports[i] ||
+      r.class_id !== classes[i] ||
+      r.bacnet_type !== types[i] ||
+      !integer(r.instance, 0, 4194302) ||
+      r.ref !== `${s.prototype_ref}.${types[i]}_${r.instance}` ||
+      r.new_instance !== s.new_instance + i + 1 ||
+      r.new_ref !== `${s.new_ref}.${types[i]}_${r.new_instance}` ||
+      [...r.new_ref].length > 512 ||
+      !hash(r.sha256) ||
+      r.direction !== (i === 0 ? "output" : "input") ||
+      r.exposed !== true ||
+      r.recorded_metadata_661 !== null ||
+      r.default_encoding_set !== null ||
+      r.recorded_standard_name_code !== ([1, 2, 5].includes(i) ? 0 : null) ||
+      (i === 4
+        ? typeof r.recorded_default !== "string" ||
+          !constantCoordinate(r.recorded_default)
+        : r.recorded_default !== null)
+    )
+      return false;
+    if (
+      i === 5
+        ? r.number_of_states !== 6 ||
+          r.states_text_code !== 900 ||
+          r.states_text_encoding_set !== 802
+        : [
+            r.number_of_states,
+            r.states_text_code,
+            r.states_text_encoding_set,
+          ].some((v) => v !== null)
     )
       return false;
   }
@@ -695,6 +767,7 @@ export async function constantReview(v: Data, request: Data, source: Data) {
       constantKinds.booleanLogic.profile,
       constantKinds.reliability.profile,
       constantKinds.multiplexer.profile,
+      enumSelectorMultiplexerProfile,
     ].some((p) => p === source.profile) &&
       (!Array.isArray(c.new_child_sha256) ||
         c.new_child_sha256.length !== source.object_count - 1 ||

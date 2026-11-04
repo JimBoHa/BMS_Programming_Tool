@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`31cc6ceb`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/31cc6ceb8238aa08b14f9086bb3d21f7c035b1c7).
+[`9f22ef5e`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/9f22ef5e574c4c30b971bf6d97cdde04de8c5af6).
 
 ## Baseline and purpose
 
@@ -1078,3 +1078,27 @@ mode editing and simulation. Preserve prior assignments as reviewable drafts
 when changing an Enum set, validate unmapped-state fallback and retain exact
 source/review/target distinctions. These tasks belong in the current Program
 Logic inspector; they do not add global destinations or tiles.
+
+## 2026-11-04 JCI-02/JCI-03/JCI-05 delivery: Float Multiplexer with an Enum selector
+
+`FMT-CAF-FLOAT-ENUM-SELECTOR-MULTIPLEXER-COPY-001` separately qualifies class-562
+StandardName 15 with six recorded ports. The seven-object copy retains four Float
+inputs, the Float output, Enum selector/state metadata, additional-input names,
+stored Float spelling, omitted defaults, absent setup, source order/exposure and
+six-entry selector bookkeeping. Seven identities must fit the unchanged ceiling.
+
+The existing Float Multiplexer route selects its own strict engine from actual
+source configuration. Boolean-selector results remain identical; other variants
+are refused. The existing contextual task displays both supported shapes with
+correct port/object counts, separate prototype drafts and exact source/review/
+export guards. Current graphics, routes, ordinary Save and prior profiles remain.
+No field authority or native assignment/runtime meaning is granted. CCT/PCT,
+general File-3, vendor resources/packages and physical/BTCVT acceptance remain
+separate. JCI-02/JCI-03/JCI-05/JCI-06/JCI-09 stay partial. See
+[the separately qualified Enum-selector profile](docs/caf-recorded-enum-selector-multiplexer-creation.md).
+
+A subsequent Program Logic workflow should offer **Open CAF copy** after a proven
+local export, so users can continue authoring from the new archive without finding
+it through a file picker. Keep earlier source drafts, preserve the controller
+route, retire old reviews, distinguish the new file from the controller and retain
+one primary task action. This remains planned separately from the present copy.
