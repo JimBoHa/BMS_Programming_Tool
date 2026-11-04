@@ -15,9 +15,11 @@ prove that the file matches one or supply live values.
 The separate `caf-recorded-float-multiplexer-copy/1` profile admits class/type 562,
 version 1.0, with StandardName set 432 code 14. The versioned reference catalog
 labels this MUX (Float IO, Boolean Mode). Other Multiplexer variants, including
-Enum selectors, other output types and additional-input forms, require separately
-qualified profiles. Choosing one of those source shapes returns an unsupported
-profile error rather than silently changing its configuration.
+other output types and additional-input forms, require separately qualified
+profiles. A separate [Enum-selector profile](caf-recorded-enum-selector-multiplexer-creation.md)
+now covers StandardName 15 through the same contextual task and route family.
+Unknown source shapes return an unsupported profile error rather than silently
+changing their configuration.
 
 The parent has properties 75, 32527, 2381, 3122, 3184 and 3670. It has no Setup
 property; inspection reports null and never inserts one. Recorded property 2381
