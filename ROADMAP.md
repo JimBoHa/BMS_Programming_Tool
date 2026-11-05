@@ -1599,3 +1599,25 @@ evidence, then further host-specific reassignment. SA/IOM/cross-host operations,
 resources/packages and CCT/physical/BTCVT acceptance remain separate. JCI-01,
 IO-02/JCI-09 remain partial. See
 [encoded terminal support](docs/native-terminal-label-capabilities.md).
+
+## 2026-11-05 IO-02/JCI-09 delivery: existing binary terminal transfer backend
+
+`FMT-NATIVE-BINARY-TERMINAL-001` adds explicit input action `binary-terminal` and
+transfer profile 3. Observed typed class-242 state labels/index, optional polarity
+and runtime counters replace any assumption of analog scaling fields. Actual
+local identity/occupancy and non-counter configuration bind source and review;
+fresh counter values remain current. Saved settings that would undo the new
+binding prevent compilation before review/dispatch.
+
+The existing input writer retains all confirmations, exact one-use review,
+target/interface/identity/source, full image and separately published binary
+configuration checks. Explicit profile/compiler/action pairing and numeric-safe
+body/options binding prevent substitution. Unknown outcomes retain evidence and
+reconcile without replay. Older input/recovery actions, interface and graphics
+retain their existing contracts; no site inventory is embedded.
+
+Next, expose contextual binary review/Apply/readback controls, recorded binary
+metadata and source capability evidence, then qualify further host-specific
+reassignment. Binary allocation/electrical edits, SA/IOM/cross-host movement,
+resources/packages and CCT/physical/BTCVT acceptance remain separate. IO-02 and
+JCI-09 remain partial. See [binary terminal transfer](docs/native-binary-terminal-transfer.md).

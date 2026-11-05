@@ -1199,6 +1199,10 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
             and intent.get("compilation", {}).get("profile") != TERMINAL_PROFILE
         ):
             raise ValueError("Terminal transfer evidence requires its exact compiler profile.")
+        if input_edit:
+            from .native_binary_terminal import validate_evidence
+
+            validate_evidence(intent)
         if point_name_edit and intent.get("operation_profile") != POINT_NAME_PROFILE:
             raise ValueError("Unsupported native point-name evidence version; retain it.")
         expected_profile = (
@@ -1503,6 +1507,15 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
         ):
             raise ValueError("The exact terminal transfer review changed; review again.")
         if input_edit:
+            from .native_binary_terminal import PROFILE as BINARY_TERMINAL_PROFILE
+            from .native_binary_terminal import validate_evidence
+
+            validate_evidence(plan["body"])
+            if plan["body"].get("operation_profile") == BINARY_TERMINAL_PROFILE and (
+                seal(plan["body"]) != plan["digest"]
+                or seal(plan["body"]["input_edit"]) != seal(plan["options"].edit.model_dump())
+            ):
+                raise ValueError("The exact binary terminal review changed; review again.")
             validate_terminal_recovery_plan(plan["body"], plan["options"])
         if (
             not request.application_transfer_confirmed
@@ -1956,6 +1969,10 @@ def native_application_router(service):
     @router.post("/input/source")
     def input_source(body: InputLocalSource):
         return service.input_source(**body.model_dump())
+
+    @router.post("/input/binary-terminal/source")
+    def binary_input_source(body: InputLocalSource):
+        return service.binary_input_source(**body.model_dump())
 
     @router.post("/input/support")
     async def input_support(body: InputSupport):
