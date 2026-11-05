@@ -26,6 +26,7 @@ from fastapi.responses import Response
 from pydantic import Field
 
 from .device_details import DeviceDetails
+from .hardware_reanalysis import ArchiveReanalysisRequest, reanalyze_archive
 from .hardware_survey import (
     HardwareSurvey,
     HardwareSurveyRequest,
@@ -994,6 +995,10 @@ def hardware_router(workbench):
     @router.get("/archives/{key}")
     async def get_archive(key: str):
         return workbench.archive(key)
+
+    @router.post("/archives/{key}/reanalyze")
+    async def archive_reanalyze(key: str, body: ArchiveReanalysisRequest):
+        return reanalyze_archive(workbench, key, body.source_sha256)
 
     @router.get("/archives/{key}/export")
     async def archive_export(key: str, format: str = "json"):
