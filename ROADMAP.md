@@ -1540,3 +1540,23 @@ Next, qualify further native input/host and runtime/compilation semantics agains
 actual source evidence. Broader rollback, binary/SA/cross-host reassignment,
 resources/packages and CCT/physical/BTCVT acceptance remain separate. JCI-10/IO-02
 stay partial. See [recorded terminal recovery lineage](docs/native-terminal-recovery-ledger.md).
+
+## 2026-11-05 IO-02/JCI-09 delivery: recorded terminal-label encoding
+
+`FMT-NATIVE-TERMINAL-LABELS-001` adds explicit original/effective local-copy APIs
+using terminal compiler profile 3. Observed ASCII/UCS-2 labels retain their exact
+charset, payload widths and framing; only the reviewed Slot and label payloads
+change. Output-only namespaces remain separate, and every other expanded byte
+and merged value stays intact. Older routes and compiler profiles remain available.
+
+Authored observed binary schemas contain state labels and counters rather than
+invented analog configuration. Actual retained VMA evidence informs encoding
+admission; no site inventory or controller archive is committed. Local copies
+create no field authority. Existing field compilers, transfers, recovery helpers,
+ledger, interface and graphics retain their contracts.
+
+Next, expose the new local profile in contextual Points & I/O, then qualify binary
+configuration/runtime and field semantics against actual source evidence. Source
+capability reporting, SA/cross-host reassignment, resources/packages and CCT/
+physical/BTCVT acceptance remain separate. IO-02/JCI-09 remain partial. See
+[encoding-preserving terminal copies](docs/native-terminal-label-encoding.md).
