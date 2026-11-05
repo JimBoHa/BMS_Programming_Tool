@@ -400,6 +400,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
         return identity, info
 
     async def capture_session(self, options, session, *, identity=None):
+        self.storage.require_capture_capacity()
         self.phase("capturing original application and saved parameters")
         if identity is None:
             identity, info = await self.identity(session, options.device)
@@ -496,6 +497,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
         options = NativeCapture(**arguments)
         async with self.operation(options.operation_id, "capture"):
             self.available(options)
+            self.storage.require_capture_capacity()
             async with self.path._path(options) as session:
                 PropertyEvidence.pin(session, options.router)
                 receipt, files, _ = await self.capture_session(options, session)
@@ -1500,6 +1502,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
         try:
             async with self.operation(request.operation_id, "apply"):
                 self.available(options)
+                self.storage.require_capture_capacity(2)
                 if (
                     self.bacnet.require() is not plan["app"]
                     or self.bacnet.config != plan["config"]
@@ -1627,6 +1630,8 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                         )
                     if input_edit:
                         await self.input_live_guard(session, options, compilation, files)
+                    # A concurrent import can use the space observed before the fresh backup.
+                    self.storage.require_capture_capacity()
                     # Durable payload and original backup exist before the first restore request.
                     private_folder = self.storage.directory / backup["id"]
                     private_write(private_folder / "reviewed-application.bin", output)
@@ -1847,6 +1852,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                 "local_address"
             ):
                 raise ValueError("Reconnect the receipt original local interface for readback.")
+            self.storage.require_capture_capacity()
             async with self.path._path(options) as session:
                 PropertyEvidence.pin(session, options.router)
                 result = await self.verify(session, intent)

@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`84ed771b`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/84ed771b56a255a13845556e8c070c77e69db801).
+[`0d4ecb5d`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/0d4ecb5decabb0117a8841fc389da99de2f0877d).
 
 ## Baseline and purpose
 
@@ -1274,3 +1274,25 @@ hardware are unavailable. General native compilation, resource/package support,
 hardware reassignment and physical/BTCVT acceptance remain separate.
 JCI-03/JCI-05/JCI-06/JCI-09 remain partial. See
 [the matching-connection workflow](docs/native-matching-connection-workflow.md).
+
+## 2026-11-04 QA-01/JCI-09 delivery: local native capture-capacity preflight
+
+`COMM-NATIVE-CAPTURE-CAPACITY-PREFLIGHT-001` checks the existing local 128-snapshot
+catalog before capture/readback and before Apply's fresh-original/verification
+pair. Capture rechecks before backup commands; Apply rechecks verification space
+after fresh compilation and before durable intent or restore. Insufficient space
+refuses an avoidable operation while preserving existing sources and one-use
+reviews. Existing interfaces display the refusal in context; graphics are unchanged.
+
+This is a point-in-time observation, not an atomic reservation. A competing local
+import after dispatch can still leave verification uncertain; original intent and
+receipts remain durable. Explicit archiving retains original bytes and can free
+one active slot for readback without another restore. Literal boundaries,
+direct/routed peers and actual competing ZIP imports qualify the software scope.
+
+The active limit, transaction/request deadlines, save/import/lifecycle writers,
+compiler profiles and field authority stay unchanged. Controller resource/package
+qualification and physical acceptance remain separate. Previously retained
+WebKit/network/Sedona failures remain open under QA-01. Continue the prioritized
+JCI assignment/runtime and broader native-authoring work. See
+[native capture-capacity preflight](docs/native-capture-capacity-preflight.md).
