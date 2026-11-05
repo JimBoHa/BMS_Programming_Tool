@@ -2,6 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { Download, Network, Search } from "lucide-react";
 import { api, saveBlob } from "./api";
 import type { NamedScanTarget } from "./DeviceScanPanel";
+import {
+  routerChoices,
+  routerEndpoint,
+  routerIdentityKey,
+  type RouterChoice,
+} from "./routerChoices";
 import "./routed-discovery.css";
 
 export type RoutedDevice = {
@@ -23,18 +29,15 @@ type WindowReport = {
   scope: string;
 };
 type NetworkReport = WindowReport & { networks: number[] };
-type RouterChoice = {
-  router: string;
-  networks: number[];
-  truncated?: boolean;
-  cached?: boolean;
-};
 type RouterReport = {
   routers: RouterChoice[];
   complete: boolean;
   truncated: boolean;
   warnings: string[];
   scope: string;
+  ipDevices?: number;
+  advertisementCount?: number;
+  failedMethods?: number;
 };
 type BindingReport = WindowReport & {
   device: number;
@@ -107,6 +110,16 @@ export function RoutedDiscoveryPanel({
   const [routerDevice, setRouterDevice] = useState("");
   const [routers, setRouters] = useState<RouterChoice[]>([]);
   const [routerReport, setRouterReport] = useState<RouterReport | null>(null);
+  const [routerQuery, setRouterQuery] = useState("");
+  const [routerNames, setRouterNames] = useState<Record<string, ScanName>>({});
+  const routerNamesRef = useRef(routerNames);
+  const routerNameEpoch = useRef(0);
+  const [routerNameRetry, setRouterNameRetry] = useState(0);
+  const [searchProgress, setSearchProgress] = useState("");
+  const trunkSelect = useRef<HTMLSelectElement>(null);
+  const controllerSelect = useRef<HTMLSelectElement>(null);
+  const focusTrunk = useRef(false);
+  const focusController = useRef(false);
   const [discoveryPort, setDiscoveryPort] = useState("47808");
   const [controller, setController] = useState("");
   const [low, setLow] = useState("0"),
@@ -127,9 +140,22 @@ export function RoutedDiscoveryPanel({
   namesCallback.current = onNamesDiscovered;
   const connectedRef = useRef(connected);
   connectedRef.current = connected;
+  const interfaceRef = useRef(interfaceIdentity);
+  interfaceRef.current = interfaceIdentity;
   const networkChoices = Array.from(
     new Set([...(networks?.networks ?? []), ...(bindings?.networks ?? [])]),
-  ).sort((a, b) => a - b);
+  ).sort((a, b) => {
+    const fieldAddress = (network: number) =>
+      bindings?.bindings.some(
+        (row) =>
+          row.dnet === network &&
+          row.mstp_mac !== null &&
+          row.mstp_mac !== undefined,
+      )
+        ? 1
+        : 0;
+    return fieldAddress(b) - fieldAddress(a) || a - b;
+  });
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const [outcome, setOutcome] = useState("");
@@ -161,12 +187,17 @@ export function RoutedDiscoveryPanel({
       setBindings(null);
       setScan(null);
       setController("");
+      routerNamesRef.current = {};
+      setRouterNames({});
+      setRouterQuery("");
+      setRouter("");
+      setDnet("");
+      focusTrunk.current = false;
+      focusController.current = false;
     }
   }, [interfaceIdentity]);
 
-  const endpointKey = (value: string) =>
-    value.trim() &&
-    (value.includes(":") ? value.trim() : value.trim() + ":47808");
+  const endpointKey = routerEndpoint;
   const configKey = (value: unknown) =>
     value && typeof value === "object" && !Array.isArray(value)
       ? JSON.stringify(
@@ -181,12 +212,77 @@ export function RoutedDiscoveryPanel({
       currentConfig !== null &&
       configKey(item.connectorConfig) === currentConfig,
   );
-  const routerName = (address: string) =>
-    currentNames.find(
-      (item) =>
-        item.target.source === "ip" &&
-        endpointKey(item.target.address) === endpointKey(address),
-    )?.name;
+  const routerName = (address: string) => {
+    const choice = routers.find(
+      (row) => endpointKey(row.router) === endpointKey(address),
+    );
+    if (choice?.identityConflict) return undefined;
+    if (choice?.device)
+      return routerNames[routerIdentityKey(choice)]?.name || undefined;
+    return (
+      (choice && routerNames[routerIdentityKey(choice)]?.name) ||
+      currentNames.find(
+        (item) =>
+          item.target.source === "ip" &&
+          endpointKey(item.target.address) === endpointKey(address) &&
+          (!choice?.device || item.target.device === choice.device),
+      )?.name
+    );
+  };
+  useEffect(() => {
+    const ticket = ++routerNameEpoch.current;
+    const source = interfaceIdentity;
+    const valid = () =>
+      mounted.current &&
+      connectedRef.current &&
+      interfaceRef.current === source &&
+      routerNameEpoch.current === ticket;
+    if (!connected || busy) return;
+    void (async () => {
+      for (const row of routers) {
+        if (!valid()) break;
+        const key = routerIdentityKey(row);
+        if (!row.device || row.identityConflict || routerNamesRef.current[key])
+          continue;
+        try {
+          const report = await api("/bacnet/device-name", {
+            address: row.router,
+            device: row.device,
+            router: null,
+            dnet: null,
+            timeout_seconds: 3.0,
+          });
+          if (!valid()) break;
+          if (
+            !report.identity_verified ||
+            !report.name?.trim() ||
+            report.device !== row.device ||
+            endpointKey(report.address) !== endpointKey(row.router) ||
+            report.router !== null ||
+            report.dnet !== null ||
+            configKey(report.connector_config) !== currentConfig
+          )
+            throw Error(
+              "The name was not verified for this engine and computer connection.",
+            );
+          routerNamesRef.current = {
+            ...routerNamesRef.current,
+            [key]: { name: report.name, state: "complete" },
+          };
+        } catch (failure) {
+          if (!valid()) break;
+          routerNamesRef.current = {
+            ...routerNamesRef.current,
+            [key]: { name: null, state: "unavailable", error: String(failure) },
+          };
+        }
+        setRouterNames(routerNamesRef.current);
+      }
+    })();
+    return () => {
+      routerNameEpoch.current++;
+    };
+  }, [routers, connected, busy, interfaceIdentity, routerNameRetry]);
   const nameKey = (device: RoutedDevice, result: RoutedScanResult) =>
     JSON.stringify([
       endpointKey(result.report.router),
@@ -349,11 +445,28 @@ export function RoutedDiscoveryPanel({
       if (mounted.current && request === epoch.current) setError(String(error));
     } finally {
       active.current = false;
-      if (mounted.current) setBusy(false);
+      if (mounted.current) {
+        setBusy(false);
+        setSearchProgress("");
+      }
     }
   }
   const current = (request: number) =>
-    mounted.current && request === epoch.current;
+    mounted.current &&
+    connectedRef.current &&
+    interfaceRef.current === interfaceIdentity &&
+    request === epoch.current;
+
+  useEffect(() => {
+    if (connected && !busy && networkChoices.length && focusTrunk.current) {
+      focusTrunk.current = false;
+      trunkSelect.current?.focus();
+    }
+    if (connected && !busy && scan && focusController.current) {
+      focusController.current = false;
+      controllerSelect.current?.focus();
+    }
+  }, [connected, busy, scan, networkChoices.join(",")]);
 
   async function findRouters() {
     await action(async (request) => {
@@ -362,17 +475,77 @@ export function RoutedDiscoveryPanel({
       setBindings(null);
       setScan(null);
       setDnet("");
+      setRouter("");
+      setRouterQuery("");
+      routerNamesRef.current = {};
+      setRouterNames({});
       clearSelection();
-      const report = await api("/bacnet/discover-routers", {
-        udp_port: integer(discoveryPort, 1, 65535, "Router discovery UDP port"),
-        timeout_seconds: 2.0,
-        max_routers: 64,
-        max_networks: 128,
-      });
+      const udp_port = integer(
+        discoveryPort,
+        1,
+        65535,
+        "Router discovery UDP port",
+      );
+      const warnings: string[] = [];
+      let advertisements: RouterReport = {
+        routers: [],
+        complete: true,
+        truncated: false,
+        warnings: [],
+        scope: "Local engine and router discovery",
+      };
+      setSearchProgress("Looking for BACnet routers…");
+      if (localDiscoveryAvailable) {
+        try {
+          advertisements = await api("/bacnet/discover-routers", {
+            udp_port,
+            timeout_seconds: 2.0,
+            max_routers: 64,
+            max_networks: 128,
+          });
+        } catch (failure) {
+          warnings.push("Router advertisement search: " + String(failure));
+        }
+      }
+      if (!current(request)) return;
+      setSearchProgress("Looking for NAEs and other BACnet/IP devices…");
+      let devices = [],
+        ipReport: any;
+      try {
+        ipReport = await api("/bacnet/scan-ip", {
+          mode: "local",
+          udp_port,
+          low: 0,
+          high: 4194302,
+          timeout_seconds: 3.0,
+          max_devices: 64,
+        });
+        devices = ipReport.devices;
+      } catch (failure) {
+        warnings.push("BACnet/IP device search: " + String(failure));
+      }
+      if (!current(request)) return;
+      const choices = routerChoices(advertisements.routers, devices);
+      const report = {
+        ...advertisements,
+        routers: choices,
+        ipDevices: devices.length,
+        advertisementCount: advertisements.routers.length,
+        failedMethods: warnings.length,
+        truncated: advertisements.truncated || !!ipReport?.truncated,
+        complete:
+          advertisements.complete && !!ipReport?.complete && !warnings.length,
+        warnings: [
+          ...warnings,
+          ...advertisements.warnings,
+          ...(ipReport?.warnings || []),
+        ],
+      };
       if (current(request)) {
         setRouters(report.routers);
         setRouterReport(report);
         setRouter("");
+        setSearchProgress("");
       }
     });
   }
@@ -381,6 +554,7 @@ export function RoutedDiscoveryPanel({
       if (!selectedRouter.trim())
         throw new Error("Enter an explicit router IPv4 address and UDP port.");
       setRouter(selectedRouter);
+      focusTrunk.current = true;
       setRouterDevice("");
       setNetworks(null);
       setBindings(null);
@@ -399,7 +573,13 @@ export function RoutedDiscoveryPanel({
           ...choices.filter(
             (item) => endpointKey(item.router) !== endpointKey(report.router),
           ),
-          { router: report.router, networks: report.networks },
+          {
+            ...choices.find(
+              (item) => endpointKey(item.router) === endpointKey(report.router),
+            ),
+            router: report.router,
+            networks: report.networks,
+          },
         ]);
         if (!report.networks.length) {
           try {
@@ -413,7 +593,11 @@ export function RoutedDiscoveryPanel({
               setRouters((choices) =>
                 choices.map((choice) =>
                   endpointKey(choice.router) === endpointKey(cached.router)
-                    ? { ...choice, networks: cached.networks, cached: true }
+                    ? {
+                        ...choice,
+                        networks: cached.networks,
+                        cached: true,
+                      }
                     : choice,
                 ),
               );
@@ -444,6 +628,7 @@ export function RoutedDiscoveryPanel({
       if (payload.low > payload.high)
         throw new Error("Minimum device instance must not exceed maximum.");
       setScan(null);
+      focusController.current = true;
       clearSelection();
       const report = await api("/bacnet/scan-trunk", payload);
       if (current(request)) {
@@ -603,73 +788,168 @@ export function RoutedDiscoveryPanel({
     >
       <div className="card-header">
         <h3>
-          <Network size={18} /> Routed BACnet discovery
+          <Network size={18} /> Find a controller through an NAE or router
         </h3>
         <span className="pill">EXPLICIT READ-ONLY REQUESTS</span>
       </div>
       <div className="card-body">
         <p>
-          Choose a router, select an advertised or cached network, scan that
-          network, then choose a controller to modify. Devices that do not
-          answer during the response window can be absent. Discovery does not
-          upload a controller program.
+          An NAE or BACnet router connects your computer to field-controller
+          trunks. Find an engine, choose a network it reports, then scan for
+          your controller. Searching and selecting devices does not change their
+          configuration.
         </p>
         {!connected && (
           <p className="help-text">
-            Open the intended BACnet interface before issuing a request.
+            Start with Connection: choose the computer network connected to the
+            building, then open the interface.
           </p>
         )}
-        <h4>1. Select a router</h4>
-        <div className="form-grid">
-          <label>
-            Router
-            <select
-              aria-label="Commissioning router"
+        <h4>1. Find your NAE or router</h4>
+        <p>
+          Click Find NAEs &amp; routers, then choose an engine by name. You do
+          not need its IP address or Device instance.
+        </p>
+        <div className="button-row">
+          <button
+            className={router && networkChoices.length ? "" : "primary"}
+            disabled={busy || !connected}
+            onClick={() => void findRouters()}
+          >
+            <Search size={16} />{" "}
+            {busy && searchProgress
+              ? "Searching for engines…"
+              : "Find NAEs & routers"}
+          </button>
+          {Object.values(routerNames).some(
+            (row) => row.state === "unavailable",
+          ) && (
+            <button
               disabled={busy || !connected}
-              value={
-                routers.find(
-                  (item) => endpointKey(item.router) === endpointKey(router),
-                )?.router || ""
-              }
-              onChange={(event) => void discover(event.target.value)}
+              onClick={() => {
+                routerNamesRef.current = Object.fromEntries(
+                  Object.entries(routerNamesRef.current).filter(
+                    ([, row]) => row.state === "complete",
+                  ),
+                );
+                setRouterNames(routerNamesRef.current);
+                setRouterNameRetry((value) => value + 1);
+              }}
             >
-              <option value="" disabled>
-                Choose a router
-              </option>
-              {routers.map((item) => (
+              Retry engine names
+            </button>
+          )}
+        </div>
+        {busy && searchProgress && <p role="status">{searchProgress}</p>}
+        {routerReport && (
+          <p role="status" aria-label="Engine discovery results">
+            {routers.length
+              ? `${routers.length} engine / router candidate(s) found. Choose one below to read its networks.`
+              : routerReport.failedMethods
+                ? "The engine search could not complete on this connection. Check the selected computer network or use an engine IP below. Response details explain the failure."
+                : "No engines answered this search. Check the computer network selected in Connection, then try again. An engine on another network can be entered by IP below."}
+            {routerReport.truncated
+              ? " The search reached its result limit; this is a partial list."
+              : ""}
+          </p>
+        )}
+        {!!routers.length && (
+          <label>
+            Find engine by name or IP
+            <input
+              type="search"
+              aria-label="Find NAE or router"
+              value={routerQuery}
+              onChange={(event) => setRouterQuery(event.target.value)}
+              placeholder="Type an engine name"
+            />
+          </label>
+        )}
+        <label>
+          NAE / BACnet router
+          <select
+            aria-label="Commissioning router"
+            disabled={busy || !connected || !routers.length}
+            value={
+              routers.find(
+                (item) => endpointKey(item.router) === endpointKey(router),
+              )?.router || ""
+            }
+            onChange={(event) => void discover(event.target.value)}
+          >
+            <option value="" disabled>
+              {routers.length
+                ? "Choose an engine found on this network"
+                : "Run Find NAEs & routers first"}
+            </option>
+            {routers
+              .filter(
+                (item) =>
+                  endpointKey(item.router) === endpointKey(router) ||
+                  [routerName(item.router), item.router, item.device]
+                    .join(" ")
+                    .toLowerCase()
+                    .includes(routerQuery.trim().toLowerCase()),
+              )
+              .map((item) => (
                 <option key={item.router} value={item.router}>
-                  {routerName(item.router)
-                    ? `${routerName(item.router)} · `
-                    : ""}
-                  {item.router} · networks{" "}
-                  {item.networks.join(", ") || "none advertised"}
-                  {item.cached ? " (cached; scan required)" : ""}
+                  {routerName(item.router) ||
+                    (item.identityConflict
+                      ? "Multiple Device IDs at this address"
+                      : item.device
+                        ? routerNames[routerIdentityKey(item)]?.state ===
+                          "unavailable"
+                          ? "Name unavailable"
+                          : "Reading name…"
+                        : "BACnet router")}{" "}
+                  · {item.router}
+                  {item.cached
+                    ? " · cached networks"
+                    : item.networks.length
+                      ? ` · ${item.networks.length} network(s)`
+                      : " · select to find trunks"}
                 </option>
               ))}
-            </select>
-          </label>
-          <div className="routed-action">
-            <button
-              disabled={busy || !connected || !localDiscoveryAvailable}
-              onClick={() => void findRouters()}
-            >
-              Find local routers
-            </button>
-          </div>
-        </div>
-        {routerReport && (
-          <p role="status">
-            {routerReport.routers.length} router(s) answered.
-            {routerReport.truncated ? " Partial list." : ""}{" "}
-            {routerReport.warnings.join(" ")}
+          </select>
+        </label>
+        {!!routers.length && (
+          <p className="help-text">
+            Names are read from responding devices. BACnet/IP devices are shown
+            as candidates; choosing one checks its available networks. A device
+            without a name can still be selected by IP.
           </p>
         )}
-        <p className="help-text">
-          Find local routers searches the open interface’s IPv4 subnet. For a
-          known or remote router, enter its address and read its networks.
-        </p>
         <details>
-          <summary>Router discovery settings</summary>
+          <summary>Enter an engine IP address instead</summary>
+          <p>
+            If the engine is on another network or discovery is blocked, enter
+            its IP. Leave the UDP port off for the usual BACnet port.
+          </p>
+          <div className="form-grid">
+            <label>
+              Engine IP address
+              <input
+                aria-label="Discovery router address"
+                disabled={busy || !connected}
+                value={router}
+                placeholder="192.0.2.10"
+                onChange={(event) =>
+                  edit(() => setRouter(event.target.value), true)
+                }
+              />
+            </label>
+            <div className="routed-action">
+              <button
+                disabled={busy || !connected || !router.trim()}
+                onClick={() => void discover()}
+              >
+                <Search size={14} /> Read router networks
+              </button>
+            </div>
+          </div>
+        </details>
+        <details>
+          <summary>Discovery settings and response details</summary>
           <label>
             Router discovery UDP port
             <input
@@ -681,29 +961,19 @@ export function RoutedDiscoveryPanel({
               }
             />
           </label>
+          {routerReport && (
+            <>
+              <p>
+                {routerReport.advertisementCount ?? 0} router advertisement
+                source(s); {routerReport.ipDevices ?? 0} BACnet/IP device(s). IP
+                replies and advertised routes are different evidence.
+              </p>
+              {routerReport.warnings.map((warning, index) => (
+                <p key={index}>{warning}</p>
+              ))}
+            </>
+          )}
         </details>
-        <div className="form-grid">
-          <label>
-            Router IPv4 address / UDP port
-            <input
-              aria-label="Discovery router address"
-              disabled={busy || !connected}
-              value={router}
-              placeholder="192.0.2.10:47808"
-              onChange={(event) =>
-                edit(() => setRouter(event.target.value), true)
-              }
-            />
-          </label>
-          <div className="routed-action">
-            <button
-              disabled={busy || !connected || !router.trim()}
-              onClick={() => void discover()}
-            >
-              <Search size={14} /> Read router networks
-            </button>
-          </div>
-        </div>
         <details>
           <summary>Router identity and cached address evidence</summary>
           <div className="form-grid">
@@ -842,17 +1112,23 @@ export function RoutedDiscoveryPanel({
         <label>
           Trunk / BACnet network
           <select
+            ref={trunkSelect}
             aria-label="Commissioning trunk"
             disabled={busy || !connected || !networkChoices.length}
             value={networkChoices.includes(Number(dnet)) ? dnet : ""}
             onChange={(event) => edit(() => setDnet(event.target.value))}
           >
             <option value="" disabled>
-              Choose a discovered network
+              {networkChoices.length
+                ? "Choose a network from this engine"
+                : "Select an engine above to load its networks"}
             </option>
             {networkChoices.map((network) => (
               <option key={network} value={String(network)}>
                 Network {network}
+                {bindings?.bindings.filter((row) => row.dnet === network).length
+                  ? ` · ${bindings.bindings.filter((row) => row.dnet === network).length} cached address(es)`
+                  : ""}
                 {networks?.networks.includes(network)
                   ? " · advertised"
                   : " · cached; scan required"}
@@ -861,46 +1137,55 @@ export function RoutedDiscoveryPanel({
           </select>
         </label>
         <p className="help-text">
-          Advertised and cached BACnet networks do not supply FC trunk names or
-          verify the bus type. Cached choices do not establish current routing
-          or controller liveness; a fresh scan is required.
+          {router && networkChoices.length
+            ? `Networks from ${routerName(router) || router}. `
+            : ""}
+          Choose a network, then Scan controllers. Network numbers are reported
+          by the engine; FC-1 / FC-2 labels are not supplied by this BACnet
+          service. Cached addresses are leads until a controller answers the
+          scan.
         </p>
         <div className="form-grid">
-          {(
-            [
-              ["Routed destination network", dnet, setDnet, 1, 65534],
-              ["Routed minimum device instance", low, setLow, 0, 4194302],
-              ["Routed maximum device instance", high, setHigh, 0, 4194302],
-              ["Routed response window seconds", seconds, setSeconds, 1, 10],
-              ["Routed device result limit", limit, setLimit, 1, 256],
-            ] as const
-          ).map(([label, value, setter, min, max]) => (
-            <label key={label}>
-              {label}
-              <input
-                type="number"
-                aria-label={label}
-                min={min}
-                max={max}
-                disabled={busy || !connected}
-                value={value}
-                onChange={(event) => edit(() => setter(event.target.value))}
-              />
-            </label>
-          ))}
           <div className="routed-action">
             <button
               className="primary"
               disabled={busy || !connected || !router.trim() || !dnet}
               onClick={scanTrunk}
             >
-              <Search size={14} /> Scan selected routed network
+              <Search size={14} /> Scan controllers
             </button>
           </div>
         </div>
+        <details>
+          <summary>Advanced scan settings</summary>
+          <div className="form-grid">
+            {(
+              [
+                ["Routed destination network", dnet, setDnet, 1, 65534],
+                ["Routed minimum device instance", low, setLow, 0, 4194302],
+                ["Routed maximum device instance", high, setHigh, 0, 4194302],
+                ["Routed response window seconds", seconds, setSeconds, 1, 10],
+                ["Routed device result limit", limit, setLimit, 1, 256],
+              ] as const
+            ).map(([label, value, setter, min, max]) => (
+              <label key={label}>
+                {label}
+                <input
+                  type="number"
+                  aria-label={label}
+                  min={min}
+                  max={max}
+                  disabled={busy || !connected}
+                  value={value}
+                  onChange={(event) => edit(() => setter(event.target.value))}
+                />
+              </label>
+            ))}
+          </div>
+        </details>
         {scan && (
           <div role="region" aria-label="Routed device response">
-            <h4>3. Select a controller to modify</h4>
+            <h4>3. Choose a controller to open</h4>
             <p role="status" aria-label="Controller name lookup">
               {namesRead} of {scan.report.devices.length} controller names read.
               {nameBusy ? " Reading names sequentially…" : ""}
@@ -941,6 +1226,7 @@ export function RoutedDiscoveryPanel({
               <label>
                 Controller
                 <select
+                  ref={controllerSelect}
                   aria-label="Commissioning controller"
                   disabled={busy || !connected}
                   value={controller}

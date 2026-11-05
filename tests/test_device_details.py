@@ -198,6 +198,29 @@ async def test_scan_name_discards_name_if_identity_changes_during_read(details_l
 
 
 @pytest.mark.asyncio
+async def test_name_lookup_can_use_a_shorter_budget_without_holding_the_next_discovery(
+    details_link, monkeypatch
+):
+    _, client, service, address = details_link
+    original = service._read
+
+    async def slow_name(session, object_id, property_id, *args):
+        if property_id == "object-name":
+            await asyncio.sleep(3)
+        return await original(session, object_id, property_id, *args)
+
+    monkeypatch.setattr(service, "_read", slow_name)
+    result = await asyncio.wait_for(
+        service.read_name(address=address, device="device,4190090", timeout_seconds=1.0), 1.5
+    )
+    assert not result["identity_verified"] and result["name"] is None
+    assert result["errors"] and not client.lock.locked()
+    monkeypatch.setattr(service, "_read", original)
+    again = await service.read_name(address=address, device="device,4190090")
+    assert again["identity_verified"]
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("name", ["", "   ", None])
 async def test_scan_name_does_not_fabricate_a_label_for_missing_name(details_link, name):
     server, _, service, address = details_link

@@ -51,6 +51,7 @@ import { WorkflowToolTabs } from "./WorkflowChrome";
 import { ControllerProgram, LiveControllerPoints } from "./LiveController";
 import { NativeInputs } from "./NativeInputs";
 import { ResponsivePanel } from "./ResponsivePanel";
+import { ComputerNetworkPicker } from "./ComputerNetworkPicker";
 import {
   type ConnectionView,
   type ControllerContext,
@@ -651,9 +652,9 @@ export function Connections({
                   : groups[view][0].label}
           </h1>
           <p>
-            Scan BACnet/IP networks and routed controllers, read device details,
-            and work with selected points. Network interfaces open when you
-            connect.
+            {view === "setup"
+              ? "Choose your computer network, find the NAE or router, then select a controller from its scan."
+              : "Read configuration and work with the selected controller through its verified connection."}
           </p>
         </div>
         <div className="button-row">
@@ -737,7 +738,7 @@ export function Connections({
               label="Discovery method"
               disabled={busy}
               items={[
-                { id: "routed", label: "Router & trunk" },
+                { id: "routed", label: "NAE / router & trunk" },
                 { id: "ip", label: "Direct BACnet/IP" },
               ]}
               value={discovery}
@@ -990,10 +991,33 @@ export function Connections({
                 <section className="card">
                   <div className="card-header">
                     <h3>
-                      <Network size={18} /> BACnet/IP interface
+                      <Network size={18} /> Connect to the building network
                     </h3>
                   </div>
                   <div className="card-body form-grid">
+                    <ComputerNetworkPicker
+                      value={config.local_address}
+                      disabled={busy}
+                      allowSuggestion={!status.config && !ipDirty.current}
+                      onSuggest={(address) => {
+                        if (!ipDirty.current && !status.config)
+                          setConfig((current) => ({
+                            ...current,
+                            local_address: `${address}:47809`,
+                          }));
+                      }}
+                      onChoose={(address) => {
+                        ipDirty.current = true;
+                        const port =
+                          /:(\d+)$/.exec(config.local_address)?.[1] || "47809";
+                        setConfig((current) => ({
+                          ...current,
+                          local_address: `${address}:${port}`,
+                          router: "",
+                          dnet: "",
+                        }));
+                      }}
+                    />
                     {field("local_address", "Local bind address / UDP port")}
                     <details className="full workflow-advanced">
                       <summary>Advanced connection settings</summary>
