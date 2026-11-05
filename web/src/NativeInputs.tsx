@@ -11,6 +11,7 @@ import { NativeRuntimeCalibration } from "./NativeRuntimeCalibration";
 import { NativeRuntimeParametersNotice } from "./NativeRuntimeParametersNotice";
 import { NativeTerminalCopy } from "./NativeTerminalCopy";
 import { NativeBinaryTerminal } from "./NativeBinaryTerminal";
+import { NativeEncodedAnalogTerminal } from "./NativeEncodedAnalogTerminal";
 import {
   NativeTerminalRecovery,
   type TerminalRecoveryDocument,
@@ -35,6 +36,7 @@ type Work = {
   terminalRecovery?: TerminalRecoveryDocument;
   terminalOrdinaryForm?: Form;
   binaryChangedCapture?: string;
+  encodedAnalogChangedCapture?: string;
 };
 type Form = {
   action: string;
@@ -99,6 +101,8 @@ export function NativeInputs({
     [status, setStatus] = useState<any>(null);
   const [review, setReview] = useState<any>(null),
     [copyReview, setCopyReview] = useState<any>(null);
+  const [encodedAnalogBusy, setEncodedAnalogBusy] = useState(false),
+    [encodedAnalogOpen, setEncodedAnalogOpen] = useState(false);
   const [binaryBusy, setBinaryBusy] = useState(false),
     [binaryOpen, setBinaryOpen] = useState(false);
   const [busy, setBusy] = useState(false),
@@ -217,6 +221,7 @@ export function NativeInputs({
   const fieldAllowed =
     connected &&
     work.binaryChangedCapture !== source?.capture_id &&
+    work.encodedAnalogChangedCapture !== source?.capture_id &&
     matchesTarget(source?.target) &&
     source?.identity?.device === controller?.device;
   const fresh = review && Date.parse(review.expires_at) > now && fieldAllowed;
@@ -302,7 +307,7 @@ export function NativeInputs({
     );
   }
   async function run(kind: string, id?: string) {
-    if (busy || binaryBusy) return;
+    if (busy || binaryBusy || encodedAnalogBusy) return;
     if (
       work.source &&
       !same(work.form, blank()) &&
@@ -645,6 +650,7 @@ export function NativeInputs({
       (r: any) =>
         r.change_kind === "input" &&
         r.input_edit?.action !== "binary-terminal" &&
+        r.input_edit?.action !== "encoded-terminal" &&
         matchesTarget(r.target) &&
         r.identity?.device === controller?.device,
     ) ?? [];
@@ -682,7 +688,7 @@ export function NativeInputs({
       )}
       <div className="button-row">
         <button
-          disabled={!connected || busy || binaryBusy || !status?.credentials_configured}
+          disabled={!connected || busy || binaryBusy || encodedAnalogBusy || !status?.credentials_configured}
           onClick={() => void run("capture")}
         >
           Capture native inputs
@@ -691,7 +697,7 @@ export function NativeInputs({
           Retained native source
           <select
             aria-label="Retained native input source"
-            disabled={busy || binaryBusy}
+            disabled={busy || binaryBusy || encodedAnalogBusy}
             value={source?.capture_id || ""}
             onChange={(e) => {
               if (e.target.value) void run("source", e.target.value);
@@ -721,7 +727,7 @@ export function NativeInputs({
       {busy && (
         <p role="status">Working on the selected native input operation…</p>
       )}
-      {source && !binaryOpen && (
+      {source && !binaryOpen && !encodedAnalogOpen && (
         <>
           <p>
             <strong>Captured source:</strong> {source.identity["object-name"]} ·{" "}
@@ -739,6 +745,7 @@ export function NativeInputs({
             </p>
           )}
           {work.binaryChangedCapture === source.capture_id && <p>A binary transfer changed this application. Capture native inputs again before another controller change.</p>}
+          {work.encodedAnalogChangedCapture === source.capture_id && <p>An analog terminal transfer changed this application. Capture native inputs again before another controller change.</p>}
           <p>
             Available local terminals:{" "}
             {source.available_slots
@@ -747,7 +754,7 @@ export function NativeInputs({
             . Integral sensors and SA module allocations are excluded from this
             profile.
           </p>
-          <fieldset disabled={busy || binaryBusy}>
+          <fieldset disabled={busy || binaryBusy || encodedAnalogBusy}>
             <legend>Edit one input</legend>
             <label>
               Input operation
@@ -942,14 +949,14 @@ export function NativeInputs({
           <div className="button-row">
             <button
               className={!fieldAllowed && !copyReview ? "primary" : ""}
-              disabled={busy || binaryBusy}
+              disabled={busy || binaryBusy || encodedAnalogBusy}
               onClick={() => void run("local")}
             >
               Review local input copy
             </button>
             <button
               className={!fieldAllowed && copyReview ? "primary" : ""}
-              disabled={busy || binaryBusy || !copyReview}
+              disabled={busy || binaryBusy || encodedAnalogBusy || !copyReview}
               onClick={() => void run("save")}
             >
               Save native copy
@@ -957,7 +964,7 @@ export function NativeInputs({
             <button
               className={fieldAllowed && !review ? "primary" : ""}
               disabled={
-                busy || binaryBusy || !fieldAllowed || !status?.credentials_configured
+                busy || binaryBusy || encodedAnalogBusy || !fieldAllowed || !status?.credentials_configured
               }
               onClick={() => void run("review")}
             >
@@ -1039,7 +1046,7 @@ export function NativeInputs({
               </label>
               <button
                 className="primary"
-                disabled={busy || binaryBusy || !fresh || !wiring || !input || !transfer}
+                disabled={busy || binaryBusy || encodedAnalogBusy || !fresh || !wiring || !input || !transfer}
                 onClick={() => void run("apply")}
               >
                 Apply input change to controller
@@ -1050,7 +1057,7 @@ export function NativeInputs({
             </section>
           )}
           <button
-            disabled={busy || binaryBusy}
+            disabled={busy || binaryBusy || encodedAnalogBusy}
             onClick={() => {
               epoch.current++;
               retire();
@@ -1068,11 +1075,11 @@ export function NativeInputs({
           </button>
         </>
       )}
-      {source && !binaryOpen && (
+      {source && !binaryOpen && !encodedAnalogOpen && (
         <NativeTerminalRecovery
           source={source}
           receipts={status?.receipts ?? []}
-          fieldBusy={busy || binaryBusy}
+          fieldBusy={busy || binaryBusy || encodedAnalogBusy}
           draftKey={JSON.stringify(form)}
           onUse={(document) => {
             if (
@@ -1098,27 +1105,37 @@ export function NativeInputs({
           }}
         />
       )}
-      <NativeBinaryTerminal
+      {!binaryOpen && <NativeEncodedAnalogTerminal
         parent={source}
         controller={controller}
-        connected={connected}
-        fieldBusy={busy}
+        connected={connected && work.binaryChangedCapture !== source?.capture_id}
+        fieldBusy={busy || binaryBusy}
+        credentialsConfigured={status?.credentials_configured === true}
+        onBusy={(value,field)=>{setEncodedAnalogBusy(value);if(field)onBusy(value);}}
+        onVerified={()=>{setWork(w=>({...w,encodedAnalogChangedCapture:source?.capture_id}));onVerified();}}
+        onOpenChange={value=>{epoch.current++;retire();setCopyReview(null);setEncodedAnalogOpen(value);}}
+      />}
+      {!encodedAnalogOpen && <NativeBinaryTerminal
+        parent={source}
+        controller={controller}
+        connected={connected && work.encodedAnalogChangedCapture !== source?.capture_id}
+        fieldBusy={busy || encodedAnalogBusy}
         credentialsConfigured={status?.credentials_configured === true}
         onBusy={(value, field) => { setBinaryBusy(value); if (field) onBusy(value); }}
         onVerified={() => { setWork((w) => ({...w, binaryChangedCapture: source?.capture_id})); onVerified(); }}
         onOpenChange={(value) => { epoch.current++; retire(); setCopyReview(null); setBinaryOpen(value); }}
-      />
-      {!binaryOpen && <NativeTerminalCopy
+      />}
+      {!binaryOpen && !encodedAnalogOpen && <NativeTerminalCopy
         controller={controller}
         connected={connected}
-        fieldBusy={busy || binaryBusy}
+        fieldBusy={busy || binaryBusy || encodedAnalogBusy}
       />}
       <details>
         <summary>Retained input transfers</summary>
         {records.map((r: any) => (
           <p key={r.id}>
             {r.input_edit?.action} · {r.status} · {r.created_at}{" "}
-            <button disabled={busy || binaryBusy} onClick={() => void run("retained", r.id)}>
+            <button disabled={busy || binaryBusy || encodedAnalogBusy} onClick={() => void run("retained", r.id)}>
               Open input receipt {r.id.slice(0, 8)}
             </button>
           </p>
@@ -1137,7 +1154,7 @@ export function NativeInputs({
           <p>{observed?.error || observed?.errors?.join(" ")}</p>
           {work.receipt.intent && (
             <button
-              disabled={busy || binaryBusy || !connected}
+              disabled={busy || binaryBusy || encodedAnalogBusy || !connected}
               onClick={() => void run("readback")}
             >
               Read back input transfer
@@ -1161,7 +1178,7 @@ export function NativeInputs({
               : "The saved ordinary input draft is retained. This edited proposal requires its own input review."}
           </p>
           <button
-            disabled={busy || binaryBusy}
+            disabled={busy || binaryBusy || encodedAnalogBusy}
             onClick={() => {
               epoch.current++;
               retire();

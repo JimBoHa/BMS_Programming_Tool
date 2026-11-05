@@ -14,6 +14,7 @@ export async function nativeDefaultPeer(
     | "instance"
     | "input"
     | "binary-input"
+    | "encoded-analog-input"
     | "point-name" = "real",
   enumStates = false,
 ) {
@@ -38,6 +39,9 @@ async def main():
  if sys.argv[2]=='input':
   from tests.test_native_input_transfer import install_input_peer
   install_input_peer((app,None,None,None,None))
+ elif sys.argv[2]=='encoded-analog-input':
+  from tests.test_native_encoded_terminal_transfer import peer_for
+  peer_for((app,None,None,None,None),True)
  elif sys.argv[2]=='binary-input':
   from tests.test_native_binary_terminal_transfer import binary_peer
   binary_peer((app,None,None,None,None))
