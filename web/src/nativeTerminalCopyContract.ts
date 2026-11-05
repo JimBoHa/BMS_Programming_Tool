@@ -4,16 +4,20 @@ import {
   connectionSame as same,
   connectionSeal,
 } from "./nativeConnectionContract";
+import { terminalCopyDocumentSeals } from "./nativeTerminalTransferContract";
 
 type Data = Record<string, any>;
 export type TerminalBasis = "archive" | "effective";
 const compilerProfile = "tagged-moi-local-terminal-copy/1";
-const profile = (basis: TerminalBasis) =>
+const selectedCompiler = (encoded: boolean) =>
+  encoded ? "tagged-moi-local-terminal-copy/3" : compilerProfile;
+const profile = (basis: TerminalBasis, encoded = false) =>
   basis === "effective"
-    ? "native-effective-local-terminal-copy/1"
-    : "native-archive-local-terminal-copy/1";
-export const terminalBase = (basis: TerminalBasis) =>
+    ? `native-effective-local-terminal-copy/${encoded ? "2" : "1"}`
+    : `native-archive-local-terminal-copy/${encoded ? "2" : "1"}`;
+export const terminalBase = (basis: TerminalBasis, encoded = false) =>
   "/bacnet/controller/native-application/inputs/" +
+  (encoded ? "encoded-labels/" : "") +
   (basis === "effective" ? "effective-" : "") +
   "terminal-copy";
 const hash = (v: unknown) => typeof v === "string" && /^[a-f0-9]{64}$/.test(v);
@@ -50,11 +54,16 @@ export function terminalArchive(
   );
 }
 
-function envelope(v: Data, source: NativeArchiveSource, basis: TerminalBasis) {
+function envelope(
+  v: Data,
+  source: NativeArchiveSource,
+  basis: TerminalBasis,
+  encoded = false,
+) {
   if (
     !v ||
-    v.profile !== profile(basis) ||
-    v.compiler_profile !== compilerProfile ||
+    v.profile !== profile(basis, encoded) ||
+    v.compiler_profile !== selectedCompiler(encoded) ||
     v.source_kind !== "native-backup-archive" ||
     v.capture_id !== source.capture_id ||
     v.snapshot_sha256 !== source.snapshot_sha256 ||
@@ -99,14 +108,15 @@ export function terminalSource(
   v: Data,
   source: NativeArchiveSource,
   basis: TerminalBasis,
+  encoded = false,
 ) {
-  if (!envelope(v, source, basis)) return false;
+  if (!envelope(v, source, basis, encoded)) return false;
   const s = v.inventory,
     c = s?.controller,
     slots = s?.hardware?.capacity?.universal_inputs;
   if (
     !s ||
-    s.profile !== compilerProfile ||
+    s.profile !== selectedCompiler(encoded) ||
     typeof s.scope !== "string" ||
     s.source_sha256 !==
       (basis === "effective" ? v.effective_sha256 : source.sha256) ||
@@ -142,6 +152,13 @@ export function terminalSource(
     objects = new Set<string>(),
     occupied = new Set<number>();
   for (const p of s.inputs) {
+    if (
+      encoded &&
+      (p?.internal === true
+        ? p.device_type_character_encoding !== null
+        : ![0, 4].includes(p?.device_type_character_encoding))
+    )
+      return false;
     if (
       !p ||
       !ref(p.ref) ||
@@ -227,10 +244,12 @@ export async function terminalReview(
   request: Data,
   loaded: Data,
   basis: TerminalBasis,
+  encoded = false,
+  blob?: Blob,
 ) {
   if (
-    !terminalSource(loaded, source, basis) ||
-    !envelope(v, source, basis) ||
+    !terminalSource(loaded, source, basis, encoded) ||
+    !envelope(v, source, basis, encoded) ||
     !same(v.request, request) ||
     !hash(v.output_sha256) ||
     !hash(v.review_sha256)
@@ -264,7 +283,7 @@ export async function terminalReview(
   if (
     effective &&
     (!c ||
-      c.profile !== profile(basis) ||
+      c.profile !== profile(basis, encoded) ||
       typeof c.scope !== "string" ||
       !same(c.files, source.files) ||
       !same(c.parameter_merge, loaded.parameter_merge) ||
@@ -285,7 +304,7 @@ export async function terminalReview(
     return false;
   if (
     !edit ||
-    edit.profile !== compilerProfile ||
+    edit.profile !== selectedCompiler(encoded) ||
     typeof edit.scope !== "string" ||
     edit.source_sha256 !== loaded.inventory.source_sha256 ||
     edit.source_native_sha256 !== loaded.inventory.controller.native_sha256 ||
@@ -313,15 +332,28 @@ export async function terminalReview(
     edit.payloads.length !== 2
   )
     return false;
-  const [slot, label] = edit.payloads,
-    oldLabel = Array.from(
-      new TextEncoder().encode("\0" + row.device_type),
-      (x) => x.toString(16).padStart(2, "0"),
-    ).join(""),
-    newLabel = Array.from(
-      new TextEncoder().encode("\0" + edit.new_device_type),
-      (x) => x.toString(16).padStart(2, "0"),
+  if (
+    encoded &&
+    (edit.device_type_encoding_preserved !== true ||
+      edit.device_type_character_encoding !==
+        row.device_type_character_encoding)
+  )
+    return false;
+  const labelHex = (value: string) => {
+    if (encoded && row.device_type_character_encoding === 4)
+      return (
+        "04" +
+        Array.from(value, (c) =>
+          c.charCodeAt(0).toString(16).padStart(4, "0"),
+        ).join("")
+      );
+    return Array.from(new TextEncoder().encode("\0" + value), (x) =>
+      x.toString(16).padStart(2, "0"),
     ).join("");
+  };
+  const [slot, label] = edit.payloads,
+    oldLabel = labelHex(row.device_type),
+    newLabel = labelHex(edit.new_device_type);
   if (
     !slot ||
     !label ||
@@ -343,6 +375,8 @@ export async function terminalReview(
     )
   )
     return false;
+  if (encoded)
+    return !!blob && terminalCopyDocumentSeals({ data: v, blob }, effective);
   const { compilation_sha256, ...editBody } = edit;
   if ((await connectionSeal(editBody)) !== compilation_sha256) return false;
   if (effective) {

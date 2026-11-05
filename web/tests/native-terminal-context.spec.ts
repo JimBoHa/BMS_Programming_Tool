@@ -158,7 +158,7 @@ for (const change of ["source", "collapse", "navigation"] as const) {
     const gate = new Promise<void>((r) => (release = r)),
       arrived = new Promise<void>((r) => (seen = r));
     page.on("download", () => downloads++);
-    await page.route("**/inputs/terminal-copy/export", async (route) => {
+    await page.route("**/inputs/encoded-labels/terminal-copy/export", async (route) => {
       const response = await route.fetch();
       seen();
       await gate;
