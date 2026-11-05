@@ -24,6 +24,10 @@ HOME = re.compile(rb"(?:/Users/|/home/|[A-Za-z]:[\\/]Users[\\/])[A-Za-z0-9_.@-]+
 # matches are never exempted. UI assets and frozen app modules have no exemption.
 UPSTREAM_HOME = (
     (
+        re.compile(r"!PYZ\.pyz!_sysconfigdata__darwin_darwin$"),
+        (b"/Users/runner/work/", b"/Users/runner/hostedtoolcache/"),
+    ),
+    (
         re.compile(
             r"(?:^|/)(?:pydantic_core/[^/]+\.(?:so|pyd)|pydantic_core-[^/]+\.dist-info/sboms/pydantic-core\.cyclonedx\.json)$"
         ),

@@ -48,6 +48,7 @@ def finalize(directory, *, stable=False):
             "ui_and_metadata",
             "data_survives_restart",
             "installer_running_guard",
+            "authenticated_lan_startup",
             "installer_install",
             "installer_update",
             "app_only_removal",

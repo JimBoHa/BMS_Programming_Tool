@@ -37,7 +37,7 @@ jobs:
           npm run build
       - name: Packaging, provenance, launcher and privacy regression checks
         run: |
-          python -m pytest -q tests/test_distribution_resources.py tests/test_ui_build_provenance.py tests/test_privacy_audit.py tests/test_desktop.py tests/test_release_audit.py
+          python -m pytest -q tests/test_distribution_resources.py tests/test_ui_build_provenance.py tests/test_privacy_audit.py tests/test_desktop.py tests/test_release_audit.py tests/test_lan.py
           mkdir -p release-output/assets
           python scripts/privacy_audit.py --output release-output/assets/source-audit.json
           python scripts/build_portable.py --output release-output/assets

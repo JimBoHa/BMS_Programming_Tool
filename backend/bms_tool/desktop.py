@@ -13,6 +13,7 @@ import signal
 import socket
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import urllib.request
@@ -50,10 +51,14 @@ class Desktop:
         try:
             try_lock(self.descriptor)
         except BlockingIOError:
-            raw = os.read(self.descriptor, 4096)
             os.close(self.descriptor)
             self.descriptor = None
             try:
+                record_descriptor = open_regular(self.directory / "desktop-session.json")
+                try:
+                    raw = os.read(record_descriptor, 4096)
+                finally:
+                    os.close(record_descriptor)
                 record = json.loads(raw)
                 port = record["port"]
                 if type(port) is not int or not 1 <= port <= 65535:
@@ -131,10 +136,20 @@ class Desktop:
                     raise RuntimeError("The local editor did not start. See logs/desktop.log.")
                 time.sleep(0.05)
             # Publish only after readiness; stale records do not prove ownership.
-            os.ftruncate(self.descriptor, 0)
-            os.lseek(self.descriptor, 0, os.SEEK_SET)
-            os.write(self.descriptor, json.dumps(record).encode())
-            os.fsync(self.descriptor)
+            # Windows byte-range ownership prevents other processes reading the
+            # locked byte. Keep the persistent lock inode separate from the
+            # atomically replaced, independently verified readiness record.
+            with tempfile.NamedTemporaryFile(
+                dir=self.directory, prefix=".desktop-session-", delete=False
+            ) as ready:
+                temporary_record = Path(ready.name)
+                ready.write(json.dumps(record).encode())
+                ready.flush()
+                os.fsync(ready.fileno())
+            try:
+                os.replace(temporary_record, self.directory / "desktop-session.json")
+            finally:
+                temporary_record.unlink(missing_ok=True)
             return self.url
         except BaseException:
             self.close()
@@ -178,7 +193,7 @@ def open_folder(directory):
         subprocess.Popen(["xdg-open", str(directory)])
 
 
-def window(desktop):
+def window(desktop, sharing=None):
     import tkinter as tk
     from tkinter import messagebox, ttk
 
@@ -190,6 +205,10 @@ def window(desktop):
     ttk.Label(frame, text="BMS Studio", font=("Helvetica", 22, "bold")).grid(sticky="w")
     ttk.Label(frame, text=f"Beta {__version__} · Local editor ready").grid(sticky="w", pady=(8, 4))
     ttk.Label(frame, text=desktop.url).grid(sticky="w", pady=(0, 16))
+    if sharing is not None:
+        ttk.Label(frame, text="Authenticated LAN access: " + sharing.config.url).grid(
+            sticky="w", pady=(0, 8)
+        )
     ttk.Button(frame, text="Open editor", command=lambda: webbrowser.open(desktop.url)).grid(
         sticky="ew"
     )
@@ -222,6 +241,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--version", action="version", version=__version__)
     parser.add_argument("--data", type=Path)
+    parser.add_argument("--share-config", type=Path, help="Private authenticated LAN configuration")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--no-browser", action="store_true")
     parser.add_argument("--headless", action="store_true", help="Run without the launcher window")
@@ -255,8 +275,16 @@ def main():
     if sys.stderr is None:
         sys.stderr = open(os.devnull, "w")
     desktop = Desktop(directory, args.port)
+    sharing = None
     try:
         desktop.start()
+        if args.share_config:
+            if desktop.reused:
+                raise RuntimeError("Quit the existing editor before starting it with LAN sharing.")
+            from .lan import LANConfig, LANServer
+
+            sharing = LANServer(LANConfig.load(args.share_config), desktop.url)
+            sharing.start()
         logging.info("BMS Studio %s ready at %s", __version__, desktop.url)
         if not args.no_browser:
             webbrowser.open(desktop.url)
@@ -269,7 +297,7 @@ def main():
             while desktop.thread.is_alive() and not stop.wait(0.2):
                 pass
         else:
-            window(desktop)
+            window(desktop, sharing)
     except Exception as exc:
         logging.exception("Desktop startup or shutdown failed")
         if args.headless:
@@ -283,6 +311,8 @@ def main():
         root.destroy()
         raise SystemExit(1) from exc
     finally:
+        if sharing is not None:
+            sharing.close()
         desktop.close()
 
 

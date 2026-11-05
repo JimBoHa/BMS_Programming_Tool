@@ -96,6 +96,12 @@ source and operation before preparing a field change.
 
 ## Data, logs, updates and removal
 
+For optional access by other authorized operators on a trusted LAN, see
+[LAN access setup](lan-access.md). Sharing requires a private configuration and
+access code, restricts client networks/Host/Origin and keeps the editor's normal
+session-token, review, backup and readback checks. LAN operators share the same
+backend, field interface and recovery records; coordinate field work.
+
 | System | Installed application's data folder |
 | --- | --- |
 | macOS | `~/Library/Application Support/BMS Studio` |

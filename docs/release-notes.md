@@ -6,6 +6,9 @@ The desktop downloads include Python, runtime dependencies and the web UI.
 
 - A local launcher waits for readiness, reopens a verified running instance,
   handles an occupied port and provides Open editor, Open logs and guarded Quit.
+- Optional authenticated LAN sharing restricts the configured client subnet,
+  Host and Origin while retaining the existing loopback editor and field guards.
+  Addresses, access codes and startup configuration remain private runtime data.
 - Guided connection discovers named NAEs/routers, selects reported/cached trunks,
   scans named controllers and verifies the selected route before opening it.
 - Current source documentation removes field names/topology and obsolete setup

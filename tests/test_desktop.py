@@ -40,7 +40,7 @@ def test_ready_server_occupied_port_verified_reuse_and_closed_field_interfaces(d
 
 def test_changed_lock_identity_cannot_open_an_unverified_server(desktop):
     desktop.start()
-    path = desktop.directory / "desktop.lock"
+    path = desktop.directory / "desktop-session.json"
     original = path.read_bytes()
     record = json.loads(original)
     record["instance"] = "different-owner"
@@ -57,7 +57,7 @@ def test_changed_lock_identity_cannot_open_an_unverified_server(desktop):
 
 def test_stale_record_is_replaced_only_under_owned_lock(desktop):
     desktop.directory.mkdir(parents=True)
-    (desktop.directory / "desktop.lock").write_text('{"port":1,"instance":"stale"}')
+    (desktop.directory / "desktop-session.json").write_text('{"port":1,"instance":"stale"}')
     url = desktop.start()
     assert local_json(url + "/api/desktop/identity")["instance"] == desktop.identity
     desktop.close()
