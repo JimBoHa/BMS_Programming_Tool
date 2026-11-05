@@ -106,6 +106,10 @@ class DeviceDetailsRequest(StrictModel):
         return self
 
 
+class DeviceNameRequest(DeviceDetailsRequest):
+    timeout_seconds: float = Field(default=6.0, ge=1, le=6, strict=True)
+
+
 class _InterfaceChanged(ValueError):
     pass
 
@@ -399,7 +403,7 @@ class DeviceDetails:
 
     async def read_name(self, **arguments):
         """Read a scan label without waiting for optional metadata or program inventory."""
-        options = DeviceDetailsRequest(**arguments)
+        options = DeviceNameRequest(**arguments)
         self.bacnet.require()
         result = {
             "profile": "bacnet-device-name/1",
@@ -419,7 +423,7 @@ class DeviceDetails:
         session = None
         prop = "object-identifier"
         try:
-            async with asyncio.timeout(min(self.operation_timeout, 6.0)):
+            async with asyncio.timeout(min(self.operation_timeout, options.timeout_seconds)):
                 async with self._path(options) as session:
                     result["connector_config"] = session["config"]
                     expected = ObjectIdentifier(options.device)

@@ -21,7 +21,7 @@ reference material. Opening the start screen does not open a field interface.
    An open interface alone is not a verified controller.
    Scan results read each responding controller's BACnet Device object-name and
    show that name beside its address and instance. Search by a name such as
-   TB-3-201 or HP-3A. Names arrive sequentially for all returned controllers,
+   Example VAV-01 or Example HP-01. Names arrive sequentially for all returned controllers,
    without waiting for program inventories or browsing through pages. Failed
    lookups display Name unavailable and can be retried. The name read verifies
    the exact Device identity and route; it does not merge duplicate Device IDs.

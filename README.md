@@ -1,6 +1,6 @@
 # BMS Studio
 
-A local graphical control editor, deterministic simulator, format workbench, and BACnet/Modbus commissioning application with optional alarm webhooks. This repository is a **development build**, not a complete universal replacement for CCT, PCT, EIKON, Spyder, or Niagara Workbench.
+A local graphical control editor, deterministic simulator, format workbench, and BACnet/Modbus commissioning application with optional alarm webhooks. This release is a **beta**, not a complete universal replacement for CCT, PCT, EIKON, Spyder, or Niagara Workbench.
 
 The implementation creates and executes **our own control graphs**, compiles them into real Sedona kits/SAX/SAB/SCode and Temco Control Basic bytecode, and compares native interpreter outputs with the graph engine. It imports defined subsets of foreign Sedona, Niagara BOG and Control Basic applications with conversion reports. It inspects real Johnson Controls CAFs and supports loss-preserving scalar edits and guarded native wiring changes. A separate Temco adapter performs native BACnet program-slot transfer and readback against isolated UDP/routed emulators; physical execution is unverified.
 
@@ -15,7 +15,15 @@ acceptance remains separately scoped. General JCI native logic creation,
 hardware allocation, cross-release compilation and unrestricted cross-brand
 deployment remain incomplete. See [JCI operation coverage](docs/jci-operation-coverage.md).
 
-## Run locally
+## Install and start
+
+Download the platform-specific beta installer from [GitHub Releases](https://github.com/JimBoHa/BMS_Programming_Tool/releases).
+The bundled desktop application includes Python and the web UI; recipients do not
+need Python or Node.js. See the [illustrated getting-started guide](docs/getting-started.md)
+for installation, connection, offline work, logs and removal. Check the signing
+status and tested platforms in each release before installing.
+
+## Run from source
 
 The interface starts with **Connect to a controller** or **Open a CAF file**.
 See [Using the controller workspace](docs/controller-workspace.md) for discovery,
@@ -24,7 +32,7 @@ The [device-driven architecture](docs/device-workspace-architecture.md) describe
 model-independent inventory, live point reads, exposed I/O groups and the separate
 native application adapter boundary.
 
-Requirements: Python 3.11+ (3.13 recommended) and Node.js 22.12+ to build the UI. The already configured workspace has a virtual environment and built UI assets. On that Mac, double-click `Launch BMS Studio.command`, then open <http://127.0.0.1:8765>.
+Requirements: Python 3.11+ (3.13 recommended) and Node.js 22.12+ to build the UI. The source-only `Launch BMS Studio.command` expects a configured local virtual environment. Use the bundled desktop application for installation on another computer.
 
 From a fresh source checkout:
 
@@ -167,7 +175,7 @@ The upstream broad test harness contains `AppTest.verifyCallbacks` assertions th
 - An offline CAF patch is not vendor compiler validation. Open the edited copy in matching licensed CCT/PCT, verify its resource/package compatibility, and compare its behavior before a field download.
 - Selecting a controller model records intent. It does not make our generic graph executable on that controller. Hardware capacity, execution semantics, firmware and native download protocols still apply.
 - Generic Bluetooth/USB serial access is not BTCVT support. The direct MS/TP master is tested through pseudoterminals; physical bus timing and adapters remain unverified. BACnet/SC, IPv6 BVLL, extended MS/TP frames and BTCVT native transports remain outside the implemented profile. Bluetooth configuration is excluded from the requested verification pass; the original BTCVT implementation requirement remains incomplete.
-- Standard BACnet point services do not create a physical sensor input or modify a CAF application. The approved Tailscale subnet route reaches both E2/F2 NAEs. Authorized read-only BACnet checks identified both engines and genuine downstream VMA controllers on four trunks and read values. No controller changes occurred. Routed point reads do not establish native CAF upload/download, controller application compatibility or the unused-input sensor test; those remain unverified. Detailed site results and current test counts are tracked in the separate validation evidence.
+- Standard BACnet point services do not create a physical sensor input or modify a CAF application. Native operations use separately qualified source-bound adapters and preservation checks; see [JCI operation coverage](docs/jci-operation-coverage.md). Readable points or opaque File copies do not establish support for arbitrary application allocation, compilation or physical input testing.
 - Simulation holds prior outputs after a failed scan and stops continuous sandbox execution. No physical output driver or independent failsafe is implemented. Do not use this development runtime for unattended equipment control.
 
 ## Interchange semantics
@@ -216,9 +224,15 @@ BMS_TEST_CAF_DIR='/path/to/authorized/CAF files' .venv/bin/pytest -q
 
 Automated protocol tests use loopback UDP/TCP, test-owned pseudoterminals and a virtual BACnet data link for routed NPDU tests. Webhook tests use local receivers. These tests do not scan the building network or prove physical MS/TP timing; the separate authorized site checks are described above. Bluetooth is excluded. See [validation results](docs/VALIDATION.md).
 
-## Remaining work before the requested final push
+## Release scope
 
-Proprietary JCI/ALC/Honeywell encoders/compilers, full native imports/conversions, JCI/ALC/Honeywell field application download/online modification, direct physical USB/RS485 timing, E2/F2 native application transfer and the unused-input test, certified sequences, proprietary history adapters and physical target packaging remain incomplete. Routed VMA identity/point reads and opaque File copies do not close those native programming gaps. BTCVT Bluetooth remains unimplemented and excluded from current testing. Optional standard HTTP(S) delivery is implemented for recorded simulation alarms; native controller alarm acquisition, email and human-receipt confirmation remain outside that profile. The Windows VM's installed-program registry and vendor application directories were inspected: CCT/PCT was not present in that inventory. The VM was shut down after the check. Matching licensed JCI tooling/controller packages or authoritative independent format/compiler/protocol specifications are still needed for verified FX/VMA application support. The [additional native-toolchain investigation](docs/jci-native-research-2026-10-19.md) identifies the missing dependencies and distinguishes CAF release mode from firmware. The user's instruction was to push after every requested feature works; this development build has not been pushed as a finished universal tool.
+The beta supports the documented operation profiles, not arbitrary cross-brand
+application deployment. See the [capability matrix and illustrated setup guide](docs/getting-started.md),
+[JCI operation coverage](docs/jci-operation-coverage.md) and
+[release verification and signing](docs/releases.md). Optional native compilers,
+controller packages, licenses and adapter drivers remain separate. Physical
+acceptance applies only to the target and operation explicitly qualified; software
+peer tests do not establish acceptance on other controllers.
 
 ## License
 

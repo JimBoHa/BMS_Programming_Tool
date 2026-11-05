@@ -172,7 +172,7 @@
   {
     "feature": "BACnet/IP-to-MS/TP router paths",
     "status": "partial",
-    "scope": "Explicit router IP plus DNET/MAC addressing, selected-network discovery and bounded wildcard identity probes. Actual local routed NPDU read/command/release tests use an IP-to-virtual-data-link surrogate. Authorized read-only site checks through the approved Tailscale route identified genuine VMAs and read values on four downstream trunks under E2/F2. Native application upload/download, unused-input changes, direct physical RS485 timing and field writes remain unverified; detailed site results are separate."
+    "scope": "Explicit router IP plus DNET/MAC addressing, selected-network discovery and bounded wildcard identity probes. Actual local routed NPDU read/command/release tests use an IP-to-virtual-data-link surrogate. Authorized read-only site checks through the approved Tailscale route identified genuine VMAs and read values through selected engine routes. Native application upload/download, unused-input changes, direct physical RS485 timing and field writes remain unverified; detailed site results are separate."
   },
   {
     "feature": "Ethernet and USB serial",
@@ -190,9 +190,9 @@
     "scope": "Graph replacement with state retention and rollback in our sandbox. Real Sox add/write/link/unlink/delete in an owned native SVM; shadow-VM preflight, configuration conflict checks, compensating rollback, persistent project save/export and value/link readback. Proprietary controller application changes remain pending. Temco slot replacement/restore uses actual private-transfer bytes, durable backup/intent and readback, with compensating recovery; it stops the slot and is not an atomic online edit. Physical hardware remains unverified."
   },
   {
-    "feature": "E2/F2 unused-input sensor test",
+    "feature": "Physical unused-input sensor test",
     "status": "pending",
-    "scope": "The approved Tailscale route reaches both NAEs; read-only checks identified genuine downstream VMAs and read values on four trunks. No controller changes occurred. The physical sensor test still requires a verified native application adapter, exact target/unused terminal, original backup and verified restoration. Point commands, inventories and opaque File copies cannot allocate a new native input."
+    "scope": "The approved Tailscale route reaches both NAEs; read-only checks identified genuine downstream VMAs and read values through selected routes. No controller changes occurred. The physical sensor test still requires a verified native application adapter, exact target/unused terminal, original backup and verified restoration. Point commands, inventories and opaque File copies cannot allocate a new native input."
   },
   {
     "feature": "2025 Title 24 / Guideline 36 applications",

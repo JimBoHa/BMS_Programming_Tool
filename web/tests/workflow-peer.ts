@@ -35,7 +35,7 @@ async def main():
   peer.devices=[(132007,b'\\x07',2105)]
  else:
   network=int(sys.argv[1])
-  names={(network,7):'TB-3-201',(network,8):'HP-3A'} if sys.argv[4]=='named' else {}
+  names={(network,7):'Example VAV-01',(network,8):'Example HP-01'} if sys.argv[4]=='named' else {}
   peer=GuidedRouter(network,stations=tuple(range(7,7+int(sys.argv[3]))),names=names)
  transport,_=await asyncio.get_running_loop().create_datagram_endpoint(lambda:peer,local_addr=('127.0.0.1',0))
  print(peer.endpoint,flush=True)

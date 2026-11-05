@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-05. Implementation baseline: GitHub `main` at
-[`09fcdd66`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/09fcdd66689183cd5609ad76bf288e94d6216ccd).
+[`b6e7fbaa`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/b6e7fbaafbf0ecc3b65e92b5e5b02fe1fc5ba8bd).
 
 ## Baseline and purpose
 
@@ -1729,6 +1729,21 @@ Next, qualify further typed Device Reference and host-specific reassignment sema
 against actual source evidence. General allocation/electrical changes, SA/cross-host
 writes, resources/packages and CCT/physical/BTCVT acceptance remain separate. IO-02/
 JCI-09 remain partial. See [saved archive reanalysis](docs/saved-hardware-reanalysis.md).
+## 2026-11-05 UX-03 delivery: guided engine and trunk discovery
+
+Connection setup now offers observed computer networks without requiring a bind
+address to be known. The existing discovery task combines router advertisements
+with ordinary BACnet/IP responders, reads engine names and loads the selected
+engine's networks, retaining the cached-binding fallback. It guides focus from
+engine to network to scanned controller and keeps numeric/protocol controls in
+Advanced. No top-level feature destination or model-based inventory is introduced.
+
+IP responders remain candidates; reported network identities, current-response
+limits and cached provenance remain explicit. Fresh names are bound to actual
+identity and interface evidence. Connection changes and reopen retire late replies.
+Authored HTTP/UDP workflows and private field reads qualify this discovery slice;
+controller writers and transport authority are unchanged. See
+[the guided connection scope](docs/guided-controller-discovery.md).
 
 ## 2026-11-05 IO-02/JCI-09 delivery: encoded analog terminal transfer backend
 

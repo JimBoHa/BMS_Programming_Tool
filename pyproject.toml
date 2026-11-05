@@ -4,14 +4,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bms-programming-tool"
-version = "0.1.0"
+version = "0.2.0b1"
 description = "Local building-control graph editor, simulator, format adapters, and commissioning tools"
 license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE", "third_party/*"]
 requires-python = ">=3.11"
 dependencies = [
   "fastapi==0.146.0", "uvicorn==0.54.0", "pydantic==2.14.1",
   "python-multipart==0.0.32", "defusedxml==0.7.1", "bacpypes3==0.0.110",
-  "pyserial==3.5", "httpx==0.28.1", "ifaddr==0.2.0", "tzdata==2026.5"
+  "pyserial==3.5", "httpx==0.28.1", "ifaddr==0.2.0", "tzdata==2026.5",
+  "colorama==0.4.6"
 ]
 
 [project.optional-dependencies]
@@ -20,12 +22,14 @@ dev = ["ruff==0.17.1", "lxml==6.1.3", "pip-audit==2.10.1"]
 
 [project.scripts]
 bms-tool = "bms_tool.__main__:main"
+bms-studio = "bms_tool.desktop:main"
+bms-share = "bms_tool.lan:main"
 
 [tool.setuptools.packages.find]
 where = ["backend"]
 
 [tool.setuptools.package-data]
-bms_tool = ["data/*.json", "data/cafReferenceLabels-LICENSE.txt", "data/cafReferenceLabels-NOTICE.txt", "data/app_docs/*.json", "sedona_bridge/*.java", "web_assets/*", "web_assets/assets/*"]
+bms_tool = ["data/*.json", "data/cafReferenceLabels-LICENSE.txt", "data/cafReferenceLabels-NOTICE.txt", "data/app_docs/*.json", "data/legal/*", "data/legal/third_party/*", "sedona_bridge/*.java", "web_assets/*", "web_assets/assets/*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["backend"]

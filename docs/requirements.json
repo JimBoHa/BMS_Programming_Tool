@@ -390,7 +390,7 @@
     "id": "IO-001",
     "feature": "Physical input configuration",
     "acceptance_criterion": "Add a real unused sensor terminal and verify reliability/open-circuit on the target.",
-    "evidence": "User-authorized E2/F2 test",
+    "evidence": "Authorized field evidence (private)",
     "pdf_pages_or_section": "Read-only NAE and downstream VMA identity/value access through approved Tailscale subnet route",
     "status": "pending",
     "implementation_or_gap": "Historical read-only surveys, saved archive correlation, candidate spare/voltage/relocation plans and guarded offline CAF terminal edits support engineering. Native I/O allocation and full compile/transfer for an input change, exact terminal/electrical suitability, backup/restoration and the physical unused-input/open-circuit test remain required. Existing native instance/name transfer does not allocate an input. See docs/jci-operation-coverage.md."

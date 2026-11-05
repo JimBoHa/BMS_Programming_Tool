@@ -1,5 +1,10 @@
 # Explicit BACnet/IP routed-network discovery
 
+The guided entry now combines router advertisements with BACnet/IP device
+discovery, reads engine names and loads an engine's networks in the same task.
+See [the guided connection flow](guided-controller-discovery.md). The protocol
+scopes and explicit requests below remain in effect.
+
 The routed discovery service queries one selected IPv4 router and, in a separate
 action, one selected BACnet destination network. It uses the already connected
 BACnet interface. Opening this workspace does not connect an interface, discover
@@ -7,12 +12,14 @@ devices, poll a trunk, subscribe to changes or write controller properties.
 
 ## Workflow and API
 
-The web UI offers **Router → Trunk / BACnet network → Controller** selectors.
-**Find local routers** fills the router list; choosing one queries its advertised
-networks. Choose a network, scan it, then **Modify selected controller** to fill
-the exact commissioning target below. Names reuse verified metadata from the
-shared Scan inventory. No write occurs when choosing a router, trunk or controller.
-Changing upstream selections clears the old controller and instance-change review.
+The web UI offers **Computer network → Find NAEs & routers → Trunk / BACnet
+network → Scan controllers → Open controller**. Engine discovery combines the
+router-advertisement service below with the existing BACnet/IP discovery service,
+then reads source-verified engine names in the same task. Choosing an engine reads
+its reported or cached networks. A scan selection becomes a controller workspace
+only after fresh identity verification. Upstream choices retire the old scan's
+selection; opening a different controller retires its prior field reviews.
+Discovery and selection do not write controller configuration.
 
 `POST /api/bacnet/discover-routers` sends one local-subnet
 Who-Is-Router-To-Network broadcast on an already open plain BACnet/IPv4 interface:

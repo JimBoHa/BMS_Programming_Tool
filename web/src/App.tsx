@@ -1,3 +1,4 @@
+import { version as appVersion } from "../package.json";
 import {
   parseSourceDocument,
   sourceStringify,
@@ -2714,7 +2715,7 @@ export function App() {
             Saved {lastSaved.name} · r{lastSaved.revision}
           </span>
         )}
-        <span>BMS Studio 0.1 · Development build</span>
+        <span>BMS Studio {appVersion} · Beta</span>
       </footer>
       {message && (
         <div className="toast" role="status">
