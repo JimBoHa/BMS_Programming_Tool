@@ -1682,3 +1682,29 @@ Next, qualify further host-specific reassignment and SA host evidence. Binary
 allocation/electrical changes, SA/IOM/cross-host movement, resource/packages and
 CCT/physical/BTCVT acceptance remain separate. JCI-01/IO-02/JCI-09 remain partial.
 See [binary terminal support](docs/native-binary-terminal-capabilities.md).
+
+## 2026-11-05 IO-02 delivery: captured hardware host evidence
+
+`IO-NATIVE-HOST-EVIDENCE-001` corrects host resolution for new MOI/CAF analyses.
+Controller-root input references coexist with SA modules and cannot establish a
+local terminal assignment. Unknown hosts keep original point/configuration/raw
+record evidence, mark inventory incomplete and leave candidate spares unverified.
+Unique explicit module addresses and unique module-parent references remain usable;
+conflicts, duplicates, orphan/unsupported addresses and unqualified Device Reference
+properties cannot become local assignments or enable relocation review.
+
+The existing hardware workbench presents these results within Points & I/O,
+including disconnected entry for local archive/report inspection. Field actions
+retain their connection guards; current CAF/graph context remains.
+Configured module evidence, original source downloads and supported survey paths
+remain available. Existing positive fixtures now carry explicit module references;
+the original ambiguous root form is retained as a regression case. All field
+readers, native compilers/writers, recovery and journals stay separate. Compact
+input tables use contained scrolling and readable columns within the existing
+teal/neutral workspace. Source archives and original uncommitted work remain intact.
+
+Next, add explicit saved-archive reanalysis against retained source bytes, then
+qualify further typed Device Reference and host-specific reassignment semantics.
+Historical stored reports are not silently rewritten. SA/IOM/cross-host writes,
+resources/packages and CCT/physical/BTCVT acceptance remain separate. IO-02/JCI-09
+remain partial. See [captured host evidence](docs/native-hardware-host-evidence.md).

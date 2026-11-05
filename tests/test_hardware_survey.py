@@ -46,7 +46,7 @@ def native_record(cid, instance, props):
     )
 
 
-def authored_archive():
+def authored_archive(*, root_input_ref=False):
     root = "8-1"
     module = root + "/307_1.598_2"
     binary = root + "/307_1.598_3"
@@ -102,7 +102,7 @@ def authored_archive():
                     (31, CharacterString("UI IN1")),
                     (519, Unsigned(1)),
                     (518, Enumerated(2)),
-                    (32527, CharacterString(root + "/0_56")),
+                    (32527, CharacterString(root + "/0_56" if root_input_ref else module + ".0_56")),
                 ],
             ),
         ]

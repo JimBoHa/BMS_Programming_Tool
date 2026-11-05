@@ -52,6 +52,7 @@ from .bacnet_exchange import confirmed_exchange
 from .bacnet_values import json_value
 from .device_details import DeviceDetails
 from .hardware_target import HardwareTargetRequest, serial_identity
+from .native_hardware_hosts import input_host
 
 PROFILE = "bacnet-hardware-survey/1"
 ARCHIVE_PROFILE = "jci-moi-hardware-evidence/1"
@@ -1244,7 +1245,8 @@ def analyze_archive(data: bytes, filename: str = "Archive.moi"):
     else:
         records, result["errors"] = _native_records(data)
     result["native_records"] = records
-    modules_by_ref, base_records = {}, []
+    base_records = []
+    sa_records_present = any(r["native_class_id"] in (598, 910) for r in records)
     for record in records:
         props = {
             p["id"]: p["scalar"]["value"]
@@ -1289,8 +1291,6 @@ def analyze_archive(data: bytes, filename: str = "Archive.moi"):
             "installed_model_verified": False,
         }
         result["modules"].append(module)
-        if isinstance(props.get(32527), str):
-            modules_by_ref[props[32527]] = module
     if len(base_records) == 1:
         props = base_records[0]
         result["identity"] = {
@@ -1317,45 +1317,15 @@ def analyze_archive(data: bytes, filename: str = "Archive.moi"):
         ):
             continue
         kind, slot = _terminal(props.get(31), props.get(519))
-        host = {"kind": "unknown"}
-        matches = [
-            module
-            for ref, module in modules_by_ref.items()
-            if isinstance(reference, str) and reference.startswith(ref + ".")
-        ]
-        if len(matches) == 1:
-            host = {
-                "kind": "sa",
-                "sa_mac": matches[0]["sa_mac"],
-                "evidence": "Native point item-reference beneath configured module",
-            }
-        elif isinstance(reference, str) and isinstance(
-            result["identity"].get("item_reference"), str
-        ):
-            root = result["identity"]["item_reference"]
-            if re.fullmatch(re.escape(root) + r"/[0-9]+_[0-9]+", reference):
-                host = {
-                    "kind": "local-configured",
-                    "sa_mac": None,
-                    "evidence": "Native point item-reference directly beneath controller",
-                }
-        explicit_mac = props.get(3645)
-        if type(explicit_mac) is int and 1 <= explicit_mac <= 254:
-            if host["kind"] in {"sa", "local-configured"} and host.get("sa_mac") != explicit_mac:
-                result["errors"].append(
-                    {
-                        "offset": record["offset"],
-                        "object": obj,
-                        "error": "Explicit SA address conflicts with native parent assignment.",
-                    }
-                )
-                host = {"kind": "unknown"}
-            else:
-                host = {
-                    "kind": "sa",
-                    "sa_mac": explicit_mac,
-                    "evidence": "Explicit native SA Bus MAC Address property 3645",
-                }
+        host, host_error = input_host(
+            props,
+            {p["id"] for p in record["selected_properties"]},
+            result["modules"],
+            result["identity"].get("item_reference"),
+            sa_records_present=sa_records_present,
+        )
+        if host_error:
+            result["errors"].append({"offset": record["offset"], "object": obj, "error": host_error})
         result["inputs"].append(
             {
                 "object": obj,
@@ -1370,7 +1340,7 @@ def analyze_archive(data: bytes, filename: str = "Archive.moi"):
                 "item_reference": reference,
                 "native_class_id": record["native_class_id"],
                 "record_sha256": record["record_sha256"],
-                "errors": [],
+                "errors": [{"error": host_error}] if host_error else [],
             }
         )
     if len({m["sa_mac"] for m in result["modules"]}) != len(result["modules"]):
