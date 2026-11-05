@@ -94,7 +94,7 @@ class InputConfiguration(StrictModel):
 
 
 class InputEdit(StrictModel):
-    action: Literal["allocate", "mode", "remove-allocated", "terminal", "binary-terminal"]
+    action: Literal["allocate", "mode", "remove-allocated", "terminal", "binary-terminal", "encoded-terminal"]
     object_instance: int = Field(**UINT)
     slot: int = Field(ge=1, le=255, strict=True)
     configuration_sha256: str | None = Field(default=None, pattern=HASH)
@@ -127,7 +127,7 @@ class InputEdit(StrictModel):
                 raise ValueError(
                     "Mode editing requires the captured configuration and its proposed replacement."
                 )
-        elif self.action in {"terminal", "binary-terminal"}:
+        elif self.action in {"terminal", "binary-terminal", "encoded-terminal"}:
             if (
                 self.configuration_sha256 is None
                 or self.configuration is not None
@@ -150,6 +150,10 @@ class InputEdit(StrictModel):
 
 
 def input_operation_profile(edit):
+    if InputEdit.model_validate(edit).action == "encoded-terminal":
+        from .native_encoded_terminal_input import PROFILE as ENCODED_TERMINAL_PROFILE
+
+        return ENCODED_TERMINAL_PROFILE
     if InputEdit.model_validate(edit).action == "binary-terminal":
         from .native_binary_terminal import PROFILE as BINARY_TERMINAL_PROFILE
 
@@ -391,6 +395,12 @@ class NativeInputCompiler:
 
     def compile(self, edit, *, allocation_origin=None):
         edit = InputEdit.model_validate(edit)
+        if edit.action == "encoded-terminal":
+            from .native_encoded_terminal_input import EncodedAnalogTerminalCompiler
+
+            if allocation_origin is not None:
+                raise ValueError("Encoded analog movement has no allocation/removal authority.")
+            return EncodedAnalogTerminalCompiler(self).compile(edit)
         if edit.action == "binary-terminal":
             from .native_binary_terminal import BinaryTerminalCompiler
 
@@ -593,6 +603,13 @@ def verify_input_preservation(before, after, edit, *, allocation_origin=None):
     post = ParameterApplication(after[3], after[11], after[12])
     current_archive, current_report = post.compile()
     current_app = MoiIdentity(current_archive)
+    if edit.action == "encoded-terminal":
+        from .native_encoded_terminal_input import configuration as encoded_configuration
+
+        selected = current_app.reader.records.get(report["record_ref"])
+        if selected is None:
+            raise ValueError("The encoded analog reference is absent from saved readback.")
+        encoded_configuration(current_app, selected)
     if edit.action == "binary-terminal":
         from .native_binary_terminal import configuration
 
@@ -653,7 +670,7 @@ def verify_input_preservation(before, after, edit, *, allocation_origin=None):
 
     current, counters, calculated = runtime_parameter_changes(observed, ClassifiedPost())
     return {
-        "profile": input_operation_profile(edit) if edit.action == "binary-terminal" else PROFILE,
+        "profile": input_operation_profile(edit) if edit.action in {"binary-terminal", "encoded-terminal"} else PROFILE,
         "identity_unchanged": True,
         "other_configuration_preserved": True,
         "selected_edit": report["input_edit"],
