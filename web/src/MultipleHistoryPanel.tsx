@@ -1,3 +1,4 @@
+import { randomUUID } from "./browserCrypto";
 import { useEffect, useRef, useState } from "react";
 import { api, saveBlob, type JsonDocument } from "./api";
 import { historyEvidence, historyVisible } from "./historyEvidence";
@@ -108,7 +109,7 @@ export function MultipleHistoryPanel({
   async function read(continuation = false) {
     if (busy || operation.current) return;
     const generation = ++epoch.current,
-      identifier = crypto.randomUUID().replaceAll("-", "");
+      identifier = randomUUID().replaceAll("-", "");
     operation.current = identifier;
     setBusy(true);
     setError("");

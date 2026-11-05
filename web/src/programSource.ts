@@ -1,3 +1,4 @@
+import { sha256Digest } from "./browserCrypto";
 import type { Program } from "./types";
 
 /** Program source values are not JavaScript Numbers: their JSON token is identity. */
@@ -318,9 +319,7 @@ export function sourceEqual(a: any, b: any): boolean {
 }
 async function sha256(text: string) {
   return Array.from(
-    new Uint8Array(
-      await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)),
-    ),
+    new Uint8Array(await sha256Digest(new TextEncoder().encode(text))),
     (b) => b.toString(16).padStart(2, "0"),
   ).join("");
 }

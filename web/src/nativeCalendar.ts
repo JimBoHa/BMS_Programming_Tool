@@ -1,3 +1,4 @@
+import { randomUUID } from "./browserCrypto";
 export const CALENDAR_PROFILE = "native-calendar-date-list-draft/1";
 export const CALENDAR_RULES =
   "b5070ff4633fbf3f11ea9abac9ac9ee8b646f05d94a41e4f39ed353334e5fd69";
@@ -123,7 +124,7 @@ export function blankCalendarRow(
   kind: CalendarEntry["kind"] = "date",
 ): CalendarRow {
   return {
-    key: crypto.randomUUID(),
+    key: randomUUID(),
     kind,
     date: ["", "", "", "*"],
     start: ["", "", "", "*"],

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bms-programming-tool"
-version = "0.2.0b1"
+version = "0.2.0b2"
 description = "Local building-control graph editor, simulator, format adapters, and commissioning tools"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE", "third_party/*"]

@@ -47,6 +47,14 @@ bypass admission, and gateway credentials never reach the local editor. Original
 session-token and field-operation checks remain in force. Operators share one
 backend/interface/recovery store rather than independent per-user field sessions.
 
+Ordinary LAN HTTP is supported even when the browser does not expose the
+secure-context-only `crypto.subtle` and `crypto.randomUUID` APIs. The editor uses
+local SHA-256 hashing and secure random bytes for UUIDs in that case. Source,
+profile and downloaded-evidence hash checks still run; controller review and
+write admission remain unchanged. A browser without secure random bytes refuses
+operations that require new identifiers. HTTPS and loopback continue using the
+native APIs when available.
+
 HTTP Basic authentication does not encrypt traffic. Use HTTP sharing only on a
 trusted LAN; use a TLS reverse proxy or secure VPN for untrusted transport.
 Restrict the OS firewall to the intended network/port. Installation does not

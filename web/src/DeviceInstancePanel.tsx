@@ -1,3 +1,4 @@
+import { randomUUID } from "./browserCrypto";
 import { NativeInstancePanel } from "./NativeInstancePanel";
 import { TargetFields } from "./ControllerWorkspace";
 import { useEffect, useRef, useState } from "react";
@@ -208,7 +209,7 @@ function StandardInstancePanel({
   async function run(kind: "preview" | "apply" | "readback") {
     if (operation.current || parentBusy || !connected) return;
     if (kind !== "readback" && !targetReady) return;
-    const id = "instance-" + crypto.randomUUID();
+    const id = "instance-" + randomUUID();
     operation.current = id;
     const epoch = generation.current;
     setBusy(true);

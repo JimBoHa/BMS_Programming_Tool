@@ -1,9 +1,10 @@
+import { randomUUID } from "./browserCrypto";
 import { useEffect, useRef, useState } from "react";
 import { api, download } from "./api";
 import "./bus-preflight.css";
 
 type Data = Record<string, any>;
-const key = () => crypto.randomUUID();
+const key = () => randomUUID();
 const blankBus = () => ({
   id: key(),
   name: "Physical bus",

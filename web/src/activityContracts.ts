@@ -1,3 +1,4 @@
+import { sha256Digest } from "./browserCrypto";
 import { isSourceNumber, numericToken, sourceEqual } from "./programSource";
 import type { Block, Program } from "./types";
 
@@ -77,17 +78,13 @@ export const matchesBlock = (
 
 export async function sha256Text(text: string) {
   return Array.from(
-    new Uint8Array(
-      await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)),
-    ),
+    new Uint8Array(await sha256Digest(new TextEncoder().encode(text))),
     (value) => value.toString(16).padStart(2, "0"),
   ).join("");
 }
 export async function sha256Blob(blob: Blob) {
   return Array.from(
-    new Uint8Array(
-      await crypto.subtle.digest("SHA-256", await blob.arrayBuffer()),
-    ),
+    new Uint8Array(await sha256Digest(await blob.arrayBuffer())),
     (value) => value.toString(16).padStart(2, "0"),
   ).join("");
 }

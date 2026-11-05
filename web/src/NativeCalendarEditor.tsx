@@ -1,3 +1,4 @@
+import { randomUUID } from "./browserCrypto";
 import {
   useEffect,
   useMemo,
@@ -417,7 +418,7 @@ export function NativeCalendarEditor({
               "Discard this retained Calendar draft before importing unfinished text for the same object. Existing work was kept.",
             );
           change(
-            buffer.rows.map((row) => ({ ...row, key: crypto.randomUUID() })),
+            buffer.rows.map((row) => ({ ...row, key: randomUUID() })),
             buffer.imported,
             { filename: file.name, file_sha256: sha },
           );

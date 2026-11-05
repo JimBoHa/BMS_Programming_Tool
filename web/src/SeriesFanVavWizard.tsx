@@ -1,3 +1,4 @@
+import { randomUUID } from "./browserCrypto";
 import { useEffect, useRef, useState } from "react";
 import { api, apiJsonDocument, saveBlob, sourceApi } from "./api";
 import {
@@ -60,7 +61,7 @@ export function SeriesFanVavWizard({
         setCatalog(checked);
         setDraft({
           ...checked.defaults,
-          project_id: "series_vav_" + crypto.randomUUID().replaceAll("-", ""),
+          project_id: "series_vav_" + randomUUID().replaceAll("-", ""),
         });
       })
       .catch((e) => {

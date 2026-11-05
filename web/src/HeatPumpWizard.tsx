@@ -1,3 +1,4 @@
+import { randomUUID } from "./browserCrypto";
 import { useEffect, useRef, useState } from "react";
 import { api, apiJsonDocument, sourceApi, saveBlob } from "./api";
 import { sourceEqual, sourceStringify } from "./programSource";
@@ -216,7 +217,7 @@ export function HeatPumpWizard({
         setCatalog(checked);
         setDraft({
           ...checked.defaults,
-          project_id: "heat_pump_" + crypto.randomUUID().replaceAll("-", ""),
+          project_id: "heat_pump_" + randomUUID().replaceAll("-", ""),
         });
       })
       .catch((e) => {

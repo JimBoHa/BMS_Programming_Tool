@@ -1,3 +1,4 @@
+import { sha256Digest } from "./browserCrypto";
 import { useEffect, useRef, useState } from "react";
 import { Download, FileCode2, Upload } from "lucide-react";
 import { api, apiBlobDocument, apiJsonDocument, saveBlob } from "./api";
@@ -103,9 +104,7 @@ async function fileHash(file: Blob) {
   if (!file.size || file.size > 8 * 1024 * 1024)
     throw new Error("Native hardware XML requires 1 byte through 8 MiB.");
   return Array.from(
-    new Uint8Array(
-      await crypto.subtle.digest("SHA-256", await file.arrayBuffer()),
-    ),
+    new Uint8Array(await sha256Digest(await file.arrayBuffer())),
     (byte) => byte.toString(16).padStart(2, "0"),
   ).join("");
 }

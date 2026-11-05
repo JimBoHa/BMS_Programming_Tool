@@ -1,3 +1,4 @@
+import { sha256Digest } from "./browserCrypto";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { api, apiJsonDocument, apiBlobDocument, saveBlob } from "./api";
@@ -16,9 +17,7 @@ const numberText = (value: number) =>
   Object.is(value, -0) ? "-0" : String(value);
 const digest = async (blob: Blob) =>
   Array.from(
-    new Uint8Array(
-      await crypto.subtle.digest("SHA-256", await blob.arrayBuffer()),
-    ),
+    new Uint8Array(await sha256Digest(await blob.arrayBuffer())),
     (b) => b.toString(16).padStart(2, "0"),
   ).join("");
 type Data = Record<string, any>;
