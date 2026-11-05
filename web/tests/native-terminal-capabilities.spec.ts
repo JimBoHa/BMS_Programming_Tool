@@ -26,7 +26,7 @@ for (const width of [1440, 390])
     await page.route("**/inspection/capabilities", async (route) => {
       const query = route.request().postDataJSON();
       const response = await route.fetch({ maxRetries: 0 });
-      if (query.capability_profile.endsWith("/15")) {
+      if (query.capability_profile.endsWith("/16")) {
         body = query;
         exact = await response.body();
       }
@@ -35,11 +35,11 @@ for (const width of [1440, 390])
     const { terminal } = await openTerminal(page, f.analog.id),
       table = await terminalTable(terminal);
     expect(body.capability_profile).toBe(
-      "native-backup-operation-capabilities/15",
+      "native-backup-operation-capabilities/16",
     );
     await expect(
       table
-        .locator('[data-operation="local-terminal-copy"]')
+        .locator('[data-operation="encoded-local-terminal-copy"]')
         .locator("td")
         .first(),
     ).toHaveText("source qualified");
@@ -83,7 +83,7 @@ for (const [kind, expected] of [
   ["unverified", ["source qualified", "unsupported source", "source mismatch"]],
   [
     "output",
-    ["unsupported source", "unsupported source", "preflight required"],
+    ["source qualified", "source qualified", "preflight required"],
   ],
   ["serial", ["source qualified", "source qualified", "transport unavailable"]],
 ] as const)
@@ -105,7 +105,7 @@ test("malformed terminal evidence withholds only its own table and exact downloa
   const f = seed(nativeScheduleWriteServer.directory);
   await page.route("**/inspection/capabilities", async (route) => {
     const response = await route.fetch();
-    if (route.request().postDataJSON().capability_profile.endsWith("/15")) {
+    if (route.request().postDataJSON().capability_profile.endsWith("/16")) {
       const v = await response.json();
       v.qualification.archive_terminal.physical_terminal_or_wiring_verified = true;
       await route.fulfill({ response, json: v });
@@ -146,7 +146,7 @@ test("late terminal analysis cannot return after leaving the application task", 
     seen = new Promise<void>((r) => (arrived = r));
   await page.route("**/inspection/capabilities", async (route) => {
     const response = await route.fetch();
-    if (route.request().postDataJSON().capability_profile.endsWith("/15")) {
+    if (route.request().postDataJSON().capability_profile.endsWith("/16")) {
       arrived();
       await gate;
     }

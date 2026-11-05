@@ -6,7 +6,7 @@ import {
   terminalCapabilityEvidence,
   terminalCapabilityProfile,
   terminalOperationIds,
-} from "./nativeTerminalCapabilityContract";
+} from "./nativeEncodedTerminalCapabilityContract";
 
 export function NativeTerminalCapabilities({
   source,
@@ -121,6 +121,11 @@ export function NativeTerminalCapabilities({
               <tbody>
                 {shown.data.operations
                   .filter((r: any) => terminalOperationIds.includes(r.id))
+                  .sort(
+                    (a: any, b: any) =>
+                      terminalOperationIds.indexOf(a.id) -
+                      terminalOperationIds.indexOf(b.id),
+                  )
                   .map((row: any) => (
                     <tr key={row.id} data-operation={row.id}>
                       <th scope="row">{row.operation}</th>

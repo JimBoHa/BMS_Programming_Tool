@@ -1579,3 +1579,23 @@ then qualify binary configuration/runtime and field semantics against actual
 sources. SA/cross-host moves, resources/packages and CCT/physical/BTCVT acceptance
 remain separate. IO-02/JCI-09 remain partial. See
 [the encoded terminal workflow](docs/native-terminal-label-workflow.md).
+
+## 2026-11-05 JCI-01/IO-02 delivery: encoded terminal support evidence
+
+`FMT-NATIVE-TERMINAL-LABEL-CAPABILITIES-001` adds explicit capability profile 16,
+preserving the full older report while appending independently compiled original
+and saved-effective profile-3 local-copy witnesses. Actual captured inputs/free
+slots and exact source/record/property/charset/compiler/merge evidence determine
+support. Analysis creates no retained edit, plan, receipt or transfer authority.
+
+The existing contextual table shows current original/effective local operations
+before the separately qualified analog field row. Legacy copy rows remain in
+exact downloadable evidence; the main table and default/older profiles retain
+their contracts. Closed browser admission rejects inconsistent new or predecessor
+evidence. Source/task retirement, controller/CAF context and graphics stay intact.
+
+Next, qualify binary configuration/runtime and field semantics from actual source
+evidence, then further host-specific reassignment. SA/IOM/cross-host operations,
+resources/packages and CCT/physical/BTCVT acceptance remain separate. JCI-01,
+IO-02/JCI-09 remain partial. See
+[encoded terminal support](docs/native-terminal-label-capabilities.md).
