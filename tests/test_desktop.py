@@ -28,6 +28,7 @@ def test_ready_server_occupied_port_verified_reuse_and_closed_field_interfaces(d
         assert desktop.port != port
         assert local_json(url + "/api/session")["field_network_open"] is False
         assert local_json(url + "/api/bacnet/status")["commands"] == []
+        assert "control_token" not in local_json(url + "/api/desktop/identity")
         second = Desktop(desktop.directory)
         try:
             assert second.start() == url

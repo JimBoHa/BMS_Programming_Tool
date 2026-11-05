@@ -92,7 +92,9 @@ def check(executable, *, directory=None):
                 try:
                     record = json.loads((data / "desktop-session.json").read_text())
                     url = f"http://127.0.0.1:{record['port']}"
-                    if json.loads(request(url + "/api/desktop/identity")) == record:
+                    if json.loads(request(url + "/api/desktop/identity")) == {
+                        k: v for k, v in record.items() if k != "control_token"
+                    }:
                         return process, url
                 except (OSError, ValueError, KeyError):
                     pass
@@ -101,9 +103,28 @@ def check(executable, *, directory=None):
             process.wait(timeout=40)
             raise RuntimeError("Installed app did not become ready.")
 
-        def stop(process):
-            process.terminate()
-            process.wait(timeout=40)
+        def stop(process, url):
+            try:
+                record = json.loads((data / "desktop-session.json").read_text())
+                token = json.loads(request(url + "/api/session"))["token"]
+                req = urllib.request.Request(
+                    url + "/api/desktop/stop",
+                    data=b"{}",
+                    headers={
+                        "X-Studio-Token": token,
+                        "X-Desktop-Control": record["control_token"],
+                        "Content-Type": "application/json",
+                    },
+                )
+                with opener.open(req, timeout=5) as response:
+                    assert json.load(response)["stopping"] is True
+                process.wait(timeout=40)
+                assert process.returncode == 0
+            except BaseException:
+                if process.poll() is None:
+                    process.terminate()
+                    process.wait(timeout=40)
+                raise
 
         with socket.socket() as occupied:
             occupied.bind(("127.0.0.1", 0))
@@ -180,7 +201,7 @@ def check(executable, *, directory=None):
                     == 1
                 )
             finally:
-                stop(process)
+                stop(process, url)
         # Restart/upgrade the same installation without replacing the user store.
         # A second check after an installer upgrade uses this same directory.
         process, url = launch(0)
@@ -189,7 +210,7 @@ def check(executable, *, directory=None):
             assert any(p["id"] == "release-install-check" for p in projects)
             assert json.loads(request(url + "/api/session"))["field_network_open"] is False
         finally:
-            stop(process)
+            stop(process, url)
         assert (
             subprocess.run(
                 [executable, "--data", str(data), "--check-not-running"], env=env, timeout=15

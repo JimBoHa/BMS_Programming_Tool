@@ -20,6 +20,9 @@ import urllib.request
 import webbrowser
 from pathlib import Path
 
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
 from . import __version__
 from .file_access import open_regular, try_lock, unlock
 from .resources import state_directory, web_directory
@@ -41,6 +44,7 @@ class Desktop:
         self.descriptor = None
         self.server = self.thread = self.socket = None
         self.identity = secrets.token_hex(24)
+        self.control_token = secrets.token_hex(32)
         self.url = None
         self.reused = False
 
@@ -65,7 +69,8 @@ class Desktop:
                     raise ValueError
                 url = f"http://127.0.0.1:{port}"
                 identity = local_json(url + "/api/desktop/identity")
-                if identity != record or record["profile"] != PROFILE:
+                public_record = {k: v for k, v in record.items() if k != "control_token"}
+                if identity != public_record or record["profile"] != PROFILE:
                     raise ValueError
             except (OSError, ValueError, KeyError) as exc:
                 raise RuntimeError(
@@ -106,12 +111,32 @@ class Desktop:
             def desktop_identity():
                 return record
 
+            async def stop_desktop(request: Request):
+                if not secrets.compare_digest(
+                    request.headers.get("x-desktop-control", ""), self.control_token
+                ):
+                    return JSONResponse(
+                        {"detail": "Private desktop ownership proof is required."}, 403
+                    )
+                if self.quit_blocked():
+                    return JSONResponse(
+                        {
+                            "detail": "Finish operations, release owned commands and disconnect before quitting."
+                        },
+                        409,
+                    )
+                self.server.should_exit = True
+                return {"stopping": True}
+
             # create_app mounts the browser fallback last; insert this API route
             # ahead of that mount rather than making it an unreachable suffix.
             from fastapi.routing import APIRoute
 
             app.router.routes.insert(
                 0, APIRoute("/api/desktop/identity", desktop_identity, methods=["GET"])
+            )
+            app.router.routes.insert(
+                0, APIRoute("/api/desktop/stop", stop_desktop, methods=["POST"])
             )
 
             config = uvicorn.Config(
@@ -143,7 +168,7 @@ class Desktop:
                 dir=self.directory, prefix=".desktop-session-", delete=False
             ) as ready:
                 temporary_record = Path(ready.name)
-                ready.write(json.dumps(record).encode())
+                ready.write(json.dumps({**record, "control_token": self.control_token}).encode())
                 ready.flush()
                 os.fsync(ready.fileno())
             try:
