@@ -132,6 +132,20 @@ class ApplicationStore:
             if not states.get(path.parent.name, {}).get("archived", False)
         ]
 
+    def require_capture_capacity(self, needed=1):
+        """Check current retention space; this does not reserve slots for the caller."""
+        from .native_backup_lifecycle import ACTIVE_LIMIT
+
+        if type(needed) is not int or not 1 <= needed <= ACTIVE_LIMIT:
+            raise ValueError("Native capture capacity requires a bounded positive snapshot count.")
+        with self.store.connect(timeout=0.25) as db:
+            active = len(self.active_folders(db))
+        if active + needed > ACTIVE_LIMIT:
+            raise ValueError(
+                f"Native backup storage cannot retain the {needed} required snapshot(s); "
+                "archive retained backups before this operation."
+            )
+
     def save(self, metadata, files):
         if set(files) != {3, 11, 12} or any(
             not isinstance(data, bytes) or not 1 <= len(data) <= 2 * 1024 * 1024
