@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`70e9fca2`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/70e9fca2c6417f99ba0d4685e47550d6fc713e5d).
+[`82a30500`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/82a30500e3748b8c1881acdf9a15db4ab4205d17).
 
 ## Baseline and purpose
 
@@ -1348,3 +1348,19 @@ guarded local export. Authored binary/XML PID fixtures, real HTTP/UDP acquisitio
 delayed-response checks and private retained captures qualify the presentation.
 General native authoring and physical acceptance remain separate. See
 [engineering logic presentation and source rules](docs/engineering-logic-view.md).
+
+## 2026-11-04 JCI-01/JCI-03/JCI-09 delivery: removal capability evidence
+
+`FMT-NATIVE-CONNECTION-REMOVAL-CAPABILITIES-001` adds two source-specific local
+removal rows to the existing Program operation table. Explicit profile 14 reports
+27 operations; default 12 and complete 11/12/13 responses remain unchanged.
+Actual original/effective native witnesses retain exact graph, tuple, count,
+continuation and hash evidence without compiling an edit or using a field path.
+An occupied graph may qualify removal even when adding a connection is unavailable.
+
+Strict client admission, source-owned analysis, exact downloads and existing
+compact navigation stay in place. The newly shared engineering canvas and all
+styles remain unchanged. Source eligibility grants no edit review, field Apply,
+fallback/retention, resource/package/runtime or physical/BTCVT acceptance.
+JCI-01/JCI-03/JCI-09 remain partial. See
+[source-specific removal capabilities](docs/native-removal-capabilities.md).

@@ -8,6 +8,8 @@ from .models import StrictModel
 from .moi_application import MoiApplication
 from .moi_identity import sha
 from .native_backup_capabilities import backup_capabilities
+from .native_removal_capabilities import PROFILE as REMOVAL_CAPABILITIES_PROFILE
+from .native_removal_capabilities import removal_capabilities
 
 PROFILE = "native-backup-record-inspection/1"
 SCOPE = (
@@ -33,6 +35,7 @@ class BackupCapabilitiesRequest(BackupInspectionSource):
         "native-backup-operation-capabilities/11",
         "native-backup-operation-capabilities/12",
         "native-backup-operation-capabilities/13",
+        "native-backup-operation-capabilities/14",
     ] = "native-backup-operation-capabilities/12"
 
 
@@ -94,9 +97,14 @@ class NativeBackupRecords:
         snapshot, files, application = self.load(
             options.model_dump(include={"capture_id", "snapshot_sha256"})
         )
+        analyzer = (
+            removal_capabilities
+            if options.capability_profile == REMOVAL_CAPABILITIES_PROFILE
+            else backup_capabilities
+        )
         return {
             **self.envelope(snapshot, files),
-            **backup_capabilities(
+            **analyzer(
                 snapshot,
                 files,
                 application.summary(),
