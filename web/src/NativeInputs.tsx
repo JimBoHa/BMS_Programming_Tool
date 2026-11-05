@@ -11,6 +11,15 @@ import { NativeRuntimeCalibration } from "./NativeRuntimeCalibration";
 import { NativeRuntimeParametersNotice } from "./NativeRuntimeParametersNotice";
 import { NativeTerminalCopy } from "./NativeTerminalCopy";
 import {
+  NativeTerminalRecovery,
+  type TerminalRecoveryDocument,
+} from "./NativeTerminalRecovery";
+import {
+  terminalRecoveryReview,
+  terminalRecoveryTransferProfile,
+  sameTerminalRecoveryLineage,
+} from "./nativeTerminalRecoveryContract";
+import {
   inputTransferProfile,
   terminalTransferReview,
 } from "./nativeTerminalTransferContract";
@@ -18,7 +27,13 @@ import {
 const base = "/bacnet/controller/native-application";
 const profile = "native-local-universal-input-transfer/1";
 const drafts = new Map<string, Work>();
-type Work = { source: any; form: Form; receipt: any };
+type Work = {
+  source: any;
+  form: Form;
+  receipt: any;
+  terminalRecovery?: TerminalRecoveryDocument;
+  terminalOrdinaryForm?: Form;
+};
 type Form = {
   action: string;
   object: string;
@@ -210,7 +225,11 @@ export function NativeInputs({
     epoch.current++;
     retire();
     setCopyReview(null);
-    setWork((w) => ({ ...w, form: { ...w.form, ...patch } }));
+    setWork((w) => ({
+      ...w,
+      form: { ...w.form, ...patch },
+      terminalRecovery: undefined,
+    }));
   }
   function edit() {
     const number = (key: keyof Form) => {
@@ -364,9 +383,13 @@ export function NativeInputs({
         setWork((w) => ({
           ...w,
           source: s,
+          terminalRecovery: undefined,
+          terminalOrdinaryForm: undefined,
           form: {
-            ...w.form,
-            slot: String(s.available_slots[0] ?? ""),
+            ...(w.terminalOrdinaryForm ?? w.form),
+            slot:
+              w.terminalOrdinaryForm?.slot ??
+              String(s.available_slots[0] ?? ""),
             ...(w.form.action === "allocate" &&
             !w.form.object &&
             s.next_available_instance != null
@@ -403,11 +426,23 @@ export function NativeInputs({
           retire();
           const path =
             base +
-            (kind === "local" ? "/input/copy/preview" : "/input/preview");
+            (kind === "local"
+              ? "/input/copy/preview"
+              : work.terminalRecovery
+                ? "/input/terminal-recovery/preview"
+                : "/input/preview");
           const request = {
             ...sourceArgs,
             edit: proposed,
             ...(kind === "review" ? { ...target, operation_id } : {}),
+            ...(kind === "review" && work.terminalRecovery
+              ? {
+                  recovery_parent_receipt:
+                    work.terminalRecovery.data.origin.parent_receipt_id,
+                  recovery_origin_sha256:
+                    work.terminalRecovery.data.origin_sha256,
+                }
+              : {}),
           };
           const document =
             proposed.action === "terminal"
@@ -465,6 +500,14 @@ export function NativeInputs({
               retire();
               throw new Error(
                 "Controller input review differs from this draft.",
+              );
+            }
+            if (
+              !terminalRecoveryReview(r, work.terminalRecovery?.data ?? null)
+            ) {
+              retire();
+              throw new Error(
+                "Terminal recovery review differs from this retained origin. Prepare and review again.",
               );
             }
             if (
@@ -538,6 +581,17 @@ export function NativeInputs({
           throw new Error(
             "No attributable input transfer receipt was returned.",
           );
+        if (
+          r.intent &&
+          ["apply", "readback"].includes(kind) &&
+          !sameTerminalRecoveryLineage(
+            r.intent,
+            kind === "apply" ? plan : prior,
+          )
+        )
+          throw new Error(
+            "Input recovery receipt differs from this exact reviewed lineage. Retain the original evidence for readback.",
+          );
         setWork((w) => ({ ...w, receipt: r }));
         if (
           kind !== "retained" &&
@@ -546,8 +600,27 @@ export function NativeInputs({
           ["verified", "recovered_original"].includes(
             (r.latest_readback || r.result)?.status,
           )
-        )
+        ) {
+          if (
+            r.intent.terminal_recovery_profile ===
+            terminalRecoveryTransferProfile
+          ) {
+            setWork((w) =>
+              w.terminalRecovery?.data.origin_sha256 ===
+                r.intent.recovery_origin_sha256 &&
+              w.source?.capture_id === r.intent.review_capture_id &&
+              w.terminalOrdinaryForm
+                ? {
+                    ...w,
+                    form: w.terminalOrdinaryForm,
+                    terminalRecovery: undefined,
+                    terminalOrdinaryForm: undefined,
+                  }
+                : w,
+            );
+          }
           onVerified();
+        }
       }
     } catch (failure) {
       if (kind === "review")
@@ -911,6 +984,14 @@ export function NativeInputs({
                   native application and may restart control.
                 </p>
               )}
+              {review.terminal_recovery_profile ===
+                terminalRecoveryTransferProfile && (
+                <p>
+                  Previous-terminal recovery from receipt{" "}
+                  {review.recovery_parent_receipt.slice(0, 8)}. The new transfer
+                  retains its verified parent origin.
+                </p>
+              )}
               <pre>
                 {JSON.stringify(
                   review.compilation.stored_configuration || review.input_edit,
@@ -967,12 +1048,48 @@ export function NativeInputs({
               epoch.current++;
               retire();
               setCopyReview(null);
-              setWork((w) => ({ ...w, source: null, form: blank() }));
+              setWork((w) => ({
+                ...w,
+                source: null,
+                form: blank(),
+                terminalRecovery: undefined,
+                terminalOrdinaryForm: undefined,
+              }));
             }}
           >
             Discard local input draft
           </button>
         </>
+      )}
+      {source && (
+        <NativeTerminalRecovery
+          source={source}
+          receipts={status?.receipts ?? []}
+          fieldBusy={busy}
+          draftKey={JSON.stringify(form)}
+          onUse={(document) => {
+            if (
+              !capacity() ||
+              document.data.source.capture_id !== source.capture_id ||
+              document.data.source.snapshot_sha256 !== source.snapshot_sha256
+            )
+              return;
+            epoch.current++;
+            retire();
+            setCopyReview(null);
+            setWork((w) => ({
+              ...w,
+              terminalOrdinaryForm: w.terminalOrdinaryForm ?? w.form,
+              terminalRecovery: document,
+              form: {
+                ...w.form,
+                action: "terminal",
+                object: document.data.origin.object_id,
+                slot: String(document.data.origin.previous_slot),
+              },
+            }));
+          }}
+        />
       )}
       <NativeTerminalCopy
         controller={controller}
@@ -1017,6 +1134,35 @@ export function NativeInputs({
             report={observed?.runtime_calibration}
             preservation={observed?.preservation}
           />
+        </section>
+      )}
+      {work.terminalOrdinaryForm && (
+        <section aria-label="Staged previous-terminal draft">
+          <p>
+            {work.terminalRecovery
+              ? `Previous-terminal draft: ${work.terminalRecovery.data.origin.object_id}, UI IN${work.terminalRecovery.data.origin.current_slot} to UI IN${work.terminalRecovery.data.origin.previous_slot}. Review again before applying.`
+              : "The saved ordinary input draft is retained. This edited proposal requires its own input review."}
+          </p>
+          <button
+            disabled={busy}
+            onClick={() => {
+              epoch.current++;
+              retire();
+              setCopyReview(null);
+              setWork((w) =>
+                w.terminalOrdinaryForm
+                  ? {
+                      ...w,
+                      form: w.terminalOrdinaryForm,
+                      terminalRecovery: undefined,
+                      terminalOrdinaryForm: undefined,
+                    }
+                  : w,
+              );
+            }}
+          >
+            Return to saved input draft
+          </button>
         </section>
       )}
     </section>

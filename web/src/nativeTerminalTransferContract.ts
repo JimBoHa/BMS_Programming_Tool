@@ -62,6 +62,13 @@ export async function terminalDocumentSeal(blob: Blob, field: boolean) {
   return (await sha256Text(canonical(body))) === review_sha256;
 }
 
+export async function terminalEvidenceSeal(blob: Blob) {
+  const raw = parseSourceJSON(await blob.text());
+  if (!raw || Array.isArray(raw) || !hash(raw.evidence_sha256)) return false;
+  const { evidence_sha256, ...body } = raw;
+  return (await sha256Text(canonical(body))) === evidence_sha256;
+}
+
 export async function terminalTransferReview(
   document: { data: Data; blob: Blob },
   source: Data,
