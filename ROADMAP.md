@@ -1708,3 +1708,24 @@ qualify further typed Device Reference and host-specific reassignment semantics.
 Historical stored reports are not silently rewritten. SA/IOM/cross-host writes,
 resources/packages and CCT/physical/BTCVT acceptance remain separate. IO-02/JCI-09
 remain partial. See [captured host evidence](docs/native-hardware-host-evidence.md).
+
+## 2026-11-05 IO-02/UX-03 delivery: saved hardware archive reanalysis
+
+`IO-SAVED-HARDWARE-REANALYSIS-001` adds explicit local reanalysis within the existing
+hardware archive details. The exact selected saved bytes, source hash, regular-file
+identity and recorded size bind a new analysis record. Earlier cached host claims
+do not supply its result. Parent metadata/file remain unchanged; the child records
+exact parent/source lineage and retains original capture provenance.
+
+Closed browser admission prevents inconsistent child responses from replacing the
+selection. The child option/selection update together before library refresh, and
+matching admitted evidence remains visible during reload. Local reviews
+retire, and target/task/lifecycle changes withhold delayed results. Existing reports
+are not silently correlated. Missing/changed sources and retention/storage failures
+cannot become new analyzed evidence or partial retained children. Reanalysis makes
+no network query, controller write, plan or physical-identity verification.
+
+Next, qualify further typed Device Reference and host-specific reassignment semantics
+against actual source evidence. General allocation/electrical changes, SA/cross-host
+writes, resources/packages and CCT/physical/BTCVT acceptance remain separate. IO-02/
+JCI-09 remain partial. See [saved archive reanalysis](docs/saved-hardware-reanalysis.md).

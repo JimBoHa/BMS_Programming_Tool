@@ -1,3 +1,4 @@
+import { admittedHardwareReanalysis } from "./hardwareReanalysis";
 import { TargetFields } from "./ControllerWorkspace";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, FileSearch, RefreshCw, Search, Upload } from "lucide-react";
@@ -289,7 +290,7 @@ export function HardwareSurveyPanel({
   ]);
   useEffect(() => {
     let active = true;
-    setArchiveEvidence(null);
+    setArchiveEvidence((value) => value?.id === archiveId ? value : null);
     if (archiveId)
       void api(`${base}/archives/${encodeURIComponent(archiveId)}`)
         .then((next) => {
@@ -669,6 +670,33 @@ export function HardwareSurveyPanel({
       setOutcome(
         `Downloaded ${format.toUpperCase()} for ${sourceLabel(selected.target)}.`,
       );
+    });
+  }
+  async function reanalyzeArchive() {
+    const parent =
+      archiveEvidence?.id === archiveId ? archiveEvidence : null;
+    if (!parent || !/^[a-f0-9]{64}$/.test(parent.source?.sha256 ?? ""))
+      return;
+    await action(async (generation) => {
+      const next = await api(
+        `${base}/archives/${encodeURIComponent(parent.id)}/reanalyze`,
+        { source_sha256: parent.source.sha256 },
+      );
+      if (!current(generation)) return;
+      if (!admittedHardwareReanalysis(next, parent))
+        throw new Error(
+          "Reanalysis differs from the selected saved source. Reopen its evidence and try again.",
+        );
+      setPlan(null);
+      setSensorPlan(null);
+      setUseRelocation(false);
+      setStatus((value) => ({ ...value, archives: [...(value.archives || []).filter((row) => row.id !== next.id), next] }));
+      setArchiveId(next.id);
+      setArchiveEvidence(next);
+      setOutcome(
+        "Created new local analysis from saved bytes. Original evidence remains. Current controller identity and physical wiring remain unverified.",
+      );
+      await refresh(generation);
     });
   }
   async function exportArchive(format: "source" | "json") {
@@ -1225,7 +1253,12 @@ export function HardwareSurveyPanel({
         {selectedArchive && (
           <details>
             <summary>Archive provenance and configured hardware</summary>
+            <p className="help-text">Reanalysis checks saved source bytes and creates a new local evidence record. The original record stays available.</p>
             <div className="button-row">
+              <button
+                disabled={disabled || archiveEvidence?.id !== archiveId || !/^[a-f0-9]{64}$/.test(archiveEvidence?.source?.sha256 ?? "")}
+                onClick={() => void reanalyzeArchive()}
+              >Reanalyze saved archive</button>
               <button
                 disabled={disabled}
                 onClick={() => void exportArchive("source")}
