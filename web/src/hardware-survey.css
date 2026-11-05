@@ -121,3 +121,23 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Keep saved input evidence readable within the compact controller workspace. */
+.hardware-survey .card-body,
+.hardware-report,
+.hardware-input-group,
+.hardware-table {
+  min-width: 0;
+  max-width: 100%;
+}
+.hardware-input-group .hardware-table table {
+  min-width: 48rem;
+  font-size: 14px;
+}
+.hardware-survey .card-body,
+.hardware-report {
+  grid-template-columns: minmax(0, 1fr);
+}
+.hardware-heading .button-row {
+  flex-wrap: wrap;
+}

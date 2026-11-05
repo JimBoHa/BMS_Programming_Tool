@@ -171,7 +171,7 @@ export function Connections({
       view === "settings" ||
       !!controller ||
       (view === "overview" && tool === "instance") ||
-      (view === "points" && tool === "live-points") ||
+      (view === "points" && ["live-points", "hardware"].includes(tool)) ||
       (view === "changes" && tool === "commands"));
   const discoverActive =
     visible && view === "setup" && setupStep === "discovery";
@@ -870,6 +870,7 @@ export function Connections({
             view !== "settings" &&
             view !== "overview" &&
             view !== "schedules" &&
+            !(view === "points" && currentTool === "hardware") &&
             view !== "changes" && (
               <ControllerOverview
                 controller={null}
