@@ -19,14 +19,14 @@ for (const kind of ["ucs2", "unknown", "unverified", "output"] as const)
     let raw = Buffer.alloc(0);
     await page.route("**/inspection/capabilities", async (route) => {
       const response = await route.fetch();
-      if (route.request().postDataJSON().capability_profile.endsWith("/16"))
+      if (route.request().postDataJSON().capability_profile.endsWith("/17"))
         raw = await response.body();
       await route.fulfill({ response });
     });
     const { terminal } = await openTerminal(page, f[kind].id),
       table = await terminalTable(terminal);
     const statuses = await table
-      .locator("tbody td:first-of-type")
+      .locator('tbody tr:not([data-operation="binary-terminal-transfer"]) td:first-of-type')
       .allTextContents();
     expect(statuses).toEqual([
       "source qualified",
@@ -63,7 +63,7 @@ test("unknown encoded witness refuses its table while original support stays ava
   const f = seedLabelCapabilities(nativeScheduleWriteServer.directory);
   await page.route("**/inspection/capabilities", async (route) => {
     const response = await route.fetch();
-    if (route.request().postDataJSON().capability_profile.endsWith("/16")) {
+    if (route.request().postDataJSON().capability_profile.endsWith("/17")) {
       const v = await response.json();
       v.qualification.encoded_archive_terminal.device_type_character_encoding = 5;
       await route.fulfill({ response, json: v });

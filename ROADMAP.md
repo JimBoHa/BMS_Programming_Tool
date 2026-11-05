@@ -1662,3 +1662,23 @@ Next, add source-specific binary capability evidence, then further host-specific
 reassignment. Binary allocation/electrical changes, SA/IOM/cross-host movement,
 resources/packages and CCT/physical/BTCVT acceptance remain separate. IO-02/JCI-09
 remain partial. See [recorded binary moves](docs/native-binary-terminal-ledger.md).
+
+## 2026-11-05 JCI-01/IO-02 delivery: binary source capability evidence
+
+`FMT-NATIVE-BINARY-TERMINAL-CAPABILITIES-001` adds explicit capability profile 17,
+appending one actual binary compilation witness while preserving the complete
+profile-16 report. The captured closed configuration, saved settings, occupancy,
+source/native hashes, charset and compiler result determine source support.
+Counters stay historical; saved binding conflicts prevent qualification. Analysis
+creates no retained edit, field plan, receipt, network query or transfer authority.
+
+The existing contextual terminal table adds the binary row after local copies and
+analog transfer. Closed independent browser admission binds the source and full
+predecessor evidence. Exact downloads, source/task retirement, controller/CAF
+continuity and horizontal engineering-table behavior retain existing contracts.
+The main table, field compilers/writers, recovery, journal and styles stay separate.
+
+Next, qualify further host-specific reassignment and SA host evidence. Binary
+allocation/electrical changes, SA/IOM/cross-host movement, resource/packages and
+CCT/physical/BTCVT acceptance remain separate. JCI-01/IO-02/JCI-09 remain partial.
+See [binary terminal support](docs/native-binary-terminal-capabilities.md).
