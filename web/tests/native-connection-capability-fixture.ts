@@ -63,6 +63,6 @@ export async function analyze(support: Locator) {
     name: "Native backup operations",
     exact: true,
   });
-  await expect(table.getByRole("row")).toHaveCount(25);
+  await expect(table.getByRole("row")).toHaveCount(26);
   return table;
 }

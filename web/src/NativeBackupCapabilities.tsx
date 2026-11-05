@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { apiJsonDocument, saveBlob } from "./api";
-import { connectionCapabilityEvidence } from "./nativeConnectionCapabilityContract";
+import { matchingConnectionTransferCapability } from "./nativeConnectionCapabilityContract";
 import type { NativeArchiveSource } from "./NativeRecords";
 import { controllerKey } from "./workflow";
 
@@ -39,6 +39,7 @@ const operationIds = [
   "enum-default-transfer",
   "wire-source-transfer",
   "general-logic",
+  "matching-connection-transfer",
   "release-packages",
   "physical-acceptance",
 ];
@@ -139,13 +140,13 @@ export function NativeBackupCapabilities({
         {
           capture_id: source.capture_id,
           snapshot_sha256: source.snapshot_sha256,
-          capability_profile: "native-backup-operation-capabilities/12",
+          capability_profile: "native-backup-operation-capabilities/13",
         },
       );
       const data = document.data;
       if (
         data.profile !== "native-backup-record-inspection/1" ||
-        data.capability_profile !== "native-backup-operation-capabilities/12" ||
+        data.capability_profile !== "native-backup-operation-capabilities/13" ||
         data.source_kind !== "native-backup-archive" ||
         data.capture_id !== source.capture_id ||
         data.snapshot_sha256 !== source.snapshot_sha256 ||
@@ -181,7 +182,7 @@ export function NativeBackupCapabilities({
               (value) => typeof value === "string",
             ),
         ) ||
-        !connectionCapabilityEvidence(data, source) ||
+        !matchingConnectionTransferCapability(data, source) ||
         data.operations.find((row: Operation) => row.id === "enum-default-copy")
           ?.status !==
           (data.qualification.archive_enum_default_count > 0

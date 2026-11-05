@@ -42,7 +42,7 @@ test("actual matching archive and effective support export the exact source-boun
   const { support } = await enter(page, f.id),
     table = await analyze(support);
   expect(body.capability_profile).toBe(
-    "native-backup-operation-capabilities/12",
+    "native-backup-operation-capabilities/13",
   );
   await expect(table.locator(original).locator("td").first()).toHaveText(
     "source qualified",
@@ -136,7 +136,7 @@ test("altered witness authority cannot populate the capability table", async ({
     support
       .getByRole("table", { name: "Native backup operations", exact: true })
       .getByRole("row"),
-  ).toHaveCount(25);
+  ).toHaveCount(26);
   expect(calls.get(page)).toEqual([]);
 });
 
