@@ -1621,3 +1621,24 @@ metadata and source capability evidence, then qualify further host-specific
 reassignment. Binary allocation/electrical edits, SA/IOM/cross-host movement,
 resources/packages and CCT/physical/BTCVT acceptance remain separate. IO-02 and
 JCI-09 remain partial. See [binary terminal transfer](docs/native-binary-terminal-transfer.md).
+
+## 2026-11-05 IO-02/UX-03 delivery: contextual binary terminal workflow
+
+`UI-NATIVE-BINARY-TERMINAL-001` exposes profile-3 source, local copy, field review,
+all confirmations, Apply, published readback and retained evidence within existing
+Points & I/O. Capture and controller route are reused, the ordinary analog form
+and unfinished text are retained, and binary work has its own bounded drafts.
+Closed source/proposal/compiler/document/receipt admission prevents stale or
+inconsistent evidence from enabling a save, Apply or verified outcome.
+
+Local operations retain navigation; field operations keep the existing global
+lock. Task/source/target/lifecycle changes cancel reviews, and delayed HTTP/digest
+completion cannot restore retired work. Unknown transfers retain exact evidence
+and reconcile without replay. Verified transfer marks the previous capture stale
+for further input field changes. Backend code and all styles remain unchanged.
+
+Next, add recorded binary metadata to shared Changes/History and source-specific
+binary capability evidence, then further host-specific reassignment. Binary
+allocation/electrical edits, SA/IOM/cross-host moves, resources/packages and CCT/
+physical/BTCVT acceptance remain separate. IO-02/JCI-09 remain partial. See
+[the binary terminal workflow](docs/native-binary-terminal-workflow.md).

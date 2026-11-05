@@ -107,6 +107,7 @@ export async function openFieldInputs(
   page: Page,
   peer: { direct: string; router: string },
   routed = false,
+  prepareTerminal = true,
 ) {
   await page.route("**/api/bacnet/controller/inventory", (route) =>
     route.fulfill({
@@ -169,6 +170,7 @@ export async function openFieldInputs(
   await expect(
     inputs.getByRole("button", { name: "Capture native inputs", exact: true }),
   ).toBeEnabled();
+  if (!prepareTerminal) return inputs;
   await inputs
     .getByLabel("Input operation", { exact: true })
     .selectOption("terminal");
