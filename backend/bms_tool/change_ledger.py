@@ -20,6 +20,7 @@ from bacpypes3.pdu import Address, IPv4Address
 from pydantic import Field, field_validator, model_validator
 
 from .models import StrictModel
+from .native_binary_terminal_ledger import binary_terminal_reference, explicit_binary
 from .native_connection_ledger import connection_reference
 from .native_input_ledger import input_reference
 from .native_inputs import TERMINAL_PROFILE
@@ -362,7 +363,9 @@ class ChangeLedger:
             native_metadata = native_reference(native_kind, selection)
             if native_kind == "input":
                 native_metadata = (
-                    terminal_reference(body)
+                    binary_terminal_reference(body)
+                    if explicit_binary(body)
+                    else terminal_reference(body)
                     if body.get("operation_profile") == TERMINAL_PROFILE
                     else input_reference(body)
                 )
@@ -378,7 +381,11 @@ class ChangeLedger:
                 )
             recovery = (
                 None
-                if native_kind == "point-name" or "native_terminal_recovery" in native_metadata
+                if (
+                    native_kind == "point-name"
+                    or "native_terminal_recovery" in native_metadata
+                    or "native_binary_terminal" in native_metadata
+                )
                 else recovery_lineage(body, native_kind, native_metadata)
             )
             if recovery is not None:

@@ -1642,3 +1642,23 @@ binary capability evidence, then further host-specific reassignment. Binary
 allocation/electrical edits, SA/IOM/cross-host moves, resources/packages and CCT/
 physical/BTCVT acceptance remain separate. IO-02/JCI-09 remain partial. See
 [the binary terminal workflow](docs/native-binary-terminal-workflow.md).
+
+## 2026-11-05 IO-02/UX-03 delivery: recorded binary terminal movement
+
+`HIST-NATIVE-BINARY-TERMINAL-001` adds closed historical profile-3 metadata to the
+existing Changes/History journal. Actual saved transfer evidence binds the binary
+object, terminal movement, preserved state configuration, recorded confirmations
+and exact compilation/source/output fingerprints. Runtime counters are explicitly
+historical. Uncertain outcomes remain uncertain even when metadata is readable.
+
+Independent browser admission withholds tool links for malformed binary records;
+explicit binary records cannot fall back to injected analog metadata. Original
+endpoint bytes remain downloadable. Local input-tool navigation preserves current
+controller/file context, and recorded evidence creates no new transfer authority.
+Listing remains disconnected and does not reopen backups or instantiate compilers.
+Existing field writers, compilers, recovery and all graphics/styles stay separate.
+
+Next, add source-specific binary capability evidence, then further host-specific
+reassignment. Binary allocation/electrical changes, SA/IOM/cross-host movement,
+resources/packages and CCT/physical/BTCVT acceptance remain separate. IO-02/JCI-09
+remain partial. See [recorded binary moves](docs/native-binary-terminal-ledger.md).
