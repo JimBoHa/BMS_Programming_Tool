@@ -20,6 +20,7 @@ from bacpypes3.pdu import Address, IPv4Address
 from pydantic import Field, field_validator, model_validator
 
 from .models import StrictModel
+from .native_connection_ledger import connection_reference
 from .native_input_ledger import input_reference
 from .native_ledger_details import native_reference, recovery_lineage
 from .native_point_name_ledger import point_name_reference
@@ -345,6 +346,7 @@ class ChangeLedger:
                 "boolean-default": "Native Boolean default transfer",
                 "enum-default": "Native Enum code transfer",
                 "wire-source": "Native wire source transfer",
+                "connection": "Native matching connection transfer",
                 "input": "Native input configuration transfer",
                 "point-name": "Native point-name transfer",
             }
@@ -357,6 +359,8 @@ class ChangeLedger:
             native_metadata = native_reference(native_kind, selection)
             if native_kind == "input":
                 native_metadata = input_reference(body)
+            elif native_kind == "connection":
+                native_metadata = connection_reference(body)
             elif native_kind == "point-name":
                 native_metadata = point_name_reference(body)
                 native_metadata.update(

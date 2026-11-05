@@ -16,10 +16,11 @@ from .native_signal_compiler import compiler_from_snapshot
 
 LEGACY_PROFILE = "native-backup-operation-capabilities/11"
 PROFILE = "native-backup-operation-capabilities/12"
+CONNECTION_TRANSFER_PROFILE = "native-backup-operation-capabilities/13"
 
 
 def backup_capabilities(snapshot, files, application, *, capability_profile=PROFILE):
-    if capability_profile not in (PROFILE, LEGACY_PROFILE):
+    if capability_profile not in (PROFILE, LEGACY_PROFILE, CONNECTION_TRANSFER_PROFILE):
         raise ValueError("Select a supported native operation capability profile.")
     identity = snapshot["identity"]
     config = snapshot.get("connector_config", {})
@@ -98,7 +99,7 @@ def backup_capabilities(snapshot, files, application, *, capability_profile=PROF
 
     connection_copy = effective_connection = None
     connection_copy_error = effective_connection_error = None
-    if capability_profile == PROFILE:
+    if capability_profile in (PROFILE, CONNECTION_TRANSFER_PROFILE):
         try:
             connection_copy, connection_copy_error = eligible_connection(
                 MoiConnectionCopies(files[3])
@@ -213,7 +214,7 @@ def backup_capabilities(snapshot, files, application, *, capability_profile=PROF
         or "No alternate existing source passes the saved-effective wire profile.",
         "Open saved wire sources in the recorded diagram and review a separate compiled file. Retained settings are not current live values; no field transfer, new blocks/connections or general compiler is granted.",
     )
-    if capability_profile == PROFILE:
+    if capability_profile in (PROFILE, CONNECTION_TRANSFER_PROFILE):
         add(
             "matching-connection-copy",
             "Save a matching native connection archive copy",
@@ -340,6 +341,16 @@ def backup_capabilities(snapshot, files, application, *, capability_profile=PROF
         "Installed native compilers cover typed identity, existing Real/Boolean defaults and a scoped existing-wire source archive copy, not arbitrary logic generation.",
         "Retain original bytes; broader writers require independently qualified native references and resource allocation.",
     )
+    if capability_profile == CONNECTION_TRANSFER_PROFILE:
+        add(
+            "matching-connection-transfer",
+            "Transfer one matching native connection",
+            *transfer_status(
+                bool(effective_connection),
+                effective_connection_error or "No matching saved-effective connection was found.",
+            ),
+            "Review the exact station and prototype/source/unused destination separately. Fresh graph/configuration, saved settings, capacity, credentials, one-use intent and full native/effective readback remain required. Backup/readback use backup-state commands; Apply can interrupt control. No new blocks/I/O or automatic inverse deletion; this analysis prepares no field action.",
+        )
     add(
         "release-packages",
         "Verify release and package compatibility",
@@ -387,7 +398,7 @@ def backup_capabilities(snapshot, files, application, *, capability_profile=PROF
         "current_identity_verified": False,
         "scope": "Local analysis of original File 3 and retained saved Files 11/12. Source-qualified means recognized by installed software, not a prepared write, current setting or physical acceptance. No controller query, backup-state command, compilation intent or transfer is performed.",
     }
-    if capability_profile == PROFILE:
+    if capability_profile in (PROFILE, CONNECTION_TRANSFER_PROFILE):
         result["qualification"].update(
             archive_matching_connection=connection_copy,
             archive_matching_connection_error=connection_copy_error,

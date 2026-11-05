@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`bb2bb42d`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/bb2bb42de84ee4c5a7ea92ef3da80722adc10357).
+[`7f9d53d0`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/7f9d53d0ee6455d334810b3d0cae1f4ebe75f685).
 
 ## Baseline and purpose
 
@@ -1229,3 +1229,26 @@ changes. Existing error views show the extra diagnostic text. This improves
 future failure evidence; it does not reconstruct missing original packet traces,
 locate a first lost reply or repair the retained timeout observations. QA-01
 remains open. See [native timeout evidence](docs/native-timeout-stage.md).
+
+## 2026-11-04 JCI-03/JCI-09 delivery: matching-connection transfer backend
+
+`COMM-NATIVE-CONNECTION-TRANSFER-001` adds one prototype-matched connection
+between existing members through the shared durable native restore path. Review
+binds the exact capture/target and graph/prototype/source/destination guard. Apply
+captures fresh settings, checks unchanged application/directory/configuration and
+capacity, preserves other newer saved values, retains original/payload/intent
+before dispatch and performs one restore. Verification requires the entire native
+application, appended effective edge and saved settings. Uncertainty and complete
+original-image recovery remain distinct; readback never replays a restore.
+
+Recorded connection evidence is available in the common ledger. Explicit
+capability version 13 adds one preflight row while the default and explicit
+version 12 and legacy version 11 retain their exact contracts. No new blocks/I/O,
+resource/package/runtime compiler, inverse-deletion writer or physical acceptance
+is granted. The current local connection-copy workflow and graphics are unchanged.
+
+Next: `UI-NATIVE-CONNECTION-TRANSFER-001` integrates this separately qualified
+backend in the existing Program connection task with authoritative target,
+source-bound drafts, owned Review/Apply/Verify, interruption confirmation and
+uncertainty/readback. JCI-03/JCI-09 remain partial. See
+[matching-connection transfer](docs/native-matching-connection-transfer.md).

@@ -30,7 +30,9 @@ class BackupRecordsRequest(BackupInspectionSource):
 
 class BackupCapabilitiesRequest(BackupInspectionSource):
     capability_profile: Literal[
-        "native-backup-operation-capabilities/11", "native-backup-operation-capabilities/12"
+        "native-backup-operation-capabilities/11",
+        "native-backup-operation-capabilities/12",
+        "native-backup-operation-capabilities/13",
     ] = "native-backup-operation-capabilities/12"
 
 
