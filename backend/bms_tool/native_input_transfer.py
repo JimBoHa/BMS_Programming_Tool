@@ -27,6 +27,7 @@ from .native_inputs import (
     compile_input,
     input_operation_profile,
 )
+from .native_terminal_recovery_transfer import TerminalRecoveryPreview, recovery_origin
 from .property_evidence import PropertyEvidence, ReadBudget
 
 
@@ -207,13 +208,19 @@ class NativeInputOperations:
             }
 
     async def preview_input(self, **arguments):
-        options = InputPreview(**arguments)
+        return await self.review_input(InputPreview(**arguments))
+
+    async def preview_terminal_recovery(self, **arguments):
+        return await self.review_input(TerminalRecoveryPreview(**arguments))
+
+    async def review_input(self, options):
         async with self.operation(options.operation_id, "review-input"):
             self.available(options)
             captured, files = self.check_capture(options)
             self.input_source(**options.model_dump(include={"capture_id", "snapshot_sha256"}))
             origin = self.input_allocation_origin(options.edit, captured)
             output, compilation = compile_input(files, options.edit, allocation_origin=origin)
+            recovery = recovery_origin(self, options, compilation)
             config, app = copy.deepcopy(self.bacnet.config), self.bacnet.require()
             async with self.path._path(options) as session:
                 PropertyEvidence.pin(session, options.router)
@@ -250,6 +257,7 @@ class NativeInputOperations:
                 "connector_config": config,
                 "created_at": now.isoformat(),
                 "expires_at": (now + timedelta(seconds=900)).isoformat(),
+                **recovery,
             }
             from .native_applications import backup_effects
 

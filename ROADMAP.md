@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-05. Implementation baseline: GitHub `main` at
-[`18913017`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/18913017c423dd08e87ecd98e25a756aa78d428c).
+[`861f91c2`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/861f91c2da125e027d91e87484d38e7c0507b300).
 
 ## Baseline and purpose
 
@@ -1483,3 +1483,23 @@ Next, add contextual draft controls and separately qualify retained parent linea
 through a fresh confirmed transfer/readback. General application rollback,
 binary/SA/cross-host movement, resources/packages and CCT/physical/BTCVT acceptance
 remain separate. JCI-10/IO-02 stay partial. See [terminal recovery drafts](docs/native-terminal-recovery-drafts.md).
+
+## 2026-11-05 JCI-10/IO-02 delivery: parent-bound terminal recovery transfer backend
+
+`COMM-NATIVE-TERMINAL-RECOVERY-001` adds an explicit fresh recovery-review API and
+retained lineage through the existing profile-2 input writer. Exact derived
+parent/current target, proposal, configuration and origin bind the review.
+Typed options and retained metadata prevent missing/demoted recovery authority.
+The parent is revalidated after fresh compilation and before intent/dispatch.
+
+All three confirmations, one-use review, current interface/identity/settings,
+full image/published verification and unknown-outcome reconciliation remain.
+Other newer saved values stay current; the new intent records immutable lineage.
+Ordinary input reviews retain their previous shape; original helpers and all
+readback/UI remain separate.
+
+Next, expose previous-terminal preparation and the bound review in contextual
+Points & I/O controls, then project retained lineage in Changes/History. General
+rollback, binary/SA/cross-host reassignment, resources/packages and CCT/physical/
+BTCVT acceptance remain separate. JCI-10/IO-02 stay partial. See
+[terminal recovery transfer](docs/native-terminal-recovery-transfer.md).
