@@ -1,0 +1,8 @@
+# Packaging tools are separate from the shipped application environment.
+pip==25.3
+setuptools==84.2.1
+wheel==0.48.0
+pyinstaller==6.22.3
+pyinstaller-hooks-contrib==2026.9
+pip-tools==7.5.2
+pip-audit==2.10.1

@@ -1,0 +1,172 @@
+name: Release verification and packaging
+
+on:
+  pull_request:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wheel:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install locked runtime and build tools
+        run: |
+          python -m pip install -r requirements/build.txt
+          python -m pip install --require-hashes -r requirements/runtime.txt
+          python -m pip install pytest==9.1.1 pytest-asyncio==1.4.0
+      - name: Build and check browser dependencies
+        working-directory: web
+        run: |
+          npm ci
+          npm audit --audit-level=moderate
+          node ../scripts/collect_web_licenses.mjs --check
+          npm run build
+      - name: Packaging, provenance, launcher and privacy regression checks
+        run: |
+          python -m pytest -q tests/test_distribution_resources.py tests/test_ui_build_provenance.py tests/test_privacy_audit.py tests/test_desktop.py tests/test_release_audit.py
+          mkdir -p release-output/assets
+          python scripts/privacy_audit.py --output release-output/assets/source-audit.json
+          python scripts/build_portable.py --output release-output/assets
+      - name: Browser connection and offline acceptance
+        working-directory: web
+        run: |
+          python -m venv ../.venv
+          ../.venv/bin/python -m pip install --require-hashes -r ../requirements/runtime.txt
+          ../.venv/bin/python -m pip install pytest==9.1.1 pytest-asyncio==1.4.0
+          npx playwright install --with-deps chromium
+          npx playwright test release-guide.spec.ts engine-discovery.spec.ts
+      - name: Documentation, SBOMs and outgoing archive audit
+        run: |
+          python scripts/build_documentation.py --output release-output/assets/BMS-Studio-0.2.0b1-documentation.zip
+          python -m pip_audit -r requirements/runtime.txt --no-deps --disable-pip --format cyclonedx-json --output release-output/assets/python-sbom.json
+          cd web
+          npm sbom --omit=dev --sbom-format cyclonedx > ../release-output/assets/browser-sbom.json
+          cd ..
+          python scripts/release_audit.py release-output/assets --output release-output/assets/wheel-docs-audit.json
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: wheel-and-documentation
+          path: release-output/assets/*
+          if-no-files-found: error
+
+  desktop:
+    needs: wheel
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            profile: macos-arm64
+          - os: macos-15-intel
+            profile: macos-x64
+          - os: windows-2025
+            profile: windows-x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: bash
+    env:
+      MACOS_CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE_BASE64 }}
+      MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+      MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+      APPLE_NOTARY_KEY_BASE64: ${{ secrets.APPLE_NOTARY_KEY_BASE64 }}
+      APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+      APPLE_NOTARY_ISSUER: ${{ secrets.APPLE_NOTARY_ISSUER }}
+      WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+      WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: wheel-and-documentation
+          path: release-output/wheel
+      - name: Install pinned tools, runtime and reviewed wheel
+        run: |
+          python -m pip install -r requirements/build.txt
+          python -m pip install --require-hashes -r requirements/runtime.txt
+          python -m pip install --no-deps release-output/wheel/*.whl
+          python -m pip check
+      - name: Prepare optional signing credentials
+        run: python scripts/sign_release.py prepare
+      - name: Freeze installed application
+        run: |
+          if [ -n "$BMS_MACOS_IDENTITY" ]; then
+            python scripts/build_desktop.py --output release-output/desktop --identity "$BMS_MACOS_IDENTITY"
+          else
+            python scripts/build_desktop.py --output release-output/desktop
+          fi
+      - name: Optional Windows application signing
+        if: runner.os == 'Windows'
+        run: |
+          python scripts/sign_release.py windows 'release-output/desktop/BMS Studio/BMS Studio.exe'
+          if [ -n "$WINDOWS_CERTIFICATE_BASE64" ]; then
+            python -c "import json,pathlib;p=pathlib.Path('release-output/desktop/desktop-build.json');d=json.loads(p.read_text());d['signature']='Authenticode';p.write_text(json.dumps(d,indent=2)+'\\n')"
+          fi
+      - name: Audit staged payload and build installer
+        run: |
+          mkdir -p release-output/assets
+          python scripts/release_audit.py release-output/desktop --output release-output/assets/${{ matrix.profile }}-payload-audit.json
+          python scripts/package_desktop.py --payload release-output/desktop --output release-output/assets
+      - name: Optional Windows setup signing
+        if: runner.os == 'Windows'
+        run: python scripts/sign_release.py windows release-output/assets/*-setup.exe
+      - name: Install, update, remove and preserve user data
+        run: |
+          for asset in release-output/assets/*.dmg release-output/assets/*-setup.exe; do
+            if [ -f "$asset" ]; then
+              python scripts/check_installer.py "$asset" --output release-output/assets/${{ matrix.profile }}-acceptance.json
+            fi
+          done
+      - name: Clear temporary signing keychain
+        if: always() && runner.os == 'macOS'
+        run: python scripts/sign_release.py cleanup
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: desktop-${{ matrix.profile }}
+          path: release-output/assets/*
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [wheel, desktop]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          path: release-output/assets
+          merge-multiple: true
+      - name: Check evidence and prepare draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            python scripts/finalize_release.py release-output/assets --notes docs/release-notes.md --notes-output release-output/notes.md
+            gh release create "$GITHUB_REF_NAME" release-output/assets/* --verify-tag --draft --prerelease --title "BMS Studio $GITHUB_REF_NAME" --notes-file release-output/notes.md
+          else
+            python scripts/finalize_release.py release-output/assets --stable --notes docs/release-notes.md --notes-output release-output/notes.md
+            gh release create "$GITHUB_REF_NAME" release-output/assets/* --verify-tag --draft --title "BMS Studio $GITHUB_REF_NAME" --notes-file release-output/notes.md
+          fi

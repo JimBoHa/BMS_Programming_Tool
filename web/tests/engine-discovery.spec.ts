@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { spawn } from "node:child_process";
 import path from "node:path";
+import { mkdirSync } from "node:fs";
 
 async function engines() {
   const root = path.resolve("..");
@@ -161,6 +162,19 @@ test("a user can find named engines, load their trunks and open a controller wit
       path: info.outputPath("named-engine-and-trunks.png"),
       fullPage: true,
     });
+    if (process.env.BMS_DOC_SCREENSHOTS) {
+      await page.setViewportSize({ width: 1440, height: 1500 });
+      await page.evaluate(() => {
+        for (const element of document.querySelectorAll("*"))
+          element.scrollTop = 0;
+        window.scrollTo(0, 0);
+      });
+      mkdirSync(process.env.BMS_DOC_SCREENSHOTS, { recursive: true });
+      await page.screenshot({
+        path: path.join(process.env.BMS_DOC_SCREENSHOTS, "discovery.png"),
+        fullPage: true,
+      });
+    }
     await panel
       .getByRole("button", { name: "Scan controllers", exact: true })
       .click();

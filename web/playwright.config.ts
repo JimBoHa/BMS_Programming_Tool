@@ -2,6 +2,7 @@ import { defineConfig } from "@playwright/test";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 const stateDirectory =
   process.env.BMS_TEST_COMPILER_STATE ||
   mkdtempSync(join(tmpdir(), "bms-studio-e2e-"));
@@ -19,7 +20,10 @@ export default defineConfig({
   },
   webServer: {
     command: "../.venv/bin/python -m bms_tool serve --port 8766",
-    env: { BMS_STUDIO_DATA: stateDirectory },
+    env: {
+      BMS_STUDIO_DATA: stateDirectory,
+      PYTHONPATH: fileURLToPath(new URL("../backend", import.meta.url)),
+    },
     url: "http://127.0.0.1:8766/api/session",
     reuseExistingServer: false,
     timeout: 20000,

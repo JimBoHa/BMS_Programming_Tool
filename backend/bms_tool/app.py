@@ -20,6 +20,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import AwareDatetime, Field
 
+from . import __version__
 from .accumulator_prescale import PrescaleReviews, prescale_router
 from .activities import activity_router
 from .analysis import dependencies
@@ -760,7 +761,7 @@ def create_app(state_dir=None, *, operation_power=None):
                                                     finally:
                                                         native.stop()
 
-    app = FastAPI(title="BMS Studio local API", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="BMS Studio local API", version=__version__, lifespan=lifespan)
     app.state.runtime = runtime
     app.state.store = store
     app.state.bacnet = bacnet
@@ -995,7 +996,7 @@ def create_app(state_dir=None, *, operation_power=None):
     def session():
         return {
             "token": session_token,
-            "version": "0.1.0",
+            "version": __version__,
             "field_network_open": bacnet.status()["connected"],
         }
 

@@ -55,11 +55,26 @@ def build(destination, *, allow_dirty=False):
             target = staged / name
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, target)
-        for name in ("pyproject.toml", "README.md", "LICENSE"):
+        for name in ("pyproject.toml", "README.md", "LICENSE", "NOTICE"):
             source = ROOT / name
             if source.is_file():
                 shutil.copy2(source, staged / name)
+        legal = staged / "third_party"
+        legal.mkdir()
+        for name in (
+            "OCT-LICENSE.txt",
+            "Sedona-LICENSE.md",
+            "Temco-T3000-LICENSE.txt",
+            "pybog-LICENSE.txt",
+            "web-NOTICES.txt",
+        ):
+            shutil.copy2(ROOT / "third_party" / name, legal / name)
         package = staged / "backend" / "bms_tool"
+        bundled_legal = package / "data" / "legal"
+        bundled_legal.mkdir(parents=True)
+        for name in ("LICENSE", "NOTICE"):
+            shutil.copy2(staged / name, bundled_legal / name)
+        shutil.copytree(legal, bundled_legal / "third_party")
         docs = package / "data" / "app_docs"
         docs.mkdir(parents=True)
         for name in PUBLIC_DOCS:
@@ -84,7 +99,7 @@ def build(destination, *, allow_dirty=False):
             if relative != Path("index.html") and not (
                 len(relative.parts) == 2
                 and relative.parts[0] == "assets"
-                and relative.suffix in {".js", ".css", ".map", ".woff", ".woff2", ".svg", ".png"}
+                and relative.suffix in {".js", ".css", ".woff", ".woff2", ".svg", ".png"}
             ):
                 raise ValueError("Unexpected built UI file: " + str(relative))
             target = package / "web_assets" / relative
