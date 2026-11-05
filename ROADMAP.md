@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-05. Implementation baseline: GitHub `main` at
-[`6359c6a1`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/6359c6a1243ba4f16885cfc786e8fdb153eb158e).
+[`09fcdd66`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/09fcdd66689183cd5609ad76bf288e94d6216ccd).
 
 ## Baseline and purpose
 
@@ -1522,3 +1522,21 @@ Next, project recorded parent lineage in Changes/History while retaining local
 source/revalidation distinctions. General rollback, broader input/host operations,
 resources/packages and CCT/physical/BTCVT acceptance remain separate. JCI-10/IO-02
 stay partial. See [the terminal recovery workflow](docs/native-terminal-recovery-workflow.md).
+
+## 2026-11-05 JCI-10/IO-02 delivery: recorded terminal recovery lineage
+
+`HIST-NATIVE-TERMINAL-RECOVERY-001` projects closed recorded parent/current origin
+metadata in existing Changes/History terminal rows and details. Typed origin
+seals, base terminal/child/configuration/capture bindings and recorded confirmations
+precede the new summary and local parent search. Inconsistent explicit lineage
+retains original evidence with unavailable metadata and no recovery-family fallback.
+
+Listing, inspecting, downloading and searching do not query controllers, open
+backups, prepare a recovery or revalidate parent/source availability. Recorded
+lineage leaves the child outcome and immutable evidence unchanged. Ordinary
+records, existing writers/helpers and graphics/styles retain their contracts.
+
+Next, qualify further native input/host and runtime/compilation semantics against
+actual source evidence. Broader rollback, binary/SA/cross-host reassignment,
+resources/packages and CCT/physical/BTCVT acceptance remain separate. JCI-10/IO-02
+stay partial. See [recorded terminal recovery lineage](docs/native-terminal-recovery-ledger.md).

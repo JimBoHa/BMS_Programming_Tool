@@ -12,6 +12,10 @@ import {
   NativeTerminalLedgerView,
   TerminalSummary,
 } from "./NativeTerminalLedgerView";
+import {
+  NativeTerminalRecoveryLedgerView,
+  TerminalRecoverySummary,
+} from "./NativeTerminalRecoveryLedgerView";
 import { recordedPointName } from "./nativePointNameLedger";
 import { recordedPointNameRecovery } from "./nativePointNameRecoveryLedger";
 import { recordedConnection } from "./nativeConnectionLedger";
@@ -97,6 +101,7 @@ type Row = {
   native_recovery?: NativeRecovery;
   native_input?: unknown;
   native_terminal?: unknown;
+  native_terminal_recovery?: unknown;
   native_point_name?: unknown;
   native_connection?: unknown;
   native_point_name_recovery?: unknown;
@@ -674,6 +679,7 @@ export function ChangeLedgerPanel({
                         <InputSummary value={row.native_input} />
                       )}
                       <TerminalSummary value={row.native_terminal} />
+                      <TerminalRecoverySummary row={row} />
                       <PointNameSummary value={row.native_point_name} />
                       {row.native_connection !== undefined && (
                         <span>
@@ -990,6 +996,13 @@ export function ChangeLedgerPanel({
           {nativeKind === "input" && choice.native_terminal !== undefined && (
             <NativeTerminalLedgerView value={choice.native_terminal} />
           )}
+          {nativeKind === "input" &&
+            choice.native_terminal_recovery !== undefined && (
+              <NativeTerminalRecoveryLedgerView
+                row={choice}
+                onParent={searchParent}
+              />
+            )}
           {nativeKind === "input" && choice.native_terminal === undefined && (
             <section aria-label="Recorded native input configuration">
               <h4>
