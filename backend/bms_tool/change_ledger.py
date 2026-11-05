@@ -27,6 +27,7 @@ from .native_ledger_details import native_reference, recovery_lineage
 from .native_point_name_ledger import point_name_reference
 from .native_point_name_recovery_ledger import point_name_recovery_reference
 from .native_terminal_ledger import terminal_reference
+from .native_terminal_recovery_ledger import terminal_recovery_reference
 
 Source = Literal["audit", "native", "instance", "schedule", "bbmd", "event", "temco", "command"]
 SOURCES = ("audit", "native", "instance", "schedule", "bbmd", "event", "temco", "command")
@@ -365,6 +366,9 @@ class ChangeLedger:
                     if body.get("operation_profile") == TERMINAL_PROFILE
                     else input_reference(body)
                 )
+                native_metadata.update(
+                    terminal_recovery_reference(body, native_metadata.get("native_terminal"))
+                )
             elif native_kind == "connection":
                 native_metadata = connection_reference(body)
             elif native_kind == "point-name":
@@ -374,7 +378,7 @@ class ChangeLedger:
                 )
             recovery = (
                 None
-                if native_kind == "point-name"
+                if native_kind == "point-name" or "native_terminal_recovery" in native_metadata
                 else recovery_lineage(body, native_kind, native_metadata)
             )
             if recovery is not None:
