@@ -70,6 +70,8 @@ visually reviewed. Advisory checks are a point-in-time result.
 
 An explicit, file-scoped policy retains separately reported upstream compiler
 paths in pinned third-party binaries/SBOMs and original documentation examples.
+The shipped CPython interpreter, standard extension binaries and sysconfig build
+metadata retain separately reported upstream compiler paths as well.
 Those informational witnesses never exempt private-rule matches, web assets or
 the app's own frozen modules. They do not represent local/site source paths.
 

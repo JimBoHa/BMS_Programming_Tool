@@ -225,6 +225,14 @@ def window(desktop, sharing=None):
     root = tk.Tk()
     root.title("BMS Studio")
     root.resizable(False, False)
+    # Use Tk's portable renderer rather than depending on a particular macOS
+    # Aqua theme/SDK combination for the small launcher control window.
+    style = ttk.Style(root)
+    style.theme_use("clam")
+    style.configure("TFrame", background="#f4f8f8")
+    style.configure("TLabel", background="#f4f8f8", foreground="#173b40")
+    style.configure("TButton", padding=8, foreground="#006e69")
+    root.configure(background="#f4f8f8")
     frame = ttk.Frame(root, padding=24)
     frame.grid()
     ttk.Label(frame, text="BMS Studio", font=("Helvetica", 22, "bold")).grid(sticky="w")
@@ -259,6 +267,7 @@ def window(desktop, sharing=None):
     root.protocol("WM_DELETE_WINDOW", quit_app)
     if sys.platform == "darwin":
         root.createcommand("tk::mac::Quit", quit_app)
+    root.update_idletasks()
     root.mainloop()
 
 

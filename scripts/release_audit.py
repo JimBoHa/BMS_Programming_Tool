@@ -25,7 +25,13 @@ HOME = re.compile(rb"(?:/Users/|/home/|[A-Za-z]:[\\/]Users[\\/])[A-Za-z0-9_.@-]+
 UPSTREAM_HOME = (
     (
         re.compile(r"!PYZ\.pyz!_sysconfigdata__darwin_darwin$"),
-        (b"/Users/runner/work/", b"/Users/runner/hostedtoolcache/"),
+        (b"/Users/",),
+    ),
+    (
+        re.compile(
+            r"/(?:python3(?:\.|__dot__)13/lib-dynload/[^/]+\.so|Python\.framework/Versions/3\.13/Python)$"
+        ),
+        (b"/Users/",),
     ),
     (
         re.compile(
