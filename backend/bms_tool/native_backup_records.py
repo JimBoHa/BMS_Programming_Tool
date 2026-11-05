@@ -8,6 +8,8 @@ from .models import StrictModel
 from .moi_application import MoiApplication
 from .moi_identity import sha
 from .native_backup_capabilities import backup_capabilities
+from .native_binary_terminal_capabilities import PROFILE as BINARY_TERMINAL_CAPABILITIES_PROFILE
+from .native_binary_terminal_capabilities import binary_terminal_capabilities
 from .native_removal_capabilities import PROFILE as REMOVAL_CAPABILITIES_PROFILE
 from .native_removal_capabilities import removal_capabilities
 from .native_terminal_capabilities import PROFILE as TERMINAL_CAPABILITIES_PROFILE
@@ -42,6 +44,7 @@ class BackupCapabilitiesRequest(BackupInspectionSource):
         "native-backup-operation-capabilities/14",
         "native-backup-operation-capabilities/15",
         "native-backup-operation-capabilities/16",
+        "native-backup-operation-capabilities/17",
     ] = "native-backup-operation-capabilities/12"
 
 
@@ -104,7 +107,9 @@ class NativeBackupRecords:
             options.model_dump(include={"capture_id", "snapshot_sha256"})
         )
         analyzer = (
-            terminal_label_capabilities
+            binary_terminal_capabilities
+            if options.capability_profile == BINARY_TERMINAL_CAPABILITIES_PROFILE
+            else terminal_label_capabilities
             if options.capability_profile == TERMINAL_LABEL_CAPABILITIES_PROFILE
             else terminal_capabilities
             if options.capability_profile == TERMINAL_CAPABILITIES_PROFILE
