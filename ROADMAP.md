@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
-Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`9f481d8e`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/9f481d8e36a0f340c1f04abd152052a16f716930).
+Updated: 2026-11-05. Implementation baseline: GitHub `main` at
+[`6030abfa`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/6030abfa4151a457f4ee662fea0ba43d5c6d6338).
 
 ## Baseline and purpose
 
@@ -1429,3 +1429,20 @@ with the same exact ownership, confirmations and uncertainty handling. General
 SA/cross-host/binary field operations and CCT/physical/BTCVT acceptance remain
 separate. IO-02 and JCI-09 remain partial. See
 [recorded terminal movement](docs/native-terminal-ledger.md).
+
+## 2026-11-05 IO-02/JCI-09 delivery: contextual analog terminal field workflow
+
+`UI-NATIVE-INPUT-TERMINAL-TRANSFER-001` exposes the separately qualified profile-2
+analog terminal move in the existing Points & I/O input task. Captured previous
+and destination terminals remain explicit; electrical mode/scaling and program
+connections are preserved. Offline saved-effective copies and field review are
+distinct. Exact numeric-token review seals, source/target ownership, compiler
+proofs and typed confirmations precede the existing one-use Apply/full-readback
+path. Unknown results retain receipts without replay. Late responses/digests
+cannot restore retired reviews. Older actions, local-copy task, graphics and
+styles remain in place.
+
+Binary field moves, SA/cross-host/dedicated-BI reassignment, allocation beyond
+qualified profiles, actual wiring, general native/resource/package compilation
+and CCT/physical/BTCVT acceptance remain separate. IO-02/JCI-09 remain partial.
+See [the analog terminal field workflow](docs/native-terminal-field-workflow.md).
