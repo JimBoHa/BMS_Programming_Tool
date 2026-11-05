@@ -1729,3 +1729,24 @@ Next, qualify further typed Device Reference and host-specific reassignment sema
 against actual source evidence. General allocation/electrical changes, SA/cross-host
 writes, resources/packages and CCT/physical/BTCVT acceptance remain separate. IO-02/
 JCI-09 remain partial. See [saved archive reanalysis](docs/saved-hardware-reanalysis.md).
+
+## 2026-11-05 IO-02/JCI-09 delivery: encoded analog terminal transfer backend
+
+`FMT-NATIVE-ENCODED-ANALOG-TERMINAL-001` adds explicit action `encoded-terminal`
+and transfer profile 4, preserving original profiles/actions. Typed analog source
+configuration, observed ASCII/UCS-2 label encoding and actual recorded availability
+bind one existing same-controller universal-input move. Paired absent linear output
+endpoints stay absent. Saved overrides cannot undo the new binding after compilation.
+
+The existing writer retains one-use exact reviews, all confirmations, pinned current
+interface/target/identity, fresh source/static/settings checks and full-image plus
+published readback. Sealed profile/compiler/action pairing and canonical body/options
+binding prevent substitution. Unknown outcomes reconcile without replay. No source
+inventory is embedded; all other native expanded bytes/configuration remain intact.
+
+Available CAF examples do not supply Device Reference bindings that would qualify
+broader host writes; that evidence dependency remains explicit. Next, expose this
+encoding-preserving analog profile within existing Points & I/O, then source-specific
+capability, recorded evidence and recovery support. SA/cross-host writes, general
+compilation, resources/packages and CCT/physical/BTCVT acceptance remain separate.
+IO-02/JCI-09 remain partial. See [encoded analog transfer](docs/native-encoded-analog-terminal-transfer.md).

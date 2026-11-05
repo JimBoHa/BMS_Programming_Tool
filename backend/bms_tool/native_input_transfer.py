@@ -93,6 +93,26 @@ class NativeInputOperations:
             "identity": capture["identity"],
         }
 
+    def encoded_analog_input_source(self, **arguments):
+        from .native_encoded_terminal_input import EncodedAnalogTerminalCompiler
+
+        source = InputLocalSource(**arguments)
+        capture, files = self.input_local_capture(source.model_dump())
+        compiler = EncodedAnalogTerminalCompiler(NativeInputCompiler(files))
+        identity = compiler.app.summary()
+        if (
+            capture["identity"].get("vendor-identifier") != 5
+            or capture["device"] != f"device,{identity['instance']}"
+            or capture["identity"].get("object-name") != identity["name"]
+            or capture["identity"].get("model-name") != identity["model"]
+        ):
+            raise ValueError("Encoded analog archive and captured controller identity disagree.")
+        return {
+            **compiler.source(), "capture_id": capture["id"],
+            "snapshot_sha256": capture["evidence_sha256"],
+            "target": capture["target"], "identity": capture["identity"],
+        }
+
     def input_allocation_origin(self, edit, capture):
         edit = InputEdit.model_validate(edit)
         if edit.action != "remove-allocated":
@@ -240,7 +260,9 @@ class NativeInputOperations:
             self.available(options)
             captured, files = self.check_capture(options)
             (
-                self.binary_input_source
+                self.encoded_analog_input_source
+                if options.edit.action == "encoded-terminal"
+                else self.binary_input_source
                 if options.edit.action == "binary-terminal"
                 else self.input_source
             )(**options.model_dump(include={"capture_id", "snapshot_sha256"}))
@@ -384,6 +406,10 @@ class NativeInputOperations:
 
     @staticmethod
     def input_scope(edit):
+        if edit.action == "encoded-terminal":
+            from .native_encoded_terminal_input import SCOPE as ENCODED_SCOPE
+
+            return ENCODED_SCOPE
         if edit.action == "binary-terminal":
             from .native_binary_terminal import SCOPE as BINARY_SCOPE
 

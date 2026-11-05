@@ -1203,6 +1203,9 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
             from .native_binary_terminal import validate_evidence
 
             validate_evidence(intent)
+            from .native_encoded_terminal_input import validate_evidence as validate_encoded_analog
+
+            validate_encoded_analog(intent)
         if point_name_edit and intent.get("operation_profile") != POINT_NAME_PROFILE:
             raise ValueError("Unsupported native point-name evidence version; retain it.")
         expected_profile = (
@@ -1511,6 +1514,15 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
             from .native_binary_terminal import validate_evidence
 
             validate_evidence(plan["body"])
+            from .native_encoded_terminal_input import PROFILE as ENCODED_ANALOG_PROFILE
+            from .native_encoded_terminal_input import validate_evidence as validate_encoded_analog
+
+            validate_encoded_analog(plan["body"])
+            if plan["body"].get("operation_profile") == ENCODED_ANALOG_PROFILE and (
+                seal(plan["body"]) != plan["digest"]
+                or seal(plan["body"]["input_edit"]) != seal(plan["options"].edit.model_dump())
+            ):
+                raise ValueError("The exact encoded analog terminal review changed; review again.")
             if plan["body"].get("operation_profile") == BINARY_TERMINAL_PROFILE and (
                 seal(plan["body"]) != plan["digest"]
                 or seal(plan["body"]["input_edit"]) != seal(plan["options"].edit.model_dump())
@@ -1969,6 +1981,10 @@ def native_application_router(service):
     @router.post("/input/source")
     def input_source(body: InputLocalSource):
         return service.input_source(**body.model_dump())
+
+    @router.post("/input/encoded-terminal/source")
+    def encoded_analog_input_source(body: InputLocalSource):
+        return service.encoded_analog_input_source(**body.model_dump())
 
     @router.post("/input/binary-terminal/source")
     def binary_input_source(body: InputLocalSource):
