@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-05. Implementation baseline: GitHub `main` at
-[`b43ef003`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/b43ef003222e16c105c0c6a702f841f925511be3).
+[`18913017`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/18913017c423dd08e87ecd98e25a756aa78d428c).
 
 ## Baseline and purpose
 
@@ -1465,3 +1465,21 @@ Next, qualify additional typed native input/host/runtime and compilation semanti
 against actual source evidence. General binary/SA/cross-host/dedicated movement,
 resources/packages and CCT/physical/BTCVT acceptance remain separate. JCI-01,
 IO-02 and JCI-09 stay partial. See [terminal operation support](docs/native-terminal-capabilities.md).
+
+## 2026-11-05 JCI-10/IO-02 delivery: previous analog terminal draft API
+
+`FMT-NATIVE-TERMINAL-RECOVERY-DRAFT-001` derives a previous-terminal proposal from
+a resolved verified profile-2 move, original files and exact current capture.
+Complete compilation/payload, identity/route/static-directory and selected input
+configuration checks precede an existing-compiler inverse. Other current saved
+values remain current. An already-previous merged image supplies no new proposal.
+
+This strict local API creates no field review, intent, receipt update or write.
+Its sealed origin records immutable parent proof but does not make the ordinary
+field writer enforce recovery lineage. Existing compilers, transfer/readback,
+helpers, journal formats and UI remain unchanged.
+
+Next, add contextual draft controls and separately qualify retained parent lineage
+through a fresh confirmed transfer/readback. General application rollback,
+binary/SA/cross-host movement, resources/packages and CCT/physical/BTCVT acceptance
+remain separate. JCI-10/IO-02 stay partial. See [terminal recovery drafts](docs/native-terminal-recovery-drafts.md).

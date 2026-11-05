@@ -107,6 +107,7 @@ from .native_point_names import (
     verify_point_name_preservation,
 )
 from .native_runtime_calibration import read_runtime_calibration
+from .native_terminal_recovery import NativeTerminalRecovery
 from .native_wire_compiler import EffectiveWirePreview
 from .native_wire_recovery import PROFILE as WIRE_RECOVERY_PROFILE
 from .native_wire_transfer import PROFILE as WIRE_PROFILE
@@ -1971,6 +1972,12 @@ def native_application_router(service):
     @router.post("/input/preview")
     async def preview_input(body: InputPreview):
         return await service.preview_input(**body.model_dump())
+
+    @router.post("/input/terminal-recovery/prepare")
+    def prepare_terminal_recovery(body: DefaultRecoveryPrepare):
+        return NativeTerminalRecovery(NativeBackupRecords(service.storage)).prepare(
+            body.model_dump()
+        )
 
     @router.post("/input/apply")
     async def apply_input(body: InputApply):
