@@ -1,3 +1,4 @@
+import { openDiscoveryDetails } from "./discovery-controls";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { spawn, type ChildProcess } from "node:child_process";
 import { createSocket } from "node:dgram";
@@ -275,10 +276,10 @@ for (const mode of [
         scan.getByText("Old router name", { exact: true }),
       ).toBeVisible();
       await page
-        .getByRole("button", { name: "Router & trunk", exact: true })
+        .getByRole("button", { name: "NAE / router & trunk", exact: true })
         .click();
       await guide
-        .getByRole("button", { name: "Find local routers", exact: true })
+        .getByRole("button", { name: "Find NAEs & routers", exact: true })
         .click();
       const routers = guide.getByLabel("Commissioning router", { exact: true });
       await expect(
@@ -288,12 +289,13 @@ for (const mode of [
       await guide
         .getByLabel("Commissioning trunk", { exact: true })
         .selectOption("3001");
+      await openDiscoveryDetails(guide, "Advanced scan settings");
       await guide
         .getByLabel("Routed response window seconds", { exact: true })
         .fill("1");
       await guide
         .getByRole("button", {
-          name: "Scan selected routed network",
+          name: "Scan controllers",
           exact: true,
         })
         .click();
@@ -322,14 +324,14 @@ for (const mode of [
         .getByRole("button", { name: "2 · Discover & select", exact: true })
         .click();
       await page
-        .getByRole("button", { name: "Router & trunk", exact: true })
+        .getByRole("button", { name: "NAE / router & trunk", exact: true })
         .click();
       await expect(
-        guide.getByRole("button", { name: "Find local routers", exact: true }),
+        guide.getByRole("button", { name: "Find NAEs & routers", exact: true }),
       ).toBeEnabled();
       hold = true;
       await guide
-        .getByRole("button", { name: "Find local routers", exact: true })
+        .getByRole("button", { name: "Find NAEs & routers", exact: true })
         .click();
       await routers.selectOption(peer.endpoint);
       await guide
@@ -337,7 +339,7 @@ for (const mode of [
         .selectOption("3001");
       await guide
         .getByRole("button", {
-          name: "Scan selected routed network",
+          name: "Scan controllers",
           exact: true,
         })
         .click();

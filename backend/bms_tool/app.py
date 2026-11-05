@@ -78,7 +78,7 @@ from .conversion_preview import conversion_preview
 from .cov_observations import CovObservations
 from .cw_isolation_output_template import cw_isolation_output_template_router
 from .deployment import Runtime
-from .device_details import DeviceDetails, DeviceDetailsRequest
+from .device_details import DeviceDetails, DeviceDetailsRequest, DeviceNameRequest
 from .device_instance import DeviceInstances, device_instance_router
 from .engine import Engine, output_type, run_scenario, validate
 from .enum_mapping import (
@@ -173,6 +173,7 @@ from .native_terminal_labels import terminal_label_router
 from .native_weekly_text import weekly_text_router
 from .native_wire_compiler import EffectiveWireService, effective_wire_router
 from .native_wire_copies import NativeWireCopies, native_wire_router
+from .network_interfaces import ipv4_interfaces
 from .network_number_plan import network_plan_router
 from .niagara import NiagaraArchive
 from .observability import ObservabilityStore
@@ -2018,6 +2019,10 @@ def create_app(state_dir=None, *, operation_power=None):
     def bacnet_ip_scan_profile():
         return ip_discovery.status()
 
+    @app.get("/api/bacnet/interfaces")
+    def bacnet_ipv4_interfaces():
+        return ipv4_interfaces()
+
     @app.post("/api/bacnet/scan-ip")
     async def bacnet_scan_ip(body: IpScanRequest):
         return await ip_discovery.scan(**body.model_dump())
@@ -2031,7 +2036,7 @@ def create_app(state_dir=None, *, operation_power=None):
         return await device_details.read(**body.model_dump())
 
     @app.post("/api/bacnet/device-name")
-    async def bacnet_device_name(body: DeviceDetailsRequest):
+    async def bacnet_device_name(body: DeviceNameRequest):
         return await device_details.read_name(**body.model_dump())
 
     @app.post("/api/bacnet/controller/profile")

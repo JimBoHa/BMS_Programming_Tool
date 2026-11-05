@@ -74,8 +74,13 @@ async function heldSavedStatus(page: Page, request: APIRequestContext) {
     await gate;
     await route.fulfill({ response });
   });
+  // Isolate delayed draft hydration from the independent OS network suggestion.
+  await page.route("**/api/bacnet/interfaces", (route) =>
+    route.fulfill({ json: { interfaces: [] } }),
+  );
   await page.goto("/");
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
+  await page.getByRole("button", { name: /^Connect to a controller/ }).click();
+  await page.getByText("Advanced connection settings", { exact: true }).click();
   await received;
   return { saved, release };
 }

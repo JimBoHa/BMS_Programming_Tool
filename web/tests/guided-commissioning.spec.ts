@@ -1,3 +1,4 @@
+import { openDiscoveryDetails } from "./discovery-controls";
 import {
   expect,
   test,
@@ -95,7 +96,10 @@ async function open(page: Page, request: APIRequestContext) {
     ).ok(),
   ).toBe(true);
   await page.goto("/");
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
+  await page.getByRole("button", { name: /^Connect to a controller/ }).click();
+  await page
+    .getByRole("button", { name: "2 · Discover & select", exact: true })
+    .click();
   const guide = page.getByRole("region", {
     name: "Routed BACnet discovery",
     exact: true,
@@ -105,7 +109,7 @@ async function open(page: Page, request: APIRequestContext) {
     exact: true,
   });
   await expect(
-    guide.getByRole("button", { name: "Find local routers", exact: true }),
+    guide.getByRole("button", { name: "Find NAEs & routers", exact: true }),
   ).toBeEnabled();
   return { guide, instance, headers };
 }
@@ -145,11 +149,12 @@ async function selectTrunk(
   await guide
     .getByLabel("Commissioning trunk", { exact: true })
     .selectOption(String(network));
+  await openDiscoveryDetails(guide, "Advanced scan settings");
   await guide
     .getByLabel("Routed response window seconds", { exact: true })
     .fill("1");
   await guide
-    .getByRole("button", { name: "Scan selected routed network", exact: true })
+    .getByRole("button", { name: "Scan controllers", exact: true })
     .click();
   await expect(
     guide
@@ -166,7 +171,7 @@ async function choose(
     .getByLabel("Commissioning controller", { exact: true })
     .selectOption(JSON.stringify([`${network}:${mac}`, "device,5136"]));
   await guide
-    .getByRole("button", { name: "Modify selected controller", exact: true })
+    .getByRole("button", { name: "Open controller", exact: true })
     .click();
 }
 
@@ -182,7 +187,7 @@ test("router → its trunks → scan → duplicate-ID controller → reviewed na
     await discoverFixture(page, [first, second]);
     const { guide, instance } = await open(page, request);
     await guide
-      .getByRole("button", { name: "Find local routers", exact: true })
+      .getByRole("button", { name: "Find NAEs & routers", exact: true })
       .click();
     const routers = guide.getByLabel("Commissioning router", { exact: true });
     await expect(routers.locator("option")).toHaveCount(3);
@@ -200,16 +205,19 @@ test("router → its trunks → scan → duplicate-ID controller → reviewed na
     ).toHaveCount(0);
     await selectTrunk(guide, 4101);
     await choose(guide, 4101, 8);
+    await page
+      .getByRole("button", { name: "Edit instance number", exact: true })
+      .click();
+    const selectedPath = page.getByLabel("Selected controller path", {
+      exact: true,
+    });
+    await expect(selectedPath).toContainText("4101:8");
+    await expect(selectedPath).toContainText(second.endpoint);
     await expect(
       instance.getByLabel("Controller address (IPv4 or DNET:MAC)", {
         exact: true,
       }),
-    ).toHaveValue("4101:8");
-    await expect(
-      instance.getByLabel("Instance-change router (routed targets only)", {
-        exact: true,
-      }),
-    ).toHaveValue(second.endpoint);
+    ).toHaveCount(0);
     await instance
       .getByLabel("New controller instance (0–4194302)", { exact: true })
       .fill("15136");
@@ -220,21 +228,19 @@ test("router → its trunks → scan → duplicate-ID controller → reviewed na
       instance.getByLabel("Reviewed instance change", { exact: true }),
     ).toContainText("Authored 4101 MAC 8");
     expect(second.writes).toEqual([]);
-    // A new upstream router invalidates the selected controller and its Apply.
+    // Changing the connection task retires the old field review.
+    await page
+      .getByRole("button", { name: "Change controller", exact: true })
+      .click();
+    await guide
+      .getByRole("button", { name: "Find NAEs & routers", exact: true })
+      .click();
     await routers.selectOption(first.endpoint);
     await expect(
       instance.getByRole("button", {
         name: "Apply controller instance change",
         exact: true,
       }),
-    ).toHaveCount(0);
-    await expect(
-      instance.getByLabel("Current Device object (device,instance)", {
-        exact: true,
-      }),
-    ).toHaveValue("");
-    await expect(
-      guide.getByLabel("Commissioning controller", { exact: true }),
     ).toHaveCount(0);
     await selectTrunk(guide, 3001);
     await expect(
@@ -244,14 +250,12 @@ test("router → its trunks → scan → duplicate-ID controller → reviewed na
       guide.getByLabel("Commissioning controller", { exact: true }),
     ).toContainText("Authored 3001 MAC 8");
     await choose(guide, 3001, 8);
-    await expect(
-      instance.getByLabel("Instance-change network (1–65534)", { exact: true }),
-    ).toHaveValue("3001");
-    await expect(
-      instance.getByLabel("Current Device object (device,instance)", {
-        exact: true,
-      }),
-    ).toHaveValue("device,5136");
+    await page
+      .getByRole("button", { name: "Edit instance number", exact: true })
+      .click();
+    await expect(selectedPath).toContainText("3001:8");
+    await expect(selectedPath).toContainText(first.endpoint);
+    await expect(selectedPath).toContainText("device,5136");
     await instance
       .getByLabel("New controller instance (0–4194302)", { exact: true })
       .fill("15136");
@@ -281,6 +285,9 @@ test("router → its trunks → scan → duplicate-ID controller → reviewed na
     expect(second.writes).toEqual([]);
     expect(first.errors).toEqual([]);
     expect(second.errors).toEqual([]);
+    await page
+      .getByRole("button", { name: "Change controller", exact: true })
+      .click();
     await guide.screenshot({
       path: test.info().outputPath("guided-router-selection.png"),
     });
@@ -299,9 +306,10 @@ test("an empty local router list permits an explicit known-router query", async 
     await discoverFixture(page, []);
     const { guide } = await open(page, request);
     await guide
-      .getByRole("button", { name: "Find local routers", exact: true })
+      .getByRole("button", { name: "Find NAEs & routers", exact: true })
       .click();
-    await expect(guide).toContainText("No router advertisements arrived.");
+    await expect(guide).toContainText("No engines answered this search.");
+    await openDiscoveryDetails(guide, "Enter an engine IP address instead");
     await guide
       .getByLabel("Discovery router address", { exact: true })
       .fill(server.endpoint);
@@ -338,6 +346,7 @@ test("a late trunk scan cannot restore controller choices after the interface ch
   });
   try {
     const { guide } = await open(page, request);
+    await openDiscoveryDetails(guide, "Enter an engine IP address instead");
     await guide
       .getByLabel("Discovery router address", { exact: true })
       .fill(server.endpoint);
@@ -347,6 +356,7 @@ test("a late trunk scan cannot restore controller choices after the interface ch
     await guide
       .getByLabel("Commissioning trunk", { exact: true })
       .selectOption("3001");
+    await openDiscoveryDetails(guide, "Advanced scan settings");
     await guide
       .getByLabel("Routed response window seconds", { exact: true })
       .fill("1");
@@ -358,11 +368,14 @@ test("a late trunk scan cannot restore controller choices after the interface ch
     });
     await guide
       .getByRole("button", {
-        name: "Scan selected routed network",
+        name: "Scan controllers",
         exact: true,
       })
       .click();
     await ready;
+    await page
+      .getByRole("button", { name: "1 · Connection", exact: true })
+      .click();
     await page
       .getByLabel("Local bind address / UDP port", { exact: true })
       .fill(`127.0.0.1:${await freePort()}`);

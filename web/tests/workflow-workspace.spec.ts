@@ -1,3 +1,4 @@
+import { openDiscoveryDetails } from "./discovery-controls";
 import {
   test,
   expect,
@@ -38,7 +39,7 @@ async function connect(page: Page) {
     .getByRole("button", { name: "Open interface", exact: true })
     .click();
   await expect(
-    page.getByRole("button", { name: "Find local routers", exact: true }),
+    page.getByRole("button", { name: "Find NAEs & routers", exact: true }),
   ).toBeEnabled();
 }
 async function fillKnown(page: Page, endpoint: string, mac = 8) {
@@ -79,6 +80,7 @@ async function scanRouter(page: Page, endpoint: string) {
     name: "Routed BACnet discovery",
     exact: true,
   });
+  await openDiscoveryDetails(guide, "Enter an engine IP address instead");
   await guide
     .getByLabel("Discovery router address", { exact: true })
     .fill(endpoint);
@@ -88,11 +90,12 @@ async function scanRouter(page: Page, endpoint: string) {
   await guide
     .getByLabel("Commissioning trunk", { exact: true })
     .selectOption("3001");
+  await openDiscoveryDetails(guide, "Advanced scan settings");
   await guide
     .getByLabel("Routed response window seconds", { exact: true })
     .fill("1");
   await guide
-    .getByRole("button", { name: "Scan selected routed network", exact: true })
+    .getByRole("button", { name: "Scan controllers", exact: true })
     .click();
   return guide;
 }
@@ -205,7 +208,7 @@ test("a late name from another trunk cannot relabel the current scan", async ({
       .selectOption("3002");
     await guide
       .getByRole("button", {
-        name: "Scan selected routed network",
+        name: "Scan controllers",
         exact: true,
       })
       .click();
@@ -291,6 +294,7 @@ test("a router without network advertisements supplies cached choices that requi
       name: "Routed BACnet discovery",
       exact: true,
     });
+    await openDiscoveryDetails(guide, "Enter an engine IP address instead");
     await guide
       .getByLabel("Discovery router address", { exact: true })
       .fill(router.endpoint);
@@ -316,12 +320,13 @@ test("a router without network advertisements supplies cached choices that requi
     await guide
       .getByLabel("Commissioning trunk", { exact: true })
       .selectOption("2105");
+    await openDiscoveryDetails(guide, "Advanced scan settings");
     await guide
       .getByLabel("Routed response window seconds", { exact: true })
       .fill("1");
     await guide
       .getByRole("button", {
-        name: "Scan selected routed network",
+        name: "Scan controllers",
         exact: true,
       })
       .click();
@@ -365,6 +370,7 @@ test("a late cached-network read cannot refill the selector after leaving discov
       name: "Routed BACnet discovery",
       exact: true,
     });
+    await openDiscoveryDetails(guide, "Enter an engine IP address instead");
     await guide
       .getByLabel("Discovery router address", { exact: true })
       .fill(router.endpoint);
@@ -644,7 +650,7 @@ test("router → native trunks → scan → verified workspace → instance revi
       exact: true,
     });
     await guide
-      .getByRole("button", { name: "Find local routers", exact: true })
+      .getByRole("button", { name: "Find NAEs & routers", exact: true })
       .click();
     await guide
       .getByLabel("Commissioning router", { exact: true })
@@ -655,12 +661,13 @@ test("router → native trunks → scan → verified workspace → instance revi
     await guide
       .getByLabel("Commissioning trunk", { exact: true })
       .selectOption("3001");
+    await openDiscoveryDetails(guide, "Advanced scan settings");
     await guide
       .getByLabel("Routed response window seconds", { exact: true })
       .fill("1");
     await guide
       .getByRole("button", {
-        name: "Scan selected routed network",
+        name: "Scan controllers",
         exact: true,
       })
       .click();
