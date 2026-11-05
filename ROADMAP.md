@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-05. Implementation baseline: GitHub `main` at
-[`861f91c2`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/861f91c2da125e027d91e87484d38e7c0507b300).
+[`6359c6a1`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/6359c6a1243ba4f16885cfc786e8fdb153eb158e).
 
 ## Baseline and purpose
 
@@ -1503,3 +1503,22 @@ Points & I/O controls, then project retained lineage in Changes/History. General
 rollback, binary/SA/cross-host reassignment, resources/packages and CCT/physical/
 BTCVT acceptance remain separate. JCI-10/IO-02 stay partial. See
 [terminal recovery transfer](docs/native-terminal-recovery-transfer.md).
+
+## 2026-11-05 JCI-10/IO-02 delivery: contextual previous-terminal workflow
+
+`UI-NATIVE-TERMINAL-RECOVERY-001` exposes local parent/current-source preparation,
+explicit staging, original evidence download and a separately bound field review
+within existing Points & I/O. Exact numeric/source/compiler/lineage admission
+precedes any stage or Apply display. Offline graph/CAF work remains useful.
+
+The bounded workspace retains the ordinary raw form separately, including
+unfinished numeric text. Navigation retires reviews, explicit return restores
+ordinary work, and fresh capture retires the staged origin while preserving that
+text. Only matching verified Apply/readback clears the staged recovery; uncertain
+or unrelated receipts retain their original evidence and do not overwrite work.
+All backend code, engineering graphics, styles and older tests remain unchanged.
+
+Next, project recorded parent lineage in Changes/History while retaining local
+source/revalidation distinctions. General rollback, broader input/host operations,
+resources/packages and CCT/physical/BTCVT acceptance remain separate. JCI-10/IO-02
+stay partial. See [the terminal recovery workflow](docs/native-terminal-recovery-workflow.md).
