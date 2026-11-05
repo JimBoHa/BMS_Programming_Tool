@@ -22,9 +22,11 @@ from pydantic import Field, field_validator, model_validator
 from .models import StrictModel
 from .native_connection_ledger import connection_reference
 from .native_input_ledger import input_reference
+from .native_inputs import TERMINAL_PROFILE
 from .native_ledger_details import native_reference, recovery_lineage
 from .native_point_name_ledger import point_name_reference
 from .native_point_name_recovery_ledger import point_name_recovery_reference
+from .native_terminal_ledger import terminal_reference
 
 Source = Literal["audit", "native", "instance", "schedule", "bbmd", "event", "temco", "command"]
 SOURCES = ("audit", "native", "instance", "schedule", "bbmd", "event", "temco", "command")
@@ -358,7 +360,11 @@ class ChangeLedger:
             selection = body.get("wire_edit" if native_kind == "wire-source" else "default_edit")
             native_metadata = native_reference(native_kind, selection)
             if native_kind == "input":
-                native_metadata = input_reference(body)
+                native_metadata = (
+                    terminal_reference(body)
+                    if body.get("operation_profile") == TERMINAL_PROFILE
+                    else input_reference(body)
+                )
             elif native_kind == "connection":
                 native_metadata = connection_reference(body)
             elif native_kind == "point-name":

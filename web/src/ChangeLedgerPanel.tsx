@@ -7,6 +7,11 @@ import {
 } from "./workflow";
 import "./change-ledger.css";
 import { recordedInput, inputAction } from "./nativeInputLedger";
+import { recordedTerminal } from "./nativeTerminalLedger";
+import {
+  NativeTerminalLedgerView,
+  TerminalSummary,
+} from "./NativeTerminalLedgerView";
 import { recordedPointName } from "./nativePointNameLedger";
 import { recordedPointNameRecovery } from "./nativePointNameRecoveryLedger";
 import { recordedConnection } from "./nativeConnectionLedger";
@@ -91,6 +96,7 @@ type Row = {
   native_wire_index?: number;
   native_recovery?: NativeRecovery;
   native_input?: unknown;
+  native_terminal?: unknown;
   native_point_name?: unknown;
   native_connection?: unknown;
   native_point_name_recovery?: unknown;
@@ -383,7 +389,13 @@ export function ChangeLedgerPanel({
       ? recordedConnection(choice.native_connection)
       : null;
   const input =
-    choice?.source === "native" ? recordedInput(choice.native_input) : null;
+    choice?.source === "native" && choice.native_terminal === undefined
+      ? recordedInput(choice.native_input)
+      : null;
+  const terminal =
+    choice?.source === "native" && nativeKind === "input"
+      ? recordedTerminal(choice.native_terminal)
+      : null;
   const pointName =
     choice?.source === "native"
       ? recordedPointName(choice.native_point_name)
@@ -408,7 +420,10 @@ export function ChangeLedgerPanel({
         "input",
         "point-name",
       ].includes(nativeKind)) ||
-    (choice?.source === "native" && nativeKind === "input" && !input) ||
+    (choice?.source === "native" &&
+      nativeKind === "input" &&
+      !input &&
+      !terminal) ||
     (choice?.source === "native" &&
       nativeKind === "point-name" &&
       !pointName) ||
@@ -417,7 +432,7 @@ export function ChangeLedgerPanel({
     ? undefined
     : pointName
       ? "Open point tools"
-      : input
+      : input || terminal
         ? "Open input tools"
         : nativeProgram
           ? "Open native program tools"
@@ -427,7 +442,8 @@ export function ChangeLedgerPanel({
     !!toolLabel &&
     !nativeProgram &&
     ["native", "instance", "schedule", "event"].includes(choice.source) &&
-    !input;
+    !input &&
+    !terminal;
   function searchParent(id: string) {
     setSource("native");
     setOutcome("all");
@@ -654,7 +670,10 @@ export function ChangeLedgerPanel({
                       {row.native_reference_issue && (
                         <span>{row.native_reference_issue}</span>
                       )}
-                      <InputSummary value={row.native_input} />
+                      {row.native_terminal === undefined && (
+                        <InputSummary value={row.native_input} />
+                      )}
+                      <TerminalSummary value={row.native_terminal} />
                       <PointNameSummary value={row.native_point_name} />
                       {row.native_connection !== undefined && (
                         <span>
@@ -968,7 +987,10 @@ export function ChangeLedgerPanel({
                 )}
               </section>
             )}
-          {nativeKind === "input" && (
+          {nativeKind === "input" && choice.native_terminal !== undefined && (
+            <NativeTerminalLedgerView value={choice.native_terminal} />
+          )}
+          {nativeKind === "input" && choice.native_terminal === undefined && (
             <section aria-label="Recorded native input configuration">
               <h4>
                 {input ? inputAction(input) : "Input metadata unavailable"}
