@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { BinaryTerminalSummary, NativeBinaryTerminalLedgerView } from "./NativeBinaryTerminalLedgerView";
+import { recordedBinaryTerminal } from "./nativeBinaryTerminalLedger";
 import { api, apiBlobDocument, saveBlob } from "./api";
 import {
   controllerKey,
@@ -101,6 +103,7 @@ type Row = {
   native_recovery?: NativeRecovery;
   native_input?: unknown;
   native_terminal?: unknown;
+  native_binary_terminal?: unknown;
   native_terminal_recovery?: unknown;
   native_point_name?: unknown;
   native_connection?: unknown;
@@ -394,13 +397,14 @@ export function ChangeLedgerPanel({
       ? recordedConnection(choice.native_connection)
       : null;
   const input =
-    choice?.source === "native" && choice.native_terminal === undefined
+    choice?.source === "native" && choice.native_terminal === undefined && choice.native_binary_terminal === undefined
       ? recordedInput(choice.native_input)
       : null;
   const terminal =
-    choice?.source === "native" && nativeKind === "input"
+    choice?.source === "native" && nativeKind === "input" && choice.native_binary_terminal === undefined
       ? recordedTerminal(choice.native_terminal)
       : null;
+  const binaryTerminal = choice?.source === "native" && nativeKind === "input" ? recordedBinaryTerminal(choice.native_binary_terminal) : null;
   const pointName =
     choice?.source === "native"
       ? recordedPointName(choice.native_point_name)
@@ -428,7 +432,7 @@ export function ChangeLedgerPanel({
     (choice?.source === "native" &&
       nativeKind === "input" &&
       !input &&
-      !terminal) ||
+      !terminal && !binaryTerminal) ||
     (choice?.source === "native" &&
       nativeKind === "point-name" &&
       !pointName) ||
@@ -437,7 +441,7 @@ export function ChangeLedgerPanel({
     ? undefined
     : pointName
       ? "Open point tools"
-      : input || terminal
+      : input || terminal || binaryTerminal
         ? "Open input tools"
         : nativeProgram
           ? "Open native program tools"
@@ -448,7 +452,7 @@ export function ChangeLedgerPanel({
     !nativeProgram &&
     ["native", "instance", "schedule", "event"].includes(choice.source) &&
     !input &&
-    !terminal;
+    !terminal && !binaryTerminal;
   function searchParent(id: string) {
     setSource("native");
     setOutcome("all");
@@ -675,10 +679,11 @@ export function ChangeLedgerPanel({
                       {row.native_reference_issue && (
                         <span>{row.native_reference_issue}</span>
                       )}
-                      {row.native_terminal === undefined && (
+                      {row.native_terminal === undefined && row.native_binary_terminal === undefined && (
                         <InputSummary value={row.native_input} />
                       )}
-                      <TerminalSummary value={row.native_terminal} />
+                      {row.native_binary_terminal === undefined && <TerminalSummary value={row.native_terminal} />}
+                      <BinaryTerminalSummary value={row.native_binary_terminal} />
                       <TerminalRecoverySummary row={row} />
                       <PointNameSummary value={row.native_point_name} />
                       {row.native_connection !== undefined && (
@@ -993,17 +998,19 @@ export function ChangeLedgerPanel({
                 )}
               </section>
             )}
-          {nativeKind === "input" && choice.native_terminal !== undefined && (
+          {nativeKind === "input" && choice.native_terminal !== undefined && choice.native_binary_terminal === undefined && (
             <NativeTerminalLedgerView value={choice.native_terminal} />
           )}
           {nativeKind === "input" &&
+            choice.native_binary_terminal === undefined &&
             choice.native_terminal_recovery !== undefined && (
               <NativeTerminalRecoveryLedgerView
                 row={choice}
                 onParent={searchParent}
               />
             )}
-          {nativeKind === "input" && choice.native_terminal === undefined && (
+          {nativeKind === "input" && choice.native_binary_terminal !== undefined && <NativeBinaryTerminalLedgerView value={choice.native_binary_terminal} />}
+          {nativeKind === "input" && choice.native_terminal === undefined && choice.native_binary_terminal === undefined && (
             <section aria-label="Recorded native input configuration">
               <h4>
                 {input ? inputAction(input) : "Input metadata unavailable"}
