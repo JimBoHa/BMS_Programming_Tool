@@ -43,20 +43,31 @@ const field = [
   "configuration_sha256",
   "operation_profile",
 ];
-function witness(
+export function terminalCapabilityWitness(
   v: Data,
   basis: string,
   source: NativeArchiveSource,
   root: string,
+  encoded = false,
 ) {
   if (!v || Array.isArray(v)) return false;
   const analog = basis === "analog",
     effective = basis !== "archive";
+  if (encoded && (analog || !reference(root))) return false;
   const keys = [
     ...common,
     ...(analog ? field : local),
     ...(basis === "effective" ? ["parameter_merge"] : []),
+    ...(encoded
+      ? ["device_type_character_encoding", "device_type_encoding_preserved"]
+      : []),
   ];
+  if (
+    encoded &&
+    (![0, 4].includes(v.device_type_character_encoding) ||
+      v.device_type_encoding_preserved !== true)
+  )
+    return false;
   const match =
     typeof v.object === "string" &&
     /^(analog-input|binary-input),(0|[1-9][0-9]*)$/.exec(v.object);
@@ -102,7 +113,7 @@ function witness(
     return false;
   if (
     v.compiler_profile !==
-    `tagged-moi-local-terminal-copy/${analog ? "2" : "1"}`
+    `tagged-moi-local-terminal-copy/${encoded ? "3" : analog ? "2" : "1"}`
   )
     return false;
   if (!effective) return v.source_sha256 === source.sha256;
@@ -154,7 +165,12 @@ export function terminalCapabilityEvidence(
           ? failure === null
           : failure !== null ||
             !reference(q.native_identity?.root_ref) ||
-            !witness(value, basis, source, q.native_identity.root_ref))
+            !terminalCapabilityWitness(
+              value,
+              basis,
+              source,
+              q.native_identity.root_ref,
+            ))
       )
         return false;
       if (

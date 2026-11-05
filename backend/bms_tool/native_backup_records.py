@@ -12,6 +12,8 @@ from .native_removal_capabilities import PROFILE as REMOVAL_CAPABILITIES_PROFILE
 from .native_removal_capabilities import removal_capabilities
 from .native_terminal_capabilities import PROFILE as TERMINAL_CAPABILITIES_PROFILE
 from .native_terminal_capabilities import terminal_capabilities
+from .native_terminal_label_capabilities import PROFILE as TERMINAL_LABEL_CAPABILITIES_PROFILE
+from .native_terminal_label_capabilities import terminal_label_capabilities
 
 PROFILE = "native-backup-record-inspection/1"
 SCOPE = (
@@ -39,6 +41,7 @@ class BackupCapabilitiesRequest(BackupInspectionSource):
         "native-backup-operation-capabilities/13",
         "native-backup-operation-capabilities/14",
         "native-backup-operation-capabilities/15",
+        "native-backup-operation-capabilities/16",
     ] = "native-backup-operation-capabilities/12"
 
 
@@ -101,7 +104,9 @@ class NativeBackupRecords:
             options.model_dump(include={"capture_id", "snapshot_sha256"})
         )
         analyzer = (
-            terminal_capabilities
+            terminal_label_capabilities
+            if options.capability_profile == TERMINAL_LABEL_CAPABILITIES_PROFILE
+            else terminal_capabilities
             if options.capability_profile == TERMINAL_CAPABILITIES_PROFILE
             else removal_capabilities
             if options.capability_profile == REMOVAL_CAPABILITIES_PROFILE
