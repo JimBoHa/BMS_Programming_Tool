@@ -11,6 +11,7 @@ from .moi_identity import MoiIdentity, seal, sha
 from .native_inputs import FORMATS, input_capabilities
 
 PROFILE = "tagged-moi-local-terminal-copy/1"
+OUTPUT_PROFILE = "tagged-moi-local-terminal-copy/2"
 SCOPE = (
     "Move one existing local analog/binary input between documented free universal "
     "terminals in a local native file copy. Change only its existing Slot and Device Type "
@@ -18,10 +19,20 @@ SCOPE = (
     "settings, graph and framing. No SA/cross-host/dedicated-BI move, allocation, electrical "
     "mode change, physical wiring, field transfer or CCT/physical acceptance."
 )
+OUTPUT_SCOPE = SCOPE + (
+    " This explicit version additionally recognizes unchanged local AO/BO output records "
+    "with recorded output-only terminal labels. Their Slot namespace does not reserve input "
+    "terminals. No output binding is edited."
+)
 
 
 class MoiTerminalCopies:
-    def __init__(self, source):
+    def __init__(self, source, *, output_namespace=False):
+        if type(output_namespace) is not bool:
+            raise ValueError("Choose an explicit Boolean output-namespace profile.")
+        self.output_namespace = output_namespace
+        self.profile = OUTPUT_PROFILE if output_namespace else PROFILE
+        self.scope = OUTPUT_SCOPE if output_namespace else SCOPE
         self.editor = app = MoiIdentity(source)
         summary = app.summary()
         versions = summary["format_versions"]
@@ -53,6 +64,30 @@ class MoiTerminalCopies:
                     raise ValueError("Duplicate public object identities prevent terminal copying.")
                 identities.add(obj)
             if cid not in {240, 242}:
+                if output_namespace and cid in {239, 241} and 519 in props:
+                    output_type = 4 if cid == 239 else 1
+                    oid = ObjectIdentifier(obj) if isinstance(obj, str) else None
+                    header = int.from_bytes(
+                        app.data[record["offset"] + 6 : record["offset"] + 10], "big"
+                    )
+                    labels = r"BO OUT[1-9][0-9]*" if cid == 239 else r"(?:AO|CO) OUT[1-9][0-9]*"
+                    if (
+                        oid is None
+                        or int(oid[0]) != output_type
+                        or not 0 <= int(oid[1]) <= 4194302
+                        or header != cid << 22 | int(oid[1])
+                        or ref != f"{app.ref}/{output_type}_{int(oid[1])}"
+                        or type(slot) is not int
+                        or not 0 <= slot <= 65535
+                        or (props[519].get("scalar") or {}).get("datatype") != "Unsigned"
+                        or not isinstance(label, str)
+                        or not re.fullmatch(labels, label)
+                        or {2577, 3645}.intersection(props)
+                    ):
+                        raise ValueError(
+                            "An output has no exact separate local terminal namespace."
+                        )
+                    continue
                 if 519 in props or (
                     isinstance(label, str)
                     and re.fullmatch(r"(?:UI|BI|CI)\s+IN\s*[0-9]+", label, re.I)
@@ -141,8 +176,8 @@ class MoiTerminalCopies:
 
     def inspect(self):
         return {
-            "profile": PROFILE,
-            "scope": SCOPE,
+            "profile": self.profile,
+            "scope": self.scope,
             "source_sha256": self.editor.source_sha256,
             "controller": self.editor.summary(),
             "hardware": self.hardware,
@@ -217,7 +252,7 @@ class MoiTerminalCopies:
                 + compressor.flush()
                 + struct.pack("<II", zlib.crc32(data), len(data))
             )
-        checked = MoiTerminalCopies(output)
+        checked = MoiTerminalCopies(output, output_namespace=self.output_namespace)
         expected = {key: dict(value) for key, value in self.inputs.items()}
         expected[ref].update(slot=destination_slot, device_type=f"UI IN{destination_slot}")
         after = checked.inputs[ref]
@@ -237,8 +272,8 @@ class MoiTerminalCopies:
         ):
             raise ValueError("Terminal copying changed another native record or framing byte.")
         body = {
-            "profile": PROFILE,
-            "scope": SCOPE,
+            "profile": self.profile,
+            "scope": self.scope,
             "source_sha256": source_sha256,
             "source_native_sha256": sha(app.data),
             "ref": ref,

@@ -18,6 +18,14 @@ from .moi_parameters import ParameterApplication
 from .native_parameter_qualification import qualify_parameter_additions
 
 PROFILE = "native-local-universal-input-transfer/1"
+TERMINAL_PROFILE = "native-local-universal-input-transfer/2"
+TERMINAL_SCOPE = (
+    "Move one existing local universal analog input to a documented free universal "
+    "terminal on the same controller. Preserve identities, electrical mode, scaling, graph "
+    "and every other merged native byte. Apply transfers File 3 and can restart control. "
+    "No allocation, binary field profile, integral/SA/cross-host/dedicated-BI move, electrical "
+    "change, general compilation or CCT/physical acceptance."
+)
 SCOPE = (
     "Allocate one unconnected local universal analog input or edit one existing local input's "
     "electrical mode and reviewed scaling. Preserve other records, wires, controller identity "
@@ -86,7 +94,7 @@ class InputConfiguration(StrictModel):
 
 
 class InputEdit(StrictModel):
-    action: Literal["allocate", "mode", "remove-allocated"]
+    action: Literal["allocate", "mode", "remove-allocated", "terminal"]
     object_instance: int = Field(**UINT)
     slot: int = Field(ge=1, le=255, strict=True)
     configuration_sha256: str | None = Field(default=None, pattern=HASH)
@@ -119,6 +127,16 @@ class InputEdit(StrictModel):
                 raise ValueError(
                     "Mode editing requires the captured configuration and its proposed replacement."
                 )
+        elif self.action == "terminal":
+            if (
+                self.configuration_sha256 is None
+                or self.configuration is not None
+                or self.name is not None
+                or self.allocation_receipt is not None
+            ):
+                raise ValueError(
+                    "Terminal movement requires the exact existing configuration and destination only."
+                )
         elif (
             self.configuration_sha256 is None
             or self.allocation_receipt is None
@@ -129,6 +147,10 @@ class InputEdit(StrictModel):
                 "Removal requires a captured configuration and its original allocation receipt."
             )
         return self
+
+
+def input_operation_profile(edit):
+    return TERMINAL_PROFILE if InputEdit.model_validate(edit).action == "terminal" else PROFILE
 
 
 class InputSource(DeviceDetailsRequest):
@@ -367,6 +389,10 @@ class NativeInputCompiler:
         app, obj = self.app, f"analog-input,{edit.object_instance}"
         changed, rows = self.proposed_properties(edit), []
         record = self.inputs.get(obj)
+        if edit.action == "terminal":
+            from .native_terminal_input import compile_terminal_input
+
+            return compile_terminal_input(self, edit, record)
         if edit.slot not in self.hardware["capacity"]["universal_inputs"]:
             raise ValueError("Choose a documented local universal-input terminal.")
         if edit.action == "allocate":
