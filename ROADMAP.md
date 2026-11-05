@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`988504f7`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/988504f7c4b72f09b633309808d6571e1c46d45e).
+[`70e9fca2`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/70e9fca2c6417f99ba0d4685e47550d6fc713e5d).
 
 ## Baseline and purpose
 
@@ -1332,3 +1332,19 @@ fallback/retention behavior remains unverified. Broader JCI authoring, controlle
 transfer/recovery, resource/package and physical/BTCVT qualification continue as
 separate work. JCI-03/JCI-09 remain partial. See
 [the connection removal workflow](docs/native-connection-removal-workflow.md).
+
+## 2026-11-04 JCI-02 / UX-03 delivery: shared engineering logic display
+
+Captured controller applications and local CAF diagrams now share named-pin,
+function-symbol graphics in Program. Distinct signal interfaces, stored/live
+labels, module navigation, input ordering, signal tracing and an expanded canvas
+address the generic rectangles and numbered wires previously shown in connected
+controller demonstrations. Display moves preserve original bytes, positions,
+execution order and field authority. Unknown functions remain explicit.
+
+Native port names come from actual class/property metadata and unique named
+child ports. Native handles remain read-only; existing CAF gestures keep their
+guarded local export. Authored binary/XML PID fixtures, real HTTP/UDP acquisition,
+delayed-response checks and private retained captures qualify the presentation.
+General native authoring and physical acceptance remain separate. See
+[engineering logic presentation and source rules](docs/engineering-logic-view.md).

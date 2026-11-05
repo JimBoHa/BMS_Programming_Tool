@@ -503,9 +503,16 @@ export function CafGraphPanel({
               <CafLogicCanvas
                 key={id + diagram.ref}
                 archive={id}
+                sourceLabel={`${filename} · local CAF`}
                 diagram={diagram}
                 selectedWire={wireIndex}
                 moduleRefs={moduleRefs}
+                activityNames={Object.fromEntries(
+                  inventory!.diagrams.map((d) => [
+                    d.ref,
+                    `${d.name || "Activity"} · ${d.ref.split(".").at(-1)}`,
+                  ]),
+                )}
                 onSelectWire={selectWire}
                 onOpenModule={openModule}
                 onPropose={proposeWiring}

@@ -32,10 +32,7 @@
   max-width: 100%;
 }
 .native-controller-diagram {
-  height: 480px;
-  border: 1px solid #adc8c9;
-  border-radius: 6px;
-  background: #f6fbfb;
+  min-width: 0;
 }
 .controller-application dl {
   display: flex;

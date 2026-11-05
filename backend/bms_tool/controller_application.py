@@ -194,10 +194,12 @@ class ControllerApplication:
             raise ValueError(
                 "The native diagram belongs to a different controller route or interface."
             )
+        application = self._application(receipt, data)
+        display = getattr(application, "display_diagram", None)
         return {
             "target": self._target(options),
             "capture_id": options.capture_id,
-            "diagram": self._application(receipt, data).diagram(options.ref),
+            "diagram": (display if callable(display) else application.diagram)(options.ref),
             "sha256": receipt["sha256"],
             "read_only": True,
         }

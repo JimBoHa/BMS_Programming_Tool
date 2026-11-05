@@ -1,17 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Background,
-  Controls,
-  MarkerType,
-  Position,
-  ReactFlow,
-  ReactFlowProvider,
-} from "@xyflow/react";
 import { api } from "./api";
 import { NativeSignalDefaultCopy } from "./NativeSignalDefaultCopy";
 import { controllerKey, type ControllerContext } from "./workflow";
 import "./controller-application.css";
 import { NativeRecords } from "./NativeRecords";
+import { EngineeringLogicCanvas } from "./EngineeringLogicCanvas";
+import { controllerLogicDiagram } from "./engineeringLogic";
 
 type RecordValue = Record<string, any>;
 const base = "/bacnet/controller/application/";
@@ -55,12 +49,22 @@ export function ControllerApplicationPanel({
     owner: string;
     value: RecordValue;
   } | null>(null);
-  const [diagram, setDiagram] = useState<RecordValue | null>(null);
+  const [storedDiagram, setDiagram] = useState<{
+    owner: string;
+    value: RecordValue;
+  } | null>(null);
   const [ref, setRef] = useState(""),
     [selected, setSelected] = useState("");
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
-  const [values, setValues] = useState<RecordValue | null>(null),
+  const [selectedWire, setSelectedWire] = useState<{
+    source: string;
+    index: number;
+  } | null>(null);
+  const [storedValues, setValues] = useState<{
+      owner: string;
+      value: RecordValue;
+    } | null>(null),
     [liveError, setLiveError] = useState("");
   const generation = useRef(0),
     graphGeneration = useRef(0),
@@ -123,6 +127,12 @@ export function ControllerApplicationPanel({
     }
   };
   const capture = report?.receipt?.id;
+  const archiveKey = JSON.stringify([source, capture, report?.receipt?.sha256]);
+  const diagramKey = JSON.stringify([archiveKey, ref]);
+  const diagram =
+    storedDiagram?.owner === diagramKey ? storedDiagram.value : null;
+  const valueKey = JSON.stringify([diagramKey, selected]);
+  const values = storedValues?.owner === valueKey ? storedValues.value : null;
   useEffect(() => {
     const epoch = ++graphGeneration.current;
     setDiagram(null);
@@ -136,7 +146,15 @@ export function ControllerApplicationPanel({
       .then((result) => {
         if (epoch !== graphGeneration.current) return;
         check(result, controller);
-        setDiagram(result.diagram);
+        if (
+          result.capture_id !== capture ||
+          result.sha256 !== report?.receipt.sha256 ||
+          result.diagram?.ref !== ref
+        )
+          throw Error(
+            "Diagram evidence differs from the selected application capture.",
+          );
+        setDiagram({ owner: diagramKey, value: result.diagram });
       })
       .catch((failure) => {
         if (epoch === graphGeneration.current) setError(String(failure));
@@ -172,12 +190,16 @@ export function ControllerApplicationPanel({
         });
         if (epoch !== valueGeneration.current) return;
         check(result, controller);
-        if (!result.identity_verified || !result.objects[0]?.identity_verified)
+        if (
+          !result.identity_verified ||
+          !result.objects[0]?.identity_verified ||
+          result.objects[0]?.object !== block.object
+        )
           throw new Error(
             result.errors.join(" ") ||
               "This native block does not expose a verified BACnet object at its recorded identifier.",
           );
-        setValues(result);
+        setValues({ owner: valueKey, value: result });
         setLiveError("");
         verified.current?.(result.finished_at);
       } catch (failure) {
@@ -193,39 +215,31 @@ export function ControllerApplicationPanel({
       window.clearTimeout(timer);
     };
   }, [source, connected, selected, capture]);
-  const nodes = useMemo(
-    () =>
-      (diagram?.blocks ?? []).map((block: RecordValue, index: number) => ({
-        id: block.ref,
-        position: block.layout
-          ? { x: block.layout.x * 4, y: block.layout.y * 2 }
-          : { x: (index % 6) * 360, y: Math.floor(index / 6) * 150 },
-        data: { label: `${block.name}\n${block.object ?? block.class_name}` },
-        sourcePosition: Position.Right,
-        targetPosition: Position.Left,
-        selected: block.ref === selected,
-        style: {
-          width: 200,
-          whiteSpace: "pre-line" as const,
-          borderColor: "#247e82",
-          background: block.ref === selected ? "#d4efec" : "#fff",
-        },
-      })),
-    [diagram, selected],
-  );
-  const edges = useMemo(
-    () =>
-      (diagram?.connections ?? []).map((wire: RecordValue) => ({
-        id: String(wire.index),
-        source: wire.source_ref,
-        target: wire.target_ref,
-        label: `${wire.source_port} → ${wire.target_port}`,
-        type: "smoothstep",
-        markerEnd: { type: MarkerType.ArrowClosed },
-        style: { stroke: "#39888a" },
-      })),
+  const display = useMemo(
+    () => (diagram ? controllerLogicDiagram(diagram) : null),
     [diagram],
   );
+  const moduleRefs = useMemo<Set<string>>(
+    () =>
+      new Set(
+        report?.application?.diagrams.map((row: RecordValue) => row.ref) || [],
+      ),
+    [report],
+  );
+  const parentModule = report?.application?.diagrams
+    .filter((row: RecordValue) => ref.startsWith(row.ref + "."))
+    .sort((a: RecordValue, b: RecordValue) => b.ref.length - a.ref.length)[0];
+  const pv = values?.objects?.[0]?.properties?.["present-value"];
+  const liveValue =
+    block && pv?.status === "ok"
+      ? {
+          source: archiveKey,
+          ref: block.ref,
+          text: text(pv.value),
+          at: values!.finished_at,
+          error: liveError || undefined,
+        }
+      : undefined;
   return (
     <section
       className="controller-application"
@@ -368,35 +382,133 @@ export function ControllerApplicationPanel({
           </label>
           {diagram && (
             <>
-              <p>
-                {diagram.native_layout
-                  ? "Native block positions, scaled for readability."
-                  : "This diagram has no stored positions; blocks are arranged for readability."}{" "}
-                Wires use the recorded source and destination property numbers.
-                Select a block to inspect its configuration and exposed live
-                value.
-              </p>
+              {parentModule && (
+                <button onClick={() => setRef(parentModule.ref)}>
+                  Up to {parentModule.name}
+                </button>
+              )}
               <div
                 className="native-controller-diagram"
                 aria-label="Actual native program diagram"
               >
-                <ReactFlowProvider key={capture + ref}>
-                  <ReactFlow
-                    key={capture + ref}
-                    nodes={nodes}
-                    edges={edges}
-                    fitView
-                    nodesDraggable={false}
-                    nodesConnectable={false}
-                    deleteKeyCode={null}
-                    onNodeClick={(_, node) => setSelected(node.id)}
-                    minZoom={0.1}
-                    maxZoom={3}
-                  >
-                    <Background />
-                    <Controls showInteractive={false} />
-                  </ReactFlow>
-                </ReactFlowProvider>
+                {display && (
+                  <EngineeringLogicCanvas
+                    key={diagramKey}
+                    archive={archiveKey}
+                    diagram={display}
+                    sourceKind="controller"
+                    sourceLabel={`${controller.name} · ${controller.address} · ${controller.device} via ${controller.router || "direct"} · captured ${report.receipt.received_at}`}
+                    selectedWire={
+                      selectedWire?.source === diagramKey
+                        ? selectedWire.index
+                        : -1
+                    }
+                    moduleRefs={moduleRefs}
+                    activityNames={Object.fromEntries(
+                      report.application.diagrams.map((d: RecordValue) => [
+                        d.ref,
+                        `${d.name} · ${d.ref.split(".").at(-1)}`,
+                      ]),
+                    )}
+                    selectedBlock={selected}
+                    onSelectBlock={setSelected}
+                    onSelectWire={(index) =>
+                      setSelectedWire({ source: diagramKey, index })
+                    }
+                    onOpenModule={setRef}
+                    liveValue={liveValue}
+                    inspector={
+                      block &&
+                      report && (
+                        <section aria-label="Actual native block configuration">
+                          <h4>{block.name}</h4>
+                          <p>
+                            {block.class_name} · stored controller configuration
+                          </p>
+                          <details>
+                            <summary>Native identity</summary>
+                            <code>
+                              {block.ref} · {block.object}
+                            </code>
+                          </details>
+                          <table>
+                            <thead>
+                              <tr>
+                                <th>Configured property</th>
+                                <th>Native value</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {block.properties.map((prop: RecordValue) => (
+                                <tr key={prop.id}>
+                                  <td>
+                                    {prop.name} ({prop.id})
+                                  </td>
+                                  <td>
+                                    {prop.scalar
+                                      ? text(prop.scalar.value)
+                                      : "Structured native value · evidence retained"}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          {report.signal_default_copy?.candidate_refs?.includes(
+                            block.ref,
+                          ) &&
+                            defaultProperty && (
+                              <NativeSignalDefaultCopy
+                                key={JSON.stringify([
+                                  source,
+                                  capture,
+                                  block.ref,
+                                  defaultProperty.encoded_sha256,
+                                ])}
+                                controller={controller}
+                                capture={capture}
+                                sha256={report.receipt.sha256}
+                                block={block}
+                                property={defaultProperty}
+                              />
+                            )}
+                          <h4>Live BACnet value</h4>
+                          <p>
+                            Read from the selected controller when this block
+                            exposes a readable BACnet object. Archive defaults
+                            above are configuration.
+                          </p>
+                          {liveError && (
+                            <p role="alert">
+                              {liveError} Previously read values remain last
+                              known.
+                            </p>
+                          )}
+                          {values && (
+                            <>
+                              <p>Read at {values.finished_at}</p>
+                              <dl>
+                                {Object.entries(values.objects[0].properties)
+                                  .filter(
+                                    ([name]) => name !== "object-identifier",
+                                  )
+                                  .map(([name, row]: [string, any]) => (
+                                    <div key={name}>
+                                      <dt>{name}</dt>
+                                      <dd>
+                                        {row.status === "ok"
+                                          ? text(row.value)
+                                          : `Unavailable (${row.error || row.status})`}
+                                      </dd>
+                                    </div>
+                                  ))}
+                              </dl>
+                            </>
+                          )}
+                        </section>
+                      )
+                    }
+                  />
+                )}
               </div>
               <label>
                 Select a program block
@@ -413,86 +525,6 @@ export function ControllerApplicationPanel({
                   ))}
                 </select>
               </label>
-              {block && (
-                <section aria-label="Actual native block configuration">
-                  <h4>
-                    {block.name} · {block.object}
-                  </h4>
-                  <p>
-                    {block.ref} · {block.class_name}
-                  </p>
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Configured property</th>
-                        <th>Native value</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {block.properties.map((prop: RecordValue) => (
-                        <tr key={prop.id}>
-                          <td>
-                            {prop.name} ({prop.id})
-                          </td>
-                          <td>
-                            {prop.scalar
-                              ? text(prop.scalar.value)
-                              : "Structured native value · evidence retained"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {report.signal_default_copy?.candidate_refs?.includes(
-                    block.ref,
-                  ) &&
-                    defaultProperty && (
-                      <NativeSignalDefaultCopy
-                        key={JSON.stringify([
-                          source,
-                          capture,
-                          block.ref,
-                          defaultProperty.encoded_sha256,
-                        ])}
-                        controller={controller}
-                        capture={capture}
-                        sha256={report.receipt.sha256}
-                        block={block}
-                        property={defaultProperty}
-                      />
-                    )}
-                  <h4>Live BACnet value</h4>
-                  <p>
-                    Read from the selected controller when this block exposes a
-                    readable BACnet object. Archive defaults above are
-                    configuration.
-                  </p>
-                  {liveError && (
-                    <p role="alert">
-                      {liveError} Previously read values remain last known.
-                    </p>
-                  )}
-                  {values && (
-                    <>
-                      <p>Read at {values.finished_at}</p>
-                      <dl>
-                        {Object.entries(values.objects[0].properties)
-                          .filter(([name]) => name !== "object-identifier")
-                          .map(([name, row]: [string, any]) => (
-                            <div key={name}>
-                              <dt>{name}</dt>
-                              <dd>
-                                {row.status === "ok"
-                                  ? text(row.value)
-                                  : `Unavailable (${row.error || row.status})`}
-                              </dd>
-                            </div>
-                          ))}
-                      </dl>
-                    </>
-                  )}
-                </section>
-              )}
             </>
           )}
           {!!report.application.errors.length && (

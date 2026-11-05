@@ -6,6 +6,10 @@ The records were inspected across seven authorized local CAFs for FX and Metasys
 
 ## Graphical CAF workspace
 
+The [shared engineering display](engineering-logic-view.md) also serves captured
+controller diagrams, with named yellow/cyan pins, distinct signal terminals and
+function symbols. Source and editing capabilities remain separate.
+
 Open a local CAF, then choose **Program → CAF file → Logic**. The diagram selector
 lists the archive's actual activities and sequences. The canvas shows their
 existing blocks, execution sequence, named input/output ports and arrowed wires.
