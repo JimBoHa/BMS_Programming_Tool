@@ -169,6 +169,7 @@ from .native_terminal_copies import (
     NativeTerminalCopies,
     terminal_copy_router,
 )
+from .native_terminal_labels import terminal_label_router
 from .native_weekly_text import weekly_text_router
 from .native_wire_compiler import EffectiveWireService, effective_wire_router
 from .native_wire_copies import NativeWireCopies, native_wire_router
@@ -806,6 +807,7 @@ def create_app(state_dir=None, *, operation_power=None):
     )
     app.include_router(effective_wire_router(wire_compiler))
     app.include_router(terminal_copy_router(terminal_copies, effective_terminal_copies))
+    app.include_router(terminal_label_router(backup_records))
     app.include_router(historical_wire_copy_router(historical_wire_copies))
 
     @app.post("/api/bacnet/controller/native-application/inspection/source")

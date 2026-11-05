@@ -27,6 +27,10 @@ OUTPUT_SCOPE = SCOPE + (
 
 
 class MoiTerminalCopies:
+    @staticmethod
+    def label_payload(original, value):
+        return b"\0" + value.encode("ascii")
+
     def __init__(self, source, *, output_namespace=False):
         if type(output_namespace) is not bool:
             raise ValueError("Choose an explicit Boolean output-namespace profile.")
@@ -170,7 +174,7 @@ class MoiTerminalCopies:
                 raise ValueError(
                     "Slot requires its exact existing one-to-four-byte Unsigned value."
                 )
-        elif payload != b"\0" + value.encode("ascii"):
+        elif payload != self.label_payload(payload, value):
             raise ValueError("Device Type requires its recorded ASCII universal-terminal label.")
         return start + consumed - len(payload), payload
 
@@ -231,7 +235,7 @@ class MoiTerminalCopies:
         label_offset, label = self.payload(record, 31, 7, selected["device_type"])
         changes = [
             (offset, slot, destination_slot.to_bytes(len(slot), "big")),
-            (label_offset, label, b"\0" + f"UI IN{destination_slot}".encode("ascii")),
+            (label_offset, label, self.label_payload(label, f"UI IN{destination_slot}")),
         ]
         if any(len(old) != len(new) for _, old, new in changes):
             raise ValueError("Terminal copying must preserve both original payload widths.")
@@ -252,7 +256,7 @@ class MoiTerminalCopies:
                 + compressor.flush()
                 + struct.pack("<II", zlib.crc32(data), len(data))
             )
-        checked = MoiTerminalCopies(output, output_namespace=self.output_namespace)
+        checked = type(self)(output, output_namespace=self.output_namespace)
         expected = {key: dict(value) for key, value in self.inputs.items()}
         expected[ref].update(slot=destination_slot, device_type=f"UI IN{destination_slot}")
         after = checked.inputs[ref]

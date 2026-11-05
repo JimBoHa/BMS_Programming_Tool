@@ -15,6 +15,10 @@ SCOPE = (
 
 
 class EffectiveTerminalCopies:
+    compiler_type = MoiTerminalCopies
+    profile = PROFILE
+    scope = SCOPE
+
     def __init__(self, snapshot, files):
         merged = qualified_saved_merge(snapshot, files)
         for ref, record in merged.archive.reader.records.items():
@@ -24,8 +28,8 @@ class EffectiveTerminalCopies:
                 "encoded_sha256"
             ):
                 raise ValueError("Saved values changed native graph continuation metadata.")
-        self.archive = MoiTerminalCopies(files[3])
-        self.effective = MoiTerminalCopies(merged.merged)
+        self.archive = self.compiler_type(files[3])
+        self.effective = self.compiler_type(merged.merged)
         if self.archive.inputs.keys() != self.effective.inputs.keys():
             raise ValueError("Saved values changed the recorded local input inventory.")
         self.parameters, self.files = merged.parameters, merged.files
@@ -35,8 +39,8 @@ class EffectiveTerminalCopies:
             source_sha256=effective_sha256, record_sha256=effective_record_sha256, **proposal
         )
         body = {
-            "profile": PROFILE,
-            "scope": SCOPE,
+            "profile": self.profile,
+            "scope": self.scope,
             "files": self.files,
             "parameter_merge": self.parameters,
             "archive_sha256": self.archive.editor.source_sha256,

@@ -47,6 +47,11 @@ class EffectiveTerminalExport(EffectiveTerminalPreview):
 
 
 class NativeTerminalCopies:
+    compiler_type = MoiTerminalCopies
+    profile = PROFILE
+    compiler_profile = COMPILER_PROFILE
+    scope = ARCHIVE_SCOPE
+
     def __init__(self, records):
         self.records = records
 
@@ -59,12 +64,12 @@ class NativeTerminalCopies:
             raise ValueError("The retained terminal-copy source changed; inspect it again.")
         return (
             options,
-            MoiTerminalCopies(files[3]),
+            self.compiler_type(files[3]),
             {
                 **self.records.envelope(snapshot, files),
-                "profile": PROFILE,
-                "compiler_profile": COMPILER_PROFILE,
-                "scope": ARCHIVE_SCOPE,
+                "profile": self.profile,
+                "compiler_profile": self.compiler_profile,
+                "scope": self.scope,
                 "source_sha256": sha(files[3]),
                 "source_immutable": True,
                 "current_identity_verified": False,
@@ -106,6 +111,10 @@ class NativeTerminalCopies:
 
 
 class EffectiveNativeTerminalCopies(NativeTerminalCopies):
+    effective_compiler_type = EffectiveTerminalCopies
+    profile = EFFECTIVE_PROFILE
+    scope = EFFECTIVE_SCOPE
+
     def load(self, request):
         options = TerminalSource.model_validate(request)
         snapshot, files, _ = self.records.load(
@@ -113,15 +122,15 @@ class EffectiveNativeTerminalCopies(NativeTerminalCopies):
         )
         if options.source_sha256 != sha(files[3]):
             raise ValueError("The retained terminal-copy source changed; inspect it again.")
-        compiler = EffectiveTerminalCopies(snapshot, files)
+        compiler = self.effective_compiler_type(snapshot, files)
         return (
             options,
             compiler,
             {
                 **self.records.envelope(snapshot, files),
-                "profile": EFFECTIVE_PROFILE,
-                "compiler_profile": COMPILER_PROFILE,
-                "scope": EFFECTIVE_SCOPE,
+                "profile": self.profile,
+                "compiler_profile": self.compiler_profile,
+                "scope": self.scope,
                 "source_sha256": sha(files[3]),
                 "effective_sha256": compiler.effective.editor.source_sha256,
                 "parameter_merge": compiler.parameters,
@@ -168,8 +177,11 @@ class EffectiveNativeTerminalCopies(NativeTerminalCopies):
         return self.checked_export(EffectiveTerminalExport.model_validate(request))
 
 
-def terminal_copy_router(archive, effective):
-    router = APIRouter(prefix="/api/bacnet/controller/native-application/inputs")
+def terminal_copy_router(archive, effective, *, encoded_labels=False):
+    router = APIRouter(
+        prefix="/api/bacnet/controller/native-application/inputs"
+        + ("/encoded-labels" if encoded_labels else "")
+    )
 
     def download(service, request, filename):
         output, review = service.export(request.model_dump())
