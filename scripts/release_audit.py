@@ -19,13 +19,36 @@ else:
     from privacy_audit import rules, safe_location, scan_bytes
 
 HOME = re.compile(rb"(?:/Users/|/home/|[A-Za-z]:[\\/]Users[\\/])[A-Za-z0-9_.@-]+[\\/]")
+# Exact third-party payload/source witnesses. These are upstream compiler paths
+# or distributed examples, not this app's build-machine path. Private-rule
+# matches are never exempted. UI assets and frozen app modules have no exemption.
+UPSTREAM_HOME = (
+    (
+        re.compile(
+            r"(?:^|/)(?:pydantic_core/[^/]+\.(?:so|pyd)|pydantic_core-[^/]+\.dist-info/sboms/pydantic-core\.cyclonedx\.json)$"
+        ),
+        (
+            b"/Users/runner/.cargo/registry/src/",
+            b"/Users/runner/work/pydantic/pydantic/",
+            b"/home/runner/.cargo/registry/src/",
+            b"/home/runner/work/pydantic/pydantic/",
+            b"C:\\Users\\runneradmin\\.cargo\\registry\\src\\",
+        ),
+    ),
+    (
+        re.compile(r"(?:^|/)tomli/[^/]+\.(?:so|pyd)$"),
+        (b"/Users/runner/work/tomli/tomli/", b"/home/runner/work/tomli/tomli/"),
+    ),
+    (re.compile(r"(?:^|/)fastapi-[^/]+\.dist-info/METADATA$"), (b"/home/user/",)),
+    (re.compile(r"(?:^|/)_tk_data/fileicon\.tcl$"), (b"/home/jimmac/ximian_art/icons/nautilus/",)),
+)
 MAX_MEMBER = 256 * 1024 * 1024
 MAX_TOTAL = 2 * 1024 * 1024 * 1024
 MAX_FILES = 50000
 
 
 def audit(paths, private):
-    findings, skipped, seen, total, scanned = [], [], set(), 0, 0
+    findings, skipped, upstream, seen, total, scanned = [], [], [], set(), 0, 0
 
     def inspect(data, location, depth=0):
         nonlocal total, scanned
@@ -35,14 +58,20 @@ def audit(paths, private):
             raise ValueError("Release audit exceeded its bounded decode profile.")
         location = safe_location(location, private)
         findings.extend({"location": location, **row} for row in scan_bytes(data, private))
-        findings.extend(
-            {
+        for match in HOME.finditer(data):
+            row = {
                 "location": location,
-                "line": data.count(b"\n", 0, m.start()) + 1,
+                "line": data.count(b"\n", 0, match.start()) + 1,
                 "kind": "absolute-home-directory",
             }
-            for m in HOME.finditer(data)
-        )
+            if any(
+                pattern.search(location)
+                and any(data.startswith(prefix, match.start()) for prefix in prefixes)
+                for pattern, prefixes in UPSTREAM_HOME
+            ):
+                upstream.append({**row, "kind": "reviewed-upstream-reference"})
+            else:
+                findings.append(row)
         if location.endswith(".map"):
             findings.append({"location": location, "line": 1, "kind": "production-source-map"})
         if data.startswith(b"PK\x03\x04"):
@@ -103,6 +132,7 @@ def audit(paths, private):
         "decoded_bytes": total,
         "findings": findings,
         "skipped": skipped,
+        "reviewed_upstream_references": upstream,
         "scope": "payload files, decoded ZIP members and frozen Python archives",
         "exclusions": ["hosted history/metadata", "DMG/setup container decoding", "OCR of images"],
     }

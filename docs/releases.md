@@ -68,6 +68,11 @@ qualified by scanning their staged and installed payloads; this is not a claim
 of arbitrary binary/dependency security analysis. Screenshot privacy is also
 visually reviewed. Advisory checks are a point-in-time result.
 
+An explicit, file-scoped policy retains separately reported upstream compiler
+paths in pinned third-party binaries/SBOMs and original documentation examples.
+Those informational witnesses never exempt private-rule matches, web assets or
+the app's own frozen modules. They do not represent local/site source paths.
+
 ## Signing and notarization
 
 For macOS, provide a Developer ID Application identity already installed in the

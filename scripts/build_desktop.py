@@ -7,6 +7,8 @@ import importlib.metadata
 import json
 import os
 import platform
+import plistlib
+import re
 import subprocess
 import sys
 import sysconfig
@@ -25,6 +27,9 @@ def build(output, identity=None):
     provenance = json.loads((package / "data/distribution.json").read_text())
     if provenance["source_dirty"]:
         raise ValueError("Release freezing requires committed source provenance.")
+    version = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)(?:b(\d+))?", bms_tool.__version__)
+    if not version:
+        raise ValueError("The desktop release version must have a supported numeric/beta form.")
     if (
         subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
         != provenance["source_commit"]
@@ -91,10 +96,37 @@ def build(output, identity=None):
             command.extend(["--osx-bundle-identifier", "org.bmsstudio.desktop"])
             if identity:
                 command.extend(["--codesign-identity", identity])
+        elif sys.platform == "win32":
+            numbers = tuple(int(value or 0) for value in version.groups())
+            version_file = temporary / "windows-version.txt"
+            version_file.write_text(
+                "VSVersionInfo(ffi=FixedFileInfo(filevers="
+                + repr(numbers)
+                + ",prodvers="
+                + repr(numbers)
+                + ",mask=0x3f,flags=0x2,OS=0x40004,fileType=0x1,subtype=0x0,date=(0,0)),kids=[StringFileInfo([StringTable('040904B0',[StringStruct('CompanyName','BMS Studio contributors'),StringStruct('FileDescription','BMS Studio local editor'),StringStruct('ProductName','BMS Studio'),StringStruct('ProductVersion',"
+                + repr(bms_tool.__version__)
+                + "),StringStruct('FileVersion',"
+                + repr(bms_tool.__version__)
+                + ")])]),VarFileInfo([VarStruct('Translation',[1033,1200])])])"
+            )
+            command.extend(["--version-file", str(version_file)])
         command.append(str(ROOT / "scripts/desktop_entry.py"))
         env = os.environ.copy()
         env.pop("PYTHONPATH", None)
         subprocess.run(command, cwd=temporary, env=env, check=True)
+    if sys.platform == "darwin":
+        app = output / "BMS Studio.app"
+        info = app / "Contents/Info.plist"
+        metadata = plistlib.loads(info.read_bytes())
+        metadata["CFBundleShortVersionString"] = ".".join(version.groups()[:3])
+        metadata["CFBundleVersion"] = bms_tool.__version__
+        info.write_bytes(plistlib.dumps(metadata))
+        signing = ["codesign", "--force", "--sign", identity or "-"]
+        if identity:
+            signing.extend(["--options", "runtime", "--timestamp"])
+        subprocess.run([*signing, str(app)], check=True)
+        subprocess.run(["codesign", "--verify", "--deep", "--strict", str(app)], check=True)
     manifest = {
         "profile": "bms-desktop-build/1",
         "version": bms_tool.__version__,

@@ -67,6 +67,8 @@ def build(destination, *, allow_dirty=False):
             "Temco-T3000-LICENSE.txt",
             "pybog-LICENSE.txt",
             "web-NOTICES.txt",
+            "Tcl-LICENSE.txt",
+            "Tk-LICENSE.txt",
         ):
             shutil.copy2(ROOT / "third_party" / name, legal / name)
         package = staged / "backend" / "bms_tool"

@@ -34,6 +34,19 @@ def test_missing_path_cannot_be_reported_clean(tmp_path):
         audit([tmp_path / "missing.whl"], rules({}))
 
 
+def test_upstream_examples_do_not_exempt_ui_paths_or_known_private_values(tmp_path):
+    root = tmp_path / "payload"
+    metadata = root / "fastapi-0.146.0.dist-info/METADATA"
+    metadata.parent.mkdir(parents=True)
+    value = b"/home/" + b"user/code/example.py"
+    metadata.write_bytes(value)
+    (root / "app.js").write_bytes(value)
+    result = audit([root], rules({"secrets": {"private-test": value.decode()}}))
+    assert len(result["reviewed_upstream_references"]) == 1
+    assert sum(row["kind"] == "absolute-home-directory" for row in result["findings"]) == 1
+    assert sum(row["kind"].startswith("known-secret") for row in result["findings"]) == 2
+
+
 def test_internal_bundle_links_are_allowed_but_external_links_invalidate_completeness(tmp_path):
     root = tmp_path / "bundle"
     root.mkdir()
