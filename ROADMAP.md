@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`77a1d624`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/77a1d6242f73c7a8ebf2a730cc31dd0bc3fae247).
+[`9f481d8e`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/9f481d8e36a0f340c1f04abd152052a16f716930).
 
 ## Baseline and purpose
 
@@ -1412,3 +1412,20 @@ preserving the current local-copy tool. SA/cross-host/dedicated-BI moves, binary
 field transfer, physical wiring, resource/package/general compiler qualification
 and CCT/BTCVT acceptance remain separate. IO-02 and JCI-09 remain partial. See
 [native analog terminal transfer](docs/native-terminal-transfer.md).
+
+## 2026-11-04 IO-02/JCI-09 delivery: recorded terminal movement
+
+`HIST-NATIVE-TERMINAL-001` adds strict profile-2 terminal metadata to the shared
+Changes/History journal. Actual recorded bindings supply the previous/destination
+terminal, object/reference, preserved configuration and fingerprints. Backend and
+client reject incomplete/foreign evidence and any legacy fallback; original JSON
+remains downloadable. Listing and viewing do not contact controllers, reopen
+backups, validate parents or create transfer authority. The existing input tools
+link preserves the current controller/file. Older input metadata, graphics,
+styles and native compiler/transfer/recovery paths remain unchanged.
+
+Next, add contextual profile-2 field review/Apply/readback controls in Points & I/O,
+with the same exact ownership, confirmations and uncertainty handling. General
+SA/cross-host/binary field operations and CCT/physical/BTCVT acceptance remain
+separate. IO-02 and JCI-09 remain partial. See
+[recorded terminal movement](docs/native-terminal-ledger.md).
