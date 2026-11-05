@@ -18,7 +18,7 @@ for (const effective of [false, true]) {
       editor = await enterTerminals(page, f.id, effective);
     await draftTerminal(editor);
     let raw = Buffer.alloc(0);
-    await page.route("**/inputs/*terminal-copy/preview", async (route) => {
+    await page.route("**/inputs/encoded-labels/*terminal-copy/preview", async (route) => {
       const response = await route.fetch();
       raw = await response.body();
       await route.fulfill({ response, body: raw });
@@ -143,7 +143,7 @@ for (const invalidation of [
     let release!: () => void, seen!: () => void;
     const gate = new Promise<void>((r) => (release = r)),
       arrived = new Promise<void>((r) => (seen = r));
-    await page.route("**/inputs/terminal-copy/preview", async (route) => {
+    await page.route("**/inputs/encoded-labels/terminal-copy/preview", async (route) => {
       const response = await route.fetch();
       seen();
       await gate;
@@ -210,7 +210,7 @@ for (const fault of [
     const review = await reviewTerminal(editor);
     let downloads = 0;
     page.on("download", () => downloads++);
-    await page.route("**/inputs/terminal-copy/export", async (route) => {
+    await page.route("**/inputs/encoded-labels/terminal-copy/export", async (route) => {
       const response = await route.fetch(),
         headers = { ...response.headers() },
         body = await response.body();
@@ -240,7 +240,7 @@ test("a resealed review with another slot is rejected before download is offered
   const f = seedTerminals(nativeScheduleWriteServer.directory),
     editor = await enterTerminals(page, f.id);
   await draftTerminal(editor);
-  await page.route("**/inputs/terminal-copy/preview", async (route) => {
+  await page.route("**/inputs/encoded-labels/terminal-copy/preview", async (route) => {
     const response = await route.fetch(),
       v = await response.json();
     v.compilation.destination_slot = 2;

@@ -1560,3 +1560,22 @@ configuration/runtime and field semantics against actual source evidence. Source
 capability reporting, SA/cross-host reassignment, resources/packages and CCT/
 physical/BTCVT acceptance remain separate. IO-02/JCI-09 remain partial. See
 [encoding-preserving terminal copies](docs/native-terminal-label-encoding.md).
+
+## 2026-11-05 IO-02/UX-03 delivery: contextual encoded terminal copies
+
+`UI-NATIVE-TERMINAL-LABELS-001` switches the existing Points & I/O local-copy task
+to explicit profile 3. Actual source/occupancy and recorded ASCII/UCS-2 metadata
+bind review; both label payloads retain their charset. Exact original document
+and nested compiler seals preserve numeric tokens and Unicode ordering. Local
+native/review downloads retain the existing artifact/export checks.
+
+Draft retention, source/basis/target/lifecycle invalidation, controller/CAF entry
+and layout remain. Unknown charset/proof/document evidence cannot enable Save;
+delayed digest completion cannot revive retired work. Old parser/API defaults and
+all backend/field/recovery/ledger/graphics/style contracts remain separate.
+
+Next, add source-specific capability evidence for the explicit encoded profile,
+then qualify binary configuration/runtime and field semantics against actual
+sources. SA/cross-host moves, resources/packages and CCT/physical/BTCVT acceptance
+remain separate. IO-02/JCI-09 remain partial. See
+[the encoded terminal workflow](docs/native-terminal-label-workflow.md).

@@ -10,7 +10,7 @@ import {
   terminalReview,
   terminalSource,
   type TerminalBasis,
-} from "./nativeTerminalCopyContract";
+} from "./nativeEncodedTerminalContract";
 import {
   blankTerminalDraft,
   discardTerminalDraft,
@@ -233,7 +233,7 @@ export function NativeTerminalCopy({
       );
       if (
         !(await terminalReview(
-          result.data,
+          result,
           original.archive,
           request,
           original.data,

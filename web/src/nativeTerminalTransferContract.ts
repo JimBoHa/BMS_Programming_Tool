@@ -69,6 +69,33 @@ export async function terminalEvidenceSeal(blob: Blob) {
   return (await sha256Text(canonical(body))) === evidence_sha256;
 }
 
+export async function terminalCopyDocumentSeals(
+  document: { data: Data; blob: Blob },
+  effective: boolean,
+) {
+  const text = await document.blob.text(),
+    raw = parseSourceJSON(text);
+  if (
+    !raw ||
+    Array.isArray(raw) ||
+    raw.token !== undefined ||
+    !same(JSON.parse(text), document.data)
+  )
+    return false;
+  const layers: [any, string][] = [
+    [raw, "review_sha256"],
+    [raw.compilation, "compilation_sha256"],
+  ];
+  if (effective)
+    layers.push([raw.compilation?.terminal_edit, "compilation_sha256"]);
+  for (const [layer, key] of layers) {
+    if (!layer || Array.isArray(layer) || !hash(layer[key])) return false;
+    const { [key]: digest, ...body } = layer;
+    if ((await sha256Text(canonical(body))) !== digest) return false;
+  }
+  return true;
+}
+
 export async function terminalTransferReview(
   document: { data: Data; blob: Blob },
   source: Data,
