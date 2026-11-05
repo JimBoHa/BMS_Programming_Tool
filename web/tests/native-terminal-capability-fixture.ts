@@ -40,6 +40,6 @@ export async function terminalTable(terminal: ReturnType<Page["getByLabel"]>) {
     name: "Native terminal operations",
     exact: true,
   });
-  await expect(table.getByRole("row")).toHaveCount(5);
+  await expect(table.getByRole("row")).toHaveCount(6);
   return table;
 }

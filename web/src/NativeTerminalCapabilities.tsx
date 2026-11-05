@@ -6,7 +6,7 @@ import {
   terminalCapabilityEvidence,
   terminalCapabilityProfile,
   terminalOperationIds,
-} from "./nativeBinaryTerminalCapabilityContract";
+} from "./nativeEncodedAnalogCapabilityContract";
 
 export function NativeTerminalCapabilities({
   source,

@@ -1771,3 +1771,25 @@ Next, add source-specific profile-4 capability, recorded evidence and recovery
 support. General native compilation, allocation/electrical changes, SA/cross-host
 writes, resources/packages and CCT/physical/BTCVT acceptance remain separate.
 IO-02/JCI-09 remain partial. See [analog terminal workflow](docs/native-encoded-analog-terminal-workflow.md).
+
+## 2026-11-05 IO-02 delivery: captured typed analog transfer support
+
+`FMT-NATIVE-ENCODED-ANALOG-CAPABILITIES-001` adds explicit capability profile 18,
+appending one actual typed analog compilation witness while preserving the complete
+profile-17 report. Exact captured configuration/storage, saved-setting merge,
+source/native hashes, recorded availability and observed charset determine support.
+Paired absent linear output endpoints stay absent. Saved binding conflicts and
+unsupported types/presence cannot qualify a move. Analysis creates no retained
+edit, field plan, receipt, network query or transfer authority.
+
+The existing contextual terminal table adds the configured analog row. Independent
+closed browser admission binds its full predecessor evidence and new typed witness;
+original downloads, source/task retirement, controller/CAF continuity and contained
+engineering-table scrolling remain. Main operations, field compilers/writers,
+recovery, journal and styles keep their existing behavior. Shared analog admission
+predicates are exported without changing their behavior.
+
+Next, add recorded profile-4 Changes/History evidence and previous-terminal recovery.
+General compilation, allocation/electrical changes, SA/cross-host writes, resources/
+packages and CCT/physical/BTCVT acceptance remain separate. IO-02/JCI-09 remain
+partial. See [typed analog support](docs/native-encoded-analog-capabilities.md).

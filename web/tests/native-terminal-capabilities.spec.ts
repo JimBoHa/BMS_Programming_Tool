@@ -26,7 +26,7 @@ for (const width of [1440, 390])
     await page.route("**/inspection/capabilities", async (route) => {
       const query = route.request().postDataJSON();
       const response = await route.fetch({ maxRetries: 0 });
-      if (query.capability_profile.endsWith("/17")) {
+      if (query.capability_profile.endsWith("/18")) {
         body = query;
         exact = await response.body();
       }
@@ -35,7 +35,7 @@ for (const width of [1440, 390])
     const { terminal } = await openTerminal(page, f.analog.id),
       table = await terminalTable(terminal);
     expect(body.capability_profile).toBe(
-      "native-backup-operation-capabilities/17",
+      "native-backup-operation-capabilities/18",
     );
     await expect(
       table
@@ -95,7 +95,7 @@ for (const [kind, expected] of [
       { terminal } = await openTerminal(page, f[kind].id),
       table = await terminalTable(terminal);
     expect(
-      await table.locator('tbody tr:not([data-operation="binary-terminal-transfer"]) td:first-of-type').allTextContents(),
+      await table.locator('tbody tr:not([data-operation="binary-terminal-transfer"]):not([data-operation="encoded-analog-terminal-transfer"]) td:first-of-type').allTextContents(),
     ).toEqual(expected);
   });
 test("malformed terminal evidence withholds only its own table and exact download until explicit reanalysis", async ({
@@ -105,7 +105,7 @@ test("malformed terminal evidence withholds only its own table and exact downloa
   const f = seed(nativeScheduleWriteServer.directory);
   await page.route("**/inspection/capabilities", async (route) => {
     const response = await route.fetch();
-    if (route.request().postDataJSON().capability_profile.endsWith("/17")) {
+    if (route.request().postDataJSON().capability_profile.endsWith("/18")) {
       const v = await response.json();
       v.qualification.archive_terminal.physical_terminal_or_wiring_verified = true;
       await route.fulfill({ response, json: v });
@@ -146,7 +146,7 @@ test("late terminal analysis cannot return after leaving the application task", 
     seen = new Promise<void>((r) => (arrived = r));
   await page.route("**/inspection/capabilities", async (route) => {
     const response = await route.fetch();
-    if (route.request().postDataJSON().capability_profile.endsWith("/17")) {
+    if (route.request().postDataJSON().capability_profile.endsWith("/18")) {
       arrived();
       await gate;
     }

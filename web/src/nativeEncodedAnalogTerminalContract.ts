@@ -25,7 +25,7 @@ const fields: Record<number, string> = {
 };
 const real32 = (v: unknown) =>
   typeof v === "number" && Number.isFinite(v) && Object.is(Math.fround(v), v);
-const config = (v: Data) =>
+export const encodedAnalogConfiguration = (v: Data) =>
   !!v &&
   !Array.isArray(v) &&
   same(Object.keys(v).sort(), Object.values(fields).sort()) &&
@@ -35,7 +35,7 @@ const config = (v: Data) =>
   ) &&
   ((v.output_low === null && v.output_high === null) ||
     (real32(v.output_low) && real32(v.output_high)));
-const storage = (v: Data, c: Data) =>
+export const encodedAnalogConfigurationStorage = (v: Data, c: Data) =>
   !!v &&
   !Array.isArray(v) &&
   same(Object.keys(v).sort(), [
@@ -124,8 +124,11 @@ export function encodedAnalogTerminalSource(v: Data, parent: Data) {
       if (row.configuration_error === null) {
         if (
           !hash(row.configuration_sha256) ||
-          !config(row.configuration) ||
-          !storage(row.configuration_storage, row.configuration) ||
+          !encodedAnalogConfiguration(row.configuration) ||
+          !encodedAnalogConfigurationStorage(
+            row.configuration_storage,
+            row.configuration,
+          ) ||
           !same(row.configuration, row.stored_configuration)
         )
           return false;
@@ -209,7 +212,10 @@ export async function encodedAnalogTerminalReview(
       c.object_id !== row.object_id ||
       c.record_ref !== row.record_ref ||
       !same(c.stored_configuration, row.configuration) ||
-      !storage(c.configuration_storage, c.stored_configuration) ||
+      !encodedAnalogConfigurationStorage(
+        c.configuration_storage,
+        c.stored_configuration,
+      ) ||
       !same(c.configuration_storage, row.configuration_storage) ||
       c.other_records_preserved !== true ||
       c.wires_changed !== false ||
@@ -332,8 +338,11 @@ export function encodedAnalogTerminalReceipt(r: Data, context: Data) {
     same(i.identity, context.identity) &&
     c?.profile === encodedAnalogTerminalProfile &&
     c.configuration_sha256 === i.input_edit.configuration_sha256 &&
-    config(c.stored_configuration) &&
-    storage(c.configuration_storage, c.stored_configuration) &&
+    encodedAnalogConfiguration(c.stored_configuration) &&
+    encodedAnalogConfigurationStorage(
+      c.configuration_storage,
+      c.stored_configuration,
+    ) &&
     same(c.input_edit, i.input_edit) &&
     c.object_id === `analog-input,${i.input_edit.object_instance}` &&
     p?.profile === "tagged-moi-local-terminal-copy/3" &&

@@ -211,7 +211,7 @@ def test_explicit_api_profile_stays_disconnected_and_foreign_version_is_refused(
         assert (
             client.post(
                 "/api/bacnet/controller/native-application/inspection/capabilities",
-                json=request | {"capability_profile": "native-backup-operation-capabilities/18"},
+                json=request | {"capability_profile": "native-backup-operation-capabilities/19"},
                 headers=headers,
             ).status_code
             == 422
