@@ -164,6 +164,11 @@ from .native_signal_compiler import (
     SignalCompilerSource,
 )
 from .native_simulator import NativeSimulator
+from .native_terminal_copies import (
+    EffectiveNativeTerminalCopies,
+    NativeTerminalCopies,
+    terminal_copy_router,
+)
 from .native_weekly_text import weekly_text_router
 from .native_wire_compiler import EffectiveWireService, effective_wire_router
 from .native_wire_copies import NativeWireCopies, native_wire_router
@@ -616,6 +621,8 @@ def create_app(state_dir=None, *, operation_power=None):
     connection_compiler = EffectiveConnectionService(backup_records)
     connection_removals = NativeConnectionRemovals(backup_records)
     effective_connection_removals = EffectiveConnectionRemovals(backup_records)
+    terminal_copies = NativeTerminalCopies(backup_records)
+    effective_terminal_copies = EffectiveNativeTerminalCopies(backup_records)
     wire_compiler = EffectiveWireService(backup_records)
     historical_wire_copies = NativeHistoricalWireCopies(
         backup_records, native_applications.wire_recovery
@@ -798,6 +805,7 @@ def create_app(state_dir=None, *, operation_power=None):
         connection_removal_router(connection_removals, effective_connection_removals)
     )
     app.include_router(effective_wire_router(wire_compiler))
+    app.include_router(terminal_copy_router(terminal_copies, effective_terminal_copies))
     app.include_router(historical_wire_copy_router(historical_wire_copies))
 
     @app.post("/api/bacnet/controller/native-application/inspection/source")

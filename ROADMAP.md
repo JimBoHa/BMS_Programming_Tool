@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`82a30500`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/82a30500e3748b8c1881acdf9a15db4ab4205d17).
+[`62eba5f9`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/62eba5f94bc85b4f7abcdfa3fbc1e5c2b06ed34c).
 
 ## Baseline and purpose
 
@@ -1364,3 +1364,19 @@ styles remain unchanged. Source eligibility grants no edit review, field Apply,
 fallback/retention, resource/package/runtime or physical/BTCVT acceptance.
 JCI-01/JCI-03/JCI-09 remain partial. See
 [source-specific removal capabilities](docs/native-removal-capabilities.md).
+
+## 2026-11-04 IO-02 delivery: existing local native terminal copies
+
+`FMT-NATIVE-LOCAL-TERMINAL-COPY-001` adds original and identity-qualified
+saved-effective local file copies moving one existing analog/binary input to a
+documented free universal terminal on the same controller. Exact source, record,
+property, previous-slot and effective-source guards bind review/export. Only the
+two original terminal payloads change; all other expanded bytes, identities,
+modes, graph and framing are preserved. Existing input transfer and recovery
+profiles, shared engineering graphics and all interface files remain unchanged.
+
+Next, expose this operation in contextual Points & I/O with explicit local-copy
+language, exact target/source ownership, bounded drafts and review invalidation.
+SA/cross-host/dedicated-BI moves, allocation, electrical changes, physical wiring,
+general native authoring and field transfer remain separate. IO-02 remains
+partial. See [native local terminal copies](docs/native-terminal-copies.md).
