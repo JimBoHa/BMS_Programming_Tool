@@ -1,0 +1,263 @@
+.engineering-grid:not(.has-inspector) {
+  grid-template-columns: 180px minmax(0, 1fr);
+}
+.engineering-grid.has-inspector {
+  grid-template-columns: 180px minmax(0, 1fr) 275px;
+}
+.logic-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  align-items: center;
+  margin: 12px 0;
+  color: #42565f;
+  font-size: 12px;
+}
+.logic-input-key::before,
+.logic-output-key::before {
+  content: "";
+  display: inline-block;
+  width: 22px;
+  height: 12px;
+  margin-right: 6px;
+  vertical-align: middle;
+  background: #f5df53;
+  border: 1px solid #6f7475;
+  clip-path: polygon(0 0, 78% 0, 100% 50%, 78% 100%, 0 100%);
+}
+.logic-output-key::before {
+  background: #53dfdc;
+}
+.engineering-grid .caf-logic-canvas {
+  background: #fff;
+  height: 660px;
+  border-radius: 0;
+}
+.engineering-node.caf-logic-node {
+  border: 1px solid #65787d;
+  border-radius: 0;
+  box-shadow: none;
+  background: #fff;
+  font-size: 13px;
+}
+.engineering-node .caf-logic-node-heading {
+  padding: 6px 10px;
+  height: 30px;
+  box-sizing: border-box;
+  border-radius: 0;
+  background: #f2f6f6;
+  border-bottom: 1px solid #d1dddd;
+  color: #243b44;
+  align-items: center;
+}
+.engineering-node.module .caf-logic-node-heading {
+  background: #d9eeee;
+}
+.engineering-node .logic-function {
+  font-size: 15px;
+  letter-spacing: 0.3px;
+}
+.engineering-node .caf-logic-node-name {
+  font-size: 14px;
+  padding: 6px 10px 2px;
+}
+.engineering-node .logic-value {
+  height: 22px;
+  padding: 0 10px;
+  box-sizing: border-box;
+  font-size: 11px;
+  line-height: 20px;
+  color: #52676f;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.engineering-node .logic-value.live {
+  color: #075e48;
+  font-weight: 600;
+}
+.engineering-node .logic-value.last-read {
+  color: #845513;
+}
+.engineering-node .caf-logic-port {
+  height: 23px;
+  max-width: 49%;
+  line-height: 22px;
+  padding: 0;
+  font-size: 12px;
+}
+.engineering-node .caf-logic-port span.logic-pin-tag {
+  box-sizing: border-box;
+  width: 156px;
+  max-width: 156px;
+  padding: 0 12px 0 8px;
+  border-block: 1px solid #8e9544;
+  background: #f5df53;
+  color: #242e24;
+  clip-path: polygon(0 0, 93% 0, 100% 50%, 93% 100%, 0 100%);
+}
+.engineering-node .caf-logic-port.outputs span.logic-pin-tag {
+  border-color: #449c9d;
+  background: #53dfdc;
+  text-align: left;
+}
+.engineering-node .caf-logic-port .react-flow__handle {
+  width: 6px;
+  height: 6px;
+  background: #fff;
+  border: 1px solid #536d72;
+}
+.engineering-node .caf-logic-port.prototype-port .react-flow__handle {
+  border-style: dashed;
+}
+.engineering-node .logic-junction {
+  position: absolute;
+  right: -11px;
+  top: 9px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #477078;
+}
+.engineering-node.terminal {
+  border: 0;
+  background: transparent;
+}
+.engineering-node.terminal::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #f5df53;
+  clip-path: polygon(
+    0 0,
+    calc(100% - 18px) 0,
+    100% 50%,
+    calc(100% - 18px) 100%,
+    0 100%
+  );
+  border: 1px solid #8c9153;
+  z-index: -1;
+}
+.engineering-node.terminal.output::before {
+  background: #53dfdc;
+}
+.engineering-node.terminal.constant::before {
+  background: #f0edf6;
+  border-color: #827b96;
+  clip-path: none;
+}
+.engineering-node.terminal .caf-logic-node-heading {
+  border: 0;
+  background: transparent;
+  padding: 2px 18px 0 9px;
+  height: 14px;
+}
+.engineering-node.terminal .logic-function {
+  font-size: 10px;
+}
+.engineering-node.terminal .caf-logic-node-name {
+  padding: 2px 20px 0 9px;
+}
+.engineering-node.terminal .logic-value {
+  padding-right: 20px;
+  height: 18px;
+  line-height: 18px;
+}
+.engineering-node.terminal .caf-logic-port {
+  transform: translateY(-50%);
+}
+.engineering-node.is-selected {
+  outline: 3px solid #087d80;
+  outline-offset: 3px;
+}
+.engineering-node.outside-trace {
+  opacity: 0.36;
+}
+.engineering-grid .caf-logic-finder {
+  border-radius: 0;
+}
+.engineering-grid .caf-logic-finder button strong {
+  font-size: 13px;
+}
+.engineering-grid .caf-logic-finder button small {
+  font-size: 11px;
+}
+.engineering-grid .responsive-panel.inline[open] {
+  height: 660px;
+}
+.engineering-grid .responsive-panel-content {
+  max-height: 660px;
+}
+@media (max-width: 1250px) {
+  .engineering-grid.has-inspector {
+    grid-template-columns: 150px minmax(0, 1fr) 240px;
+  }
+  .engineering-grid:not(.has-inspector) {
+    grid-template-columns: 150px minmax(0, 1fr);
+  }
+}
+@media (max-width: 900px) {
+  .engineering-grid.has-inspector,
+  .engineering-grid:not(.has-inspector) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.engineering-workspace:focus {
+  outline: none;
+}
+.engineering-expanded {
+  position: fixed;
+  inset: 12px;
+  margin: 0;
+  z-index: 1000;
+  background: #fff;
+  border: 1px solid #6b878b;
+  box-shadow: 0 0 0 16px #17313d80;
+  padding: 16px;
+  overflow: auto;
+}
+.engineering-expanded .caf-logic-canvas,
+.engineering-expanded .responsive-panel.inline[open] {
+  height: max(440px, calc(100dvh - 235px));
+}
+.engineering-expanded .responsive-panel-content {
+  max-height: none;
+}
+
+.engineering-workspace {
+  position: static;
+  width: auto;
+  max-width: none;
+  height: auto;
+  max-height: none;
+  padding: 0;
+  border: 0;
+  color: var(--ink);
+  overflow: visible;
+}
+.engineering-workspace[open] {
+  display: block;
+}
+.engineering-workspace.engineering-expanded {
+  position: fixed;
+  inset: 12px;
+  width: calc(100vw - 24px);
+  height: calc(100dvh - 24px);
+  padding: 16px;
+  margin: 0;
+  border: 1px solid #6b878b;
+  box-sizing: border-box;
+  overflow: auto;
+}
+.engineering-workspace::backdrop {
+  background: #17313d80;
+}
+
+/* Retain the existing editing form's readable text inside the compact inspector. */
+.engineering-grid .responsive-panel-content .native-signal-copy p,
+.engineering-grid .responsive-panel-content .native-signal-copy label,
+.engineering-grid .responsive-panel-content .native-signal-copy input,
+.engineering-grid .responsive-panel-content .native-signal-copy button {
+  font-size: 14px;
+}

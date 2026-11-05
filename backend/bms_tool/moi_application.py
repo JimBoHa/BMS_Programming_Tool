@@ -30,6 +30,7 @@ from bacpypes3.primitivedata import (
 )
 
 from .caf import ATTRIBUTES, BY_CLASS, CLASSES
+from .logic_display import function_symbol, pin_labels
 from .moi_framing import native_frames
 
 MAX_SOURCE = 2 * 1024 * 1024
@@ -452,6 +453,51 @@ class MoiApplication:
             "native_layout": positions is not None,
             "read_only": True,
         }
+
+    def display_diagram(self, ref):
+        """Decorate a fresh graph without changing the compiler's canonical evidence.
+
+        Observed pin labels change when connections are edited. Keep that derived
+        metadata outside the graph equality checks used by native copy compilers.
+        """
+        graph = self.diagram(ref)
+        blocks = graph["blocks"]
+        by_ref = {block["ref"]: block for block in blocks}
+        for block in blocks:
+            record = self.records[block["ref"]]
+            default = record["properties"].get(3113, {}).get("scalar")
+            if default is not None:
+                block["stored_value"] = {
+                    "text": str(default["value"]),
+                    "datatype": default["datatype"],
+                }
+            setup = record["properties"].get(518, {}).get("scalar")
+            if setup and setup["datatype"] == "Enumerated":
+                symbol = function_symbol(record["class_id"], setup["value"])
+                if symbol:
+                    block["operator"] = symbol
+        # A unique child Attribute ID may name its parent's actual pin.
+        named = {}
+        for child in self.records.values():
+            parent = child["ref"].rpartition(".")[0]
+            if parent not in by_ref:
+                continue
+            pid, name = self.scalar(child, 3365), self.scalar(child, 2390)
+            if (
+                isinstance(pid, int)
+                and not isinstance(pid, bool)
+                and isinstance(name, str)
+                and name.strip()
+            ):
+                named.setdefault(parent, {}).setdefault(str(pid), set()).add(name)
+        for block in blocks:
+            block["pin_labels"] = {
+                pid: next(iter(names))
+                for pid, names in named.get(block["ref"], {}).items()
+                if len(names) == 1
+            }
+        graph["port_labels"] = pin_labels(blocks, graph["connections"])
+        return graph
 
     def summary(self):
         diagrams, errors = [], list(self.errors)

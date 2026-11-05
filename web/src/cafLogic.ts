@@ -10,6 +10,9 @@ export type CafBlock = {
   execution_index: number;
   layout: { x: string; y: string; opaque_code: number };
   exposed_ports: { id: number; name: string }[];
+  pin_labels?: Record<string, string>;
+  stored_value?: { text: string; datatype: string };
+  operator?: { text: string; source: string };
 };
 export type CafWire = {
   index: number;
@@ -41,6 +44,7 @@ export const blockTitle = (b?: CafBlock) =>
   b ? b.name || `${b.class_name} · ${b.index + 1}` : "Unresolved block";
 export function portName(diagram: CafDiagram, b: CafBlock, pid: number) {
   const name =
+    b.pin_labels?.[String(pid)] ||
     diagram.port_labels?.[b.class_id]?.[String(pid)] ||
     b.exposed_ports.find((p) => p.id === pid)?.name;
   return name && name !== "Unmapped property" ? name : `Property ${pid}`;
@@ -101,6 +105,13 @@ export const nodeHeight = (ports: CafPorts) =>
 export function readablePositions(
   diagram: CafDiagram,
   ports = diagramPorts(diagram),
+  size: (
+    block: CafBlock,
+    ports: CafPorts,
+  ) => { width: number; height: number } = (_, p) => ({
+    width: 282,
+    height: nodeHeight(p),
+  }),
 ): Record<string, Position> {
   if (
     diagram.blocks.length > CAF_CANVAS_BLOCKS ||
@@ -163,6 +174,20 @@ export function readablePositions(
       level[n] = Math.max(level[n], level[queue[i]] + 1);
       if (--indegree[n] === 0) queue.push(n);
     }
+  const widths = new Map<number, number>();
+  for (const b of diagram.blocks) {
+    const column = level[component.get(b.ref)!];
+    widths.set(
+      column,
+      Math.max(widths.get(column) ?? 0, size(b, ports.get(b.ref)!).width),
+    );
+  }
+  const columns = new Map<number, number>();
+  let x = 24;
+  for (const column of [...widths.keys()].sort((a, b) => a - b)) {
+    columns.set(column, x);
+    x += widths.get(column)! + 82;
+  }
   const rows = new Map<number, number>(),
     positions: Record<string, Position> = {};
   for (const b of [...diagram.blocks].sort(
@@ -170,8 +195,8 @@ export function readablePositions(
   )) {
     const column = level[component.get(b.ref)!],
       y = rows.get(column) ?? 24;
-    positions[b.ref] = { x: 24 + column * 364, y };
-    rows.set(column, y + nodeHeight(ports.get(b.ref)!) + 40);
+    positions[b.ref] = { x: columns.get(column)!, y };
+    rows.set(column, y + size(b, ports.get(b.ref)!).height + 40);
   }
   return positions;
 }

@@ -15,7 +15,8 @@ import math
 import re
 from typing import Any
 
-from .caf import ATTRIBUTES, BY_CLASS, CLASSES, CafArchive, Q
+from .caf import CLASSES, CafArchive, Q
+from .logic_display import function_symbol, pin_name
 
 GRAPH_CLASSES = {"536", "575"}
 MAX_REWIRES = 1000
@@ -186,9 +187,7 @@ class CafGraph:
                     ports.append(
                         {
                             "id": port_id,
-                            "name": BY_CLASS.get(block.get("classid"), {}).get(
-                                str(port_id), ATTRIBUTES.get(str(port_id), "Unmapped property")
-                            ),
+                            "name": pin_name(block.get("classid"), port_id),
                         }
                     )
             blocks.append(
@@ -207,6 +206,46 @@ class CafGraph:
                     "exposed_ports": ports,
                 }
             )
+            default = self.archive.scalar(block_props.get("3113"))
+            if default is not None:
+                blocks[-1]["stored_value"] = {"text": default["text"], "datatype": default["type"]}
+            setup = self.archive.scalar(block_props.get("518"))
+            expected_set = {"560": "287", "561": "288"}.get(block.get("classid"))
+            if (
+                setup
+                and setup["type"] == "enum"
+                and setup["attributes"] == {"set": expected_set}
+                and re.fullmatch(r"[0-9]{1,10}", setup["text"])
+            ):
+                symbol = function_symbol(block.get("classid"), int(setup["text"]))
+                if symbol:
+                    blocks[-1]["operator"] = symbol
+        named = {}
+        block_refs = {b["ref"] for b in blocks}
+        for child_ref, child in self.archive.objects.items():
+            parent = child_ref.rpartition(".")[0]
+            if parent not in block_refs:
+                continue
+            cp = _properties(child)
+            pid, name = self.archive.scalar(cp.get("3365")), self.archive.scalar(cp.get("2390"))
+            if (
+                pid
+                and pid["type"] == "enum"
+                and pid["attributes"] == {"set": "509"}
+                and re.fullmatch(r"[0-9]{1,5}", pid["text"])
+                and name
+                and name["type"] == "string"
+                and name["text"].strip()
+            ):
+                named.setdefault(parent, {}).setdefault(str(int(pid["text"])), set()).add(
+                    name["text"]
+                )
+        for block in blocks:
+            block["pin_labels"] = {
+                pid: next(iter(names))
+                for pid, names in named.get(block["ref"], {}).items()
+                if len(names) == 1
+            }
         sequence = []
         for item in ordered:
             if item.tag != Q + "unsignedShort" or len(item) or item.attrib:
@@ -251,9 +290,7 @@ class CafGraph:
                 (wire["raw"][2], wire["target_port"]),
             ):
                 cid = blocks[block_index]["class_id"]
-                port_labels.setdefault(cid, {})[str(pid)] = BY_CLASS.get(cid, {}).get(
-                    str(pid), ATTRIBUTES.get(str(pid), "Unmapped property")
-                )
+                port_labels.setdefault(cid, {})[str(pid)] = pin_name(cid, pid)
         return {
             "ref": ref,
             "class_id": obj.get("classid"),
