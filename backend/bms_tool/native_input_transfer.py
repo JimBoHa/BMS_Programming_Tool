@@ -5,7 +5,7 @@ import struct
 from datetime import UTC, datetime, timedelta
 
 from bacpypes3.apdu import ReadPropertyACK, ReadPropertyRequest
-from bacpypes3.object import AnalogInputObject
+from bacpypes3.object import AnalogInputObject, BinaryInputObject
 from bacpypes3.pdu import PDUData
 from bacpypes3.primitivedata import Boolean, Enumerated, ObjectIdentifier, Real, TagList, Unsigned
 
@@ -69,6 +69,28 @@ class NativeInputOperations:
             "target": capture["target"],
             "identity": capture["identity"],
             "controller_queries": False,
+        }
+
+    def binary_input_source(self, **arguments):
+        from .native_binary_terminal import BinaryTerminalCompiler
+
+        source = InputLocalSource(**arguments)
+        capture, files = self.input_local_capture(source.model_dump())
+        compiler = BinaryTerminalCompiler(NativeInputCompiler(files))
+        identity = compiler.app.summary()
+        if (
+            capture["identity"].get("vendor-identifier") != 5
+            or capture["device"] != f"device,{identity['instance']}"
+            or capture["identity"].get("object-name") != identity["name"]
+            or capture["identity"].get("model-name") != identity["model"]
+        ):
+            raise ValueError("Binary native archive and captured controller identity disagree.")
+        return {
+            **compiler.source(),
+            "capture_id": capture["id"],
+            "snapshot_sha256": capture["evidence_sha256"],
+            "target": capture["target"],
+            "identity": capture["identity"],
         }
 
     def input_allocation_origin(self, edit, capture):
@@ -153,7 +175,7 @@ class NativeInputOperations:
             ReadBudget(max_requests=1, max_bytes=128 * 1024),
             obj,
             75,
-            AnalogInputObject,
+            BinaryInputObject if ObjectIdentifier(obj)[0] == 3 else AnalogInputObject,
             timeout=self.files.timeout,
         )
         if row["status"] == "ok" and value == ObjectIdentifier(obj):
@@ -217,7 +239,11 @@ class NativeInputOperations:
         async with self.operation(options.operation_id, "review-input"):
             self.available(options)
             captured, files = self.check_capture(options)
-            self.input_source(**options.model_dump(include={"capture_id", "snapshot_sha256"}))
+            (
+                self.binary_input_source
+                if options.edit.action == "binary-terminal"
+                else self.input_source
+            )(**options.model_dump(include={"capture_id", "snapshot_sha256"}))
             origin = self.input_allocation_origin(options.edit, captured)
             output, compilation = compile_input(files, options.edit, allocation_origin=origin)
             recovery = recovery_origin(self, options, compilation)
@@ -251,7 +277,7 @@ class NativeInputOperations:
                 "payload_sha256": sha(output),
                 "collision_check": self.name_scope(),
                 "parameter_policy": "Merge fresh saved settings. Retain every non-selected record and wire; verify complete application and published input configuration.",
-                "scope": TERMINAL_SCOPE if options.edit.action == "terminal" else SCOPE,
+                "scope": self.input_scope(options.edit),
                 "vendor_runtime_required": False,
                 "can_apply": True,
                 "connector_config": config,
@@ -266,6 +292,10 @@ class NativeInputOperations:
 
     async def verify_published_input(self, session, files, edit):
         edit = InputEdit.model_validate(edit)
+        if edit.action == "binary-terminal":
+            from .native_binary_terminal import verify_published
+
+            return await verify_published(self, session, files, edit)
         obj = f"analog-input,{edit.object_instance}"
         merged, _ = ParameterApplication(files[3], files[11], files[12]).compile()
         app = MoiIdentity(merged)
@@ -351,3 +381,11 @@ class NativeInputOperations:
             "properties": rows,
             "identity_evidence": evidence,
         }
+
+    @staticmethod
+    def input_scope(edit):
+        if edit.action == "binary-terminal":
+            from .native_binary_terminal import SCOPE as BINARY_SCOPE
+
+            return BINARY_SCOPE
+        return TERMINAL_SCOPE if edit.action == "terminal" else SCOPE

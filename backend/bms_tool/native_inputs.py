@@ -94,7 +94,7 @@ class InputConfiguration(StrictModel):
 
 
 class InputEdit(StrictModel):
-    action: Literal["allocate", "mode", "remove-allocated", "terminal"]
+    action: Literal["allocate", "mode", "remove-allocated", "terminal", "binary-terminal"]
     object_instance: int = Field(**UINT)
     slot: int = Field(ge=1, le=255, strict=True)
     configuration_sha256: str | None = Field(default=None, pattern=HASH)
@@ -127,7 +127,7 @@ class InputEdit(StrictModel):
                 raise ValueError(
                     "Mode editing requires the captured configuration and its proposed replacement."
                 )
-        elif self.action == "terminal":
+        elif self.action in {"terminal", "binary-terminal"}:
             if (
                 self.configuration_sha256 is None
                 or self.configuration is not None
@@ -150,6 +150,10 @@ class InputEdit(StrictModel):
 
 
 def input_operation_profile(edit):
+    if InputEdit.model_validate(edit).action == "binary-terminal":
+        from .native_binary_terminal import PROFILE as BINARY_TERMINAL_PROFILE
+
+        return BINARY_TERMINAL_PROFILE
     return TERMINAL_PROFILE if InputEdit.model_validate(edit).action == "terminal" else PROFILE
 
 
@@ -289,6 +293,7 @@ class NativeInputCompiler:
     def __init__(self, files):
         if set(files) != {3, 11, 12}:
             raise ValueError("Input editing requires a complete native File 3/11/12 capture.")
+        self.files = dict(files)
         merged, self.parameters = ParameterApplication(files[3], files[11], files[12]).compile()
         self.qualification = qualify_parameter_additions(merged, self.parameters)
         self.app = app = MoiIdentity(merged)
@@ -386,6 +391,12 @@ class NativeInputCompiler:
 
     def compile(self, edit, *, allocation_origin=None):
         edit = InputEdit.model_validate(edit)
+        if edit.action == "binary-terminal":
+            from .native_binary_terminal import BinaryTerminalCompiler
+
+            if allocation_origin is not None:
+                raise ValueError("Binary movement has no allocation/removal authority.")
+            return BinaryTerminalCompiler(self).compile(edit)
         app, obj = self.app, f"analog-input,{edit.object_instance}"
         changed, rows = self.proposed_properties(edit), []
         record = self.inputs.get(obj)
@@ -582,6 +593,13 @@ def verify_input_preservation(before, after, edit, *, allocation_origin=None):
     post = ParameterApplication(after[3], after[11], after[12])
     current_archive, current_report = post.compile()
     current_app = MoiIdentity(current_archive)
+    if edit.action == "binary-terminal":
+        from .native_binary_terminal import configuration
+
+        selected = current_app.reader.records.get(report["record_ref"])
+        if selected is None:
+            raise ValueError("The binary input reference is absent from saved readback.")
+        configuration(current_app, selected)
     initialized = []
     remaining = []
     for row in current_report["changed_parameters"]:
@@ -635,7 +653,7 @@ def verify_input_preservation(before, after, edit, *, allocation_origin=None):
 
     current, counters, calculated = runtime_parameter_changes(observed, ClassifiedPost())
     return {
-        "profile": PROFILE,
+        "profile": input_operation_profile(edit) if edit.action == "binary-terminal" else PROFILE,
         "identity_unchanged": True,
         "other_configuration_preserved": True,
         "selected_edit": report["input_edit"],
