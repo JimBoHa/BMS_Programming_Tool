@@ -40,6 +40,92 @@ async function review(transfer: Locator) {
 const restores = (events: any[]) =>
   events.filter((r) => r[0] === "state" && r[1] === "start-restore");
 
+test("readback refusal cannot replace the original uncertain receipt", async ({
+  page,
+}) => {
+  const peer = await nativeDefaultPeer("drop-end", "connection");
+  try {
+    const { transfer } = await open(page, peer.direct, false);
+    await (await review(transfer)).click();
+    const result = transfer.getByRole("region", {
+      name: "Matching connection transfer result",
+      exact: true,
+    });
+    await expect(result).toContainText("Connection outcome uncertain", {
+      timeout: 25000,
+    });
+    async function receiptBytes() {
+      const download = page.waitForEvent("download");
+      await transfer
+        .getByRole("button", {
+          name: "Save connection transfer receipt",
+          exact: true,
+        })
+        .click();
+      return readFileSync((await (await download).path())!);
+    }
+    const original = await receiptBytes(),
+      recorded = JSON.parse(original.toString());
+    expect(recorded.result.status).toBe("unknown");
+    const id = recorded.intent.id;
+    await peer.command("mode normal");
+    await page.route(
+      "**/native-application/readback",
+      async (route) => {
+        const response = await route.fetch({ maxRetries: 0 }),
+          actual = await response.json();
+        expect(actual.intent.id).toBe(id);
+        expect(actual.latest_readback.status).toBe("verified");
+        await route.fulfill({
+          response,
+          json: {
+            intent: null,
+            pending: false,
+            result: {
+              status: "not_sent",
+              may_have_applied: false,
+              protocol_accepted: false,
+            },
+          },
+        });
+      },
+      { times: 1 },
+    );
+    await transfer
+      .getByRole("button", {
+        name: "Read back matching connection",
+        exact: true,
+      })
+      .click();
+    await expect(transfer).toContainText("Outcome is unconfirmed");
+    await expect(result).toContainText("Connection outcome uncertain");
+    expect(await receiptBytes()).toEqual(original);
+    await transfer
+      .getByText("Retained matching-connection receipts", { exact: true })
+      .click();
+    await transfer
+      .getByLabel("Matching connection receipt", { exact: true })
+      .selectOption(id);
+    await transfer
+      .getByRole("button", {
+        name: "Load matching connection receipt",
+        exact: true,
+      })
+      .click();
+    await expect(result).toContainText(
+      "Connection verified in the complete native readback.",
+    );
+    await expect(transfer).not.toContainText("Outcome is unconfirmed");
+    const recovered = JSON.parse((await receiptBytes()).toString());
+    expect(recovered.intent.id).toBe(id);
+    expect(recovered.result.status).toBe("unknown");
+    expect(recovered.latest_readback.status).toBe("verified");
+    expect(restores((await peer.command("stats")).events)).toHaveLength(1);
+  } finally {
+    peer.close();
+  }
+});
+
 for (const recoverOriginal of [false, true]) {
   test(`${recoverOriginal ? "original recovery" : "verified connection"} after uncertain restore reloads its receipt without replay`, async ({
     page,

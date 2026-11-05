@@ -326,6 +326,7 @@ export async function matchingConnectionReceipt(
     const i = data.intent;
     if (!i)
       return (
+        reference?.id === undefined &&
         data.pending === false &&
         data.result?.status === "not_sent" &&
         data.result.may_have_applied === false &&

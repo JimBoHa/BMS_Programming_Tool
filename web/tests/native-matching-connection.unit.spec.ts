@@ -95,6 +95,10 @@ test("a pre-intent refusal cannot claim dispatch or verification", async () => {
     },
   };
   expect(await matchingConnectionReceipt(value)).toBe(true);
+  expect(await matchingConnectionReceipt(value, data().review)).toBe(true);
+  expect(
+    await matchingConnectionReceipt(value, data("uncertain").receipt.intent),
+  ).toBe(false);
   for (const bad of [
     { ...value, pending: true },
     { ...value, result: { ...value.result, status: "verified" } },
