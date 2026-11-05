@@ -57,6 +57,8 @@ def audit(paths, private):
         if depth > 8 or total > MAX_TOTAL or scanned > MAX_FILES:
             raise ValueError("Release audit exceeded its bounded decode profile.")
         location = safe_location(location, private)
+        if HOME.search(location.encode()):
+            location = "<redacted-home-location>"
         findings.extend({"location": location, **row} for row in scan_bytes(data, private))
         for match in HOME.finditer(data):
             row = {
@@ -147,10 +149,31 @@ def main():
     try:
         private = rules(json.loads(args.private_rules.read_text()) if args.private_rules else {})
         result = audit(args.paths, private)
-    except Exception:
+    except Exception as exc:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(
+            json.dumps(
+                {
+                    "profile": "bms-release-payload-audit/1",
+                    "complete": False,
+                    "error_type": type(exc).__name__,
+                }
+            )
+            + "\n"
+        )
         parser.exit(2, "Release audit incomplete; values and decoder output withheld.\n")
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2) + "\n")
+    if result["findings"] or result["skipped"]:
+        print(
+            json.dumps(
+                {
+                    "complete": result["complete"],
+                    "findings": result["findings"][:20],
+                    "skipped": result["skipped"][:20],
+                }
+            )
+        )
     raise SystemExit(int(bool(result["findings"] or result["skipped"])))
 
 

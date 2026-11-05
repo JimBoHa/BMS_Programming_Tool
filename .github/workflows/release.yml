@@ -139,6 +139,12 @@ jobs:
         if: always() && runner.os == 'macOS'
         run: python scripts/sign_release.py cleanup
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: failure()
+        with:
+          name: diagnostics-${{ matrix.profile }}
+          path: release-output/assets/*-audit.json
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: desktop-${{ matrix.profile }}
           path: release-output/assets/*

@@ -66,5 +66,5 @@ begin
     MsgBox('Quit BMS Studio before uninstalling. Your data will be preserved.', mbInformation, MB_OK);
 end;
 
-; No user-data path is listed in UninstallDelete. Upgrades and uninstall leave
-; controller captures, recovery journals, projects and logs in LOCALAPPDATA.
+// No user-data path is listed in UninstallDelete. Upgrades and uninstall leave
+// controller captures, recovery journals, projects and logs in LOCALAPPDATA.

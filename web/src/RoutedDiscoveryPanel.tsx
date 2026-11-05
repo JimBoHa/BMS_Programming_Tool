@@ -1197,7 +1197,7 @@ export function RoutedDiscoveryPanel({
                 <input
                   aria-label="Find scanned controller"
                   type="search"
-                  placeholder="Name, address or instance — e.g. TB-3-201"
+                  placeholder="Name, address or instance — e.g. Example VAV-01"
                   value={controllerQuery}
                   onChange={(event) => {
                     setControllerQuery(event.target.value);

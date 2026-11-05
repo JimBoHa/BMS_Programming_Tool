@@ -126,10 +126,10 @@ test("scan names are primary, searchable and read for every device beyond the fi
       guide.getByLabel("Commissioning controller").locator("option"),
     ).toHaveCount(25);
     await expect(guide.getByLabel("Commissioning controller")).toContainText(
-      "TB-3-201 · 3001:7 · device,5136",
+      "Example VAV-01 · 3001:7 · device,5136",
     );
     await expect(guide.getByLabel("Commissioning controller")).toContainText(
-      "HP-3A · 3001:8 · device,5136",
+      "Example HP-01 · 3001:8 · device,5136",
     );
     await expect(guide.getByLabel("Commissioning controller")).toContainText(
       "Authored 3001 MAC 30",
@@ -144,9 +144,9 @@ test("scan names are primary, searchable and read for every device beyond the fi
       ),
     ).toBe(true);
     expect(details).toEqual([]);
-    await guide.getByLabel("Find scanned controller").fill("HP-3A");
+    await guide.getByLabel("Find scanned controller").fill("Example HP-01");
     await expect(
-      guide.getByRole("cell", { name: "HP-3A", exact: true }),
+      guide.getByRole("cell", { name: "Example HP-01", exact: true }),
     ).toHaveCount(1);
     await expect(
       guide.getByLabel("Commissioning controller").locator("option"),
@@ -164,7 +164,7 @@ test("scan names are primary, searchable and read for every device beyond the fi
     expect(report.device_names).toHaveLength(24);
     expect(
       report.device_names.find((row: any) => row.address === "3001:8").name,
-    ).toBe("HP-3A");
+    ).toBe("Example HP-01");
     await guide
       .getByLabel("Commissioning controller")
       .selectOption(JSON.stringify(["3001:8", "device,5136"]));
@@ -173,7 +173,7 @@ test("scan names are primary, searchable and read for every device beyond the fi
       .click();
     await expect(
       page.getByRole("region", { name: "Controller overview" }),
-    ).toContainText("HP-3A");
+    ).toContainText("Example HP-01");
     expect(router.writes).toEqual([]);
     expect(router.errors).toEqual([]);
   } finally {
@@ -222,7 +222,7 @@ test("a late name from another trunk cannot relabel the current scan", async ({
     );
     await expect(
       guide.getByLabel("Commissioning controller"),
-    ).not.toContainText("TB-3-201");
+    ).not.toContainText("Example VAV-01");
     await expect(guide.getByLabel("Controller name lookup")).toContainText(
       "2 of 2 controller names read.",
     );
@@ -268,7 +268,7 @@ test("unavailable scan names remain explicit and can be retried", async ({
       "2 of 2 controller names read.",
     );
     await expect(guide.getByLabel("Commissioning controller")).toContainText(
-      "HP-3A",
+      "Example HP-01",
     );
     expect(router.writes).toEqual([]);
   } finally {
