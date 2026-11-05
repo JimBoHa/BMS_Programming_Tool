@@ -60,7 +60,7 @@ On the other computer, copy the wheel, create an environment and install it:
 
 ```sh
 python3.13 -m venv .venv
-.venv/bin/python -m pip install /path/to/bms_programming_tool-0.2.0b1-py3-none-any.whl
+.venv/bin/python -m pip install /path/to/bms_programming_tool-0.2.0b2-py3-none-any.whl
 .venv/bin/python -m bms_tool serve --open-browser
 ```
 

@@ -1,3 +1,4 @@
+import { sha256Digest } from "./browserCrypto";
 import type { JsonDocument } from "./api";
 
 export type ScheduleTraceFocus = {
@@ -16,9 +17,7 @@ function endpoint(value: string | null) {
 }
 async function sha256(text: string) {
   return Array.from(
-    new Uint8Array(
-      await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)),
-    ),
+    new Uint8Array(await sha256Digest(new TextEncoder().encode(text))),
     (byte) => byte.toString(16).padStart(2, "0"),
   ).join("");
 }

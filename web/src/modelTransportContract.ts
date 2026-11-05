@@ -1,3 +1,4 @@
+import { sha256Digest } from "./browserCrypto";
 export const MODEL_TRANSPORT_PROFILE = "studio-jci-model-target-transport/1";
 // This source-qualified profile is separate from the unchanged survey profile.
 export const MODEL_TRANSPORT_SHA =
@@ -41,10 +42,7 @@ export const equal = (a: any, b: any) => canonical(a) === canonical(b);
 async function sha(value: any) {
   return Array.from(
     new Uint8Array(
-      await crypto.subtle.digest(
-        "SHA-256",
-        new TextEncoder().encode(canonical(value)),
-      ),
+      await sha256Digest(new TextEncoder().encode(canonical(value))),
     ),
   )
     .map((v) => v.toString(16).padStart(2, "0"))

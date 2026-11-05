@@ -1,3 +1,4 @@
+import { randomUUID } from "./browserCrypto";
 import { useEffect, useRef, useState } from "react";
 import { NativeRuntimeCalibration } from "./NativeRuntimeCalibration";
 import { NativeRuntimeParametersNotice } from "./NativeRuntimeParametersNotice";
@@ -148,7 +149,7 @@ export function NativePointName({
   ) {
     if ((!connected && kind !== "prepare") || busy) return;
     const current = ++epoch.current,
-      operation_id = crypto.randomUUID();
+      operation_id = randomUUID();
     active.current = operation_id;
     setBusy(true);
     if (kind !== "prepare") onBusy(true);

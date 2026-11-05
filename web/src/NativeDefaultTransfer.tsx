@@ -1,3 +1,4 @@
+import { randomUUID } from "./browserCrypto";
 import { useEffect, useRef, useState } from "react";
 import { NativeRuntimeCalibration } from "./NativeRuntimeCalibration";
 import { NativeRuntimeParametersNotice } from "./NativeRuntimeParametersNotice";
@@ -265,7 +266,7 @@ export function NativeDefaultTransfer({
         receipt.data.intent.identity.device !== controller.device)
     )
       return;
-    const id = "native-default-" + crypto.randomUUID(),
+    const id = "native-default-" + randomUUID(),
       key = ownerNow.current,
       ticket = epoch.current;
     operation.current = id;

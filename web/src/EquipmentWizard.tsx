@@ -1,3 +1,4 @@
+import { randomUUID } from "./browserCrypto";
 import { sourceEqual, sourceStringify } from "./programSource";
 import { sourceApi } from "./api";
 import { useEffect, useRef, useState } from "react";
@@ -53,7 +54,7 @@ export function EquipmentWizard({
         setCatalog(data);
         setDraft({
           ...data.defaults,
-          project_id: "vav-" + crypto.randomUUID().replaceAll("-", ""),
+          project_id: "vav-" + randomUUID().replaceAll("-", ""),
         });
       })
       .catch((e) => {

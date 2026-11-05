@@ -1,3 +1,4 @@
+import { sha256Digest } from "./browserCrypto";
 import { apiBlobDocument } from "./api";
 
 export const HYDRONIC_PROFILE = "chilled-hydraulic-io-planner/1";
@@ -93,9 +94,8 @@ export async function sha256(value: Blob | string) {
     typeof value === "string"
       ? new TextEncoder().encode(value)
       : await value.arrayBuffer();
-  return Array.from(
-    new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)),
-    (b) => b.toString(16).padStart(2, "0"),
+  return Array.from(new Uint8Array(await sha256Digest(bytes)), (b) =>
+    b.toString(16).padStart(2, "0"),
   ).join("");
 }
 async function sealed(value: any, key = "content_sha256") {

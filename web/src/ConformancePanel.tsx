@@ -1,3 +1,4 @@
+import { randomUUID } from "./browserCrypto";
 import { sourceStringify } from "./programSource";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -12,7 +13,7 @@ import "./conformance.css";
 type Data = Record<string, any>;
 const clock = () => "2026-01-05T00:00:00Z";
 const identifier = (prefix: string) =>
-  prefix + "_" + crypto.randomUUID().replaceAll("-", "").slice(0, 16);
+  prefix + "_" + randomUUID().replaceAll("-", "").slice(0, 16);
 function value(text: string, type: string) {
   if (type === "boolean") {
     if (text !== "true" && text !== "false")

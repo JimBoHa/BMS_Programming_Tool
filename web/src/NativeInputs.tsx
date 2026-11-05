@@ -1,3 +1,4 @@
+import { sha256Digest, randomUUID } from "./browserCrypto";
 import { useEffect, useRef, useState } from "react";
 import {
   api,
@@ -337,7 +338,7 @@ export function NativeInputs({
       return;
     }
     const e = ++epoch.current,
-      operation_id = crypto.randomUUID();
+      operation_id = randomUUID();
     active.current = operation_id;
     setBusy(true);
     onBusy(true);
@@ -380,7 +381,7 @@ export function NativeInputs({
           s = await api(base + "/input/support", {
             ...target,
             ...expected,
-            operation_id: crypto.randomUUID(),
+            operation_id: randomUUID(),
           });
           if (!current(e)) return;
           if (
@@ -419,10 +420,7 @@ export function NativeInputs({
           });
           const digest = Array.from(
             new Uint8Array(
-              await crypto.subtle.digest(
-                "SHA-256",
-                await document.blob.arrayBuffer(),
-              ),
+              await sha256Digest(await document.blob.arrayBuffer()),
             ),
           )
             .map((b) => b.toString(16).padStart(2, "0"))

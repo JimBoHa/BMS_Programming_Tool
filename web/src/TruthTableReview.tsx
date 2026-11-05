@@ -1,3 +1,4 @@
+import { randomUUID } from "./browserCrypto";
 import { useEffect, useRef, useState } from "react";
 import {
   Download,
@@ -73,8 +74,7 @@ type Review = {
   page: Page;
 };
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
-const newId = (prefix: string) =>
-  prefix + "-" + crypto.randomUUID().slice(0, 8);
+const newId = (prefix: string) => prefix + "-" + randomUUID().slice(0, 8);
 const showValue = (value: State["value"]) =>
   typeof value === "boolean"
     ? value

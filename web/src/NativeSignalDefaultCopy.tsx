@@ -1,3 +1,4 @@
+import { sha256Digest } from "./browserCrypto";
 import { useEffect, useRef, useState } from "react";
 import { api, apiBlobDocument, saveBlob } from "./api";
 import { controllerKey, type ControllerContext } from "./workflow";
@@ -140,9 +141,7 @@ export function NativeSignalDefaultCopy({
         ...body,
         review_sha256: review.review_sha256,
       });
-      const digest = hex(
-        await crypto.subtle.digest("SHA-256", await result.blob.arrayBuffer()),
-      );
+      const digest = hex(await sha256Digest(await result.blob.arrayBuffer()));
       if (run !== epoch.current) return;
       if (
         result.headers.get("X-Source-SHA256") !== sha256 ||

@@ -1,3 +1,4 @@
+import { sha256Digest } from "./browserCrypto";
 import { projectSourceDocument, sourceEqual } from "./programSource";
 export type Data = Record<string, any>;
 export const UV_BASE = "/unit-ventilator-cycle3-wizard";
@@ -47,9 +48,7 @@ export const hash = (value: any) =>
   typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
 export async function blobSha256(blob: Blob) {
   return Array.from(
-    new Uint8Array(
-      await crypto.subtle.digest("SHA-256", await blob.arrayBuffer()),
-    ),
+    new Uint8Array(await sha256Digest(await blob.arrayBuffer())),
     (byte) => byte.toString(16).padStart(2, "0"),
   ).join("");
 }

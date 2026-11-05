@@ -1,4 +1,17 @@
-# BMS Studio 0.2.0 beta 1
+# BMS Studio 0.2.0 beta 2
+
+This update fixes `crypto.subtle.digest` errors when opening the editor through
+an authenticated LAN HTTP address. It also fixes UUID creation on the same
+origins. SHA-256 checks and secure random identifiers remain enabled, including
+CAF/source verification, native evidence and discovery report downloads. Native
+browser providers remain preferred on HTTPS and loopback.
+
+Regression coverage now runs real ordinary-HTTP workflows in Chromium and
+WebKit: application startup, source hashing, byte-preserving CAF opening/saving,
+authored router/trunk discovery and downloaded report verification. These tests
+use isolated data and make no physical controller changes.
+
+## Packaged desktop features
 
 This first packaged beta adds native macOS (Apple silicon/Intel) and Windows x64
 desktop distributions, plus the Python wheel and illustrated offline HTML guide.

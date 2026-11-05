@@ -1,3 +1,4 @@
+import { randomUUID } from "./browserCrypto";
 import { useEffect, useRef, useState } from "react";
 import { api, saveBlob } from "./api";
 
@@ -82,7 +83,7 @@ export function BacnetEventAckPanel({
   const expired = !!plan?.expires_at && now >= Date.parse(plan.expires_at);
   async function run(apply: boolean) {
     if (operation.current || !connected || parentBusy) return;
-    const id = crypto.randomUUID().replaceAll("-", "");
+    const id = randomUUID().replaceAll("-", "");
     const epoch = generation.current;
     operation.current = id;
     setBusy(true);

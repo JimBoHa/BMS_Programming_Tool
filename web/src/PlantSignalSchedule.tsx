@@ -1,3 +1,4 @@
+import { sha256Digest } from "./browserCrypto";
 import { useEffect, useRef, useState } from "react";
 import { api, download, sourceApi } from "./api";
 import { sourceStringify } from "./programSource";
@@ -437,9 +438,7 @@ export function PlantSignalSchedule({ program }: { program: Program }) {
     form.append("file", file);
     const value = sourceResult(await api(BASE + "/sources/import", form));
     const digest = Array.from(
-      new Uint8Array(
-        await crypto.subtle.digest("SHA-256", await file.arrayBuffer()),
-      ),
+      new Uint8Array(await sha256Digest(await file.arrayBuffer())),
       (b) => b.toString(16).padStart(2, "0"),
     ).join("");
     if (value.id !== digest || value.source_bytes !== file.size)

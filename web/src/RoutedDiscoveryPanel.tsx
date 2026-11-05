@@ -1,3 +1,4 @@
+import { sha256Digest } from "./browserCrypto";
 import { useEffect, useRef, useState } from "react";
 import { Download, Network, Search } from "lucide-react";
 import { api, saveBlob } from "./api";
@@ -677,10 +678,7 @@ export function RoutedDiscoveryPanel({
     setOutcome("");
     try {
       const raw = JSON.stringify(snapshot);
-      const digest = await crypto.subtle.digest(
-        "SHA-256",
-        new TextEncoder().encode(raw),
-      );
+      const digest = await sha256Digest(new TextEncoder().encode(raw));
       if (!mounted.current || currentBindings.current !== snapshot) return;
       const sha = Array.from(new Uint8Array(digest), (value) =>
         value.toString(16).padStart(2, "0"),
@@ -733,12 +731,8 @@ export function RoutedDiscoveryPanel({
     setOutcome("");
     try {
       const raw = JSON.stringify(snapshot.report);
-      const digest = await crypto.subtle.digest(
-        "SHA-256",
-        new TextEncoder().encode(raw),
-      );
-      const nameDigest = await crypto.subtle.digest(
-        "SHA-256",
+      const digest = await sha256Digest(new TextEncoder().encode(raw));
+      const nameDigest = await sha256Digest(
         new TextEncoder().encode(JSON.stringify(nameSnapshot)),
       );
       if (!mounted.current || currentScan.current !== snapshot) return;

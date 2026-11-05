@@ -1,3 +1,4 @@
+import { randomUUID } from "./browserCrypto";
 import {
   blankCalendarRow,
   calendarRows,
@@ -116,7 +117,7 @@ export function rememberExceptions(
 }
 export function blankExceptionTime(type: string): ExceptionTime {
   return {
-    key: crypto.randomUUID(),
+    key: randomUUID(),
     time: ["", "", "", ""],
     native_type: type,
     value_text: type === "Null" ? "null" : type === "Boolean" ? "false" : "0",
@@ -142,7 +143,7 @@ export function exceptionRows(events: NativeExceptionEvent[]): ExceptionRow[] {
       event.period.kind === "calendarReference" ? event.period.object_id : "",
     priority: String(event.priority),
     transitions: event.transitions.map((row) => ({
-      key: crypto.randomUUID(),
+      key: randomUUID(),
       time: row.time.map(String),
       native_type: row.native_type,
       value_text: row.value_text,

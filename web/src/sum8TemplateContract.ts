@@ -1,3 +1,4 @@
+import { sha256Digest } from "./browserCrypto";
 import { projectSourceDocument, sourceEqual } from "./programSource";
 export type Data = Record<string, any>;
 export const SUM8_BASE = "/macros/templates/sum8";
@@ -16,9 +17,7 @@ const object = (v: any): v is Data =>
 const hash = (v: any) => typeof v === "string" && /^[a-f0-9]{64}$/.test(v);
 export async function blobSha256(blob: Blob) {
   return Array.from(
-    new Uint8Array(
-      await crypto.subtle.digest("SHA-256", await blob.arrayBuffer()),
-    ),
+    new Uint8Array(await sha256Digest(await blob.arrayBuffer())),
     (b) => b.toString(16).padStart(2, "0"),
   ).join("");
 }
