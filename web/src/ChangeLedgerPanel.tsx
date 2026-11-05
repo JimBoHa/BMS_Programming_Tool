@@ -9,6 +9,7 @@ import "./change-ledger.css";
 import { recordedInput, inputAction } from "./nativeInputLedger";
 import { recordedPointName } from "./nativePointNameLedger";
 import { recordedPointNameRecovery } from "./nativePointNameRecoveryLedger";
+import { recordedConnection } from "./nativeConnectionLedger";
 import {
   recordedEnumRecovery,
   ENUM_RECOVERY_UNAVAILABLE,
@@ -91,6 +92,7 @@ type Row = {
   native_recovery?: NativeRecovery;
   native_input?: unknown;
   native_point_name?: unknown;
+  native_connection?: unknown;
   native_point_name_recovery?: unknown;
   created_at: string;
   state: string;
@@ -301,7 +303,7 @@ export function ChangeLedgerPanel({
           const rows = report.rows.map((row) =>
             row.native_recovery !== undefined &&
             (row.native_change_kind === "enum-default" ||
-                (row.native_recovery?.state === "recorded" &&
+              (row.native_recovery?.state === "recorded" &&
                 row.native_recovery.datatype === "Enumerated"))
               ? {
                   ...row,
@@ -371,7 +373,15 @@ export function ChangeLedgerPanel({
         : "unsupported";
   const nativeProgram =
     choice?.source === "native" &&
-    ["signal-default", "boolean-default", "wire-source"].includes(nativeKind);
+    (["signal-default", "boolean-default", "wire-source"].includes(
+      nativeKind,
+    ) ||
+      (nativeKind === "connection" &&
+        !!recordedConnection(choice.native_connection)));
+  const connection =
+    choice?.source === "native"
+      ? recordedConnection(choice.native_connection)
+      : null;
   const input =
     choice?.source === "native" ? recordedInput(choice.native_input) : null;
   const pointName =
@@ -394,11 +404,15 @@ export function ChangeLedgerPanel({
         "signal-default",
         "boolean-default",
         "wire-source",
+        "connection",
         "input",
         "point-name",
       ].includes(nativeKind)) ||
     (choice?.source === "native" && nativeKind === "input" && !input) ||
-    (choice?.source === "native" && nativeKind === "point-name" && !pointName);
+    (choice?.source === "native" &&
+      nativeKind === "point-name" &&
+      !pointName) ||
+    (choice?.source === "native" && nativeKind === "connection" && !connection);
   const toolLabel = unsupportedNative
     ? undefined
     : pointName
@@ -642,6 +656,13 @@ export function ChangeLedgerPanel({
                       )}
                       <InputSummary value={row.native_input} />
                       <PointNameSummary value={row.native_point_name} />
+                      {row.native_connection !== undefined && (
+                        <span>
+                          {recordedConnection(row.native_connection)
+                            ? `Matching connection · ${recordedConnection(row.native_connection)!.connection_count_before} → ${recordedConnection(row.native_connection)!.connection_count_after}`
+                            : "Connection metadata unavailable"}
+                        </span>
+                      )}
                       <PointNameRecoverySummary row={row} />
                       {row.native_recovery && (
                         <span>
@@ -766,6 +787,58 @@ export function ChangeLedgerPanel({
           </dl>
           {choice.native_reference_issue && (
             <p>{choice.native_reference_issue}</p>
+          )}
+          {nativeKind === "connection" && (
+            <section aria-label="Recorded native matching connection">
+              <h4>
+                {connection
+                  ? "Recorded matching connection"
+                  : "Connection metadata unavailable"}
+              </h4>
+              {connection ? (
+                <>
+                  <dl>
+                    <dt>Native diagram</dt>
+                    <dd>{connection.diagram_ref}</dd>
+                    <dt>Source member</dt>
+                    <dd>{connection.source_ref}</dd>
+                    <dt>Destination member</dt>
+                    <dd>{connection.target_ref}</dd>
+                    <dt>Connection count</dt>
+                    <dd>
+                      {connection.connection_count_before} →{" "}
+                      {connection.connection_count_after}
+                    </dd>
+                    <dt>Recorded prototype index</dt>
+                    <dd>{connection.prototype_index}</dd>
+                    <dt>Added native tuple</dt>
+                    <dd>{connection.new.join(", ")}</dd>
+                    <dt>Connection confirmation recorded</dt>
+                    <dd>
+                      {connection.connection_confirmation_recorded
+                        ? "Yes"
+                        : "No"}
+                    </dd>
+                  </dl>
+                  <p>{connection.scope}</p>
+                  <p>
+                    Choose a current captured diagram before preparing a fresh
+                    transfer review. Opening this record preserves the current
+                    controller selection.
+                  </p>
+                  <details>
+                    <summary>Recorded connection binding</summary>
+                    <pre>{JSON.stringify(connection, null, 2)}</pre>
+                  </details>
+                </>
+              ) : (
+                <p>
+                  Inspect the original receipt. The present graph and
+                  original-backup availability are not established by this
+                  metadata.
+                </p>
+              )}
+            </section>
           )}
           {nativeKind === "point-name" && (
             <section aria-label="Recorded native point name">

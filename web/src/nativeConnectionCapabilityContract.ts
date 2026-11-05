@@ -100,3 +100,35 @@ export function connectionCapabilityEvidence(
       (effective === null ? "unsupported-source" : "source-qualified")
   );
 }
+
+export function matchingConnectionTransferCapability(
+  data: Data,
+  source: NativeArchiveSource,
+) {
+  try {
+    if (
+      data?.capability_profile !== "native-backup-operation-capabilities/13" ||
+      !connectionCapabilityEvidence(data, source)
+    )
+      return false;
+    const q = data.qualification;
+    const rows = data.operations.filter(
+      (row: Data) => row.id === "matching-connection-transfer",
+    );
+    return (
+      rows.length === 1 &&
+      typeof q.recorded_identity_verified === "boolean" &&
+      typeof q.captured_plain_ipv4 === "boolean" &&
+      rows[0].status ===
+        (!q.recorded_identity_verified
+          ? "source-mismatch"
+          : q.effective_matching_connection === null
+            ? "unsupported-source"
+            : q.captured_plain_ipv4
+              ? "preflight-required"
+              : "transport-unavailable")
+    );
+  } catch {
+    return false;
+  }
+}

@@ -1752,9 +1752,12 @@ export function App() {
     if (
       source === "native" &&
       nativeChangeKind &&
-      ["signal-default", "boolean-default", "wire-source"].includes(
-        nativeChangeKind,
-      )
+      [
+        "signal-default",
+        "boolean-default",
+        "wire-source",
+        "connection",
+      ].includes(nativeChangeKind)
     ) {
       setTab("native-compiler");
       return;

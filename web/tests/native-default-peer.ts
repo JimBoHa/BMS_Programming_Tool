@@ -9,6 +9,7 @@ export async function nativeDefaultPeer(
     | "boolean"
     | "enum"
     | "wire"
+    | "connection"
     | "wire-recovery"
     | "instance"
     | "input"
@@ -58,6 +59,9 @@ async def main():
     await self.response(ReadPropertyACK(context=request,objectIdentifier=request.objectIdentifier,propertyIdentifier=3506,propertyValue=Any(Real(0.25))))
    else:await point_read(request)
   app.do_ReadPropertyRequest=types.MethodType(runtime_read,app)
+ elif sys.argv[2]=='connection':
+  from tests.test_native_connection_compiler import connection_files
+  app.files=connection_files(target_class=538);app.metadata['object-name']='Authored native wire controller';app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
  elif sys.argv[2]=='wire':
   app.files=wire_files(target_class=538);app.metadata['object-name']='Authored native wire controller';app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
  elif sys.argv[2]=='instance':
@@ -107,6 +111,10 @@ async def main():
   elif line=='point-name-publish-current':
    from tests.test_native_point_names import attach_point_reads
    attach_point_reads(app)
+  elif line=='connection-recover-original':
+   from bms_tool.moi_parameters import ParameterApplication
+   app.files=copy.deepcopy(original_files);app.files[3]=ParameterApplication(app.files[3],app.files[11],app.files[12]).compile()[0]
+   app.instance=5136;app.metadata['object-name']='Authored native wire controller';app.metadata['system-status']=0;app.mode='normal'
   elif line=='recover-original':
    from bms_tool.moi_parameters import ParameterApplication
    app.files=copy.deepcopy(original_files);app.files[3]=ParameterApplication(app.files[3],app.files[11],app.files[12]).compile()[0]
@@ -122,7 +130,14 @@ async def main():
    from bms_tool.moi_effective_enum import EffectiveEnumCompiler
    reader=EffectiveEnumCompiler(app.files);field=reader.fields()[0];record,prop=reader.archive.candidates[field['ref']]
    enum_evidence={'enum_archive_code':field['archive_value'],'enum_effective_code':field['effective_value'],'enum_archive_tag':reader.archive.editor.data[prop['value_start_offset']:prop['value_end_offset']].hex()}
-  print('RESULT '+json.dumps({'command':line,'events':app.events,'instance':app.instance,'router_errors':proxy.errors,'request_types':[r['type'] for r in proxy.requests]}|({'discovery_requests':proxy.discovery_requests,'discovery_responses':proxy.discovery_responses} if sys.argv[2]=='instance' else {})|enum_evidence),flush=True)
+  connection_evidence={}
+  if sys.argv[2]=='connection':
+   from bms_tool.moi_identity import MoiIdentity
+   from tests.test_moi_wire_sources import REF,A,B
+   try:
+    actual=MoiIdentity(app.files[3]);connection_evidence={'connections':actual.reader.diagram(REF)['connections'],'source_default':actual.reader.scalar(actual.reader.records[A],3113),'other_default':actual.reader.scalar(actual.reader.records[B],3113)}
+   except ValueError as exc:connection_evidence={'connection_error':str(exc)}
+  print('RESULT '+json.dumps({'command':line,'events':app.events,'instance':app.instance,'router_errors':proxy.errors,'request_types':[r['type'] for r in proxy.requests]}|({'discovery_requests':proxy.discovery_requests,'discovery_responses':proxy.discovery_responses} if sys.argv[2]=='instance' else {})|enum_evidence|connection_evidence),flush=True)
  asyncio.get_running_loop().add_reader(sys.stdin.fileno(),command)
  try:await asyncio.Event().wait()
  finally:transport.close();app.close()

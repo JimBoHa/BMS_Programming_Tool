@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`7f9d53d0`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/7f9d53d0ee6455d334810b3d0cae1f4ebe75f685).
+[`84ed771b`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/84ed771b56a255a13845556e8c070c77e69db801).
 
 ## Baseline and purpose
 
@@ -1247,8 +1247,30 @@ version 12 and legacy version 11 retain their exact contracts. No new blocks/I/O
 resource/package/runtime compiler, inverse-deletion writer or physical acceptance
 is granted. The current local connection-copy workflow and graphics are unchanged.
 
-Next: `UI-NATIVE-CONNECTION-TRANSFER-001` integrates this separately qualified
-backend in the existing Program connection task with authoritative target,
-source-bound drafts, owned Review/Apply/Verify, interruption confirmation and
-uncertainty/readback. JCI-03/JCI-09 remain partial. See
+The separately delivered interface integration is described below.
+JCI-03/JCI-09 remain partial. See
 [matching-connection transfer](docs/native-matching-connection-transfer.md).
+
+## 2026-11-04 JCI-03/JCI-09 delivery: contextual matching-connection transfer
+
+`UI-NATIVE-CONNECTION-TRANSFER-001` adds a connected-controller destination to
+the existing saved-effective Program connection task. It reuses the selected
+target and source, validates the exact connection/compiler/guard bindings and
+keeps Review/Apply/Verify, interruption confirmations, credentials, explicit
+capture, receipt loading and readback in context. Uncertainty stays attached to
+the original operation; original-image recovery does not claim the new edge.
+
+Local file mode remains the default. Source-bound drafts use the unchanged
+bounded cache; navigation, target/source/proposal changes and late replies retire
+field reviews without evicting local work. The common Changes/History views
+interpret known recorded connection evidence and open Program without adopting
+historical field authority. Capability analysis uses explicit version 13 while
+the backend's older contracts remain exact. Existing graphics and styles remain.
+
+Next, qualify the remaining native assignment and runtime semantics needed for
+broader JCI authoring and simulation. Assess actual format evidence before adding
+another writer; continue independent roadmap work when vendor resources or
+hardware are unavailable. General native compilation, resource/package support,
+hardware reassignment and physical/BTCVT acceptance remain separate.
+JCI-03/JCI-05/JCI-06/JCI-09 remain partial. See
+[the matching-connection workflow](docs/native-matching-connection-workflow.md).

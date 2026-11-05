@@ -2,6 +2,7 @@ import { useContext, useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { api, apiBlobDocument, apiJsonDocument, saveBlob } from "./api";
 import { NativeBooleanTransferContext } from "./NativeBooleanTransferContext";
+import { NativeMatchingConnectionTransfer } from "./NativeMatchingConnectionTransfer";
 import { controllerKey, type ControllerContext } from "./workflow";
 import type { NativeArchiveSource } from "./NativeRecords";
 import { rememberWireDraft, type WireCopyDrafts } from "./nativeWireDrafts";
@@ -52,13 +53,28 @@ export function NativeConnectionCopy({
   visible: boolean;
   drafts: WireCopyDrafts;
 }) {
-  const fieldBusy =
-    useContext(NativeBooleanTransferContext)?.fieldBusy ?? false;
+  const transferContext = useContext(NativeBooleanTransferContext);
+  const fieldBusy = transferContext?.fieldBusy ?? false;
+  const [ownedFieldBusy, setOwnedFieldBusy] = useState(false);
+  const otherFieldBusy = fieldBusy && !ownedFieldBusy;
   const archiveKey = connectionDraftKey(source, record);
+  const destinationKey = archiveKey + "/destination";
+  const cachedDestination =
+    drafts.get(destinationKey) === "controller" ? "controller" : "file";
+  const [destinationChoice, setDestinationChoice] = useState({
+    key: destinationKey,
+    value: cachedDestination,
+  });
+  const destination =
+    destinationChoice.key === destinationKey
+      ? destinationChoice.value
+      : cachedDestination;
+  const [surfaceOpen, setSurfaceOpen] = useState(false);
   const [basis, setBasis] = useState<"archive" | "effective">(
     drafts.get(archiveKey + "/basis") === "effective" ? "effective" : "archive",
   );
   const effective = basis === "effective";
+  const fieldMode = effective && destination === "controller";
   const apiBase = effective ? effectiveConnectionBase : connectionBase;
   const baseKey = archiveKey + (effective ? "/effective" : "");
   const cached = Number(drafts.get(baseKey + "/prototype") || 0);
@@ -74,7 +90,8 @@ export function NativeConnectionCopy({
   const context = JSON.stringify([
     baseKey,
     visible,
-    fieldBusy,
+    otherFieldBusy,
+    fieldMode,
     life,
     controller && [
       controllerKey(controller),
@@ -318,8 +335,13 @@ export function NativeConnectionCopy({
     <details
       className="native-wire-copy"
       aria-label="Native matching connection copy"
+      onToggle={(event) => setSurfaceOpen(event.currentTarget.open)}
     >
-      <summary>Add a matching native connection to a local copy</summary>
+      <summary>
+        {fieldMode
+          ? "Add a matching connection to the controller"
+          : "Add a matching native connection to a local copy"}
+      </summary>
       <label>
         Native connection basis
         <span className="wire-copy-select">
@@ -350,6 +372,37 @@ export function NativeConnectionCopy({
           <ChevronDown size={16} aria-hidden="true" />
         </span>
       </label>
+      {effective && (
+        <label>
+          Matching connection destination
+          <span className="wire-copy-select">
+            <select
+              aria-label="Matching connection destination"
+              value={destination}
+              disabled={fieldBusy || !visible}
+              onChange={(event) => {
+                const value = event.target.value;
+                if (value === "file") drafts.delete(destinationKey);
+                else if (!rememberWireDraft(drafts, destinationKey, value)) {
+                  setError({ owner, text: full });
+                  return;
+                }
+                epoch.current++;
+                setReview(null);
+                setSaved(null);
+                setError(null);
+                setDestinationChoice({ key: destinationKey, value });
+              }}
+            >
+              <option value="file">Save a local file</option>
+              <option value="controller">
+                Apply to the selected controller
+              </option>
+            </select>
+            <ChevronDown size={16} aria-hidden="true" />
+          </span>
+        </label>
+      )}
       <p>
         {effective
           ? "Merge this retained snapshot's saved application values before adding the connection. These are captured effective values, not current controller readings."
@@ -358,7 +411,7 @@ export function NativeConnectionCopy({
         then an unused matching input. Saving sends no program to a controller.
       </p>
       <button
-        className={!selection ? "primary" : undefined}
+        className={!fieldMode && !selection ? "primary" : undefined}
         disabled={disabled}
         onClick={() => {
           epoch.current++;
@@ -498,17 +551,19 @@ export function NativeConnectionCopy({
                   : "copy the recorded prototype row"}
                 .
               </p>
-              <div className="button-row">
-                <button
-                  className={shown ? undefined : "primary"}
-                  disabled={disabled || busy || !body}
-                  onClick={() => void prepare()}
-                >
-                  {effective
-                    ? "Review saved connection compilation"
-                    : "Review native connection copy"}
-                </button>
-              </div>
+              {!fieldMode && (
+                <div className="button-row">
+                  <button
+                    className={shown ? undefined : "primary"}
+                    disabled={disabled || busy || !body}
+                    onClick={() => void prepare()}
+                  >
+                    {effective
+                      ? "Review saved connection compilation"
+                      : "Review native connection copy"}
+                  </button>
+                </div>
+              )}
             </>
           )}
         </>
@@ -534,7 +589,7 @@ export function NativeConnectionCopy({
           </button>
         )}
       </div>
-      {shown && (
+      {shown && !fieldMode && (
         <section
           aria-label={
             effective
@@ -592,6 +647,17 @@ export function NativeConnectionCopy({
             : "Saved reviewed local native connection copy."}
         </p>
       )}
+      <div hidden={!fieldMode}>
+        <NativeMatchingConnectionTransfer
+          source={source}
+          proposal={fieldMode ? body : null}
+          opened={selection ? loaded!.data : null}
+          controller={controller}
+          visible={visible && fieldMode && surfaceOpen}
+          otherBusy={otherFieldBusy}
+          onOwnedBusy={setOwnedFieldBusy}
+        />
+      </div>
     </details>
   );
 }

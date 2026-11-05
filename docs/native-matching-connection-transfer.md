@@ -7,10 +7,10 @@ Execution order, cycle, continuation, framing, tag and size checks remain those
 of the [local matching-connection compiler](native-effective-connection-compiler.md).
 It allocates no blocks, points, I/O terminals or controller identities.
 
-This delivery implements the backend and recorded evidence. The existing local
-connection-copy/export workflow remains available. Integrating the new transfer
-into its current Program task is a separate interface feature; this backend
-delivery adds no new screen or destination.
+The existing local connection-copy/export workflow remains available. The
+separately delivered [controller-workspace workflow](native-matching-connection-workflow.md)
+uses this service from the current Program connection task, with explicit
+Review/Apply/Verify and retained uncertainty evidence.
 
 ## Review, apply and verify
 
