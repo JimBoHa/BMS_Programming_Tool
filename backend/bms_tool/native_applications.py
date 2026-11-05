@@ -108,6 +108,9 @@ from .native_point_names import (
 )
 from .native_runtime_calibration import read_runtime_calibration
 from .native_terminal_recovery import NativeTerminalRecovery
+from .native_terminal_recovery_transfer import TerminalRecoveryPreview
+from .native_terminal_recovery_transfer import recovery_origin as terminal_recovery_origin
+from .native_terminal_recovery_transfer import validate_plan as validate_terminal_recovery_plan
 from .native_wire_compiler import EffectiveWirePreview
 from .native_wire_recovery import PROFILE as WIRE_RECOVERY_PROFILE
 from .native_wire_transfer import PROFILE as WIRE_PROFILE
@@ -1499,6 +1502,8 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
             )
         ):
             raise ValueError("The exact terminal transfer review changed; review again.")
+        if input_edit:
+            validate_terminal_recovery_plan(plan["body"], plan["options"])
         if (
             not request.application_transfer_confirmed
             or (wire_edit and not request.wire_change_confirmed)
@@ -1668,8 +1673,10 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                             "Native application review or credentials changed during preflight. Review again."
                         )
                     recovery = (
-                        {}
-                        if input_edit or connection_edit
+                        terminal_recovery_origin(self, options, compilation)
+                        if input_edit
+                        else {}
+                        if connection_edit
                         else self.point_name_recovery_origin(options, compilation)
                         if point_name_edit
                         else self.wire_recovery_origin(options, compilation)
@@ -1978,6 +1985,10 @@ def native_application_router(service):
         return NativeTerminalRecovery(NativeBackupRecords(service.storage)).prepare(
             body.model_dump()
         )
+
+    @router.post("/input/terminal-recovery/preview")
+    async def preview_terminal_recovery(body: TerminalRecoveryPreview):
+        return await service.preview_terminal_recovery(**body.model_dump())
 
     @router.post("/input/apply")
     async def apply_input(body: InputApply):
