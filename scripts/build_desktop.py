@@ -75,8 +75,19 @@ def build(output, identity=None):
         # a recipient's first-launch failure. PyInstaller's hook bundles it.
         import tkinter  # noqa: F401
 
-        python_license = Path(sysconfig.get_path("stdlib")) / "LICENSE.txt"
-        if not python_license.is_file():
+        python_license = next(
+            (
+                p
+                for p in (
+                    Path(sysconfig.get_path("stdlib")) / "LICENSE.txt",
+                    Path(sys.base_prefix) / "LICENSE.txt",
+                    Path(sys.base_prefix) / "LICENSE",
+                )
+                if p.is_file()
+            ),
+            None,
+        )
+        if python_license is None:
             raise ValueError("The Python interpreter license must accompany the desktop build.")
         command.extend(
             [
