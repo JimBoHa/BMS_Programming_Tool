@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./nativeScheduleWriteFixture";
 import { nativeDefaultPeer } from "./native-default-peer";
 import { expectWorkspaceNavigationLocked } from "./workspace-navigation";
 import { d } from "./native-connection-fixture";

@@ -1,4 +1,5 @@
-import { test, expect, type Locator } from "@playwright/test";
+import { type Locator } from "@playwright/test";
+import { test, expect } from "./nativeScheduleWriteFixture";
 import { nativeDefaultPeer } from "./native-default-peer";
 import { openMatchingConnection as open } from "./native-matching-connection-browser-fixture";
 import { openRecord } from "./native-effective-connection-fixture";

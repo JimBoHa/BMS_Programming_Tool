@@ -1,4 +1,5 @@
-import { test, expect, type Locator } from "@playwright/test";
+import { type Locator } from "@playwright/test";
+import { test, expect } from "./nativeScheduleWriteFixture";
 import { readFileSync } from "node:fs";
 import { nativeDefaultPeer } from "./native-default-peer";
 import { openMatchingConnection as open } from "./native-matching-connection-browser-fixture";
@@ -285,6 +286,7 @@ for (const fault of ["edge", "operation"])
         async (route) => {
           const response = await route.fetch({ maxRetries: 0 }),
             data = await response.json();
+          expect(data.result.status).toBe("verified");
           id = data.intent.id;
           if (fault === "edge")
             data.result.preservation.selected_connection.new[2]++;
