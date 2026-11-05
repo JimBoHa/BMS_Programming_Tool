@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`0d4ecb5d`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/0d4ecb5decabb0117a8841fc389da99de2f0877d).
+[`655091df`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/655091dfc1443fce86313fd3f7b1de903dcccc20).
 
 ## Baseline and purpose
 
@@ -1296,3 +1296,21 @@ qualification and physical acceptance remain separate. Previously retained
 WebKit/network/Sedona failures remain open under QA-01. Continue the prioritized
 JCI assignment/runtime and broader native-authoring work. See
 [native capture-capacity preflight](docs/native-capture-capacity-preflight.md).
+
+## 2026-11-04 JCI-03/JCI-09 delivery: local native connection removal
+
+`FMT-NATIVE-CONNECTION-REMOVAL-COPY-001` removes one exact observed connection
+and its aligned optional continuation from original or saved-effective retained
+native applications. Strict snapshot/source/record/property/tuple guards and
+sealed local export preserve all other expanded bytes, graph members, order,
+layout, identity and destination configuration. Original record-prefix widths
+and explicit empty arrays remain intact. No controller path is used.
+
+The following `UI-NATIVE-CONNECTION-REMOVAL-001` slice puts this operation inside
+the existing Program diagram task, preserves source-bound drafts and reuses the
+selected workspace target without new global navigation. Native transfer and
+inverse recovery require independent qualification; retaining an unwired input's
+configuration does not establish runtime fallback behavior. General compilation,
+new blocks/I/O, resource/package support and CCT/physical/BTCVT acceptance remain
+separate. JCI-03/JCI-09 remain partial. See
+[native connection removal copies](docs/native-connection-removal-copies.md).

@@ -129,6 +129,11 @@ from .native_calendar_text import calendar_text_router
 from .native_calendar_write import NativeCalendarWrites, calendar_write_router
 from .native_connection_compiler import EffectiveConnectionService, effective_connection_router
 from .native_connection_copies import NativeConnectionCopies, native_connection_router
+from .native_connection_removal import (
+    EffectiveConnectionRemovals,
+    NativeConnectionRemovals,
+    connection_removal_router,
+)
 from .native_enum_compiler import native_enum_compiler_router
 from .native_enum_copies import native_enum_copy_router
 from .native_exception_text import exception_text_router
@@ -609,6 +614,8 @@ def create_app(state_dir=None, *, operation_power=None):
     wire_copies = NativeWireCopies(backup_records)
     connection_copies = NativeConnectionCopies(backup_records)
     connection_compiler = EffectiveConnectionService(backup_records)
+    connection_removals = NativeConnectionRemovals(backup_records)
+    effective_connection_removals = EffectiveConnectionRemovals(backup_records)
     wire_compiler = EffectiveWireService(backup_records)
     historical_wire_copies = NativeHistoricalWireCopies(
         backup_records, native_applications.wire_recovery
@@ -787,6 +794,9 @@ def create_app(state_dir=None, *, operation_power=None):
     app.include_router(native_wire_router(wire_copies))
     app.include_router(native_connection_router(connection_copies))
     app.include_router(effective_connection_router(connection_compiler))
+    app.include_router(
+        connection_removal_router(connection_removals, effective_connection_removals)
+    )
     app.include_router(effective_wire_router(wire_compiler))
     app.include_router(historical_wire_copy_router(historical_wire_copies))
 
