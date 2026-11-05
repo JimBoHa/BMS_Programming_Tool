@@ -201,7 +201,7 @@ def test_http_known_versions_tokens_and_strict_source_requests_never_query_contr
             assert len(response.json()["operations"]) == count
         for extra in [
             {"capability_profile": True},
-            {"capability_profile": "native-backup-operation-capabilities/14"},
+            {"capability_profile": "native-backup-operation-capabilities/15"},
             {"can_apply": True},
             {"address": "127.0.0.1:47808"},
         ]:

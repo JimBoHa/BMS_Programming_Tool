@@ -30,7 +30,7 @@ for (const caf of [false, true]) {
     });
     await input.fill("1e");
     const table = await analyze(support);
-    await expect(table.getByRole("row")).toHaveCount(25);
+    await expect(table.getByRole("row")).toHaveCount(28);
     await expect(effectiveRow(support).locator("td").first()).toHaveText(
       "source qualified",
     );

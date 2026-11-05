@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { apiJsonDocument, saveBlob } from "./api";
-import { matchingConnectionTransferCapability } from "./nativeConnectionCapabilityContract";
+import { removalCapabilityEvidence } from "./nativeRemovalCapabilityContract";
 import type { NativeArchiveSource } from "./NativeRecords";
 import { controllerKey } from "./workflow";
 
@@ -30,6 +30,8 @@ const operationIds = [
   "effective-wire-compile",
   "matching-connection-copy",
   "effective-connection-compile",
+  "connection-removal-copy",
+  "effective-connection-removal-compile",
   "effective-boolean-compile",
   "effective-enum-compile",
   "effective-default-compile",
@@ -140,13 +142,13 @@ export function NativeBackupCapabilities({
         {
           capture_id: source.capture_id,
           snapshot_sha256: source.snapshot_sha256,
-          capability_profile: "native-backup-operation-capabilities/13",
+          capability_profile: "native-backup-operation-capabilities/14",
         },
       );
       const data = document.data;
       if (
         data.profile !== "native-backup-record-inspection/1" ||
-        data.capability_profile !== "native-backup-operation-capabilities/13" ||
+        data.capability_profile !== "native-backup-operation-capabilities/14" ||
         data.source_kind !== "native-backup-archive" ||
         data.capture_id !== source.capture_id ||
         data.snapshot_sha256 !== source.snapshot_sha256 ||
@@ -182,7 +184,7 @@ export function NativeBackupCapabilities({
               (value) => typeof value === "string",
             ),
         ) ||
-        !matchingConnectionTransferCapability(data, source) ||
+        !removalCapabilityEvidence(data, source) ||
         data.operations.find((row: Operation) => row.id === "enum-default-copy")
           ?.status !==
           (data.qualification.archive_enum_default_count > 0
