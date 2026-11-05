@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-05. Implementation baseline: GitHub `main` at
-[`6030abfa`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/6030abfa4151a457f4ee662fea0ba43d5c6d6338).
+[`b43ef003`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/b43ef003222e16c105c0c6a702f841f925511be3).
 
 ## Baseline and purpose
 
@@ -1446,3 +1446,22 @@ Binary field moves, SA/cross-host/dedicated-BI reassignment, allocation beyond
 qualified profiles, actual wiring, general native/resource/package compilation
 and CCT/physical/BTCVT acceptance remain separate. IO-02/JCI-09 remain partial.
 See [the analog terminal field workflow](docs/native-terminal-field-workflow.md).
+
+## 2026-11-05 JCI-01/IO-02 delivery: source-specific terminal operation support
+
+`FMT-NATIVE-TERMINAL-CAPABILITIES-001` adds explicit local terminal analysis within
+Program's existing retained-source support view. Actual compiler witnesses qualify
+original and saved-effective analog/binary terminal copies independently from
+existing-analog transfer preflight. Captured free destinations, configuration and
+identity/saved/transport requirements stay explicit. Discarded in-memory compiles
+retain no file, field review, intent or receipt and contact no controller.
+
+Explicit profile 15 appends three rows to complete profile 14; default 12 and
+explicit 11/12/13/14 reports remain exact. The existing main table keeps profile 14;
+a separate disclosure requests 15 and saves its exact original response. Source
+ownership, CAF context, responsive engineering tables and older controls remain.
+
+Next, qualify additional typed native input/host/runtime and compilation semantics
+against actual source evidence. General binary/SA/cross-host/dedicated movement,
+resources/packages and CCT/physical/BTCVT acceptance remain separate. JCI-01,
+IO-02 and JCI-09 stay partial. See [terminal operation support](docs/native-terminal-capabilities.md).

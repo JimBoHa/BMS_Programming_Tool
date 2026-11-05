@@ -225,7 +225,7 @@ def test_http_profile14_checks_session_source_strict_fields_and_never_enters_fie
         response = client.post(endpoint, headers=headers, json=body)
         assert response.status_code == 200 and len(response.json()["operations"]) == 27
         for change in [
-            {"capability_profile": "native-backup-operation-capabilities/15"},
+            {"capability_profile": "native-backup-operation-capabilities/999"},
             {"capability_profile": True},
             {"snapshot_sha256": "0" * 64},
             {"controller_write": True},

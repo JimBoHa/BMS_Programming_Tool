@@ -3,6 +3,7 @@ import { apiJsonDocument, saveBlob } from "./api";
 import { removalCapabilityEvidence } from "./nativeRemovalCapabilityContract";
 import type { NativeArchiveSource } from "./NativeRecords";
 import { controllerKey } from "./workflow";
+import { NativeTerminalCapabilities } from "./NativeTerminalCapabilities";
 
 type Operation = {
   id: string;
@@ -292,6 +293,7 @@ export function NativeBackupCapabilities({
             <pre>{JSON.stringify(report.qualification, null, 2)}</pre>
             <p>{report.scope}</p>
           </details>
+          <NativeTerminalCapabilities source={source} />
           <button
             onClick={() => {
               if (loaded && current(loaded.owner, loaded.epoch))
