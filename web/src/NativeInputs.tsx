@@ -1,9 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import { api, apiBlobDocument, apiKeepalive, saveBlob } from "./api";
+import {
+  api,
+  apiBlobDocument,
+  apiJsonDocument,
+  apiKeepalive,
+  saveBlob,
+} from "./api";
 import { controllerKey, type ControllerContext } from "./workflow";
 import { NativeRuntimeCalibration } from "./NativeRuntimeCalibration";
 import { NativeRuntimeParametersNotice } from "./NativeRuntimeParametersNotice";
 import { NativeTerminalCopy } from "./NativeTerminalCopy";
+import {
+  inputTransferProfile,
+  terminalTransferReview,
+} from "./nativeTerminalTransferContract";
 
 const base = "/bacnet/controller/native-application";
 const profile = "native-local-universal-input-transfer/1";
@@ -222,13 +232,15 @@ export function NativeInputs({
         form.action === "allocate"
           ? number("object")
           : Number(form.object.split(",")[1]),
-      slot: form.action === "allocate" ? number("slot") : field.slot,
+      slot: ["allocate", "terminal"].includes(form.action)
+        ? number("slot")
+        : field.slot,
     };
     if (form.action === "allocate") result.name = form.name;
     else result.configuration_sha256 = field.configuration_sha256;
     if (form.action === "remove-allocated")
       result.allocation_receipt = form.origin;
-    else
+    else if (form.action !== "terminal")
       result.configuration = {
         mode: form.mode,
         ...Object.fromEntries(
@@ -245,9 +257,9 @@ export function NativeInputs({
       };
     return result;
   }
-  function sourceMatches(value: any, expected: any) {
+  function sourceMatches(value: any, expected: any, expectedProfile = profile) {
     return (
-      value.profile === profile &&
+      value.profile === expectedProfile &&
       value.capture_id === expected.capture_id &&
       value.snapshot_sha256 === expected.snapshot_sha256
     );
@@ -255,7 +267,11 @@ export function NativeInputs({
   function receiptMatches(r: any) {
     return (
       r?.intent?.change_kind === "input" &&
-      r.intent.operation_profile === profile &&
+      ["allocate", "mode", "remove-allocated", "terminal"].includes(
+        r.intent.input_edit?.action,
+      ) &&
+      r.intent.operation_profile ===
+        inputTransferProfile(r.intent.input_edit) &&
       matchesTarget(r.intent.target) &&
       r.intent.identity?.device === controller?.device &&
       /^[a-f0-9]{32}$/.test(r.intent.id)
@@ -385,15 +401,19 @@ export function NativeInputs({
           if (current(e)) saveBlob(document.blob, "native-input-copy.moi");
         } else {
           retire();
-          const r = await api(
+          const path =
             base +
-              (kind === "local" ? "/input/copy/preview" : "/input/preview"),
-            {
-              ...sourceArgs,
-              edit: proposed,
-              ...(kind === "review" ? { ...target, operation_id } : {}),
-            },
-          );
+            (kind === "local" ? "/input/copy/preview" : "/input/preview");
+          const request = {
+            ...sourceArgs,
+            edit: proposed,
+            ...(kind === "review" ? { ...target, operation_id } : {}),
+          };
+          const document =
+            proposed.action === "terminal"
+              ? await apiJsonDocument(path, request)
+              : null;
+          const r = document ? document.data : await api(path, request);
           if (!current(e)) {
             if (kind === "review")
               void apiKeepalive(base + "/cancel", { operation_id }).catch(
@@ -403,19 +423,27 @@ export function NativeInputs({
           }
           if (kind === "local") {
             if (
-              !sourceMatches(r, sourceArgs) ||
+              !sourceMatches(r, sourceArgs, inputTransferProfile(proposed)) ||
               !same(r.edit, proposed) ||
               r.controller_queries !== false ||
               r.controller_writes !== false ||
               !/^[a-f0-9]{64}$/.test(r.review_sha256)
             )
               throw new Error("Local copy review differs from this draft.");
+            if (
+              document &&
+              !(await terminalTransferReview(document, source, proposed, false))
+            )
+              throw new Error(
+                "Local terminal copy proof differs from this exact source and move.",
+              );
+            if (!current(e)) return;
             setCopyReview(r);
           } else {
             planOperation.current = operation_id;
             if (
               r.profile !== "native-application-transfer/1" ||
-              r.operation_profile !== profile ||
+              r.operation_profile !== inputTransferProfile(proposed) ||
               r.operation_id !== operation_id ||
               r.change_kind !== "input" ||
               !matchesTarget(r.target) ||
@@ -438,6 +466,21 @@ export function NativeInputs({
               throw new Error(
                 "Controller input review differs from this draft.",
               );
+            }
+            if (
+              document &&
+              !(await terminalTransferReview(document, source, proposed, true))
+            ) {
+              retire();
+              throw new Error(
+                "Terminal transfer proof differs from this exact source and move.",
+              );
+            }
+            if (!current(e)) {
+              void apiKeepalive(base + "/cancel", { operation_id }).catch(
+                () => {},
+              );
+              return;
             }
             setReview(r);
             setNow(Date.now());
@@ -635,6 +678,7 @@ export function NativeInputs({
               >
                 <option value="allocate">Allocate a spare local input</option>
                 <option value="mode">Edit a configured input</option>
+                <option value="terminal">Move a configured analog input</option>
                 <option value="remove-allocated">
                   Remove an input allocated by this app
                 </option>
@@ -722,7 +766,32 @@ export function NativeInputs({
                 <pre>{JSON.stringify(field.configuration, null, 2)}</pre>
               </details>
             )}
-            {form.action === "remove-allocated" ? (
+            {form.action === "terminal" ? (
+              <>
+                <p>
+                  Move this existing analog input from{" "}
+                  {field ? `UI IN${field.slot}` : "its captured terminal"}.
+                  Electrical mode, scaling, identity and program connections
+                  stay unchanged. Integral sensors, SA/cross-host and dedicated
+                  binary terminals are excluded.
+                </p>
+                <label>
+                  Destination universal terminal
+                  <select
+                    aria-label="Field terminal destination"
+                    value={form.slot}
+                    onChange={(e) => update({ slot: e.target.value })}
+                  >
+                    <option value="">Select a configured free terminal</option>
+                    {source.available_slots.map((n: number) => (
+                      <option key={n} value={n}>
+                        UI IN{n}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </>
+            ) : form.action === "remove-allocated" ? (
               <label>
                 Original verified allocation receipt
                 <select
@@ -833,6 +902,15 @@ export function NativeInputs({
                 UI IN{review.input_edit.slot} · analog-input,
                 {review.input_edit.object_instance}.
               </p>
+              {review.input_edit.action === "terminal" && (
+                <p>
+                  Move analog-input,{review.input_edit.object_instance} from UI
+                  IN{review.compilation.terminal_compilation.old_slot} to UI IN
+                  {review.input_edit.slot}. Preserve electrical mode, scaling,
+                  identity and program connections. Applying transfers the
+                  native application and may restart control.
+                </p>
+              )}
               <pre>
                 {JSON.stringify(
                   review.compilation.stored_configuration || review.input_edit,
@@ -859,7 +937,9 @@ export function NativeInputs({
                   checked={input}
                   onChange={(e) => setInput(e.target.checked)}
                 />{" "}
-                I confirm this input allocation/mode and scaling change.
+                {review.input_edit.action === "terminal"
+                  ? "I confirm this input terminal move with unchanged mode and scaling."
+                  : "I confirm this input allocation/mode and scaling change."}
               </label>
               <label>
                 <input
