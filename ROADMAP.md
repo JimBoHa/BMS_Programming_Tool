@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`13950347`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/1395034732cc94e6ce0c78d7e6b125f2eb1f9ea4).
+[`77a1d624`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/77a1d6242f73c7a8ebf2a730cc31dd0bc3fae247).
 
 ## Baseline and purpose
 
@@ -1395,3 +1395,20 @@ preserved. There is no Apply action in this workflow.
 SA/cross-host/dedicated-BI reassignment, electrical suitability, hardware allocation,
 verified deployment, general native authoring and physical/BTCVT acceptance remain
 separate. IO-02 remains partial. See [the terminal-copy workflow](docs/native-terminal-copy-workflow.md).
+
+## 2026-11-04 IO-02/JCI-09 delivery: analog terminal transfer profile 2
+
+`FMT-NATIVE-INPUT-TERMINAL-TRANSFER-001` adds an existing-analog terminal move
+under a separately paired native input operation profile. The compiler delegates
+two fixed-width payload changes after the qualified saved merge; an explicit inner
+profile recognizes preserved AO/BO output namespaces. Default inner profile 1 and
+older input actions keep their previous contracts. Exact review seals, typed
+options, fresh source/published-input/capacity checks, confirmations and one-use
+intent precede download. Complete native/saved/published readback verifies the
+new binding; uncertain outcomes retain evidence and never replay automatically.
+
+Next, expose profile 2 in structured Changes/History and contextual input controls,
+preserving the current local-copy tool. SA/cross-host/dedicated-BI moves, binary
+field transfer, physical wiring, resource/package/general compiler qualification
+and CCT/BTCVT acceptance remain separate. IO-02 and JCI-09 remain partial. See
+[native analog terminal transfer](docs/native-terminal-transfer.md).

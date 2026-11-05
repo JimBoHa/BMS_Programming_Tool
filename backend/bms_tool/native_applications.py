@@ -77,14 +77,15 @@ from .native_enum_transfer import (
 from .native_historical_wire_recovery import PROFILE as HISTORICAL_WIRE_RECOVERY_PROFILE
 from .native_historical_wire_recovery import NativeHistoricalWireRecovery
 from .native_input_transfer import NativeInputOperations
-from .native_inputs import PROFILE as INPUT_PROFILE
 from .native_inputs import (
+    TERMINAL_PROFILE,
     InputApply,
     InputCopy,
     InputLocalSource,
     InputPreview,
     InputSupport,
     compile_input,
+    input_operation_profile,
     verify_input_preservation,
 )
 from .native_instance_recovery import PROFILE as INSTANCE_RECOVERY_PROFILE
@@ -1184,8 +1185,16 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
             validate_connection_evidence(
                 intent.get("connection_edit"), intent.get("connection_guard")
             )
-        if input_edit and intent.get("operation_profile") != INPUT_PROFILE:
+        if input_edit and intent.get("operation_profile") != input_operation_profile(
+            intent.get("input_edit")
+        ):
             raise ValueError("Unsupported native input evidence version; retain it.")
+        if (
+            input_edit
+            and intent.get("operation_profile") == TERMINAL_PROFILE
+            and intent.get("compilation", {}).get("profile") != TERMINAL_PROFILE
+        ):
+            raise ValueError("Terminal transfer evidence requires its exact compiler profile.")
         if point_name_edit and intent.get("operation_profile") != POINT_NAME_PROFILE:
             raise ValueError("Unsupported native point-name evidence version; retain it.")
         expected_profile = (
@@ -1475,8 +1484,20 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
             raise ValueError("The retained native connection review changed; review again.")
         if point_name_edit and plan["body"].get("operation_profile") != POINT_NAME_PROFILE:
             raise ValueError("Unsupported native point-name evidence version; retain it.")
-        if input_edit and plan["body"].get("operation_profile") != INPUT_PROFILE:
+        if input_edit and plan["body"].get("operation_profile") != input_operation_profile(
+            plan["body"].get("input_edit")
+        ):
             raise ValueError("Unsupported native input evidence version; retain it.")
+        if (
+            input_edit
+            and plan["body"].get("operation_profile") == TERMINAL_PROFILE
+            and (
+                seal(plan["body"]) != plan["digest"]
+                or plan["body"].get("compilation", {}).get("profile") != TERMINAL_PROFILE
+                or plan["body"]["input_edit"] != plan["options"].edit.model_dump()
+            )
+        ):
+            raise ValueError("The exact terminal transfer review changed; review again.")
         if (
             not request.application_transfer_confirmed
             or (wire_edit and not request.wire_change_confirmed)
@@ -1688,7 +1709,9 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                                 {
                                     "input_edit": body["input_edit"],
                                     "allocation_origin": body.get("allocation_origin"),
-                                    "operation_profile": INPUT_PROFILE,
+                                    "operation_profile": input_operation_profile(
+                                        body["input_edit"]
+                                    ),
                                     "input_change_confirmed": request.input_change_confirmed,
                                     "physical_wiring_confirmed": request.physical_wiring_confirmed,
                                 }

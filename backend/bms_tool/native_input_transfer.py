@@ -17,6 +17,7 @@ from .native_inputs import (
     ENUM_FIELDS,
     PROFILE,
     SCOPE,
+    TERMINAL_SCOPE,
     InputCopy,
     InputEdit,
     InputLocalSource,
@@ -24,6 +25,7 @@ from .native_inputs import (
     InputSupport,
     NativeInputCompiler,
     compile_input,
+    input_operation_profile,
 )
 from .property_evidence import PropertyEvidence, ReadBudget
 
@@ -106,7 +108,7 @@ class NativeInputOperations:
         origin = self.input_allocation_origin(request.edit, capture)
         output, compilation = compile_input(files, request.edit, allocation_origin=origin)
         body = {
-            "profile": PROFILE,
+            "profile": input_operation_profile(request.edit),
             "scope": "Local native input copy; no controller query, plan or transfer authority.",
             "capture_id": capture["id"],
             "snapshot_sha256": capture["evidence_sha256"],
@@ -222,7 +224,7 @@ class NativeInputOperations:
             now = datetime.now(UTC)
             body = {
                 "profile": TRANSFER_PROFILE,
-                "operation_profile": PROFILE,
+                "operation_profile": input_operation_profile(options.edit),
                 "operation_id": options.operation_id,
                 "target": self.target(options),
                 "identity": actual,
@@ -242,7 +244,7 @@ class NativeInputOperations:
                 "payload_sha256": sha(output),
                 "collision_check": self.name_scope(),
                 "parameter_policy": "Merge fresh saved settings. Retain every non-selected record and wire; verify complete application and published input configuration.",
-                "scope": SCOPE,
+                "scope": TERMINAL_SCOPE if options.edit.action == "terminal" else SCOPE,
                 "vendor_runtime_required": False,
                 "can_apply": True,
                 "connector_config": config,
