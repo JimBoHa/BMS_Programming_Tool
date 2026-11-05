@@ -3,6 +3,7 @@ import { api, apiBlobDocument, apiKeepalive, saveBlob } from "./api";
 import { controllerKey, type ControllerContext } from "./workflow";
 import { NativeRuntimeCalibration } from "./NativeRuntimeCalibration";
 import { NativeRuntimeParametersNotice } from "./NativeRuntimeParametersNotice";
+import { NativeTerminalCopy } from "./NativeTerminalCopy";
 
 const base = "/bacnet/controller/native-application";
 const profile = "native-local-universal-input-transfer/1";
@@ -893,6 +894,11 @@ export function NativeInputs({
           </button>
         </>
       )}
+      <NativeTerminalCopy
+        controller={controller}
+        connected={connected}
+        fieldBusy={busy}
+      />
       <details>
         <summary>Retained input transfers</summary>
         {records.map((r: any) => (

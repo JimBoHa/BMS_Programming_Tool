@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`62eba5f9`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/62eba5f94bc85b4f7abcdfa3fbc1e5c2b06ed34c).
+[`13950347`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/1395034732cc94e6ce0c78d7e6b125f2eb1f9ea4).
 
 ## Baseline and purpose
 
@@ -1380,3 +1380,18 @@ language, exact target/source ownership, bounded drafts and review invalidation.
 SA/cross-host/dedicated-BI moves, allocation, electrical changes, physical wiring,
 general native authoring and field transfer remain separate. IO-02 remains
 partial. See [native local terminal copies](docs/native-terminal-copies.md).
+
+## 2026-11-04 IO-02 delivery: contextual terminal-copy review and download
+
+`UI-NATIVE-LOCAL-TERMINAL-COPY-001` places original and saved-effective terminal
+copies inside Points & I/O. Actual retained captures supply inputs and occupancy;
+the exact selected controller and separate captured source remain visible. Strict
+client admission, nested review seals and all artifact/header digests guard local
+downloads. Bounded controller/interface-owned drafts survive task navigation;
+target, source, basis, draft and lifecycle changes retire reviews and late results.
+Existing engineering graphics, styles, native compilers and field profiles are
+preserved. There is no Apply action in this workflow.
+
+SA/cross-host/dedicated-BI reassignment, electrical suitability, hardware allocation,
+verified deployment, general native authoring and physical/BTCVT acceptance remain
+separate. IO-02 remains partial. See [the terminal-copy workflow](docs/native-terminal-copy-workflow.md).
