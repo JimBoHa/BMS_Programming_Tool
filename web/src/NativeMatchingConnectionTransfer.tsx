@@ -655,7 +655,7 @@ export function NativeMatchingConnectionTransfer({
       <div className="button-row">
         {receipt?.data.pending && receiptMatches ? (
           <button
-            className="primary"
+            className={visible ? "primary" : undefined}
             disabled={locked || !visible || !connected || !receiptMatches}
             onClick={() => void run("readback")}
           >
@@ -665,7 +665,7 @@ export function NativeMatchingConnectionTransfer({
           connectionSame(intent?.connection_edit, proposal) &&
           /^[a-f0-9]{32}$/.test(observed?.verification_capture_id || "") ? (
           <button
-            className="primary"
+            className={visible ? "primary" : undefined}
             disabled={locked || !visible}
             onClick={() =>
               context?.onCaptured(observed.verification_capture_id)
@@ -675,7 +675,7 @@ export function NativeMatchingConnectionTransfer({
           </button>
         ) : fresh ? (
           <button
-            className="primary"
+            className={visible ? "primary" : undefined}
             disabled={!canReview || !confirmed || !interruption}
             onClick={() => void run("apply")}
           >
@@ -683,7 +683,7 @@ export function NativeMatchingConnectionTransfer({
           </button>
         ) : (
           <button
-            className="primary"
+            className={visible ? "primary" : undefined}
             disabled={!canReview}
             onClick={() => void run("preview")}
           >
