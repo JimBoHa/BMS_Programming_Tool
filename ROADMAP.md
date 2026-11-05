@@ -1750,3 +1750,24 @@ encoding-preserving analog profile within existing Points & I/O, then source-spe
 capability, recorded evidence and recovery support. SA/cross-host writes, general
 compilation, resources/packages and CCT/physical/BTCVT acceptance remain separate.
 IO-02/JCI-09 remain partial. See [encoded analog transfer](docs/native-encoded-analog-terminal-transfer.md).
+
+## 2026-11-05 IO-02/UX-03 delivery: contextual encoded analog terminal movement
+
+`UI-NATIVE-ENCODED-ANALOG-TERMINAL-001` adds Move a configured analog input within
+existing Points & I/O, using the selected capture and exact controller route.
+Closed profile-4 source/review/receipt admission preserves typed configuration,
+recorded ASCII/UCS-2 labels and paired absent output endpoints. A read-only table
+makes recorded configuration/absence visible before review. Local copies verify
+exact output bytes; original review/receipt downloads remain unchanged.
+
+All three field confirmations, one-use reviews and separately published readback
+remain required. Delayed responses/digests cannot restore retired authority;
+unknown outcomes retain durable evidence and reconcile without replay. Verified
+movement marks the old capture stale across ordinary/binary/analog field work.
+The original form text, contextual graph/CAF, navigation, styles and separate
+binary workflow remain available. Drafts/evidence stay bounded.
+
+Next, add source-specific profile-4 capability, recorded evidence and recovery
+support. General native compilation, allocation/electrical changes, SA/cross-host
+writes, resources/packages and CCT/physical/BTCVT acceptance remain separate.
+IO-02/JCI-09 remain partial. See [analog terminal workflow](docs/native-encoded-analog-terminal-workflow.md).
