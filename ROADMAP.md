@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-04. Implementation baseline: GitHub `main` at
-[`988504f7`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/988504f7c4b72f09b633309808d6571e1c46d45e).
+[`70e9fca2`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/70e9fca2c6417f99ba0d4685e47550d6fc713e5d).
 
 ## Baseline and purpose
 
@@ -1314,6 +1314,24 @@ configuration does not establish runtime fallback behavior. General compilation,
 new blocks/I/O, resource/package support and CCT/physical/BTCVT acceptance remain
 separate. JCI-03/JCI-09 remain partial. See
 [native connection removal copies](docs/native-connection-removal-copies.md).
+
+## 2026-11-04 JCI-03/JCI-09 delivery: contextual native connection removal
+
+`UI-NATIVE-CONNECTION-REMOVAL-001` adds **Remove existing connection** to the
+existing Program native diagram operation selector. Original and saved-effective
+local copies retain separate source-bound basis/connection drafts within the
+existing non-evicting budget. Reviews validate the complete original/effective
+compiler chain and exact source, then downloads validate artifact bytes and all
+export hashes. Exact review-response bytes remain available separately.
+
+Task, operation, target/interface, source, visibility and editor-collapse changes
+retire reviews and pending downloads without losing local selections. No global
+destination, style system, field intent or controller transfer is added. The
+destination becomes unwired while its configuration stays preserved; runtime
+fallback/retention behavior remains unverified. Broader JCI authoring, controller
+transfer/recovery, resource/package and physical/BTCVT qualification continue as
+separate work. JCI-03/JCI-09 remain partial. See
+[the connection removal workflow](docs/native-connection-removal-workflow.md).
 
 ## 2026-11-04 JCI-02 / UX-03 delivery: shared engineering logic display
 

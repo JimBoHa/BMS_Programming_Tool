@@ -2,6 +2,7 @@ import { useContext, useState } from "react";
 import { NativeBooleanTransferContext } from "./NativeBooleanTransferContext";
 import { NativeWireSourceCopy } from "./NativeWireSourceCopy";
 import { NativeConnectionCopy } from "./NativeConnectionCopy";
+import { NativeConnectionRemoval } from "./NativeConnectionRemoval";
 import { connectionDraftKey } from "./nativeConnectionContract";
 import { rememberWireDraft, type WireCopyDrafts } from "./nativeWireDrafts";
 import type { NativeArchiveSource } from "./NativeRecords";
@@ -17,7 +18,9 @@ export function NativeGraphEdits(props: {
   const busy = useContext(NativeBooleanTransferContext)?.fieldBusy ?? false;
   const key = connectionDraftKey(props.source, props.record) + "/mode";
   const [mode, setMode] = useState(
-    props.drafts.get(key) === "add" ? "add" : "source",
+    ["add", "remove"].includes(props.drafts.get(key) || "")
+      ? props.drafts.get(key)!
+      : "source",
   );
   const [error, setError] = useState("");
   return (
@@ -43,6 +46,7 @@ export function NativeGraphEdits(props: {
         >
           <option value="source">Change existing source</option>
           <option value="add">Add matching connection</option>
+          <option value="remove">Remove existing connection</option>
         </select>
       </label>
       {error && <p role="alert">{error}</p>}
@@ -57,6 +61,12 @@ export function NativeGraphEdits(props: {
         <NativeConnectionCopy
           {...props}
           visible={props.visible && mode === "add"}
+        />
+      </div>
+      <div hidden={mode !== "remove"}>
+        <NativeConnectionRemoval
+          {...props}
+          visible={props.visible && mode === "remove"}
         />
       </div>
     </section>
