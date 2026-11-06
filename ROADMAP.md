@@ -2180,3 +2180,22 @@ Actual-runtime-dt UI access is delivered for portable explicit Step. Native live
 Timer duration ports, startup/reset/profile equivalence, target-width lowering,
 controller resources and physical acceptance still require separate work.
 RUN-01 remains partial. See [simulation timing](docs/simulation-clock.md#explicit-single-step-duration).
+
+## 2026-11-06 JCI-02/UX-04 delivery: saved unfinished recorded-copy drafts
+
+`UI-CAF-CREATION-DRAFTS-001` adds explicit durable X/Y checkpoints inside the
+existing recorded block/constant copy task. Original CAF, diagram, prototype,
+family and installed inspector evidence stay bound. All existing admitted source
+families use their current inspectors; saving/restoring never invokes an encoder.
+
+Raw unfinished text survives reopening and restart. Differing current work gets
+a literal coordinate comparison and explicit replacement; replacement rechecks
+the saved revision. Restoration clears copy review/export/open-copy authority.
+Exact checkpoint download and explicit removal remain local reference operations.
+Bounded storage, strict generations/revisions and synchronous context counters
+preserve old work and reject stale replies, including text/prototype/type ABA.
+
+Scalar and wiring checkpoints, original CAF Save, copy editors and other local
+draft families remain separate. General native authoring, packages/resources,
+compilation and physical deployment still require independent work. JCI-02 and
+UX-04 remain partial. See [recorded-copy draft recovery](docs/caf-creation-draft-recovery.md).

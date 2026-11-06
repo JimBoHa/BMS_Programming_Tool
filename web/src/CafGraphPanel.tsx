@@ -713,6 +713,22 @@ export function CafGraphPanel({
               reviewContext={reviewContext}
               drafts={constantDrafts}
               onDraftChange={onConstantChange}
+              checkpointRetireKey={JSON.stringify([
+                sourceGeneration,
+                scalarRevision,
+                combinedRevision,
+                recoveryExportRevision,
+                refresh,
+                reviewContext,
+              ])}
+              checkpointCurrent={() =>
+                sourceCurrent() &&
+                combinedCurrent() &&
+                combinedRevisionNow.current === combinedRevision &&
+                exportRequest.current === recoveryExportRevision &&
+                !removalBusyNow.current &&
+                !combinedBusyNow.current
+              }
             />
             <details
               open={advancedOpen}

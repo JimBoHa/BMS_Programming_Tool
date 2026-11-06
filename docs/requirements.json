@@ -1663,5 +1663,14 @@
     "pdf_pages_or_section": "docs/native-calendar-write.md; docs/native-calendar-drafts.md",
     "status": "implemented",
     "implementation_or_gap": "Backend/API only: exact stateless draft/source regeneration and captured name/description/value context, fresh verified target/revision/APDU limits, original socket/configuration, one attempt without index/priority, monotonic expiry before dispatch, bounded full-sync Calendar intent/result journal, source/request binding and partial readback/reconciliation after restart. Negative/lost replies and intent-only evidence preserve uncertainty. All older weekly profiles/transfers/journals and web sources remain unchanged. Controller-centered Calendar deployment GUI is next; exceptions/context/linking, BBMD/serial/segmentation, native CAF and physical acceptance remain outside this scope. SCH-01\u2013SCH-03 remain partial."
+  },
+  {
+    "id": "UI-CAF-CREATION-DRAFTS-001",
+    "feature": "Saved unfinished recorded-copy coordinates",
+    "acceptance_criterion": "Explicitly retain literal X/Y drafts for an exact original CAF/diagram/family/prototype across restart, recheck current source and generation before restoration, compare differing current work, preserve originals and retire prior review/export authority without compiling or touching a controller.",
+    "evidence": "Existing recorded-copy source inspectors; authored nine-family/typed-variant storage and HTTP cases, concurrent/restart/corruption checks and actual Chromium/WebKit workflows.",
+    "pdf_pages_or_section": "docs/caf-creation-draft-recovery.md; docs/workflow-style-guide.md",
+    "status": "implemented",
+    "implementation_or_gap": "Program → Logic → recorded copy task provides explicit bounded source-bound save/restore/remove and original-byte checkpoint download. Strict generation/revision checks, raw current/saved comparison, confirmation-time revalidation and source/task/route/lifecycle ownership preserve current work; synchronous counters retire coalesced text/prototype/type ABA. All existing inspector/compiler schemas remain unchanged, and restored drafts grant no successful copy review, export/open-copy marker, field authority or native execution/package/resource/physical acceptance. JCI-02 and UX-04 remain partial."
   }
 ]

@@ -27,6 +27,7 @@ import {
   type OpenCafCopy,
 } from "./cafCreatedCopy";
 import type { ReferenceState } from "./cafReferenceLabels";
+import { CafCreationDraftRecovery } from "./CafCreationDraftRecovery";
 
 type Data = Record<string, any>;
 const full =
@@ -43,6 +44,9 @@ export function CafConstantCopy({
   referenceLabels,
   creationHint,
   onOpenCopy,
+  checkpointEpoch: sharedCheckpointEpoch,
+  checkpointCurrent = () => true,
+  checkpointRetireKey = "",
 }: {
   archive: string;
   filename: string;
@@ -55,7 +59,12 @@ export function CafConstantCopy({
   referenceLabels?: ReferenceState;
   creationHint?: CafCreationHint | null;
   onOpenCopy?: OpenCafCopy;
+  checkpointEpoch?: { current: number };
+  checkpointCurrent?: () => boolean;
+  checkpointRetireKey?: string;
 }) {
+  const localCheckpointEpoch = useRef(0);
+  const checkpointEpoch = sharedCheckpointEpoch || localCheckpointEpoch;
   const spec = constantKinds[kind];
   const comparison = kind === "comparison";
   const timer = kind === "timer";
@@ -238,6 +247,7 @@ export function CafConstantCopy({
     };
   }, [opened, loadOwner]);
   function remember(next: { x?: string; y?: string }) {
+    checkpointEpoch.current++;
     const value = {
       archive,
       diagram: diagram.ref,
@@ -255,6 +265,7 @@ export function CafConstantCopy({
   }
   function select(next: string) {
     if (disabled || busy) return;
+    checkpointEpoch.current++;
     const previous = drafts.get(constantDraftKey(archive, diagram.ref, next));
     if (
       !rememberConstant(
@@ -370,11 +381,22 @@ export function CafConstantCopy({
     }
   }
   if (!prototypes.length) return null;
+  const checkpointTicket = checkpointEpoch.current;
+  const checkpointGeneration = generation.current;
+  const checkpointSourceCurrent = () =>
+    alive.current &&
+    !disabled &&
+    opened &&
+    checkpointCurrent() &&
+    contextNow.current === context &&
+    generation.current === checkpointGeneration &&
+    checkpointEpoch.current === checkpointTicket;
   return (
     <details
       className="caf-constant-copy"
       onToggle={(e) => {
         if (!e.currentTarget.open) {
+          checkpointEpoch.current++;
           epoch.current++;
           generation.current++;
           setLife((n) => n + 1);
@@ -708,6 +730,7 @@ export function CafConstantCopy({
           <button
             disabled={disabled || busy}
             onClick={() => {
+              checkpointEpoch.current++;
               drafts.delete(key);
               epoch.current++;
               setReview(null);
@@ -719,6 +742,43 @@ export function CafConstantCopy({
             Discard {subject} draft
           </button>
         )}
+        <CafCreationDraftRecovery
+          archive={archive}
+          context={{ kind, diagram_ref: diagram.ref, prototype_ref: chosen }}
+          source={source}
+          x={x}
+          y={y}
+          hasDraft={!!draft}
+          disabled={disabled || busy}
+          surfaceOpen={opened}
+          retireKey={JSON.stringify([
+            context,
+            checkpointRetireKey,
+            checkpointTicket,
+            checkpointGeneration,
+          ])}
+          sourceCurrent={checkpointSourceCurrent}
+          onRestore={(selection) => {
+            if (
+              !checkpointSourceCurrent() ||
+              busy ||
+              !source ||
+              selection.kind !== kind ||
+              selection.diagram_ref !== diagram.ref ||
+              selection.prototype_ref !== chosen ||
+              selection.selection_sha256 !== source.selection_sha256
+            )
+              return false;
+            if (!remember({ x: selection.x, y: selection.y })) return false;
+            epoch.current++;
+            setReview(null);
+            setSaved(null);
+            setCreated(null);
+            const restored = drafts.get(key);
+            if (restored) drafts.set(key, { ...restored, saved: undefined });
+            return true;
+          }}
+        />
         {error?.owner === owner && <p role="alert">{error.text}</p>}
         {busy && <p role="status">Checking local CAF copy…</p>}
         {shown && (
