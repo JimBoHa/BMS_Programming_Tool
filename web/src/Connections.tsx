@@ -34,6 +34,10 @@ import { calendarWork } from "./nativeCalendar";
 import { weeklyWork } from "./nativeWeeklyWork";
 import { exceptionWork } from "./nativeScheduleExceptions";
 import { PointStatusPanel } from "./PointStatusPanel";
+import {
+  AccumulatorPrescalePanel,
+  pulseDraft,
+} from "./AccumulatorPrescalePanel";
 import { BacnetCovPanel } from "./BacnetCovPanel";
 import { BacnetEventsPanel } from "./BacnetEventsPanel";
 import { EventReceptionPanel } from "./EventReceptionPanel";
@@ -100,6 +104,7 @@ export function Connections({
   // Reviews, confirmations and field operations remain owned by each panel.
   const instanceDrafts = useRef(new Map<string, string>());
   const enumWork = useRef<EnumMappingWork | null>(null);
+  const pulseWork = useRef(pulseDraft());
   const calendarWorkspace = useRef(calendarWork());
   const weeklyWorkspace = useRef(weeklyWork());
   const exceptionWorkspace = useRef(exceptionWork());
@@ -112,6 +117,7 @@ export function Connections({
     points: [
       { id: "live-points", label: "Live points & configuration" },
       { id: "status", label: "Detailed point evidence" },
+      { id: "pulse", label: "Pulse metering review" },
       { id: "property", label: "Read properties" },
       { id: "commands", label: "Commands & overrides" },
       { id: "hardware", label: "Hardware survey" },
@@ -172,7 +178,8 @@ export function Connections({
       view === "settings" ||
       !!controller ||
       (view === "overview" && tool === "instance") ||
-      (view === "points" && ["live-points", "hardware"].includes(tool)) ||
+      (view === "points" &&
+        ["live-points", "hardware", "pulse"].includes(tool)) ||
       (view === "changes" && tool === "commands"));
   const discoverActive =
     visible && view === "setup" && setupStep === "discovery";
@@ -871,7 +878,9 @@ export function Connections({
             view !== "settings" &&
             view !== "overview" &&
             view !== "schedules" &&
-            !(view === "points" && currentTool === "hardware") &&
+            !(
+              view === "points" && ["hardware", "pulse"].includes(currentTool)
+            ) &&
             view !== "changes" && (
               <ControllerOverview
                 controller={null}
@@ -1525,6 +1534,16 @@ export function Connections({
                 defaultDnet={
                   selectedRoute?.dnet ??
                   (/^\d+:/.test(target) ? probeDnet : null)
+                }
+              />
+            </TaskMount>
+            <TaskMount active={showTool("pulse")} preserve={false}>
+              <AccumulatorPrescalePanel
+                key={`${interfaceIdentity}:${controller ? controllerKey(controller) : "offline"}`}
+                nativeReport={null}
+                work={pulseWork.current}
+                owner={() =>
+                  `${previewEpoch.current}:${controllerEpoch.current}`
                 }
               />
             </TaskMount>

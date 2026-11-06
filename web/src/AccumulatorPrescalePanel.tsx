@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api, apiJsonDocument, download, saveBlob } from "./api";
 
 type Configuration = {
@@ -16,6 +16,10 @@ const initial = {
   initial_remainder: "0",
   max_pv: "4294967295",
 };
+export type PulseDraft = { values: typeof initial; batches: string };
+export function pulseDraft(): PulseDraft {
+  return { values: { ...initial }, batches: "1\n1\n1" };
+}
 const hash = /^[0-9a-f]{64}$/;
 function configuration(values: typeof initial, batches: string): Configuration {
   return {
@@ -46,28 +50,56 @@ function validConfiguration(value: any): value is Configuration {
 }
 export function AccumulatorPrescalePanel({
   nativeReport,
+  work,
+  owner,
 }: {
   nativeReport: any;
+  work?: PulseDraft;
+  owner?: () => string;
 }) {
-  const [values, setValues] = useState(initial),
-    [batches, setBatches] = useState("1\n1\n1"),
+  const [values, setValues] = useState(() => ({
+      ...(work?.values ?? initial),
+    })),
+    [batches, setBatches] = useState(work?.batches ?? "1\n1\n1"),
     [profile, setProfile] = useState<any>(null),
-    [review, setReview] = useState<any>(null),
+    [retainedReview, setReview] = useState<any>(null),
     [source, setSource] = useState<any>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState("");
   const alive = useRef(true),
     ticket = useRef(0),
-    currentForm = useRef("");
+    currentForm = useRef(""),
+    reviewOwner = useRef(""),
+    currentOwner = useRef(owner);
+  currentOwner.current = owner;
+  const ownership = () => currentOwner.current?.() ?? "";
+  const review = reviewOwner.current === ownership() ? retainedReview : null;
   const config = configuration(values, batches),
     form = JSON.stringify([config, source]);
   currentForm.current = form;
+  const rawDraft = useRef({ values, batches });
+  rawDraft.current = { values, batches };
+  function remember(nextValues: typeof initial, nextBatches: string) {
+    rawDraft.current = { values: nextValues, batches: nextBatches };
+    if (work) {
+      work.values = { ...nextValues };
+      work.batches = nextBatches;
+    }
+    setValues(nextValues);
+    setBatches(nextBatches);
+  }
   const nativeId = nativeReport?.id || "";
   const currentNative = useRef(nativeId);
   currentNative.current = nativeId;
-  useEffect(() => {
+  useLayoutEffect(() => {
     alive.current = true;
+    return () => {
+      alive.current = false;
+      ticket.current++;
+    };
+  }, []);
+  useEffect(() => {
     void api("/accumulator-prescale/profile")
       .then((p) => {
         if (!alive.current) return;
@@ -78,10 +110,6 @@ export function AccumulatorPrescalePanel({
       .catch((e) => {
         if (alive.current) setError(String(e));
       });
-    return () => {
-      alive.current = false;
-      ticket.current++;
-    };
   }, []);
   useEffect(() => {
     ticket.current++;
@@ -94,22 +122,32 @@ export function AccumulatorPrescalePanel({
     setSource(null);
     setBusy(false);
   }, [nativeId]);
-  const current = (operation: number, key: string, native: string) =>
+  const current = (
+    operation: number,
+    key: string,
+    native: string,
+    owned: string,
+  ) =>
     alive.current &&
     ticket.current === operation &&
     currentForm.current === key &&
-    currentNative.current === native;
+    currentNative.current === native &&
+    ownership() === owned;
   function change(name: keyof typeof initial, value: string) {
     ticket.current++;
     setReview(null);
     setBusy(false);
-    setValues({ ...values, [name]: value });
+    remember(
+      { ...rawDraft.current.values, [name]: value },
+      rawDraft.current.batches,
+    );
   }
   async function run() {
     if (!profile) return;
     const operation = ++ticket.current,
       key = form,
-      native = nativeId;
+      native = nativeId,
+      owned = ownership();
     setBusy(true);
     setReview(null);
     setError("");
@@ -120,7 +158,7 @@ export function AccumulatorPrescalePanel({
         configuration: config,
         source,
       });
-      if (!current(operation, key, native)) return;
+      if (!current(operation, key, native, owned)) return;
       if (
         result.format !== "bms.accumulator-prescale-review/1" ||
         !/^[a-f0-9]{32}$/.test(result.id) ||
@@ -137,18 +175,20 @@ export function AccumulatorPrescalePanel({
         throw Error(
           "Pulse review response source does not match this configuration.",
         );
+      reviewOwner.current = owned;
       setReview(result);
     } catch (e) {
-      if (current(operation, key, native)) setError(String(e));
+      if (current(operation, key, native, owned)) setError(String(e));
     } finally {
       if (alive.current && ticket.current === operation) setBusy(false);
     }
   }
   async function exportReview(kind: "json" | "csv") {
-    if (!review) return;
+    if (!review || reviewOwner.current !== ownership()) return;
     const operation = ticket.current,
       key = form,
       native = nativeId,
+      owned = ownership(),
       selected = review;
     setError("");
     try {
@@ -158,7 +198,7 @@ export function AccumulatorPrescalePanel({
           "/accumulator-prescale/export/json",
           body,
         );
-        if (!current(operation, key, native)) return;
+        if (!current(operation, key, native, owned)) return;
         if (
           response.data.id !== selected.id ||
           response.data.content_sha256 !== selected.content_sha256
@@ -170,24 +210,25 @@ export function AccumulatorPrescalePanel({
           "/accumulator-prescale/export/csv",
           body,
           `pulse-review-${selected.id}.csv`,
-          () => current(operation, key, native),
+          () => current(operation, key, native, owned),
         );
     } catch (e) {
-      if (current(operation, key, native)) setError(String(e));
+      if (current(operation, key, native, owned)) setError(String(e));
     }
   }
   async function importFile(file: File | undefined) {
     if (!file) return;
     const operation = ++ticket.current,
       key = form,
-      native = nativeId;
+      native = nativeId,
+      owned = ownership();
     setError("");
     setBusy(true);
     try {
       const body = new FormData();
       body.append("file", file);
       const result = await api("/accumulator-prescale/import", body);
-      if (!current(operation, key, native)) return;
+      if (!current(operation, key, native, owned)) return;
       if (
         !validConfiguration(result.configuration) ||
         !hash.test(result.file_sha256) ||
@@ -195,8 +236,8 @@ export function AccumulatorPrescalePanel({
       )
         throw Error("Invalid imported pulse configuration.");
       const { batches: imported, ...fields } = result.configuration;
-      setValues(fields);
-      setBatches(
+      remember(
+        fields,
         imported.map((row: { pulses: string }) => row.pulses).join("\n"),
       );
       setSource(null);
@@ -205,7 +246,7 @@ export function AccumulatorPrescalePanel({
         `Imported configuration only · file SHA256 ${result.file_sha256}. Original native observations remain in the source file; new review is offline.`,
       );
     } catch (e) {
-      if (current(operation, key, native)) setError(String(e));
+      if (current(operation, key, native, owned)) setError(String(e));
     } finally {
       if (alive.current && ticket.current === operation) setBusy(false);
     }
@@ -230,14 +271,17 @@ export function AccumulatorPrescalePanel({
     setReview(null);
     setBusy(false);
     setError("");
-    setValues({
-      ...values,
-      multiplier: String(prescale.multiplier),
-      modulo_divide: String(prescale.moduloDivide),
-      max_pv: String(maximum.value),
-      initial_pv: "0",
-      initial_remainder: "0",
-    });
+    remember(
+      {
+        ...rawDraft.current.values,
+        multiplier: String(prescale.multiplier),
+        modulo_divide: String(prescale.moduloDivide),
+        max_pv: String(maximum.value),
+        initial_pv: "0",
+        initial_remainder: "0",
+      },
+      rawDraft.current.batches,
+    );
     setSource({ report_id: nativeReport.id, object_id: item.object });
     setNotice(
       "Observed coefficients and maximum copied. Initial PV/remainder are explicitly reset to synthetic zero; native PV does not reveal the raw count or remainder.",
@@ -253,8 +297,11 @@ export function AccumulatorPrescalePanel({
         controller writes.
       </p>
       <p>
-        Unexported configuration/review stays in panel memory. Import restores
-        only the sealed configuration; it does not reopen a live source.
+        {work
+          ? "Raw configuration stays in this workspace across task changes. Reviews and exports retire when this task or its controller context changes. Reloading the page clears this draft."
+          : "Unexported configuration/review stays in panel memory."}{" "}
+        Import restores only the sealed configuration; it does not reopen a live
+        source.
       </p>
       {nativeReport?.objects
         ?.filter(
@@ -302,14 +349,18 @@ export function AccumulatorPrescalePanel({
             onChange={(e) => {
               ticket.current++;
               setReview(null);
-              setBatches(e.target.value);
+              remember(rawDraft.current.values, e.target.value);
               setBusy(false);
             }}
           />
         </label>
       </div>
       <div className="toolbar">
-        <button disabled={!profile || busy} onClick={() => void run()}>
+        <button
+          className={work ? "primary" : undefined}
+          disabled={!profile || busy}
+          onClick={() => void run()}
+        >
           Review pulse batches
         </button>
         <button disabled={!review} onClick={() => void exportReview("json")}>
