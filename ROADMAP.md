@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-06. Implementation baseline: GitHub `main` at
-[`2bc2a938`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/2bc2a938a56472a3f758b5e983ef42ed03a804ba).
+[`cc8dfc77`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/cc8dfc775c33475d14605b7cc394cfbfd652ff43).
 
 ## Baseline and purpose
 
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 192 scoped criteria: 138
+The public requirement register currently records 193 scoped criteria: 139
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -2318,3 +2318,21 @@ Source/task changes, exact received JSON, existing raw drafts and keyboard/mobil
 layouts retain their original contracts. JCI-01 remains partial overall. This
 extension grants no batch field Apply, general authoring, packages/resources/
 native runtime/CCT validation or physical/Bluetooth acceptance.
+
+## 2026-11-06 JCI-02 / UX-03 / PORT-03 delivery: unfinished typed batch files
+
+[Unfinished native batch files](docs/native-batch-draft-files.md) now preserve
+selected raw Real/Boolean/Enum text with the original capture, full route, native
+files, merge and actual typed field encodings. Strict bounded JSON and complete
+file admission retain unfinished/invalid text without parsing it as a native
+proposal. Explicit replacement refusal and the existing 32-source/16-field limits
+preserve older work without eviction. Monotonic parent/local ownership guards
+file read and actual digest awaits through edits, source/task/disclosure/visibility
+changes and coalesced away-and-back events.
+
+The controls remain inside the existing local batch task. Importing the original
+backup on another computer remains separate; raw text restores no native review,
+plan or field authority. Ordinary single-field drafts, native compilers, transfer
+profiles and styles keep their existing contracts. Batch field deployment, general
+native authoring/packages/resources/runtime and CCT/physical acceptance remain
+separate work.
