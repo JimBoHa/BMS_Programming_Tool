@@ -23,6 +23,8 @@ from .models import StrictModel
 from .native_binary_terminal_ledger import binary_terminal_reference, explicit_binary
 from .native_connection_ledger import connection_reference
 from .native_encoded_analog_ledger import encoded_analog_terminal_reference, explicit_encoded_analog
+from .native_encoded_analog_recovery_ledger import encoded_analog_recovery_reference
+from .native_encoded_analog_recovery_transfer import KEYS as ENCODED_ANALOG_RECOVERY_KEYS
 from .native_input_ledger import input_reference
 from .native_inputs import TERMINAL_PROFILE
 from .native_ledger_details import native_reference, recovery_lineage
@@ -362,10 +364,13 @@ class ChangeLedger:
             label = labels.get(native_kind, "Native application transfer (unsupported operation)")
             selection = body.get("wire_edit" if native_kind == "wire-source" else "default_edit")
             native_metadata = native_reference(native_kind, selection)
-            if native_kind == "input":
+            if native_kind == "input" or ENCODED_ANALOG_RECOVERY_KEYS.intersection(body):
+                encoded_analog = explicit_encoded_analog(body) or bool(
+                    ENCODED_ANALOG_RECOVERY_KEYS.intersection(body)
+                )
                 native_metadata = (
                     encoded_analog_terminal_reference(body)
-                    if explicit_encoded_analog(body)
+                    if encoded_analog
                     else binary_terminal_reference(body)
                     if explicit_binary(body)
                     else terminal_reference(body)
@@ -373,7 +378,11 @@ class ChangeLedger:
                     else input_reference(body)
                 )
                 native_metadata.update(
-                    terminal_recovery_reference(body, native_metadata.get("native_terminal"))
+                    encoded_analog_recovery_reference(
+                        body, native_metadata.get("native_encoded_analog_terminal")
+                    )
+                    if ENCODED_ANALOG_RECOVERY_KEYS.intersection(body)
+                    else terminal_recovery_reference(body, native_metadata.get("native_terminal"))
                 )
             elif native_kind == "connection":
                 native_metadata = connection_reference(body)

@@ -1894,3 +1894,24 @@ Next, present recorded configured analog recovery lineage in Changes/History.
 General restore/compilation, allocation/electrical changes, SA/cross-host movement,
 packages/resources and physical/CCT/BTCVT acceptance remain separate. IO-02/JCI-10
 remain partial. See [configured analog recovery workflow](docs/native-encoded-analog-recovery-workflow.md).
+
+## 2026-11-05 IO-02/JCI-10 delivery: recorded configured analog recovery lineage
+
+`UI-NATIVE-ENCODED-ANALOG-RECOVERY-LEDGER-001` adds historical parent, input,
+terminal-pair and verification references inside existing Changes/History.
+Backend and browser independently bind the closed encoded-analog origin to the
+recorded child and typed terminal evidence; the browser also verifies its original
+Python-compatible seal. Missing, mixed or altered lineage cannot fall back to
+earlier input/recovery metadata or grant parent/tool links.
+
+Original evidence downloads, unknown outcomes, current graph/CAF/controller context
+and the existing graphics remain preserved. Parent search is local and explicit;
+valid input navigation starts fresh selection. Projection performs no source/parent
+lookup, compilation, controller query or write. Recorded provenance never restores
+field authority or silently verifies an uncertain child.
+
+Next, qualify previous-terminal recovery for configured binary inputs, while
+continuing the separate evidence work for broader host-specific reassignment.
+General restore/compilation, allocation/electrical changes, SA/cross-host movement,
+resources/packages and physical/CCT/BTCVT acceptance remain separate. IO-02/JCI-10
+remain partial. See [recorded analog recovery](docs/native-encoded-analog-recovery-ledger.md).
