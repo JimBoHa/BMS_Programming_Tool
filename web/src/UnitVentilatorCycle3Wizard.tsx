@@ -1,3 +1,4 @@
+import { randomUUID } from "./browserCrypto";
 import { useEffect, useRef, useState } from "react";
 import {
   api,
@@ -66,7 +67,7 @@ export function UnitVentilatorCycle3Wizard({
         setCatalog(checked);
         setDraft({
           ...checked.defaults,
-          project_id: "uv_cycle3_" + crypto.randomUUID().replaceAll("-", ""),
+          project_id: "uv_cycle3_" + randomUUID().replaceAll("-", ""),
         });
       })
       .catch((e) => {

@@ -1,3 +1,4 @@
+import { sha256Digest, randomUUID } from "./browserCrypto";
 import { TargetFields } from "./ControllerWorkspace";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -19,9 +20,7 @@ type Diagnostic = {
 const traceProfile = "studio-readproperty-phase-trace/1";
 async function sha256(text: string) {
   return Array.from(
-    new Uint8Array(
-      await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)),
-    ),
+    new Uint8Array(await sha256Digest(new TextEncoder().encode(text))),
     (byte) => byte.toString(16).padStart(2, "0"),
   ).join("");
 }
@@ -202,7 +201,7 @@ export function PointStatusPanel({
     defaultsNow.current === source &&
     formNow.current === draft;
   async function inspect() {
-    const operation = crypto.randomUUID();
+    const operation = randomUUID();
     active.current = operation;
     const ticket = ++selection.current,
       source = defaultsNow.current,

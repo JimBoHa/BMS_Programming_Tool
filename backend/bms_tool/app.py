@@ -20,6 +20,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import AwareDatetime, Field
 
+from . import __version__
 from .accumulator_prescale import PrescaleReviews, prescale_router
 from .activities import activity_router
 from .analysis import dependencies
@@ -78,7 +79,7 @@ from .conversion_preview import conversion_preview
 from .cov_observations import CovObservations
 from .cw_isolation_output_template import cw_isolation_output_template_router
 from .deployment import Runtime
-from .device_details import DeviceDetails, DeviceDetailsRequest
+from .device_details import DeviceDetails, DeviceDetailsRequest, DeviceNameRequest
 from .device_instance import DeviceInstances, device_instance_router
 from .engine import Engine, output_type, run_scenario, validate
 from .enum_mapping import (
@@ -173,6 +174,7 @@ from .native_terminal_labels import terminal_label_router
 from .native_weekly_text import weekly_text_router
 from .native_wire_compiler import EffectiveWireService, effective_wire_router
 from .native_wire_copies import NativeWireCopies, native_wire_router
+from .network_interfaces import ipv4_interfaces
 from .network_number_plan import network_plan_router
 from .niagara import NiagaraArchive
 from .observability import ObservabilityStore
@@ -759,7 +761,7 @@ def create_app(state_dir=None, *, operation_power=None):
                                                     finally:
                                                         native.stop()
 
-    app = FastAPI(title="BMS Studio local API", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="BMS Studio local API", version=__version__, lifespan=lifespan)
     app.state.runtime = runtime
     app.state.store = store
     app.state.bacnet = bacnet
@@ -994,7 +996,7 @@ def create_app(state_dir=None, *, operation_power=None):
     def session():
         return {
             "token": session_token,
-            "version": "0.1.0",
+            "version": __version__,
             "field_network_open": bacnet.status()["connected"],
         }
 
@@ -2018,6 +2020,10 @@ def create_app(state_dir=None, *, operation_power=None):
     def bacnet_ip_scan_profile():
         return ip_discovery.status()
 
+    @app.get("/api/bacnet/interfaces")
+    def bacnet_ipv4_interfaces():
+        return ipv4_interfaces()
+
     @app.post("/api/bacnet/scan-ip")
     async def bacnet_scan_ip(body: IpScanRequest):
         return await ip_discovery.scan(**body.model_dump())
@@ -2031,7 +2037,7 @@ def create_app(state_dir=None, *, operation_power=None):
         return await device_details.read(**body.model_dump())
 
     @app.post("/api/bacnet/device-name")
-    async def bacnet_device_name(body: DeviceDetailsRequest):
+    async def bacnet_device_name(body: DeviceNameRequest):
         return await device_details.read_name(**body.model_dump())
 
     @app.post("/api/bacnet/controller/profile")

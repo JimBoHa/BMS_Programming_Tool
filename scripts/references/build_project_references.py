@@ -608,10 +608,10 @@ add(
     "IO-001",
     "Physical input configuration",
     "Add a real unused sensor terminal and verify reliability/open-circuit on the target.",
-    "User-authorized E2/F2 test",
+    "Authorized field evidence (private)",
     "Read-only NAE and downstream VMA identity/value access through approved Tailscale subnet route",
     "pending",
-    "Authorized read-only checks identified both E2/F2 NAEs and genuine downstream VMAs on four trunks and read values. No controller changes. Native application adapter, exact unused input, verified backup/restoration and physical sensor test remain required; inventories and opaque File copies do not allocate native inputs",
+    "Authorized read-only checks identified selected engines and genuine downstream VMAs through selected routes and read values. No controller changes. Native application adapter, exact unused input, verified backup/restoration and physical sensor test remain required; inventories and opaque File copies do not allocate native inputs",
 )
 add(
     "CODE-001",

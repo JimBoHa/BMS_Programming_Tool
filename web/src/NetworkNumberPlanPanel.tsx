@@ -1,3 +1,4 @@
+import { randomUUID } from "./browserCrypto";
 import { useEffect, useRef, useState } from "react";
 import { api, saveBlob } from "./api";
 import "./network-number-plan.css";
@@ -53,7 +54,7 @@ type Catalog = {
   scope: string;
 };
 const newRecord = (): Assignment => ({
-  id: crypto.randomUUID(),
+  id: randomUUID(),
   label: "Network attachment",
   domain_key: "",
   physical_network_key: null,

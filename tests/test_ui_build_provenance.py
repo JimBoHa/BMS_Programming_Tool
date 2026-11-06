@@ -65,6 +65,9 @@ def built(tmp_path_factory):
     (root / "docs").mkdir()
     for name in portable.PUBLIC_DOCS:
         (root / "docs" / name).write_text("{}")
+    for name in ("LICENSE", "NOTICE"):
+        shutil.copy2(SOURCE / name, root / name)
+    shutil.copytree(SOURCE / "third_party", root / "third_party")
     git(root, "init", "-q")
     git(root, "add", ".")
     git(

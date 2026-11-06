@@ -1,4 +1,8 @@
-# Installable browser distribution
+# Python wheel distribution
+
+For a bundled desktop installer that requires neither Python nor Node.js, use
+the [illustrated getting-started guide](getting-started.md). The instructions
+below describe the alternative Python package and its provenance checks.
 
 Build a wheel containing the Python application, built browser UI and public
 capability/requirements/reference metadata. The receiving computer needs Python
@@ -56,7 +60,7 @@ On the other computer, copy the wheel, create an environment and install it:
 
 ```sh
 python3.13 -m venv .venv
-.venv/bin/python -m pip install /path/to/bms_programming_tool-0.1.0-py3-none-any.whl
+.venv/bin/python -m pip install /path/to/bms_programming_tool-0.2.0b2-py3-none-any.whl
 .venv/bin/python -m bms_tool serve --open-browser
 ```
 

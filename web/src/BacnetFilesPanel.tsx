@@ -1,3 +1,4 @@
+import { sha256Digest } from "./browserCrypto";
 import { TargetFields } from "./ControllerWorkspace";
 import { useEffect, useRef, useState } from "react";
 import { Database, Download, FileSearch, RefreshCw, Save } from "lucide-react";
@@ -215,10 +216,7 @@ export function BacnetFilesPanel({
       if (!current(request)) return;
       const recordMode = capture.access_method === "record-access";
       if (!recordMode) {
-        const hash = await crypto.subtle.digest(
-          "SHA-256",
-          await blob.arrayBuffer(),
-        );
+        const hash = await sha256Digest(await blob.arrayBuffer());
         const actual = Array.from(new Uint8Array(hash), (value) =>
           value.toString(16).padStart(2, "0"),
         ).join("");

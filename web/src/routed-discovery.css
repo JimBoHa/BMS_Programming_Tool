@@ -5,6 +5,17 @@
 .routed-discovery .card-body > p {
   margin: 0;
 }
+.routed-discovery h4 {
+  margin: 0;
+}
+.routed-discovery select:focus {
+  outline: 2px solid #087d80;
+  outline-offset: 3px;
+}
+.computer-network-picker {
+  display: grid;
+  gap: 8px;
+}
 .routed-action {
   display: flex;
   align-items: end;

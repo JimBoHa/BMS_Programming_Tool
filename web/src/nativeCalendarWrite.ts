@@ -1,3 +1,4 @@
+import { sha256Digest } from "./browserCrypto";
 import { CALENDAR_PROFILE, CALENDAR_RULES, ordered } from "./nativeCalendar";
 import { controllerKey, type ControllerTarget } from "./workflow";
 
@@ -285,9 +286,7 @@ export function calendarReconciliation(
 }
 export async function calendarDocumentSha(blob: Blob) {
   return Array.from(
-    new Uint8Array(
-      await crypto.subtle.digest("SHA-256", await blob.arrayBuffer()),
-    ),
+    new Uint8Array(await sha256Digest(await blob.arrayBuffer())),
     (v) => v.toString(16).padStart(2, "0"),
   ).join("");
 }

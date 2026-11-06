@@ -1,3 +1,4 @@
+import { openDiscoveryDetails } from "./discovery-controls";
 import { test, expect } from "@playwright/test";
 import { spawn } from "node:child_process";
 import { createSocket } from "node:dgram";
@@ -103,6 +104,7 @@ test("explicit routed discovery preserves cache uncertainty, bounded wire respon
   page,
   request,
 }) => {
+  test.setTimeout(60000);
   const peer = await rawRouter();
   const headers = {
     "X-Studio-Token": (await (await request.get("/api/session")).json()).token,
@@ -110,7 +112,12 @@ test("explicit routed discovery preserves cache uncertainty, bounded wire respon
   try {
     await request.post("/api/bacnet/disconnect", { headers, data: {} });
     await page.goto("/");
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
+    await page
+      .getByRole("button", { name: /^Connect to a controller/ })
+      .click();
+    await page
+      .getByText("Advanced connection settings", { exact: true })
+      .click();
     await page
       .getByLabel("Local bind address / UDP port", { exact: true })
       .fill(`127.0.0.1:${await freePort()}`);
@@ -131,6 +138,7 @@ test("explicit routed discovery preserves cache uncertainty, bounded wire respon
       name: "Routed BACnet discovery",
       exact: true,
     });
+    await openDiscoveryDetails(panel, "Enter an engine IP address instead");
     await panel
       .getByLabel("Discovery router address", { exact: true })
       .fill(peer.endpoint);
@@ -140,6 +148,7 @@ test("explicit routed discovery preserves cache uncertainty, bounded wire respon
     await expect(
       panel.getByLabel("Discovery router address", { exact: true }),
     ).toBeDisabled();
+    await openDiscoveryDetails(panel, "Network advertisement evidence");
     const networks = panel.getByRole("region", {
       name: "Router network response",
       exact: true,
@@ -158,6 +167,10 @@ test("explicit routed discovery preserves cache uncertainty, bounded wire respon
     ).toBeVisible();
     await expect(networks).toContainText("not a complete inventory");
 
+    await openDiscoveryDetails(
+      panel,
+      "Router identity and cached address evidence",
+    );
     await panel
       .getByLabel("Discovery router device instance", { exact: true })
       .fill("505");
@@ -197,18 +210,20 @@ test("explicit routed discovery preserves cache uncertainty, bounded wire respon
     await cache
       .getByRole("button", { name: "Select cached network 2105", exact: true })
       .click();
+    await openDiscoveryDetails(panel, "Advanced scan settings");
     await panel
       .getByLabel("Routed minimum device instance", { exact: true })
       .fill("132079");
     await panel
       .getByLabel("Routed maximum device instance", { exact: true })
       .fill("132080");
+    await openDiscoveryDetails(panel, "Advanced scan settings");
     await panel
       .getByLabel("Routed response window seconds", { exact: true })
       .fill("1");
     await panel
       .getByRole("button", {
-        name: "Scan selected routed network",
+        name: "Scan controllers",
         exact: true,
       })
       .click();
@@ -241,46 +256,14 @@ test("explicit routed discovery preserves cache uncertainty, bounded wire respon
     expect(archive.report_sha256).toBe(
       createHash("sha256").update(JSON.stringify(archive.report)).digest("hex"),
     );
-    await report
-      .getByRole("button", { name: "Use routed device 2105:79", exact: true })
-      .click();
-    await expect(
-      page.getByLabel("Router IP (optional)", { exact: true }),
-    ).toHaveValue(peer.endpoint);
-    await expect(
-      page.getByLabel("MS/TP destination network (optional)", { exact: true }),
-    ).toHaveValue("2105");
-    await expect(
-      page.getByLabel("Unicast target", { exact: true }),
-    ).toHaveValue("2105:79");
-    await expect(
-      page.getByRole("button", { name: "Read property", exact: true }),
-    ).toBeDisabled();
-    await page
-      .getByRole("button", { name: "Open interface", exact: true })
-      .click();
-    await expect(
-      page.getByRole("button", { name: "Read property", exact: true }),
-    ).toBeEnabled();
-    await page
-      .getByLabel("Object identifier", { exact: true })
-      .fill("analog-input,1");
-    await page.getByLabel("Property", { exact: true }).fill("present-value");
-    await page
-      .getByRole("button", { name: "Read property", exact: true })
-      .click();
-    await expect(
-      page
-        .locator("pre.result")
-        .filter({ hasText: '"property": "present-value"' }),
-    ).toContainText('"value": 12.5');
-
+    // Identity rejection must not be bypassed to enter point operations. This
+    // discovery-only peer intentionally rejects the controller identity read.
     await panel
       .getByLabel("Routed device result limit", { exact: true })
       .fill("1");
     await panel
       .getByRole("button", {
-        name: "Scan selected routed network",
+        name: "Scan controllers",
         exact: true,
       })
       .click();
@@ -291,7 +274,7 @@ test("explicit routed discovery preserves cache uncertainty, bounded wire respon
       .fill("2205");
     await panel
       .getByRole("button", {
-        name: "Scan selected routed network",
+        name: "Scan controllers",
         exact: true,
       })
       .click();
@@ -301,6 +284,22 @@ test("explicit routed discovery preserves cache uncertainty, bounded wire respon
       "Last reply none within the response window",
     );
     await expect(report.locator("tbody tr")).toHaveCount(0);
+    await panel
+      .getByLabel("Routed destination network", { exact: true })
+      .fill("2105");
+    await panel
+      .getByRole("button", { name: "Scan controllers", exact: true })
+      .click();
+    await expect(report.locator("tbody tr")).toHaveCount(1);
+    await report
+      .getByRole("button", { name: "Open 2105:79", exact: true })
+      .click();
+    await expect(page.getByRole("alert")).toContainText(
+      "Controller identity could not be verified",
+    );
+    await expect(
+      page.getByRole("region", { name: "Controller overview", exact: true }),
+    ).toHaveCount(0);
   } finally {
     await request.post("/api/bacnet/disconnect", { headers, data: {} });
     await peer.close();

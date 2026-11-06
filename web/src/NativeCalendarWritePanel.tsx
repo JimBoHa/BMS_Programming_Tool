@@ -1,3 +1,4 @@
+import { randomUUID } from "./browserCrypto";
 import { useEffect, useRef, useState } from "react";
 import {
   api,
@@ -155,7 +156,7 @@ export function NativeCalendarWritePanel({
   ) {
     if (!connected || own.current) return;
     const op: Owned = {
-      id: `calendar_${kind}_${crypto.randomUUID()}`,
+      id: `calendar_${kind}_${randomUUID()}`,
       key: authorityNow.current,
       epoch: epoch.current,
       kind,

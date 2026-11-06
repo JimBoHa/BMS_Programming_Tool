@@ -1,3 +1,5 @@
+import { randomUUID } from "./browserCrypto";
+import { version as appVersion } from "../package.json";
 import {
   parseSourceDocument,
   sourceStringify,
@@ -957,7 +959,7 @@ export function App() {
       busy.current = true;
       setSimBusy(true);
       const epoch = simulationEpoch.current;
-      const operation = crypto.randomUUID().replaceAll("-", "");
+      const operation = randomUUID().replaceAll("-", "");
       const expectedSession = session.current;
       let provedReceipt = false;
       try {
@@ -1240,7 +1242,7 @@ export function App() {
       }
     }
     const n: BmsNode = {
-      id: b.kind.toLowerCase() + "_" + crypto.randomUUID().replaceAll("-", ""),
+      id: b.kind.toLowerCase() + "_" + randomUUID().replaceAll("-", ""),
       kind: b.kind,
       label: b.title,
       x: x ?? 100 + (program.nodes.length % 4) * 240,
@@ -1349,10 +1351,7 @@ export function App() {
       return;
     }
     const ids = Object.fromEntries(
-      clip.nodes.map((n) => [
-        n.id,
-        "copy_" + crypto.randomUUID().replaceAll("-", ""),
-      ]),
+      clip.nodes.map((n) => [n.id, "copy_" + randomUUID().replaceAll("-", "")]),
     );
     const nodes = clip.nodes.map((n) => ({
       ...cloneSource(n),
@@ -1363,7 +1362,7 @@ export function App() {
     }));
     const edges = clip.edges.map((e) => ({
       ...e,
-      id: "wire_" + crypto.randomUUID(),
+      id: "wire_" + randomUUID(),
       source: ids[e.source],
       target: ids[e.target],
     }));
@@ -1392,7 +1391,7 @@ export function App() {
       edges: [
         ...program.edges,
         {
-          id: "wire_" + crypto.randomUUID(),
+          id: "wire_" + randomUUID(),
           source: c.source,
           target: c.target,
           source_port: c.sourceHandle || "out",
@@ -1668,7 +1667,7 @@ export function App() {
       setCafView("changes");
       setTab("caf");
       setArea("changes");
-      if (!cafDocument.structuralDirty) setCafSaveRequest(crypto.randomUUID());
+      if (!cafDocument.structuralDirty) setCafSaveRequest(randomUUID());
     } else void save();
   }
   const source =
@@ -1843,7 +1842,7 @@ export function App() {
           const file = event.target.files?.[0];
           event.target.value = "";
           if (file) {
-            setIncomingCaf({ id: crypto.randomUUID(), file });
+            setIncomingCaf({ id: randomUUID(), file });
             setCafView("objects");
             setTab("caf");
           }
@@ -2714,7 +2713,7 @@ export function App() {
             Saved {lastSaved.name} · r{lastSaved.revision}
           </span>
         )}
-        <span>BMS Studio 0.1 · Development build</span>
+        <span>BMS Studio {appVersion} · Beta</span>
       </footer>
       {message && (
         <div className="toast" role="status">

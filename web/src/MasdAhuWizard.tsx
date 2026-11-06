@@ -1,3 +1,4 @@
+import { randomUUID } from "./browserCrypto";
 import { useEffect, useRef, useState } from "react";
 import { api, apiJsonDocument, saveBlob, sourceApi } from "./api";
 import {
@@ -61,7 +62,7 @@ export function MasdAhuWizard({
         setCatalog(checked);
         setDraft({
           ...checked.defaults,
-          project_id: "ahu_" + crypto.randomUUID().replaceAll("-", ""),
+          project_id: "ahu_" + randomUUID().replaceAll("-", ""),
         });
       })
       .catch((e) => {

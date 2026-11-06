@@ -1,3 +1,4 @@
+import { randomUUID } from "./browserCrypto";
 import { TargetFields } from "./ControllerWorkspace";
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
@@ -157,7 +158,7 @@ export function ScheduleInventoryPanel({
     defaultsNow.current === source &&
     formNow.current === draft;
   async function read() {
-    const operation = crypto.randomUUID();
+    const operation = randomUUID();
     active.current = operation;
     const ticket = ++selection.current,
       source = defaultsNow.current,

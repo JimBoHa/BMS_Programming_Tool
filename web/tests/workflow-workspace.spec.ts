@@ -1,3 +1,4 @@
+import { openDiscoveryDetails } from "./discovery-controls";
 import {
   test,
   expect,
@@ -38,7 +39,7 @@ async function connect(page: Page) {
     .getByRole("button", { name: "Open interface", exact: true })
     .click();
   await expect(
-    page.getByRole("button", { name: "Find local routers", exact: true }),
+    page.getByRole("button", { name: "Find NAEs & routers", exact: true }),
   ).toBeEnabled();
 }
 async function fillKnown(page: Page, endpoint: string, mac = 8) {
@@ -79,6 +80,7 @@ async function scanRouter(page: Page, endpoint: string) {
     name: "Routed BACnet discovery",
     exact: true,
   });
+  await openDiscoveryDetails(guide, "Enter an engine IP address instead");
   await guide
     .getByLabel("Discovery router address", { exact: true })
     .fill(endpoint);
@@ -88,11 +90,12 @@ async function scanRouter(page: Page, endpoint: string) {
   await guide
     .getByLabel("Commissioning trunk", { exact: true })
     .selectOption("3001");
+  await openDiscoveryDetails(guide, "Advanced scan settings");
   await guide
     .getByLabel("Routed response window seconds", { exact: true })
     .fill("1");
   await guide
-    .getByRole("button", { name: "Scan selected routed network", exact: true })
+    .getByRole("button", { name: "Scan controllers", exact: true })
     .click();
   return guide;
 }
@@ -123,10 +126,10 @@ test("scan names are primary, searchable and read for every device beyond the fi
       guide.getByLabel("Commissioning controller").locator("option"),
     ).toHaveCount(25);
     await expect(guide.getByLabel("Commissioning controller")).toContainText(
-      "TB-3-201 · 3001:7 · device,5136",
+      "Example VAV-01 · 3001:7 · device,5136",
     );
     await expect(guide.getByLabel("Commissioning controller")).toContainText(
-      "HP-3A · 3001:8 · device,5136",
+      "Example HP-01 · 3001:8 · device,5136",
     );
     await expect(guide.getByLabel("Commissioning controller")).toContainText(
       "Authored 3001 MAC 30",
@@ -141,9 +144,9 @@ test("scan names are primary, searchable and read for every device beyond the fi
       ),
     ).toBe(true);
     expect(details).toEqual([]);
-    await guide.getByLabel("Find scanned controller").fill("HP-3A");
+    await guide.getByLabel("Find scanned controller").fill("Example HP-01");
     await expect(
-      guide.getByRole("cell", { name: "HP-3A", exact: true }),
+      guide.getByRole("cell", { name: "Example HP-01", exact: true }),
     ).toHaveCount(1);
     await expect(
       guide.getByLabel("Commissioning controller").locator("option"),
@@ -161,7 +164,7 @@ test("scan names are primary, searchable and read for every device beyond the fi
     expect(report.device_names).toHaveLength(24);
     expect(
       report.device_names.find((row: any) => row.address === "3001:8").name,
-    ).toBe("HP-3A");
+    ).toBe("Example HP-01");
     await guide
       .getByLabel("Commissioning controller")
       .selectOption(JSON.stringify(["3001:8", "device,5136"]));
@@ -170,7 +173,7 @@ test("scan names are primary, searchable and read for every device beyond the fi
       .click();
     await expect(
       page.getByRole("region", { name: "Controller overview" }),
-    ).toContainText("HP-3A");
+    ).toContainText("Example HP-01");
     expect(router.writes).toEqual([]);
     expect(router.errors).toEqual([]);
   } finally {
@@ -205,7 +208,7 @@ test("a late name from another trunk cannot relabel the current scan", async ({
       .selectOption("3002");
     await guide
       .getByRole("button", {
-        name: "Scan selected routed network",
+        name: "Scan controllers",
         exact: true,
       })
       .click();
@@ -219,7 +222,7 @@ test("a late name from another trunk cannot relabel the current scan", async ({
     );
     await expect(
       guide.getByLabel("Commissioning controller"),
-    ).not.toContainText("TB-3-201");
+    ).not.toContainText("Example VAV-01");
     await expect(guide.getByLabel("Controller name lookup")).toContainText(
       "2 of 2 controller names read.",
     );
@@ -265,7 +268,7 @@ test("unavailable scan names remain explicit and can be retried", async ({
       "2 of 2 controller names read.",
     );
     await expect(guide.getByLabel("Commissioning controller")).toContainText(
-      "HP-3A",
+      "Example HP-01",
     );
     expect(router.writes).toEqual([]);
   } finally {
@@ -291,6 +294,7 @@ test("a router without network advertisements supplies cached choices that requi
       name: "Routed BACnet discovery",
       exact: true,
     });
+    await openDiscoveryDetails(guide, "Enter an engine IP address instead");
     await guide
       .getByLabel("Discovery router address", { exact: true })
       .fill(router.endpoint);
@@ -316,12 +320,13 @@ test("a router without network advertisements supplies cached choices that requi
     await guide
       .getByLabel("Commissioning trunk", { exact: true })
       .selectOption("2105");
+    await openDiscoveryDetails(guide, "Advanced scan settings");
     await guide
       .getByLabel("Routed response window seconds", { exact: true })
       .fill("1");
     await guide
       .getByRole("button", {
-        name: "Scan selected routed network",
+        name: "Scan controllers",
         exact: true,
       })
       .click();
@@ -365,6 +370,7 @@ test("a late cached-network read cannot refill the selector after leaving discov
       name: "Routed BACnet discovery",
       exact: true,
     });
+    await openDiscoveryDetails(guide, "Enter an engine IP address instead");
     await guide
       .getByLabel("Discovery router address", { exact: true })
       .fill(router.endpoint);
@@ -644,7 +650,7 @@ test("router → native trunks → scan → verified workspace → instance revi
       exact: true,
     });
     await guide
-      .getByRole("button", { name: "Find local routers", exact: true })
+      .getByRole("button", { name: "Find NAEs & routers", exact: true })
       .click();
     await guide
       .getByLabel("Commissioning router", { exact: true })
@@ -655,12 +661,13 @@ test("router → native trunks → scan → verified workspace → instance revi
     await guide
       .getByLabel("Commissioning trunk", { exact: true })
       .selectOption("3001");
+    await openDiscoveryDetails(guide, "Advanced scan settings");
     await guide
       .getByLabel("Routed response window seconds", { exact: true })
       .fill("1");
     await guide
       .getByRole("button", {
-        name: "Scan selected routed network",
+        name: "Scan controllers",
         exact: true,
       })
       .click();

@@ -1,3 +1,4 @@
+import { sha256Digest } from "./browserCrypto";
 export type PowerLease = {
   id: string;
   operation: "temco-native-apply";
@@ -61,9 +62,7 @@ const rowKeys = [
 ];
 export async function powerBlobSha256(blob: Blob) {
   return Array.from(
-    new Uint8Array(
-      await crypto.subtle.digest("SHA-256", await blob.arrayBuffer()),
-    ),
+    new Uint8Array(await sha256Digest(await blob.arrayBuffer())),
     (n) => n.toString(16).padStart(2, "0"),
   ).join("");
 }

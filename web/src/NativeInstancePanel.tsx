@@ -1,3 +1,4 @@
+import { randomUUID } from "./browserCrypto";
 import { useEffect, useId, useRef, useState } from "react";
 import { NativeRuntimeCalibration } from "./NativeRuntimeCalibration";
 import { NativeRuntimeParametersNotice } from "./NativeRuntimeParametersNotice";
@@ -515,7 +516,7 @@ export function NativeInstancePanel(
       generation.current++;
       setLocalBusy(false);
     }
-    const id = "native-" + crypto.randomUUID(),
+    const id = "native-" + randomUUID(),
       epoch = generation.current,
       receiptGeneration = ++receiptEpoch.current;
     operation.current = id;

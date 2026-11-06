@@ -1,3 +1,4 @@
+import { randomUUID } from "./browserCrypto";
 import { useContext, useEffect, useRef, useState } from "react";
 import { api, apiJsonDocument, apiKeepalive, saveBlob } from "./api";
 import { NativeBooleanTransferContext } from "./NativeBooleanTransferContext";
@@ -52,7 +53,7 @@ export function NativeMatchingConnectionTransfer({
   onOwnedBusy: (value: boolean) => void;
 }) {
   const context = useContext(NativeBooleanTransferContext);
-  const busyOwner = useRef("matching-connection-" + crypto.randomUUID());
+  const busyOwner = useRef("matching-connection-" + randomUUID());
   const [busy, setBusy] = useState(false),
     [status, setStatus] = useState<Data | null>(null);
   const [backup, setBackup] = useState(""),
@@ -265,7 +266,7 @@ export function NativeMatchingConnectionTransfer({
     const selectedPlan = shown,
       selectedReceipt = receipt;
     const operation: Operation = {
-      id: "matching-connection-" + crypto.randomUUID(),
+      id: "matching-connection-" + randomUUID(),
       kind,
       owner: ownerNow.current,
       epoch: epoch.current,

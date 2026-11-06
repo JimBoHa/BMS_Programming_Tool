@@ -1,3 +1,4 @@
+import { sha256Digest } from "./browserCrypto";
 import { parseSourceJSON, isSourceNumber, sourceEqual } from "./programSource";
 import { ordered } from "./nativeCalendar";
 import {
@@ -152,9 +153,7 @@ export function identityDraftBlob(key: string, work: NativeIdentityWork) {
 }
 export async function identityTextSha(blob: Blob) {
   return Array.from(
-    new Uint8Array(
-      await crypto.subtle.digest("SHA-256", await blob.arrayBuffer()),
-    ),
+    new Uint8Array(await sha256Digest(await blob.arrayBuffer())),
   )
     .map((v) => v.toString(16).padStart(2, "0"))
     .join("");

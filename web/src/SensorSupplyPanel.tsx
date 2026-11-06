@@ -1,3 +1,4 @@
+import { randomUUID } from "./browserCrypto";
 import { useEffect, useRef, useState } from "react";
 import { api, saveBlob } from "./api";
 import "./sensor-supply.css";
@@ -12,7 +13,7 @@ const blankDomain = () => ({
   startup: blankDemand(),
 });
 const blankRail = () => ({
-  id: crypto.randomUUID(),
+  id: randomUUID(),
   name: "External supply",
   unit_id: "Supply 1",
   profile_id: null,
@@ -30,7 +31,7 @@ const blankRail = () => ({
   notes: "",
 });
 const blankLoad = () => ({
-  id: crypto.randomUUID(),
+  id: randomUUID(),
   name: "Sensor or existing load",
   rail_id: "",
   terminal_id: "",

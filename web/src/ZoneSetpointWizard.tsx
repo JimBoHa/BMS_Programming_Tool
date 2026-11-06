@@ -1,3 +1,4 @@
+import { randomUUID } from "./browserCrypto";
 import { useEffect, useRef, useState } from "react";
 import { api, apiJsonDocument, saveBlob, sourceApi } from "./api";
 import {
@@ -60,7 +61,7 @@ export function ZoneSetpointWizard({
         setCatalog(checked);
         setDraft({
           ...checked.defaults,
-          project_id: "zone_sp_" + crypto.randomUUID().replaceAll("-", ""),
+          project_id: "zone_sp_" + randomUUID().replaceAll("-", ""),
         });
       })
       .catch((e) => {

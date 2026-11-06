@@ -1,3 +1,4 @@
+import { sha256Digest } from "./browserCrypto";
 /** Portable original files are historical evidence, never renewed field authority. */
 export const nativeBackupImportProfile = "native-backup-import/1";
 export const nativeBackupImportLimit = 8 * 1024 * 1024;
@@ -90,9 +91,7 @@ export async function nativeArchiveHash(file: File) {
       "Choose an original native backup ZIP between 1 byte and 8 MiB with a bounded filename.",
     );
   return Array.from(
-    new Uint8Array(
-      await crypto.subtle.digest("SHA-256", await file.arrayBuffer()),
-    ),
+    new Uint8Array(await sha256Digest(await file.arrayBuffer())),
     (value) => value.toString(16).padStart(2, "0"),
   ).join("");
 }

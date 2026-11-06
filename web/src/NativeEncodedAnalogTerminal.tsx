@@ -1,3 +1,4 @@
+import { sha256Digest, randomUUID } from "./browserCrypto";
 import { useEffect, useRef, useState } from "react";
 import {
   api,
@@ -196,7 +197,7 @@ export function NativeEncodedAnalogTerminal({
     if (kind !== "apply" && kind !== "save") retire();
     const owner = context,
       ticket = ++epoch.current,
-      operation_id = crypto.randomUUID();
+      operation_id = randomUUID();
     pendingRef.current = ticket;
     setBusy(true);
     const fieldOperation = ["field", "apply", "readback"].includes(kind);
@@ -288,10 +289,7 @@ export function NativeEncodedAnalogTerminal({
         });
         const digest = [
           ...new Uint8Array(
-            await crypto.subtle.digest(
-              "SHA-256",
-              await document.blob.arrayBuffer(),
-            ),
+            await sha256Digest(await document.blob.arrayBuffer()),
           ),
         ]
           .map((n) => n.toString(16).padStart(2, "0"))

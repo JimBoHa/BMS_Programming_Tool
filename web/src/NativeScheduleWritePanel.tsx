@@ -1,3 +1,4 @@
+import { sha256Digest, randomUUID } from "./browserCrypto";
 import { useEffect, useRef, useState } from "react";
 import {
   api,
@@ -256,9 +257,7 @@ function nativeEnum(value: any) {
 }
 async function sha(blob: Blob) {
   return Array.from(
-    new Uint8Array(
-      await crypto.subtle.digest("SHA-256", await blob.arrayBuffer()),
-    ),
+    new Uint8Array(await sha256Digest(await blob.arrayBuffer())),
     (v) => v.toString(16).padStart(2, "0"),
   ).join("");
 }
@@ -409,7 +408,7 @@ export function NativeScheduleWritePanel({
   ) {
     if (own.current) return;
     const operation: Owned = {
-      id: `${kind}_${crypto.randomUUID().replaceAll("-", "")}`,
+      id: `${kind}_${randomUUID().replaceAll("-", "")}`,
       kind,
       key: authorityNow.current,
       retired: false,

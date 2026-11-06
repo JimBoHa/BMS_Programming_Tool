@@ -1,3 +1,4 @@
+import { randomUUID } from "./browserCrypto";
 import { TargetFields } from "./ControllerWorkspace";
 import { useEffect, useRef, useState } from "react";
 import { api, saveBlob } from "./api";
@@ -136,7 +137,7 @@ export function BacnetEventsPanel({
         );
       if (resume && !report?.next_cursor)
         throw new Error("No unused continuation cursor is available.");
-      identifier = crypto.randomUUID().replaceAll("-", "");
+      identifier = randomUUID().replaceAll("-", "");
       operation.current = identifier;
       setBusy(true);
       setSelected(null);

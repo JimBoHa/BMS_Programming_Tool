@@ -1,3 +1,4 @@
+import { openDiscoveryDetails } from "./discovery-controls";
 import { test, expect, type Page, type Locator } from "@playwright/test";
 import { spawn, execFileSync } from "node:child_process";
 import { createSocket } from "node:dgram";
@@ -237,30 +238,34 @@ test("Scan receives real IP/routed identities, reads actual names and Program ob
     ).toBeEnabled();
     await page
       .getByRole("navigation", { name: "Discovery method" })
-      .getByRole("button", { name: "Router & trunk", exact: true })
+      .getByRole("button", { name: "NAE / router & trunk", exact: true })
       .click();
     const routed = page.getByRole("region", {
       name: "Routed BACnet discovery",
       exact: true,
     });
+    await openDiscoveryDetails(routed, "Enter an engine IP address instead");
     await routed
       .getByLabel("Discovery router address", { exact: true })
       .fill(peer.router);
+    await openDiscoveryDetails(routed, "Advanced scan settings");
     await routed
       .getByLabel("Routed destination network", { exact: true })
       .fill("3001");
+    await openDiscoveryDetails(routed, "Advanced scan settings");
     await routed
       .getByLabel("Routed minimum device instance", { exact: true })
       .fill("4190090");
     await routed
       .getByLabel("Routed maximum device instance", { exact: true })
       .fill("4190090");
+    await openDiscoveryDetails(routed, "Advanced scan settings");
     await routed
       .getByLabel("Routed response window seconds", { exact: true })
       .fill("1");
     await routed
       .getByRole("button", {
-        name: "Scan selected routed network",
+        name: "Scan controllers",
         exact: true,
       })
       .click();

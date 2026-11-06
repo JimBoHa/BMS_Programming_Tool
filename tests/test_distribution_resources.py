@@ -122,6 +122,18 @@ def test_built_wheel_installs_and_serves_without_source_checkout(tmp_path):
     with zipfile.ZipFile(wheel) as archive:
         names = archive.namelist()
         assert "bms_tool/web_assets/index.html" in names
+        assert not any(n.endswith(".map") for n in names)
+        assert "bms_tool/data/legal/NOTICE" in names
+        assert "bms_tool/data/legal/third_party/web-NOTICES.txt" in names
+        for notice in (
+            "NOTICE",
+            "third_party/OCT-LICENSE.txt",
+            "third_party/Sedona-LICENSE.md",
+            "third_party/Temco-T3000-LICENSE.txt",
+            "third_party/pybog-LICENSE.txt",
+            "third_party/web-NOTICES.txt",
+        ):
+            assert any(n.endswith(".dist-info/licenses/" + notice) for n in names)
         assert all(".state/" not in n and "Manual_Library" not in n for n in names)
         manifest = json.loads(archive.read("bms_tool/data/distribution.json"))
         assert re.fullmatch(r"[0-9a-f]{40}", manifest["source_commit"])

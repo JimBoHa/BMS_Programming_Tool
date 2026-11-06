@@ -1,3 +1,4 @@
+import { randomUUID } from "./browserCrypto";
 import { useEffect, useRef, useState } from "react";
 import {
   api,
@@ -157,7 +158,7 @@ export function NativeExceptionWritePanel({
   ) {
     if (!connected || own.current) return;
     const op: Owned = {
-      id: `exception_${kind}_${crypto.randomUUID()}`,
+      id: `exception_${kind}_${randomUUID()}`,
       key: authorityNow.current,
       epoch: epoch.current,
       kind,

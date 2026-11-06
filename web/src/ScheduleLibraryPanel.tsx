@@ -1,3 +1,4 @@
+import { sha256Digest } from "./browserCrypto";
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { api, apiJsonDocument, saveBlob } from "./api";
 import { NativeScheduleWritePanel } from "./NativeScheduleWritePanel";
@@ -735,12 +736,7 @@ export function ScheduleLibraryPanel({
           throw new Error("Exported review has a different identity.");
       } else if (kind === "source") {
         const sha = Array.from(
-          new Uint8Array(
-            await crypto.subtle.digest(
-              "SHA-256",
-              await response.blob.arrayBuffer(),
-            ),
-          ),
+          new Uint8Array(await sha256Digest(await response.blob.arrayBuffer())),
           (value) => value.toString(16).padStart(2, "0"),
         ).join("");
         if (sha !== capture.source_sha256)

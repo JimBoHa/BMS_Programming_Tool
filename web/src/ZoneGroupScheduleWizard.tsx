@@ -1,3 +1,4 @@
+import { randomUUID } from "./browserCrypto";
 import { useEffect, useRef, useState } from "react";
 import { api, apiJsonDocument, sourceApi, saveBlob } from "./api";
 import { sourceEqual, sourceStringify } from "./programSource";
@@ -256,7 +257,7 @@ export function ZoneGroupScheduleWizard({
         setCatalog(checked);
         setDraft({
           ...checked.defaults,
-          project_id: "schedule_" + crypto.randomUUID().replaceAll("-", ""),
+          project_id: "schedule_" + randomUUID().replaceAll("-", ""),
         });
       })
       .catch((e) => {
