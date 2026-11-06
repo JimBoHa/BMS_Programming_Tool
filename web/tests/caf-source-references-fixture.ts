@@ -2,44 +2,12 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Locator, Page } from "@playwright/test";
-export { chooseFile } from "./caf-native-fixture";
-import { panel } from "./caf-native-fixture";
+export {
+  chooseFile,
+  compatibility,
+  enterCafComparison,
+} from "./caf-native-fixture";
 const root = fileURLToPath(new URL("../..", import.meta.url));
-
-export async function compatibility(page: Page) {
-  await page
-    .getByRole("navigation", { name: "CAF application tasks", exact: true })
-    .waitFor({ state: "visible" });
-  const compact = page.getByRole("combobox", {
-    name: "CAF application tasks",
-    exact: true,
-  });
-  if (await compact.count())
-    await compact.selectOption({ label: "Compatibility" });
-  else
-    await page
-      .getByRole("navigation", { name: "CAF application tasks", exact: true })
-      .getByRole("button", { name: "Compatibility", exact: true })
-      .click();
-  const result = panel(page),
-    disclosure = result.locator(":scope > details");
-  if ((await disclosure.getAttribute("open")) === null)
-    await disclosure.locator(":scope > summary").click();
-  return result;
-}
-export async function enterCafComparison(page: Page, encoded: string) {
-  await page.goto("/");
-  const choosing = page.waitForEvent("filechooser");
-  await page.getByRole("button", { name: /^Open a CAF file/ }).click();
-  await (
-    await choosing
-  ).setFiles({
-    name: "authored.caf",
-    mimeType: "application/octet-stream",
-    buffer: Buffer.from(encoded, "base64"),
-  });
-  return compatibility(page);
-}
 
 export function pythonReference(code: string, ...args: string[]) {
   return execFileSync(
