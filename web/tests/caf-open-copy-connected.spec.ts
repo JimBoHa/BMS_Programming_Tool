@@ -28,9 +28,16 @@ for (const kind of ["float", "short", "interface-retired"])
       await page
         .getByRole("button", { name: /^Connect to a controller/ })
         .click();
-      await page
-        .getByLabel("Local bind address / UDP port", { exact: true })
-        .fill(`127.0.0.1:${await freePort()}`);
+      const bind = page.getByLabel("Local bind address / UDP port", {
+          exact: true,
+        }),
+        address = `127.0.0.1:${await freePort()}`;
+      // Claim the existing focused-draft guard before fill selects/replaces text;
+      // an initial computer-network suggestion may otherwise race that action.
+      await bind.focus();
+      await expect(bind).toBeFocused();
+      await bind.fill(address);
+      await expect(bind).toHaveValue(address);
       await page
         .getByRole("button", { name: "Open interface", exact: true })
         .click();
