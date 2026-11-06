@@ -6,6 +6,11 @@ import type { CafCreationHint, OpenCafCopy } from "./cafCreatedCopy";
 import { CafConstantTools } from "./CafConstantTools";
 import { constantDraftDirty, type ConstantDrafts } from "./cafConstantContract";
 import type { WiringProposal } from "./cafLogic";
+import { CafWiringDraftRecovery } from "./CafWiringDraftRecovery";
+import {
+  wiringSelection,
+  type WiringSelection,
+} from "./cafWiringDraftContract";
 import { CafCombinedCopy } from "./CafCombinedCopy";
 import type {
   ScalarRow,
@@ -334,8 +339,12 @@ export function CafGraphPanel({
       target_ref: connectionTarget.ref,
       old_connection_count: diagram.connections.length,
     };
+  const incompleteConnection =
+    !connectionTuple && !!(connectionSourceRef || connectionTargetRef);
+  const recoveryExportRevision = exportRequest.current;
   const dirty = Boolean(
-    (rewireKey && !savedProposals.current.has(rewireKey)) ||
+    incompleteConnection ||
+      (rewireKey && !savedProposals.current.has(rewireKey)) ||
       (connectionKey && !savedProposals.current.has(connectionKey)),
   );
   const structuralDirty =
@@ -1057,6 +1066,113 @@ export function CafGraphPanel({
                     unverified. The new connection is a separate CAF export.
                   </p>
                 </details>
+              )}
+              {wire && (
+                <CafWiringDraftRecovery
+                  id={id}
+                  diagram={diagram}
+                  selection={{
+                    diagram_ref: diagram.ref,
+                    wire_index: wire.index,
+                    connection_count: diagram.connections.length,
+                    old: wire.raw,
+                    rewire_source_ref: sourceRef,
+                    connection_source_ref: connectionSourceRef,
+                    connection_target_ref: connectionTargetRef,
+                  }}
+                  context={JSON.stringify([id, diagram.ref, sourceGeneration])}
+                  retireKey={JSON.stringify([
+                    combinedRevision,
+                    recoveryExportRevision,
+                    refresh,
+                    reviewContext,
+                  ])}
+                  disabled={
+                    disabled ||
+                    exporting ||
+                    removalBusy ||
+                    combinedBusy ||
+                    removalDirty ||
+                    [...constantDrafts.values()].some(
+                      (d) => d.archive === id && constantDraftDirty(d),
+                    )
+                  }
+                  surfaceOpen={advancedOpen}
+                  sourceCurrent={() =>
+                    sourceCurrent() &&
+                    combinedRevisionNow.current === combinedRevision &&
+                    exportRequest.current === recoveryExportRevision
+                  }
+                  onRestore={(snapshot: WiringSelection) => {
+                    if (
+                      disabled ||
+                      exporting ||
+                      removalBusyNow.current ||
+                      combinedBusyNow.current ||
+                      removalDirty ||
+                      [...constantDrafts.values()].some(
+                        (d) => d.archive === id && constantDraftDirty(d),
+                      ) ||
+                      !sourceCurrent() ||
+                      combinedRevisionNow.current !== combinedRevision ||
+                      exportRequest.current !== recoveryExportRevision ||
+                      !wiringSelection(snapshot, diagram)
+                    )
+                      return false;
+                    const selected = diagram.connections[snapshot.wire_index];
+                    const nextSource = diagram.blocks.find(
+                      (b) => b.ref === snapshot.rewire_source_ref,
+                    );
+                    const nextConnectionSource = diagram.blocks.find(
+                      (b) =>
+                        b.ref ===
+                        (snapshot.connection_source_ref || selected.source_ref),
+                    );
+                    const nextTarget = diagram.blocks.find(
+                      (b) => b.ref === snapshot.connection_target_ref,
+                    );
+                    if (nextSource)
+                      savedProposals.current.delete(
+                        JSON.stringify([
+                          "rewire",
+                          id,
+                          diagram.ref,
+                          snapshot.wire_index,
+                          [nextSource.index, ...selected.raw.slice(1)],
+                        ]),
+                      );
+                    if (nextConnectionSource && nextTarget)
+                      savedProposals.current.delete(
+                        JSON.stringify([
+                          "connect",
+                          id,
+                          diagram.ref,
+                          snapshot.wire_index,
+                          [
+                            nextConnectionSource.index,
+                            selected.source_port,
+                            nextTarget.index,
+                            selected.target_port,
+                          ],
+                        ]),
+                      );
+                    retireCombined();
+                    exportRequest.current++;
+                    setWireIndex(snapshot.wire_index);
+                    setSourceRef(snapshot.rewire_source_ref);
+                    setConnectionSourceRef(snapshot.connection_source_ref);
+                    setConnectionTargetRef(snapshot.connection_target_ref);
+                    setConnectionOpen(
+                      !!(
+                        snapshot.connection_source_ref ||
+                        snapshot.connection_target_ref
+                      ),
+                    );
+                    setExported("");
+                    setError("");
+                    return true;
+                  }}
+                />
               )}
               <CafCombinedCopy
                 archive={id}

@@ -58,6 +58,7 @@ from .caf_scenarios import CafInputScenarios, CafScenarioStore
 from .caf_simulation import CafSimulationProfile, simulation_request_sha256
 from .caf_source_references import CafSourceReferences, source_reference_router
 from .caf_timer_api import timer_router
+from .caf_wiring_drafts import CafWiringDrafts, wiring_draft_router
 from .cancelable_pulse_template import cancelable_pulse_template_router
 from .change_ledger import ChangeLedger, LedgerQuery
 from .co2_minimum_flow_template import co2_minimum_flow_template_router
@@ -623,6 +624,7 @@ def create_app(state_dir=None, *, operation_power=None):
     backup_comparison = NativeBackupComparison(backup_records)
     caf_source_references = CafSourceReferences(store, backup_records, caf_native_files)
     caf_scalar_drafts = CafScalarDrafts(store)
+    caf_wiring_drafts = CafWiringDrafts(store)
     boolean_copies = NativeBooleanCopies(backup_records)
     boolean_compiler = EffectiveBooleanService(backup_records)
     wire_copies = NativeWireCopies(backup_records)
@@ -1533,6 +1535,7 @@ def create_app(state_dir=None, *, operation_power=None):
 
     app.include_router(source_reference_router(caf_source_references, get_caf))
     app.include_router(scalar_draft_router(caf_scalar_drafts, get_caf))
+    app.include_router(wiring_draft_router(caf_wiring_drafts, get_caf))
     app.include_router(caf_connection_removal_router(get_caf))
     app.include_router(combined_copy_router(get_caf))
     app.include_router(constant_router(get_caf))
