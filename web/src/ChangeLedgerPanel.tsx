@@ -5,6 +5,8 @@ import { recordedEncodedAnalogRecovery } from "./nativeEncodedAnalogRecoveryLedg
 import { EncodedAnalogRecoverySummary, NativeEncodedAnalogRecoveryLedgerView } from "./NativeEncodedAnalogRecoveryLedgerView";
 import { BinaryTerminalSummary, NativeBinaryTerminalLedgerView } from "./NativeBinaryTerminalLedgerView";
 import { recordedBinaryTerminal } from "./nativeBinaryTerminalLedger";
+import { recordedBinaryTerminalRecoveryRow } from "./nativeBinaryTerminalRecoveryLedger";
+import { BinaryTerminalRecoverySummary, NativeBinaryTerminalRecoveryLedgerView } from "./NativeBinaryTerminalRecoveryLedgerView";
 import { api, apiBlobDocument, saveBlob } from "./api";
 import {
   controllerKey,
@@ -108,6 +110,7 @@ type Row = {
   native_input?: unknown;
   native_terminal?: unknown;
   native_binary_terminal?: unknown;
+  native_binary_terminal_recovery?: unknown;
   native_encoded_analog_terminal?: unknown;
   native_encoded_analog_recovery?: unknown;
   native_terminal_recovery?: unknown;
@@ -385,6 +388,10 @@ export function ChangeLedgerPanel({
     setDetail(null);
   }
   const sourceInfo = sources.find((s) => s.id === choice?.source);
+  const binaryRecoveryPresent = choice?.native_binary_terminal_recovery !== undefined;
+  const binaryRecovery = choice?.source === "native"
+    ? recordedBinaryTerminalRecoveryRow(choice)
+    : null;
   const nativeKind =
     choice?.native_change_kind === undefined
       ? "instance"
@@ -392,34 +399,34 @@ export function ChangeLedgerPanel({
         ? choice.native_change_kind
         : "unsupported";
   const nativeProgram =
-    choice?.source === "native" &&
+    choice?.source === "native" && !binaryRecoveryPresent &&
     (["signal-default", "boolean-default", "wire-source"].includes(
       nativeKind,
     ) ||
       (nativeKind === "connection" &&
         !!recordedConnection(choice.native_connection)));
   const connection =
-    choice?.source === "native"
+    choice?.source === "native" && !binaryRecoveryPresent
       ? recordedConnection(choice.native_connection)
       : null;
   const input =
-    choice?.source === "native" && choice.native_terminal === undefined && choice.native_binary_terminal === undefined && choice.native_encoded_analog_terminal === undefined && choice.native_encoded_analog_recovery === undefined
+    choice?.source === "native" && !binaryRecoveryPresent && choice.native_terminal === undefined && choice.native_binary_terminal === undefined && choice.native_encoded_analog_terminal === undefined && choice.native_encoded_analog_recovery === undefined
       ? recordedInput(choice.native_input)
       : null;
   const terminal =
-    choice?.source === "native" && nativeKind === "input" && choice.native_binary_terminal === undefined && choice.native_encoded_analog_terminal === undefined && choice.native_encoded_analog_recovery === undefined
+    choice?.source === "native" && !binaryRecoveryPresent && nativeKind === "input" && choice.native_binary_terminal === undefined && choice.native_encoded_analog_terminal === undefined && choice.native_encoded_analog_recovery === undefined
       ? recordedTerminal(choice.native_terminal)
       : null;
   const binaryTerminal = choice?.source === "native" && nativeKind === "input" && choice.native_encoded_analog_terminal === undefined && choice.native_encoded_analog_recovery === undefined ? recordedBinaryTerminal(choice.native_binary_terminal) : null;
-  const encodedAnalogTerminal = choice?.source === "native" && nativeKind === "input" ? recordedEncodedAnalogTerminal(choice.native_encoded_analog_terminal) : null;
-  const encodedAnalogRecovery = choice?.source === "native" && nativeKind === "input"
+  const encodedAnalogTerminal = choice?.source === "native" && !binaryRecoveryPresent && nativeKind === "input" ? recordedEncodedAnalogTerminal(choice.native_encoded_analog_terminal) : null;
+  const encodedAnalogRecovery = choice?.source === "native" && !binaryRecoveryPresent && nativeKind === "input"
     ? recordedEncodedAnalogRecovery(choice.native_encoded_analog_recovery, choice.native_encoded_analog_terminal, choice.id, choice.target?.device)
     : null;
   const pointName =
-    choice?.source === "native"
+    choice?.source === "native" && !binaryRecoveryPresent
       ? recordedPointName(choice.native_point_name)
       : null;
-  const pointRecovery = choice
+  const pointRecovery = choice && !binaryRecoveryPresent
     ? recordedPointNameRecovery(
         choice.native_point_name_recovery,
         pointName,
@@ -428,6 +435,7 @@ export function ChangeLedgerPanel({
       )
     : null;
   const unsupportedNative =
+    (choice?.source === "native" && binaryRecoveryPresent && !binaryRecovery) ||
     (choice?.source === "native" && choice.native_encoded_analog_recovery !== undefined && !encodedAnalogRecovery) ||
     (choice?.source === "native" &&
       ![
@@ -690,24 +698,25 @@ export function ChangeLedgerPanel({
                       {row.native_reference_issue && (
                         <span>{row.native_reference_issue}</span>
                       )}
-                      {row.native_terminal === undefined && row.native_binary_terminal === undefined && row.native_encoded_analog_terminal === undefined && row.native_encoded_analog_recovery === undefined && (
+                      {row.native_binary_terminal_recovery === undefined && row.native_terminal === undefined && row.native_binary_terminal === undefined && row.native_encoded_analog_terminal === undefined && row.native_encoded_analog_recovery === undefined && (
                         <InputSummary value={row.native_input} />
                       )}
-                      {row.native_binary_terminal === undefined && row.native_encoded_analog_terminal === undefined && row.native_encoded_analog_recovery === undefined && <TerminalSummary value={row.native_terminal} />}
+                      {row.native_binary_terminal_recovery === undefined && row.native_binary_terminal === undefined && row.native_encoded_analog_terminal === undefined && row.native_encoded_analog_recovery === undefined && <TerminalSummary value={row.native_terminal} />}
                       {row.native_encoded_analog_terminal === undefined && row.native_encoded_analog_recovery === undefined && <BinaryTerminalSummary value={row.native_binary_terminal} />}
-                      <EncodedAnalogTerminalSummary value={row.native_encoded_analog_terminal} />
-                      <EncodedAnalogRecoverySummary row={row} />
-                      {row.native_encoded_analog_terminal === undefined && row.native_encoded_analog_recovery === undefined && <TerminalRecoverySummary row={row} />}
-                      <PointNameSummary value={row.native_point_name} />
-                      {row.native_connection !== undefined && (
+                      {row.native_binary_terminal_recovery === undefined && <EncodedAnalogTerminalSummary value={row.native_encoded_analog_terminal} />}
+                      {row.native_binary_terminal_recovery === undefined && <EncodedAnalogRecoverySummary row={row} />}
+                      <BinaryTerminalRecoverySummary row={row} />
+                      {row.native_binary_terminal_recovery === undefined && row.native_encoded_analog_terminal === undefined && row.native_encoded_analog_recovery === undefined && <TerminalRecoverySummary row={row} />}
+                      {row.native_binary_terminal_recovery === undefined && <PointNameSummary value={row.native_point_name} />}
+                      {row.native_binary_terminal_recovery === undefined && row.native_connection !== undefined && (
                         <span>
                           {recordedConnection(row.native_connection)
                             ? `Matching connection · ${recordedConnection(row.native_connection)!.connection_count_before} → ${recordedConnection(row.native_connection)!.connection_count_after}`
                             : "Connection metadata unavailable"}
                         </span>
                       )}
-                      <PointNameRecoverySummary row={row} />
-                      {row.native_encoded_analog_terminal === undefined && row.native_encoded_analog_recovery === undefined && row.native_recovery && (
+                      {row.native_binary_terminal_recovery === undefined && <PointNameRecoverySummary row={row} />}
+                      {row.native_binary_terminal_recovery === undefined && row.native_encoded_analog_terminal === undefined && row.native_encoded_analog_recovery === undefined && row.native_recovery && (
                         <span>
                           {row.native_recovery.state === "recorded"
                             ? `${row.native_recovery.datatype === "Wire" ? "Previous wire source recovery" : row.native_recovery.datatype === "ObjectIdentifier" ? "Previous controller instance recovery" : row.native_recovery.datatype === "CharacterString" ? "Previous controller name recovery" : row.native_recovery.datatype === "Enumerated" ? "Previous Enum code recovery" : "Previous-value recovery"} · parent ${row.native_recovery.parent_receipt_id}`
@@ -831,7 +840,7 @@ export function ChangeLedgerPanel({
           {choice.native_reference_issue && (
             <p>{choice.native_reference_issue}</p>
           )}
-          {nativeKind === "connection" && (
+          {!binaryRecoveryPresent && nativeKind === "connection" && (
             <section aria-label="Recorded native matching connection">
               <h4>
                 {connection
@@ -883,7 +892,7 @@ export function ChangeLedgerPanel({
               )}
             </section>
           )}
-          {nativeKind === "point-name" && (
+          {!binaryRecoveryPresent && nativeKind === "point-name" && (
             <section aria-label="Recorded native point name">
               <h4>
                 {pointName
@@ -940,7 +949,7 @@ export function ChangeLedgerPanel({
               )}
             </section>
           )}
-          {nativeKind === "point-name" &&
+          {!binaryRecoveryPresent && nativeKind === "point-name" &&
             choice.native_point_name_recovery !== undefined && (
               <section aria-label="Recorded point name recovery lineage">
                 <h4>
@@ -1011,10 +1020,10 @@ export function ChangeLedgerPanel({
                 )}
               </section>
             )}
-          {nativeKind === "input" && choice.native_terminal !== undefined && choice.native_binary_terminal === undefined && choice.native_encoded_analog_terminal === undefined && choice.native_encoded_analog_recovery === undefined && (
+          {!binaryRecoveryPresent && nativeKind === "input" && choice.native_terminal !== undefined && choice.native_binary_terminal === undefined && choice.native_encoded_analog_terminal === undefined && choice.native_encoded_analog_recovery === undefined && (
             <NativeTerminalLedgerView value={choice.native_terminal} />
           )}
-          {nativeKind === "input" &&
+          {!binaryRecoveryPresent && nativeKind === "input" &&
             choice.native_binary_terminal === undefined && choice.native_encoded_analog_terminal === undefined && choice.native_encoded_analog_recovery === undefined &&
             choice.native_terminal_recovery !== undefined && (
               <NativeTerminalRecoveryLedgerView
@@ -1022,12 +1031,15 @@ export function ChangeLedgerPanel({
                 onParent={searchParent}
               />
             )}
+          {binaryRecoveryPresent && (
+            <NativeBinaryTerminalRecoveryLedgerView row={choice} onParent={searchParent} />
+          )}
           {nativeKind === "input" && choice.native_binary_terminal !== undefined && choice.native_encoded_analog_terminal === undefined && choice.native_encoded_analog_recovery === undefined && <NativeBinaryTerminalLedgerView value={choice.native_binary_terminal} />}
-          {nativeKind === "input" && choice.native_encoded_analog_terminal !== undefined && <NativeEncodedAnalogLedgerView value={choice.native_encoded_analog_terminal} />}
-          {nativeKind === "input" && choice.native_encoded_analog_recovery !== undefined && (
+          {!binaryRecoveryPresent && nativeKind === "input" && choice.native_encoded_analog_terminal !== undefined && <NativeEncodedAnalogLedgerView value={choice.native_encoded_analog_terminal} />}
+          {!binaryRecoveryPresent && nativeKind === "input" && choice.native_encoded_analog_recovery !== undefined && (
             <NativeEncodedAnalogRecoveryLedgerView row={choice} onParent={searchParent} />
           )}
-          {nativeKind === "input" && choice.native_terminal === undefined && choice.native_binary_terminal === undefined && choice.native_encoded_analog_terminal === undefined && choice.native_encoded_analog_recovery === undefined && (
+          {!binaryRecoveryPresent && nativeKind === "input" && choice.native_terminal === undefined && choice.native_binary_terminal === undefined && choice.native_encoded_analog_terminal === undefined && choice.native_encoded_analog_recovery === undefined && (
             <section aria-label="Recorded native input configuration">
               <h4>
                 {input ? inputAction(input) : "Input metadata unavailable"}
@@ -1126,7 +1138,7 @@ export function ChangeLedgerPanel({
               )}
             </section>
           )}
-          {choice.native_encoded_analog_terminal === undefined && choice.native_encoded_analog_recovery === undefined && choice.native_recovery && (
+          {!binaryRecoveryPresent && choice.native_encoded_analog_terminal === undefined && choice.native_encoded_analog_recovery === undefined && choice.native_recovery && (
             <section aria-label="Recorded native recovery lineage">
               <h4>Recorded recovery origin</h4>
               {choice.native_recovery.state === "recorded" && (
