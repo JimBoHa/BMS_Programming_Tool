@@ -1915,3 +1915,24 @@ continuing the separate evidence work for broader host-specific reassignment.
 General restore/compilation, allocation/electrical changes, SA/cross-host movement,
 resources/packages and physical/CCT/BTCVT acceptance remain separate. IO-02/JCI-10
 remain partial. See [recorded analog recovery](docs/native-encoded-analog-recovery-ledger.md).
+
+## 2026-11-05 IO-02/JCI-10 delivery: local configured binary previous-terminal proposal
+
+`FMT-NATIVE-BINARY-TERMINAL-RECOVERY-001` adds explicit local preparation from a
+resolved verified profile-3 binary terminal move and exact current capture.
+Original files, canonical compilation, identity/route/static directory and payload
+hashes bind the proposal. Selected non-counter configuration and optional-field
+presence remain unchanged. The inverse preserves current saved counters, unrelated
+saved values and ASCII/UCS-2 terminal-label encoding. An already-recorded previous
+binding produces no proposal; original evidence remains immutable.
+
+Preparation grants no field plan, query, transfer or automatic rollback. Earlier
+input/recovery families and all field writers remain unchanged. No web staging
+control is added in this backend delivery.
+
+Next, bind the binary recovery origin to fresh field review/confirmations and
+transfer/readback, then expose the workflow in existing Points & I/O and record
+lineage in Changes/History. Broader host-specific reassignment requires separate
+evidence. General restore/compilation, allocation/electrical changes, SA/cross-host
+movement, packages/resources and physical/CCT/BTCVT acceptance remain separate.
+IO-02/JCI-10 remain partial. See [local binary recovery](docs/native-binary-terminal-recovery.md).
