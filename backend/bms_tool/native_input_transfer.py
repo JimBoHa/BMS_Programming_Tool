@@ -12,6 +12,10 @@ from bacpypes3.primitivedata import Boolean, Enumerated, ObjectIdentifier, Real,
 from .application_store import PROFILE as TRANSFER_PROFILE
 from .moi_identity import MoiIdentity, seal, sha
 from .moi_parameters import ParameterApplication
+from .native_binary_terminal_recovery_transfer import BinaryTerminalRecoveryPreview
+from .native_binary_terminal_recovery_transfer import (
+    recovery_origin as binary_terminal_recovery_origin,
+)
 from .native_encoded_analog_recovery_transfer import EncodedAnalogRecoveryPreview
 from .native_encoded_analog_recovery_transfer import (
     recovery_origin as encoded_analog_recovery_origin,
@@ -259,6 +263,9 @@ class NativeInputOperations:
     async def preview_terminal_recovery(self, **arguments):
         return await self.review_input(TerminalRecoveryPreview(**arguments))
 
+    async def preview_binary_terminal_recovery(self, **arguments):
+        return await self.review_input(BinaryTerminalRecoveryPreview(**arguments))
+
     async def preview_encoded_analog_recovery(self, **arguments):
         return await self.review_input(EncodedAnalogRecoveryPreview(**arguments))
 
@@ -278,6 +285,7 @@ class NativeInputOperations:
             recovery = {
                 **recovery_origin(self, options, compilation),
                 **encoded_analog_recovery_origin(self, options, compilation),
+                **binary_terminal_recovery_origin(self, options, compilation),
             }
             config, app = copy.deepcopy(self.bacnet.config), self.bacnet.require()
             async with self.path._path(options) as session:

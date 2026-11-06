@@ -1936,3 +1936,25 @@ lineage in Changes/History. Broader host-specific reassignment requires separate
 evidence. General restore/compilation, allocation/electrical changes, SA/cross-host
 movement, packages/resources and physical/CCT/BTCVT acceptance remain separate.
 IO-02/JCI-10 remain partial. See [local binary recovery](docs/native-binary-terminal-recovery.md).
+
+## 2026-11-05 IO-02/JCI-10 delivery: parent-bound configured binary recovery transfer
+
+`FMT-NATIVE-BINARY-TERMINAL-RECOVERY-TRANSFER-001` binds the previous-terminal
+binary proposal to a fresh confirmed profile-3 field review and transfer. Its own
+lineage namespace, original receipt, selected non-counter configuration and exact
+source/target/ref/terminal pair prevent removed, altered or substituted recovery
+metadata from becoming an ordinary move. Parent evidence is revalidated before
+creating durable intent and dispatching the application.
+
+The existing writer retains fresh interface/route/identity/source/settings/capacity
+checks, all three confirmations, one-use plans and complete native/published
+readback. Current saved counters and unrelated values remain current. Unknown
+outcomes preserve evidence and reconcile without replay. Earlier transfer/recovery
+families remain preserved.
+
+Next, expose binary preparation, explicit staging and confirmed review/Apply/readback
+inside the existing Points & I/O task, then present recorded lineage in
+Changes/History. Broader host reassignment, allocation/electrical changes,
+SA/cross-host movement, general restore/compilation, packages/resources and
+physical/CCT/BTCVT acceptance remain separate. IO-02/JCI-10 remain partial.
+See [configured binary recovery transfer](docs/native-binary-terminal-recovery-transfer.md).
