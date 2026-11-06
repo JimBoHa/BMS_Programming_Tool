@@ -40,6 +40,13 @@ interface. Treat it as the default design contract for new and revised workflows
 - Read [the development roadmap](ROADMAP.md) before planning feature work. Start
   from current GitHub main, credit existing supported scopes and preserve the
   workflow style guide when implementing the next reviewed slice.
+- Before integrating other branches, compare them with the locally reviewed
+  running application and preserve its tested behavior when changes conflict.
+  Port compatible improvements into the current integration base; do not replace
+  whole files with an older checkout or reapply closed, superseded PR branches.
+  Record conflict decisions and verify the affected workflows before deployment.
+  See the [PR integration review](docs/pr-integration-review.md) for the delivery
+  mapping and preservation checklist.
 - Carry authorized implementation through relevant checks and local verification.
 - Check both entry paths, navigation without losing drafts, target propagation,
   target-change invalidation, offline behavior and failure/uncertainty states.
