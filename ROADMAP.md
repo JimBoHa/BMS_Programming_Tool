@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
-Updated: 2026-11-05. Implementation baseline: GitHub `main` at
-[`b6e7fbaa`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/b6e7fbaafbf0ecc3b65e92b5e5b02fe1fc5ba8bd).
+Updated: 2026-11-06. Implementation baseline: GitHub `main` at
+[`626af276`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/626af276be77ef4ca1892c367175dddd3df06e2c).
 
 ## Baseline and purpose
 
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 185 scoped criteria: 131
+The public requirement register currently records 190 scoped criteria: 136
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -2261,3 +2261,20 @@ mode ABA. The existing table supports keyboard focus and horizontal scrolling.
 Packages/resources, broader native authoring, release migration, native execution,
 CCT comparison and physical acceptance remain separate. JCI-01 remains partial.
 See [combined operation support](docs/native-combined-operation-capabilities.md).
+
+
+## 2026-11-06 JCI-02 / UX-03 delivery: unfinished native Real text portability
+
+`UX-NATIVE-REAL-TEXT-001` adds explicit source-bound JSON export/import for the
+ordinary native Real editor. Empty, incomplete, invalid and negative-zero text
+remain raw strings. The same original capture/route/field/default binding is
+required on another computer, using the existing native backup ZIP importer to
+retain original files separately. Existing work must be explicitly discarded
+before replacement; the 64-field no-eviction budgets remain intact.
+
+Parent ownership and edit counters retire stale file completions/downloads,
+including coalesced field changes. Import restores no native review, recovery
+proposal, controller target or transfer authority. Native encoders/field writers
+and the controller-file layout remain unchanged. This completes the scoped raw
+text portability feature; JCI-02/03 and general native compilation remain partial.
+See [unfinished native Real drafts](docs/native-real-draft-files.md).

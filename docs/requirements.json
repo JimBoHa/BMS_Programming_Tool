@@ -1699,5 +1699,14 @@
     "pdf_pages_or_section": "docs/native-combined-operation-capabilities.md; docs/native-combined-default-wire.md; docs/native-default-wire-transfer.md",
     "status": "implemented",
     "implementation_or_gap": "Explicit profile19 adds two operations after the byte-equivalent profile18 prefix while preserving API default12 and ordinary UI profile14. Actual source/selection and independent/intermediate joint-compiler reports prove two changed fields; omitted-field types and captured transport remain separate from local support. Hypothetical bounded search stages no user draft, local review seal, output file, field plan or receipt. Strict client predicates, source/route/mode counters, coalesced ABA retirement, exact JSON export and keyboard-scrollable existing table retain provenance. No general compiler, packages/resources/native execution, release migration, CCT or physical acceptance; JCI-01 remains partial."
+  },
+  {
+    "id": "UX-NATIVE-REAL-TEXT-001",
+    "feature": "Source-bound unfinished native Real draft files",
+    "acceptance_criterion": "Export and explicitly import exact unfinished ordinary Real text for the same opened retained source/route/field, preserving existing work and limits without restoring native review or field authority.",
+    "evidence": "Existing native Real editor, immutable native backup reader, original-backup portability and workspace ownership contracts",
+    "pdf_pages_or_section": "Program / Native backup defaults; docs/native-real-draft-files.md",
+    "status": "implemented",
+    "implementation_or_gap": "Bounded strict raw-text JSON file profile; exact capture/route/field/default bindings, explicit replacement refusal, unchanged 64-field no-eviction budgets, original-file portability, parent epoch admission and source/installed browser qualification. General native logic, package/runtime and physical acceptance remain separate."
   }
 ]
