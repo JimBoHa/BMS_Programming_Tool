@@ -648,20 +648,28 @@ export function Connections({
     <div className="workspace-page">
       <div className="page-intro">
         <div>
-          <span className="eyebrow">COMMISSIONING</span>
+          <span className="eyebrow">
+            {view === "points" && currentTool === "pulse"
+              ? "LOCAL SIMULATION"
+              : "COMMISSIONING"}
+          </span>
           <h1>
-            {view === "setup"
-              ? "Connect to a controller"
-              : view === "settings"
-                ? "Communications & network"
-                : view === "overview"
-                  ? "Controller"
-                  : groups[view][0].label}
+            {view === "points" && currentTool === "pulse"
+              ? "Pulse metering review"
+              : view === "setup"
+                ? "Connect to a controller"
+                : view === "settings"
+                  ? "Communications & network"
+                  : view === "overview"
+                    ? "Controller"
+                    : groups[view][0].label}
           </h1>
           <p>
-            {view === "setup"
-              ? "Choose your computer network, find the NAE or router, then select a controller from its scan."
-              : "Read configuration and work with the selected controller through its verified connection."}
+            {view === "points" && currentTool === "pulse"
+              ? "Review declared pulse batches locally. No controller connection is required."
+              : view === "setup"
+                ? "Choose your computer network, find the NAE or router, then select a controller from its scan."
+                : "Read configuration and work with the selected controller through its verified connection."}
           </p>
         </div>
         <div className="button-row">

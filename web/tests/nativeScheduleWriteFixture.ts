@@ -25,7 +25,24 @@ if installed:
 print(json.dumps({'native_schedule_write_fixture':'installed' if installed else 'source','package':bms_tool.__file__,'web':str(resources.web_directory())}),flush=True)
 from bms_tool.app import create_app
 import uvicorn
-uvicorn.run(create_app(),host='127.0.0.1',port=int(sys.argv[1]),access_log=False)
+app=create_app()
+if os.environ.get('BMS_TEST_HOLD_PULSE_IMPORT')=='1':
+ # Delay delivery after the browser's original multipart upload has been processed.
+ # Replaying multipart with route.fetch can change file bytes in WebKit.
+ import asyncio
+ from starlette.responses import Response
+ @app.middleware('http')
+ async def hold_pulse_import(request,call_next):
+  response=await call_next(request)
+  directory=Path(os.environ['BMS_STUDIO_DATA']);gate=directory/'hold-pulse-import'
+  if request.url.path=='/api/accumulator-prescale/import' and gate.is_file():
+   body=b''.join([chunk async for chunk in response.body_iterator])
+   data=json.loads(body)
+   (directory/'pulse-import-processed.json').write_text(json.dumps({'status':response.status_code,'file_sha256':data.get('file_sha256'),'response_sha256':hashlib.sha256(body).hexdigest()}))
+   while gate.is_file():await asyncio.sleep(.005)
+   return Response(body,status_code=response.status_code,headers=dict(response.headers),background=response.background)
+  return response
+uvicorn.run(app,host='127.0.0.1',port=int(sys.argv[1]),access_log=False)
 `;
 async function freePort(): Promise<number> {
   const socket = createServer();
@@ -39,11 +56,13 @@ async function freePort(): Promise<number> {
   });
 }
 /** Each test owns its history, capture quota and fault-injection files. */
-export const test = base.extend<
-  { nativeScheduleWriteServer: { url: string; directory: string } }
->({
+export const test = base.extend<{
+  nativeScheduleWriteServer: { url: string; directory: string };
+  holdPulseImport: boolean;
+}>({
+  holdPulseImport: [false, { option: true }],
   nativeScheduleWriteServer: [
-    async ({}, use) => {
+    async ({ holdPulseImport }, use) => {
       const root = path.resolve(".."),
         port = await freePort(),
         directory = mkdtempSync(
@@ -62,6 +81,7 @@ export const test = base.extend<
               ...process.env,
               BMS_STUDIO_DATA: directory,
               BMS_TEST_INSTALLED_TARGET: installed,
+              BMS_TEST_HOLD_PULSE_IMPORT: holdPulseImport ? "1" : "",
               PYTHONPATH:
                 installed ||
                 [path.join(root, "backend"), root].join(path.delimiter),

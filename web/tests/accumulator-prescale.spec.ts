@@ -3,11 +3,12 @@ import {
   test,
   type APIRequestContext,
   type Page,
-} from "@playwright/test";
+} from "./nativeScheduleWriteFixture";
 import { spawn, execFileSync } from "node:child_process";
 import { createSocket } from "node:dgram";
 import path from "node:path";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, rmSync } from "node:fs";
+import { createHash } from "node:crypto";
 import {
   chooseWorkspaceTask,
   chooseWorkspaceSurface,
@@ -19,6 +20,7 @@ import {
   cafObjects,
 } from "./caf-scalar-draft-recovery-fixture";
 const root = path.resolve("..");
+test.use({ holdPulseImport: true });
 const backendEnvironment = () => ({
   ...process.env,
   PYTHONPATH: [
@@ -41,6 +43,14 @@ async function pointTool(page: Page, label: string) {
   if (await select.isVisible()) await select.selectOption({ label });
   else
     await navigation.getByRole("button", { name: label, exact: true }).click();
+  if (label === "Pulse metering review") {
+    await expect(
+      page.getByRole("heading", { name: "Pulse metering review", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("LOCAL SIMULATION", { exact: true }),
+    ).toBeVisible();
+  }
 }
 test.afterEach(async ({ request }) => {
   const token = (await (await request.get("/api/session")).json()).token;
@@ -620,6 +630,7 @@ assert [(r['retained_pv'],r['retained_remainder']) for r in d['simulation']['row
       test("a late configuration import cannot overwrite a newer local task draft", async ({
         page,
         request,
+        nativeScheduleWriteServer,
       }) => {
         const p = await openOffline(page);
         await p.getByLabel("Prescale multiplier", { exact: true }).fill("3");
@@ -637,18 +648,17 @@ assert [(r['retained_pv'],r['retained_remainder']) for r in d['simulation']['row
           })
           .click();
         const raw = readFileSync((await (await file).path())!);
-        let release!: () => void, entered!: () => void;
-        const received = new Promise<void>((r) => (entered = r)),
-          gate = new Promise<void>((r) => (release = r));
-        await page.route(
-          "**/api/accumulator-prescale/import",
-          async (route) => {
-            const response = await route.fetch();
-            expect(response.status()).toBe(200);
-            entered();
-            await gate;
-            await route.fulfill({ response });
-          },
+        const gate = path.join(
+            nativeScheduleWriteServer.directory,
+            "hold-pulse-import",
+          ),
+          receipt = path.join(
+            nativeScheduleWriteServer.directory,
+            "pulse-import-processed.json",
+          );
+        writeFileSync(
+          gate,
+          "Hold this test's actual response after processing its original multipart upload.\n",
         );
         try {
           await p
@@ -658,14 +668,18 @@ assert [(r['retained_pv'],r['retained_remainder']) for r in d['simulation']['row
               mimeType: "application/json",
               buffer: raw,
             });
-          await received;
+          await expect.poll(() => existsSync(receipt)).toBe(true);
+          expect(JSON.parse(readFileSync(receipt, "utf8"))).toMatchObject({
+            status: 200,
+            file_sha256: createHash("sha256").update(raw).digest("hex"),
+          });
           await chooseWorkspaceTask(page, "Overview");
           await pointTool(page, "Pulse metering review");
           await p.getByLabel("Prescale multiplier", { exact: true }).fill("9");
           const delivery = page.waitForResponse((r) =>
             r.url().endsWith("/api/accumulator-prescale/import"),
           );
-          release();
+          rmSync(gate, { force: true });
           await (await delivery).finished();
           await page.evaluate(
             () =>
@@ -690,8 +704,7 @@ assert [(r['retained_pv'],r['retained_remainder']) for r in d['simulation']['row
               .field_network_open,
           ).toBe(false);
         } finally {
-          release();
-          await page.unroute("**/api/accumulator-prescale/import");
+          rmSync(gate, { force: true });
         }
       });
       test("coalesced tool changes retire a held export and completed review while keeping raw declarations", async ({
