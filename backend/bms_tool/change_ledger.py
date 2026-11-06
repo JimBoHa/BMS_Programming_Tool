@@ -21,6 +21,10 @@ from pydantic import Field, field_validator, model_validator
 
 from .models import StrictModel
 from .native_binary_terminal_ledger import binary_terminal_reference, explicit_binary
+from .native_binary_terminal_recovery_ledger import (
+    binary_recovery_namespace,
+    binary_terminal_recovery_reference,
+)
 from .native_connection_ledger import connection_reference
 from .native_encoded_analog_ledger import encoded_analog_terminal_reference, explicit_encoded_analog
 from .native_encoded_analog_recovery_ledger import encoded_analog_recovery_reference
@@ -364,12 +368,18 @@ class ChangeLedger:
             label = labels.get(native_kind, "Native application transfer (unsupported operation)")
             selection = body.get("wire_edit" if native_kind == "wire-source" else "default_edit")
             native_metadata = native_reference(native_kind, selection)
-            if native_kind == "input" or ENCODED_ANALOG_RECOVERY_KEYS.intersection(body):
+            if (
+                native_kind == "input"
+                or ENCODED_ANALOG_RECOVERY_KEYS.intersection(body)
+                or binary_recovery_namespace(body)
+            ):
                 encoded_analog = explicit_encoded_analog(body) or bool(
                     ENCODED_ANALOG_RECOVERY_KEYS.intersection(body)
                 )
                 native_metadata = (
-                    encoded_analog_terminal_reference(body)
+                    binary_terminal_reference(body)
+                    if binary_recovery_namespace(body)
+                    else encoded_analog_terminal_reference(body)
                     if encoded_analog
                     else binary_terminal_reference(body)
                     if explicit_binary(body)
@@ -378,7 +388,11 @@ class ChangeLedger:
                     else input_reference(body)
                 )
                 native_metadata.update(
-                    encoded_analog_recovery_reference(
+                    binary_terminal_recovery_reference(
+                        body, native_metadata.get("native_binary_terminal")
+                    )
+                    if binary_recovery_namespace(body)
+                    else encoded_analog_recovery_reference(
                         body, native_metadata.get("native_encoded_analog_terminal")
                     )
                     if ENCODED_ANALOG_RECOVERY_KEYS.intersection(body)

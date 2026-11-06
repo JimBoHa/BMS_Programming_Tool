@@ -1980,3 +1980,24 @@ host-specific reassignment, general restore/compilation, allocation/electrical
 changes, SA/cross-host movement, packages/resources and physical/CCT/BTCVT acceptance
 remain separate. IO-02/JCI-10 remain partial.
 See [configured binary recovery workflow](docs/native-binary-terminal-recovery-workflow.md).
+
+## 2026-11-05 IO-02/JCI-10 delivery: recorded configured binary recovery lineage
+
+`UI-NATIVE-BINARY-TERMINAL-RECOVERY-LEDGER-001` adds original receipt, binary input,
+inverse terminal pair and historical verification inside existing Changes/History.
+Backend and browser independently bind the closed origin and original seal to valid
+child terminal evidence. Missing, altered or mixed binary recovery fields cannot
+fall back to older input, recovery, point-name or connection shortcuts.
+
+Historical child counters retain their recorded optional presence and typed values;
+no parent/current counter comparison is inferred. Original downloads and uncertain
+outcomes remain unchanged. Parent search stays local and explicit. Input navigation
+preserves graph/CAF/controller context and starts fresh selection. Projection performs
+no parent/source/compiler/controller work and grants no field authority. Existing
+workflow styling and prior ledger contracts remain preserved.
+
+Continue source-derived JCI configuration/package evidence and broader host-specific
+reassignment qualification. General compilation/restore, allocation/electrical edits,
+SA/cross-host movement, resources/packages and physical/CCT/BTCVT acceptance remain
+separate. IO-02/JCI-10 remain partial.
+See [recorded binary recovery](docs/native-binary-terminal-recovery-ledger.md).
