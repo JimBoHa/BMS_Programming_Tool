@@ -43,6 +43,9 @@ const drafts = new Map<string, Draft>(),
     destination: "",
     receipt: null,
     completed: false,
+    recovery: undefined,
+    ordinary: undefined,
+    recoveryParent: "",
   });
 const base = "/bacnet/controller/native-application";
 export function NativeEncodedAnalogTerminal({

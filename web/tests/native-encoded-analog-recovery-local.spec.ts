@@ -127,6 +127,66 @@ for (const caf of [false, true])
       ).toBe(true);
     });
 
+for (const caf of [false, true])
+  test(`${caf ? "CAF" : "graph"} discard clears staged recovery and cannot resurrect its saved ordinary draft`, async ({
+    page,
+    nativeScheduleWriteServer,
+  }) => {
+    const f = seed(nativeScheduleWriteServer.directory),
+      { analog, inputs } = await offline(page, f, caf),
+      recovery = await prepare(analog, f.parent.id);
+    await recovery
+      .getByRole("button", {
+        name: "Stage previous analog terminal",
+        exact: true,
+      })
+      .click();
+    await expect(
+      analog.getByRole("button", {
+        name: "Restore ordinary analog draft",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await analog
+      .getByRole("button", { name: "Discard local analog draft", exact: true })
+      .click();
+    for (const navigate of [false, true]) {
+      if (navigate) {
+        await chooseWorkspaceTask(page, "Program");
+        await chooseWorkspaceTask(page, "Points & I/O");
+        if ((await analog.getAttribute("open")) === null)
+          await analog.locator(":scope > summary").click();
+      }
+      await expect(
+        analog.getByRole("button", {
+          name: "Restore ordinary analog draft",
+          exact: true,
+        }),
+      ).toHaveCount(0);
+      await expect(
+        analog.getByRole("region", {
+          name: "Staged previous analog terminal",
+          exact: true,
+        }),
+      ).toHaveCount(0);
+      await expect(
+        analog.getByLabel("Configured analog input", { exact: true }),
+      ).toHaveValue("");
+      await expect(
+        analog.getByLabel("Analog terminal destination", { exact: true }),
+      ).toHaveValue("");
+      await expect(
+        analog.getByLabel("Previous configured analog transfer receipt", {
+          exact: true,
+        }),
+      ).toHaveValue("");
+    }
+    await analog.locator(":scope > summary").click();
+    await expect(
+      inputs.getByLabel("Engineering range high", { exact: true }),
+    ).toHaveValue("9.");
+  });
+
 for (const fault of ["source", "lineage", "payload"] as const)
   test(`damaged prepared analog ${fault} cannot stage`, async ({
     page,
