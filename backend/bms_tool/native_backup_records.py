@@ -10,6 +10,8 @@ from .moi_identity import sha
 from .native_backup_capabilities import backup_capabilities
 from .native_binary_terminal_capabilities import PROFILE as BINARY_TERMINAL_CAPABILITIES_PROFILE
 from .native_binary_terminal_capabilities import binary_terminal_capabilities
+from .native_combined_capabilities import PROFILE as COMBINED_CAPABILITIES_PROFILE
+from .native_combined_capabilities import combined_capabilities
 from .native_encoded_analog_capabilities import PROFILE as ENCODED_ANALOG_CAPABILITIES_PROFILE
 from .native_encoded_analog_capabilities import encoded_analog_capabilities
 from .native_removal_capabilities import PROFILE as REMOVAL_CAPABILITIES_PROFILE
@@ -48,6 +50,7 @@ class BackupCapabilitiesRequest(BackupInspectionSource):
         "native-backup-operation-capabilities/16",
         "native-backup-operation-capabilities/17",
         "native-backup-operation-capabilities/18",
+        "native-backup-operation-capabilities/19",
     ] = "native-backup-operation-capabilities/12"
 
 
@@ -124,11 +127,21 @@ class NativeBackupRecords:
         )
         return {
             **self.envelope(snapshot, files),
-            **analyzer(
-                snapshot,
-                files,
-                application.summary(),
-                capability_profile=options.capability_profile,
+            **(
+                combined_capabilities(
+                    snapshot,
+                    files,
+                    application.summary(),
+                    records=self,
+                    capability_profile=options.capability_profile,
+                )
+                if options.capability_profile == COMBINED_CAPABILITIES_PROFILE
+                else analyzer(
+                    snapshot,
+                    files,
+                    application.summary(),
+                    capability_profile=options.capability_profile,
+                )
             ),
         }
 

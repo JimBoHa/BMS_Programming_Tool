@@ -2242,3 +2242,22 @@ source/installed browser qualification. General graph generation, new identities
 packages/resources, hardware changes, native execution, CCT comparison, BTCVT and
 physical acceptance remain separate. JCI-03 and JCI-09 stay partial. See
 [combined native transfer](docs/native-default-wire-transfer.md).
+
+## 2026-11-06 JCI-01 delivery: actual combined-operation source qualification
+
+`FMT-NATIVE-COMBINED-CAPABILITIES-001` adds explicit opt-in profile 19 to the
+existing retained-source operation table. One actual paired compilation qualifies
+local support; native omitted-field types and captured transport separately
+qualify only a future field preflight. Older profiles/defaults and the complete
+profile-18 prefix remain intact. No model inventory supplies a witness.
+
+Literal source/selection/compiler reports retain both actual changes, independent
+and intermediate proofs and original hashes. Bounded unsuccessful pair search is
+not evaluated, rather than a claim that no pair is possible. Analysis stages no
+editor draft, export review, field plan or receipt. Source/route/mode ownership
+and synchronous counters retire stale results and downloads, including coalesced
+mode ABA. The existing table supports keyboard focus and horizontal scrolling.
+
+Packages/resources, broader native authoring, release migration, native execution,
+CCT comparison and physical acceptance remain separate. JCI-01 remains partial.
+See [combined operation support](docs/native-combined-operation-capabilities.md).
