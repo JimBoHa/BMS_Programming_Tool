@@ -10,6 +10,11 @@ import {
   combinedCapabilityOperationIds,
   combinedCapabilityProfile,
 } from "./nativeCombinedCapabilityContract";
+import {
+  batchCapabilityEvidence,
+  batchCapabilityOperationIds,
+  batchCapabilityProfile,
+} from "./nativeBatchCapabilityContract";
 
 type Operation = {
   id: string;
@@ -74,8 +79,22 @@ export function NativeBackupCapabilities({
 }: {
   source: NativeArchiveSource;
 }) {
-  const [extended, setExtended] = useState({ value: false, revision: 0 });
+  const [extended, setExtended] = useState({
+    value: false,
+    batch: false,
+    revision: 0,
+  });
   const modeNow = useRef(extended);
+  const profile = extended.batch
+    ? batchCapabilityProfile
+    : extended.value
+      ? combinedCapabilityProfile
+      : "native-backup-operation-capabilities/14";
+  const selectedOperationIds = extended.batch
+    ? batchCapabilityOperationIds
+    : extended.value
+      ? combinedCapabilityOperationIds
+      : operationIds;
   const details = useRef<HTMLDetailsElement>(null);
   const owner = JSON.stringify([
     source.capture_id,
@@ -137,18 +156,13 @@ export function NativeBackupCapabilities({
         {
           capture_id: source.capture_id,
           snapshot_sha256: source.snapshot_sha256,
-          capability_profile: extended.value
-            ? combinedCapabilityProfile
-            : "native-backup-operation-capabilities/14",
+          capability_profile: profile,
         },
       );
       const data = document.data;
       if (
         data.profile !== "native-backup-record-inspection/1" ||
-        data.capability_profile !==
-          (extended.value
-            ? combinedCapabilityProfile
-            : "native-backup-operation-capabilities/14") ||
+        data.capability_profile !== profile ||
         data.source_kind !== "native-backup-archive" ||
         data.capture_id !== source.capture_id ||
         data.snapshot_sha256 !== source.snapshot_sha256 ||
@@ -175,23 +189,20 @@ export function NativeBackupCapabilities({
         !effectiveEnumEvidence(data, source) ||
         typeof data.scope !== "string" ||
         !Array.isArray(data.operations) ||
-        data.operations.length !==
-          (extended.value ? combinedCapabilityOperationIds : operationIds)
-            .length ||
+        data.operations.length !== selectedOperationIds.length ||
         !data.operations.every(
           (row: Operation, index: number) =>
-            row?.id ===
-              (extended.value ? combinedCapabilityOperationIds : operationIds)[
-                index
-              ] &&
+            row?.id === selectedOperationIds[index] &&
             statuses.has(row.status) &&
             [row.operation, row.basis, row.next_step].every(
               (value) => typeof value === "string",
             ),
         ) ||
-        !(extended.value
-          ? combinedCapabilityEvidence(data, source)
-          : removalCapabilityEvidence(data, source)) ||
+        !(extended.batch
+          ? batchCapabilityEvidence(data, source)
+          : extended.value
+            ? combinedCapabilityEvidence(data, source)
+            : removalCapabilityEvidence(data, source)) ||
         data.operations.find((row: Operation) => row.id === "enum-default-copy")
           ?.status !==
           (data.qualification.archive_enum_default_count > 0
@@ -253,6 +264,7 @@ export function NativeBackupCapabilities({
           onChange={(event) => {
             const next = {
               value: event.currentTarget.checked,
+              batch: false,
               revision: modeNow.current.revision + 1,
             };
             modeNow.current = next;
@@ -265,6 +277,29 @@ export function NativeBackupCapabilities({
         />
         Include combined default/connection and terminal operation support
       </label>
+      {extended.value && (
+        <label>
+          <input
+            type="checkbox"
+            checked={extended.batch}
+            onChange={(event) => {
+              if (!modeNow.current.value) return;
+              const next = {
+                ...modeNow.current,
+                batch: event.currentTarget.checked,
+                revision: modeNow.current.revision + 1,
+              };
+              modeNow.current = next;
+              epoch.current++;
+              setLoaded(null);
+              setFailure(null);
+              setPending(null);
+              setExtended(next);
+            }}
+          />
+          Include typed default batch compilation support
+        </label>
+      )}
       {busy && <p role="status">Analyzing retained native files…</p>}
       {error && (
         <>

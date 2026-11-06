@@ -8,6 +8,8 @@ from .models import StrictModel
 from .moi_application import MoiApplication
 from .moi_identity import sha
 from .native_backup_capabilities import backup_capabilities
+from .native_batch_capabilities import PROFILE as BATCH_CAPABILITIES_PROFILE
+from .native_batch_capabilities import batch_capabilities
 from .native_binary_terminal_capabilities import PROFILE as BINARY_TERMINAL_CAPABILITIES_PROFILE
 from .native_binary_terminal_capabilities import binary_terminal_capabilities
 from .native_combined_capabilities import PROFILE as COMBINED_CAPABILITIES_PROFILE
@@ -51,6 +53,7 @@ class BackupCapabilitiesRequest(BackupInspectionSource):
         "native-backup-operation-capabilities/17",
         "native-backup-operation-capabilities/18",
         "native-backup-operation-capabilities/19",
+        "native-backup-operation-capabilities/20",
     ] = "native-backup-operation-capabilities/12"
 
 
@@ -112,6 +115,11 @@ class NativeBackupRecords:
         snapshot, files, application = self.load(
             options.model_dump(include={"capture_id", "snapshot_sha256"})
         )
+        if options.capability_profile == BATCH_CAPABILITIES_PROFILE:
+            return {
+                **self.envelope(snapshot, files),
+                **batch_capabilities(snapshot, files, application.summary(), records=self),
+            }
         analyzer = (
             encoded_analog_capabilities
             if options.capability_profile == ENCODED_ANALOG_CAPABILITIES_PROFILE

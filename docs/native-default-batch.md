@@ -87,3 +87,6 @@ authored localhost-controller transfer-plan retirement. These are software/sourc
 checks. This profile adds no field Apply, new block/link allocation, resource or
 package validation, native execution, CCT comparison or physical/Bluetooth
 acceptance. General JCI compilation and deployment remain partial.
+
+[Source-specific batch operation support](native-batch-capabilities.md) separately
+reports actual local compilation witnesses in the existing capability table.

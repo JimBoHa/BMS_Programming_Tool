@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-06. Implementation baseline: GitHub `main` at
-[`8d6f244a`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/8d6f244a7bb624a64c6713c057b8911a5e290cf9).
+[`2bc2a938`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/2bc2a938a56472a3f758b5e983ef42ed03a804ba).
 
 ## Baseline and purpose
 
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 191 scoped criteria: 137
+The public requirement register currently records 192 scoped criteria: 138
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -2299,3 +2299,22 @@ This completes the scoped local batch compiler. Additional edit kinds, new nativ
 identities/blocks/links, batch field deployment/recovery, packages/resources/native
 execution, CCT comparison and physical acceptance remain separate. JCI-02/03/09
 remain partial. See [typed default batches](docs/native-default-batch.md).
+
+## 2026-11-06 JCI-01 delivery: actual typed default batch capability evidence
+
+[Typed batch operation support](docs/native-batch-capabilities.md) adds an explicit
+profile20 extension to the existing Program capability table. It retains the
+complete profile19 prefix, ordinary UI14 and API default12, then runs the actual
+batch source reader and compiler over at most sixteen recorded fields.
+Independent edit reports, both composition orders and literal output hashes
+remain visible without creating a draft, export review, field plan or journal.
+Boolean-only and Enum-only sources remain independent of Real fields or diagrams;
+serial, BBMD and missing interfaces do not remove local compilation support.
+A failed bounded probe is not evidence that every batch is unsupported.
+
+Browser validation retains the source and all previous qualification evidence;
+mode counters retire old displays/downloads through rapid away-and-back changes.
+Source/task changes, exact received JSON, existing raw drafts and keyboard/mobile
+layouts retain their original contracts. JCI-01 remains partial overall. This
+extension grants no batch field Apply, general authoring, packages/resources/
+native runtime/CCT validation or physical/Bluetooth acceptance.
