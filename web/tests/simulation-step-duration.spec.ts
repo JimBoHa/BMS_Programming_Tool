@@ -140,6 +140,9 @@ for (const width of [1440, 412]) {
   }) => {
     await page.setViewportSize({ width, height: 1000 });
     await load(page);
+    const baseline = (
+      await (await request.get("/api/simulation/sessions/status")).json()
+    ).cached_sessions;
     await mode(page).selectOption("custom");
     const calls: string[] = [];
     page.on("request", (r) => {
@@ -185,7 +188,7 @@ for (const width of [1440, 412]) {
     expect(
       (await (await request.get("/api/simulation/sessions/status")).json())
         .cached_sessions,
-    ).toBe(0);
+    ).toBe(baseline);
   });
 
   test(`elapsed duration drives Slew without changing its rate at ${width}px`, async ({
