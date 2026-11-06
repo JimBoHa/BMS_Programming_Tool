@@ -65,6 +65,8 @@ JSON bytes, including their numeric spelling.
 Combined connection drafts are independent of ordinary Real and existing
 archive/effective connection drafts. Up to 256 explicit source/diagram/connection
 selection slots are retained in the current workspace without eviction. Changing
+selectors back to the actual default diagram, connection 0 or the recorded source
+releases only that selection's slot, including when storage is full. Changing
 tasks or reopening sources preserves unfinished proposals but retires reviews.
 Source, selected field, route/interface, visibility, disclosure and proposal
 changes invalidate pending results; synchronous counters also reject coalesced

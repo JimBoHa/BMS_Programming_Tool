@@ -1,3 +1,7 @@
+import {
+  openNativeCompiler,
+  chooseWorkspaceTool,
+} from "./workspace-navigation";
 import { test, expect, type Page, type Locator } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -55,10 +59,7 @@ async function open(page: Page, id: string) {
   await page
     .getByRole("button", { name: "New application", exact: true })
     .click();
-  await page
-    .getByRole("navigation", { name: "Current task tools" })
-    .getByRole("button", { name: "Native backup defaults", exact: true })
-    .click();
+  await openNativeCompiler(page);
   const panel = page.getByRole("region", {
     name: "Native backup default compiler",
     exact: true,
@@ -163,10 +164,7 @@ test("offline native compiler preserves saved settings, exact bytes and source-s
     .getByRole("navigation", { name: "Main navigation" })
     .getByRole("button", { name: "Workspace", exact: true })
     .click();
-  await page
-    .getByRole("navigation", { name: "Current task tools" })
-    .getByRole("button", { name: "Native backup defaults", exact: true })
-    .click();
+  await openNativeCompiler(page);
   await expect(input).toHaveValue("1e-");
   const review = await compile(panel);
   await expect(review).toContainText("3dcccccd");
@@ -344,10 +342,7 @@ test("late compilation and export cannot return after proposal or navigation cha
       .getByRole("navigation", { name: "Main navigation" })
       .getByRole("button", { name: "Workspace", exact: true })
       .click();
-    await page
-      .getByRole("navigation", { name: "Current task tools" })
-      .getByRole("button", { name: "Native backup defaults", exact: true })
-      .click();
+    await openNativeCompiler(page);
     await expect(
       panel.getByRole("region", {
         name: "Reviewed native compilation",
@@ -430,10 +425,7 @@ test("CAF draft and explicit file provenance survive the independent native comp
     .filter({ has: page.getByText("Block 10", { exact: true }) })
     .click();
   await page.getByLabel("CAF property 3113", { exact: true }).fill("27.25");
-  await page
-    .getByRole("navigation", { name: "Current task tools" })
-    .getByRole("button", { name: "Native backup defaults", exact: true })
-    .click();
+  await openNativeCompiler(page);
   const panel = page.getByRole("region", {
     name: "Native backup default compiler",
     exact: true,
@@ -452,10 +444,7 @@ test("CAF draft and explicit file provenance survive the independent native comp
   await expect(page.getByLabel("Working context")).toContainText(
     "native-companion.caf",
   );
-  await page
-    .getByRole("navigation", { name: "Current task tools" })
-    .getByRole("button", { name: "CAF file", exact: true })
-    .click();
+  await chooseWorkspaceTool(page, "CAF file");
   await expect(
     page.getByLabel("CAF property 3113", { exact: true }),
   ).toHaveValue("27.25");
@@ -499,10 +488,7 @@ test("connected-controller entry retains native drafts and retires review when t
       .getByRole("navigation", { name: "Workspace tasks" })
       .getByRole("button", { name: "Program", exact: true })
       .click();
-    await page
-      .getByRole("navigation", { name: "Current task tools" })
-      .getByRole("button", { name: "Native backup defaults", exact: true })
-      .click();
+    await openNativeCompiler(page);
   }
   try {
     await page.goto("/");

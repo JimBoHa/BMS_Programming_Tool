@@ -1,9 +1,23 @@
 import { connectionSame as same } from "./nativeConnectionContract";
+import { rememberWireDraft } from "./nativeWireDrafts";
 
 type Data = Record<string, any>;
 export const defaultWireBase =
   "/bacnet/controller/native-application/inspection/default-wire";
 export const defaultWireProfile = "native-effective-default-wire-compiler/1";
+/** Defaults need no retained slot; release only this exact selection at capacity. */
+export function rememberDefaultWireChoice(
+  drafts: Map<string, string>,
+  key: string,
+  value: string,
+  fallback: string,
+) {
+  if (value === fallback) {
+    drafts.delete(key);
+    return true;
+  }
+  return rememberWireDraft(drafts, key, value);
+}
 const hash = (v: unknown) => typeof v === "string" && /^[a-f0-9]{64}$/.test(v);
 const integer = (v: unknown, max = 65535) =>
   Number.isInteger(v) && (v as number) >= 0 && (v as number) <= max;

@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { api, apiBlobDocument, apiJsonDocument, saveBlob } from "./api";
 import { sha256Blob } from "./activityContracts";
-import { rememberWireDraft } from "./nativeWireDrafts";
 import {
   defaultWireBase as base,
   defaultWireSource,
   defaultWireSelection,
   defaultWireReview,
+  rememberDefaultWireChoice,
 } from "./nativeDefaultWireContract";
 
 type Data = Record<string, any>;
@@ -118,12 +118,12 @@ export function NativeDefaultWireCompiler({
     setError(null);
     setSaved(null);
   }
-  function remember(key: string, value: string) {
-    if (!rememberWireDraft(drafts, key, value)) {
+  function remember(key: string, value: string, fallback: string) {
+    if (!rememberDefaultWireChoice(drafts, key, value, fallback)) {
       setError({
         owner,
         ticket: epoch.current,
-        text: "All 256 combined connection draft slots are retained. Discard an older combined connection draft before adding another; no draft was removed.",
+        text: "All 256 combined connection draft slots are retained. Discard a combined connection draft or return a saved connection selector to connection 0, then try again. No draft was removed.",
       });
       return false;
     }
@@ -303,7 +303,11 @@ export function NativeDefaultWireCompiler({
                   value={diagramRef}
                   disabled={blocked}
                   onChange={(e) => {
-                    remember(sourceKey + "/diagram", e.target.value);
+                    remember(
+                      sourceKey + "/diagram",
+                      e.target.value,
+                      opened.diagrams.find((d: Data) => d.available)?.ref ?? "",
+                    );
                   }}
                 >
                   <option value="">Select an actual retained diagram</option>
@@ -323,7 +327,7 @@ export function NativeDefaultWireCompiler({
                     value={wireIndex}
                     disabled={blocked}
                     onChange={(e) => {
-                      remember(diagramKey + "/wire", e.target.value);
+                      remember(diagramKey + "/wire", e.target.value, "0");
                     }}
                   >
                     {wires.map((w: Data) => (
@@ -351,7 +355,11 @@ export function NativeDefaultWireCompiler({
                       value={sourceRef}
                       disabled={blocked}
                       onChange={(e) => {
-                        remember(selectionKey + "/source", e.target.value);
+                        remember(
+                          selectionKey + "/source",
+                          e.target.value,
+                          wire.source_ref,
+                        );
                       }}
                     >
                       {selection.candidates.map((c: Data) => (

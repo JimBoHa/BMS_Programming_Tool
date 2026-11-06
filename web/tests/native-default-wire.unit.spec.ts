@@ -4,6 +4,7 @@ import {
   defaultWireSource,
   defaultWireSelection,
   defaultWireReview,
+  rememberDefaultWireChoice,
 } from "../src/nativeDefaultWireContract";
 
 const fixtures = JSON.parse(
@@ -136,3 +137,34 @@ test("negative zero output retains its float32 sign", () => {
     defaultWireReview(value, f.parent, f.opened, f.selection, f.body, f.field),
   ).toBe(false);
 });
+
+for (const [kind, fallback, changed] of [
+  ["diagram", "original diagram", "another diagram"],
+  ["wire", "0", "1"],
+  ["source", "recorded source", "replacement source"],
+]) {
+  test(`full combined ${kind} storage admits defaults and frees only its original slot`, () => {
+    const drafts = new Map(
+      Array.from({ length: 256 }, (_, i) => [String(i), "retained draft " + i]),
+    );
+    const before = new Map(drafts);
+    expect(rememberDefaultWireChoice(drafts, "new", changed, fallback)).toBe(
+      false,
+    );
+    expect(drafts).toEqual(before);
+    expect(rememberDefaultWireChoice(drafts, "new", fallback, fallback)).toBe(
+      true,
+    );
+    expect(drafts).toEqual(before);
+    expect(rememberDefaultWireChoice(drafts, "8", fallback, fallback)).toBe(
+      true,
+    );
+    before.delete("8");
+    expect(drafts).toEqual(before);
+    expect(rememberDefaultWireChoice(drafts, "new", changed, fallback)).toBe(
+      true,
+    );
+    before.set("new", changed);
+    expect(drafts).toEqual(before);
+  });
+}
