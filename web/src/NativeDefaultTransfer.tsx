@@ -24,6 +24,11 @@ import {
   wireTransferReceiptMatches,
 } from "./nativeWireTransferContract";
 import {
+  defaultWireTransferProfile,
+  defaultWireTransferReviewMatches,
+  defaultWireTransferReceiptMatches,
+} from "./nativeDefaultWireTransferContract";
+import {
   enumTransferProfile,
   enumTransferReviewMatches,
   enumTransferReceiptMatches,
@@ -80,6 +85,11 @@ export function NativeDefaultTransfer({
   recoveryDraft = null,
   onRecoveryPrepared,
   wireSelection,
+  combinedDefaultWire = false,
+  combinedContext,
+  synchronousGeneration,
+  sourceCurrent,
+  presentationHidden = false,
 }: {
   controller?: ControllerContext | null;
   source: Data | null;
@@ -96,35 +106,48 @@ export function NativeDefaultTransfer({
   recoveryDraft?: NativeDefaultRecoveryDocument | null;
   onRecoveryPrepared?: (document: NativeDefaultRecoveryDocument) => void;
   wireSelection?: { diagram_ref: string; wire_index: number; class_id: number };
+  combinedDefaultWire?: boolean;
+  combinedContext?: { opened: Data; selected: Data };
+  synchronousGeneration?: number;
+  sourceCurrent?: () => boolean;
+  presentationHidden?: boolean;
 }) {
-  const operationProfile = wireSource
-    ? "native-effective-wire-source-transfer/1"
-    : enumDefault
-      ? enumTransferProfile
-      : booleanDefault
-        ? "native-effective-boolean-default-transfer/1"
-        : "native-effective-default-transfer/1";
-  const changeKind = wireSource
-    ? "wire-source"
-    : enumDefault
-      ? "enum-default"
-      : booleanDefault
-        ? "boolean-default"
-        : "signal-default";
-  const transferPath = wireSource
-    ? "/wire-source/transfer"
-    : enumDefault
-      ? "/enum-default/transfer"
-      : booleanDefault
-        ? "/boolean-default/transfer"
-        : "/signal-default/transfer";
+  const operationProfile = combinedDefaultWire
+    ? defaultWireTransferProfile
+    : wireSource
+      ? "native-effective-wire-source-transfer/1"
+      : enumDefault
+        ? enumTransferProfile
+        : booleanDefault
+          ? "native-effective-boolean-default-transfer/1"
+          : "native-effective-default-transfer/1";
+  const changeKind = combinedDefaultWire
+    ? "default-wire"
+    : wireSource
+      ? "wire-source"
+      : enumDefault
+        ? "enum-default"
+        : booleanDefault
+          ? "boolean-default"
+          : "signal-default";
+  const transferPath = combinedDefaultWire
+    ? "/default-wire/transfer"
+    : wireSource
+      ? "/wire-source/transfer"
+      : enumDefault
+        ? "/enum-default/transfer"
+        : booleanDefault
+          ? "/boolean-default/transfer"
+          : "/signal-default/transfer";
   const [status, setStatus] = useState<Data | null>(null);
-  const adapterAvailable = wireSource
-    ? status?.wire_source_transfer_profile === operationProfile
-    : enumDefault
-      ? status?.enum_default_transfer_profile === operationProfile
-      : !booleanDefault ||
-        status?.boolean_default_transfer_profile === operationProfile;
+  const adapterAvailable = combinedDefaultWire
+    ? status?.default_wire_transfer_profile === operationProfile
+    : wireSource
+      ? status?.wire_source_transfer_profile === operationProfile
+      : enumDefault
+        ? status?.enum_default_transfer_profile === operationProfile
+        : !booleanDefault ||
+          status?.boolean_default_transfer_profile === operationProfile;
   const [plan, setPlan] = useState<{
     data: Data;
     blob: Blob;
@@ -150,6 +173,8 @@ export function NativeDefaultTransfer({
   const operation = useRef<string | null>(null),
     reviewId = useRef<string | null>(null);
   const owner = JSON.stringify([
+    combinedDefaultWire,
+    synchronousGeneration,
     wireSource,
     booleanDefault,
     enumDefault,
@@ -172,9 +197,16 @@ export function NativeDefaultTransfer({
     epoch.current++;
   }
   const current = (key: string, ticket: number) =>
-    alive.current && ownerNow.current === key && epoch.current === ticket;
+    alive.current &&
+    ownerNow.current === key &&
+    epoch.current === ticket &&
+    (sourceCurrent?.() ?? true);
   const shown =
-    plan?.owner === owner && plan.epoch === epoch.current ? plan : null;
+    plan?.owner === owner &&
+    plan.epoch === epoch.current &&
+    (sourceCurrent?.() ?? true)
+      ? plan
+      : null;
   const serialInterface = hasSerialInterface(controller?.interfaceKey);
   const connected =
     !!controller?.interfaceOpen &&
@@ -242,7 +274,7 @@ export function NativeDefaultTransfer({
   async function run(
     kind: "credentials" | "capture" | "preview" | "apply" | "readback",
   ) {
-    if (operation.current || parentBusy) return;
+    if (operation.current || parentBusy || !(sourceCurrent?.() ?? true)) return;
     if (kind !== "credentials" && (!controller || !connected)) return;
     if (
       (kind === "preview" || kind === "apply") &&
@@ -332,41 +364,51 @@ export function NativeDefaultTransfer({
                 JSON.stringify(recoveryDraft.data.origin)
             : data.recovery_origin !== undefined ||
               data.recovery_origin_sha256 !== undefined) ||
-          (wireSource
-            ? !wireTransferReviewMatches(data, source!, proposal!, field!)
-            : enumDefault
-              ? !enumTransferReviewMatches(data, source!, proposal!, field!)
-              : ![
-                  "record_ref",
-                  "encoded_sha256",
-                  booleanDefault ? "value" : "value_text",
-                ].every(
-                  (name) => data.default_edit?.[name] === proposal![name],
-                ) ||
-                edit?.record_ref !== field!.ref ||
-                edit?.encoded_sha256 !== field!.encoded_sha256 ||
-                (booleanDefault
-                  ? data.application_sha256 !== proposal!.source_sha256 ||
-                    data.compilation?.profile !==
-                      "native-effective-boolean-default-compiler/1" ||
-                    data.compilation.other_merged_bytes_preserved !== true ||
-                    data.compilation.saved_settings_merged !== true ||
-                    edit?.datatype !== "Boolean" ||
-                    edit?.property !== 3113 ||
-                    edit?.class_id !== field!.class_id ||
-                    typeof edit?.before_value !== "boolean" ||
-                    typeof edit?.after_value !== "boolean" ||
-                    edit.before_value !== field!.effective_value ||
-                    edit.after_value !== proposal!.value ||
-                    edit.before_tag !==
-                      (field!.effective_value ? "11" : "10") ||
-                    edit.after_tag !== (proposal!.value ? "11" : "10")
-                  : edit?.before_bits !== field!.effective_bits ||
-                    !Number.isFinite(edit?.stored_value) ||
-                    edit?.after_bits !==
-                      floatBits(Number(proposal!.value_text)) ||
-                    edit?.after_bits !== floatBits(edit.stored_value) ||
-                    !/^[a-f0-9]{8}$/.test(edit?.after_bits || ""))) ||
+          (combinedDefaultWire
+            ? !combinedContext ||
+              !defaultWireTransferReviewMatches(
+                data,
+                source!,
+                proposal!,
+                field!,
+                combinedContext.opened,
+                combinedContext.selected,
+              )
+            : wireSource
+              ? !wireTransferReviewMatches(data, source!, proposal!, field!)
+              : enumDefault
+                ? !enumTransferReviewMatches(data, source!, proposal!, field!)
+                : ![
+                    "record_ref",
+                    "encoded_sha256",
+                    booleanDefault ? "value" : "value_text",
+                  ].every(
+                    (name) => data.default_edit?.[name] === proposal![name],
+                  ) ||
+                  edit?.record_ref !== field!.ref ||
+                  edit?.encoded_sha256 !== field!.encoded_sha256 ||
+                  (booleanDefault
+                    ? data.application_sha256 !== proposal!.source_sha256 ||
+                      data.compilation?.profile !==
+                        "native-effective-boolean-default-compiler/1" ||
+                      data.compilation.other_merged_bytes_preserved !== true ||
+                      data.compilation.saved_settings_merged !== true ||
+                      edit?.datatype !== "Boolean" ||
+                      edit?.property !== 3113 ||
+                      edit?.class_id !== field!.class_id ||
+                      typeof edit?.before_value !== "boolean" ||
+                      typeof edit?.after_value !== "boolean" ||
+                      edit.before_value !== field!.effective_value ||
+                      edit.after_value !== proposal!.value ||
+                      edit.before_tag !==
+                        (field!.effective_value ? "11" : "10") ||
+                      edit.after_tag !== (proposal!.value ? "11" : "10")
+                    : edit?.before_bits !== field!.effective_bits ||
+                      !Number.isFinite(edit?.stored_value) ||
+                      edit?.after_bits !==
+                        floatBits(Number(proposal!.value_text)) ||
+                      edit?.after_bits !== floatBits(edit.stored_value) ||
+                      !/^[a-f0-9]{8}$/.test(edit?.after_bits || ""))) ||
           !/^[A-Za-z0-9_-]{32}$/.test(data.token || "") ||
           !/^[a-f0-9]{64}$/.test(data.review_sha256 || "") ||
           !Number.isFinite(Date.parse(data.expires_at))
@@ -399,11 +441,24 @@ export function NativeDefaultTransfer({
                 ...(wireSource
                   ? { wire_change_confirmed: confirmed }
                   : { default_change_confirmed: confirmed }),
+                ...(combinedDefaultWire
+                  ? { wire_change_confirmed: confirmed }
+                  : {}),
                 application_transfer_confirmed: interruption,
               }
             : { operation_id: id, receipt_id: receipt!.data.intent.id },
         );
         const intent = result.data.intent;
+        if (
+          combinedDefaultWire &&
+          !defaultWireTransferReceiptMatches(
+            result.data,
+            kind === "apply" ? selectedPlan?.data : receipt?.data.intent,
+          )
+        )
+          throw new Error(
+            "Combined native receipt does not match its two edits and preservation evidence. Load retained receipts before another transfer.",
+          );
         if (
           enumDefault &&
           !enumTransferReceiptMatches(
@@ -470,7 +525,8 @@ export function NativeDefaultTransfer({
         result.data.intent?.change_kind !== changeKind ||
         result.data.intent?.operation_profile !== operationProfile ||
         (enumDefault && !enumTransferReceiptMatches(result.data)) ||
-        (wireSource && !wireTransferReceiptMatches(result.data))
+        (wireSource && !wireTransferReceiptMatches(result.data)) ||
+        (combinedDefaultWire && !defaultWireTransferReceiptMatches(result.data))
       )
         throw new Error(
           wireSource
@@ -611,14 +667,17 @@ export function NativeDefaultTransfer({
   return (
     <section
       className="native-compiler-source native-default-transfer"
+      hidden={presentationHidden}
       aria-label={
-        wireSource
-          ? "Native wire source controller transfer"
-          : enumDefault
-            ? "Native Enum default controller transfer"
-            : booleanDefault
-              ? "Native Boolean default controller transfer"
-              : "Native default controller transfer"
+        combinedDefaultWire
+          ? "Native combined controller transfer"
+          : wireSource
+            ? "Native wire source controller transfer"
+            : enumDefault
+              ? "Native Enum default controller transfer"
+              : booleanDefault
+                ? "Native Boolean default controller transfer"
+                : "Native default controller transfer"
       }
     >
       <h2>Controller transfer</h2>
@@ -634,8 +693,12 @@ export function NativeDefaultTransfer({
       ) : (
         <p>
           Open and verify a controller to capture or transfer its native
-          {wireSource ? "wire source" : "defaults"}. Local compilation remains
-          available.
+          {combinedDefaultWire
+            ? "default and connection"
+            : wireSource
+              ? "wire source"
+              : "defaults"}
+          . Local compilation remains available.
         </p>
       )}
       <p>
@@ -652,7 +715,13 @@ export function NativeDefaultTransfer({
       {!adapterAvailable && (
         <p>
           The installed native{" "}
-          {wireSource ? "wire source" : enumDefault ? "Enum" : "Boolean"}{" "}
+          {combinedDefaultWire
+            ? "combined default/connection"
+            : wireSource
+              ? "wire source"
+              : enumDefault
+                ? "Enum"
+                : "Boolean"}{" "}
           transfer profile is unavailable. Retain this local compilation; no
           transfer review is prepared.
         </p>
@@ -726,24 +795,30 @@ export function NativeDefaultTransfer({
           disabled={localLocked || !connected || !proposal || !adapterAvailable}
           onClick={() => void run("preview")}
         >
-          {wireSource
-            ? "Review controller wire transfer"
-            : "Review controller default transfer"}
+          {combinedDefaultWire
+            ? "Review controller combined transfer"
+            : wireSource
+              ? "Review controller wire transfer"
+              : "Review controller default transfer"}
         </button>
       )}
       {shown && (
         <section
           className="native-compiler-source"
           aria-label={
-            wireSource
-              ? "Reviewed controller wire transfer"
-              : "Reviewed controller default transfer"
+            combinedDefaultWire
+              ? "Reviewed controller combined transfer"
+              : wireSource
+                ? "Reviewed controller wire transfer"
+                : "Reviewed controller default transfer"
           }
         >
           <h3>
-            {wireSource
-              ? "Review controller wire transfer"
-              : "Review controller default transfer"}
+            {combinedDefaultWire
+              ? "Review controller combined transfer"
+              : wireSource
+                ? "Review controller wire transfer"
+                : "Review controller default transfer"}
           </h3>
           {shown.data.recovery_origin && (
             <p>
@@ -753,7 +828,50 @@ export function NativeDefaultTransfer({
               review does not replay the earlier operation.
             </p>
           )}
-          {wireSource ? (
+          {combinedDefaultWire ? (
+            <>
+              <p>
+                Real default {shown.data.combined_edit.record_ref}:{" "}
+                {Object.is(
+                  shown.data.compilation.selected_default.before_value,
+                  -0,
+                )
+                  ? "-0"
+                  : String(
+                      shown.data.compilation.selected_default.before_value,
+                    )}{" "}
+                to{" "}
+                {Object.is(
+                  shown.data.compilation.selected_default.stored_value,
+                  -0,
+                )
+                  ? "-0"
+                  : String(
+                      shown.data.compilation.selected_default.stored_value,
+                    )}
+                {shown.data.compilation.selected_default
+                  .decimal_precision_changed
+                  ? " · proposed decimal is rounded"
+                  : ""}
+                . Bits{" "}
+                <code>
+                  {shown.data.compilation.selected_default.before_bits}
+                </code>{" "}
+                to{" "}
+                <code>
+                  {shown.data.compilation.selected_default.after_bits}
+                </code>
+                .
+              </p>
+              <p>
+                Connection {shown.data.combined_edit.wire_index} in{" "}
+                {shown.data.combined_edit.diagram_ref}:{" "}
+                {shown.data.compilation.selected_wire.old_source_ref} to{" "}
+                {shown.data.compilation.selected_wire.source_ref}. Destination
+                and pins stay unchanged.
+              </p>
+            </>
+          ) : wireSource ? (
             <p>
               {shown.data.wire_edit.diagram_ref} · connection{" "}
               {shown.data.wire_edit.wire_index + 1} ·{" "}
@@ -798,11 +916,13 @@ export function NativeDefaultTransfer({
               disabled={localLocked}
               onChange={(event) => setConfirmed(event.target.checked)}
             />
-            {wireSource
-              ? "I confirm the selected controller, native connection and proposed wire source."
-              : enumDefault
-                ? "I confirm the selected controller, native Enum code and its intended meaning."
-                : "I confirm the selected controller, native default and proposed value."}
+            {combinedDefaultWire
+              ? "I confirm the selected controller, proposed Real default and connection source."
+              : wireSource
+                ? "I confirm the selected controller, native connection and proposed wire source."
+                : enumDefault
+                  ? "I confirm the selected controller, native Enum code and its intended meaning."
+                  : "I confirm the selected controller, native default and proposed value."}
           </label>
           <label className="native-transfer-check">
             <input
@@ -826,17 +946,21 @@ export function NativeDefaultTransfer({
               }
               onClick={() => void run("apply")}
             >
-              {wireSource
-                ? "Apply native wire to controller"
-                : "Apply native default to controller"}
+              {combinedDefaultWire
+                ? "Apply native default and connection to controller"
+                : wireSource
+                  ? "Apply native wire to controller"
+                  : "Apply native default to controller"}
             </button>
             <button
               onClick={() =>
                 saveBlob(
                   shown.blob,
-                  wireSource
-                    ? "native-wire-transfer-review.json"
-                    : "native-default-transfer-review.json",
+                  combinedDefaultWire
+                    ? "native-default-wire-transfer-review.json"
+                    : wireSource
+                      ? "native-wire-transfer-review.json"
+                      : "native-default-transfer-review.json",
                 )
               }
             >
@@ -860,20 +984,29 @@ export function NativeDefaultTransfer({
       {!!receipts.length && (
         <details open={!!receipts.some((row: Data) => row.pending)}>
           <summary>
-            Retained native {wireSource ? "wire" : "default"} transfers (
-            {receipts.length})
+            Retained native{" "}
+            {combinedDefaultWire ? "combined" : wireSource ? "wire" : "default"}{" "}
+            transfers ({receipts.length})
           </summary>
           <table
             aria-label={
-              wireSource
-                ? "Native wire transfer receipts"
-                : "Native default transfer receipts"
+              combinedDefaultWire
+                ? "Native combined transfer receipts"
+                : wireSource
+                  ? "Native wire transfer receipts"
+                  : "Native default transfer receipts"
             }
           >
             <thead>
               <tr>
                 <th>Controller station</th>
-                <th>{wireSource ? "Connection" : "Default"}</th>
+                <th>
+                  {combinedDefaultWire
+                    ? "Default and connection"
+                    : wireSource
+                      ? "Connection"
+                      : "Default"}
+                </th>
                 <th>Outcome</th>
                 <th>Evidence</th>
               </tr>
@@ -888,9 +1021,11 @@ export function NativeDefaultTransfer({
                       : ""}
                   </td>
                   <td>
-                    {wireSource
-                      ? `${row.wire_edit?.diagram_ref} · connection ${(row.wire_edit?.wire_index ?? -1) + 1}`
-                      : row.default_edit?.record_ref}
+                    {combinedDefaultWire
+                      ? `${row.combined_edit?.record_ref} · ${row.combined_edit?.diagram_ref} · connection ${row.combined_edit?.wire_index}`
+                      : wireSource
+                        ? `${row.wire_edit?.diagram_ref} · connection ${(row.wire_edit?.wire_index ?? -1) + 1}`
+                        : row.default_edit?.record_ref}
                   </td>
                   <td>
                     {row.status}
@@ -913,25 +1048,33 @@ export function NativeDefaultTransfer({
       {receipt && (
         <section
           aria-label={
-            wireSource
-              ? "Native wire transfer outcome"
-              : "Native default transfer outcome"
+            combinedDefaultWire
+              ? "Native combined transfer outcome"
+              : wireSource
+                ? "Native wire transfer outcome"
+                : "Native default transfer outcome"
           }
         >
           <h3>
             {observed?.status === "recovered_original"
               ? "Original application recovered"
               : observed?.status === "verified"
-                ? wireSource
-                  ? "Verified native wire transfer"
-                  : "Verified native default transfer"
-                : observed?.status === "not_sent"
-                  ? wireSource
-                    ? "Native wire transfer not sent"
-                    : "Native default transfer not sent"
+                ? combinedDefaultWire
+                  ? "Verified native combined transfer"
                   : wireSource
-                    ? "Native wire transfer outcome uncertain"
-                    : "Native default transfer outcome uncertain"}
+                    ? "Verified native wire transfer"
+                    : "Verified native default transfer"
+                : observed?.status === "not_sent"
+                  ? combinedDefaultWire
+                    ? "Native combined transfer not sent"
+                    : wireSource
+                      ? "Native wire transfer not sent"
+                      : "Native default transfer not sent"
+                  : combinedDefaultWire
+                    ? "Native combined transfer outcome uncertain"
+                    : wireSource
+                      ? "Native wire transfer outcome uncertain"
+                      : "Native default transfer outcome uncertain"}
           </h3>
           {receipt.data.intent && (
             <p>
@@ -941,9 +1084,11 @@ export function NativeDefaultTransfer({
                 ? ` via ${receipt.data.intent.target.router} / DNET ${receipt.data.intent.target.dnet}`
                 : ""}{" "}
               ·{" "}
-              {wireSource
-                ? receipt.data.intent.wire_edit.diagram_ref
-                : receipt.data.intent.default_edit.record_ref}
+              {combinedDefaultWire
+                ? `${receipt.data.intent.combined_edit.record_ref} and ${receipt.data.intent.combined_edit.diagram_ref} connection ${receipt.data.intent.combined_edit.wire_index}`
+                : wireSource
+                  ? receipt.data.intent.wire_edit.diagram_ref
+                  : receipt.data.intent.default_edit.record_ref}
               .
             </p>
           )}
@@ -983,9 +1128,11 @@ export function NativeDefaultTransfer({
               onClick={() =>
                 saveBlob(
                   receipt.blob,
-                  wireSource
-                    ? "native-wire-transfer-receipt.json"
-                    : "native-default-transfer-receipt.json",
+                  combinedDefaultWire
+                    ? "native-default-wire-transfer-receipt.json"
+                    : wireSource
+                      ? "native-wire-transfer-receipt.json"
+                      : "native-default-transfer-receipt.json",
                 )
               }
             >
@@ -996,9 +1143,11 @@ export function NativeDefaultTransfer({
                 disabled={localLocked || !connected || !receiptMatches}
                 onClick={() => void run("readback")}
               >
-                {wireSource
-                  ? "Read back native wire transfer"
-                  : "Read back native default transfer"}
+                {combinedDefaultWire
+                  ? "Read back native combined transfer"
+                  : wireSource
+                    ? "Read back native wire transfer"
+                    : "Read back native default transfer"}
               </button>
             )}
             {onRecoveryPrepared && (

@@ -2220,3 +2220,25 @@ This delivers local review/export. Fresh combined transfer/readback/recovery,
 broader authoring, new identities, packages/resources, native execution and
 CCT/physical acceptance remain separate. JCI-03 and JCI-09 stay partial. See
 [combined native compilation](docs/native-combined-default-wire.md).
+
+## 2026-11-06 JCI-09 delivery: combined native default and connection transfer
+
+`FMT-NATIVE-DEFAULT-WIRE-TRANSFER-001` adds its own reviewed transfer profile to
+the existing combined Program task. Apply rechecks the fresh original application,
+saved directory, selected effective Real bits and connection configuration, then
+preserves unrelated fresh settings through one shared merge and File 3 restore.
+Identity, one-use sealed reviews, credentials, expiry, capacity, durable backup,
+intent, ownership, cancellation and uncertainty rules remain required.
+
+Readback checks the complete native bytes and both effective edits. Lost replies
+retain uncertainty and readback after restart never replays restore. Exact JSON
+review/receipt downloads and bounded Changes/History projections preserve both
+recorded edits without granting historical field authority. Source/task/route/
+disclosure/proposal counters retire stale reviews, including coalesced ABA.
+Single-edit workflows and their independent profiles remain available.
+
+This delivers a bounded combined transfer through authored direct/routed UDP and
+source/installed browser qualification. General graph generation, new identities,
+packages/resources, hardware changes, native execution, CCT comparison, BTCVT and
+physical acceptance remain separate. JCI-03 and JCI-09 stay partial. See
+[combined native transfer](docs/native-default-wire-transfer.md).

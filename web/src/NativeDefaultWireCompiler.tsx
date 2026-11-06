@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useId, useRef, useState } from "react";
+import { NativeBooleanTransferContext } from "./NativeBooleanTransferContext";
+import { NativeDefaultTransfer } from "./NativeDefaultTransfer";
 import { api, apiBlobDocument, apiJsonDocument, saveBlob } from "./api";
 import { sha256Blob } from "./activityContracts";
 import {
@@ -21,6 +23,9 @@ export function NativeDefaultWireCompiler({
   blocked,
   parentCurrent,
   drafts,
+  onExpandedChange,
+  localPrimary,
+  transferAllowed,
 }: {
   source: Data;
   field: Data;
@@ -31,7 +36,14 @@ export function NativeDefaultWireCompiler({
   blocked: boolean;
   parentCurrent: () => boolean;
   drafts: Map<string, string>;
+  onExpandedChange: (expanded: boolean) => void;
+  localPrimary: boolean;
+  transferAllowed: boolean;
 }) {
+  const transferContext = useContext(NativeBooleanTransferContext);
+  const transferOwner = useId();
+  const [ownedTransferBusy, setOwnedTransferBusy] = useState(false);
+  const fieldBlocked = blocked && !ownedTransferBusy;
   const [expanded, setExpanded] = useState(false);
   const [loaded, setLoaded] = useState<{ key: string; data: Data } | null>(
     null,
@@ -72,7 +84,7 @@ export function NativeDefaultWireCompiler({
     context,
     generation,
     visible,
-    blocked,
+    fieldBlocked,
     expanded,
     sourceKey,
     field.ref,
@@ -93,7 +105,7 @@ export function NativeDefaultWireCompiler({
   const current = (ticket: number, key: string) =>
     alive.current &&
     visible &&
-    !blocked &&
+    !fieldBlocked &&
     expanded &&
     parentCurrent() &&
     epoch.current === ticket &&
@@ -104,12 +116,13 @@ export function NativeDefaultWireCompiler({
     value.ticket === epoch.current &&
     parentCurrent();
   const shown = owns(review) ? review : null;
-  const busy = blocked || owns(pending);
+  const busy = fieldBlocked || ownedTransferBusy || owns(pending);
   useEffect(() => {
     alive.current = true;
     return () => {
       alive.current = false;
       epoch.current++;
+      onExpandedChange(false);
     };
   }, []);
   function retire() {
@@ -134,7 +147,14 @@ export function NativeDefaultWireCompiler({
   async function operate(
     action: (ticket: number, key: string) => Promise<void>,
   ) {
-    if (!visible || blocked || !expanded || !parentCurrent() || owns(pending))
+    if (
+      !visible ||
+      fieldBlocked ||
+      ownedTransferBusy ||
+      !expanded ||
+      !parentCurrent() ||
+      owns(pending)
+    )
       return;
     const ticket = ++epoch.current,
       key = ownerNow.current;
@@ -251,6 +271,8 @@ export function NativeDefaultWireCompiler({
       if (current(ticket, key)) setPending(null);
     }
   }
+  const sourceTicket = epoch.current;
+  const sourceOwner = owner;
   return (
     <details
       className="native-compiler-source"
@@ -262,6 +284,7 @@ export function NativeDefaultWireCompiler({
           event.preventDefault();
           retire();
           setExpanded((v) => !v);
+          onExpandedChange(!expanded);
         }}
       >
         Combine this default with a connection change
@@ -301,7 +324,7 @@ export function NativeDefaultWireCompiler({
                 <select
                   aria-label="Combined native diagram"
                   value={diagramRef}
-                  disabled={blocked}
+                  disabled={fieldBlocked || ownedTransferBusy}
                   onChange={(e) => {
                     remember(
                       sourceKey + "/diagram",
@@ -325,7 +348,7 @@ export function NativeDefaultWireCompiler({
                   <select
                     aria-label="Combined native connection"
                     value={wireIndex}
-                    disabled={blocked}
+                    disabled={fieldBlocked || ownedTransferBusy}
                     onChange={(e) => {
                       remember(diagramKey + "/wire", e.target.value, "0");
                     }}
@@ -353,7 +376,7 @@ export function NativeDefaultWireCompiler({
                     <select
                       aria-label="Combined replacement source"
                       value={sourceRef}
-                      disabled={blocked}
+                      disabled={fieldBlocked || ownedTransferBusy}
                       onChange={(e) => {
                         remember(
                           selectionKey + "/source",
@@ -415,14 +438,17 @@ export function NativeDefaultWireCompiler({
                   <div className="button-row">
                     <button
                       type="button"
-                      disabled={busy || !body || !valueText}
+                      className={localPrimary ? "primary" : ""}
+                      disabled={
+                        busy || ownedTransferBusy || !body || !valueText
+                      }
                       onClick={() => void compile()}
                     >
                       Review combined native compilation
                     </button>
                     <button
                       type="button"
-                      disabled={blocked}
+                      disabled={fieldBlocked || ownedTransferBusy}
                       onClick={() => {
                         retire();
                         drafts.delete(selectionKey + "/source");
@@ -496,6 +522,43 @@ export function NativeDefaultWireCompiler({
           )}
           {owns(saved) && (
             <p role="status">Saved reviewed combined native copy.</p>
+          )}
+          {transferContext && opened && selected && (
+            <>
+              {!transferAllowed && (
+                <p role="status">
+                  Finish or discard the prepared previous-value proposal before
+                  reviewing a combined controller transfer. The ordinary Real
+                  draft remains retained separately.
+                </p>
+              )}
+              <NativeDefaultTransfer
+                combinedDefaultWire
+                controller={transferContext.controller}
+                source={source}
+                proposal={transferAllowed ? body : null}
+                field={field}
+                combinedContext={{ opened, selected }}
+                synchronousGeneration={sourceTicket}
+                sourceCurrent={() =>
+                  alive.current &&
+                  parentCurrent() &&
+                  epoch.current === sourceTicket &&
+                  ownerNow.current === sourceOwner &&
+                  visible &&
+                  expanded &&
+                  !fieldBlocked
+                }
+                visible={visible && expanded}
+                parentBusy={fieldBlocked}
+                otherOperationBusy={fieldBlocked}
+                onCaptured={transferContext.onCaptured}
+                onBusy={(value) => {
+                  setOwnedTransferBusy(value);
+                  transferContext.onBusy(transferOwner, value);
+                }}
+              />
+            </>
           )}
         </>
       )}

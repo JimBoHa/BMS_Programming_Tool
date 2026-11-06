@@ -73,6 +73,18 @@ from .native_default_transfer import (
     compile_default,
     verify_default_preservation,
 )
+from .native_default_wire import CombinedPreview
+from .native_default_wire_transfer import PROFILE as COMBINED_PROFILE
+from .native_default_wire_transfer import SCOPE as COMBINED_SCOPE
+from .native_default_wire_transfer import (
+    CombinedTransferApply,
+    CombinedTransferPreview,
+    compile_combined,
+    verify_combined_preservation,
+)
+from .native_default_wire_transfer import (
+    validate_evidence as validate_combined_evidence,
+)
 from .native_encoded_analog_recovery import NativeEncodedAnalogRecovery
 from .native_encoded_analog_recovery_transfer import EncodedAnalogRecoveryPreview
 from .native_encoded_analog_recovery_transfer import (
@@ -271,6 +283,8 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
             "enum_default_transfer_scope": ENUM_DEFAULT_SCOPE,
             "wire_source_transfer_profile": WIRE_PROFILE,
             "wire_source_transfer_scope": WIRE_SCOPE,
+            "default_wire_transfer_profile": COMBINED_PROFILE,
+            "default_wire_transfer_scope": COMBINED_SCOPE,
             "matching_connection_transfer_profile": CONNECTION_PROFILE,
             "matching_connection_transfer_scope": CONNECTION_SCOPE,
             "backup_effects": backup_effects(),
@@ -308,6 +322,14 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                     **(
                         {"wire_edit": r["intent"].get("wire_edit")}
                         if r["intent"].get("change_kind") == "wire-source"
+                        else {}
+                    ),
+                    **(
+                        {
+                            "combined_edit": r["intent"].get("combined_edit"),
+                            "operation_profile": r["intent"].get("operation_profile"),
+                        }
+                        if r["intent"].get("change_kind") == "default-wire"
                         else {}
                     ),
                     **(
@@ -850,6 +872,63 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
         options = EnumTransferPreview(**arguments)
         return await self.preview_typed_default(options, boolean=False, enumerated=True)
 
+    async def preview_default_wire(self, **arguments):
+        options = CombinedTransferPreview(**arguments)
+        async with self.operation(options.operation_id, "review-default-wire"):
+            self.available(options)
+            if (self.storage.directory / options.capture_id).is_symlink():
+                raise ValueError("Combined native sources must stay in their original folder.")
+            captured, files = self.check_capture(options)
+            if captured["evidence_sha256"] != options.snapshot_sha256:
+                raise ValueError("The combined native snapshot changed; reopen and review again.")
+            edit = options.model_dump(include=set(CombinedPreview.model_fields))
+            output, compilation = compile_combined(files, edit)
+            if not (
+                compilation["selected_default"]["changed"]
+                or compilation["selected_wire"]["changed"]
+            ):
+                raise ValueError("Change the selected default or connection before transfer.")
+            config, app = copy.deepcopy(self.bacnet.config), self.bacnet.require()
+            async with self.path._path(options) as session:
+                PropertyEvidence.pin(session, options.router)
+                actual, _ = await self.identity(session, options.device)
+            if actual != captured["identity"]:
+                raise ValueError("Controller identity changed after backup; capture again.")
+            body = {
+                "profile": PROFILE,
+                "operation_profile": COMBINED_PROFILE,
+                "target": self.target(options),
+                "identity": actual,
+                "old_instance": ObjectIdentifier(options.device)[1],
+                "new_instance": ObjectIdentifier(options.device)[1],
+                "change_kind": "default-wire",
+                "old_name": actual["object-name"],
+                "new_name": actual["object-name"],
+                "capture_id": options.capture_id,
+                "snapshot_sha256": captured["evidence_sha256"],
+                "application_sha256": sha(files[3]),
+                "static_parameters_sha256": sha(files[11]),
+                "combined_edit": edit,
+                "combined_guard": compilation["combined_guard"],
+                "compilation": compilation,
+                "payload_sha256": sha(output),
+                "collision_check": self.default_wire_scope(),
+                "parameter_policy": (
+                    "Capture fresh application/settings before restore. Application, saved "
+                    "directory, selected Real default and selected connection configuration "
+                    "must match. Merge other fresh saved values; final payload may differ "
+                    "from preview. Verify both edits, complete application and saved settings."
+                ),
+                "backup_effects": backup_effects(),
+                "scope": COMBINED_SCOPE,
+                "vendor_runtime_required": False,
+                "can_apply": True,
+                "connector_config": config,
+                "created_at": utc(),
+                "expires_at": (datetime.now(UTC) + timedelta(seconds=PLAN_SECONDS)).isoformat(),
+            }
+            return self.retain_plan(body, options, app, config)
+
     async def preview_wire(self, **arguments):
         options = WireTransferPreview(**arguments)
         async with self.operation(options.operation_id, "review-wire"):
@@ -1081,6 +1160,14 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
         }
 
     @staticmethod
+    def default_wire_scope():
+        return {
+            "scope": "One existing Real default and connection at the selected physical station",
+            "devices": [],
+            "allocation_required": False,
+        }
+
+    @staticmethod
     def wire_scope():
         return {
             "scope": "One existing wire-source edit at the selected physical station",
@@ -1186,6 +1273,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
             "boolean-default",
             "enum-default",
             "wire-source",
+            "default-wire",
             "connection",
             "point-name",
             "input",
@@ -1195,10 +1283,22 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
         enum_edit = change_kind == "enum-default"
         default_edit = change_kind in ("signal-default", "boolean-default", "enum-default")
         wire_edit = change_kind == "wire-source"
+        combined_edit = change_kind == "default-wire"
         connection_edit = change_kind == "connection"
         point_name_edit = change_kind == "point-name"
         input_edit = change_kind == "input"
-        program_edit = default_edit or wire_edit or point_name_edit or input_edit or connection_edit
+        program_edit = (
+            default_edit
+            or wire_edit
+            or point_name_edit
+            or input_edit
+            or connection_edit
+            or combined_edit
+        )
+        if combined_edit:
+            if intent.get("operation_profile") != COMBINED_PROFILE:
+                raise ValueError("Unsupported combined native transfer evidence; retain it.")
+            validate_combined_evidence(intent.get("combined_edit"), intent.get("combined_guard"))
         if connection_edit:
             if intent.get("operation_profile") != CONNECTION_PROFILE:
                 raise ValueError("Unsupported native connection evidence version; retain it.")
@@ -1338,7 +1438,11 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                     else {}
                 )
                 result["preservation"] = (
-                    verify_input_preservation(
+                    verify_combined_preservation(
+                        original_files, files, intent["combined_edit"], intent["combined_guard"]
+                    )
+                    if combined_edit
+                    else verify_input_preservation(
                         original_files,
                         files,
                         intent["input_edit"],
@@ -1434,6 +1538,10 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
         request = WireTransferApply(**arguments)
         return await self.apply_reviewed(request, default_edit=False, wire_edit=True)
 
+    async def apply_default_wire(self, **arguments):
+        request = CombinedTransferApply(**arguments)
+        return await self.apply_reviewed(request, default_edit=False, combined_edit=True)
+
     async def apply_point_name(self, **arguments):
         request = PointNameApply(**arguments)
         return await self.apply_reviewed(request, default_edit=False, point_name_edit=True)
@@ -1454,6 +1562,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
         point_name_edit=False,
         input_edit=False,
         connection_edit=False,
+        combined_edit=False,
     ):
         if (
             sum(
@@ -1463,6 +1572,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                     bool(point_name_edit),
                     bool(input_edit),
                     bool(connection_edit),
+                    bool(combined_edit),
                 )
             )
             > 1
@@ -1470,7 +1580,14 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
             or (boolean_edit and enum_edit)
         ):
             raise ValueError("Choose one native transfer operation.")
-        program_edit = default_edit or wire_edit or point_name_edit or input_edit or connection_edit
+        program_edit = (
+            default_edit
+            or wire_edit
+            or point_name_edit
+            or input_edit
+            or connection_edit
+            or combined_edit
+        )
         plan = self.plans.pop(request.token, None)
         if not plan or plan["digest"] != request.review_sha256 or not plan["body"]["can_apply"]:
             raise ValueError(
@@ -1479,7 +1596,9 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
         renaming = plan["body"].get("change_kind") == "name"
         kind = plan["body"].get("change_kind", "instance")
         expected_kind = (
-            "input"
+            "default-wire"
+            if combined_edit
+            else "input"
             if input_edit
             else "point-name"
             if point_name_edit
@@ -1495,6 +1614,17 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
         )
         if kind not in ((expected_kind,) if program_edit else ("instance", "name")):
             raise ValueError("This review belongs to a different native transfer operation.")
+        if combined_edit and (
+            plan["body"].get("operation_profile") != COMBINED_PROFILE
+            or seal(plan["body"]) != plan["digest"]
+            or plan["body"].get("combined_edit")
+            != plan["options"].model_dump(include=set(CombinedPreview.model_fields))
+        ):
+            raise ValueError("The exact combined native review changed; review again.")
+        if combined_edit:
+            validate_combined_evidence(
+                plan["body"].get("combined_edit"), plan["body"].get("combined_guard")
+            )
         if default_edit and plan["body"].get("operation_profile") != (
             ENUM_DEFAULT_PROFILE
             if enum_edit
@@ -1549,6 +1679,10 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
             validate_binary_terminal_recovery_plan(plan["body"], plan["options"])
         if (
             not request.application_transfer_confirmed
+            or (
+                combined_edit
+                and not (request.default_change_confirmed and request.wire_change_confirmed)
+            )
             or (wire_edit and not request.wire_change_confirmed)
             or (connection_edit and not request.connection_change_confirmed)
             or (default_edit and not request.default_change_confirmed)
@@ -1582,7 +1716,9 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                 if seal(self.credentials.get()) != plan["credentials_digest"]:
                     raise ValueError("Transfer credentials changed; review again.")
                 collision = (
-                    self.connection_scope()
+                    self.default_wire_scope()
+                    if combined_edit
+                    else self.connection_scope()
                     if connection_edit
                     else self.wire_scope()
                     if wire_edit
@@ -1621,7 +1757,14 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                             "Application or saved parameter directory changed after review. Capture and review again."
                         )
                     output, compilation = (
-                        compile_input(
+                        compile_combined(
+                            files,
+                            body["combined_edit"],
+                            fresh=True,
+                            expected_guard=body["combined_guard"],
+                        )
+                        if combined_edit
+                        else compile_input(
                             files,
                             body["input_edit"],
                             allocation_origin=body.get("allocation_origin"),
@@ -1716,7 +1859,9 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                             "Native application review or credentials changed during preflight. Review again."
                         )
                     recovery = (
-                        {
+                        {}
+                        if combined_edit
+                        else {
                             **terminal_recovery_origin(self, options, compilation),
                             **encoded_analog_recovery_origin(self, options, compilation),
                             **binary_terminal_recovery_origin(self, options, compilation),
@@ -1760,6 +1905,17 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                             "native_payload_sha256": sha(MoiIdentity(output).data),
                             "compilation": compilation,
                             "collision_check": collision,
+                            **(
+                                {
+                                    "combined_edit": body["combined_edit"],
+                                    "combined_guard": body["combined_guard"],
+                                    "operation_profile": COMBINED_PROFILE,
+                                    "default_change_confirmed": request.default_change_confirmed,
+                                    "wire_change_confirmed": request.wire_change_confirmed,
+                                }
+                                if combined_edit
+                                else {}
+                            ),
                             **(
                                 {
                                     "input_edit": body["input_edit"],
@@ -2148,6 +2304,14 @@ def native_application_router(service):
     @router.post("/wire-source/transfer/preview")
     async def preview_wire(body: WireTransferPreview):
         return await service.preview_wire(**body.model_dump())
+
+    @router.post("/default-wire/transfer/preview")
+    async def preview_default_wire(body: CombinedTransferPreview):
+        return await service.preview_default_wire(**body.model_dump())
+
+    @router.post("/default-wire/transfer/apply")
+    async def apply_default_wire(body: CombinedTransferApply):
+        return await service.apply_default_wire(**body.model_dump())
 
     @router.post("/matching-connection/transfer/preview")
     async def preview_connection(body: ConnectionTransferPreview):

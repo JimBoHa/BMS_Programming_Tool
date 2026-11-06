@@ -27,6 +27,7 @@ import {
 import { recordedPointName } from "./nativePointNameLedger";
 import { recordedPointNameRecovery } from "./nativePointNameRecoveryLedger";
 import { recordedConnection } from "./nativeConnectionLedger";
+import { recordedDefaultWire, NativeDefaultWireLedgerView } from "./NativeDefaultWireLedgerView";
 import {
   recordedEnumRecovery,
   ENUM_RECOVERY_UNAVAILABLE,
@@ -116,6 +117,7 @@ type Row = {
   native_terminal_recovery?: unknown;
   native_point_name?: unknown;
   native_connection?: unknown;
+  native_default_wire?: unknown;
   native_point_name_recovery?: unknown;
   created_at: string;
   state: string;
@@ -404,7 +406,10 @@ export function ChangeLedgerPanel({
       nativeKind,
     ) ||
       (nativeKind === "connection" &&
-        !!recordedConnection(choice.native_connection)));
+        !!recordedConnection(choice.native_connection)) ||
+      (nativeKind === "default-wire" && !!recordedDefaultWire(choice.native_default_wire)));
+  const combined = choice?.source === "native" && !binaryRecoveryPresent && nativeKind === "default-wire"
+    ? recordedDefaultWire(choice.native_default_wire) : null;
   const connection =
     choice?.source === "native" && !binaryRecoveryPresent
       ? recordedConnection(choice.native_connection)
@@ -444,6 +449,7 @@ export function ChangeLedgerPanel({
         "signal-default",
         "boolean-default",
         "wire-source",
+        "default-wire",
         "connection",
         "input",
         "point-name",
@@ -455,7 +461,8 @@ export function ChangeLedgerPanel({
     (choice?.source === "native" &&
       nativeKind === "point-name" &&
       !pointName) ||
-    (choice?.source === "native" && nativeKind === "connection" && !connection);
+    (choice?.source === "native" && nativeKind === "connection" && !connection) ||
+    (choice?.source === "native" && nativeKind === "default-wire" && !combined);
   const toolLabel = unsupportedNative
     ? undefined
     : pointName
@@ -715,6 +722,7 @@ export function ChangeLedgerPanel({
                             : "Connection metadata unavailable"}
                         </span>
                       )}
+                      {row.native_default_wire !== undefined && <span>{recordedDefaultWire(row.native_default_wire) ? "Recorded default and connection" : "Combined metadata unavailable"}</span>}
                       {row.native_binary_terminal_recovery === undefined && <PointNameRecoverySummary row={row} />}
                       {row.native_binary_terminal_recovery === undefined && row.native_encoded_analog_terminal === undefined && row.native_encoded_analog_recovery === undefined && row.native_recovery && (
                         <span>
@@ -839,6 +847,9 @@ export function ChangeLedgerPanel({
           </dl>
           {choice.native_reference_issue && (
             <p>{choice.native_reference_issue}</p>
+          )}
+          {!binaryRecoveryPresent && nativeKind === "default-wire" && (
+            combined ? <NativeDefaultWireLedgerView data={combined} /> : <p>Combined native metadata is unavailable. Inspect the original evidence.</p>
           )}
           {!binaryRecoveryPresent && nativeKind === "connection" && (
             <section aria-label="Recorded native matching connection">
