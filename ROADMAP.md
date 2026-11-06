@@ -1851,3 +1851,24 @@ then expose it in the existing configured analog workspace and recorded lineage.
 General restore/compilation, allocation/electrical changes, SA/cross-host writes,
 resources/packages and physical/CCT/BTCVT acceptance remain separate. IO-02/JCI-10
 remain partial. See [local configured analog recovery](docs/native-encoded-analog-recovery.md).
+
+## 2026-11-05 IO-02/JCI-10 delivery: parent-bound configured analog recovery transfer
+
+`FMT-NATIVE-ENCODED-ANALOG-RECOVERY-TRANSFER-001` adds a separate typed field-review
+route for the exact local previous-terminal proposal. Its encoded-analog lineage
+namespace remains distinct from older recovery contracts. Parent/source origin,
+selected guard, typed configuration/field presence, target and terminal pair bind
+the new review. Missing/altered lineage cannot demote a plan; parent evidence is
+revalidated before durable intent and application dispatch.
+
+The existing profile-4 writer retains current route/interface/identity, fresh
+source/settings/capacity checks, all three confirmations, one-use review, complete
+native/published readback and no-replay uncertainty recovery. Child receipts retain
+parent/origin evidence and unrelated current saved values remain current. Ordinary
+inputs and older recovery/transfer families preserve their behavior.
+
+Next, expose preparation, explicit staging, fresh review, Apply and readback inside
+the existing configured analog task, then add recorded lineage in Changes/History.
+General restore/compilation, allocation/electrical changes, SA/cross-host writes,
+resources/packages and physical/CCT/BTCVT acceptance remain separate. IO-02/JCI-10
+remain partial. See [configured analog recovery transfer](docs/native-encoded-analog-recovery-transfer.md).

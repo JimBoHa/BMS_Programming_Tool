@@ -66,6 +66,13 @@ from .native_default_transfer import (
     verify_default_preservation,
 )
 from .native_encoded_analog_recovery import NativeEncodedAnalogRecovery
+from .native_encoded_analog_recovery_transfer import EncodedAnalogRecoveryPreview
+from .native_encoded_analog_recovery_transfer import (
+    recovery_origin as encoded_analog_recovery_origin,
+)
+from .native_encoded_analog_recovery_transfer import (
+    validate_plan as validate_encoded_analog_recovery_plan,
+)
 from .native_enum_recovery import PROFILE as ENUM_RECOVERY_PROFILE
 from .native_enum_recovery import NativeEnumRecovery
 from .native_enum_transfer import PROFILE as ENUM_DEFAULT_PROFILE
@@ -1530,6 +1537,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
             ):
                 raise ValueError("The exact binary terminal review changed; review again.")
             validate_terminal_recovery_plan(plan["body"], plan["options"])
+            validate_encoded_analog_recovery_plan(plan["body"], plan["options"])
         if (
             not request.application_transfer_confirmed
             or (wire_edit and not request.wire_change_confirmed)
@@ -1699,7 +1707,10 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                             "Native application review or credentials changed during preflight. Review again."
                         )
                     recovery = (
-                        terminal_recovery_origin(self, options, compilation)
+                        {
+                            **terminal_recovery_origin(self, options, compilation),
+                            **encoded_analog_recovery_origin(self, options, compilation),
+                        }
                         if input_edit
                         else {}
                         if connection_edit
@@ -2019,6 +2030,10 @@ def native_application_router(service):
         return NativeEncodedAnalogRecovery(NativeBackupRecords(service.storage)).prepare(
             body.model_dump()
         )
+
+    @router.post("/input/encoded-terminal/recovery/preview")
+    async def preview_encoded_analog_recovery(body: EncodedAnalogRecoveryPreview):
+        return await service.preview_encoded_analog_recovery(**body.model_dump())
 
     @router.post("/input/terminal-recovery/prepare")
     def prepare_terminal_recovery(body: DefaultRecoveryPrepare):
