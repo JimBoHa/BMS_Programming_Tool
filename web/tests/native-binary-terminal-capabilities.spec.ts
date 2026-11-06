@@ -37,7 +37,7 @@ for (const [kind, status] of Object.entries({
     let raw = Buffer.alloc(0);
     await page.route("**/inspection/capabilities", async (route) => {
       const response = await route.fetch({ maxRetries: 0 });
-      if (route.request().postDataJSON().capability_profile.endsWith("/17"))
+      if (route.request().postDataJSON().capability_profile.endsWith("/18"))
         raw = await response.body();
       await route.fulfill({ response });
     });
@@ -121,14 +121,14 @@ for (const fault of ["counter", "configuration", "merge", "row"] as const)
       const response = await route.fetch();
       if (
         corrupt &&
-        route.request().postDataJSON().capability_profile.endsWith("/17")
+        route.request().postDataJSON().capability_profile.endsWith("/18")
       ) {
         const v = await response.json(),
           w = v.qualification.binary_terminal;
         if (fault === "counter") w.counter_values_are_live = true;
         if (fault === "configuration") w.stored_configuration.polarity = true;
         if (fault === "merge") w.parameter_merge.static_sha256 = "0".repeat(64);
-        if (fault === "row") v.operations.at(-1).status = "source-qualified";
+        if (fault === "row") v.operations.find((r: any) => r.id === "binary-terminal-transfer").status = "source-qualified";
         await route.fulfill({ response, json: v });
       } else await route.fulfill({ response });
     });
