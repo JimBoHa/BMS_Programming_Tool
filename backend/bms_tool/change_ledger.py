@@ -22,6 +22,7 @@ from pydantic import Field, field_validator, model_validator
 from .models import StrictModel
 from .native_binary_terminal_ledger import binary_terminal_reference, explicit_binary
 from .native_connection_ledger import connection_reference
+from .native_encoded_analog_ledger import encoded_analog_terminal_reference, explicit_encoded_analog
 from .native_input_ledger import input_reference
 from .native_inputs import TERMINAL_PROFILE
 from .native_ledger_details import native_reference, recovery_lineage
@@ -363,7 +364,9 @@ class ChangeLedger:
             native_metadata = native_reference(native_kind, selection)
             if native_kind == "input":
                 native_metadata = (
-                    binary_terminal_reference(body)
+                    encoded_analog_terminal_reference(body)
+                    if explicit_encoded_analog(body)
+                    else binary_terminal_reference(body)
                     if explicit_binary(body)
                     else terminal_reference(body)
                     if body.get("operation_profile") == TERMINAL_PROFILE
@@ -385,6 +388,7 @@ class ChangeLedger:
                     native_kind == "point-name"
                     or "native_terminal_recovery" in native_metadata
                     or "native_binary_terminal" in native_metadata
+                    or "native_encoded_analog_terminal" in native_metadata
                 )
                 else recovery_lineage(body, native_kind, native_metadata)
             )

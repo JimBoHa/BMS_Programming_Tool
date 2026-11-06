@@ -1808,3 +1808,25 @@ Next, add recorded profile-4 Changes/History evidence and previous-terminal reco
 General compilation, allocation/electrical changes, SA/cross-host writes, resources/
 packages and CCT/physical/BTCVT acceptance remain separate. IO-02/JCI-09 remain
 partial. See [typed analog support](docs/native-encoded-analog-capabilities.md).
+
+## 2026-11-05 IO-02/UX-03 delivery: recorded configured analog terminal movement
+
+`UI-NATIVE-ENCODED-ANALOG-LEDGER-001` adds a separate closed historical profile for
+encoded analog transfer evidence in existing Changes/History. It records terminal
+movement, exact stored typed configuration/field presence, preserved charset,
+fingerprints and confirmations. Paired absent output endpoints remain visible as
+Not stored. Original evidence downloads and uncertain/verified outcomes remain
+unchanged; this projection grants no current identity, live values or field authority.
+
+Backend and browser admission independently validate their evidence. Inconsistent
+profile-4 metadata cannot fall back to older input/terminal/binary/recovery views
+or tool links. Valid local navigation retains the current graph/CAF/controller
+context and starts fresh ordinary input work. No backup reopening, compilation,
+network query, automatic staging or graphic stylesheet change is introduced.
+Existing ledger families and all original uncommitted work remain preserved.
+
+Next, qualify profile-4 previous-terminal recovery from verified original evidence
+and an exact current capture, with fresh review/confirmations/transfer/readback.
+General compilation, allocation/electrical changes, SA/cross-host writes, resources/
+packages and physical/CCT/BTCVT acceptance remain separate. IO-02/JCI-09 remain
+partial. See [recorded analog movement](docs/native-encoded-analog-ledger.md).
