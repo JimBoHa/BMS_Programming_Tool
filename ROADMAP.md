@@ -1872,3 +1872,25 @@ the existing configured analog task, then add recorded lineage in Changes/Histor
 General restore/compilation, allocation/electrical changes, SA/cross-host writes,
 resources/packages and physical/CCT/BTCVT acceptance remain separate. IO-02/JCI-10
 remain partial. See [configured analog recovery transfer](docs/native-encoded-analog-recovery-transfer.md).
+
+## 2026-11-05 IO-02/UX-03 delivery: contextual configured analog previous-terminal recovery
+
+`UI-NATIVE-ENCODED-ANALOG-RECOVERY-001` adds local preparation, explicit staging,
+original evidence download, verified local copies and a fresh confirmed parent-bound
+field review/Apply/readback inside the existing configured analog input task.
+Independent closed browser admission binds actual typed configuration/storage,
+charset, literal payloads, source and original receipt. No automatic rollback,
+model-based inventory, global feature destination or stylesheet change is added.
+
+The original analog selection/destination and separate ordinary input form remain
+available. Bounded drafts survive task navigation; source/target/draft/lifecycle
+retirement withholds late responses and receipt digests. Missing or altered parent
+lineage cannot demote a review or verified result. Unknown outcomes retain evidence
+and reconcile without replay. Verified movement restores the ordinary draft and
+marks the old capture stale across related input writers. Existing compiler,
+binary/ordinary/legacy recovery, graph/CAF and interface behavior remain preserved.
+
+Next, present recorded configured analog recovery lineage in Changes/History.
+General restore/compilation, allocation/electrical changes, SA/cross-host movement,
+packages/resources and physical/CCT/BTCVT acceptance remain separate. IO-02/JCI-10
+remain partial. See [configured analog recovery workflow](docs/native-encoded-analog-recovery-workflow.md).
