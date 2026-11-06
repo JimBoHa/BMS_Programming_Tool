@@ -66,6 +66,10 @@ import { Canvas } from "./Canvas";
 import { Inspector, SimulationPanel } from "./Panels";
 import { ParameterDrafts } from "./inspectorDrafts";
 import { useSimulationClock } from "./useSimulationClock";
+import {
+  inspectStepDuration,
+  type StepDurationDraft,
+} from "./simulationStepDuration";
 import { persistDraftRecovery } from "./draftRecovery";
 import {
   sessionFromReceipt,
@@ -254,6 +258,10 @@ export function App() {
     [recordHistory, setRecordHistory] = useState(false),
     [recordingError, setRecordingError] = useState(""),
     [nextClock, setNextClock] = useState(""),
+    [stepDuration, setStepDuration] = useState<StepDurationDraft>({
+      enabled: false,
+      text: null,
+    }),
     [message, setMessage] = useState(""),
     [ready, setReady] = useState(false),
     [settings, setSettings] = useState(false),
@@ -343,6 +351,8 @@ export function App() {
     libraryVersion(program) === 2 &&
     program.nodes.some((node) => node.kind === "Activity") &&
     !activityPorts;
+  const latestStepDuration = useRef(stepDuration);
+  latestStepDuration.current = stepDuration;
   const renderedNavigationEpoch = loadEpoch.current;
   function setProgram(next: Program | ((current: Program) => Program)) {
     const updated =
@@ -355,6 +365,8 @@ export function App() {
     parameterDrafts.reconcile(updated, [...blocks, ...macroBlocks]);
     simulationEpoch.current++;
     detachSimulationSession();
+    latestStepDuration.current = { enabled: false, text: null };
+    setStepDuration({ enabled: false, text: null });
     latestProgram.current = updated;
     draftEpoch.current++;
     setProgramState(updated);
@@ -956,6 +968,23 @@ export function App() {
         activityUnresolved
       )
         return;
+      const requestedDuration = latestStepDuration.current;
+      const timing = inspectStepDuration(
+        requestedDuration,
+        program.scan_seconds,
+      );
+      if (
+        timing.error ||
+        timing.seconds === null ||
+        (requestedDuration.enabled && steps !== 1)
+      ) {
+        setSimError(
+          timing.error ||
+            "Custom duration applies to one explicit Step. Turn it off before paced Run.",
+        );
+        return;
+      }
+      const requestedDt = timing.seconds;
       busy.current = true;
       setSimBusy(true);
       const epoch = simulationEpoch.current;
@@ -971,6 +1000,7 @@ export function App() {
           session: expectedSession?.session || null,
           record: recordHistory,
           operation_id: operation,
+          ...(requestedDuration.enabled ? { dt: requestedDt } : {}),
           clock: nextClock
             ? new Date(nextClock + "Z").toISOString()
             : undefined,
@@ -981,7 +1011,7 @@ export function App() {
           r.requested_steps !== steps ||
           r.program_id !== program.id ||
           r.program_revision !== program.revision ||
-          r.applied_dt !== program.scan_seconds ||
+          r.applied_dt !== requestedDt ||
           (r.scan_error !== null && typeof r.scan_error !== "string") ||
           (r.recording_error !== null &&
             typeof r.recording_error !== "string") ||
@@ -1061,6 +1091,7 @@ export function App() {
       forces,
       recordHistory,
       nextClock,
+      stepDuration,
       simUncertain,
       activityUnresolved,
     ],
@@ -1076,9 +1107,17 @@ export function App() {
       cleanupStatus.pending > 0 ||
       cleanupStatus.failed > 0 ||
       !!nextClock ||
+      stepDuration.enabled ||
       activityUnresolved,
     batch: step,
   });
+  function changeStepDuration(next: StepDurationDraft) {
+    if (busy.current || pacing.running || simUncertain || cleanupBlocked())
+      return;
+    if (pacing.report?.status !== "fault") pacing.retire();
+    latestStepDuration.current = next;
+    setStepDuration(next);
+  }
   async function runSimulationScenario(events: unknown, duration: number) {
     if (busy.current || simUncertain || cleanupBlocked() || activityUnresolved)
       return;
@@ -2387,7 +2426,10 @@ export function App() {
                           onReleaseForces={() => setForces({})}
                           running={pacing.running}
                           setRunning={(value) =>
-                            value ? pacing.run() : pacing.pause()
+                            value
+                              ? !latestStepDuration.current.enabled &&
+                                pacing.run()
+                              : pacing.pause()
                           }
                           pacing={pacing}
                           simBusy={
@@ -2406,6 +2448,14 @@ export function App() {
                             check: checkSimulationCache,
                           }}
                           onStep={() => {
+                            const timing = inspectStepDuration(
+                              latestStepDuration.current,
+                              latestProgram.current.scan_seconds,
+                            );
+                            if (timing.error || timing.seconds === null) {
+                              setSimError(timing.error);
+                              return;
+                            }
                             pacing.retire();
                             void step().catch(() => {});
                           }}
@@ -2417,6 +2467,8 @@ export function App() {
                           recordingError={recordingError}
                           nextClock={nextClock}
                           setNextClock={setNextClock}
+                          stepDuration={stepDuration}
+                          setStepDuration={changeStepDuration}
                         />
                       )}
                     </div>

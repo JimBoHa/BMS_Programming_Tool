@@ -2,10 +2,14 @@ import { fetchSimulationResponse } from "./simulationFixture";
 import { test, expect, type Page } from "./simulationFixture";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
+import { chooseWorkspaceTask } from "./workspace-navigation";
 const root = path.resolve(".."),
   python = path.join(root, ".venv/bin/python");
 async function load(page: Page) {
   await page.goto("/");
+  await page
+    .getByRole("button", { name: "New application", exact: true })
+    .click();
   const buffer = execFileSync(
     python,
     [
@@ -26,6 +30,7 @@ async function load(page: Page) {
   await expect(page.locator(".toast")).toContainText(
     "Imported as a new local project",
   );
+  await page.getByRole("button", { name: "Simulate", exact: true }).click();
   await expect(page.getByLabel("Simulation pacing controls")).toContainText(
     "Fixed scan: 0.25 s",
   );
@@ -112,7 +117,8 @@ test("workspace navigation pauses explicitly and never silently resumes", async 
     )
     .toBeGreaterThan(0);
   await page.getByRole("button", { name: "Connect", exact: true }).click();
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceTask(page, "Program");
+  await page.getByRole("button", { name: "Simulate", exact: true }).click();
   await expect(status(page)).toContainText("paused:");
   const value = await page.locator(".elapsed").innerText();
   await page.waitForTimeout(300);
@@ -508,6 +514,7 @@ test("scenario completion preserves a newer operator force release for the next 
   page,
 }) => {
   await configure(page, "5", "100");
+  await page.getByTitle("Fit view", { exact: true }).click();
   await page.locator('.react-flow__node[data-id="out"]').click();
   await page
     .getByLabel("Simulation force value", { exact: true })

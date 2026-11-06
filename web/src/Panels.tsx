@@ -2,6 +2,10 @@ import { SPEEDS } from "./simulationClock";
 import "./simulation-pacing.css";
 import type { useSimulationClock } from "./useSimulationClock";
 import {
+  inspectStepDuration,
+  type StepDurationDraft,
+} from "./simulationStepDuration";
+import {
   parseExecutionSourceJSON,
   executionSourceValue,
   isSourceNumber,
@@ -751,6 +755,8 @@ export function SimulationPanel({
   recordingError,
   nextClock,
   setNextClock,
+  stepDuration,
+  setStepDuration,
   activityBindings,
 }: {
   program: Program;
@@ -781,9 +787,12 @@ export function SimulationPanel({
   recordingError: string;
   nextClock: string;
   setNextClock: (v: string) => void;
+  stepDuration: StepDurationDraft;
+  setStepDuration: (v: StepDurationDraft) => void;
   activityBindings?: ActivityBindings | null;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const timing = inspectStepDuration(stepDuration, program.scan_seconds);
   const [events, setEvents] = useState(
     '[{"time":0,"inputs":{"zone":74}},{"time":30,"inputs":{"zone":66}},{"time":60,"inputs":{"zone":76}}]',
   );
@@ -851,18 +860,22 @@ export function SimulationPanel({
             Persist history
           </label>
           <span className="elapsed">
-            {history.at(-1)?.time.toFixed(1) || "0.0"} s
+            {stepDuration.enabled
+              ? String(history.at(-1)?.time ?? 0)
+              : history.at(-1)?.time.toFixed(1) || "0.0"}{" "}
+            s
           </span>
           <button
             disabled={
               !running &&
               (simBusy ||
+                stepDuration.enabled ||
                 !!nextClock ||
                 pacing.report?.status === "pausing" ||
                 pacing.report?.status === "fault")
             }
             onClick={() => setRunning(!running)}
-            className={running ? "" : "primary"}
+            className={running || stepDuration.enabled ? "" : "primary"}
             title={running ? "Pause simulation" : "Run simulation"}
           >
             {running ? <Pause size={14} /> : <Play size={14} />}{" "}
@@ -870,7 +883,8 @@ export function SimulationPanel({
           </button>
           <button
             onClick={onStep}
-            disabled={simBusy || running}
+            disabled={simBusy || running || !!timing.error}
+            className={stepDuration.enabled ? "primary" : undefined}
             title="Step simulation"
             aria-label="Step simulation"
           >
@@ -944,7 +958,9 @@ export function SimulationPanel({
         <output aria-label="Simulation pacing status" aria-live="polite">
           {pacing.report
             ? `${pacing.report.status}: ${pacing.report.completedScans} confirmed committed scans, ${pacing.report.remainingScans} remaining; requested ${pacing.report.requestedSpeed}×, achieved ${pacing.report.achievedSpeed.toFixed(2)}×; lag ${pacing.report.lagSeconds.toFixed(2)} simulated s; ${pacing.report.pendingScans} admitted pending. ${pacing.report.reason}`
-            : "Idle. Run starts a bounded pacing window; Step executes one fixed scan. No hidden-page or workspace-navigation catch-up."}
+            : stepDuration.enabled
+              ? "Idle. Step uses the declared duration; turn off the custom duration before paced Run. No hidden-page or workspace-navigation catch-up."
+              : "Idle. Run starts a bounded pacing window; Step executes one fixed scan. No hidden-page or workspace-navigation catch-up."}
         </output>
         {nextClock && (
           <small>
@@ -996,6 +1012,55 @@ export function SimulationPanel({
           step="1"
         />
       </label>
+      <div
+        className="simulation-pacing"
+        role="group"
+        aria-label="Simulation step duration"
+      >
+        <label>
+          Single-step timing
+          <select
+            aria-label="Single-step duration mode"
+            value={stepDuration.enabled ? "custom" : "nominal"}
+            disabled={simBusy || running}
+            onChange={(event) =>
+              setStepDuration({
+                enabled: event.target.value === "custom",
+                text: stepDuration.text ?? String(program.scan_seconds),
+              })
+            }
+          >
+            <option value="nominal">Project interval</option>
+            <option value="custom">Custom duration</option>
+          </select>
+        </label>
+        {stepDuration.enabled && (
+          <label>
+            Single-step duration (seconds)
+            <input
+              aria-label="Single-step duration (seconds)"
+              type="text"
+              inputMode="decimal"
+              value={stepDuration.text ?? ""}
+              disabled={simBusy || running}
+              onChange={(event) =>
+                setStepDuration({ enabled: true, text: event.target.value })
+              }
+            />
+          </label>
+        )}
+        {timing.error ? (
+          <small role="alert">{timing.error}</small>
+        ) : (
+          stepDuration.enabled && (
+            <small>
+              Next Step: {timing.seconds} simulated seconds. Project interval
+              stays {program.scan_seconds} seconds. Turn off custom timing for
+              paced Run.
+            </small>
+          )
+        )}
+      </div>
       <div className="simulation-content">
         <div className="sim-inputs">
           {program.nodes
