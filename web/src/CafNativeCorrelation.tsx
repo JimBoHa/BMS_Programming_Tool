@@ -3,6 +3,7 @@ import { ChevronDown } from "lucide-react";
 import { apiJsonDocument, saveBlob } from "./api";
 import { sha256Blob } from "./activityContracts";
 import { controllerKey, type ControllerContext } from "./workflow";
+import { CafSourceReferences } from "./CafSourceReferences";
 import {
   comparisonSources,
   comparisonRequest,
@@ -427,6 +428,13 @@ export function CafNativeCorrelation({
               Compare original CAF and native archive
             </button>
           </form>
+          <CafSourceReferences
+            id={id}
+            visible={visible}
+            context={context}
+            selected={listBusy ? undefined : selected}
+            hasLocalProposals={hasLocalProposals}
+          />
           {busy && <p role="status">Comparing recorded source identities…</p>}
           {error && <p role="alert">{error}</p>}
           {shown && (

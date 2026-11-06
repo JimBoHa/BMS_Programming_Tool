@@ -26,8 +26,18 @@ export function panel(page: Page) {
 export async function compatibility(page: Page) {
   await page
     .getByRole("navigation", { name: "CAF application tasks", exact: true })
-    .getByRole("button", { name: "Compatibility", exact: true })
-    .click();
+    .waitFor({ state: "visible" });
+  const compact = page.getByRole("combobox", {
+    name: "CAF application tasks",
+    exact: true,
+  });
+  if (await compact.isVisible())
+    await compact.selectOption({ label: "Compatibility" });
+  else
+    await page
+      .getByRole("navigation", { name: "CAF application tasks", exact: true })
+      .getByRole("button", { name: "Compatibility", exact: true })
+      .click();
   const result = panel(page),
     disclosure = result.locator(":scope > details");
   if ((await disclosure.getAttribute("open")) === null)
