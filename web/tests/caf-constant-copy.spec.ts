@@ -202,7 +202,7 @@ for (const event of ["pagehide", "hidden", "close", "navigation"])
         document.dispatchEvent(new Event("visibilitychange"));
       });
     if (event === "close")
-      await page.locator(".caf-constant-copy summary").click();
+      await page.locator(".caf-constant-copy > summary").click();
     if (event === "navigation") {
       await chooseWorkspaceTask(page, "Overview");
       await logic(page);
@@ -246,7 +246,7 @@ for (const kind of ["source", "review", "header", "bytes"])
           buffer: source(),
         });
       await logic(page);
-      await page.locator(".caf-constant-copy summary").click();
+      await page.locator(".caf-constant-copy > summary").click();
       await page
         .getByRole("button", {
           name: "Inspect constant prototype",

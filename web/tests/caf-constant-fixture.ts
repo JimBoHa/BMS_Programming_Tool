@@ -54,9 +54,9 @@ export async function enter(page: Page, standard = 11) {
   return await inspect(page);
 }
 export async function inspect(page: Page) {
-  const details = page.locator(".caf-constant-copy");
+  const details = page.locator(".caf-constant-copy:visible");
   if (!(await details.getAttribute("open").then((x) => x !== null)))
-    await details.locator("summary").click();
+    await details.locator(":scope > summary").click();
   const editor = page.getByRole("region", {
     name: "CAF constant creation",
     exact: true,

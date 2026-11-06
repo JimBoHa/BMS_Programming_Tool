@@ -1,4 +1,4 @@
-import { useState, type ComponentProps } from "react";
+import { useRef, useState, type ComponentProps } from "react";
 import { ChevronDown } from "lucide-react";
 import { CafConstantCopy } from "./CafConstantCopy";
 import { constantKinds, type ConstantKind } from "./cafConstantContract";
@@ -9,6 +9,7 @@ import { useCafReferenceLabels } from "./cafReferenceLabels";
 export function CafConstantTools(
   props: Omit<ComponentProps<typeof CafConstantCopy>, "kind">,
 ) {
+  const checkpointEpoch = useRef(0);
   const available = (Object.keys(constantKinds) as ConstantKind[]).filter(
     (kind) =>
       props.diagram.blocks.some(
@@ -67,7 +68,10 @@ export function CafConstantTools(
               aria-label={choiceLabel}
               value={active}
               disabled={props.disabled}
-              onChange={(e) => setChosen(e.target.value as ConstantKind)}
+              onChange={(e) => {
+                checkpointEpoch.current++;
+                setChosen(e.target.value as ConstantKind);
+              }}
             >
               {available.map((kind) => (
                 <option value={kind} key={kind}>
@@ -83,6 +87,7 @@ export function CafConstantTools(
         <div key={kind} hidden={kind !== active}>
           <CafConstantCopy
             {...props}
+            checkpointEpoch={checkpointEpoch}
             kind={kind}
             referenceLabels={referenceLabels}
             disabled={props.disabled || kind !== active}
