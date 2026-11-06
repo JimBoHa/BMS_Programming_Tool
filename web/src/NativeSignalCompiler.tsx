@@ -9,6 +9,7 @@ import { NativeBackupComparison } from "./NativeBackupComparison";
 import { NativeBooleanTransferContext } from "./NativeBooleanTransferContext";
 import { NativeDefaultWireCompiler } from "./NativeDefaultWireCompiler";
 import { NativeRealDraftFiles } from "./NativeRealDraftFiles";
+import { NativeDefaultBatchCompiler } from "./NativeDefaultBatchCompiler";
 import type { NativeDefaultRecoveryDocument } from "./nativeDefaultRecoveryContract";
 import "./native-signal-compiler.css";
 
@@ -35,6 +36,12 @@ export function NativeSignalCompiler({
   parentBusy?: boolean;
   onBusyChange?: (busy: boolean) => void;
 }) {
+  const [batchTask, setBatchTask] = useState({
+    expanded: false,
+    generation: 0,
+  });
+  const batchTaskNow = useRef(batchTask);
+  const batchDrafts = useRef(new Map<string, Record<string, string>>());
   const context = JSON.stringify([
     visible,
     controller
@@ -169,6 +176,7 @@ export function NativeSignalCompiler({
     field?.encoded_sha256,
     value,
     shownRecovery?.data.origin_sha256,
+    batchTask,
   ]);
   const ownerNow = useRef(owner);
   if (ownerNow.current !== owner) {
@@ -178,7 +186,11 @@ export function NativeSignalCompiler({
   const shown =
     review?.owner === owner && review.ticket === epoch.current ? review : null;
   const current = (ticket: number, key: string) =>
-    alive.current && epoch.current === ticket && ownerNow.current === key;
+    alive.current &&
+    epoch.current === ticket &&
+    ownerNow.current === key &&
+    !batchTaskNow.current.expanded &&
+    batchTaskNow.current.generation === batchTask.generation;
   useEffect(() => {
     alive.current = true;
     return () => {
@@ -301,6 +313,7 @@ export function NativeSignalCompiler({
     }
   }
   function edit(text: string) {
+    if (batchTaskNow.current.expanded) return false;
     if (!(draftKey in drafts) && Object.keys(drafts).length >= 64) {
       setStorageError(
         "64 native field drafts are retained. Discard a saved field draft before editing another field.",
@@ -363,7 +376,7 @@ export function NativeSignalCompiler({
         }
       : null;
   async function compile() {
-    if (!body) return;
+    if (!body || batchTaskNow.current.expanded) return;
     const ticket = ++epoch.current,
       key = ownerNow.current;
     setReview(null);
@@ -407,7 +420,7 @@ export function NativeSignalCompiler({
     }
   }
   async function save() {
-    if (!shown || !body) return;
+    if (!shown || !body || batchTaskNow.current.expanded) return;
     const ticket = epoch.current,
       key = ownerNow.current;
     setError("");
@@ -445,6 +458,7 @@ export function NativeSignalCompiler({
     fields.push(field);
   const combinedTicket = epoch.current,
     combinedSourceTicket = sourceEpoch.current;
+  const batchTicket = epoch.current;
   return (
     <section
       className="native-effective-compiler"
@@ -499,347 +513,397 @@ export function NativeSignalCompiler({
         )}
       </div>
       {source && (
-        <>
-          <div
-            className="native-compiler-source"
-            aria-label="Native compiler snapshot source"
-          >
-            <strong>{source.identity["object-name"]}</strong>
-            <p>
-              {source.device} at {source.target.address}
-              {source.target.router
-                ? ` via ${source.target.router} / DNET ${source.target.dnet}`
-                : ""}{" "}
-              · captured {source.captured_at}
-            </p>
-            <p>
-              {source.fields.length} supported defaults ·{" "}
-              {source.parameter_merge.matched_parameters} saved application
-              parameters · {source.parameter_merge.changed_parameters.length}{" "}
-              saved values merged into the application. This source is
-              independent of an open CAF or local graph.
-            </p>
-          </div>
-          {!source.fields.length ? (
-            <p>
-              No existing supported Real defaults in this backup. Other field
-              types and new blocks require another compiler profile.
-            </p>
-          ) : (
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                void compile();
-              }}
+        <NativeDefaultBatchCompiler
+          source={source}
+          context={context}
+          generation={batchTask.generation}
+          visible={visible}
+          blocked={busy}
+          expanded={batchTask.expanded}
+          drafts={batchDrafts.current}
+          onExpandedChange={(expanded) => {
+            if (busyOwners.current.size || parentBusy || localBusy)
+              return false;
+            const next = {
+              expanded,
+              generation: batchTaskNow.current.generation + 1,
+            };
+            batchTaskNow.current = next;
+            epoch.current++;
+            setReview(null);
+            setBatchTask(next);
+            return true;
+          }}
+          parentCurrent={() =>
+            alive.current &&
+            visible &&
+            batchTaskNow.current.expanded &&
+            batchTaskNow.current.generation === batchTask.generation &&
+            epoch.current === batchTicket &&
+            ownerNow.current === owner &&
+            sourceEpoch.current === combinedSourceTicket &&
+            !busyOwners.current.size &&
+            !parentBusy
+          }
+        />
+      )}
+      <div style={{ display: batchTask.expanded ? "none" : "contents" }}>
+        {source && (
+          <>
+            <div
+              className="native-compiler-source"
+              aria-label="Native compiler snapshot source"
             >
-              <div className="native-compiler-fields">
-                <label>
-                  Find native default
-                  <input
-                    aria-label="Find native default"
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                  />
-                </label>
-                <label>
-                  Native Real default
-                  <span className="native-compiler-select">
-                    <select
-                      aria-label="Native Real default"
-                      value={fieldRef}
-                      disabled={busy}
-                      onChange={(event) => {
-                        epoch.current++;
-                        setFieldRef(event.target.value);
-                        setReview(null);
-                        setError("");
-                      }}
-                    >
-                      <option value="">Select an actual native signal</option>
-                      {fields.map((row: Data) => (
-                        <option key={row.ref} value={row.ref}>
-                          {row.ref} · class {row.class_id} · property{" "}
-                          {row.property}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown aria-hidden="true" size={16} />
-                  </span>
-                </label>
-              </div>
-              {field && (
-                <>
-                  <table aria-label="Native default source values">
-                    <thead>
-                      <tr>
-                        <th>Source</th>
-                        <th>Value</th>
-                        <th>Float32 bits</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>Application archive default</td>
-                        <td>{numberText(field.archive_value)}</td>
-                        <td>
-                          <code>{field.archive_bits}</code>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td>Effective default after saved-setting merge</td>
-                        <td>{numberText(field.effective_value)}</td>
-                        <td>
-                          <code>{field.effective_bits}</code>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+              <strong>{source.identity["object-name"]}</strong>
+              <p>
+                {source.device} at {source.target.address}
+                {source.target.router
+                  ? ` via ${source.target.router} / DNET ${source.target.dnet}`
+                  : ""}{" "}
+                · captured {source.captured_at}
+              </p>
+              <p>
+                {source.fields.length} supported defaults ·{" "}
+                {source.parameter_merge.matched_parameters} saved application
+                parameters · {source.parameter_merge.changed_parameters.length}{" "}
+                saved values merged into the application. This source is
+                independent of an open CAF or local graph.
+              </p>
+            </div>
+            {!source.fields.length ? (
+              <p>
+                No existing supported Real defaults in this backup. Other field
+                types and new blocks require another compiler profile.
+              </p>
+            ) : (
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void compile();
+                }}
+              >
+                <div className="native-compiler-fields">
                   <label>
-                    Proposed native Real default
+                    Find native default
                     <input
-                      aria-label="Proposed native Real default"
-                      value={value}
-                      readOnly={!!activeRecovery}
-                      maxLength={128}
+                      aria-label="Find native default"
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Native Real default
+                    <span className="native-compiler-select">
+                      <select
+                        aria-label="Native Real default"
+                        value={fieldRef}
+                        disabled={busy}
+                        onChange={(event) => {
+                          epoch.current++;
+                          setFieldRef(event.target.value);
+                          setReview(null);
+                          setError("");
+                        }}
+                      >
+                        <option value="">Select an actual native signal</option>
+                        {fields.map((row: Data) => (
+                          <option key={row.ref} value={row.ref}>
+                            {row.ref} · class {row.class_id} · property{" "}
+                            {row.property}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown aria-hidden="true" size={16} />
+                    </span>
+                  </label>
+                </div>
+                {field && (
+                  <>
+                    <table aria-label="Native default source values">
+                      <thead>
+                        <tr>
+                          <th>Source</th>
+                          <th>Value</th>
+                          <th>Float32 bits</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>Application archive default</td>
+                          <td>{numberText(field.archive_value)}</td>
+                          <td>
+                            <code>{field.archive_bits}</code>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td>Effective default after saved-setting merge</td>
+                          <td>{numberText(field.effective_value)}</td>
+                          <td>
+                            <code>{field.effective_bits}</code>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <label>
+                      Proposed native Real default
+                      <input
+                        aria-label="Proposed native Real default"
+                        value={value}
+                        readOnly={!!activeRecovery}
+                        maxLength={128}
+                        disabled={
+                          transferBusy || booleanTransferBusy || parentBusy
+                        }
+                        onChange={(event) => edit(event.target.value)}
+                      />
+                    </label>
+                    {shownRecovery && (
+                      <section
+                        className="native-compiler-source"
+                        aria-label="Prepared previous Real default"
+                        ref={recoveryPanel}
+                        tabIndex={-1}
+                      >
+                        <h3>
+                          {shownRecovery.data.already_recorded
+                            ? "Previous value already recorded in this backup"
+                            : "Previous effective value prepared locally"}
+                        </h3>
+                        <p>
+                          Receipt{" "}
+                          <code>
+                            {shownRecovery.data.origin.parent_receipt_id}
+                          </code>{" "}
+                          · {field.ref} ·{" "}
+                          {numberText(
+                            shownRecovery.data.current_effective_value,
+                          )}{" "}
+                          to{" "}
+                          {numberText(
+                            shownRecovery.data.previous_effective_value,
+                          )}
+                          .
+                        </p>
+                        <p>
+                          {shownRecovery.data.already_recorded
+                            ? "No transfer proposal was created. This retained backup does not establish current live state."
+                            : "A fresh controller review and both transfer confirmations are required. Other current saved settings remain current."}{" "}
+                          Your ordinary field draft remains retained separately.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            saveBlob(
+                              shownRecovery.blob,
+                              "native-previous-real-default-proposal.json",
+                            )
+                          }
+                        >
+                          Export exact previous-value proposal
+                        </button>
+                      </section>
+                    )}
+                    <button
+                      className={
+                        fieldTransferSourceActive || combinedActive
+                          ? ""
+                          : "primary"
+                      }
+                      type="submit"
+                      disabled={busy}
+                    >
+                      Review native compilation
+                    </button>
+                    <button
+                      type="button"
+                      onClick={discard}
                       disabled={
                         transferBusy || booleanTransferBusy || parentBusy
                       }
-                      onChange={(event) => edit(event.target.value)}
-                    />
-                  </label>
-                  {shownRecovery && (
-                    <section
-                      className="native-compiler-source"
-                      aria-label="Prepared previous Real default"
-                      ref={recoveryPanel}
-                      tabIndex={-1}
                     >
-                      <h3>
-                        {shownRecovery.data.already_recorded
-                          ? "Previous value already recorded in this backup"
-                          : "Previous effective value prepared locally"}
-                      </h3>
-                      <p>
-                        Receipt{" "}
-                        <code>
-                          {shownRecovery.data.origin.parent_receipt_id}
-                        </code>{" "}
-                        · {field.ref} ·{" "}
-                        {numberText(shownRecovery.data.current_effective_value)}{" "}
-                        to{" "}
-                        {numberText(
-                          shownRecovery.data.previous_effective_value,
-                        )}
-                        .
-                      </p>
-                      <p>
-                        {shownRecovery.data.already_recorded
-                          ? "No transfer proposal was created. This retained backup does not establish current live state."
-                          : "A fresh controller review and both transfer confirmations are required. Other current saved settings remain current."}{" "}
-                        Your ordinary field draft remains retained separately.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          saveBlob(
-                            shownRecovery.blob,
-                            "native-previous-real-default-proposal.json",
-                          )
-                        }
-                      >
-                        Export exact previous-value proposal
-                      </button>
-                    </section>
-                  )}
-                  <button
-                    className={
-                      fieldTransferSourceActive || combinedActive
-                        ? ""
-                        : "primary"
-                    }
-                    type="submit"
-                    disabled={busy}
-                  >
-                    Review native compilation
-                  </button>
-                  <button
-                    type="button"
-                    onClick={discard}
-                    disabled={transferBusy || booleanTransferBusy || parentBusy}
-                  >
-                    {shownRecovery
-                      ? "Discard previous-value proposal"
-                      : "Discard selected field draft"}
-                  </button>
-                  <NativeRealDraftFiles
-                    source={source}
-                    field={field}
-                    valueText={value}
-                    hasDraft={Object.hasOwn(drafts, draftKey)}
-                    blocked={busy || !!shownRecovery || !visible}
-                    parentOwner={owner}
-                    parentEpoch={epoch.current}
-                    parentCurrent={current}
-                    install={(text, ticket, key) => {
-                      if (
-                        !current(ticket, key) ||
-                        busy ||
-                        !visible ||
-                        shownRecovery ||
-                        busyOwners.current.size ||
-                        Object.hasOwn(drafts, draftKey)
-                      )
-                        return false;
-                      return edit(text);
-                    }}
-                  />
-                </>
-              )}
-            </form>
+                      {shownRecovery
+                        ? "Discard previous-value proposal"
+                        : "Discard selected field draft"}
+                    </button>
+                    <NativeRealDraftFiles
+                      source={source}
+                      field={field}
+                      valueText={value}
+                      hasDraft={Object.hasOwn(drafts, draftKey)}
+                      blocked={busy || !!shownRecovery || !visible}
+                      parentOwner={owner}
+                      parentEpoch={epoch.current}
+                      parentCurrent={current}
+                      install={(text, ticket, key) => {
+                        if (
+                          !current(ticket, key) ||
+                          busy ||
+                          !visible ||
+                          shownRecovery ||
+                          busyOwners.current.size ||
+                          Object.hasOwn(drafts, draftKey)
+                        )
+                          return false;
+                        return edit(text);
+                      }}
+                    />
+                  </>
+                )}
+              </form>
+            )}
+          </>
+        )}
+        <NativeBooleanTransferContext.Provider
+          value={{
+            controller,
+            visible: visible && !batchTask.expanded,
+            workspaceGeneration: batchTask.generation,
+            workspaceCurrent: () =>
+              !batchTaskNow.current.expanded &&
+              batchTaskNow.current.generation === batchTask.generation,
+            fieldBusy: parentBusy || transferBusy || booleanTransferBusy,
+            parentBusy: parentBusy || transferBusy,
+            otherOperationBusy: transferBusy,
+            recoveryDrafts: booleanRecoveries.current,
+            wireRecoveryDrafts: wireRecoveries.current,
+            enumRecoveryDrafts: enumRecoveries.current,
+            onBusy: transferBusyChanged,
+            onCaptured: (id) => {
+              setChoice(id);
+              setPendingSource(id);
+              void refresh();
+            },
+          }}
+        >
+          <NativeBackupComparison
+            selection={choice}
+            sources={sources}
+            controller={controller}
+            visible={visible && !batchTask.expanded}
+          />
+          <NativeBackupInspection
+            selection={
+              sources.some((row) => row.id === choice)
+                ? {
+                    id: choice,
+                    snapshot_sha256: sources.find((row) => row.id === choice)!
+                      .evidence_sha256,
+                    target: {
+                      ...sources.find((row) => row.id === choice)!.target,
+                      device: sources.find((row) => row.id === choice)!.device,
+                    },
+                  }
+                : null
+            }
+            controller={controller}
+            visible={visible && !batchTask.expanded}
+            booleanDrafts={booleanDrafts.current}
+            wireDrafts={wireDrafts.current}
+          />
+          {source && field && (
+            <NativeDefaultWireCompiler
+              source={source}
+              field={field}
+              valueText={value}
+              context={context}
+              generation={combinedTicket}
+              visible={visible && !batchTask.expanded}
+              blocked={busy}
+              parentCurrent={() =>
+                current(combinedTicket, owner) &&
+                sourceEpoch.current === combinedSourceTicket
+              }
+              drafts={combinedDrafts.current}
+              onExpandedChange={combinedExpandedChanged}
+              localPrimary={!fieldTransferSourceActive}
+              transferAllowed={!activeRecovery}
+            />
           )}
-        </>
-      )}
-      <NativeBooleanTransferContext.Provider
-        value={{
-          controller,
-          visible,
-          fieldBusy: parentBusy || transferBusy || booleanTransferBusy,
-          parentBusy: parentBusy || transferBusy,
-          otherOperationBusy: transferBusy,
-          recoveryDrafts: booleanRecoveries.current,
-          wireRecoveryDrafts: wireRecoveries.current,
-          enumRecoveryDrafts: enumRecoveries.current,
-          onBusy: transferBusyChanged,
-          onCaptured: (id) => {
+        </NativeBooleanTransferContext.Provider>
+        {storageError && <p role="status">{storageError}</p>}
+        {error && <p role="alert">{error}</p>}
+        {shown && (
+          <section
+            className="native-compiler-source"
+            aria-label="Reviewed native compilation"
+          >
+            <h2>Reviewed native compilation</h2>
+            <p>
+              {shown.data.compilation.selected_field_changed
+                ? "Selected Real default changes."
+                : "Selected Real default is unchanged."}{" "}
+              Other saved settings remain in the compiled application.
+            </p>
+            <p>
+              Stored value{" "}
+              {numberText(shown.data.compilation.selected_edit.stored_value)} ·
+              float32 bits{" "}
+              <code>{shown.data.compilation.selected_edit.after_bits}</code>
+              {shown.data.compilation.selected_edit.decimal_precision_changed
+                ? " · proposed decimal is rounded"
+                : ""}
+            </p>
+            <p>
+              Only the selected four bytes change after the saved-setting merge.
+              Saving this compiled copy does not transfer it or establish
+              controller/firmware acceptance.
+            </p>
+            <div className="button-row">
+              <button disabled={busy} onClick={() => void save()}>
+                Save compiled native copy
+              </button>
+              <button
+                onClick={() => {
+                  if (current(shown.ticket, shown.owner))
+                    saveBlob(
+                      shown.blob,
+                      "native-effective-default-review.json",
+                    );
+                }}
+              >
+                Export exact compilation review
+              </button>
+            </div>
+            <details>
+              <summary>Compilation, preservation and source hashes</summary>
+              <pre>{JSON.stringify(shown.data, null, 2)}</pre>
+            </details>
+          </section>
+        )}
+        <NativeDefaultTransfer
+          controller={controller}
+          source={source}
+          proposal={body}
+          field={field}
+          visible={visible && !combinedActive && !batchTask.expanded}
+          presentationHidden={combinedActive || batchTask.expanded}
+          synchronousGeneration={combinedTask.generation + batchTask.generation}
+          sourceCurrent={() =>
+            !combinedTaskNow.current.expanded &&
+            !batchTaskNow.current.expanded &&
+            batchTaskNow.current.generation === batchTask.generation &&
+            combinedTaskNow.current.generation === combinedTask.generation
+          }
+          parentBusy={parentBusy || booleanTransferBusy}
+          otherOperationBusy={booleanTransferBusy}
+          recoveryDraft={activeRecovery}
+          onRecoveryPrepared={(document) => {
+            pendingRecoveryFocus.current = document.data.origin_sha256;
+            epoch.current++;
+            setReview(null);
+            setError("");
+            setSearch("");
+            setFieldRef(document.data.origin.record_ref);
+            setRecovery(document);
+          }}
+          onBusy={(value) => transferBusyChanged("real", value)}
+          onCaptured={(id) => {
             setChoice(id);
             setPendingSource(id);
             void refresh();
-          },
-        }}
-      >
-        <NativeBackupComparison
-          selection={choice}
-          sources={sources}
-          controller={controller}
-          visible={visible}
+          }}
         />
-        <NativeBackupInspection
-          selection={
-            sources.some((row) => row.id === choice)
-              ? {
-                  id: choice,
-                  snapshot_sha256: sources.find((row) => row.id === choice)!
-                    .evidence_sha256,
-                  target: {
-                    ...sources.find((row) => row.id === choice)!.target,
-                    device: sources.find((row) => row.id === choice)!.device,
-                  },
-                }
-              : null
-          }
-          controller={controller}
-          visible={visible}
-          booleanDrafts={booleanDrafts.current}
-          wireDrafts={wireDrafts.current}
-        />
-        {source && field && (
-          <NativeDefaultWireCompiler
-            source={source}
-            field={field}
-            valueText={value}
-            context={context}
-            generation={combinedTicket}
-            visible={visible}
-            blocked={busy}
-            parentCurrent={() =>
-              current(combinedTicket, owner) &&
-              sourceEpoch.current === combinedSourceTicket
-            }
-            drafts={combinedDrafts.current}
-            onExpandedChange={combinedExpandedChanged}
-            localPrimary={!fieldTransferSourceActive}
-            transferAllowed={!activeRecovery}
-          />
-        )}
-      </NativeBooleanTransferContext.Provider>
-      {storageError && <p role="status">{storageError}</p>}
-      {error && <p role="alert">{error}</p>}
-      {shown && (
-        <section
-          className="native-compiler-source"
-          aria-label="Reviewed native compilation"
-        >
-          <h2>Reviewed native compilation</h2>
-          <p>
-            {shown.data.compilation.selected_field_changed
-              ? "Selected Real default changes."
-              : "Selected Real default is unchanged."}{" "}
-            Other saved settings remain in the compiled application.
-          </p>
-          <p>
-            Stored value{" "}
-            {numberText(shown.data.compilation.selected_edit.stored_value)} ·
-            float32 bits{" "}
-            <code>{shown.data.compilation.selected_edit.after_bits}</code>
-            {shown.data.compilation.selected_edit.decimal_precision_changed
-              ? " · proposed decimal is rounded"
-              : ""}
-          </p>
-          <p>
-            Only the selected four bytes change after the saved-setting merge.
-            Saving this compiled copy does not transfer it or establish
-            controller/firmware acceptance.
-          </p>
-          <div className="button-row">
-            <button disabled={busy} onClick={() => void save()}>
-              Save compiled native copy
-            </button>
-            <button
-              onClick={() => {
-                if (current(shown.ticket, shown.owner))
-                  saveBlob(shown.blob, "native-effective-default-review.json");
-              }}
-            >
-              Export exact compilation review
-            </button>
-          </div>
-          <details>
-            <summary>Compilation, preservation and source hashes</summary>
-            <pre>{JSON.stringify(shown.data, null, 2)}</pre>
-          </details>
-        </section>
-      )}
-      <NativeDefaultTransfer
-        controller={controller}
-        source={source}
-        proposal={body}
-        field={field}
-        visible={visible && !combinedActive}
-        presentationHidden={combinedActive}
-        synchronousGeneration={combinedTask.generation}
-        sourceCurrent={() =>
-          !combinedTaskNow.current.expanded &&
-          combinedTaskNow.current.generation === combinedTask.generation
-        }
-        parentBusy={parentBusy || booleanTransferBusy}
-        otherOperationBusy={booleanTransferBusy}
-        recoveryDraft={activeRecovery}
-        onRecoveryPrepared={(document) => {
-          pendingRecoveryFocus.current = document.data.origin_sha256;
-          epoch.current++;
-          setReview(null);
-          setError("");
-          setSearch("");
-          setFieldRef(document.data.origin.record_ref);
-          setRecovery(document);
-        }}
-        onBusy={(value) => transferBusyChanged("real", value)}
-        onCaptured={(id) => {
-          setChoice(id);
-          setPendingSource(id);
-          void refresh();
-        }}
-      />
+      </div>
     </section>
   );
 }

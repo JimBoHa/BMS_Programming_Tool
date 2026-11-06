@@ -1708,5 +1708,14 @@
     "pdf_pages_or_section": "Program / Native backup defaults; docs/native-real-draft-files.md",
     "status": "implemented",
     "implementation_or_gap": "Bounded strict raw-text JSON file profile; exact capture/route/field/default bindings, explicit replacement refusal, unchanged 64-field no-eviction budgets, original-file portability, parent epoch admission and source/installed browser qualification. General native logic, package/runtime and physical acceptance remain separate."
+  },
+  {
+    "id": "FMT-NATIVE-DEFAULT-BATCH-001",
+    "feature": "Saved-effective batch compilation of existing typed native defaults",
+    "acceptance_criterion": "Locally compile one to sixteen distinct existing Real/Boolean/Enum defaults from one identity-qualified saved merge; preserve independent compiler evidence, literal unselected bytes and both composition orders, with source-bound review/export and no field authority.",
+    "evidence": "Existing native typed compiler contracts, authored tagged native records and actual retained-source readers",
+    "pdf_pages_or_section": "Program / Native backup defaults; docs/native-default-batch.md",
+    "status": "implemented",
+    "implementation_or_gap": "Strict source/preview/export, captured Enum capacity, literal independent and joint byte/framing preservation, retained bounded drafts, exact downloads and stale-result retirement. Existing native application transfer plans retire synchronously across batch task changes. No new field Apply, block/link allocation, resource/package/runtime/CCT or physical acceptance."
   }
 ]

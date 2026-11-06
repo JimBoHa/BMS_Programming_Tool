@@ -8,6 +8,8 @@ export const NativeBooleanTransferContext = createContext<{
   fieldBusy: boolean;
   parentBusy: boolean;
   otherOperationBusy: boolean;
+  workspaceGeneration?: number;
+  workspaceCurrent?: () => boolean;
   recoveryDrafts: Map<string, NativeDefaultRecoveryDocument>;
   wireRecoveryDrafts: Map<string, NativeDefaultRecoveryDocument>;
   enumRecoveryDrafts: Map<string, NativeDefaultRecoveryDocument>;

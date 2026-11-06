@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-06. Implementation baseline: GitHub `main` at
-[`626af276`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/626af276be77ef4ca1892c367175dddd3df06e2c).
+[`8d6f244a`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/8d6f244a7bb624a64c6713c057b8911a5e290cf9).
 
 ## Baseline and purpose
 
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 190 scoped criteria: 136
+The public requirement register currently records 191 scoped criteria: 137
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -2278,3 +2278,24 @@ proposal, controller target or transfer authority. Native encoders/field writers
 and the controller-file layout remain unchanged. This completes the scoped raw
 text portability feature; JCI-02/03 and general native compilation remain partial.
 See [unfinished native Real drafts](docs/native-real-draft-files.md).
+
+
+## 2026-11-06 JCI-02/JCI-03 delivery: typed native default batch compilation
+
+`FMT-NATIVE-DEFAULT-BATCH-001` compiles one to sixteen existing Real, Boolean or
+Enum Default Value fields from one identity-qualified retained saved merge. Each
+original narrow compiler report remains intact. Independent outputs must match
+their own hashes and one selected byte replacement; forward/reverse archive edit
+composition must reproduce the complete literal expected native image. Unknown
+bytes, identity, membership/order, graph and captured Enum metadata remain intact.
+
+Program provides actual field names/types/values, bounded source drafts, search,
+selected-only filtering, pagination, local review and exact copy/review export.
+Parent/local counters retire late results and downloads, including ABA, while
+ordinary drafts remain separate. Existing native application transfer plans retire
+synchronously across batch task changes; an active write keeps the switch locked.
+
+This completes the scoped local batch compiler. Additional edit kinds, new native
+identities/blocks/links, batch field deployment/recovery, packages/resources/native
+execution, CCT comparison and physical acceptance remain separate. JCI-02/03/09
+remain partial. See [typed default batches](docs/native-default-batch.md).
