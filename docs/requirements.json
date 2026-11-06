@@ -1717,5 +1717,14 @@
     "pdf_pages_or_section": "Program / Native backup defaults; docs/native-default-batch.md",
     "status": "implemented",
     "implementation_or_gap": "Strict source/preview/export, captured Enum capacity, literal independent and joint byte/framing preservation, retained bounded drafts, exact downloads and stale-result retirement. Existing native application transfer plans retire synchronously across batch task changes. No new field Apply, block/link allocation, resource/package/runtime/CCT or physical acceptance."
+  },
+  {
+    "id": "CAP-NATIVE-DEFAULT-BATCH-001",
+    "feature": "Source-specific native typed default batch capability discovery",
+    "acceptance_criterion": "Retain the previous capability profile and report actual bounded saved-effective typed batch compiler witnesses without staging a draft, export review or field authority.",
+    "evidence": "Existing retained native backup readers, typed batch compiler and independently qualified capability contracts",
+    "pdf_pages_or_section": "Program / Native backup defaults; docs/native-batch-capabilities.md",
+    "status": "implemented",
+    "implementation_or_gap": "Opt-in profile20 retains profile19, actual field/source/hash agreement and one bounded 16-field composition witness, strict browser proof, exact received JSON and source/mode/task retirement. API default12 and ordinary UI14 remain unchanged. No batch field deployment, native runtime/CCT or physical acceptance."
   }
 ]

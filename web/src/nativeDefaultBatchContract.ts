@@ -403,8 +403,27 @@ export function defaultBatchReview(data: Data, opened: Data, request: Data) {
       !hash(data.output_sha256)
     )
       return false;
-    const c = data.compilation,
-      edits = request.changes,
+    return defaultBatchCompilation(
+      data.compilation,
+      opened,
+      request,
+      data.output_sha256,
+    );
+  } catch {
+    return false;
+  }
+}
+
+// Consistency of a local compiler witness is separate from review admission.
+export function defaultBatchCompilation(
+  c: Data,
+  opened: Data,
+  request: Data,
+  outputSha256: string,
+) {
+  try {
+    if (!hash(outputSha256)) return false;
+    const edits = request.changes,
       count = edits.length;
     if (
       !object(c, [
@@ -444,7 +463,7 @@ export function defaultBatchReview(data: Data, opened: Data, request: Data) {
       c.effective_sha256 !== opened.effective_sha256 ||
       c.effective_native_sha256 !==
         opened.parameter_merge.native_output_sha256 ||
-      c.compiled_sha256 !== data.output_sha256 ||
+      c.compiled_sha256 !== outputSha256 ||
       !hash(c.compiled_native_sha256) ||
       !integer(c.compiled_native_bytes) ||
       !integer(c.effective_native_bytes) ||
