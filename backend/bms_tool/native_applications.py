@@ -65,6 +65,7 @@ from .native_default_transfer import (
     compile_default,
     verify_default_preservation,
 )
+from .native_encoded_analog_recovery import NativeEncodedAnalogRecovery
 from .native_enum_recovery import PROFILE as ENUM_RECOVERY_PROFILE
 from .native_enum_recovery import NativeEnumRecovery
 from .native_enum_transfer import PROFILE as ENUM_DEFAULT_PROFILE
@@ -2012,6 +2013,12 @@ def native_application_router(service):
     @router.post("/input/preview")
     async def preview_input(body: InputPreview):
         return await service.preview_input(**body.model_dump())
+
+    @router.post("/input/encoded-terminal/recovery/prepare")
+    def prepare_encoded_analog_recovery(body: DefaultRecoveryPrepare):
+        return NativeEncodedAnalogRecovery(NativeBackupRecords(service.storage)).prepare(
+            body.model_dump()
+        )
 
     @router.post("/input/terminal-recovery/prepare")
     def prepare_terminal_recovery(body: DefaultRecoveryPrepare):
