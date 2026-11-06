@@ -2199,3 +2199,24 @@ Scalar and wiring checkpoints, original CAF Save, copy editors and other local
 draft families remain separate. General native authoring, packages/resources,
 compilation and physical deployment still require independent work. JCI-02 and
 UX-04 remain partial. See [recorded-copy draft recovery](docs/caf-creation-draft-recovery.md).
+
+## 2026-11-06 JCI-03 delivery: combined native default and connection compilation
+
+`FMT-NATIVE-COMBINED-DEFAULT-WIRE-001` compiles one existing Real default and one
+existing connection source from the identical identity-qualified retained File
+3/11/12 saved-parameter merge. The existing narrow compilers qualify independently
+before both composition orders are reparsed and compared with the exact two
+original byte-range patches. Other merged bytes, identity and record membership
+remain exact; a combined no-op retains the exact merged source.
+
+Program → Native backup defaults reuses the selected backup, route and proposed
+default text. Actual retained diagrams, wires and qualified sources supply the
+connection choices. Separate bounded drafts, source/proposal counters, review
+validation and exact download hashes preserve the existing single-edit workflows.
+Literal independent and intermediate reports remain attached to the new combined
+profile; neither old transfer profile grants authority to the combined output.
+
+This delivers local review/export. Fresh combined transfer/readback/recovery,
+broader authoring, new identities, packages/resources, native execution and
+CCT/physical acceptance remain separate. JCI-03 and JCI-09 stay partial. See
+[combined native compilation](docs/native-combined-default-wire.md).

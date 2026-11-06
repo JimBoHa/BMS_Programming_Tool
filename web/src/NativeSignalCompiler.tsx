@@ -7,6 +7,7 @@ import { NativeDefaultTransfer } from "./NativeDefaultTransfer";
 import { NativeBackupInspection } from "./NativeBackupInspection";
 import { NativeBackupComparison } from "./NativeBackupComparison";
 import { NativeBooleanTransferContext } from "./NativeBooleanTransferContext";
+import { NativeDefaultWireCompiler } from "./NativeDefaultWireCompiler";
 import type { NativeDefaultRecoveryDocument } from "./nativeDefaultRecoveryContract";
 import "./native-signal-compiler.css";
 
@@ -53,6 +54,7 @@ export function NativeSignalCompiler({
     new Map<string, NativeDefaultRecoveryDocument>(),
   );
   const wireDrafts = useRef(new Map<string, string>());
+  const combinedDrafts = useRef(new Map<string, string>());
   const wireRecoveries = useRef(
     new Map<string, NativeDefaultRecoveryDocument>(),
   );
@@ -424,6 +426,8 @@ export function NativeSignalCompiler({
     ) ?? [];
   if (field && !fields.some((row: Data) => row.ref === field.ref))
     fields.push(field);
+  const combinedTicket = epoch.current,
+    combinedSourceTicket = sourceEpoch.current;
   return (
     <section
       className="native-effective-compiler"
@@ -696,6 +700,22 @@ export function NativeSignalCompiler({
           wireDrafts={wireDrafts.current}
         />
       </NativeBooleanTransferContext.Provider>
+      {source && field && (
+        <NativeDefaultWireCompiler
+          source={source}
+          field={field}
+          valueText={value}
+          context={context}
+          generation={combinedTicket}
+          visible={visible}
+          blocked={busy}
+          parentCurrent={() =>
+            current(combinedTicket, owner) &&
+            sourceEpoch.current === combinedSourceTicket
+          }
+          drafts={combinedDrafts.current}
+        />
+      )}
       {storageError && <p role="status">{storageError}</p>}
       {error && <p role="alert">{error}</p>}
       {shown && (

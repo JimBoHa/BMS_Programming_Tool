@@ -1672,5 +1672,14 @@
     "pdf_pages_or_section": "docs/caf-creation-draft-recovery.md; docs/workflow-style-guide.md",
     "status": "implemented",
     "implementation_or_gap": "Program → Logic → recorded copy task provides explicit bounded source-bound save/restore/remove and original-byte checkpoint download. Strict generation/revision checks, raw current/saved comparison, confirmation-time revalidation and source/task/route/lifecycle ownership preserve current work; synchronous counters retire coalesced text/prototype/type ABA. All existing inspector/compiler schemas remain unchanged, and restored drafts grant no successful copy review, export/open-copy marker, field authority or native execution/package/resource/physical acceptance. JCI-02 and UX-04 remain partial."
+  },
+  {
+    "id": "FMT-NATIVE-COMBINED-DEFAULT-WIRE-001",
+    "feature": "Combined saved-effective native Real default and connection compilation",
+    "acceptance_criterion": "Compose one existing Real default and existing connection source from the identical retained identity-qualified File 3/11/12 saved merge; independently qualify both narrow edits, reparse both orders, preserve every other merged byte and bind exact local review/export without field authority.",
+    "evidence": "Authored literal native byte deltas across framing/compression/Unsigned widths, saved Real/Boolean values, strict identity/source/type/tuple/HTTP faults, loopback capture and Chromium/WebKit source/installed workflows.",
+    "pdf_pages_or_section": "docs/native-combined-default-wire.md; docs/native-effective-wire-compiler.md",
+    "status": "implemented",
+    "implementation_or_gap": "Program → Native backup defaults reuses the actual retained source and ordinary proposed Real text with a separate bounded connection draft. Both existing effective compilers must qualify identical merge bytes; raw edits compose in both orders without remerging saved settings over intermediates. Disjoint original byte patches, exact output/identity/membership, literal independent/intermediate reports, strict sealed review and downloaded file hashes preserve original single-edit profiles. Source/field/route/task/proposal counters retire stale and coalesced ABA results. No combined transfer, new blocks/connections/IDs, hardware changes, general compiler, packages/resources/native execution or CCT/physical acceptance is inferred; JCI-03 and JCI-09 remain partial."
   }
 ]

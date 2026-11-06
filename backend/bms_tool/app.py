@@ -141,6 +141,7 @@ from .native_connection_removal import (
     NativeConnectionRemovals,
     connection_removal_router,
 )
+from .native_default_wire import NativeDefaultWire, default_wire_router
 from .native_enum_compiler import native_enum_compiler_router
 from .native_enum_copies import native_enum_copy_router
 from .native_exception_text import exception_text_router
@@ -637,6 +638,7 @@ def create_app(state_dir=None, *, operation_power=None):
     terminal_copies = NativeTerminalCopies(backup_records)
     effective_terminal_copies = EffectiveNativeTerminalCopies(backup_records)
     wire_compiler = EffectiveWireService(backup_records)
+    default_wire_compiler = NativeDefaultWire(backup_records)
     historical_wire_copies = NativeHistoricalWireCopies(
         backup_records, native_applications.wire_recovery
     )
@@ -820,6 +822,7 @@ def create_app(state_dir=None, *, operation_power=None):
         connection_removal_router(connection_removals, effective_connection_removals)
     )
     app.include_router(effective_wire_router(wire_compiler))
+    app.include_router(default_wire_router(default_wire_compiler))
     app.include_router(terminal_copy_router(terminal_copies, effective_terminal_copies))
     app.include_router(terminal_label_router(backup_records))
     app.include_router(historical_wire_copy_router(historical_wire_copies))

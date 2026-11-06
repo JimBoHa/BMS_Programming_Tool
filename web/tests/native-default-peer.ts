@@ -9,6 +9,7 @@ export async function nativeDefaultPeer(
     | "boolean"
     | "enum"
     | "wire"
+    | "default-wire"
     | "connection"
     | "wire-recovery"
     | "instance"
@@ -72,6 +73,8 @@ async def main():
   app.files=connection_files(target_class=538);app.metadata['object-name']='Authored native wire controller';app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
  elif sys.argv[2]=='wire':
   app.files=wire_files(target_class=538);app.metadata['object-name']='Authored native wire controller';app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
+ elif sys.argv[2]=='default-wire':
+  app.files=wire_files();app.metadata['object-name']='Authored native wire controller';app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
  elif sys.argv[2]=='instance':
   from tests.test_native_instance_recovery_transfer import controller_storage as instance_storage
   app.files=signal_files();instance_storage(app);app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
