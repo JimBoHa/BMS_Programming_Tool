@@ -13,6 +13,13 @@ jobs:
   wheel:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
+    # Match web/package-lock.json; browsers and native libraries are preinstalled.
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.1-noble@sha256:f1e7e01021efd65dd1a2c56064be399f3e4de00fd021ac561325f2bfbb2b837a
+      options: --init --ipc=host
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -47,7 +54,7 @@ jobs:
           python -m venv ../.venv
           ../.venv/bin/python -m pip install --require-hashes -r ../requirements/runtime.txt
           ../.venv/bin/python -m pip install pytest==9.1.1 pytest-asyncio==1.4.0
-          npx playwright install --with-deps chromium webkit
+          node -e 'const fs = require("node:fs"); const { chromium, webkit } = require("playwright"); for (const browser of [chromium, webkit]) { if (!fs.existsSync(browser.executablePath())) throw new Error("Pinned CI browser is unavailable: " + browser.name()); }'
           npx playwright test release-guide.spec.ts engine-discovery.spec.ts browser-crypto.unit.spec.ts lan-browser.spec.ts
       - name: Documentation, SBOMs and outgoing archive audit
         run: |
