@@ -20,6 +20,11 @@ deadline, browser tests, test assertions, dependency locks, packaging/provenance
 and privacy checks, documentation/SBOM audit, desktop matrix and release gates
 remain unchanged. The image is a CI environment, not part of the distributed app.
 
+Packaging regressions retain subprocess output in exception locals. The CI
+invocation uses `--showlocals` so a failed isolated wheel build exposes its
+captured output instead of only the subprocess exit status. This changes failure
+diagnostics, not the test selection or acceptance conditions.
+
 When changing the Playwright package version, select its matching official image,
 verify the immutable manifest digest against Microsoft Artifact Registry, and
 update the lock and image pin together. A passing package install is not a browser
