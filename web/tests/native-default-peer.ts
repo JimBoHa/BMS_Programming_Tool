@@ -10,6 +10,7 @@ export async function nativeDefaultPeer(
     | "enum"
     | "wire"
     | "default-wire"
+    | "default-wire-transfer"
     | "connection"
     | "wire-recovery"
     | "instance"
@@ -75,6 +76,9 @@ async def main():
   app.files=wire_files(target_class=538);app.metadata['object-name']='Authored native wire controller';app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
  elif sys.argv[2]=='default-wire':
   app.files=wire_files();app.metadata['object-name']='Authored native wire controller';app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
+ elif sys.argv[2]=='default-wire-transfer':
+  from tests.test_native_default_wire_transfer import combined_files,consume_selected_default
+  app.files=combined_files();consume_selected_default(app);app.metadata['object-name']='Authored native wire controller';app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
  elif sys.argv[2]=='instance':
   from tests.test_native_instance_recovery_transfer import controller_storage as instance_storage
   app.files=signal_files();instance_storage(app);app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
@@ -105,6 +109,19 @@ async def main():
   elif line=='wire-application-changed':
    import gzip
    app.files[3]=gzip.compress(gzip.decompress(app.files[3]).replace(b'Opaque metadata retained',b'Unsafe metadata retained'),mtime=0)
+  elif line=='combined-other-fresh':
+   from tests.test_native_default_wire_transfer import saved
+   real_slot(app.files,0,struct.pack('>f',45));saved(app.files,10,b'\\x00')
+  elif line=='combined-selected9':
+   from tests.test_native_default_wire_transfer import saved
+   saved(app.files,17,struct.pack('>f',9))
+  elif line=='combined-config2':
+   from tests.test_native_default_wire_transfer import saved
+   saved(app.files,22,(2).to_bytes(4,'big'))
+  elif line=='combined-recover-original':
+   from bms_tool.moi_parameters import ParameterApplication
+   app.files=copy.deepcopy(original_files);app.files[3]=ParameterApplication(app.files[3],app.files[11],app.files[12]).compile()[0]
+   app.instance=5136;app.metadata['object-name']='Authored native wire controller';app.metadata['system-status']=0;app.mode='normal'
   elif line=='boolean-selected-false':boolean_slot(app.files,FIRST,False)
   elif line=='boolean-restore-true':
    import types
@@ -142,11 +159,14 @@ async def main():
    reader=EffectiveEnumCompiler(app.files);field=reader.fields()[0];record,prop=reader.archive.candidates[field['ref']]
    enum_evidence={'enum_archive_code':field['archive_value'],'enum_effective_code':field['effective_value'],'enum_archive_tag':reader.archive.editor.data[prop['value_start_offset']:prop['value_end_offset']].hex()}
   connection_evidence={}
-  if sys.argv[2]=='connection':
+  if sys.argv[2] in ['connection','default-wire-transfer']:
    from bms_tool.moi_identity import MoiIdentity
-   from tests.test_moi_wire_sources import REF,A,B
+   from tests.test_moi_wire_sources import REF,A,B,C
    try:
     actual=MoiIdentity(app.files[3]);connection_evidence={'connections':actual.reader.diagram(REF)['connections'],'source_default':actual.reader.scalar(actual.reader.records[A],3113),'other_default':actual.reader.scalar(actual.reader.records[B],3113)}
+    if sys.argv[2]=='default-wire-transfer':
+     prop=actual.reader.records[C]['properties'][3113];offset=prop['value_start_offset']+1
+     connection_evidence['combined_real_bits']=actual.data[offset:offset+4].hex()
    except ValueError as exc:connection_evidence={'connection_error':str(exc)}
   print('RESULT '+json.dumps({'command':line,'events':app.events,'instance':app.instance,'router_errors':proxy.errors,'request_types':[r['type'] for r in proxy.requests]}|({'discovery_requests':proxy.discovery_requests,'discovery_responses':proxy.discovery_responses} if sys.argv[2]=='instance' else {})|enum_evidence|connection_evidence),flush=True)
  asyncio.get_running_loop().add_reader(sys.stdin.fileno(),command)

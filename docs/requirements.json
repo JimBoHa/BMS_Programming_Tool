@@ -1681,5 +1681,14 @@
     "pdf_pages_or_section": "docs/native-combined-default-wire.md; docs/native-effective-wire-compiler.md",
     "status": "implemented",
     "implementation_or_gap": "Program → Native backup defaults reuses the actual retained source and ordinary proposed Real text with a separate bounded connection draft. Both existing effective compilers must qualify identical merge bytes; raw edits compose in both orders without remerging saved settings over intermediates. Disjoint original byte patches, exact output/identity/membership, literal independent/intermediate reports, strict sealed review and downloaded file hashes preserve original single-edit profiles. Source/field/route/task/proposal counters retire stale and coalesced ABA results. No combined transfer, new blocks/connections/IDs, hardware changes, general compiler, packages/resources/native execution or CCT/physical acceptance is inferred; JCI-03 and JCI-09 remain partial."
+  },
+  {
+    "id": "FMT-NATIVE-DEFAULT-WIRE-TRANSFER-001",
+    "feature": "Guarded combined native Real-default and existing-connection transfer",
+    "acceptance_criterion": "Review both source-bound edits, refuse selected effective-value or graph/configuration drift, preserve unrelated fresh settings through one durable restore, verify complete native bytes and both effective edits, and retain explicit readback without replay plus reference-only history.",
+    "evidence": "Authored literal native/saved bytes, strict production HTTP and direct/routed UDP peers, selected/configuration and transfer faults, lost replies/restart without replay, local ledger refusal checks and source/installed Chromium/WebKit workflows.",
+    "pdf_pages_or_section": "docs/native-default-wire-transfer.md; docs/native-combined-default-wire.md; docs/native-default-transfer.md",
+    "status": "implemented",
+    "implementation_or_gap": "The existing combined Program task adds an independent sealed one-use transfer profile with fresh File 3/directory/default/configuration guards, actual identity/interface/expiry/credentials, final capacity/readable durable backup and intent, one File 3 restore and full native/effective readback. Both confirmations and application interruption are explicit. Source/task/route/disclosure/proposal counters retire stale and ABA reviews. Exact JSON evidence, unknown/not-sent distinction, restart/readback without replay and bounded Changes/History projections preserve original single-edit workflows and historical non-authority. No new blocks/IDs/connections, hardware changes, general compiler, package/resource/native execution, direct serial/BTCVT, CCT comparison or physical acceptance; JCI-03 and JCI-09 remain partial."
   }
 ]
