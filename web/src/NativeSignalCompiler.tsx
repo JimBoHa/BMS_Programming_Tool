@@ -73,7 +73,21 @@ export function NativeSignalCompiler({
     [localBusy, setBusy] = useState(false);
   const [transferBusy, setTransferBusy] = useState(false);
   const [booleanTransferBusy, setBooleanTransferBusy] = useState(false);
-  const [combinedActive, setCombinedActive] = useState(false);
+  const [combinedTask, setCombinedTask] = useState({
+    expanded: false,
+    generation: 0,
+  });
+  const combinedTaskNow = useRef(combinedTask);
+  const combinedActive = combinedTask.expanded;
+  function combinedExpandedChanged(expanded: boolean) {
+    if (combinedTaskNow.current.expanded === expanded) return;
+    const next = {
+      expanded,
+      generation: combinedTaskNow.current.generation + 1,
+    };
+    combinedTaskNow.current = next;
+    setCombinedTask(next);
+  }
   const busyOwners = useRef(new Set<string>());
   function transferBusyChanged(owner: string, value: boolean) {
     if (value) busyOwners.current.add(owner);
@@ -718,7 +732,7 @@ export function NativeSignalCompiler({
               sourceEpoch.current === combinedSourceTicket
             }
             drafts={combinedDrafts.current}
-            onExpandedChange={setCombinedActive}
+            onExpandedChange={combinedExpandedChanged}
             localPrimary={!fieldTransferSourceActive}
             transferAllowed={!activeRecovery}
           />
@@ -778,6 +792,11 @@ export function NativeSignalCompiler({
         field={field}
         visible={visible && !combinedActive}
         presentationHidden={combinedActive}
+        synchronousGeneration={combinedTask.generation}
+        sourceCurrent={() =>
+          !combinedTaskNow.current.expanded &&
+          combinedTaskNow.current.generation === combinedTask.generation
+        }
         parentBusy={parentBusy || booleanTransferBusy}
         otherOperationBusy={booleanTransferBusy}
         recoveryDraft={activeRecovery}

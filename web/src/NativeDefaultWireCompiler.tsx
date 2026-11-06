@@ -45,6 +45,7 @@ export function NativeDefaultWireCompiler({
   const [ownedTransferBusy, setOwnedTransferBusy] = useState(false);
   const fieldBlocked = blocked && !ownedTransferBusy;
   const [expanded, setExpanded] = useState(false);
+  const expandedNow = useRef(false);
   const [loaded, setLoaded] = useState<{ key: string; data: Data } | null>(
     null,
   );
@@ -283,8 +284,10 @@ export function NativeDefaultWireCompiler({
         onClick={(event) => {
           event.preventDefault();
           retire();
-          setExpanded((v) => !v);
-          onExpandedChange(!expanded);
+          const next = !expandedNow.current;
+          expandedNow.current = next;
+          setExpanded(next);
+          onExpandedChange(next);
         }}
       >
         Combine this default with a connection change

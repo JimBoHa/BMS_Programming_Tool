@@ -609,3 +609,74 @@ test("a verified combined change appears in Changes and History as reference-onl
     peer.close();
   }
 });
+
+test("ordinary Real review cannot survive a combined open-close cycle before paint", async ({
+  page,
+  nativeScheduleWriteServer,
+}) => {
+  const peer = await nativeDefaultPeer("consume", "default-wire-transfer");
+  try {
+    const { parent, copy } = await open(
+      page,
+      nativeScheduleWriteServer.url,
+      peer,
+      false,
+    );
+    await copy.locator(":scope > summary").click();
+    const real = parent.getByRole("region", {
+      name: "Native default controller transfer",
+      exact: true,
+    });
+    await real
+      .getByRole("button", {
+        name: "Review controller default transfer",
+        exact: true,
+      })
+      .click();
+    const old = real.getByRole("region", {
+      name: "Reviewed controller default transfer",
+      exact: true,
+    });
+    await expect(old).toBeVisible();
+    await old
+      .getByLabel(
+        "I confirm the selected controller, native default and proposed value.",
+        { exact: true },
+      )
+      .check();
+    await old
+      .getByLabel(
+        "I confirm the application transfer and controller interruption.",
+        { exact: true },
+      )
+      .check();
+    const apply = old.getByRole("button", {
+      name: "Apply native default to controller",
+      exact: true,
+    });
+    await expect(apply).toBeEnabled();
+    let applications = 0;
+    page.on("request", (r) => {
+      if (
+        r.method() === "POST" &&
+        r.url().endsWith("/signal-default/transfer/apply")
+      )
+        applications++;
+    });
+    const button = await apply.elementHandle();
+    await copy.locator(":scope > summary").evaluate((element, button) => {
+      (element as HTMLElement).click();
+      (element as HTMLElement).click();
+      (button as HTMLElement).click();
+    }, button);
+    await expect(copy).not.toHaveAttribute("open", "");
+    await expect(real).toBeVisible();
+    await expect(old).toHaveCount(0);
+    expect(applications).toBe(0);
+    expect(
+      (await peer.command("stats")).events.filter((e: any) => e[0] === "write"),
+    ).toEqual([]);
+  } finally {
+    peer.close();
+  }
+});
