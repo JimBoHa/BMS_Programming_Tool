@@ -12,6 +12,10 @@ from bacpypes3.primitivedata import Boolean, Enumerated, ObjectIdentifier, Real,
 from .application_store import PROFILE as TRANSFER_PROFILE
 from .moi_identity import MoiIdentity, seal, sha
 from .moi_parameters import ParameterApplication
+from .native_encoded_analog_recovery_transfer import EncodedAnalogRecoveryPreview
+from .native_encoded_analog_recovery_transfer import (
+    recovery_origin as encoded_analog_recovery_origin,
+)
 from .native_inputs import (
     CONFIG,
     ENUM_FIELDS,
@@ -255,6 +259,9 @@ class NativeInputOperations:
     async def preview_terminal_recovery(self, **arguments):
         return await self.review_input(TerminalRecoveryPreview(**arguments))
 
+    async def preview_encoded_analog_recovery(self, **arguments):
+        return await self.review_input(EncodedAnalogRecoveryPreview(**arguments))
+
     async def review_input(self, options):
         async with self.operation(options.operation_id, "review-input"):
             self.available(options)
@@ -268,7 +275,10 @@ class NativeInputOperations:
             )(**options.model_dump(include={"capture_id", "snapshot_sha256"}))
             origin = self.input_allocation_origin(options.edit, captured)
             output, compilation = compile_input(files, options.edit, allocation_origin=origin)
-            recovery = recovery_origin(self, options, compilation)
+            recovery = {
+                **recovery_origin(self, options, compilation),
+                **encoded_analog_recovery_origin(self, options, compilation),
+            }
             config, app = copy.deepcopy(self.bacnet.config), self.bacnet.require()
             async with self.path._path(options) as session:
                 PropertyEvidence.pin(session, options.router)
