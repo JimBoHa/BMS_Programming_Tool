@@ -74,3 +74,28 @@ interface after startup checks; do not replay controller writes or resume
 pollers automatically. Keep the detailed machine-specific comparison and logs
 outside Git. A source or software test does not establish new physical/CCT
 acceptance for a recently integrated operation.
+
+## Recovery and CAF additions through PR #291
+
+The subsequent analog and binary recovery deliveries (#279–#286) now include
+fresh field review, contextual staging and immutable historical lineage. Retain
+ordinary drafts, current counters and saved configuration; historical evidence
+must not restore a field review or trigger automatic rollback.
+
+CAF source references (#287), saved scalar checkpoints (#288), connection removal
+(#289), combined scalar/wiring copies (#290) and opt-in numeric Enum input
+scenarios (#291) remain in their existing Program, Changes and History tasks.
+Keep removal, scalar-only export and verified copy opening available alongside
+combined copies. Preserve the original archive and unrelated pending proposals.
+
+Scenario version 1 remains the default with its existing output. Version 2 must
+retain separate drafts, saved selections and revisions. Qualify actual Input
+Enum records without admitting Output Enum records or inventing state meanings.
+Empty-state guidance must describe the selected profile's actual support.
+
+Before publishing an integration, scan tracked source and built assets with
+private site/credential rules kept outside Git. Keep runtime state, controller
+archives and private review logs excluded. A clean current payload does not
+establish that historical GitHub objects have been removed. After installation,
+verify the checkout's commit and tracked files against GitHub main, retain a
+backup of earlier local edits and confirm stored state and connection settings.

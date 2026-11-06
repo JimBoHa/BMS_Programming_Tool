@@ -492,7 +492,7 @@ function CafScenarioEditor({
       ) : !supported ? (
         <p>
           No supported saved input startup records for this selected version.
-          Output blocks, enums and unknown records cannot become local inputs.
+          Output blocks and unsupported input records cannot become local inputs.
         </p>
       ) : (
         <>
