@@ -1830,3 +1830,24 @@ and an exact current capture, with fresh review/confirmations/transfer/readback.
 General compilation, allocation/electrical changes, SA/cross-host writes, resources/
 packages and physical/CCT/BTCVT acceptance remain separate. IO-02/JCI-09 remain
 partial. See [recorded analog movement](docs/native-encoded-analog-ledger.md).
+
+## 2026-11-05 IO-02/JCI-10 delivery: local configured analog previous-terminal proposal
+
+`FMT-NATIVE-ENCODED-ANALOG-RECOVERY-001` adds explicit local backend preparation
+from a resolved verified profile-4 receipt and exact current capture. Original
+files, canonical edit/compilation, identity/route/static directory, payload hashes
+and typed preservation bind the proposal. Selected configuration/field presence
+must remain unchanged; the inverse preserves current saved values, ASCII/UCS-2
+label encoding and paired absent output endpoints. An already-recorded previous
+binding yields no proposal. Original records/files remain unchanged.
+
+Preparation grants no plan, field token, query, transfer or automatic rollback.
+Sealed lineage/evidence remains separate from field authority. Earlier analog/
+binary profiles cannot supply the proposal, and earlier recovery/writer/UI
+contracts remain unchanged. This delivery adds no web staging control yet.
+
+Next, bind the new origin to a fresh confirmed field review/transfer/readback,
+then expose it in the existing configured analog workspace and recorded lineage.
+General restore/compilation, allocation/electrical changes, SA/cross-host writes,
+resources/packages and physical/CCT/BTCVT acceptance remain separate. IO-02/JCI-10
+remain partial. See [local configured analog recovery](docs/native-encoded-analog-recovery.md).
