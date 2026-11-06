@@ -40,6 +40,7 @@ from .caf_boolean_api import boolean_constant_router
 from .caf_boolean_logic_api import boolean_logic_router
 from .caf_compare import compare_cafs
 from .caf_comparison_api import comparison_router
+from .caf_connection_removal import connection_removal_router as caf_connection_removal_router
 from .caf_constant_api import constant_router
 from .caf_enum_api import enum_constant_router
 from .caf_float_multiplexer_api import float_multiplexer_router
@@ -1531,6 +1532,7 @@ def create_app(state_dir=None, *, operation_power=None):
 
     app.include_router(source_reference_router(caf_source_references, get_caf))
     app.include_router(scalar_draft_router(caf_scalar_drafts, get_caf))
+    app.include_router(caf_connection_removal_router(get_caf))
     app.include_router(constant_router(get_caf))
     app.include_router(boolean_constant_router(get_caf))
     app.include_router(enum_constant_router(get_caf))

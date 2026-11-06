@@ -2047,3 +2047,22 @@ Continue recovery for other native edit families and broader typed native author
 This local scalar scope does not establish compiler/package compatibility, field
 write authority or physical acceptance. JCI-02 and UX-04 remain partial.
 See [CAF scalar draft recovery](docs/caf-scalar-draft-recovery.md).
+
+## 2026-11-05 JCI-02/JCI-03 delivery: existing CAF connection removal
+
+[CAF connection removal](docs/caf-connection-removal.md) adds a separate local
+source/preview/export operation and contextual Program → Logic workflow for one
+recorded wire occurrence and its aligned continuation. It preserves other XML
+bytes, object identities, blocks, execution order, layout, destination settings
+and archive metadata, then reparses the output. Duplicate tuples remain distinct;
+review reports other recorded writers at the selected destination port.
+
+Original-source drafts, explicit conflict handling and guarded save/open-copy
+steps retain the existing controller-centered workspace. Removal is not silently
+combined with scalar, hardware, instance, creation or other wiring proposals.
+Existing CAF and native MOI editors keep their separate admission contracts.
+
+This implements a bounded local graph-editing scope under JCI-02/JCI-03. General
+native logic generation, compiler/package/resource validation, unwired runtime
+behavior and physical deployment remain incomplete. Next independent authoring
+priorities are combined scalar/wiring CAF copies and opt-in Enum input scenarios.

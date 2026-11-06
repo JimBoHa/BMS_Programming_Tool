@@ -16,6 +16,12 @@ import {
   type CreatedCafCopy,
 } from "./cafCreatedCopy";
 import type { ConstantDrafts } from "./cafConstantContract";
+import {
+  removedCafFile,
+  type RemovedCafCopy,
+  type CafRemovalHint,
+} from "./cafConnectionRemovalContract";
+import type { CafRemovalDrafts } from "./cafRemovalDrafts";
 import { CafHardwarePanel } from "./CafHardwarePanel";
 import { CafInstancePanel } from "./CafInstancePanel";
 import { JciPreflight } from "./JciPreflight";
@@ -88,11 +94,13 @@ export function NativeCaf({
   const [creationHint, setCreationHint] = useState<CafCreationHint | null>(
     null,
   );
+  const [removalHint, setRemovalHint] = useState<CafRemovalHint | null>(null);
   const [loadingObjects, setLoadingObjects] = useState(false);
   const [loadingProperties, setLoadingProperties] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [graphDirty, setGraphDirty] = useState(false);
   const constantDrafts = useRef<ConstantDrafts>(new Map());
+  const removalDrafts = useRef<CafRemovalDrafts>(new Map());
   const [hardwareDirty, setHardwareDirty] = useState(false);
   const [instanceDirty, setInstanceDirty] = useState(false);
   const [savedScalarKey, setSavedScalarKey] = useState("[]");
@@ -100,6 +108,8 @@ export function NativeCaf({
   const input = useRef<HTMLInputElement>(null);
   const mounted = useRef(false);
   const uploadRequest = useRef(0);
+  const externalCafReplacement = useRef(0);
+  const currentCafReplacement = externalCafReplacement.current;
   const propertyRequest = useRef(0);
   const exportRequest = useRef(0);
   const activeArchive = useRef<string | null>(null);
@@ -195,11 +205,21 @@ export function NativeCaf({
       return false;
     const file = await createdCafFile(copy, current);
     if (!file) return false;
-    return upload(file, { copy, current });
+    return upload(file, { kind: "creation", copy, current });
+  }
+  async function openRemovedCopy(copy: RemovedCafCopy, current: () => boolean) {
+    if (!visible || !current() || activeArchive.current !== copy.sourceArchive)
+      return false;
+    const file = await removedCafFile(copy, current);
+    if (!file) return false;
+    return upload(file, { kind: "removal", copy, current });
   }
   async function upload(
     file?: File,
-    handoff?: { copy: CreatedCafCopy; current: () => boolean },
+    handoff?: { current: () => boolean } & (
+      | { kind: "creation"; copy: CreatedCafCopy }
+      | { kind: "removal"; copy: RemovedCafCopy }
+    ),
   ) {
     const owned = () =>
       !handoff ||
@@ -210,12 +230,15 @@ export function NativeCaf({
       (unsavedScalars || graphDirty || hardwareDirty || instanceDirty) &&
       !window.confirm(
         handoff
-          ? "Open the reviewed CAF copy? Creation drafts remain available with their original file. Other unexported CAF edits will be cleared. Cancel to keep editing or export those changes first."
+          ? handoff.kind === "creation"
+            ? "Open the reviewed CAF copy? Creation drafts remain available with their original file. Other unexported CAF edits will be cleared. Cancel to keep editing or export those changes first."
+            : "Open the reviewed CAF copy? Removal and creation drafts remain available with their original file. Other unexported CAF edits will be cleared. Cancel to keep editing or export those changes first."
           : "Discard unexported CAF edits and open another file? Cancel to keep editing or export the current changes first.",
       )
     )
       return false;
     if (!owned()) return false;
+    if (!handoff) externalCafReplacement.current++;
     scalarMutation.current++;
     const request = ++uploadRequest.current;
     exportRequest.current++;
@@ -236,13 +259,18 @@ export function NativeCaf({
         );
       activeArchive.current = next.sha256;
       setCreationHint(
-        handoff
+        handoff?.kind === "creation"
           ? {
               archive: next.sha256,
               diagram: handoff.copy.diagram,
               prototype: handoff.copy.prototype,
               kind: handoff.copy.kind,
             }
+          : null,
+      );
+      setRemovalHint(
+        handoff?.kind === "removal"
+          ? { archive: next.sha256, diagram: handoff.copy.diagram }
           : null,
       );
       sourceFile.current = file;
@@ -542,6 +570,15 @@ export function NativeCaf({
           <div hidden={currentView !== "logic"}>
             <CafGraphPanel
               constantDrafts={constantDrafts.current}
+              removalDrafts={removalDrafts.current}
+              removalHint={removalHint}
+              onOpenRemovedCopy={openRemovedCopy}
+              objectCount={caf.objects}
+              sourceGeneration={currentCafReplacement}
+              sourceCurrent={() =>
+                activeArchive.current === caf.sha256 &&
+                externalCafReplacement.current === currentCafReplacement
+              }
               creationHint={creationHint}
               onOpenCopy={openCreatedCopy}
               reviewContext={
