@@ -2146,3 +2146,17 @@ failure and late-response checks qualify this interface scope independently.
 Native counter configuration, physical debounce/persistence/overflow, graph
 lowering and broader JCI runtime/compilation remain separate. RUN-03 and UX-03
 remain partial. See [pulse metering](docs/accumulator-prescale.md).
+
+## 2026-11-06 QA-01/QA-03 delivery: full backend qualification and stable native case names
+
+[The November 6 qualification](docs/software-validation-2026-11-06.md) records
+10,747 passing installed-wheel backend cases with three specified skips, together
+with the original source run, its 32 Node-path setup errors and the exact passing
+follow-up. A separate TypeScript contract run passed 1,737 cases. Original
+failures and historical unresolved observations remain retained.
+
+`QA-NATIVE-FIXTURE-IDENTITY-001` fixes three collection-time gzip timestamps and
+names the six related native rejection cases explicitly. It preserves test
+bodies, source payload semantics, application runtime and native admission.
+Compiler-version byte reproducibility and physical/CCT/BTCVT acceptance remain
+separate. QA-01 and QA-03 remain partial overall.
