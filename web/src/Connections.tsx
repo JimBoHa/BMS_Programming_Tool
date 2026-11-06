@@ -34,6 +34,10 @@ import { calendarWork } from "./nativeCalendar";
 import { weeklyWork } from "./nativeWeeklyWork";
 import { exceptionWork } from "./nativeScheduleExceptions";
 import { PointStatusPanel } from "./PointStatusPanel";
+import {
+  AccumulatorPrescalePanel,
+  pulseDraft,
+} from "./AccumulatorPrescalePanel";
 import { BacnetCovPanel } from "./BacnetCovPanel";
 import { BacnetEventsPanel } from "./BacnetEventsPanel";
 import { EventReceptionPanel } from "./EventReceptionPanel";
@@ -100,6 +104,7 @@ export function Connections({
   // Reviews, confirmations and field operations remain owned by each panel.
   const instanceDrafts = useRef(new Map<string, string>());
   const enumWork = useRef<EnumMappingWork | null>(null);
+  const pulseWork = useRef(pulseDraft());
   const calendarWorkspace = useRef(calendarWork());
   const weeklyWorkspace = useRef(weeklyWork());
   const exceptionWorkspace = useRef(exceptionWork());
@@ -112,6 +117,7 @@ export function Connections({
     points: [
       { id: "live-points", label: "Live points & configuration" },
       { id: "status", label: "Detailed point evidence" },
+      { id: "pulse", label: "Pulse metering review" },
       { id: "property", label: "Read properties" },
       { id: "commands", label: "Commands & overrides" },
       { id: "hardware", label: "Hardware survey" },
@@ -172,7 +178,8 @@ export function Connections({
       view === "settings" ||
       !!controller ||
       (view === "overview" && tool === "instance") ||
-      (view === "points" && ["live-points", "hardware"].includes(tool)) ||
+      (view === "points" &&
+        ["live-points", "hardware", "pulse"].includes(tool)) ||
       (view === "changes" && tool === "commands"));
   const discoverActive =
     visible && view === "setup" && setupStep === "discovery";
@@ -641,20 +648,28 @@ export function Connections({
     <div className="workspace-page">
       <div className="page-intro">
         <div>
-          <span className="eyebrow">COMMISSIONING</span>
+          <span className="eyebrow">
+            {view === "points" && currentTool === "pulse"
+              ? "LOCAL SIMULATION"
+              : "COMMISSIONING"}
+          </span>
           <h1>
-            {view === "setup"
-              ? "Connect to a controller"
-              : view === "settings"
-                ? "Communications & network"
-                : view === "overview"
-                  ? "Controller"
-                  : groups[view][0].label}
+            {view === "points" && currentTool === "pulse"
+              ? "Pulse metering review"
+              : view === "setup"
+                ? "Connect to a controller"
+                : view === "settings"
+                  ? "Communications & network"
+                  : view === "overview"
+                    ? "Controller"
+                    : groups[view][0].label}
           </h1>
           <p>
-            {view === "setup"
-              ? "Choose your computer network, find the NAE or router, then select a controller from its scan."
-              : "Read configuration and work with the selected controller through its verified connection."}
+            {view === "points" && currentTool === "pulse"
+              ? "Review declared pulse batches locally. No controller connection is required."
+              : view === "setup"
+                ? "Choose your computer network, find the NAE or router, then select a controller from its scan."
+                : "Read configuration and work with the selected controller through its verified connection."}
           </p>
         </div>
         <div className="button-row">
@@ -871,7 +886,9 @@ export function Connections({
             view !== "settings" &&
             view !== "overview" &&
             view !== "schedules" &&
-            !(view === "points" && currentTool === "hardware") &&
+            !(
+              view === "points" && ["hardware", "pulse"].includes(currentTool)
+            ) &&
             view !== "changes" && (
               <ControllerOverview
                 controller={null}
@@ -1525,6 +1542,16 @@ export function Connections({
                 defaultDnet={
                   selectedRoute?.dnet ??
                   (/^\d+:/.test(target) ? probeDnet : null)
+                }
+              />
+            </TaskMount>
+            <TaskMount active={showTool("pulse")} preserve={false}>
+              <AccumulatorPrescalePanel
+                key={`${interfaceIdentity}:${controller ? controllerKey(controller) : "offline"}`}
+                nativeReport={null}
+                work={pulseWork.current}
+                owner={() =>
+                  `${previewEpoch.current}:${controllerEpoch.current}`
                 }
               />
             </TaskMount>

@@ -2127,3 +2127,22 @@ Continue recovery for additional native edit families and broader typed native
 authoring. Compilation/package/resource and physical deployment evidence remain
 separate. JCI-02 and UX-04 remain partial.
 See [CAF wiring draft recovery](docs/caf-wiring-draft-recovery.md).
+
+## 2026-11-06 UX-03/RUN-03 delivery: offline pulse metering access
+
+`UI-OFFLINE-PULSE-METERING-001` exposes the existing exact integer pulse review
+inside **Points & I/O → Pulse metering review** without requiring a selected
+controller or an open interface. It uses the existing task navigation and styling.
+Raw parameter and batch text remain available across workspace task changes;
+review/export authority and native observations are not retained with that draft.
+Reloading still requires an exported configuration to restore prior work.
+
+The observed-coefficient workflow stays in **Detailed point evidence**, uses the
+actual verified controller route and preserves separate synthetic state. Local
+review/import/export performs no extra field reads or writes. Current guided
+entry, direct/routed requests, exact signed native evidence, integer arithmetic,
+failure and late-response checks qualify this interface scope independently.
+
+Native counter configuration, physical debounce/persistence/overflow, graph
+lowering and broader JCI runtime/compilation remain separate. RUN-03 and UX-03
+remain partial. See [pulse metering](docs/accumulator-prescale.md).

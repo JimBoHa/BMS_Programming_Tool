@@ -1,10 +1,30 @@
 # Accumulator prescale evidence and offline pulse review
 
-Connect → Native point status has an explicit **Read native Accumulator prescale and metering metadata** option. It is off by default. For selected, identity-verified standard Accumulator objects it reads `Prescale`, `Scale`, `Max_Pres_Value`, `Pulse_Rate`, `Limit_Monitoring_Interval`, `Value_Change_Time`, and `Value_Before_Change`. Other point types cause no metering queries. Existing plain direct IPv4 and pinned IPv4-router/DNET:MAC identity, ingress, request, deadline, cancellation and teardown guards apply. There is no discovery, polling, write or new interface.
+**Points & I/O → Pulse metering review** opens the local integer pulse calculator
+without selecting a controller or opening a field interface. From the start screen,
+choose **New application**, then this task. The same local task remains available
+when a CAF or controller is open. Its declarations remain separate from observed
+controller coefficients and values.
+
+For native observations, connect and open the actual controller, then choose
+**Points & I/O → Detailed point evidence**. The explicit **Read native Accumulator
+prescale and metering metadata** option is off by default. For selected,
+identity-verified standard Accumulator objects it reads `Prescale`, `Scale`,
+`Max_Pres_Value`, `Pulse_Rate`, `Limit_Monitoring_Interval`, `Value_Change_Time`,
+and `Value_Before_Change`. Other point types cause no metering queries. Existing
+plain direct IPv4 and pinned IPv4-router/DNET:MAC identity, ingress, request,
+deadline, cancellation and teardown guards apply. There is no discovery, polling,
+write or new interface in the metering read. Opening the controller and its
+ordinary Points & I/O inventory remains a separate acquisition step.
 
 Each property retains typed native values, original tag evidence, local receipt times and source/next-hop evidence. Unknown `Scale` choices, native errors, malformed data and timeouts remain visible with their available raw evidence. Native `Scale` is distinct from `Prescale`; the offline calculation does not apply it. A successful read does not establish a coherent snapshot, current configuration, firmware acceptance, electrical counting, applied engineering scaling or physical health. Coefficients outside Unsigned32 or a zero divisor cannot seed an offline review.
 
-The nested **Offline Accumulator pulse review** also works disconnected. Declare the multiplier, nonzero modulo divisor, initial PV, numerator remainder, maximum PV and up to256 pulse batches. Counts use canonical unsigned decimal strings, each at most `4294967295`; Boolean, floating, exponent, signed and padded spellings are refused. The initial remainder must be smaller than the divisor. For each accepted batch:
+Both **Pulse metering review** and the nested **Offline Accumulator pulse review**
+under Detailed point evidence support local arithmetic. Declare the multiplier,
+nonzero modulo divisor, initial PV, numerator remainder, maximum PV and up to256
+pulse batches. Counts use canonical unsigned decimal strings, each at most
+`4294967295`; Boolean, floating, exponent, signed and padded spellings are refused.
+The initial remainder must be smaller than the divisor. For each accepted batch:
 
 ```
 numerator = pulses × multiplier + previous remainder
@@ -20,7 +40,23 @@ A batch whose candidate PV exceeds the declared maximum is rejected in full, wit
 
 Review results include every accepted/rejected/unevaluated batch, exact intermediate decimal strings, declared configuration, optional original native baseline, source/rule/configuration/content hashes and scope. JSON downloads use the exact retained server bytes; CSV includes review/configuration/profile hashes. A sealed report import verifies its profile, content and independently regenerated arithmetic, then restores **configuration only**. Original native observations stay in the original downloaded file and acquire no live identity through import. The self seal is an integrity check, not authenticated provenance.
 
-Unexported panel state and the newest8 reviews remain in session memory, bounded to256KiB each. Export before leaving/restarting; import restores declared configuration without opening any field interface. Input/source changes retire pending review/download responses. There is no physical pulse generator, portable graph lowering, hardware debounce simulation, scan scheduling, COV publication, restart/persistence emulator, native Prescale writer, Value_Set command or JCI application compiler.
+The standalone local task retains exact raw parameter and batch text across task
+and surface changes within this workspace, including unfinished invalid text.
+Leaving the task or changing controller/interface context retires its review and
+pending downloads. A restored raw draft never restores an exported result or a
+native baseline. The local draft and the native observation task use separate
+state. Reloading the page clears the local draft; export before reloading or
+restarting. Import restores declared configuration without opening a field
+interface. The nested native task retains its existing panel-memory lifecycle.
+
+The newest8 server reviews remain in session memory, bounded to256KiB each.
+Results provide a focusable scrolling arithmetic table on compact screens.
+Expand **Review scope and hashes** for the detailed limitations and content
+identifiers; the full values remain available in the sealed download.
+Input/source changes retire pending review/download responses. There is no
+physical pulse generator, portable graph lowering, hardware debounce simulation,
+scan scheduling, COV publication, restart/persistence emulator, native Prescale
+writer, Value_Set command or JCI application compiler.
 
 ## Source and applicability
 

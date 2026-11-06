@@ -915,7 +915,7 @@
     "evidence": "JCI Controller Tool Help18.0 LIT-12011147; pinned BACpypes3 Accumulator/Prescale/Scale datatypes",
     "pdf_pages_or_section": "1582\u20131585; docs/accumulator-prescale.md",
     "status": "implemented",
-    "implementation_or_gap": "Opt-in source-pinned direct/routed ReadProperty metadata, raw unknown/partial evidence, exact Unsigned32-string arithmetic and noncommitting limit stop, sealed server JSON/CSV/configuration-only import and stale browser guards. Loopback/native protocol tests; no physical acceptance, debounce/persistence/wrap, graph lowering or native writes."
+    "implementation_or_gap": "Opt-in source-pinned direct/routed ReadProperty metadata, raw unknown/partial evidence, exact Unsigned32-string arithmetic and noncommitting limit stop, sealed server JSON/CSV/configuration-only import and stale browser guards. Points & I/O exposes separate local pulse review without a controller/interface, retains raw declarations across task changes and retires completed or pending reviews through navigation, including coalesced tool changes. Native observed coefficients stay separate. Loopback/native protocol tests; no physical acceptance, debounce/persistence/wrap, graph lowering or native writes."
   },
   {
     "id": "MF-82130dc1f7",
