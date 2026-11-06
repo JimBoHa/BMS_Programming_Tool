@@ -20,6 +20,8 @@ import { CafHardwarePanel } from "./CafHardwarePanel";
 import { CafInstancePanel } from "./CafInstancePanel";
 import { JciPreflight } from "./JciPreflight";
 import { CafNativeCorrelation } from "./CafNativeCorrelation";
+import { CafScalarDraftRecovery } from "./CafScalarDraftRecovery";
+import type { RestoredScalarDraft } from "./cafScalarDraftContract";
 import type { CafDocument, ControllerContext, FileRequest } from "./workflow";
 import { controllerKey } from "./workflow";
 import { WorkflowToolTabs } from "./WorkflowChrome";
@@ -102,6 +104,7 @@ export function NativeCaf({
   const exportRequest = useRef(0);
   const activeArchive = useRef<string | null>(null);
   const enumFields = useRef(new Set<string>());
+  const scalarMutation = useRef(0);
   const scalarKey = scalarSignature(changes);
   const unsavedScalars = changes.length > 0 && scalarKey !== savedScalarKey;
   const enumChanges = changes.some((item) =>
@@ -213,6 +216,7 @@ export function NativeCaf({
     )
       return false;
     if (!owned()) return false;
+    scalarMutation.current++;
     const request = ++uploadRequest.current;
     exportRequest.current++;
     setExporting(false);
@@ -251,6 +255,7 @@ export function NativeCaf({
       setTotal(0);
       setQuery("");
       setChanges([]);
+      scalarMutation.current++;
       enumFields.current.clear();
       setSavedScalarKey("[]");
       setGraphDirty(false);
@@ -306,6 +311,7 @@ export function NativeCaf({
     }
   }
   function change(p: any, value: string) {
+    scalarMutation.current++;
     const enumKey = JSON.stringify([caf.sha256, selected.ref, p.id]);
     if (cafEnumMetadata(p, selected, caf.sha256))
       enumFields.current.add(enumKey);
@@ -324,6 +330,25 @@ export function NativeCaf({
       return rest;
     });
     setError("");
+  }
+  function restoreScalarDraft(
+    restored: RestoredScalarDraft,
+    expectedMutation: number,
+  ) {
+    if (
+      !visible || opening ||
+      activeArchive.current !== restored.checkpoint.caf_sha256 ||
+      scalarMutation.current !== expectedMutation
+    ) return false;
+    scalarMutation.current++;
+    exportRequest.current++;
+    setExporting(false);
+    setExported("");
+    setSavedScalarKey("[]");
+    setError("");
+    enumFields.current = new Set(restored.enumKeys);
+    setChanges(restored.checkpoint.changes.map((row) => ({ ...row })));
+    return true;
   }
   async function exportScalars() {
     if (!caf || exporting || opening || !visible) return;
@@ -743,27 +768,58 @@ export function NativeCaf({
                     references. Membership and state meanings are unverified.
                   </p>
                 )}
+                <CafScalarDraftRecovery
+                  id={caf.sha256}
+                  visible={visible && !opening}
+                  context={JSON.stringify([
+                    caf.sha256, archiveGeneration, visible, opening,
+                    controller && [controllerKey(controller), controller.interfaceKey, controller.interfaceOpen],
+                  ])}
+                  changes={changes}
+                  mutation={scalarMutation.current}
+                  onRestore={restoreScalarDraft}
+                />
                 {changes.length ? (
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Object</th>
-                        <th>Property</th>
-                        <th>Original value</th>
-                        <th>Proposed value</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {changes.map((item) => (
-                        <tr key={item.ref + "/" + item.property}>
-                          <td>{item.ref}</td>
-                          <td>{item.property}</td>
-                          <td>{item.old || "(empty)"}</td>
-                          <td>{item.value || "(empty)"}</td>
+                  <div
+                    className="table-scroll"
+                    role="region"
+                    aria-label="Current scalar proposals"
+                    tabIndex={0}
+                    onKeyDown={(event) => {
+                      if (event.target !== event.currentTarget || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+                      const table = event.currentTarget;
+                      const maximum = table.scrollWidth - table.clientWidth;
+                      if (maximum <= 0) return;
+                      const next = event.key === "ArrowRight" ? Math.min(maximum, table.scrollLeft + 64)
+                        : event.key === "ArrowLeft" ? Math.max(0, table.scrollLeft - 64)
+                        : event.key === "Home" ? 0
+                        : event.key === "End" ? maximum : null;
+                      if (next === null) return;
+                      event.preventDefault();
+                      table.scrollLeft = next;
+                    }}
+                  >
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Object</th>
+                          <th>Property</th>
+                          <th>Original value</th>
+                          <th>Proposed value</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {changes.map((item) => (
+                          <tr key={item.ref + "/" + item.property}>
+                            <td>{item.ref}</td>
+                            <td>{item.property}</td>
+                            <td>{item.old || "(empty)"}</td>
+                            <td>{item.value || "(empty)"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 ) : (
                   <p>
                     No scalar edits to review. An unchanged copy preserves the
@@ -797,6 +853,7 @@ export function NativeCaf({
                   !window.confirm("Discard unexported scalar CAF edits?")
                 )
                   return;
+                scalarMutation.current++;
                 setChanges([]);
               }}
             >
