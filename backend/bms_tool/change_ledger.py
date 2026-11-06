@@ -381,7 +381,7 @@ class ChangeLedger:
                     encoded_analog_recovery_reference(
                         body, native_metadata.get("native_encoded_analog_terminal")
                     )
-                    if encoded_analog
+                    if ENCODED_ANALOG_RECOVERY_KEYS.intersection(body)
                     else terminal_recovery_reference(body, native_metadata.get("native_terminal"))
                 )
             elif native_kind == "connection":

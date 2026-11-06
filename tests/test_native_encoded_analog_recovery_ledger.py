@@ -249,6 +249,21 @@ def test_ordinary_profile_four_has_no_recovery_projection(tmp_path):
     assert encoded_analog_recovery_reference(value, None) == {}
 
 
+async def test_ordinary_encoded_body_preserves_legacy_unavailable_lineage(application, tmp_path):
+    value = body(tmp_path)
+    value["recovery_origin"] = value["encoded_analog_recovery_origin"]
+    value["recovery_origin_sha256"] = value["encoded_analog_recovery_origin_sha256"]
+    for key in KEYS:
+        del value[key]
+    intent = native(application, **value)
+    result = await query(application, source="native")
+    row = next(r for r in result["rows"] if r["id"] == intent["id"])
+    assert row["native_encoded_analog_terminal"]["state"] == "recorded"
+    assert row["native_terminal_recovery"]["state"] == "unavailable"
+    assert "native_encoded_analog_recovery" not in row and "native_recovery" not in row
+    assert row["outcome"] == "attention" and result["field_requests"] == 0
+
+
 @pytest.mark.parametrize("fault", ["missing", "legacy", "profile-action", "kind"])
 async def test_invalid_encoded_lineage_never_dispatches_to_legacy_families(
     application, tmp_path, fault
