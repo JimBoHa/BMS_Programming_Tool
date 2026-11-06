@@ -1958,3 +1958,25 @@ Changes/History. Broader host reassignment, allocation/electrical changes,
 SA/cross-host movement, general restore/compilation, packages/resources and
 physical/CCT/BTCVT acceptance remain separate. IO-02/JCI-10 remain partial.
 See [configured binary recovery transfer](docs/native-binary-terminal-recovery-transfer.md).
+
+## 2026-11-05 IO-02/UX-03 delivery: contextual configured binary previous-terminal recovery
+
+`UI-NATIVE-BINARY-TERMINAL-RECOVERY-001` adds local preparation, explicit staging,
+evidence/local-copy download and fresh confirmed parent-bound review/Apply/readback
+inside the existing configured binary task. Closed browser admission binds the
+report/origin seals, source, selected typed configuration/counter presence, encoded
+terminal payloads and original receipt. No automatic rollback or new global
+workspace is added.
+
+Ordinary binary drafts remain available and recoverable. Manual edits retire lineage;
+discard clears parent, staged recovery and saved ordinary selection. Bounded context
+retains local work across navigation while source/target/lifecycle changes retire
+field authority and withhold late replies. Verified transfer marks old captures stale;
+uncertain outcomes retain evidence and reconcile without replay. Graph/CAF context,
+all backend contracts and existing graphics remain preserved.
+
+Next, expose recorded binary recovery lineage in Changes/History. Broader
+host-specific reassignment, general restore/compilation, allocation/electrical
+changes, SA/cross-host movement, packages/resources and physical/CCT/BTCVT acceptance
+remain separate. IO-02/JCI-10 remain partial.
+See [configured binary recovery workflow](docs/native-binary-terminal-recovery-workflow.md).

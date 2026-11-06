@@ -17,12 +17,25 @@ import {
   binaryTerminalSource,
   binaryTerminalVerified,
 } from "./nativeBinaryTerminalContract";
+import {
+  NativeBinaryTerminalRecovery,
+  type BinaryTerminalRecoveryDocument,
+} from "./NativeBinaryTerminalRecovery";
+import {
+  binaryTerminalRecoveryReview,
+  binaryTerminalRecoveryReceipt,
+  sameBinaryTerminalRecoveryLineage,
+  binaryTerminalRecoveryTransferProfile,
+} from "./nativeBinaryTerminalRecoveryContract";
 type Data = Record<string, any>;
 type Draft = {
   object: string;
   destination: string;
   receipt: { data: Data; blob: Blob } | null;
   completed: boolean;
+  recovery?: BinaryTerminalRecoveryDocument;
+  ordinary?: { object: string; destination: string };
+  recoveryParent?: string;
 };
 const drafts = new Map<string, Draft>(),
   blank = (): Draft => ({
@@ -30,6 +43,9 @@ const drafts = new Map<string, Draft>(),
     destination: "",
     receipt: null,
     completed: false,
+    recovery: undefined,
+    ordinary: undefined,
+    recoveryParent: "",
   });
 const base = "/bacnet/controller/native-application";
 export function NativeBinaryTerminal({
@@ -120,7 +136,15 @@ export function NativeBinaryTerminal({
       );
       return false;
     }
-    if (!next.object && !next.destination && !next.receipt && !next.completed)
+    if (
+      !next.object &&
+      !next.destination &&
+      !next.receipt &&
+      !next.completed &&
+      !next.recovery &&
+      !next.ordinary &&
+      !next.recoveryParent
+    )
       drafts.delete(key);
     else drafts.set(key, next);
     setWork({ key, draft: next });
@@ -139,7 +163,14 @@ export function NativeBinaryTerminal({
   function update(change: Partial<Draft>) {
     retire();
     setError("");
-    remember({ ...draft, ...change });
+    remember({
+      ...draft,
+      ...change,
+      ...(Object.hasOwn(change, "object") ||
+      Object.hasOwn(change, "destination")
+        ? { recovery: undefined }
+        : {}),
+    });
   }
   useEffect(() => {
     alive.current = true;
@@ -251,16 +282,34 @@ export function NativeBinaryTerminal({
                 router: controller!.router || null,
                 dnet: controller!.dnet ?? null,
                 operation_id,
+                ...(draft.recovery
+                  ? {
+                      binary_terminal_recovery_parent_receipt:
+                        draft.recovery.data.origin.parent_receipt_id,
+                      binary_terminal_recovery_origin_sha256:
+                        draft.recovery.data.origin_sha256,
+                    }
+                  : {}),
               }
             : {}),
         };
         const document = await apiJsonDocument(
-          base + (field ? "/input/preview" : "/input/copy/preview"),
+          base +
+            (field
+              ? draft.recovery
+                ? "/input/binary-terminal/recovery/preview"
+                : "/input/preview"
+              : "/input/copy/preview"),
           request,
         );
         if (
           !(await binaryTerminalReview(document, source!, proposal!, field)) ||
-          (field && document.data.operation_id !== operation_id)
+          (field &&
+            (document.data.operation_id !== operation_id ||
+              !binaryTerminalRecoveryReview(
+                document.data,
+                draft.recovery?.data ?? null,
+              )))
         )
           throw Error(
             "Binary terminal proof differs from this exact captured configuration and move.",
@@ -334,10 +383,19 @@ export function NativeBinaryTerminal({
         }
         if (
           !binaryTerminalReceipt(r, source!) ||
+          !(await binaryTerminalRecoveryReceipt(
+            r.intent,
+            kind === "apply"
+              ? previous!.data
+              : kind === "readback"
+                ? prior
+                : undefined,
+          )) ||
           (kind === "apply" &&
             (r.intent.operation_id !== operation_id ||
               r.intent.review_sha256 !== previous!.data.review_sha256 ||
               r.intent.review_capture_id !== parent.capture_id ||
+              !sameBinaryTerminalRecoveryLineage(r.intent, previous!.data) ||
               !same(r.intent.input_edit, previous!.data.input_edit) ||
               !same(
                 r.intent.compilation.stored_configuration,
@@ -345,16 +403,26 @@ export function NativeBinaryTerminal({
               ))) ||
           (kind === "readback" &&
             (r.intent.id !== prior.id ||
-              r.intent.evidence_sha256 !== prior.evidence_sha256))
+              r.intent.evidence_sha256 !== prior.evidence_sha256 ||
+              !sameBinaryTerminalRecoveryLineage(r.intent, prior)))
         )
           throw Error(
             "Binary transfer receipt differs from this exact operation. Retain original evidence for readback.",
           );
+        if (!current(owner, ticket)) return;
         const verified = binaryTerminalVerified(r);
         remember({
           ...draft,
           receipt: document,
           completed: draft.completed || verified,
+          ...(verified &&
+          kind !== "receipt" &&
+          draft.recovery &&
+          draft.ordinary &&
+          r.intent.binary_terminal_recovery_origin_sha256 ===
+            draft.recovery.data.origin_sha256
+            ? { ...draft.ordinary, recovery: undefined, ordinary: undefined }
+            : {}),
         });
         if (verified && kind !== "receipt") callbacks.current.onVerified();
       }
@@ -426,6 +494,97 @@ export function NativeBinaryTerminal({
             Existing state labels and polarity stay unchanged. Counters are
             captured values. Confirm physical wiring before applying.
           </p>
+          <NativeBinaryTerminalRecovery
+            source={source}
+            receipts={records}
+            fieldBusy={busy || fieldBusy}
+            draftKey={JSON.stringify([
+              key,
+              draft.object,
+              draft.destination,
+              epoch.current,
+            ])}
+            selected={draft.recoveryParent ?? ""}
+            canStage={!draft.completed && !draft.receipt?.data.pending}
+            onSelected={(value) => {
+              retire();
+              setError("");
+              remember({
+                ...draft,
+                ...(draft.ordinary ?? {}),
+                recovery: undefined,
+                ordinary: undefined,
+                recoveryParent: value,
+              });
+            }}
+            onUse={(document) => {
+              const r = document.data,
+                e = r.proposal?.edit;
+              if (
+                r.source.capture_id !== parent?.capture_id ||
+                r.source.snapshot_sha256 !== parent?.snapshot_sha256 ||
+                !e ||
+                r.already_recorded ||
+                !same(
+                  e,
+                  binaryTerminalEdit(
+                    source,
+                    `binary-input,${e.object_instance}`,
+                    String(e.slot),
+                  ),
+                )
+              )
+                return;
+              retire();
+              setError("");
+              remember({
+                ...draft,
+                ordinary: draft.ordinary ?? {
+                  object: draft.object,
+                  destination: draft.destination,
+                },
+                object: `binary-input,${e.object_instance}`,
+                destination: String(e.slot),
+                recovery: document,
+              });
+            }}
+          />
+          {draft.ordinary && (
+            <section aria-label="Staged previous binary terminal">
+              <p>
+                {draft.recovery
+                  ? `Previous-terminal proposal: ${draft.recovery.data.origin.object_id}, UI IN${draft.recovery.data.origin.current_slot} to UI IN${draft.recovery.data.origin.previous_slot}. Parent ${draft.recovery.data.origin.parent_receipt_id}. Fresh controller review is required.`
+                  : "The saved ordinary binary draft is retained. This edited proposal needs its own review."}
+              </p>
+              <button
+                disabled={busy || fieldBusy}
+                onClick={() => {
+                  retire();
+                  remember({
+                    ...draft,
+                    ...draft.ordinary!,
+                    ordinary: undefined,
+                    recovery: undefined,
+                  });
+                }}
+              >
+                Restore ordinary binary draft
+              </button>
+              {draft.recovery && (
+                <button
+                  disabled={busy || fieldBusy}
+                  onClick={() =>
+                    saveBlob(
+                      draft.recovery!.blob,
+                      "staged-previous-binary-terminal.json",
+                    )
+                  }
+                >
+                  Save staged binary recovery evidence
+                </button>
+              )}
+            </section>
+          )}
           <fieldset disabled={busy || fieldBusy}>
             <legend>Move one existing binary input</legend>
             <label>
@@ -506,6 +665,13 @@ export function NativeBinaryTerminal({
           {shown && (
             <section aria-label="Binary terminal review">
               <h4>{shown.field ? "Controller" : "Local copy"} review</h4>
+              {shown.data.binary_terminal_recovery_profile ===
+                binaryTerminalRecoveryTransferProfile && (
+                <p>
+                  Fresh previous-terminal review, bound to parent{" "}
+                  {shown.data.binary_terminal_recovery_parent_receipt}.
+                </p>
+              )}
               <p>
                 {shown.data.compilation.object_id}: UI IN
                 {shown.data.compilation.terminal_compilation.old_slot} to UI IN
@@ -583,6 +749,13 @@ export function NativeBinaryTerminal({
               <p>
                 Receipt {receipt.intent.id}. {observed?.error}
               </p>
+              {receipt.intent.binary_terminal_recovery_profile ===
+                binaryTerminalRecoveryTransferProfile && (
+                <p>
+                  Recorded previous-terminal transfer · parent{" "}
+                  {receipt.intent.binary_terminal_recovery_parent_receipt}.
+                </p>
+              )}
               <button
                 disabled={busy || fieldBusy || !fieldAllowed}
                 onClick={() => void run("readback")}
