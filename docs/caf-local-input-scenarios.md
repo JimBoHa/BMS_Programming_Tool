@@ -17,7 +17,7 @@ Only existing, editable class-version `1.0` saved simulation records already acc
 | 526, Input Float Block   | `float`      | Existing `simulationProperty id="3113"` only |
 | 530, Input Boolean Block | `boolean`    | Existing `simulationProperty id="3113"` only |
 
-Class 527 is an **Output Float Block** and is excluded from local input scenarios, although the separate saved-value editor can edit its supported startup scalar. Enum classes, unknown versions/structures, ordinary properties, and physical channels without a supported saved startup record are excluded. No channel is inferred from a controller model or live point inventory.
+Class 527 is an **Output Float Block** and is excluded from local input scenarios, although the separate saved-value editor can edit its supported startup scalar. Version 1 excludes Enum classes. Unknown versions/structures, ordinary properties, and physical channels without a supported saved startup record are excluded in both versions. No channel is inferred from a controller model or live point inventory.
 
 ## Browser workflow
 
@@ -30,6 +30,35 @@ Class 527 is an **Output Float Block** and is excluded from local input scenario
 7. Optionally choose an all-good frame and **Export startup CAF at preview time**. This reuses the existing guarded native scalar editor to produce a separate CAF copy. Only supported input scalar leaves change. Output startup values, ordinary properties and source CAF bytes remain unchanged. A frame containing any non-good quality is refused because native quality encoding is unverified. The trajectory and quality metadata are never written into the CAF.
 
 Native copies still need save/reopen/simulation validation in matching authorized CCT/PCT. There is no controller connection, download or live edit in this workflow.
+
+## Opt-in numeric Enum inputs (version 2)
+
+Choose **Include Enum numeric inputs (version 2)** in the existing Local scenario
+input profile selector. Version 1 remains the default. Version 2 includes existing
+class 528 version 1.0 Input Enum records already admitted by saved simulation
+profile 2. Class 529 is an Output Enum and stays excluded. The original Enum
+attributes, including the presence or absence of a set reference, remain in each
+input definition. Enum state membership, labels and code meanings are unverified.
+
+Enum samples require canonical unsigned32 numeric text from `0` through
+`4294967295`. Leading zeros, signs, decimals and whitespace are refused. Events
+hold those exact codes without interpolation. Local qualities and the all-good
+startup-copy rule remain unchanged; no native reliability or Enum algorithm is
+simulated.
+
+Each version retains its own mounted draft, saved-record selection and revision
+when switching profiles. Unsaved work in either version protects source replacement.
+Switching retires pending file-output ownership immediately, including rapid
+switches back to the same version. Import requires the explicitly selected version;
+there is no silent conversion. Saved lists and load/delete/overwrite operations
+are version-bound, while the existing storage limits remain shared.
+
+Version 2 APIs explicitly use `?scenario_version=2` on every local-scenario route.
+Omitting the parameter retains version 1. Version 2 startup copies use the complete
+exact-source saved simulation profile 2 and independently project only the selected
+supported input values. Unselected outputs, ordinary defaults, opaque records and
+the original CAF remain unchanged. The ordinary saved simulation editor keeps its
+separate behavior.
 
 ## Source, unit and timing contract
 

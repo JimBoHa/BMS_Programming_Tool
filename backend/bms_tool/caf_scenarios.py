@@ -1,7 +1,7 @@
 """Persist and preview local input stimuli without executing native CAF logic.
 
-Only observed saved Input Float/Boolean simulation records form the input
-contract. Quality is local metadata, not a claimed JCI encoding. Native startup
+Only observed saved Input Float/Boolean records form the default input
+contract. Explicit version 2 also admits recorded numeric Input Enum values. Quality is local metadata, not a claimed JCI encoding. Native startup
 copies reuse the separately verified scalar editor and refuse non-good quality.
 """
 
@@ -67,13 +67,22 @@ def _number(value, label, *, positive=False, maximum=86400):
 
 
 class CafInputScenarios:
-    def __init__(self, archive: CafArchive):
+    def __init__(self, archive: CafArchive, *, version=VERSION):
+        if type(version) is not int or version not in (1, 2):
+            raise ValueError("Choose local scenario version 1 or 2 explicitly.")
+        self.version = version
+        self.semantics = copy.deepcopy(SEMANTICS)
+        if version == 2:
+            self.semantics["enum"] = (
+                "Canonical unsigned32 numeric codes only; state membership and meanings are unverified."
+            )
         self.archive = archive
-        rows = CafSimulationProfile(archive).summary()["records"]
+        rows = CafSimulationProfile(archive, profile_version=version).summary()["records"]
         inputs = []
         for row in rows:
-            # 527 is an Output Float Block, not an input. Enums remain unsupported.
-            if not row["editable"] or row["class_id"] not in {"526", "530"}:
+            # Output blocks 527/529 are excluded in both versions.
+            allowed = {"526", "530", "528"} if version == 2 else {"526", "530"}
+            if not row["editable"] or row["class_id"] not in allowed:
                 continue
             obj = archive.objects[row["ref"]]
             units = [p for p in obj if p.tag == Q + "property" and p.get("id") == "117"]
@@ -92,6 +101,12 @@ class CafInputScenarios:
                     "initial_value": row["old"],
                 }
             )
+            if row["native_type"] == "enum":
+                inputs[-1]["enum_representation"] = {
+                    "attributes": copy.deepcopy(row["attributes"]),
+                    "maximum_code": 4294967295,
+                    "enum_semantics_verified": False,
+                }
         if len(inputs) > MAX_INPUTS or len(_json(inputs)) > 128 * 1024:
             raise ValueError("Local CAF input contract exceeds 256 inputs or 128 KiB.")
         if len({row["id"] for row in inputs}) != len(inputs):
@@ -99,14 +114,16 @@ class CafInputScenarios:
         self.inputs = inputs
         self.input_bytes = len(_json(inputs))
         self.frame_bytes = sum(len(_json(row["id"])) + 640 for row in inputs) + 100
-        self.profile_hash = _digest({"version": VERSION, "inputs": inputs, "semantics": SEMANTICS})
+        self.profile_hash = _digest(
+            {"version": self.version, "inputs": inputs, "semantics": self.semantics}
+        )
 
     def contract(self):
         return {
             "source_sha256": self.archive.hash,
             "profile_sha256": self.profile_hash,
             "inputs": copy.deepcopy(self.inputs),
-            "semantics": copy.deepcopy(SEMANTICS),
+            "semantics": copy.deepcopy(self.semantics),
             "qualities": QUALITIES,
             "scope": SCOPE,
             "native_execution": False,
@@ -124,7 +141,7 @@ class CafInputScenarios:
         )
         return {
             "format": FORMAT,
-            "version": VERSION,
+            "version": self.version,
             "source_sha256": self.archive.hash,
             "profile_sha256": self.profile_hash,
             "inputs": copy.deepcopy(self.inputs),
@@ -142,7 +159,7 @@ class CafInputScenarios:
         if (
             scenario["format"] != FORMAT
             or type(scenario["version"]) is not int
-            or scenario["version"] != VERSION
+            or scenario["version"] != self.version
             or scenario["source_sha256"] != self.archive.hash
             or scenario["profile_sha256"] != self.profile_hash
             or _json(scenario["inputs"]) != _json(self.inputs)
@@ -233,9 +250,9 @@ class CafInputScenarios:
             "scenario_name": scenario["name"],
             "input_definitions": copy.deepcopy(self.inputs),
             "format": "bms.caf-local-input-preview",
-            "version": VERSION,
+            "version": self.version,
             "scope": SCOPE,
-            "semantics": SEMANTICS,
+            "semantics": self.semantics,
             "frames": frames,
         }
 
@@ -249,13 +266,13 @@ class CafInputScenarios:
             raise ValueError(
                 "Native quality encoding is unverified; only all-good frames can prepare native startup values."
             )
-        profile = CafSimulationProfile(self.archive).export_profile()
+        profile = CafSimulationProfile(self.archive, profile_version=self.version).export_profile()
         for row in profile["entries"]:
             identity = row["ref"] + "::simulationProperty:" + str(row["property_id"])
             if identity in frame["inputs"]:
                 row["value"] = frame["inputs"][identity]["value"]
         # Reuse actual scalar editor validation; never create native trajectory/quality structures.
-        CafSimulationProfile(self.archive).apply(profile)
+        CafSimulationProfile(self.archive, profile_version=self.version).apply(profile)
         return profile
 
 
@@ -309,6 +326,14 @@ class CafScenarioStore:
         result = []
         for row in rows:
             saved = self._read(row)
+            other = saved["scenario"].get("version")
+            if (
+                saved["scenario"].get("format") == FORMAT
+                and type(other) is int
+                and other in (1, 2)
+                and other != adapter.version
+            ):
+                continue
             adapter.validate(saved["scenario"])
             result.append(
                 {key: saved[key] for key in ("id", "revision", "created", "updated")}
@@ -342,9 +367,10 @@ class CafScenarioStore:
             if current != expected_revision:
                 raise Conflict("Saved scenario revision changed; reopen before saving.")
             if prior:
-                self._read(prior)
+                prior_saved = self._read(prior)
                 if prior["source_sha256"] != adapter.archive.hash:
                     raise ValueError("Cannot replace a scenario belonging to another source CAF.")
+                adapter.validate(prior_saved["scenario"])
             usage = db.execute(
                 "SELECT COUNT(*) AS n,COALESCE(SUM(length(content)),0) AS bytes FROM caf_local_scenarios"
             ).fetchone()

@@ -10,6 +10,11 @@ export type ScenarioInput = {
   units_native: unknown;
   unit_status: string;
   initial_value: string;
+  enum_representation?: {
+    attributes: Record<string, string>;
+    maximum_code: number;
+    enum_semantics_verified: false;
+  };
 };
 export type ScenarioSample = { value: string; quality: string };
 export type ScenarioEvent = {
@@ -67,6 +72,8 @@ function boundary(time: number, dt: number) {
 function nativeText(value: any, type: string) {
   if (!text(value)) return false;
   if (type === "boolean") return ["0", "1", "false", "true"].includes(value);
+  if (type === "enum")
+    return /^(0|[1-9][0-9]{0,9})$/.test(value) && Number(value) <= 4294967295;
   if (type !== "float") return false;
   const v = value.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, "");
   if (!/^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$/.test(v))
@@ -85,12 +92,12 @@ export function scenarioStartupProfile(
   if (
     !object(scenario) ||
     !object(original) ||
-    baseline.version !== 1 ||
+    ![1, 2].includes(baseline.version) ||
     baseline.format !== "bms.caf-simulation-profile" ||
     scenario.format !== "bms.caf-local-input-scenario" ||
-    scenario.version !== 1 ||
+    scenario.version !== baseline.version ||
     original.format !== scenario.format ||
-    original.version !== 1 ||
+    original.version !== baseline.version ||
     scenario.source_sha256 !== baseline.source_sha256 ||
     original.source_sha256 !== baseline.source_sha256 ||
     !/^[a-f0-9]{64}$/.test(scenario.profile_sha256) ||
@@ -118,7 +125,12 @@ export function scenarioStartupProfile(
       row.property_id === "3113" &&
       row.class_version === "1.0" &&
       ((row.class_id === "526" && row.native_type === "float") ||
-        (row.class_id === "530" && row.native_type === "boolean")),
+        (row.class_id === "530" && row.native_type === "boolean") ||
+        (baseline.version === 2 &&
+          row.class_id === "528" &&
+          row.native_type === "enum" &&
+          row.enum_semantics_verified === false &&
+          row.maximum_code === 4294967295)),
   );
   if (eligible.length !== scenario.inputs.length)
     throw new Error("Startup scenario inputs differ from the original CAF.");
@@ -141,6 +153,18 @@ export function scenarioStartupProfile(
       !nativeText(input.initial_value, input.native_type)
     )
       throw new Error("Startup scenario inputs differ from the original CAF.");
+    if (
+      input.native_type === "enum" &&
+      stable(input.enum_representation) !==
+        stable({
+          attributes: row.attributes,
+          maximum_code: 4294967295,
+          enum_semantics_verified: false,
+        })
+    )
+      throw new Error(
+        "Startup Enum representation differs from the original CAF.",
+      );
     definitions.set(input.id, input);
     values.set(input.id, { value: input.initial_value, quality: "good" });
   }

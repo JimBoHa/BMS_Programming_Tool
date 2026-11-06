@@ -2087,3 +2087,23 @@ Continue opt-in Enum input scenarios and recovery for other native edit families
 General authoring, native compilation/package/resource qualification and physical
 deployment remain separate work. JCI-02/JCI-03 remain partial.
 See [combined CAF copies](docs/caf-combined-copy.md).
+
+## 2026-11-06 JCI-05 delivery: opt-in numeric Enum input scenarios
+
+`FMT-CAF-ENUM-INPUT-SCENARIOS-001` adds explicit local-scenario version 2 for
+eligible recorded class-528 version-1.0 Input Enum codes. The default version-1
+Float/Boolean contract remains exact. Output Enum blocks stay excluded; actual
+set attributes are retained without inventing state membership or code meanings.
+
+The existing scenario task supports separate retained version drafts and saved
+records, strict canonical UInt32 events, unchanged timing/local-quality rules and
+matching version-2 startup copies. Source/profile/input guards, bounded shared
+storage, revisions and exact selected-frame artifact checks remain required.
+Version changes synchronously retire pending downloads, including profile ABA.
+Only the selected supported saved input leaves change in a startup copy.
+
+Continue recovery for other native edit families and independently qualify native
+algorithm execution, resources/packages, broader compilation and deployment.
+Local input-stimulus previews do not execute native CAF logic or calculate controller
+outputs. JCI-05 remains partial for native simulation and physical acceptance.
+See [numeric Enum input scenarios](docs/caf-local-input-scenarios.md#opt-in-numeric-enum-inputs-version-2).
