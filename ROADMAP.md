@@ -367,7 +367,7 @@ hardware reassignment remain separate. JCI-03 and JCI-09 remain partial overall.
 | JCI-04 | Extend FX/Metasys and cross-release conversion with explicit semantics and package migrations | Program → conversion review | Every supported source/target pair has a loss report and round-trip/behavior evidence; reject unresolved semantics instead of dropping logic |
 | JCI-05 | Implement executable native Enum/reliability/type mappings and restart/retention rules | Program / Library | Partial groundwork: [original native Enum code copies](docs/native-enum-default-copies.md), [local effective Enum compilation](docs/native-effective-enum-compiler.md) and [CAF Enum default copies](docs/caf-enum-default-copies.md) preserve typing, source metadata and actual captured numeric capacity. Verify set membership, executable codes, fallback, units, precision, reliability and state/restart behavior separately; labels or manual named sets alone do not supply native numeric bindings |
 | JCI-06 | Add versioned package provenance, native schema migrations and destination resource accounting | Settings / Program validation | Source/package/runtime compatibility and actual RAM/flash/scan/I/O limits are explicit; no silent hardware-definition substitution |
-| JCI-07 | Associate a local CAF/project with a connected application using actual identity and compatibility evidence | Program / Changes | Partial: [original CAF/native identity comparison](docs/caf-native-source-correlation.md) and [retained File comparison](docs/caf-native-file-correlation.md) retain actual root/record IDs, separate source families, source/route/coverage and contradictions without granting full program or compiler equivalence. Continue semantic/package compatibility and persistent association; local files never supply live data implicitly |
+| JCI-07 | Associate a local CAF/project with a connected application using actual identity and compatibility evidence | Program / Changes | Partial: [original CAF/native identity comparison](docs/caf-native-source-correlation.md) and [retained File comparison](docs/caf-native-file-correlation.md) retain actual root/record IDs, separate source families, source/route/coverage and contradictions. [Saved CAF/source references](docs/caf-source-references.md) preserve explicit user selections and original comparison evidence across restarts without granting program or compiler equivalence. Continue semantic/package compatibility and verified live application association; local files never supply live data implicitly |
 
 ### Test before JCI deployment
 
@@ -2001,3 +2001,25 @@ reassignment qualification. General compilation/restore, allocation/electrical e
 SA/cross-host movement, resources/packages and physical/CCT/BTCVT acceptance remain
 separate. IO-02/JCI-10 remain partial.
 See [recorded binary recovery](docs/native-binary-terminal-recovery-ledger.md).
+
+## 2026-11-05 JCI-07 delivery: durable CAF/source references
+
+`JCI-CAF-SOURCE-REFERENCES-001` adds explicit saved references in existing
+Program → CAF → Compatibility. Saving recomputes literal identity evidence from
+the original opened CAF and selected retained native backup or BACnet File. The
+original report, source hashes, exact recorded target and classification persist
+across restarts. Reopening the same CAF hash restores its references; changed
+CAF bytes do not inherit them.
+
+Complete coverage counts accompany a bounded first detail page. Differences and
+incomplete identity remain visible. Listing, downloading and removing a saved
+reference need no original source capture and perform no controller queries.
+Transactional deduplication and capacity checks retain existing work without
+eviction. Removal affects only the reference and its report. Existing comparison
+readers, local drafts and field workflows remain preserved.
+
+Continue semantic/package compatibility and verified live application association.
+Saved historical references cannot provide live inventories, matching logic,
+compiler compatibility or transfer authority. General native authoring, package
+qualification and physical acceptance remain separate roadmap work. JCI-07 remains
+partial. See [saved CAF/source references](docs/caf-source-references.md).

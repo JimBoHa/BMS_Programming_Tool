@@ -53,6 +53,7 @@ from .caf_reference_labels import CafReferenceLabels
 from .caf_reliability_api import reliability_router
 from .caf_scenarios import CafInputScenarios, CafScenarioStore
 from .caf_simulation import CafSimulationProfile, simulation_request_sha256
+from .caf_source_references import CafSourceReferences, source_reference_router
 from .caf_timer_api import timer_router
 from .cancelable_pulse_template import cancelable_pulse_template_router
 from .change_ledger import ChangeLedger, LedgerQuery
@@ -617,6 +618,7 @@ def create_app(state_dir=None, *, operation_power=None):
     signal_compiler = SignalCompilerService(native_applications.storage)
     backup_records = NativeBackupRecords(native_applications.storage)
     backup_comparison = NativeBackupComparison(backup_records)
+    caf_source_references = CafSourceReferences(store, backup_records, caf_native_files)
     boolean_copies = NativeBooleanCopies(backup_records)
     boolean_compiler = EffectiveBooleanService(backup_records)
     wire_copies = NativeWireCopies(backup_records)
@@ -787,6 +789,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.state.native_signal_compiler = signal_compiler
     app.state.native_backup_records = backup_records
     app.state.native_backup_comparison = backup_comparison
+    app.state.caf_source_references = caf_source_references
     app.state.native_boolean_copies = boolean_copies
     app.state.native_boolean_compiler = boolean_compiler
     app.include_router(native_application_router(native_applications))
@@ -1523,6 +1526,7 @@ def create_app(state_dir=None, *, operation_power=None):
             raise ValueError("Open the CAF file first.")
         return caf_files[id]
 
+    app.include_router(source_reference_router(caf_source_references, get_caf))
     app.include_router(constant_router(get_caf))
     app.include_router(boolean_constant_router(get_caf))
     app.include_router(enum_constant_router(get_caf))
