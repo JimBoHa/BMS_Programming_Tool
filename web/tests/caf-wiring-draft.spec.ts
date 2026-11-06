@@ -57,9 +57,11 @@ for (const width of [1440, 390])
     await expect(
       page.getByLabel("Native new connection destination", { exact: true }),
     ).toHaveValue("");
-    await expect(checkpoint(page).getByRole("status")).toContainText(
-      "Export and compatibility checks remain required",
-    );
+    await expect(
+      checkpoint(page).getByRole("status").filter({
+        hasText: "Export and compatibility checks remain required",
+      }),
+    ).toBeVisible();
     await page
       .getByLabel("Native new connection destination", { exact: true })
       .selectOption("8-1/575_1.2_13");
@@ -278,9 +280,11 @@ test("restoring an earlier exported selection requires a fresh export", async ({
   await checkpoint(page)
     .getByRole("button", { name: "Restore saved wiring draft", exact: true })
     .click();
-  await expect(checkpoint(page).getByRole("status")).toContainText(
-    "Export and compatibility checks remain required",
-  );
+  await expect(
+    checkpoint(page).getByRole("status").filter({
+      hasText: "Export and compatibility checks remain required",
+    }),
+  ).toBeVisible();
   let message = "";
   page.once("dialog", (d) => {
     message = d.message();
