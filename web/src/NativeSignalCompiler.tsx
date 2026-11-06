@@ -8,6 +8,7 @@ import { NativeBackupInspection } from "./NativeBackupInspection";
 import { NativeBackupComparison } from "./NativeBackupComparison";
 import { NativeBooleanTransferContext } from "./NativeBooleanTransferContext";
 import { NativeDefaultWireCompiler } from "./NativeDefaultWireCompiler";
+import { NativeRealDraftFiles } from "./NativeRealDraftFiles";
 import type { NativeDefaultRecoveryDocument } from "./nativeDefaultRecoveryContract";
 import "./native-signal-compiler.css";
 
@@ -304,7 +305,7 @@ export function NativeSignalCompiler({
       setStorageError(
         "64 native field drafts are retained. Discard a saved field draft before editing another field.",
       );
-      return;
+      return false;
     }
     epoch.current++;
     setReview(null);
@@ -318,7 +319,7 @@ export function NativeSignalCompiler({
         setStorageError(
           "Browser native draft storage is full. This text remains in this view; discard older drafts to free space.",
         );
-        return;
+        return true;
       }
       sessionStorage.setItem(draftKey, text);
       setStorageError("");
@@ -327,6 +328,7 @@ export function NativeSignalCompiler({
         "Browser draft storage is unavailable. Keep this view open to retain text.",
       );
     }
+    return true;
   }
   function discard() {
     epoch.current++;
@@ -669,6 +671,28 @@ export function NativeSignalCompiler({
                       ? "Discard previous-value proposal"
                       : "Discard selected field draft"}
                   </button>
+                  <NativeRealDraftFiles
+                    source={source}
+                    field={field}
+                    valueText={value}
+                    hasDraft={Object.hasOwn(drafts, draftKey)}
+                    blocked={busy || !!shownRecovery || !visible}
+                    parentOwner={owner}
+                    parentEpoch={epoch.current}
+                    parentCurrent={current}
+                    install={(text, ticket, key) => {
+                      if (
+                        !current(ticket, key) ||
+                        busy ||
+                        !visible ||
+                        shownRecovery ||
+                        busyOwners.current.size ||
+                        Object.hasOwn(drafts, draftKey)
+                      )
+                        return false;
+                      return edit(text);
+                    }}
+                  />
                 </>
               )}
             </form>
