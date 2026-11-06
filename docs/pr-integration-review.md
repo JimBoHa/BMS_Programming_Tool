@@ -12,9 +12,9 @@ settings preservation, transfer budgets and uncertainty readback. New operations
 belong inside the existing task groups. LAN hashing and secure operation IDs must
 continue working on ordinary HTTP.
 
-## Review of PRs 1–275
+## Review of PRs 1–276
 
-The repository inventory contains 275 PRs: 164 merged, 111 closed without a GitHub
+The repository inventory contains 276 PRs: 165 merged, 111 closed without a GitHub
 merge and no open PRs at the time of review. A closed PR is not automatically a
 missing feature. Check its delivery through combined branches, equivalent
 patches and the current implementation before considering any reapplication.
@@ -56,6 +56,7 @@ a new top-level destination or a return to feature tiles.
 | #273 | Installer, documentation and optional LAN sharing | Runtime state and credentials remain private; field interfaces do not open during installer checks. |
 | #274 | Analog terminal movement in Points & I/O | Existing task navigation, ordinary input drafts and separate binary workflow remain available. |
 | #275 | Browser crypto compatibility on LAN HTTP | SHA-256 validation and secure random identifiers remain enabled. |
+| #276 | Captured-source analog terminal support | Explicit profile 18 appends a local compilation witness; older profiles and all field writers remain unchanged. |
 
 ## Verification and installation
 
