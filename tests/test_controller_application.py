@@ -114,9 +114,15 @@ def test_unrecognized_graph_identity_or_structure_never_becomes_a_guessed_diagra
     "raw",
     [
         b"not an application",
-        gzip.compress(b"wrong format"),
+        gzip.compress(b"wrong format", mtime=0),
         authored_application() + b"trailing",
-        gzip.compress(b"x" * (8 * 1024 * 1024 + 1)),
+        gzip.compress(b"x" * (8 * 1024 * 1024 + 1), mtime=0),
+    ],
+    ids=[
+        "plain-unrecognized",
+        "compressed-unrecognized",
+        "trailing-application-bytes",
+        "expanded-size-limit",
     ],
 )
 def test_bad_or_excessive_native_files_are_rejected(raw):
@@ -180,7 +186,11 @@ async def test_application_file_discovery_works_when_optional_configuration_file
     assert result["receipt"]["advertised_files"] == ["file,31", "file,32"]
 
 
-@pytest.mark.parametrize("payload", [b"not a tagged application", gzip.compress(b"wrong format")])
+@pytest.mark.parametrize(
+    "payload",
+    [b"not a tagged application", gzip.compress(b"wrong format", mtime=0)],
+    ids=["plain-mislabeled-moz", "compressed-mislabeled-moz"],
+)
 async def test_moz_filename_never_substitutes_for_recognized_content_and_originals_survive(
     link, payload
 ):
