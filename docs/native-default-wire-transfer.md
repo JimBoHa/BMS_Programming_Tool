@@ -58,6 +58,9 @@ authority. The ordinary Real transfer is hidden while the combined task is open;
 it retains its draft but cannot reuse a review from the other task. Finish or
 discard an active previous-Real recovery proposal before reviewing a new combined
 transfer. Existing workspace ownership locks and cancellation semantics apply.
+Opening then closing the combined task before repaint still advances its
+synchronous transition counter. The ordinary Real task returns visibly with its
+draft retained, and its earlier Apply handler cannot dispatch the retired review.
 
 ## Outcomes, retained evidence and history
 
