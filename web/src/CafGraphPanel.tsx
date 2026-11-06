@@ -6,6 +6,12 @@ import type { CafCreationHint, OpenCafCopy } from "./cafCreatedCopy";
 import { CafConstantTools } from "./CafConstantTools";
 import { constantDraftDirty, type ConstantDrafts } from "./cafConstantContract";
 import type { WiringProposal } from "./cafLogic";
+import { CafCombinedCopy } from "./CafCombinedCopy";
+import type {
+  ScalarRow,
+  CombinedWiring,
+  OpenCombinedCafCopy,
+} from "./cafCombinedCopyContract";
 import { CafConnectionRemoval } from "./CafConnectionRemoval";
 import { cafRemovalDirty, type CafRemovalDrafts } from "./cafRemovalDrafts";
 import type {
@@ -78,6 +84,12 @@ export function CafGraphPanel({
   filename,
   disabled = false,
   scalarChangeCount = 0,
+  scalarRows = [],
+  scalarRevision = 0,
+  combinedCurrent = () => true,
+  onCombinedBusy,
+  onCombinedSaved,
+  onOpenCombinedCopy,
   onDirtyChange,
   onInspectObject,
   constantDrafts: sharedConstantDrafts,
@@ -95,6 +107,12 @@ export function CafGraphPanel({
   filename: string;
   disabled?: boolean;
   scalarChangeCount?: number;
+  scalarRows?: ScalarRow[];
+  scalarRevision?: number;
+  combinedCurrent?: () => boolean;
+  onCombinedBusy?: (busy: boolean) => void;
+  onCombinedSaved?: (commitGraph: () => void) => boolean;
+  onOpenCombinedCopy?: OpenCombinedCafCopy;
   onDirtyChange?: (dirty: boolean) => void;
   onInspectObject?: (block: NativeBlock) => void;
   constantDrafts?: ConstantDrafts;
@@ -108,6 +126,15 @@ export function CafGraphPanel({
   sourceCurrent: () => boolean;
   sourceGeneration: number;
 }) {
+  const [combinedBusy, setCombinedBusy] = useState(false);
+  const [combinedOpen, setCombinedOpen] = useState(false);
+  const combinedBusyNow = useRef(false);
+  const combinedRevisionNow = useRef(0);
+  const [combinedRevision, setCombinedRevision] = useState(0);
+  function retireCombined() {
+    combinedRevisionNow.current++;
+    setCombinedRevision(combinedRevisionNow.current);
+  }
   const localConstantDrafts = useRef<ConstantDrafts>(new Map());
   const constantDrafts = sharedConstantDrafts || localConstantDrafts.current;
   const [, constantChanged] = useState(0);
@@ -285,6 +312,28 @@ export function CafGraphPanel({
   const connectionKey = connectionTuple
     ? JSON.stringify(["connect", id, diagramRef, wireIndex, connectionTuple])
     : "";
+  const combinedCandidates: Partial<
+    Record<"rewire" | "connect", CombinedWiring>
+  > = {};
+  if (wire && proposedSource)
+    combinedCandidates.rewire = {
+      kind: "rewire",
+      diagram_ref: diagramRef,
+      wire_index: wire.index,
+      old: wire.raw,
+      source_ref: proposedSource.ref,
+    };
+  if (wire && connectionSource && connectionTarget && diagram)
+    combinedCandidates.connect = {
+      kind: "connect",
+      diagram_ref: diagramRef,
+      prototype_diagram_ref: diagramRef,
+      prototype_wire_index: wire.index,
+      prototype_old: wire.raw,
+      source_ref: connectionSource.ref,
+      target_ref: connectionTarget.ref,
+      old_connection_count: diagram.connections.length,
+    };
   const dirty = Boolean(
     (rewireKey && !savedProposals.current.has(rewireKey)) ||
       (connectionKey && !savedProposals.current.has(connectionKey)),
@@ -314,10 +363,12 @@ export function CafGraphPanel({
       disabled ||
       exporting ||
       removalBusyNow.current ||
+      combinedBusyNow.current ||
       index === wireIndex ||
       !discardProposals()
     )
       return;
+    retireCombined();
     setWireIndex(index);
     setSourceRef("");
     setConnectionSourceRef("");
@@ -326,8 +377,15 @@ export function CafGraphPanel({
   }
 
   function openModule(ref: string) {
-    if (disabled || exporting || removalBusyNow.current || !discardProposals())
+    if (
+      disabled ||
+      exporting ||
+      removalBusyNow.current ||
+      combinedBusyNow.current ||
+      !discardProposals()
+    )
       return;
+    retireCombined();
     setDiagramRef(ref);
   }
   function proposeWiring(proposal: WiringProposal) {
@@ -335,10 +393,12 @@ export function CafGraphPanel({
       disabled ||
       exporting ||
       removalBusyNow.current ||
+      combinedBusyNow.current ||
       removalDirty ||
       !discardProposals()
     )
       return false;
+    retireCombined();
     setWireIndex(proposal.prototype);
     setSourceRef(proposal.kind === "rewire" ? proposal.source : "");
     setConnectionSourceRef(proposal.kind === "connect" ? proposal.source : "");
@@ -364,6 +424,7 @@ export function CafGraphPanel({
       exporting ||
       disabled ||
       removalBusyNow.current ||
+      combinedBusyNow.current ||
       removalDirty
     )
       return;
@@ -414,6 +475,7 @@ export function CafGraphPanel({
       exporting ||
       disabled ||
       removalBusyNow.current ||
+      combinedBusyNow.current ||
       removalDirty
     )
       return;
@@ -467,10 +529,18 @@ export function CafGraphPanel({
         <button
           aria-label="Reload native CAF diagrams"
           disabled={
-            disabled || loadingIndex || loadingGraph || exporting || removalBusy
+            disabled ||
+            loadingIndex ||
+            loadingGraph ||
+            exporting ||
+            removalBusy ||
+            combinedBusy
           }
           onClick={() => {
-            if (discardProposals()) setRefresh((value) => value + 1);
+            if (discardProposals()) {
+              retireCombined();
+              setRefresh((value) => value + 1);
+            }
           }}
         >
           <RefreshCw size={14} /> Reload
@@ -487,8 +557,8 @@ export function CafGraphPanel({
           <p className="caf-graph-help" role="note">
             Native connection copies use the original archive and exclude the{" "}
             {scalarChangeCount} scalar edit{scalarChangeCount === 1 ? "" : "s"}{" "}
-            displayed below. To combine changes, export and open the
-            scalar-edited copy first.
+            displayed below. Use Scalar + wiring CAF copy here to include scalar
+            proposals with one rewire or connection addition.
           </p>
         )}
         {loadingIndex && <p role="status">Reading native diagrams…</p>}
@@ -504,11 +574,17 @@ export function CafGraphPanel({
                     disabled ||
                     !inventory.diagrams.length ||
                     exporting ||
-                    removalBusy
+                    removalBusy ||
+                    combinedBusy
                   }
                   onChange={(event) => {
-                    if (event.target.value === diagramRef || discardProposals())
+                    if (
+                      event.target.value === diagramRef ||
+                      discardProposals()
+                    ) {
+                      retireCombined();
                       setDiagramRef(event.target.value);
+                    }
                   }}
                 >
                   {!inventory.diagrams.length && (
@@ -528,7 +604,9 @@ export function CafGraphPanel({
               </small>
               {parentModule && (
                 <button
-                  disabled={disabled || exporting || removalBusy}
+                  disabled={
+                    disabled || exporting || removalBusy || combinedBusy
+                  }
                   onClick={() => openModule(parentModule.ref)}
                 >
                   Up to {parentModule.name || "parent module"}
@@ -620,6 +698,7 @@ export function CafGraphPanel({
                 dirty ||
                 removalDirty ||
                 removalBusy ||
+                combinedBusy ||
                 diagram.ref !== diagramRef
               }
               reviewContext={reviewContext}
@@ -659,7 +738,12 @@ export function CafGraphPanel({
                               <button
                                 aria-label={`Select native connection ${item.index}`}
                                 aria-pressed={item.index === wireIndex}
-                                disabled={disabled || exporting || removalBusy}
+                                disabled={
+                                  disabled ||
+                                  exporting ||
+                                  removalBusy ||
+                                  combinedBusy
+                                }
                                 onClick={() => selectWire(item.index)}
                               >
                                 #{item.index}
@@ -731,9 +815,11 @@ export function CafGraphPanel({
                             exporting ||
                             removalDirty ||
                             removalBusy ||
+                            combinedBusy ||
                             !diagram.observed_version
                           }
                           onChange={(event) => {
+                            retireCombined();
                             setSourceRef(event.target.value);
                             setError("");
                           }}
@@ -776,7 +862,9 @@ export function CafGraphPanel({
                       </div>
                       <button
                         className={
-                          connectionOpen || removalOpen ? "" : "primary"
+                          connectionOpen || removalOpen || combinedOpen
+                            ? ""
+                            : "primary"
                         }
                         disabled={
                           !proposed ||
@@ -784,6 +872,7 @@ export function CafGraphPanel({
                           exporting ||
                           removalDirty ||
                           removalBusy ||
+                          combinedBusy ||
                           !diagram.observed_version
                         }
                         onClick={exportRewire}
@@ -876,9 +965,11 @@ export function CafGraphPanel({
                           exporting ||
                           removalDirty ||
                           removalBusy ||
+                          combinedBusy ||
                           !diagram.observed_version
                         }
                         onChange={(event) => {
+                          retireCombined();
                           setConnectionSourceRef(event.target.value);
                           setConnectionTargetRef("");
                           setError("");
@@ -901,10 +992,12 @@ export function CafGraphPanel({
                           disabled ||
                           removalDirty ||
                           removalBusy ||
+                          combinedBusy ||
                           !diagram.observed_version ||
                           !connectionTargets.length
                         }
                         onChange={(event) => {
+                          retireCombined();
                           setConnectionTargetRef(event.target.value);
                           setError("");
                         }}
@@ -942,13 +1035,14 @@ export function CafGraphPanel({
                     </small>
                   </div>
                   <button
-                    className={removalOpen ? "" : "primary"}
+                    className={removalOpen || combinedOpen ? "" : "primary"}
                     disabled={
                       !connectionTuple ||
                       disabled ||
                       exporting ||
                       removalDirty ||
                       removalBusy ||
+                      combinedBusy ||
                       !diagram.observed_version
                     }
                     onClick={exportConnection}
@@ -964,6 +1058,60 @@ export function CafGraphPanel({
                   </p>
                 </details>
               )}
+              <CafCombinedCopy
+                archive={id}
+                filename={filename}
+                diagram={diagram}
+                changes={scalarRows}
+                candidates={combinedCandidates}
+                disabled={
+                  disabled ||
+                  exporting ||
+                  removalBusy ||
+                  removalDirty ||
+                  [...constantDrafts.values()].some(
+                    (d) => d.archive === id && constantDraftDirty(d),
+                  )
+                }
+                surfaceOpen={advancedOpen}
+                retireKey={JSON.stringify([
+                  refresh,
+                  sourceGeneration,
+                  scalarRevision,
+                  combinedRevision,
+                  reviewContext,
+                ])}
+                sourceCurrent={() =>
+                  sourceCurrent() &&
+                  combinedCurrent() &&
+                  combinedRevisionNow.current === combinedRevision
+                }
+                onBusy={(busy) => {
+                  combinedBusyNow.current = busy;
+                  setCombinedBusy(busy);
+                  onCombinedBusy?.(busy);
+                }}
+                onSaved={(kind) => {
+                  const key = kind === "rewire" ? rewireKey : connectionKey;
+                  if (
+                    !key ||
+                    !sourceCurrent() ||
+                    !combinedCurrent() ||
+                    combinedRevisionNow.current !== combinedRevision
+                  )
+                    return false;
+                  return (
+                    onCombinedSaved?.(() => {
+                      savedProposals.current.add(key);
+                      setExported(
+                        "Combined CAF copy exported. Only the included scalar and wiring proposals were marked exported. This view still shows the original archive.",
+                      );
+                    }) ?? false
+                  );
+                }}
+                onOpenCopy={onOpenCombinedCopy}
+                onOpenChange={setCombinedOpen}
+              />
             </details>
             <details className="caf-graph-blocks">
               <summary>

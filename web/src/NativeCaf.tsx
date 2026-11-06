@@ -21,6 +21,10 @@ import {
   type RemovedCafCopy,
   type CafRemovalHint,
 } from "./cafConnectionRemovalContract";
+import {
+  combinedCafFile,
+  type CombinedCafCopy,
+} from "./cafCombinedCopyContract";
 import type { CafRemovalDrafts } from "./cafRemovalDrafts";
 import { CafHardwarePanel } from "./CafHardwarePanel";
 import { CafInstancePanel } from "./CafInstancePanel";
@@ -115,6 +119,10 @@ export function NativeCaf({
   const activeArchive = useRef<string | null>(null);
   const enumFields = useRef(new Set<string>());
   const scalarMutation = useRef(0);
+  const combinedRevision = useRef(0);
+  const combinedBusy = useRef(false);
+  const scalarExportBusy = useRef(false);
+  const combinedRenderRevision = combinedRevision.current;
   const scalarKey = scalarSignature(changes);
   const unsavedScalars = changes.length > 0 && scalarKey !== savedScalarKey;
   const enumChanges = changes.some((item) =>
@@ -214,11 +222,21 @@ export function NativeCaf({
     if (!file) return false;
     return upload(file, { kind: "removal", copy, current });
   }
+  async function openCombinedCopy(
+    copy: CombinedCafCopy,
+    current: () => boolean,
+  ) {
+    if (!visible || !current() || activeArchive.current !== copy.sourceArchive)
+      return false;
+    const file = await combinedCafFile(copy, current);
+    return file ? upload(file, { kind: "combined", copy, current }) : false;
+  }
   async function upload(
     file?: File,
     handoff?: { current: () => boolean } & (
       | { kind: "creation"; copy: CreatedCafCopy }
       | { kind: "removal"; copy: RemovedCafCopy }
+      | { kind: "combined"; copy: CombinedCafCopy }
     ),
   ) {
     const owned = () =>
@@ -240,6 +258,7 @@ export function NativeCaf({
     if (!owned()) return false;
     if (!handoff) externalCafReplacement.current++;
     scalarMutation.current++;
+    scalarExportBusy.current = false;
     const request = ++uploadRequest.current;
     exportRequest.current++;
     setExporting(false);
@@ -269,7 +288,7 @@ export function NativeCaf({
           : null,
       );
       setRemovalHint(
-        handoff?.kind === "removal"
+        handoff?.kind === "removal" || handoff?.kind === "combined"
           ? { archive: next.sha256, diagram: handoff.copy.diagram }
           : null,
       );
@@ -339,6 +358,7 @@ export function NativeCaf({
     }
   }
   function change(p: any, value: string) {
+    combinedRevision.current++;
     scalarMutation.current++;
     const enumKey = JSON.stringify([caf.sha256, selected.ref, p.id]);
     if (cafEnumMetadata(p, selected, caf.sha256))
@@ -364,12 +384,16 @@ export function NativeCaf({
     expectedMutation: number,
   ) {
     if (
-      !visible || opening ||
+      !visible ||
+      opening ||
       activeArchive.current !== restored.checkpoint.caf_sha256 ||
       scalarMutation.current !== expectedMutation
-    ) return false;
+    )
+      return false;
     scalarMutation.current++;
+    combinedRevision.current++;
     exportRequest.current++;
+    scalarExportBusy.current = false;
     setExporting(false);
     setExported("");
     setSavedScalarKey("[]");
@@ -379,7 +403,17 @@ export function NativeCaf({
     return true;
   }
   async function exportScalars() {
-    if (!caf || exporting || opening || !visible) return;
+    if (
+      !caf ||
+      exporting ||
+      scalarExportBusy.current ||
+      opening ||
+      !visible ||
+      combinedBusy.current
+    )
+      return;
+    scalarExportBusy.current = true;
+    combinedRevision.current++;
     const request = ++exportRequest.current;
     const archive = caf.sha256;
     const snapshot = changes.map((item) => ({ ...item }));
@@ -421,6 +455,7 @@ export function NativeCaf({
           `Scalar CAF export failed: ${e instanceof Error ? e.message : String(e)}`,
         );
     } finally {
+      if (request === exportRequest.current) scalarExportBusy.current = false;
       if (current()) setExporting(false);
     }
   }
@@ -594,6 +629,30 @@ export function NativeCaf({
               id={caf.sha256}
               filename={filename}
               disabled={opening || !visible || currentView !== "logic"}
+              scalarRows={changes}
+              scalarRevision={combinedRenderRevision}
+              combinedCurrent={() =>
+                combinedRevision.current === combinedRenderRevision &&
+                !scalarExportBusy.current &&
+                activeArchive.current === caf.sha256 &&
+                externalCafReplacement.current === currentCafReplacement
+              }
+              onCombinedBusy={(busy) => {
+                combinedBusy.current = busy;
+              }}
+              onCombinedSaved={(commitGraph) => {
+                if (
+                  combinedRevision.current !== combinedRenderRevision ||
+                  activeArchive.current !== caf.sha256 ||
+                  externalCafReplacement.current !== currentCafReplacement ||
+                  scalarExportBusy.current
+                )
+                  return false;
+                commitGraph();
+                setSavedScalarKey(scalarSignature(changes));
+                return true;
+              }}
+              onOpenCombinedCopy={openCombinedCopy}
               scalarChangeCount={changes.length}
               onDirtyChange={setGraphDirty}
               onInspectObject={(block) => {
@@ -809,8 +868,15 @@ export function NativeCaf({
                   id={caf.sha256}
                   visible={visible && !opening}
                   context={JSON.stringify([
-                    caf.sha256, archiveGeneration, visible, opening,
-                    controller && [controllerKey(controller), controller.interfaceKey, controller.interfaceOpen],
+                    caf.sha256,
+                    archiveGeneration,
+                    visible,
+                    opening,
+                    controller && [
+                      controllerKey(controller),
+                      controller.interfaceKey,
+                      controller.interfaceOpen,
+                    ],
                   ])}
                   changes={changes}
                   mutation={scalarMutation.current}
@@ -823,14 +889,27 @@ export function NativeCaf({
                     aria-label="Current scalar proposals"
                     tabIndex={0}
                     onKeyDown={(event) => {
-                      if (event.target !== event.currentTarget || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+                      if (
+                        event.target !== event.currentTarget ||
+                        event.altKey ||
+                        event.ctrlKey ||
+                        event.metaKey ||
+                        event.shiftKey
+                      )
+                        return;
                       const table = event.currentTarget;
                       const maximum = table.scrollWidth - table.clientWidth;
                       if (maximum <= 0) return;
-                      const next = event.key === "ArrowRight" ? Math.min(maximum, table.scrollLeft + 64)
-                        : event.key === "ArrowLeft" ? Math.max(0, table.scrollLeft - 64)
-                        : event.key === "Home" ? 0
-                        : event.key === "End" ? maximum : null;
+                      const next =
+                        event.key === "ArrowRight"
+                          ? Math.min(maximum, table.scrollLeft + 64)
+                          : event.key === "ArrowLeft"
+                            ? Math.max(0, table.scrollLeft - 64)
+                            : event.key === "Home"
+                              ? 0
+                              : event.key === "End"
+                                ? maximum
+                                : null;
                       if (next === null) return;
                       event.preventDefault();
                       table.scrollLeft = next;
@@ -877,8 +956,9 @@ export function NativeCaf({
               )}
               {graphDirty && (
                 <small>
-                  Scalar copies exclude pending native connection proposals.
-                  Open the connection-edited copy first to combine changes.
+                  Scalar copies exclude pending native connection proposals. Use
+                  Logic → Scalar + wiring CAF copy to combine scalar edits with
+                  one rewire or addition.
                 </small>
               )}
             </div>
@@ -891,6 +971,7 @@ export function NativeCaf({
                 )
                   return;
                 scalarMutation.current++;
+                combinedRevision.current++;
                 setChanges([]);
               }}
             >
