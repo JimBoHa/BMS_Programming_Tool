@@ -29,7 +29,44 @@ The bounded optional `operation_id` request field is a 32-character lowercase he
 
 Legacy callers without `operation_id` keep their first-scan validation-error HTTP 422 behavior. Opt-in callers receive a confirmed zero-commit scan-error receipt when the first attempted scan faults: `completed_steps=0`, `last=null`, unchanged snapshot/history, and the existing known session retained. A newly created zero-commit session is discarded and returns `session=null`, with no observation source. If a later scan in a batch faults, only earlier successful scans count, and their exact history, UTC, state and optional observation records remain. The failed scan's candidate inputs, forces, UTC and state do not commit. All scan errors stop paced Run and require explicit recovery; partial batches are never replayed automatically. Recording failures are separate from successfully executed scans and also stop pacing for review.
 
-The optional **Next scan UTC clock** belongs to simulation time, not the host monotonic clock. Apply it using Step before Run. A failed scan does not consume that pending UTC value. Subsequent scans advance UTC by the unchanged project timestep. Pausing and resuming do not substitute the host's current calendar time.
+The optional **Next scan UTC clock** belongs to simulation time, not the host monotonic clock. Apply it using Step before Run. A failed scan does not consume that pending UTC value. Subsequent scans advance UTC by their actual timestep: the project interval by default, or the explicitly selected single-step duration. Pausing and resuming do not substitute the host's current calendar time.
+
+## Explicit single-step duration
+
+`UI-SIMULATION-STEP-DURATION-001` exposes the existing portable engine's optional
+`dt` in **Program → Simulate → Single-step timing**. **Project interval** remains
+the default: Step and paced Run omit `dt` and retain the existing fixed-cadence
+requests. **Custom duration** accepts a finite decimal number greater than zero
+and at most 60 seconds. Decimal exponents are allowed; incomplete text remains a
+draft and cannot dispatch a scan. The UI does not modify the saved graph's
+`scan_seconds`, timer thresholds, ramp rates or native application bytes.
+
+Custom timing applies to one explicit Step. Paced Run stays unavailable until
+the operator selects Project interval again. Each admitted scan captures its
+exact selected duration and checks the returned `applied_dt` against that value.
+Changing timing controls cannot clear an existing paced fault; an explicit Step
+or Reset remains required. HTTP or mismatched receipts preserve the existing
+uncertain-outcome lock and never trigger automatic retries.
+
+Actual elapsed time drives the engine's existing timer, Slew and UTC behavior.
+A confirmed failed scan does not consume elapsed time or timer state. An
+explicit next UTC clock and a duration are separate inputs: the first successful
+scan uses that clock, and later scans advance by their actual durations. Scenarios
+retain their independent, fixed-project-interval contract; the custom Step
+selection does not alter scenario events or duration.
+
+Raw custom text survives workspace task navigation. Reset retires the owned
+engine and keeps the timing selection for another explicit test. Replacing or
+editing the source restores Project interval. Timing controls remain disabled
+while a request or paced run is active, or when uncertainty/cleanup prevents
+admission. A late custom first receipt after Reset or source replacement is
+checked against its captured duration before its exact owned session is retired;
+it cannot revive old history or create a controller connection.
+
+This UI uses the already supported portable simulation API. It adds no runtime
+profile, controller writer, native CAF execution, dynamic-duration Timer port or
+physical timing guarantee. Those remaining RUN-01 contracts require separate
+qualification.
 
 ## Source and scope
 

@@ -52,6 +52,9 @@ for (const { action, delayedAuth } of [
     try {
       await page.goto("/");
       await page
+        .getByRole("button", { name: "New application", exact: true })
+        .click();
+      await page
         .locator(
           'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"]',
         )
@@ -63,6 +66,7 @@ for (const { action, delayedAuth } of [
       await expect(page.locator(".toast")).toContainText(
         "Imported as a new local project",
       );
+      await page.getByRole("button", { name: "Simulate", exact: true }).click();
       const response = page.waitForResponse(
         (r) =>
           r.url().endsWith("/api/simulation/step") &&
@@ -128,6 +132,9 @@ for (const { action, delayedAuth } of [
         expect(await count()).toBe(baseline + 2);
         releaseAuth!();
       }
+      await page
+        .getByRole("button", { name: "New application", exact: true })
+        .click();
       await expect(
         page.getByLabel("Program name", { exact: true }),
       ).toBeVisible();

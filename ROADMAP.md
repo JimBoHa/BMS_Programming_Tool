@@ -2160,3 +2160,23 @@ names the six related native rejection cases explicitly. It preserves test
 bodies, source payload semantics, application runtime and native admission.
 Compiler-version byte reproducibility and physical/CCT/BTCVT acceptance remain
 separate. QA-01 and QA-03 remain partial overall.
+
+## 2026-11-06 RUN-01 delivery: explicit portable single-step duration
+
+`UI-SIMULATION-STEP-DURATION-001` adds opt-in elapsed seconds to the existing
+**Program → Simulate** Step action. It reuses the portable engine's optional
+`dt` without changing saved scan intervals, timer thresholds or paced Run.
+Project interval remains the default and sends the unchanged request shape.
+Custom timing disables Run and accepts only a finite duration in `(0, 60]`.
+
+Raw unfinished text survives task navigation; Reset retains the selection and
+source replacement returns to Project interval. Admission checks run before
+repaint, receipts bind the actual requested duration, and late first receipts
+retire only their exact owned engines. Timing changes cannot clear a paced fault
+or uncertain outcome. Existing scenarios retain their independent fixed-interval
+contract. All operations remain local with field interfaces closed.
+
+Actual-runtime-dt UI access is delivered for portable explicit Step. Native live
+Timer duration ports, startup/reset/profile equivalence, target-width lowering,
+controller resources and physical acceptance still require separate work.
+RUN-01 remains partial. See [simulation timing](docs/simulation-clock.md#explicit-single-step-duration).

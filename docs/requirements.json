@@ -123,7 +123,7 @@
     "evidence": "ALC Eikon 3.02 User Guide",
     "pdf_pages_or_section": "52-55",
     "status": "implemented",
-    "implementation_or_gap": "Simulation controls; program scan_seconds"
+    "implementation_or_gap": "Simulation controls; unchanged default program scan_seconds and opt-in finite single-step dt in (0,60]. Custom Step timing preserves the saved graph, disables paced Run, binds actual applied_dt receipts and retains existing ownership/fault/uncertainty gates. Scenarios retain independent fixed cadence; native Timer duration ports and physical equivalence remain separate. See docs/simulation-clock.md."
   },
   {
     "id": "SIM-003",

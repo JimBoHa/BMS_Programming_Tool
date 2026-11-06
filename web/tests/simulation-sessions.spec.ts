@@ -54,8 +54,11 @@ async function seed(request: APIRequestContext) {
   expect(response.ok()).toBe(true);
   return { program, receipt: await response.json() };
 }
-async function load(page: Page) {
-  await page.goto("/");
+async function load(page: Page, navigate = true) {
+  if (navigate) await page.goto("/");
+  await page
+    .getByRole("button", { name: "New application", exact: true })
+    .click();
   await page
     .locator(
       'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"]',
@@ -68,6 +71,7 @@ async function load(page: Page) {
   await expect(page.locator(".toast")).toContainText(
     "Imported as a new local project",
   );
+  await page.getByRole("button", { name: "Simulate", exact: true }).click();
 }
 async function step(page: Page) {
   const event = page.waitForResponse(
@@ -107,6 +111,8 @@ test("45 reset/source cycles and repeated real reloads release only owned sessio
     for (let i = 0; i < 6; i++) {
       own.push(await step(page));
       await page.reload();
+      await expect.poll(() => count(request)).toBe(baseline + 1);
+      await load(page, false);
       await expect(
         page.getByLabel("Program name", { exact: true }),
       ).toBeVisible();
@@ -336,6 +342,9 @@ test("reset retires calculation state and preserves durable trends, active alarm
   );
   await page.goto("/");
   await page
+    .getByRole("button", { name: "New application", exact: true })
+    .click();
+  await page
     .locator(
       'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"]',
     )
@@ -344,6 +353,7 @@ test("reset retires calculation state and preserves durable trends, active alarm
       mimeType: "application/json",
       buffer,
     });
+  await page.getByRole("button", { name: "Simulate", exact: true }).click();
   await page.getByLabel("Persist history", { exact: true }).check();
   await page.getByLabel("Simulate temperature", { exact: true }).fill("90");
   const receipt = await step(page);
