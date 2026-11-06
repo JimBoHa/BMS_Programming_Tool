@@ -25,6 +25,14 @@ invocation uses `--showlocals` so a failed isolated wheel build exposes its
 captured output instead of only the subprocess exit status. This changes failure
 diagnostics, not the test selection or acceptance conditions.
 
+The runner mounts its checkout with a different owner from the container user.
+Checkout itself handles that distinction, but an isolated Python packaging
+subprocess initially failed Git's ownership check. The wheel job adds only its
+exact `$GITHUB_WORKSPACE` to the disposable container user's global
+`safe.directory` list. It does not use a wildcard, change application Git
+settings, or bypass source/provenance/privacy checks. See Git's
+[safe.directory documentation](https://git-scm.com/docs/git-config#Documentation/git-config.txt-safedirectory).
+
 When changing the Playwright package version, select its matching official image,
 verify the immutable manifest digest against Microsoft Artifact Registry, and
 update the lock and image pin together. A passing package install is not a browser
