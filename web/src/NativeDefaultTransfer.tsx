@@ -1,5 +1,6 @@
 import { randomUUID } from "./browserCrypto";
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
+import { NativeBooleanTransferContext } from "./NativeBooleanTransferContext";
 import { NativeRuntimeCalibration } from "./NativeRuntimeCalibration";
 import { NativeRuntimeParametersNotice } from "./NativeRuntimeParametersNotice";
 import {
@@ -112,6 +113,9 @@ export function NativeDefaultTransfer({
   sourceCurrent?: () => boolean;
   presentationHidden?: boolean;
 }) {
+  const workspace = useContext(NativeBooleanTransferContext);
+  const sourceAdmitted = () =>
+    (sourceCurrent?.() ?? true) && (workspace?.workspaceCurrent?.() ?? true);
   const operationProfile = combinedDefaultWire
     ? defaultWireTransferProfile
     : wireSource
@@ -175,6 +179,7 @@ export function NativeDefaultTransfer({
   const owner = JSON.stringify([
     combinedDefaultWire,
     synchronousGeneration,
+    workspace?.workspaceGeneration,
     wireSource,
     booleanDefault,
     enumDefault,
@@ -200,11 +205,9 @@ export function NativeDefaultTransfer({
     alive.current &&
     ownerNow.current === key &&
     epoch.current === ticket &&
-    (sourceCurrent?.() ?? true);
+    sourceAdmitted();
   const shown =
-    plan?.owner === owner &&
-    plan.epoch === epoch.current &&
-    (sourceCurrent?.() ?? true)
+    plan?.owner === owner && plan.epoch === epoch.current && sourceAdmitted()
       ? plan
       : null;
   const serialInterface = hasSerialInterface(controller?.interfaceKey);
@@ -274,7 +277,7 @@ export function NativeDefaultTransfer({
   async function run(
     kind: "credentials" | "capture" | "preview" | "apply" | "readback",
   ) {
-    if (operation.current || parentBusy || !(sourceCurrent?.() ?? true)) return;
+    if (operation.current || parentBusy || !sourceAdmitted()) return;
     if (kind !== "credentials" && (!controller || !connected)) return;
     if (
       (kind === "preview" || kind === "apply") &&
