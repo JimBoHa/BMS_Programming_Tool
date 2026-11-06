@@ -50,6 +50,9 @@ restarting. Import restores declared configuration without opening a field
 interface. The nested native task retains its existing panel-memory lifecycle.
 
 The newest8 server reviews remain in session memory, bounded to256KiB each.
+Results provide a focusable scrolling arithmetic table on compact screens.
+Expand **Review scope and hashes** for the detailed limitations and content
+identifiers; the full values remain available in the sealed download.
 Input/source changes retire pending review/download responses. There is no
 physical pulse generator, portable graph lowering, hardware debounce simulation,
 scan scheduling, COV publication, restart/persistence emulator, native Prescale

@@ -276,6 +276,30 @@ for (const compact of [false, true]) {
         await expect(result).toContainText(
           "retained PV 4 · numerator remainder 1",
         );
+        await result
+          .getByText("Review scope and hashes", { exact: true })
+          .click();
+        await expect(result.getByText(/^Configuration SHA256/)).toBeVisible();
+        await result
+          .getByText("Review scope and hashes", { exact: true })
+          .click();
+        const table = p.getByRole("region", {
+          name: "Pulse batch arithmetic",
+          exact: true,
+        });
+        await expect(table).toHaveAttribute("tabindex", "0");
+        await table.scrollIntoViewIfNeeded();
+        await table.focus();
+        await expect(table).toBeFocused();
+        await table.evaluate(
+          (element) => (element.scrollLeft = element.scrollWidth),
+        );
+        await expect(
+          table.getByRole("columnheader", {
+            name: "Retained PV / remainder",
+            exact: true,
+          }),
+        ).toBeInViewport();
         const downloaded = page.waitForEvent("download");
         await p
           .getByRole("button", {

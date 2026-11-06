@@ -289,7 +289,11 @@ export function AccumulatorPrescalePanel({
   }
   return (
     <section className="card" aria-label="Offline Accumulator pulse review">
-      <h3>Offline Accumulator pulse review</h3>
+      {work ? (
+        <h2>Offline Accumulator pulse review</h2>
+      ) : (
+        <h3>Offline Accumulator pulse review</h3>
+      )}
       <p>
         Integer batch arithmetic carries the numerator remainder forward.
         Initial PV, remainder and pulses are explicit simulation declarations.
@@ -386,55 +390,71 @@ export function AccumulatorPrescalePanel({
       {notice && <p role="status">{notice}</p>}
       {busy && <p role="status">Reviewing declared pulse batches…</p>}
       {review && (
-        <div aria-label="Pulse review result">
+        <div
+          className={work ? "card-body" : undefined}
+          aria-label="Pulse review result"
+        >
           <p>
             <strong>{review.simulation.status}</strong> · retained PV{" "}
             {review.simulation.final_pv} · numerator remainder{" "}
             {review.simulation.final_remainder}
           </p>
-          <p>{review.scope}</p>
-          <p>
-            Configuration SHA256 {review.configuration_sha256} · content SHA256{" "}
-            {review.content_sha256}
-          </p>
-          <table>
-            <thead>
-              <tr>
-                {[
-                  "Batch",
-                  "Pulses",
-                  "Prior PV / remainder",
-                  "Numerator",
-                  "Increment",
-                  "Candidate PV / remainder",
-                  "Disposition",
-                  "Retained PV / remainder",
-                ].map((s) => (
-                  <th key={s}>{s}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {review.simulation.rows.map((row: any) => (
-                <tr key={row.batch}>
-                  <td>{row.batch}</td>
-                  <td>{row.pulses}</td>
-                  <td>
-                    {row.prior_pv} / {row.prior_remainder}
-                  </td>
-                  <td>{row.numerator ?? "—"}</td>
-                  <td>{row.increment ?? "—"}</td>
-                  <td>
-                    {row.candidate_pv ?? "—"} / {row.candidate_remainder ?? "—"}
-                  </td>
-                  <td>{row.status}</td>
-                  <td>
-                    {row.retained_pv} / {row.retained_remainder}
-                  </td>
+          <details>
+            <summary>Review scope and hashes</summary>
+            <p>{review.scope}</p>
+            <p style={{ overflowWrap: "anywhere" }}>
+              Configuration SHA256 {review.configuration_sha256} · content
+              SHA256 {review.content_sha256}
+            </p>
+          </details>
+          <div
+            className="table-scroll"
+            role="region"
+            aria-label="Pulse batch arithmetic"
+            tabIndex={0}
+          >
+            <table>
+              <thead>
+                <tr>
+                  {[
+                    "Batch",
+                    "Pulses",
+                    "Prior PV / remainder",
+                    "Numerator",
+                    "Increment",
+                    "Candidate PV / remainder",
+                    "Disposition",
+                    "Retained PV / remainder",
+                  ].map((s) => (
+                    <th key={s} scope="col">
+                      {s}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {review.simulation.rows.map((row: any) => (
+                  <tr key={row.batch}>
+                    <td>{row.batch}</td>
+                    <td>{row.pulses}</td>
+                    <td>
+                      {row.prior_pv} / {row.prior_remainder}
+                    </td>
+                    <td>{row.numerator ?? "—"}</td>
+                    <td>{row.increment ?? "—"}</td>
+                    <td>
+                      {row.candidate_pv ?? "—"} /{" "}
+                      {row.candidate_remainder ?? "—"}
+                    </td>
+                    <td>{row.status}</td>
+                    <td>
+                      {row.retained_pv} / {row.retained_remainder}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
       {profile && (
