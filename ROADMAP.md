@@ -2107,3 +2107,23 @@ algorithm execution, resources/packages, broader compilation and deployment.
 Local input-stimulus previews do not execute native CAF logic or calculate controller
 outputs. JCI-05 remains partial for native simulation and physical acceptance.
 See [numeric Enum input scenarios](docs/caf-local-input-scenarios.md#opt-in-numeric-enum-inputs-version-2).
+
+## 2026-11-06 JCI-02/UX-04 delivery: saved unfinished CAF wiring drafts
+
+`UI-CAF-WIRING-DRAFTS-001` adds explicit checkpoints for original-source rewire
+and new-connection selections in existing Program → Logic. Partial selectors,
+original occurrence identity and source graph evidence persist across reopening
+the same original CAF. Differing current choices require explicit replacement;
+restoration grants no exported marker or successful compatibility review.
+
+Bounded local storage retains prior contexts without eviction. Generation/revision
+checks protect concurrent changes and delete/recreate ABA. Original graph/member
+and tuple/count evidence is rechecked before restoration. Late callbacks through
+intent, source, target and lifecycle changes cannot replace current choices.
+Incomplete connection work participates in existing discard protection; other
+edit families and their independent checkpoints remain available.
+
+Continue recovery for additional native edit families and broader typed native
+authoring. Compilation/package/resource and physical deployment evidence remain
+separate. JCI-02 and UX-04 remain partial.
+See [CAF wiring draft recovery](docs/caf-wiring-draft-recovery.md).
