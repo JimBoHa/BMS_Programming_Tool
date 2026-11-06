@@ -102,15 +102,23 @@ for (const width of [1440, 390])
       await expect
         .poll(() => scroll.evaluate((e) => e.scrollLeft))
         .toBeGreaterThan(0);
-      await scroll.evaluate((e) => {
-        e.scrollLeft = e.scrollWidth;
-      });
+      await scroll.press("ArrowLeft");
+      await expect.poll(() => scroll.evaluate((e) => e.scrollLeft)).toBe(0);
+      await scroll.press("End");
+      await expect
+        .poll(() =>
+          scroll.evaluate((e) => e.scrollWidth - e.clientWidth - e.scrollLeft),
+        )
+        .toBeLessThanOrEqual(1);
       const viewport = (await scroll.boundingBox())!,
         last = (await scroll.locator("thead th").last().boundingBox())!;
       expect(last.x).toBeGreaterThanOrEqual(viewport.x);
       expect(last.x + last.width).toBeLessThanOrEqual(
         viewport.x + viewport.width + 1,
       );
+      await scroll.press("Home");
+      await expect.poll(() => scroll.evaluate((e) => e.scrollLeft)).toBe(0);
+      await scroll.press("End");
     }
     await expect(
       reopened.getByLabel("Scalar CAF export result", { exact: true }),

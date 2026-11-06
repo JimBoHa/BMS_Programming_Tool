@@ -1,4 +1,5 @@
 import { requestProgram } from "./sourceTransportFixtures";
+import { chooseWorkspaceSurface } from "./workspace-navigation";
 import { test, expect, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
@@ -32,9 +33,17 @@ async function holdDebounce(page: Page) {
     };
   });
 }
+async function continueProgram(page: Page) {
+  // Continue the recovered graph; New application deliberately replaces it.
+  await page
+    .getByRole("region", { name: "Continue local work", exact: true })
+    .getByRole("button", { name: "Program", exact: true })
+    .click();
+  await expect(page.getByLabel("Program name", { exact: true })).toBeVisible();
+}
 async function open(page: Page) {
   await page.goto("/");
-  await expect(page.getByLabel("Program name", { exact: true })).toBeVisible();
+  await continueProgram(page);
 }
 async function macroSource(page: Page) {
   const buffer = execFileSync(
@@ -59,7 +68,7 @@ async function macroSource(page: Page) {
   );
 }
 async function editMacro(page: Page) {
-  await page.getByRole("button", { name: "Macros", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Library");
   await page
     .getByRole("button", { name: "Edit definition on wiresheet", exact: true })
     .click();
@@ -84,6 +93,7 @@ test("fast reload flushes latest ordinary source while200ms debounce is held", a
     await page.evaluate(() => localStorage.getItem("bms-studio-draft-v1")),
   ).toBeNull();
   await page.reload();
+  await continueProgram(page);
   await expect(page.getByLabel("Program name", { exact: true })).toHaveValue(
     "Latest unsaved draft",
   );
@@ -102,7 +112,14 @@ test("fast macro reload retains definition draft; apply and discard persist late
   await macroSource(page);
   let rate = await editMacro(page);
   await rate.fill("3.75");
+  // WebKit may acknowledge fill before React accepts the input event. Observe
+  // the controlled source value; the held debounce must still not have saved it.
+  await expect(rate).toHaveAttribute("value", "3.75");
+  expect(
+    await page.evaluate(() => localStorage.getItem("bms-studio-macro-edit-v1")),
+  ).toBeNull();
   await page.reload();
+  await continueProgram(page);
   await expect(page.locator(".macro-edit-banner")).toContainText("limiter");
   await page.locator('.react-flow__node[data-id="limit"]').click();
   rate = page
@@ -116,6 +133,7 @@ test("fast macro reload retains definition draft; apply and discard persist late
     .click();
   await expect(page.locator(".macro-edit-banner")).toHaveCount(0);
   await page.reload();
+  await continueProgram(page);
   await expect(page.locator(".macro-edit-banner")).toHaveCount(0);
   expect(
     await page.evaluate(() => localStorage.getItem("bms-studio-macro-edit-v1")),
@@ -127,6 +145,7 @@ test("fast macro reload retains definition draft; apply and discard persist late
     .getByRole("button", { name: "Discard definition changes", exact: true })
     .click();
   await page.reload();
+  await continueProgram(page);
   await expect(page.locator(".macro-edit-banner")).toHaveCount(0);
   rate = await editMacro(page);
   await expect(rate).toHaveValue("4");
@@ -208,6 +227,7 @@ test("boot lifecycle events cannot overwrite saved recovery before initializatio
     ),
   ).toBe("Previous good draft");
   release();
+  await continueProgram(page);
   await expect(page.getByLabel("Program name", { exact: true })).toHaveValue(
     "Previous good draft",
   );
@@ -349,7 +369,7 @@ for (const failure of ["get", "parse"])
     await page.evaluate(() => (window as any).__runDraftTimers());
     expect((await validated).ok()).toBe(true);
     await page
-      .getByRole("button", { name: "Save revision", exact: true })
+      .getByRole("button", { name: "Save project", exact: true })
       .click();
     await expect(
       page.getByLabel("Last saved revision", { exact: true }),

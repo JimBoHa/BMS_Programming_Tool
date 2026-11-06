@@ -27,6 +27,10 @@ are not included in this scalar checkpoint. Exporting a CAF copy does not silent
 remove the checkpoint. Discarding local proposals and removing the saved checkpoint
 are separate actions.
 
+On narrow screens, the current-proposal table scrolls horizontally. Focus the
+labelled table region and use Left/Right to scroll or Home/End to reach either
+edge. These keys do not intercept typing in nested controls.
+
 One checkpoint is stored per original CAF hash. Updates and removal require the
 expected checkpoint generation and revision. Concurrent edits receive a conflict
 instead of silently overwriting saved work. Deleting and recreating a checkpoint

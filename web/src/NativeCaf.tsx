@@ -780,7 +780,25 @@ export function NativeCaf({
                   onRestore={restoreScalarDraft}
                 />
                 {changes.length ? (
-                  <div className="table-scroll" role="region" aria-label="Current scalar proposals" tabIndex={0}>
+                  <div
+                    className="table-scroll"
+                    role="region"
+                    aria-label="Current scalar proposals"
+                    tabIndex={0}
+                    onKeyDown={(event) => {
+                      if (event.target !== event.currentTarget || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+                      const table = event.currentTarget;
+                      const maximum = table.scrollWidth - table.clientWidth;
+                      if (maximum <= 0) return;
+                      const next = event.key === "ArrowRight" ? Math.min(maximum, table.scrollLeft + 64)
+                        : event.key === "ArrowLeft" ? Math.max(0, table.scrollLeft - 64)
+                        : event.key === "Home" ? 0
+                        : event.key === "End" ? maximum : null;
+                      if (next === null) return;
+                      event.preventDefault();
+                      table.scrollLeft = next;
+                    }}
+                  >
                     <table>
                       <thead>
                         <tr>
