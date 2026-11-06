@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { apiJsonDocument, apiBlobDocument, saveBlob } from "./api";
 import { sha256Blob } from "./activityContracts";
+import { NativeBatchDraftFiles } from "./NativeBatchDraftFiles";
 import {
   defaultBatchBase as base,
   defaultBatchSource,
@@ -167,6 +168,29 @@ export function NativeDefaultBatchCompiler({
     else drafts.delete(sourceKey);
     redraw((v) => v + 1);
   }
+  function installDraft(
+    values: Record<string, string>,
+    ticket: number,
+    key: string,
+  ) {
+    if (!opened || !current(ticket, key)) return false;
+    const refs = Object.keys(values);
+    if (
+      Object.keys(drafts.get(sourceKey) ?? {}).length ||
+      !refs.length ||
+      refs.length > 16 ||
+      refs.some(
+        (ref) => !opened.fields.some((row: Data) => row.field.ref === ref),
+      ) ||
+      (!drafts.has(sourceKey) && drafts.size >= 32)
+    )
+      return false;
+    const next = Object.assign(Object.create(null), values);
+    retire();
+    drafts.set(sourceKey, next);
+    redraw((v) => v + 1);
+    return true;
+  }
   async function preview() {
     if (!opened || !current(renderedEpoch)) return;
     let request: Data;
@@ -320,6 +344,17 @@ export function NativeDefaultBatchCompiler({
             {opened.fields.length} actual typed fields. Drafts stay with this
             original capture; no current controller value is inferred.
           </p>
+          <NativeBatchDraftFiles
+            source={source}
+            opened={opened}
+            entries={entries}
+            hasDraft={Object.keys(entries).length > 0}
+            blocked={blocked || busy || !visible || !expanded}
+            parentOwner={owner}
+            parentEpoch={renderedEpoch}
+            parentCurrent={(ticket, key) => current(ticket, key)}
+            install={installDraft}
+          />
           <div
             className="application-operation-table"
             role="region"

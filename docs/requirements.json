@@ -1726,5 +1726,14 @@
     "pdf_pages_or_section": "Program / Native backup defaults; docs/native-batch-capabilities.md",
     "status": "implemented",
     "implementation_or_gap": "Opt-in profile20 retains profile19, actual field/source/hash agreement and one bounded 16-field composition witness, strict browser proof, exact received JSON and source/mode/task retirement. API default12 and ordinary UI14 remain unchanged. No batch field deployment, native runtime/CCT or physical acceptance."
+  },
+  {
+    "id": "UX-NATIVE-BATCH-TEXT-001",
+    "feature": "Source-bound unfinished native typed batch draft files",
+    "acceptance_criterion": "Save and explicitly restore exact unfinished selected native batch text against the same retained source/route/typed encodings, preserving existing selections and no-eviction limits without restoring review or field authority.",
+    "evidence": "Existing native typed batch source/Map ownership, strict original-backup portability and shared exact JSON/crypto contracts",
+    "pdf_pages_or_section": "Program / Native backup defaults; docs/native-batch-draft-files.md",
+    "status": "implemented",
+    "implementation_or_gap": "Strict 64KiB file with at most 16 distinct actual typed fields and 128 UTF-16 code units per raw value; complete source/file/merge/field bindings, atomic admission, replacement refusal, existing 32-source budget and read/digest lifecycle guards. Native compilers, ordinary drafts and field transfer remain separate."
   }
 ]

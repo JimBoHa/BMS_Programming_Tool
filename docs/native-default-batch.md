@@ -51,8 +51,9 @@ Ordinary single-field drafts remain separate while the batch task is open. A
 source can retain sixteen batch selections; up to thirty-two nonempty source
 drafts remain in the current workspace without eviction. Empty views consume no
 slot. Remove selections or explicitly **Discard this batch draft** to free work.
-These batch drafts are in memory; the existing single-Real session/file recovery
-feature remains separate.
+These batch drafts stay in memory until explicitly
+[saved as unfinished batch text](native-batch-draft-files.md). The existing
+single-Real session/file recovery feature remains separate.
 
 Proposal, source, controller context, task and visibility changes retire pending
 local reviews/downloads. Counters distinguish changes away and back to the same
