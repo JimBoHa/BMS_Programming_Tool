@@ -4,6 +4,12 @@ import { removalCapabilityEvidence } from "./nativeRemovalCapabilityContract";
 import type { NativeArchiveSource } from "./NativeRecords";
 import { controllerKey } from "./workflow";
 import { NativeTerminalCapabilities } from "./NativeTerminalCapabilities";
+import { nativeBackupOperationIds as operationIds } from "./nativeBackupOperationIds";
+import {
+  combinedCapabilityEvidence,
+  combinedCapabilityOperationIds,
+  combinedCapabilityProfile,
+} from "./nativeCombinedCapabilityContract";
 
 type Operation = {
   id: string;
@@ -17,35 +23,7 @@ type Report = {
   qualification: Record<string, any>;
   scope: string;
 };
-const operationIds = [
-  "archive-read",
-  "retained-backup-comparison",
-  "diagram-read",
-  "identity-compile",
-  "name-compile",
-  "saved-settings",
-  "signal-default-copy",
-  "boolean-default-copy",
-  "enum-default-copy",
-  "wire-source-copy",
-  "effective-wire-compile",
-  "matching-connection-copy",
-  "effective-connection-compile",
-  "connection-removal-copy",
-  "effective-connection-removal-compile",
-  "effective-boolean-compile",
-  "effective-enum-compile",
-  "effective-default-compile",
-  "identity-transfer",
-  "default-transfer",
-  "boolean-default-transfer",
-  "enum-default-transfer",
-  "wire-source-transfer",
-  "general-logic",
-  "matching-connection-transfer",
-  "release-packages",
-  "physical-acceptance",
-];
+
 const statuses = new Set([
   "source-qualified",
   "unavailable",
@@ -96,11 +74,15 @@ export function NativeBackupCapabilities({
 }: {
   source: NativeArchiveSource;
 }) {
+  const [extended, setExtended] = useState({ value: false, revision: 0 });
+  const modeNow = useRef(extended);
+  const details = useRef<HTMLDetailsElement>(null);
   const owner = JSON.stringify([
     source.capture_id,
     source.snapshot_sha256,
     source.sha256,
     controllerKey(source.target),
+    extended,
   ]);
   const ownerNow = useRef(owner),
     epoch = useRef(0),
@@ -117,7 +99,10 @@ export function NativeBackupCapabilities({
   const [failure, setFailure] = useState<Owned<string> | null>(null);
   const [pending, setPending] = useState<Owned<boolean> | null>(null);
   const current = (key: string, ticket: number) =>
-    alive.current && ownerNow.current === key && epoch.current === ticket;
+    alive.current &&
+    ownerNow.current === key &&
+    epoch.current === ticket &&
+    modeNow.current.revision === extended.revision;
   const report =
     loaded && current(loaded.owner, loaded.epoch) ? loaded.value.report : null;
   const error =
@@ -130,8 +115,17 @@ export function NativeBackupCapabilities({
       epoch.current++;
     };
   }, []);
+  useEffect(() => {
+    if (extended.revision > 0 && details.current?.open) void analyze();
+  }, [extended.revision]);
 
   async function analyze() {
+    if (
+      !alive.current ||
+      modeNow.current.revision !== extended.revision ||
+      ownerNow.current !== owner
+    )
+      return;
     const key = ownerNow.current,
       ticket = ++epoch.current;
     setLoaded(null);
@@ -143,13 +137,18 @@ export function NativeBackupCapabilities({
         {
           capture_id: source.capture_id,
           snapshot_sha256: source.snapshot_sha256,
-          capability_profile: "native-backup-operation-capabilities/14",
+          capability_profile: extended.value
+            ? combinedCapabilityProfile
+            : "native-backup-operation-capabilities/14",
         },
       );
       const data = document.data;
       if (
         data.profile !== "native-backup-record-inspection/1" ||
-        data.capability_profile !== "native-backup-operation-capabilities/14" ||
+        data.capability_profile !==
+          (extended.value
+            ? combinedCapabilityProfile
+            : "native-backup-operation-capabilities/14") ||
         data.source_kind !== "native-backup-archive" ||
         data.capture_id !== source.capture_id ||
         data.snapshot_sha256 !== source.snapshot_sha256 ||
@@ -176,16 +175,23 @@ export function NativeBackupCapabilities({
         !effectiveEnumEvidence(data, source) ||
         typeof data.scope !== "string" ||
         !Array.isArray(data.operations) ||
-        data.operations.length !== operationIds.length ||
+        data.operations.length !==
+          (extended.value ? combinedCapabilityOperationIds : operationIds)
+            .length ||
         !data.operations.every(
           (row: Operation, index: number) =>
-            row?.id === operationIds[index] &&
+            row?.id ===
+              (extended.value ? combinedCapabilityOperationIds : operationIds)[
+                index
+              ] &&
             statuses.has(row.status) &&
             [row.operation, row.basis, row.next_step].every(
               (value) => typeof value === "string",
             ),
         ) ||
-        !removalCapabilityEvidence(data, source) ||
+        !(extended.value
+          ? combinedCapabilityEvidence(data, source)
+          : removalCapabilityEvidence(data, source)) ||
         data.operations.find((row: Operation) => row.id === "enum-default-copy")
           ?.status !==
           (data.qualification.archive_enum_default_count > 0
@@ -226,6 +232,7 @@ export function NativeBackupCapabilities({
   }
   return (
     <details
+      ref={details}
       className="application-operation-support"
       aria-label="Native backup operation support"
       onToggle={(event) => {
@@ -239,6 +246,25 @@ export function NativeBackupCapabilities({
         bytes. A fresh controller review is still required for transfer. This
         analysis prepares no write and verifies no current connection.
       </p>
+      <label>
+        <input
+          type="checkbox"
+          checked={extended.value}
+          onChange={(event) => {
+            const next = {
+              value: event.currentTarget.checked,
+              revision: modeNow.current.revision + 1,
+            };
+            modeNow.current = next;
+            epoch.current++;
+            setLoaded(null);
+            setFailure(null);
+            setPending(null);
+            setExtended(next);
+          }}
+        />
+        Include combined default/connection and terminal operation support
+      </label>
       {busy && <p role="status">Analyzing retained native files…</p>}
       {error && (
         <>
@@ -265,7 +291,31 @@ export function NativeBackupCapabilities({
             )}
             . These version namespaces are separate.
           </p>
-          <div className="application-operation-table">
+          <div
+            className="application-operation-table"
+            role="region"
+            aria-label="Native backup operation table viewport"
+            tabIndex={0}
+            onKeyDown={(event) => {
+              const viewport = event.currentTarget;
+              if (
+                event.target !== viewport ||
+                event.altKey ||
+                event.ctrlKey ||
+                event.metaKey ||
+                event.shiftKey ||
+                !["ArrowLeft", "ArrowRight"].includes(event.key) ||
+                viewport.scrollWidth <= viewport.clientWidth
+              )
+                return;
+              event.preventDefault();
+              event.stopPropagation();
+              viewport.scrollBy({
+                left: event.key === "ArrowRight" ? 80 : -80,
+                top: 0,
+              });
+            }}
+          >
             <table aria-label="Native backup operations">
               <thead>
                 <tr>

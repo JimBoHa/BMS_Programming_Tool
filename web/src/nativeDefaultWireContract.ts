@@ -186,8 +186,35 @@ export function defaultWireReview(
   request: Data,
   field: Data,
 ) {
-  const c = value?.compilation,
-    d = c?.selected_default,
+  if (
+    !envelope(value, source) ||
+    !same(value.request, request) ||
+    !hash(value.review_sha256) ||
+    value.source_sha256 !== opened.source_sha256 ||
+    value.effective_sha256 !== opened.effective_sha256 ||
+    !filesMatch(value.files, opened.files)
+  )
+    return false;
+  return defaultWireCompilation(
+    value.compilation,
+    opened,
+    selected,
+    request,
+    field,
+    value.output_sha256,
+  );
+}
+
+/** Local report consistency only; this grants no review, export or field authority. */
+export function defaultWireCompilation(
+  c: Data,
+  opened: Data,
+  selected: Data,
+  request: Data,
+  field: Data,
+  outputSha256: unknown,
+) {
+  const d = c?.selected_default,
     w = c?.selected_wire;
   const candidate = selected?.selection.candidates.find(
     (r: Data) => r.ref === request.source_ref,
@@ -195,12 +222,6 @@ export function defaultWireReview(
   const original = selected?.selection.selected_wire,
     expected = real(request.value_text);
   if (
-    !envelope(value, source) ||
-    !same(value.request, request) ||
-    !hash(value.review_sha256) ||
-    value.source_sha256 !== opened.source_sha256 ||
-    value.effective_sha256 !== opened.effective_sha256 ||
-    !filesMatch(value.files, opened.files) ||
     !c ||
     c.profile !== defaultWireProfile ||
     !filesMatch(c.files, opened.files) ||
@@ -208,8 +229,8 @@ export function defaultWireReview(
     c.archive_sha256 !== opened.source_sha256 ||
     c.effective_sha256 !== opened.effective_sha256 ||
     c.effective_native_sha256 !== opened.parameter_merge.native_output_sha256 ||
-    !hash(value.output_sha256) ||
-    c.compiled_sha256 !== value.output_sha256 ||
+    !hash(outputSha256) ||
+    c.compiled_sha256 !== outputSha256 ||
     !hash(c.compiled_native_sha256) ||
     !integer(c.native_record_count, 20000) ||
     c.native_record_count <= selected.selection.block_count ||
@@ -312,8 +333,8 @@ export function defaultWireReview(
     fw.source_native_sha256 === d.native_output_sha256 &&
     rd.source_sha256 === reverse.intermediate_sha256 &&
     rd.native_source_sha256 === w.output_native_sha256 &&
-    fw.output_sha256 === value.output_sha256 &&
-    rd.output_sha256 === value.output_sha256 &&
+    fw.output_sha256 === outputSha256 &&
+    rd.output_sha256 === outputSha256 &&
     fw.output_native_sha256 === c.compiled_native_sha256 &&
     rd.native_output_sha256 === c.compiled_native_sha256 &&
     [

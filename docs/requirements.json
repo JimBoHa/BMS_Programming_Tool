@@ -1690,5 +1690,14 @@
     "pdf_pages_or_section": "docs/native-default-wire-transfer.md; docs/native-combined-default-wire.md; docs/native-default-transfer.md",
     "status": "implemented",
     "implementation_or_gap": "The existing combined Program task adds an independent sealed one-use transfer profile with fresh File 3/directory/default/configuration guards, actual identity/interface/expiry/credentials, final capacity/readable durable backup and intent, one File 3 restore and full native/effective readback. Both confirmations and application interruption are explicit. Source/task/route/disclosure/proposal counters retire stale and ABA reviews. Exact JSON evidence, unknown/not-sent distinction, restart/readback without replay and bounded Changes/History projections preserve original single-edit workflows and historical non-authority. No new blocks/IDs/connections, hardware changes, general compiler, package/resource/native execution, direct serial/BTCVT, CCT comparison or physical acceptance; JCI-03 and JCI-09 remain partial."
+  },
+  {
+    "id": "FMT-NATIVE-COMBINED-CAPABILITIES-001",
+    "feature": "Captured-source combined native Real-default and connection operation support",
+    "acceptance_criterion": "Qualify one actual paired local compilation from immutable native files, independently distinguish native type and captured transport preflight, preserve older capability profiles, and bind read-only table/results/downloads to source and analysis mode without staging edits or transfer authority.",
+    "evidence": "Authored native/saved records, literal byte deltas, bounded pair-search and exact legacy-prefix checks, strict HTTP/disconnected UDP acquisition and source/installed Chromium/WebKit workflows.",
+    "pdf_pages_or_section": "docs/native-combined-operation-capabilities.md; docs/native-combined-default-wire.md; docs/native-default-wire-transfer.md",
+    "status": "implemented",
+    "implementation_or_gap": "Explicit profile19 adds two operations after the byte-equivalent profile18 prefix while preserving API default12 and ordinary UI profile14. Actual source/selection and independent/intermediate joint-compiler reports prove two changed fields; omitted-field types and captured transport remain separate from local support. Hypothetical bounded search stages no user draft, local review seal, output file, field plan or receipt. Strict client predicates, source/route/mode counters, coalesced ABA retirement, exact JSON export and keyboard-scrollable existing table retain provenance. No general compiler, packages/resources/native execution, release migration, CCT or physical acceptance; JCI-01 remains partial."
   }
 ]
