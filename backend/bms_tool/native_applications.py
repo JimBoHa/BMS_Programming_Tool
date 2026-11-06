@@ -33,6 +33,13 @@ from .moi_identity import MoiIdentity, controller_name, seal, sha
 from .moi_parameters import ParameterApplication
 from .native_backup_records import BackupInspectionSource, NativeBackupRecords
 from .native_binary_terminal_recovery import NativeBinaryTerminalRecovery
+from .native_binary_terminal_recovery_transfer import BinaryTerminalRecoveryPreview
+from .native_binary_terminal_recovery_transfer import (
+    recovery_origin as binary_terminal_recovery_origin,
+)
+from .native_binary_terminal_recovery_transfer import (
+    validate_plan as validate_binary_terminal_recovery_plan,
+)
 from .native_boolean_recovery import PROFILE as BOOLEAN_RECOVERY_PROFILE
 from .native_boolean_recovery import NativeBooleanRecovery
 from .native_boolean_transfer import PROFILE as BOOLEAN_DEFAULT_PROFILE
@@ -1539,6 +1546,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                 raise ValueError("The exact binary terminal review changed; review again.")
             validate_terminal_recovery_plan(plan["body"], plan["options"])
             validate_encoded_analog_recovery_plan(plan["body"], plan["options"])
+            validate_binary_terminal_recovery_plan(plan["body"], plan["options"])
         if (
             not request.application_transfer_confirmed
             or (wire_edit and not request.wire_change_confirmed)
@@ -1711,6 +1719,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                         {
                             **terminal_recovery_origin(self, options, compilation),
                             **encoded_analog_recovery_origin(self, options, compilation),
+                            **binary_terminal_recovery_origin(self, options, compilation),
                         }
                         if input_edit
                         else {}
@@ -2031,6 +2040,10 @@ def native_application_router(service):
         return NativeBinaryTerminalRecovery(NativeBackupRecords(service.storage)).prepare(
             body.model_dump()
         )
+
+    @router.post("/input/binary-terminal/recovery/preview")
+    async def preview_binary_terminal_recovery(body: BinaryTerminalRecoveryPreview):
+        return await service.preview_binary_terminal_recovery(**body.model_dump())
 
     @router.post("/input/encoded-terminal/recovery/prepare")
     def prepare_encoded_analog_recovery(body: DefaultRecoveryPrepare):
