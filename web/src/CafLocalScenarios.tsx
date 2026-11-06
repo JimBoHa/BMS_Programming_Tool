@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, saveBlob } from "./api";
 
 import { apiBlobDocument } from "./api";
@@ -20,19 +20,99 @@ type Trace = {
   frames: { time: number; inputs: Record<string, Sample> }[];
 };
 
-export function CafLocalScenarios({
-  sha,
-  filename,
-  visible,
-  parentBusy,
-  onDirtyChange,
-}: {
+type ScenarioProps = {
   sha: string;
   filename: string;
   visible: boolean;
   parentBusy: boolean;
   onDirtyChange: (dirty: boolean) => void;
-}) {
+};
+export function CafLocalScenarios(props: ScenarioProps) {
+  const [version, setVersion] = useState<1 | 2>(1);
+  const activeVersion = useRef(1),
+    profileRevision = useRef(0);
+  const renderRevision = profileRevision.current;
+  const [visitedEnum, setVisitedEnum] = useState(false);
+  const [legacyDirty, setLegacyDirty] = useState(false);
+  const [enumDirty, setEnumDirty] = useState(false);
+  const legacyChanged = useCallback(
+    (dirty: boolean) => setLegacyDirty(dirty),
+    [],
+  );
+  const enumChanged = useCallback((dirty: boolean) => setEnumDirty(dirty), []);
+  useEffect(() => {
+    props.onDirtyChange(legacyDirty || enumDirty);
+    return () => props.onDirtyChange(false);
+  }, [legacyDirty, enumDirty, props.onDirtyChange]);
+  return (
+    <div>
+      <label>
+        Local scenario input profile
+        <select
+          aria-label="Local scenario input profile"
+          value={version}
+          disabled={!props.visible || props.parentBusy}
+          onChange={(e) => {
+            const next = Number(e.target.value) as 1 | 2;
+            if (next === activeVersion.current) return;
+            activeVersion.current = next;
+            profileRevision.current++;
+            if (next === 2) setVisitedEnum(true);
+            setVersion(next);
+          }}
+        >
+          <option value={1}>Float and Boolean inputs (version 1)</option>
+          <option value={2}>Include Enum numeric inputs (version 2)</option>
+        </select>
+      </label>
+      {visitedEnum && (
+        <p>
+          Each version retains its own local draft. Enum codes describe numeric
+          input stimuli; allowed states and code meanings remain unverified.
+        </p>
+      )}
+      <div hidden={version !== 1}>
+        <CafScenarioEditor
+          {...props}
+          version={1}
+          profileCurrent={() =>
+            activeVersion.current === 1 &&
+            profileRevision.current === renderRevision
+          }
+          visible={props.visible && version === 1}
+          onDirtyChange={legacyChanged}
+        />
+      </div>
+      {visitedEnum && (
+        <div hidden={version !== 2}>
+          <CafScenarioEditor
+            {...props}
+            version={2}
+            profileCurrent={() =>
+              activeVersion.current === 2 &&
+              profileRevision.current === renderRevision
+            }
+            visible={props.visible && version === 2}
+            onDirtyChange={enumChanged}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+function CafScenarioEditor({
+  sha,
+  filename,
+  visible,
+  parentBusy,
+  onDirtyChange,
+  version,
+  profileCurrent,
+}: ScenarioProps & { version: 1 | 2; profileCurrent: () => boolean }) {
+  const endpoint = (path = "") =>
+    `/caf/${sha}/local-scenarios${path}${version === 2 ? "?scenario_version=2" : ""}`;
+  const simulationEndpoint = (path = "") =>
+    `/caf/${sha}/simulation${path}${version === 2 ? "?profile_version=2" : ""}`;
   const [template, setTemplate] = useState<Scenario | null>(null);
   const [draft, setDraft] = useState<Scenario | null>(null);
   const [savedSignature, setSavedSignature] = useState("");
@@ -68,7 +148,7 @@ export function CafLocalScenarios({
   useEffect(() => {
     mounted.current = true;
     setBusy(true);
-    api(`/caf/${sha}/local-scenarios`)
+    api(endpoint())
       .then((result) => {
         if (!mounted.current) return;
         setTemplate(result.template);
@@ -148,7 +228,7 @@ export function CafLocalScenarios({
     }
   }
   async function refresh() {
-    const result = await api(`/caf/${sha}/local-scenarios`);
+    const result = await api(endpoint());
     if (mounted.current) setSaved(result.saved);
   }
   function addEvent() {
@@ -202,7 +282,7 @@ export function CafLocalScenarios({
     if (!draft) return;
     const snapshot = draft;
     await perform(async () => {
-      const result = await api(`/caf/${sha}/local-scenarios/save`, {
+      const result = await api(endpoint("/save"), {
         scenario: snapshot,
         id: copy ? null : identity,
         expected_revision: copy ? 0 : revision,
@@ -220,7 +300,7 @@ export function CafLocalScenarios({
   async function reopen() {
     if (!selected || !discard()) return;
     await perform(async () => {
-      const result = await api(`/caf/${sha}/local-scenarios/${selected}`);
+      const result = await api(endpoint(`/${selected}`));
       if (!mounted.current) return;
       update(result.scenario);
       setSavedSignature(JSON.stringify(result.scenario));
@@ -241,7 +321,7 @@ export function CafLocalScenarios({
       return;
     await perform(async () => {
       await api(
-        `/caf/${sha}/local-scenarios/${identity}`,
+        endpoint(`/${identity}`),
         { expected_revision: revision },
         "DELETE",
       );
@@ -260,7 +340,7 @@ export function CafLocalScenarios({
     await perform(async () => {
       if (file.size > 2 * 1024 * 1024)
         throw new Error("Local input scenario exceeds 2 MiB.");
-      const result = await api(`/caf/${sha}/local-scenarios/validate`, {
+      const result = await api(endpoint("/validate"), {
         scenario: JSON.parse(await file.text()),
       });
       if (!mounted.current) return;
@@ -279,12 +359,13 @@ export function CafLocalScenarios({
     const snapshot = draft;
     const expected = signature;
     await perform(async () => {
-      const result = await api(`/caf/${sha}/local-scenarios/validate`, {
+      const result = await api(endpoint("/validate"), {
         scenario: snapshot,
       });
       if (
         !mounted.current ||
         !visibleNow.current ||
+        !profileCurrent() ||
         liveSignature.current !== expected
       )
         return;
@@ -304,7 +385,7 @@ export function CafLocalScenarios({
     const snapshot = draft;
     const expected = signature;
     await perform(async () => {
-      const result = await api(`/caf/${sha}/local-scenarios/preview`, {
+      const result = await api(endpoint("/preview"), {
         scenario: snapshot,
       });
       if (!mounted.current || liveSignature.current !== expected) return;
@@ -326,30 +407,28 @@ export function CafLocalScenarios({
     const current = () =>
       mounted.current &&
       visibleNow.current &&
+      profileCurrent() &&
       request === startupRequest.current &&
       liveSignature.current === expected &&
       liveFrame.current === frameSignature;
     await perform(async () => {
       try {
         const [inventory, baseline] = await Promise.all([
-          api(`/caf/${sha}/simulation`),
-          api(`/caf/${sha}/simulation/profile`),
+          api(simulationEndpoint()),
+          api(simulationEndpoint("/profile")),
         ]);
         if (!current()) return;
-        admitSimulationSource(inventory, baseline, sha, 1);
+        admitSimulationSource(inventory, baseline, sha, version);
         const expectedProfile = scenarioStartupProfile(
           snapshot,
           selectedFrame.time,
           baseline,
           originalTemplate,
         );
-        const prepared = await api(
-          `/caf/${sha}/local-scenarios/startup-profile`,
-          {
-            scenario: snapshot,
-            time: selectedFrame.time,
-          },
-        );
+        const prepared = await api(endpoint("/startup-profile"), {
+          scenario: snapshot,
+          time: selectedFrame.time,
+        });
         if (!current()) return;
         const profile = admitStartupProfile(
           prepared.profile,
@@ -358,7 +437,7 @@ export function CafLocalScenarios({
         );
         const verifyCopy = await simulationCopyVerifier(profile, sha);
         if (!current()) return;
-        const result = await apiBlobDocument(`/caf/${sha}/simulation`, {
+        const result = await apiBlobDocument(simulationEndpoint(), {
           profile,
         });
         await verifyCopy(result);
@@ -382,6 +461,12 @@ export function CafLocalScenarios({
       aria-label="Local CAF input scenarios"
     >
       <h2>Local CAF input scenarios</h2>
+      {version === 2 && (
+        <p role="note">
+          Version 2 includes eligible recorded Input Enum codes. Membership,
+          labels and native execution remain unverified.
+        </p>
+      )}
       <p>
         Save named value and quality trajectories for supported saved input
         records. Preview shows input stimuli only. Native CAF logic and
@@ -406,7 +491,7 @@ export function CafLocalScenarios({
         <p>Loading local input contract…</p>
       ) : !supported ? (
         <p>
-          No supported saved Input Float or Input Boolean startup records.
+          No supported saved input startup records for this selected version.
           Output blocks, enums and unknown records cannot become local inputs.
         </p>
       ) : (

@@ -1707,8 +1707,8 @@ def create_app(state_dir=None, *, operation_power=None):
         )
 
     @app.get("/api/caf/{id}/local-scenarios")
-    def caf_local_scenarios(id: str):
-        adapter = CafInputScenarios(get_caf(id))
+    def caf_local_scenarios(id: str, scenario_version: int = 1):
+        adapter = CafInputScenarios(get_caf(id), version=scenario_version)
         return {
             "contract": adapter.contract(),
             "template": adapter.template(),
@@ -1716,31 +1716,52 @@ def create_app(state_dir=None, *, operation_power=None):
         }
 
     @app.post("/api/caf/{id}/local-scenarios/validate")
-    def caf_local_scenario_validate(id: str, body: CafLocalScenarioRequest):
-        return {"scenario": CafInputScenarios(get_caf(id)).validate(body.scenario)}
+    def caf_local_scenario_validate(
+        id: str, body: CafLocalScenarioRequest, scenario_version: int = 1
+    ):
+        return {
+            "scenario": CafInputScenarios(get_caf(id), version=scenario_version).validate(
+                body.scenario
+            )
+        }
 
     @app.post("/api/caf/{id}/local-scenarios/preview")
-    def caf_local_scenario_preview(id: str, body: CafLocalScenarioRequest):
-        return CafInputScenarios(get_caf(id)).preview(body.scenario)
+    def caf_local_scenario_preview(
+        id: str, body: CafLocalScenarioRequest, scenario_version: int = 1
+    ):
+        return CafInputScenarios(get_caf(id), version=scenario_version).preview(body.scenario)
 
     @app.post("/api/caf/{id}/local-scenarios/startup-profile")
-    def caf_local_scenario_startup(id: str, body: CafLocalScenarioFrame):
-        return {"profile": CafInputScenarios(get_caf(id)).startup_profile(body.scenario, body.time)}
+    def caf_local_scenario_startup(id: str, body: CafLocalScenarioFrame, scenario_version: int = 1):
+        return {
+            "profile": CafInputScenarios(get_caf(id), version=scenario_version).startup_profile(
+                body.scenario, body.time
+            )
+        }
 
     @app.post("/api/caf/{id}/local-scenarios/save")
-    def caf_local_scenario_save(id: str, body: CafLocalScenarioSave):
+    def caf_local_scenario_save(id: str, body: CafLocalScenarioSave, scenario_version: int = 1):
         return caf_scenarios.save(
-            CafInputScenarios(get_caf(id)), body.scenario, body.id, body.expected_revision
+            CafInputScenarios(get_caf(id), version=scenario_version),
+            body.scenario,
+            body.id,
+            body.expected_revision,
         )
 
     @app.get("/api/caf/{id}/local-scenarios/{scenario_id}")
-    def caf_local_scenario_load(id: str, scenario_id: str):
-        return caf_scenarios.load(CafInputScenarios(get_caf(id)), scenario_id)
+    def caf_local_scenario_load(id: str, scenario_id: str, scenario_version: int = 1):
+        return caf_scenarios.load(
+            CafInputScenarios(get_caf(id), version=scenario_version), scenario_id
+        )
 
     @app.delete("/api/caf/{id}/local-scenarios/{scenario_id}")
-    def caf_local_scenario_delete(id: str, scenario_id: str, body: CafLocalScenarioDelete):
+    def caf_local_scenario_delete(
+        id: str, scenario_id: str, body: CafLocalScenarioDelete, scenario_version: int = 1
+    ):
         return caf_scenarios.delete(
-            CafInputScenarios(get_caf(id)), scenario_id, body.expected_revision
+            CafInputScenarios(get_caf(id), version=scenario_version),
+            scenario_id,
+            body.expected_revision,
         )
 
     @app.post("/api/caf/{id}/export")
