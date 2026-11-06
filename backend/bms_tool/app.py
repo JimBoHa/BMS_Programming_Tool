@@ -51,6 +51,7 @@ from .caf_native_correlation import CafNativeCorrelationRequest, correlate
 from .caf_native_file_correlation import CafNativeFileCorrelationRequest, NativeFileCorrelation
 from .caf_reference_labels import CafReferenceLabels
 from .caf_reliability_api import reliability_router
+from .caf_scalar_drafts import CafScalarDrafts, scalar_draft_router
 from .caf_scenarios import CafInputScenarios, CafScenarioStore
 from .caf_simulation import CafSimulationProfile, simulation_request_sha256
 from .caf_source_references import CafSourceReferences, source_reference_router
@@ -619,6 +620,7 @@ def create_app(state_dir=None, *, operation_power=None):
     backup_records = NativeBackupRecords(native_applications.storage)
     backup_comparison = NativeBackupComparison(backup_records)
     caf_source_references = CafSourceReferences(store, backup_records, caf_native_files)
+    caf_scalar_drafts = CafScalarDrafts(store)
     boolean_copies = NativeBooleanCopies(backup_records)
     boolean_compiler = EffectiveBooleanService(backup_records)
     wire_copies = NativeWireCopies(backup_records)
@@ -790,6 +792,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.state.native_backup_records = backup_records
     app.state.native_backup_comparison = backup_comparison
     app.state.caf_source_references = caf_source_references
+    app.state.caf_scalar_drafts = caf_scalar_drafts
     app.state.native_boolean_copies = boolean_copies
     app.state.native_boolean_compiler = boolean_compiler
     app.include_router(native_application_router(native_applications))
@@ -1527,6 +1530,7 @@ def create_app(state_dir=None, *, operation_power=None):
         return caf_files[id]
 
     app.include_router(source_reference_router(caf_source_references, get_caf))
+    app.include_router(scalar_draft_router(caf_scalar_drafts, get_caf))
     app.include_router(constant_router(get_caf))
     app.include_router(boolean_constant_router(get_caf))
     app.include_router(enum_constant_router(get_caf))

@@ -83,6 +83,11 @@ allocation confirmations. Instance text stays with its exact route/interface;
 verified Apply or explicit readback clears only its matching completed proposal.
 This is in-memory workspace retention, not durable draft storage across reloads.
 
+Native CAF scalar proposals have separate [saved draft checkpoints](docs/caf-scalar-draft-recovery.md).
+Explicit save and restore preserve unfinished raw text across restarts, bound to
+the original CAF hash and guarded checkpoint revision. These checkpoints do not
+include other native edit families or restore field reviews.
+
 ## Existing capabilities to preserve and credit
 
 [IP route-change qualification](docs/ip-route-change-qualification.md) now
@@ -2023,3 +2028,22 @@ Saved historical references cannot provide live inventories, matching logic,
 compiler compatibility or transfer authority. General native authoring, package
 qualification and physical acceptance remain separate roadmap work. JCI-07 remains
 partial. See [saved CAF/source references](docs/caf-source-references.md).
+
+## 2026-11-05 JCI-02/UX-04 delivery: saved unfinished CAF scalar drafts
+
+`UI-CAF-SCALAR-DRAFTS-001` adds explicit draft checkpoints within existing local
+CAF Changes. Exact unfinished scalar text can be saved and restored after reopening
+the same original CAF. Source-derived property and Enum eligibility are checked
+again without parsing or normalizing incomplete replacement text. Existing guarded
+CAF export remains the authority for producing a local copy.
+
+Restoration preserves differing current proposals until explicit replacement,
+retires earlier scalar export-success state and keeps other edit families intact.
+Saved checkpoints remain until explicit removal. Transactional generation/revision
+checks prevent concurrent overwrite and stale updates after deletion/recreation;
+bounded storage retains earlier work without eviction.
+
+Continue recovery for other native edit families and broader typed native authoring.
+This local scalar scope does not establish compiler/package compatibility, field
+write authority or physical acceptance. JCI-02 and UX-04 remain partial.
+See [CAF scalar draft recovery](docs/caf-scalar-draft-recovery.md).
