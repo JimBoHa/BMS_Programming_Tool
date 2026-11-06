@@ -311,9 +311,17 @@ test("manual terminal editing retires staged lineage and keeps the saved ordinar
   await binary
     .getByLabel("Binary terminal destination", { exact: true })
     .selectOption("2");
+  const ordinary = binary.getByRole("region", {
+    name: "Staged previous binary terminal",
+    exact: true,
+  });
+  await expect(ordinary).toContainText(
+    "The saved ordinary binary draft is retained. This edited proposal needs its own review.",
+  );
+  await expect(ordinary).not.toContainText(f.parent.id);
   await expect(
-    binary.getByRole("region", {
-      name: "Staged previous binary terminal",
+    ordinary.getByRole("button", {
+      name: "Save staged binary recovery evidence",
       exact: true,
     }),
   ).toHaveCount(0);
