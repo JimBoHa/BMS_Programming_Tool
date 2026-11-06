@@ -2066,3 +2066,24 @@ This implements a bounded local graph-editing scope under JCI-02/JCI-03. General
 native logic generation, compiler/package/resource validation, unwired runtime
 behavior and physical deployment remain incomplete. Next independent authoring
 priorities are combined scalar/wiring CAF copies and opt-in Enum input scenarios.
+
+## 2026-11-06 JCI-02/JCI-03 delivery: combined scalar and wiring CAF copies
+
+`FMT-CAF-COMBINED-COPY-001` adds one explicit local copy containing current scalar
+proposals and one selected existing-source rewire or connection addition. The
+contextual Program → Logic task preserves the existing scalar-only Save action,
+separate graph operations, original-source drafts and verified explicit copy
+opening. If two wiring candidates exist, the operator chooses which one to include.
+
+The adapter admits both operations independently against the original CAF, runs
+both composition orders and checks the final XML against independently bounded
+original byte deltas. It preserves identities, native types/configuration, unrelated
+XML and archive metadata. Raw text, canonical exported values, actual changed-field
+counts and literal intermediate reports remain distinct. Fully unchanged output
+returns the exact original bytes. Stale work cannot download a partial result or
+mark only one proposal family exported.
+
+Continue opt-in Enum input scenarios and recovery for other native edit families.
+General authoring, native compilation/package/resource qualification and physical
+deployment remain separate work. JCI-02/JCI-03 remain partial.
+See [combined CAF copies](docs/caf-combined-copy.md).
