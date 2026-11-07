@@ -1870,5 +1870,14 @@
     "pdf_pages_or_section": "PDF 235-236; 120.2(b)1-3 and exceptions; SEQ-01",
     "status": "implemented",
     "implementation_or_gap": "Three single-duct families, fixed/input setpoints, P/PI and position/flow-feedback; unit-aware declared bounds/gap and source/profile/choice binding, editable graph, revision/export and local/interpreted plus compiled-host simulations. Bad quality retains the prior whole scan including diagnostics. No native reliability/interlock/CAF/compiler/transfer, full ventilation/occupancy/heating/G36/Title24 certification or physical acceptance; float32 host boundary equivalence is not universal."
+  },
+  {
+    "id": "COMM-NATIVE-ORDER-PREVIOUS-PROPOSAL-001",
+    "feature": "Verified previous native execution-order local proposal",
+    "acceptance_criterion": "Reconstruct a supported verified original order result, require an exactly matching retained after source and static directory, compile its guarded previous permutation and explicitly load a source-bound local editor draft without field authority.",
+    "evidence": "Existing native order compiler and original transfer/result proof; docs/native-order-recovery-proposal.md",
+    "pdf_pages_or_section": "JCI-03;JCI-10; previous-order assistance and separate fresh review",
+    "status": "implemented",
+    "implementation_or_gap": "Actual inverse compilation, independent native/phase/width/other-byte preservation, exact evidence/local native-file export and contextual draft/source/proof/lifetime ownership. Changed saved/schema/application sources are refused. Fresh controller review/transfer/readback stays separate; no recorded field recovery lineage, automatic rollback, general native compiler/packages/resources, CCT/firmware/physical acceptance."
   }
 ]

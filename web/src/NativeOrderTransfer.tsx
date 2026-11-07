@@ -47,6 +47,7 @@ export function NativeOrderTransfer({
   onOwnedBusy,
   parentGeneration,
   parentCurrent,
+  onPreviousOrder,
 }: {
   source: NativeArchiveSource;
   proposal: Data | null;
@@ -57,6 +58,7 @@ export function NativeOrderTransfer({
   onOwnedBusy: (value: boolean, kind: Kind) => void;
   parentGeneration: string;
   parentCurrent: () => boolean;
+  onPreviousOrder: (request: Data) => boolean;
 }) {
   const context = useContext(NativeBooleanTransferContext);
   const busyOwner = useRef("execution-order-" + randomUUID());
@@ -446,7 +448,8 @@ export function NativeOrderTransfer({
         base + "/receipts/" + chosenReceipt,
       );
       if (
-        (!(await orderTransferReceipt(document.data)) && !(await orderMatchParent(document.data))) ||
+        (!(await orderTransferReceipt(document.data)) &&
+          !(await orderMatchParent(document.data))) ||
         document.data.intent?.id !== chosenReceipt
       ) {
         throw new Error(
@@ -638,9 +641,16 @@ export function NativeOrderTransfer({
       )}
       {receipt && (
         <section aria-label="Execution-order transfer result">
-          <NativeOrderResultMatch source={source} opened={opened} receipt={receipt.data}
-            visible={visible} blocked={locked} revision={owner}
-            parentCurrent={() => current(owner, renderedEpoch)} />
+          <NativeOrderResultMatch
+            source={source}
+            opened={opened}
+            receipt={receipt.data}
+            visible={visible}
+            blocked={locked}
+            revision={owner}
+            onPreviousOrder={onPreviousOrder}
+            parentCurrent={() => current(owner, renderedEpoch)}
+          />
           {receiptTarget && (
             <p>Original transfer target: {targetLabel(receiptTarget)}.</p>
           )}

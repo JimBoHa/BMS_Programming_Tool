@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-07. Implementation baseline: GitHub `main` at
-[`d2ab24c6`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/d2ab24c642bcc204beb6d8cc1a9a0dfa008a01d8).
+[`a553443b`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/a553443b1629be59c13dcb25119619c989a51505).
 
 ## Baseline and purpose
 
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 208 scoped criteria: 154
+The public requirement register currently records 209 scoped criteria: 155
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -2609,3 +2609,20 @@ diagnostics. Native JCI allocation/reliability/interlocks/CAF/compiler/transfer,
 complete ventilation/occupancy/heating/G36/Title24 conformance and physical
 acceptance remain unfinished. See [the declared guard](docs/vav-setpoint-guard.md)
 for source, unit/precision and operational limits. SEQ-01 remains open.
+
+
+## 2026-11-07 JCI-03/JCI-10 delivery: previous execution-order local proposal
+
+`COMM-NATIVE-ORDER-PREVIOUS-PROPOSAL-001` reconstructs a verified original native
+order result and requires the selected retained after application/effective order
+and static directory to match. It compiles the actual guarded original
+permutation with independent structure/byte/phase/width checks and exact origin
+evidence. Preparation preserves unfinished work; an explicit confirmed action
+can replace the local draft and use the existing native copy review/export.
+
+No controller request, review authority, old-plan replay or automatic rollback
+is added. Changed sources are refused, not guessed to be already restored. An
+ordinary separately confirmed new field transfer remains distinct from recorded
+recovery lineage, which is not provided by this local assistance. General native
+authoring, package/resource/runtime/CCT and physical acceptance remain separate.
+See [previous-order proposals](docs/native-order-recovery-proposal.md).

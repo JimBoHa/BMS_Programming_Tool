@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { NativeOrderRecoveryProposal } from "./NativeOrderRecoveryProposal";
 import "./change-ledger.css";
 import { apiJsonDocument, saveBlob } from "./api";
 import type { NativeArchiveSource } from "./NativeRecords";
@@ -18,6 +19,7 @@ export function NativeOrderResultMatch({
   blocked,
   revision,
   parentCurrent,
+  onPreviousOrder,
 }: {
   source: NativeArchiveSource;
   opened: Data | null;
@@ -26,6 +28,7 @@ export function NativeOrderResultMatch({
   blocked: boolean;
   revision: string;
   parentCurrent: () => boolean;
+  onPreviousOrder: (request: Data) => boolean;
 }) {
   const [document, setDocument] = useState<Document | null>(null),
     [pending, setPending] = useState(false),
@@ -303,6 +306,17 @@ export function NativeOrderResultMatch({
           >
             Save exact execution-order comparison
           </button>
+          <NativeOrderRecoveryProposal
+            source={source}
+            opened={opened}
+            receipt={receipt}
+            comparison={shown.data}
+            visible={visible}
+            blocked={blocked || pending}
+            revision={owner}
+            parentCurrent={() => current(shown.owner, shown.epoch)}
+            onPreviousOrder={onPreviousOrder}
+          />
           <p>
             Original archive encoding and saved-directory layout are separate
             from expanded/effective application equivalence. This evidence
