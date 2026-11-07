@@ -1807,5 +1807,14 @@
     "pdf_pages_or_section": "Recorded property3117; JCI-02/JCI-03",
     "status": "implemented",
     "implementation_or_gap": "Strict source-bound local permutation/dependency checks; exact numeric-span edit and independent graph/XML/ZIP readback; bounded retained drafts and byte-checked browser exports. No native runtime, resource, CCT or controller acceptance."
+  },
+  {
+    "id": "FMT-NATIVE-EFFECTIVE-ORDER-001",
+    "feature": "Saved-effective native execution-order compilation",
+    "acceptance_criterion": "Compile a complete existing-member order permutation from actual retained saved settings while preserving recorded wire phase relationships, original numeric widths and all other expanded bytes.",
+    "evidence": "Observed tagged-MOI order/membership/connection records and qualified saved-parameter merge; docs/native-execution-order.md",
+    "pdf_pages_or_section": "JCI-02/JCI-03; recorded property3117",
+    "status": "implemented",
+    "implementation_or_gap": "Identity-qualified immutable File3/11/12 merge; exact width-preserving order patches, independent graph/native readback, strict source/review/export seals and bounded draft-aware local UI. Fresh transfer, new identities, general compiler/resource/package/runtime/CCT and physical acceptance remain separate."
   }
 ]

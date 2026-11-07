@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
-Updated: 2026-11-06. Implementation baseline: GitHub `main` at
-[`d363dd43`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/d363dd43450add68e174804ead5415416f7e502d).
+Updated: 2026-11-07. Implementation baseline: GitHub `main` at
+[`4b16f098`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/4b16f0987710af3c9c2bac5eaf169e824859fbf1).
 
 ## Baseline and purpose
 
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 201 scoped criteria: 147
+The public requirement register currently records 202 scoped criteria: 148
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -2497,3 +2497,16 @@ retiring reviews and stale callbacks across source/context/navigation changes.
 General block semantics, resource/package validation, native compilation/download,
 CCT/PCT reopening and physical acceptance remain separate. JCI-02/JCI-03 stay
 partial overall. Existing graph creation/wiring and field profiles are unchanged.
+
+## 2026-11-07 JCI-02/JCI-03 delivery: saved-effective native order compilation
+
+[Native execution-order compilation](docs/native-execution-order.md) now merges
+identity-qualified retained saved settings before changing an existing diagram's
+order. Original numeric widths, wire phase relationships and every other expanded
+byte remain exact. Independent native/graph readback, source/review seals and
+checked downloads retain original evidence. Program reuses the existing diagram
+operations and bounded graph drafts, with synchronous context retirement.
+
+Fresh order transfer/readback/recovery is the next independent operation. General
+native authoring, new identities/links, packages/resources/runtime, CCT comparison
+and physical/BTCVT acceptance remain separate. JCI-02/JCI-03/JCI-09 stay partial.
