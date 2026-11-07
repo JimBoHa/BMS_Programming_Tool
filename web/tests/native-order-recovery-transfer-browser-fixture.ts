@@ -159,7 +159,7 @@ export async function openPreviousOrderUI(
     .selectOption(seeded.current.id);
   const { panel: editor } = await openOrder(page, compiler);
   await editor
-    .getByLabel("Native execution-order block", { exact: true })
+    .getByRole("combobox", { name: "Native execution-order block", exact: true })
     .selectOption("2");
   await editor
     .getByRole("button", { name: "Move native block later", exact: true })
