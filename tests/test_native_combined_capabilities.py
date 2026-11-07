@@ -219,7 +219,7 @@ def test_actual_http_is_token_admitted_closed_and_does_not_open_an_interface(tmp
         )
         for extra in [
             {"controller_write": True},
-            {"capability_profile": "native-backup-operation-capabilities/22"},
+            {"capability_profile": "native-backup-operation-capabilities/999"},
         ]:
             assert (
                 client.post(
