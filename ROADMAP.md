@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-07. Implementation baseline: GitHub `main` at
-[`62b76e5a`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/62b76e5a6ee351d4ebf25bd70e54a6622ad2454f).
+[`d2ab24c6`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/d2ab24c642bcc204beb6d8cc1a9a0dfa008a01d8).
 
 ## Baseline and purpose
 
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 207 scoped criteria: 153
+The public requirement register currently records 208 scoped criteria: 154
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -2592,3 +2592,20 @@ retirement preserve unfinished work. No field query, review, recovery proposal,
 compiler artifact or receipt mutation is added. Other families, general native
 authoring/recovery, package/resource/runtime/CCT and physical acceptance remain
 separate. See [execution-order result comparison](docs/native-order-result-match.md).
+
+
+## 2026-11-07 SEQ-01 delivery: declared portable VAV setpoint guard
+
+`VAV-SETPOINT-GUARD-001` adds an explicit runtime range/deadband option to the
+existing single-duct equipment wizard. Ordinary editable blocks inhibit invalid
+thermal requests, hold temperature PI integrals, retain the minimum position/flow
+request and expose diagnostics for the last completed scan. Absolute bounds,
+delta deadband and inverse gains convert together. The original default remains
+opt-out; 54 reviewed legacy choices/program/export hashes remain unchanged.
+
+This is an authored portable sequence with separately tested host compilation.
+Bad input quality retains the entire preceding committed scan, including
+diagnostics. Native JCI allocation/reliability/interlocks/CAF/compiler/transfer,
+complete ventilation/occupancy/heating/G36/Title24 conformance and physical
+acceptance remain unfinished. See [the declared guard](docs/vav-setpoint-guard.md)
+for source, unit/precision and operational limits. SEQ-01 remains open.

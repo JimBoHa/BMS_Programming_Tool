@@ -2892,5 +2892,17 @@
     "sha256": "2e15fa8a34e1f36a93deb848a775664c83e1c0254b862af09768ad464319f80f",
     "status": "reviewed",
     "notes": "Primary author PDF; 6.1, 6.4, 6.6.2 reviewed for internetwork numbering and BACnet/IP subnet distinctions. Private source outside repository."
+  },
+  {
+    "vendor": "California Energy Commission",
+    "title": "2025 Building Energy Efficiency Standards",
+    "url": "https://www.energy.ca.gov/sites/default/files/2025-07/CEC-400-2025-010-F_0.pdf",
+    "document": "CEC-400-2025-010-F",
+    "pages": 708,
+    "sha256": "83c43852d3b72e89386fabdb7562b3dd077df90a7bec0b4c332fdae833f8afaa",
+    "status": "indexed",
+    "local_collection": "research",
+    "local_id": "vav-setpoint-guard-2026-11-07",
+    "notes": "PDF 235-236: 120.2(b)1-3 thermostat capability/deadband and exceptions; project applicability and complete conformance remain separate."
   }
 ]

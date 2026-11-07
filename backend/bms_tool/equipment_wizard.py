@@ -12,6 +12,9 @@ from pydantic import Field, model_validator
 from .engine import validate
 from .models import Edge, Node, Program, StrictModel, Target
 from .program_source import SourceMode, source_response
+from .vav_setpoint_guard import RULES as SETPOINT_GUARD_RULES
+from .vav_setpoint_guard import SetpointGuardChoices, apply_guard, validate_guard
+from .vav_setpoint_guard import defaults as guard_defaults
 
 Number = Annotated[float, Field(strict=True, ge=0, le=1e12)]
 Temperature = Annotated[float, Field(strict=True, ge=-1000, le=1000)]
@@ -100,6 +103,9 @@ class Choices(StrictModel):
     ] = "cooling-only"
     dual_duct: DualDuctChoices | None = Field(default=None, exclude_if=lambda value: value is None)
     fan_coil: FanCoilChoices | None = Field(default=None, exclude_if=lambda value: value is None)
+    setpoint_guard: SetpointGuardChoices | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     family: Literal["universal-runtime", "johnson-fx", "johnson-metasys"] = "universal-runtime"
     model: Text = ""
     firmware: Text = ""
@@ -130,6 +136,7 @@ class Choices(StrictModel):
     def coherent(self):
         if not self.name.strip():
             raise ValueError("Project name requires visible text.")
+        validate_guard(self)
         if self.equipment == "fan-coil":
             if self.fan_coil is None or self.control != "not-applicable":
                 raise ValueError(
@@ -228,6 +235,18 @@ PROFILE = {
     "semantics": "Cooling PI uses zone minus cooling setpoint; heating PI uses heating setpoint minus zone. Demand 0..100 maps to position bounds or declared airflow setpoint. Feedback PI uses desired minus measured airflow and outputs 0..100% damper. Parallel fan follows heat-demand hysteresis, without physical fan proof. Fresh editable portable graph only.",
 }
 PROFILE_SHA = digest(PROFILE)
+GUARDED_PROFILE = {
+    **PROFILE,
+    "profile": "studio-vav-selection-with-setpoint-guard/1",
+    "gaps": [gap for gap in GAPS if gap != "runtime external-setpoint range/deadband enforcement"],
+    "setpoint_guard": SETPOINT_GUARD_RULES,
+    "semantics": PROFILE["semantics"]
+    + " "
+    + SETPOINT_GUARD_RULES["thermal_modes"]
+    + " "
+    + SETPOINT_GUARD_RULES["integral"],
+}
+GUARDED_PROFILE_SHA = digest(GUARDED_PROFILE)
 
 DUAL_SOURCE = SOURCE | {
     "pdf_pages": [594, 595, 596],
@@ -276,6 +295,8 @@ FAN_PROFILE_SHA = digest(FAN_PROFILE)
 
 
 def selected_profile(value):
+    if value.setpoint_guard is not None:
+        return GUARDED_PROFILE, GUARDED_PROFILE_SHA
     if value.equipment == "fan-coil":
         return FAN_PROFILE, FAN_PROFILE_SHA
     return (
@@ -299,6 +320,14 @@ def convert_units(value: Choices, temperature_unit, flow_unit):
             )
         for field in ("temperature_kp", "temperature_ki"):
             data[field] /= ratio
+        if value.setpoint_guard is not None:
+            for field in ("minimum", "maximum"):
+                data["setpoint_guard"][field] = (
+                    (data["setpoint_guard"][field] - 32) * 5 / 9
+                    if temperature_unit == "degC"
+                    else data["setpoint_guard"][field] * 9 / 5 + 32
+                )
+            data["setpoint_guard"]["minimum_deadband"] *= ratio
     if flow_unit != value.flow_unit:
         ratio = CFM_TO_LPS if flow_unit == "L/s" else 1 / CFM_TO_LPS
         for field in ("flow_min", "flow_max", "flow_default"):
@@ -468,8 +497,13 @@ def generate(value: Choices):
         inactive += ["damper_min", "damper_max"]
     if value.equipment == "cooling-only":
         inactive += ["heating_setpoint", "fan_on", "fan_off"]
+        if value.setpoint_guard is not None:
+            inactive.append("setpoint_guard.minimum_deadband")
     elif value.equipment == "inline-reheat":
         inactive += ["fan_on", "fan_off"]
+    for item in nodes:
+        item.params = portable_numbers(item.params)
+    apply_guard(value, nodes, edges, node, wire)
     for item in nodes:
         item.params = portable_numbers(item.params)
     return Program(
@@ -490,13 +524,29 @@ def generate(value: Choices):
             "native_deployment_verified": False,
             "compliance": "Uncertified illustrative sequence",
             "equipment_wizard": {
-                "profile_sha256": PROFILE_SHA,
+                "profile_sha256": selected_profile(value)[1],
                 "choices_sha256": digest(choice_document(value)),
                 "choices": choice_document(value),
                 "inactive_choices": inactive,
                 "source": SOURCE,
                 "units": UNITS,
-                "unimplemented": GAPS,
+                "unimplemented": [
+                    gap
+                    for gap in GAPS
+                    if value.setpoint_guard is None
+                    or gap != "runtime external-setpoint range/deadband enforcement"
+                ],
+                **(
+                    {
+                        "setpoint_guard": {
+                            "rules": SETPOINT_GUARD_RULES,
+                            "rules_sha256": digest(SETPOINT_GUARD_RULES),
+                            "choices": choice_document(value)["setpoint_guard"],
+                        }
+                    }
+                    if value.setpoint_guard is not None
+                    else {}
+                ),
                 "target_scope": "Operator declaration only; no native compatibility, physical terminals or package availability inferred.",
             },
         },
@@ -1172,6 +1222,14 @@ def wizard_router():
             "profile": PROFILE,
             "profile_sha256": PROFILE_SHA,
             "defaults": Choices(project_id="new-vav-project", name="New VAV project").model_dump(),
+            "setpoint_guard": {
+                "profile": GUARDED_PROFILE,
+                "profile_sha256": GUARDED_PROFILE_SHA,
+                "rules": SETPOINT_GUARD_RULES,
+                "rules_sha256": digest(SETPOINT_GUARD_RULES),
+                "defaults": SetpointGuardChoices().model_dump(),
+                "unit_defaults": {unit: guard_defaults(unit) for unit in ("degF", "degC")},
+            },
             "dual_duct": {
                 "profile": DUAL_PROFILE,
                 "profile_sha256": DUAL_PROFILE_SHA,

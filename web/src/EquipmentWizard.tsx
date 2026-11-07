@@ -83,16 +83,30 @@ export function EquipmentWizard({
   function patch(key: string, value: any) {
     if (!draft) return;
     epoch.current++;
-    if (key.startsWith("dual_duct.") || key.startsWith("fan_coil.")) {
+    if (
+      key.startsWith("dual_duct.") ||
+      key.startsWith("fan_coil.") ||
+      key.startsWith("setpoint_guard.")
+    ) {
       const [section, field] = key.split(".");
       setDraft({
         ...draft,
         [section]: { ...draft[section], [field]: value },
       });
+    } else if (key === "setpoint_guard") {
+      const rest = { ...draft };
+      if (value)
+        rest.setpoint_guard = {
+          ...catalog?.setpoint_guard?.unit_defaults?.[draft.temperature_unit],
+        };
+      else delete rest.setpoint_guard;
+      setDraft(rest);
     } else if (key === "equipment") {
       const rest = { ...draft };
       delete rest.dual_duct;
       delete rest.fan_coil;
+      if (value === "fan-coil" || value === "dual-duct")
+        delete rest.setpoint_guard;
       if (rest.control === "not-applicable") rest.control = "position";
       setDraft(
         value === "fan-coil"
@@ -143,9 +157,24 @@ export function EquipmentWizard({
         flow_unit,
       });
       if (!current(gen, base, choices)) return;
+      let convertedGuard = draft.setpoint_guard;
+      if (convertedGuard && temperature_unit !== draft.temperature_unit) {
+        const absolute = (value: number) =>
+          temperature_unit === "degC"
+            ? ((value - 32) * 5) / 9
+            : (value * 9) / 5 + 32;
+        convertedGuard = {
+          minimum: absolute(convertedGuard.minimum),
+          maximum: absolute(convertedGuard.maximum),
+          minimum_deadband:
+            convertedGuard.minimum_deadband *
+            (temperature_unit === "degC" ? 5 / 9 : 9 / 5),
+        };
+      }
       if (
         result.profile_sha256 !== selectedCatalog?.profile_sha256 ||
         !same(result.source_choices, draft) ||
+        !same(result.choices?.setpoint_guard ?? null, convertedGuard ?? null) ||
         result.choices?.project_id !== draft.project_id ||
         result.choices?.temperature_unit !== temperature_unit ||
         result.choices?.flow_unit !== flow_unit
@@ -189,6 +218,12 @@ export function EquipmentWizard({
         provenance?.choices_sha256 !== result.choices_sha256 ||
         provenance.profile_sha256 !== result.profile_sha256 ||
         !same(provenance.choices, draft) ||
+        (draft.setpoint_guard &&
+          !same(provenance.setpoint_guard, {
+            rules: catalog?.setpoint_guard?.rules,
+            rules_sha256: catalog?.setpoint_guard?.rules_sha256,
+            choices: draft.setpoint_guard,
+          })) ||
         !Array.isArray(result.program.nodes) ||
         !Array.isArray(result.program.edges) ||
         !Array.isArray(result.points) ||
@@ -323,7 +358,9 @@ export function EquipmentWizard({
     ? catalog?.fan_coil
     : dual
       ? catalog?.dual_duct
-      : catalog;
+      : draft?.setpoint_guard
+        ? catalog?.setpoint_guard
+        : catalog;
   if (unitVentilatorMode)
     return (
       <UnitVentilatorCycle3Wizard
@@ -709,6 +746,54 @@ export function EquipmentWizard({
                     )}
                   {number("scan_seconds", "Scan interval (seconds)")}
                 </div>
+                {!dual && !fanCoil && (
+                  <details aria-label="VAV runtime setpoint guard">
+                    <summary>Setpoint ranges and deadband</summary>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={!!draft.setpoint_guard}
+                        onChange={(event) =>
+                          patch("setpoint_guard", event.target.checked)
+                        }
+                      />
+                      Enable declared runtime setpoint guard
+                    </label>
+                    {draft.setpoint_guard && (
+                      <>
+                        <p>
+                          Only permitted thermal modes produce heating/cooling
+                          demand. Invalid ranges or deadband inhibit those
+                          demands and hold temperature PI integrals; the
+                          declared minimum airflow/position remains active.
+                        </p>
+                        <div className="wizard-fields">
+                          {number(
+                            "setpoint_guard.minimum",
+                            `Minimum permitted setpoint (${draft.temperature_unit})`,
+                          )}
+                          {number(
+                            "setpoint_guard.maximum",
+                            `Maximum permitted setpoint (${draft.temperature_unit})`,
+                          )}
+                          {draft.equipment !== "cooling-only" &&
+                            number(
+                              "setpoint_guard.minimum_deadband",
+                              `Minimum heating/cooling deadband (delta-${draft.temperature_unit})`,
+                              "Nominal setpoints must meet this gap before preview or unit conversion. The 5 delta-degF default is a code reference; project exceptions and all other sequence requirements remain separate.",
+                            )}
+                        </div>
+                        <p>
+                          Diagnostics describe the last completed scan. Bad
+                          input quality still faults a scan and retains prior
+                          committed outputs. This option does not qualify a
+                          physical interlock, native CAF or complete Title 24
+                          sequence.
+                        </p>
+                      </>
+                    )}
+                  </details>
+                )}
                 {!fanCoil &&
                   (draft.control === "position" ? (
                     <div className="wizard-fields">
@@ -839,7 +924,9 @@ export function EquipmentWizard({
                   Changing units converts absolute defaults/setpoints and both
                   proportional/integral inverse-unit gains together. Seconds and
                   demand percentages retain their meanings. External setpoint
-                  inputs have no automatic runtime range/deadband enforcement.
+                  {draft.setpoint_guard
+                    ? "inputs use the enabled declared runtime range/deadband guard."
+                    : "inputs have no automatic runtime range/deadband enforcement."}
                 </p>
               </>
             )}
@@ -858,30 +945,46 @@ export function EquipmentWizard({
                     <code>{preview.choices_sha256}</code> · program SHA256{" "}
                     <code>{preview.program_sha256}</code>
                   </p>
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Signal</th>
-                        <th>Role</th>
-                        <th>Type / units</th>
-                        <th>Binding</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {preview.points.map((row: Data) => (
-                        <tr key={row.id}>
-                          <td>
-                            {row.label} ({row.id})
-                          </td>
-                          <td>{row.role}</td>
-                          <td>
-                            {row.type} / {row.unit || "none"}
-                          </td>
-                          <td>{row.binding}</td>
+                  {draft.setpoint_guard && (
+                    <p>
+                      Runtime setpoint guard: {draft.setpoint_guard.minimum} to{" "}
+                      {draft.setpoint_guard.maximum} {draft.temperature_unit}
+                      {draft.equipment !== "cooling-only" &&
+                        `; minimum heating/cooling gap ${draft.setpoint_guard.minimum_deadband} delta-${draft.temperature_unit}`}
+                      . Diagnostics describe the last completed portable scan.
+                      Native deployment and complete code compliance remain
+                      unverified.
+                    </p>
+                  )}
+                  <div
+                    className="table-scroll"
+                    aria-label="Wizard logical signals"
+                  >
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Signal</th>
+                          <th>Role</th>
+                          <th>Type / units</th>
+                          <th>Binding</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {preview.points.map((row: Data) => (
+                          <tr key={row.id}>
+                            <td>
+                              {row.label} ({row.id})
+                            </td>
+                            <td>{row.role}</td>
+                            <td>
+                              {row.type} / {row.unit || "none"}
+                            </td>
+                            <td>{row.binding}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                   <h3>Validation</h3>
                   {preview.issues.length ? (
                     preview.issues.map((row: Data, index: number) => (
