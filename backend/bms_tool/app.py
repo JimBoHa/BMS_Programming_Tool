@@ -135,6 +135,7 @@ from .native_boolean_copies import BooleanCopyExport, BooleanCopyPreview, Native
 from .native_calendar_drafts import calendar_draft_router
 from .native_calendar_text import calendar_text_router
 from .native_calendar_write import NativeCalendarWrites, calendar_write_router
+from .native_capacity_evidence import capacity_evidence_router
 from .native_connection_compiler import EffectiveConnectionService, effective_connection_router
 from .native_connection_copies import NativeConnectionCopies, native_connection_router
 from .native_connection_removal import (
@@ -827,6 +828,7 @@ def create_app(state_dir=None, *, operation_power=None):
     )
     app.include_router(effective_wire_router(wire_compiler))
     app.include_router(native_execution_order_router(backup_records))
+    app.include_router(capacity_evidence_router(native_applications, backup_records))
     app.include_router(default_wire_router(default_wire_compiler))
     app.include_router(default_batch_router(default_batch_compiler))
     app.include_router(terminal_copy_router(terminal_copies, effective_terminal_copies))

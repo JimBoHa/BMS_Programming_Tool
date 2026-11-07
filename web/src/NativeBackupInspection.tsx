@@ -3,6 +3,7 @@ import { NativeBooleanTransferContext } from "./NativeBooleanTransferContext";
 import { api } from "./api";
 import { NativeRecords, type NativeArchiveSource } from "./NativeRecords";
 import { NativeBackupCapabilities } from "./NativeBackupCapabilities";
+import { NativeCapacityEvidence } from "./NativeCapacityEvidence";
 import type { BooleanCopyDrafts } from "./NativeBooleanDefaultCopy";
 import type { WireCopyDrafts } from "./NativeWireSourceCopy";
 import {
@@ -178,6 +179,12 @@ export function NativeBackupInspection({
           <NativeBackupCapabilities
             key={owner + source.snapshot_sha256}
             source={source as NativeArchiveSource}
+          />
+          <NativeCapacityEvidence
+            key={owner + source.snapshot_sha256 + "/capacity"}
+            source={source as NativeArchiveSource}
+            controller={controller}
+            visible={visible}
           />
           <NativeRecords
             key={owner + source.sha256}
