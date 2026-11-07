@@ -803,6 +803,7 @@ export function NativeOrderTransfer({
       <div className="button-row">
         {receipt?.data.pending && receiptMatches ? (
           <button
+            key={`readback-${intent.id}-${renderedEpoch}`}
             className={visible ? "primary" : undefined}
             disabled={locked || !visible || !connected || !receiptMatches}
             onClick={() => void run("readback")}
@@ -813,6 +814,7 @@ export function NativeOrderTransfer({
           connectionSame(intent?.order_edit, activeProposal) &&
           /^[a-f0-9]{32}$/.test(observed?.verification_capture_id || "") ? (
           <button
+            key={`verified-snapshot-${intent.id}-${renderedEpoch}`}
             className={visible ? "primary" : undefined}
             disabled={locked || !visible}
             onClick={() =>
@@ -823,6 +825,7 @@ export function NativeOrderTransfer({
           </button>
         ) : fresh ? (
           <button
+            key={`apply-${shown!.data.review_sha256}-${renderedEpoch}`}
             className={visible ? "primary" : undefined}
             disabled={!canReview || !confirmed || !interruption}
             onClick={() => void run("apply")}
@@ -833,6 +836,7 @@ export function NativeOrderTransfer({
           </button>
         ) : (
           <button
+            key={`review-${renderedEpoch}`}
             className={visible ? "primary" : undefined}
             disabled={!canReview}
             onClick={() => void run("preview")}

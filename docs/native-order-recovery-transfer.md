@@ -80,6 +80,8 @@ draft or selecting/loading another receipt retires it synchronously, before a
 same-turn old Apply callback can dispatch. A pending receipt load also blocks a
 late proposal-admission callback. An already dispatched transfer keeps its exact
 late receipt and uncertainty state while workspace mutation remains locked.
+Review, Apply, readback and snapshot actions have separate element identities;
+a retired Apply element cannot become an unintended new Review action.
 
 **Changes** and **History** project the recorded order-recovery lineage from the
 child's own validated receipt. They show original receipt/proof, before/after

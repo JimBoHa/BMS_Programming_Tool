@@ -380,6 +380,7 @@ def main():
     assert sum(group["passed"] for group in report["connection_prefill"]) == PREFILL_CASES
     if args.browser == "chromium":
         report["backend"] = backend(output, env)
+        write(output / "qualification.json", report)
     for number, name in enumerate(BROWSER[1:], 2):
         report["groups"].append(browser_group(output, env, args.mode, args.browser, number, name))
         assert git("rev-parse", "HEAD") == head and not git("status", "--porcelain")

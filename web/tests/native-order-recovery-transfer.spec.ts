@@ -203,6 +203,10 @@ for (const boundary of [
         posts++;
         await route.abort();
       });
+      await page.route("**/execution-order/transfer/preview", async (route) => {
+        posts++;
+        await route.abort();
+      });
       if (boundary === "visibility" || boundary === "pagehide") {
         await page.evaluate(
           ({ old, boundary }) => {
@@ -277,6 +281,7 @@ for (const boundary of [
           }),
         ).toBeEnabled();
       }
+      expect(posts).toBe(0);
     } finally {
       peer.close();
     }
@@ -346,6 +351,10 @@ test("a loaded recovery review cannot dispatch while a receipt replacement is pe
     let posts = 0,
       arrived = false;
     await page.route("**/execution-order/transfer/apply", async (route) => {
+      posts++;
+      await route.abort();
+    });
+    await page.route("**/execution-order/transfer/preview", async (route) => {
       posts++;
       await route.abort();
     });
