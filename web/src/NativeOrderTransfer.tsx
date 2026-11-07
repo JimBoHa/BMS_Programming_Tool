@@ -448,8 +448,7 @@ export function NativeOrderTransfer({
         base + "/receipts/" + chosenReceipt,
       );
       if (
-        (!(await orderTransferReceipt(document.data)) &&
-          !(await orderMatchParent(document.data))) ||
+        (!(await orderTransferReceipt(document.data)) && !(await orderMatchParent(document.data))) ||
         document.data.intent?.id !== chosenReceipt
       ) {
         throw new Error(
