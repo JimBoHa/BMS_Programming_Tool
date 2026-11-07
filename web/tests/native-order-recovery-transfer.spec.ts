@@ -76,6 +76,14 @@ for (const routed of [false, true])
           expect((await applied).ok()).toBe(true);
           expect(exact).toBeTruthy();
           const receipt = JSON.parse(exact!.toString());
+          expect(receipt.result.status).toBe("verified");
+          expect(receipt.pending).toBe(false);
+          await expect(
+            opened.transfer.getByRole("region", {
+              name: "Execution-order transfer result",
+              exact: true,
+            }),
+          ).toContainText(receipt.intent.id);
           await expect(
             opened.transfer.getByRole("region", {
               name: "Execution-order transfer result",
@@ -84,12 +92,6 @@ for (const routed of [false, true])
           ).toContainText(
             "Execution order verified in the complete native readback.",
           );
-          await expect(
-            opened.transfer.getByRole("region", {
-              name: "Execution-order transfer result",
-              exact: true,
-            }),
-          ).toContainText(receipt.intent.id);
           expect(receipt.intent.id).not.toBe(seeded.parent.intent.id);
           expect(receipt.intent.recovery_profile).toBe(
             orderRecoveryTransferProfile,
@@ -145,7 +147,7 @@ for (const routed of [false, true])
             }),
           ).toContainText(seeded.parent.intent.id);
           await chooseWorkspaceTask(page, "Program");
-          await chooseWorkspaceTool(page, "Graph editor");
+          await chooseWorkspaceTool(page, "Local graph editor");
           await expect(
             page.getByLabel("Program name", { exact: true }),
           ).toHaveValue("Preserved previous-order local graph");
