@@ -153,6 +153,7 @@ from .native_exception_write import NativeExceptionWrites, exception_write_route
 from .native_execution_order import execution_order_router as native_execution_order_router
 from .native_historical_wire_copies import NativeHistoricalWireCopies, historical_wire_copy_router
 from .native_identity_text import identity_text_router
+from .native_order_result_match import order_result_match_router
 from .native_schedule_exceptions import exception_draft_router
 from .native_schedule_library import (
     MAX_ARCHIVE_BYTES,
@@ -830,6 +831,7 @@ def create_app(state_dir=None, *, operation_power=None):
     )
     app.include_router(effective_wire_router(wire_compiler))
     app.include_router(native_execution_order_router(backup_records))
+    app.include_router(order_result_match_router(backup_records))
     app.include_router(capacity_evidence_router(native_applications, backup_records))
     app.include_router(default_wire_router(default_wire_compiler))
     app.include_router(default_batch_router(default_batch_compiler))

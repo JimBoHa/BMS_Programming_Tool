@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-07. Implementation baseline: GitHub `main` at
-[`5d59d6da`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/5d59d6da086b16abf75719f84ba4523179e68acf).
+[`62b76e5a`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/62b76e5a6ee351d4ebf25bd70e54a6622ad2454f).
 
 ## Baseline and purpose
 
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 206 scoped criteria: 152
+The public requirement register currently records 207 scoped criteria: 153
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -366,7 +366,7 @@ hardware reassignment remain separate. JCI-03 and JCI-09 remain partial overall.
 
 | ID | Planned addition | Workspace | Acceptance / dependency |
 | --- | --- | --- | --- |
-| JCI-01 | Build an operation-specific protocol/format/release capability matrix from discovered identity, application structure, packages and retained evidence | Overview / Program; Settings for toolchains | Partial: [captured-source operation support](docs/application-operation-capabilities.md) and [native backup analysis](docs/native-backup-operation-capabilities.md) credit actual readers, saved merging and typed compilers while separating transfer preflight, general logic, packages and physical acceptance. A [typed batch result comparison](docs/native-default-batch-result-match.md) now adds separate local recorded-result checks; continue package/release evidence, CAF correlation and other retained transfer outcomes |
+| JCI-01 | Build an operation-specific protocol/format/release capability matrix from discovered identity, application structure, packages and retained evidence | Overview / Program; Settings for toolchains | Partial: [captured-source operation support](docs/application-operation-capabilities.md) and [native backup analysis](docs/native-backup-operation-capabilities.md) credit actual readers, saved merging and typed compilers while separating transfer preflight, general logic, packages and physical acceptance. The [typed batch](docs/native-default-batch-result-match.md) and [execution-order](docs/native-order-result-match.md) comparisons now add separate local recorded-result checks; continue package/release evidence, CAF correlation and other retained transfer outcomes |
 | JCI-02 | Extend real CAF/MOI inspection and loss-preserving editable intermediate representation | Program | Partial: [actual MOI/MOZ reading](docs/moz-application-reading.md), [native record explorer](docs/native-record-explorer.md), [Boolean archive copies](docs/native-boolean-default-copies.md) and [effective Boolean compilation](docs/native-effective-boolean-compiler.md) expose recorded properties, exact bytes and scoped typed local edits. [Existing-wire source copies](docs/native-wire-source-copies.md) preserve the remaining expanded bytes, identities, ports, targets, order and layout. [Retained backup comparison](docs/native-backup-comparison.md) separately preserves original file, recognized engineering-property and unaligned metadata evidence without field queries. Continue the broader editable representation, units and typed golden edits; no general logic generation is inferred |
 | JCI-03 | Implement general native logic authoring: typed parameters, new block identities, links, ordering and full compile/resource validation | Program / Library | Partial: [existing-wire source archive copies](docs/native-wire-source-copies.md) change one observed source index within the original width and independently reparse/preserve the remaining graph bytes. [Effective wire compilation](docs/native-effective-wire-compiler.md) separately merges retained saved settings before that edit and guards original graph structure. [Existing-wire transfer](docs/native-wire-source-transfer.md) separately guards fresh selected configuration and verifies full native/effective readback. Continue full-program transfer, broader typed authoring/new identities and full resource/package/runtime validation; no general compiler or physical acceptance is inferred |
 | JCI-04 | Extend FX/Metasys and cross-release conversion with explicit semantics and package migrations | Program → conversion review | Every supported source/target pair has a loss report and round-trip/behavior evidence; reject unresolved semantics instead of dropping logic |
@@ -2576,3 +2576,19 @@ is adopted. Internal hashes do not authenticate vendor/source provenance or
 current hardware. Catalog ingestion, whole-state migration, complete native
 compiler/package/resource/runtime/CCT and physical acceptance remain separate.
 See [portable bundle inspection](docs/native-batch-bundle-inspection.md).
+
+
+## 2026-11-07 JCI-01/JCI-10 delivery: retained execution-order result comparison
+
+`COMM-NATIVE-ORDER-RESULT-MATCH-001` reconstructs a verified original native order
+result from its actual backup, guard, compilation and immutable proof. The
+existing receipt workflow compares a selected retained source across original
+route/identity, expanded/effective applications, membership, order, widths and
+wire relationships, while preserving separate archive/directory evidence.
+
+Later unknown observations do not erase a selected historical verified readback
+or get replaced by it. Exact local exports and source/receipt/draft/task/lifetime
+retirement preserve unfinished work. No field query, review, recovery proposal,
+compiler artifact or receipt mutation is added. Other families, general native
+authoring/recovery, package/resource/runtime/CCT and physical acceptance remain
+separate. See [execution-order result comparison](docs/native-order-result-match.md).
