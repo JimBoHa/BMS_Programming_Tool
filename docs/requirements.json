@@ -1843,5 +1843,14 @@
     "pdf_pages_or_section": "JCI-06;RES-001;UI-003; native File3 application capacity",
     "status": "implemented",
     "implementation_or_gap": "Original encoded/expanded size and record counts; explicit owned direct/routed identity/capacity read, strict Unsigned/source/native-wire proof checks, stale/cancellation handling and exact JSON exports. Historical source is not the current program or fresh merged payload. RAM/flash/scan accounting, native allocation and CCT/physical acceptance remain separate."
+  },
+  {
+    "id": "COMM-NATIVE-BATCH-BUNDLE-INSPECTION-001",
+    "feature": "Offline portable typed-batch evidence inspection",
+    "acceptance_criterion": "Inspect original portable comparison bundles using complete bounded byte/proof/capture checks and actual in-memory native-result reconstruction, without importing storage or field authority.",
+    "evidence": "Actual retained evidence exporter, native capture reader and typed batch result compiler/comparison; docs/native-batch-bundle-inspection.md",
+    "pdf_pages_or_section": "JCI-10;PORT-03; original backup and post-change evidence portability",
+    "status": "implemented",
+    "implementation_or_gap": "Changes/History opens externally supplied original bundles; source/proof/typed-value checks, exact byte exports, stale/cancellation ownership and offline/connected contexts. Internal consistency is not authenticated provenance, complete backup/journal, current controller, general compiler, CCT or physical acceptance. Catalog ingestion and whole-state migration remain separate."
   }
 ]

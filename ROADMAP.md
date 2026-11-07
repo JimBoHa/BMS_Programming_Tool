@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-07. Implementation baseline: GitHub `main` at
-[`7556bd87`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/7556bd879e90c31433081d4f84c5f25a37ced738).
+[`5d59d6da`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/5d59d6da086b16abf75719f84ba4523179e68acf).
 
 ## Baseline and purpose
 
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 205 scoped criteria: 151
+The public requirement register currently records 206 scoped criteria: 152
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -2559,3 +2559,20 @@ qualify the current program or a fresh merged payload: existing transfer
 admission still captures/compiles and rechecks capacity before dispatch.
 RAM/flash/scan accounting, native allocation, general compiler/resource/package/
 runtime and CCT/physical acceptance remain incomplete.
+
+
+## 2026-11-07 JCI-10/PORT-03 delivery: inspect portable comparison evidence
+
+`COMM-NATIVE-BATCH-BUNDLE-INSPECTION-001` adds offline inspection of the original
+portable typed-batch comparison ZIP in the existing Changes/History ledger. It
+checks outer/nested bytes and selected proof, then reconstructs the actual typed
+result and comparison in memory. External bundles require no original local
+catalog or journal. Historical matches, differences, routes and proof kinds
+remain distinct; exact report and original-member exports preserve their bytes.
+
+Source/task/target/lifetime changes and cancellation retire pending observations
+and cached exports. No capture, receipt, credential, review, transfer or recovery
+is adopted. Internal hashes do not authenticate vendor/source provenance or
+current hardware. Catalog ingestion, whole-state migration, complete native
+compiler/package/resource/runtime/CCT and physical acceptance remain separate.
+See [portable bundle inspection](docs/native-batch-bundle-inspection.md).

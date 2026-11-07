@@ -13,6 +13,7 @@ export const batchEvidenceBase =
 export const batchEvidenceScope =
   "Local export of retained Files3/11/12, original typed-batch intent, selected immutable verification proof and comparison. Not a complete journal or controller backup, import, executable application, recovery or field authority.";
 export const batchEvidenceLimit = 20 * 1024 * 1024;
+export { storedMembers as batchEvidenceStoredMembers };
 const exact = (v: any, keys: string[]) =>
   !!v &&
   typeof v === "object" &&
