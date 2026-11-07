@@ -263,7 +263,7 @@ def test_http_requires_session_and_explicit_profile_without_opening_an_interface
         for extra in [
             {"controller_write": True},
             {"token": "a" * 32},
-            {"capability_profile": "native-backup-operation-capabilities/22"},
+            {"capability_profile": "native-backup-operation-capabilities/999"},
         ]:
             assert (
                 client.post(

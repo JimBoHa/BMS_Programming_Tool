@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { apiJsonDocument, saveBlob } from "./api";
+import {
+  orderCapabilityEvidence,
+  orderCapabilityProfile,
+  orderCapabilityOperationIds,
+} from "./nativeOrderCapabilityContract";
 import { removalCapabilityEvidence } from "./nativeRemovalCapabilityContract";
 import {
   batchTransferCapabilityEvidence,
@@ -85,26 +90,31 @@ export function NativeBackupCapabilities({
   source: NativeArchiveSource;
 }) {
   const [extended, setExtended] = useState({
+    order: false,
     value: false,
     batch: false,
     transfer: false,
     revision: 0,
   });
   const modeNow = useRef(extended);
-  const profile = extended.transfer
-    ? batchTransferCapabilityProfile
-    : extended.batch
-      ? batchCapabilityProfile
-      : extended.value
-        ? combinedCapabilityProfile
-        : "native-backup-operation-capabilities/14";
-  const selectedOperationIds = extended.transfer
-    ? batchTransferCapabilityOperationIds
-    : extended.batch
-      ? batchCapabilityOperationIds
-      : extended.value
-        ? combinedCapabilityOperationIds
-        : operationIds;
+  const profile = extended.order
+    ? orderCapabilityProfile
+    : extended.transfer
+      ? batchTransferCapabilityProfile
+      : extended.batch
+        ? batchCapabilityProfile
+        : extended.value
+          ? combinedCapabilityProfile
+          : "native-backup-operation-capabilities/14";
+  const selectedOperationIds = extended.order
+    ? orderCapabilityOperationIds
+    : extended.transfer
+      ? batchTransferCapabilityOperationIds
+      : extended.batch
+        ? batchCapabilityOperationIds
+        : extended.value
+          ? combinedCapabilityOperationIds
+          : operationIds;
   const details = useRef<HTMLDetailsElement>(null);
   const owner = JSON.stringify([
     source.capture_id,
@@ -208,13 +218,15 @@ export function NativeBackupCapabilities({
               (value) => typeof value === "string",
             ),
         ) ||
-        !(extended.transfer
-          ? batchTransferCapabilityEvidence(data, source)
-          : extended.batch
-            ? batchCapabilityEvidence(data, source)
-            : extended.value
-              ? combinedCapabilityEvidence(data, source)
-              : removalCapabilityEvidence(data, source)) ||
+        !(extended.order
+          ? await orderCapabilityEvidence(data, source)
+          : extended.transfer
+            ? batchTransferCapabilityEvidence(data, source)
+            : extended.batch
+              ? batchCapabilityEvidence(data, source)
+              : extended.value
+                ? combinedCapabilityEvidence(data, source)
+                : removalCapabilityEvidence(data, source)) ||
         data.operations.find((row: Operation) => row.id === "enum-default-copy")
           ?.status !==
           (data.qualification.archive_enum_default_count > 0
@@ -272,12 +284,11 @@ export function NativeBackupCapabilities({
       <label>
         <input
           type="checkbox"
-          checked={extended.value}
+          checked={extended.order}
           onChange={(event) => {
             const next = {
-              value: event.currentTarget.checked,
-              batch: false,
-              transfer: false,
+              ...modeNow.current,
+              order: event.currentTarget.checked,
               revision: modeNow.current.revision + 1,
             };
             modeNow.current = next;
@@ -288,54 +299,80 @@ export function NativeBackupCapabilities({
             setExtended(next);
           }}
         />
-        Include combined default/connection and terminal operation support
+        Include native execution-order support
       </label>
-      {extended.value && (
-        <label>
-          <input
-            type="checkbox"
-            checked={extended.batch}
-            onChange={(event) => {
-              if (!modeNow.current.value) return;
-              const next = {
-                ...modeNow.current,
-                batch: event.currentTarget.checked,
-                transfer: false,
-                revision: modeNow.current.revision + 1,
-              };
-              modeNow.current = next;
-              epoch.current++;
-              setLoaded(null);
-              setFailure(null);
-              setPending(null);
-              setExtended(next);
-            }}
-          />
-          Include typed default batch compilation support
-        </label>
-      )}
-      {extended.batch && (
-        <label>
-          <input
-            type="checkbox"
-            checked={extended.transfer}
-            onChange={(event) => {
-              if (!modeNow.current.batch) return;
-              const next = {
-                ...modeNow.current,
-                transfer: event.currentTarget.checked,
-                revision: modeNow.current.revision + 1,
-              };
-              modeNow.current = next;
-              epoch.current++;
-              setLoaded(null);
-              setFailure(null);
-              setPending(null);
-              setExtended(next);
-            }}
-          />
-          Include source prerequisites for typed batch transfer
-        </label>
+      {!extended.order && (
+        <>
+          <label>
+            <input
+              type="checkbox"
+              checked={extended.value}
+              onChange={(event) => {
+                const next = {
+                  order: false,
+                  value: event.currentTarget.checked,
+                  batch: false,
+                  transfer: false,
+                  revision: modeNow.current.revision + 1,
+                };
+                modeNow.current = next;
+                epoch.current++;
+                setLoaded(null);
+                setFailure(null);
+                setPending(null);
+                setExtended(next);
+              }}
+            />
+            Include combined default/connection and terminal operation support
+          </label>
+          {extended.value && (
+            <label>
+              <input
+                type="checkbox"
+                checked={extended.batch}
+                onChange={(event) => {
+                  if (!modeNow.current.value) return;
+                  const next = {
+                    ...modeNow.current,
+                    batch: event.currentTarget.checked,
+                    transfer: false,
+                    revision: modeNow.current.revision + 1,
+                  };
+                  modeNow.current = next;
+                  epoch.current++;
+                  setLoaded(null);
+                  setFailure(null);
+                  setPending(null);
+                  setExtended(next);
+                }}
+              />
+              Include typed default batch compilation support
+            </label>
+          )}
+          {extended.batch && (
+            <label>
+              <input
+                type="checkbox"
+                checked={extended.transfer}
+                onChange={(event) => {
+                  if (!modeNow.current.batch) return;
+                  const next = {
+                    ...modeNow.current,
+                    transfer: event.currentTarget.checked,
+                    revision: modeNow.current.revision + 1,
+                  };
+                  modeNow.current = next;
+                  epoch.current++;
+                  setLoaded(null);
+                  setFailure(null);
+                  setPending(null);
+                  setExtended(next);
+                }}
+              />
+              Include source prerequisites for typed batch transfer
+            </label>
+          )}
+        </>
       )}
       {busy && <p role="status">Analyzing retained native files…</p>}
       {error && (

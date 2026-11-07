@@ -18,6 +18,8 @@ from .native_combined_capabilities import PROFILE as COMBINED_CAPABILITIES_PROFI
 from .native_combined_capabilities import combined_capabilities
 from .native_encoded_analog_capabilities import PROFILE as ENCODED_ANALOG_CAPABILITIES_PROFILE
 from .native_encoded_analog_capabilities import encoded_analog_capabilities
+from .native_order_capabilities import PROFILE as ORDER_CAPABILITIES_PROFILE
+from .native_order_capabilities import order_capabilities
 from .native_removal_capabilities import PROFILE as REMOVAL_CAPABILITIES_PROFILE
 from .native_removal_capabilities import removal_capabilities
 from .native_terminal_capabilities import PROFILE as TERMINAL_CAPABILITIES_PROFILE
@@ -57,6 +59,7 @@ class BackupCapabilitiesRequest(BackupInspectionSource):
         "native-backup-operation-capabilities/19",
         "native-backup-operation-capabilities/20",
         "native-backup-operation-capabilities/21",
+        "native-backup-operation-capabilities/22",
     ] = "native-backup-operation-capabilities/12"
 
 
@@ -118,6 +121,11 @@ class NativeBackupRecords:
         snapshot, files, application = self.load(
             options.model_dump(include={"capture_id", "snapshot_sha256"})
         )
+        if options.capability_profile == ORDER_CAPABILITIES_PROFILE:
+            return {
+                **self.envelope(snapshot, files),
+                **order_capabilities(snapshot, files, application.summary(), records=self),
+            }
         if options.capability_profile == BATCH_TRANSFER_CAPABILITIES_PROFILE:
             return {
                 **self.envelope(snapshot, files),

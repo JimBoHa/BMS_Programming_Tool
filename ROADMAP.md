@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-07. Implementation baseline: GitHub `main` at
-[`67876324`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/678763245ab192ff4ae7cbb00f69cb42f5b7676d).
+[`9e5f8d25`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/9e5f8d25558bcfd802f5ad336d9ec07fcb6ca74b).
 
 ## Baseline and purpose
 
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 203 scoped criteria: 149
+The public requirement register currently records 204 scoped criteria: 150
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -2527,3 +2527,19 @@ the restore. Original-image recovery stays distinct from verifying the proposed
 order. Contextual Program controls preserve local drafts and late receipts while
 retiring stale field reviews. Qualification uses authored direct/routed localhost
 peers; physical/BTCVT/CCT acceptance and broader authoring remain unfinished.
+
+## 2026-11-07 JCI-01/JCI-03/JCI-09 delivery: actual native order support
+
+[Execution-order capability analysis](docs/native-order-capabilities.md) now
+derives local compilation and separate transfer prerequisites from actual
+retained diagrams and saved values. Profile22 preserves the older profile14
+prefix and all older API profiles. It runs a bounded actual compiler/readback
+witness, checks transfer-field qualification separately and distinguishes
+captured transport from current access. Failed bounded searches remain not
+evaluated rather than proving that no other permutation exists.
+
+The existing Program source-support disclosure gains an independent optional
+order analysis with source/authority/proof checks, exact exports and stale-response
+retirement. It creates no controller query, user draft, field review or transfer
+intent. Full native authoring, release/package/resource/runtime, CCT comparison
+and physical/BTCVT acceptance remain unfinished.

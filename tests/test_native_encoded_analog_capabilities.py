@@ -206,7 +206,7 @@ def test_explicit_api_profile_remains_disconnected_and_refuses_foreign_version(
         assert (
             client.post(
                 path,
-                json=request | {"capability_profile": "native-backup-operation-capabilities/22"},
+                json=request | {"capability_profile": "native-backup-operation-capabilities/999"},
                 headers=headers,
             ).status_code
             == 422
