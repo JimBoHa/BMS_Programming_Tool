@@ -1861,5 +1861,14 @@
     "pdf_pages_or_section": "JCI-01;JCI-10; post-transfer verification and retained evidence",
     "status": "implemented",
     "implementation_or_gap": "Actual original reconstruction and selected-proof checks; separate local comparisons, historical readback qualification, exact exports and contextual source/draft/receipt/lifetime ownership. Other families, recovery, full native/compiler/package/resource/CCT and physical acceptance remain separate."
+  },
+  {
+    "id": "VAV-SETPOINT-GUARD-001",
+    "feature": "Explicit portable single-duct VAV runtime setpoint guard",
+    "acceptance_criterion": "Opt into declared runtime setpoint ranges and reheat deadband, disjoint thermal modes, inhibited temperature-integral hold, minimum requests and last-completed-scan diagnostics while preserving legacy programs.",
+    "evidence": "CEC-400-2025-010-F; authored ordinary graph policy; docs/vav-setpoint-guard.md",
+    "pdf_pages_or_section": "PDF 235-236; 120.2(b)1-3 and exceptions; SEQ-01",
+    "status": "implemented",
+    "implementation_or_gap": "Three single-duct families, fixed/input setpoints, P/PI and position/flow-feedback; unit-aware declared bounds/gap and source/profile/choice binding, editable graph, revision/export and local/interpreted plus compiled-host simulations. Bad quality retains the prior whole scan including diagnostics. No native reliability/interlock/CAF/compiler/transfer, full ventilation/occupancy/heating/G36/Title24 certification or physical acceptance; float32 host boundary equivalence is not universal."
   }
 ]

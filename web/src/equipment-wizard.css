@@ -11,7 +11,9 @@
   background: var(--surface, #fff);
   border-radius: 1rem;
   padding: 1.5rem;
-  width: min(1100px, 95vw);
+  width: min(1100px, 100%);
+  min-width: 0;
+  overflow-wrap: anywhere;
   max-height: 92vh;
   overflow: auto;
   box-shadow: 0 1rem 3rem #0004;
@@ -35,6 +37,10 @@
 .equipment-wizard fieldset {
   border: 0;
   padding: 0;
+  min-width: 0;
+}
+.equipment-wizard .table-scroll table {
+  min-width: 600px;
 }
 .equipment-wizard table {
   width: 100%;
