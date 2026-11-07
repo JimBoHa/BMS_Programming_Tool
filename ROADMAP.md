@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-06. Implementation baseline: GitHub `main` at
-[`fa186f7d`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/fa186f7d4b9d5e3b67e271939c57eb3b92074906).
+[`e0aaabe9`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/e0aaabe92478fd6ebef315788c64559305951c61).
 
 ## Baseline and purpose
 
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 200 scoped criteria: 146
+The public requirement register currently records 201 scoped criteria: 147
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -2484,3 +2484,16 @@ verification packages, complete controller backups, import/viewer support, nativ
 authoring/CCT and physical/BTCVT acceptance remaining separate. The register now
 has 200 criteria: 146 implemented, 46 partial and eight pending. See
 [comparison evidence export](docs/native-default-batch-evidence-bundle.md).
+
+## 2026-11-06 JCI-02/JCI-03 delivery: guarded CAF execution order
+
+[Execution-order copies](docs/caf-execution-order.md) now support explicit local
+reordering of existing observed CAF diagram members. A strict full permutation
+preserves each original forward/backward/self wire relationship; only changed
+order numeric atoms are patched. Independent graph/XML/ZIP readback and original
+source proofs guard the separate reviewed copy. Program keeps bounded drafts,
+retiring reviews and stale callbacks across source/context/navigation changes.
+
+General block semantics, resource/package validation, native compilation/download,
+CCT/PCT reopening and physical acceptance remain separate. JCI-02/JCI-03 stay
+partial overall. Existing graph creation/wiring and field profiles are unchanged.

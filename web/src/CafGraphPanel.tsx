@@ -18,6 +18,8 @@ import type {
   OpenCombinedCafCopy,
 } from "./cafCombinedCopyContract";
 import { CafConnectionRemoval } from "./CafConnectionRemoval";
+import { CafExecutionOrder } from "./CafExecutionOrder";
+import { orderDirty, type OrderDrafts } from "./cafExecutionOrderContract";
 import { cafRemovalDirty, type CafRemovalDrafts } from "./cafRemovalDrafts";
 import type {
   CafRemovalHint,
@@ -107,6 +109,7 @@ export function CafGraphPanel({
   objectCount,
   sourceCurrent,
   sourceGeneration,
+  orderDrafts: sharedOrderDrafts,
 }: {
   id: string;
   filename: string;
@@ -130,6 +133,7 @@ export function CafGraphPanel({
   objectCount: number;
   sourceCurrent: () => boolean;
   sourceGeneration: number;
+  orderDrafts?: OrderDrafts;
 }) {
   const [combinedBusy, setCombinedBusy] = useState(false);
   const [combinedOpen, setCombinedOpen] = useState(false);
@@ -145,10 +149,17 @@ export function CafGraphPanel({
   const [, constantChanged] = useState(0);
   const onConstantChange = () => constantChanged((n) => n + 1);
   const localRemovalDrafts = useRef<CafRemovalDrafts>(new Map());
+  const localOrderDrafts = useRef<OrderDrafts>(new Map());
+  const orderDrafts = sharedOrderDrafts || localOrderDrafts.current;
+  const [, orderChanged] = useState(0);
+  const executionDirty = [...orderDrafts.values()].some(
+    (d) => d.archive === id && orderDirty(d),
+  );
   const removalDrafts = sharedRemovalDrafts || localRemovalDrafts.current;
   const [, removalChanged] = useState(0);
   const [removalBusy, setRemovalBusy] = useState(false);
   const [removalOpen, setRemovalOpen] = useState(false);
+  const [orderOpen, setOrderOpen] = useState(false);
   const removalBusyNow = useRef(false);
   const removalDirty = [...removalDrafts.values()].some(
     (d) => d.archive === id && cafRemovalDirty(d),
@@ -349,6 +360,7 @@ export function CafGraphPanel({
   );
   const structuralDirty =
     dirty ||
+    executionDirty ||
     removalDirty ||
     [...constantDrafts.values()].some(
       (d) => d.archive === id && constantDraftDirty(d),
@@ -887,7 +899,10 @@ export function CafGraphPanel({
                       </div>
                       <button
                         className={
-                          connectionOpen || removalOpen || combinedOpen
+                          connectionOpen ||
+                          removalOpen ||
+                          combinedOpen ||
+                          orderOpen
                             ? ""
                             : "primary"
                         }
@@ -932,6 +947,34 @@ export function CafGraphPanel({
                   before making another graph change.
                 </p>
               )}
+              <CafExecutionOrder
+                key={`order:${id}:${diagram.ref}`}
+                archive={id}
+                filename={filename}
+                diagram={diagram}
+                objectCount={objectCount}
+                sourceCurrent={sourceCurrent}
+                disabled={
+                  disabled ||
+                  exporting ||
+                  removalBusy ||
+                  combinedBusy ||
+                  diagram.ref !== diagramRef
+                }
+                surfaceOpen={advancedOpen}
+                retireKey={JSON.stringify([refresh, sourceGeneration])}
+                reviewContext={reviewContext}
+                conflict={
+                  dirty ||
+                  removalDirty ||
+                  [...constantDrafts.values()].some(
+                    (d) => d.archive === id && constantDraftDirty(d),
+                  )
+                }
+                drafts={orderDrafts}
+                onDraftChange={() => orderChanged((n) => n + 1)}
+                onOpenChange={setOrderOpen}
+              />
               <CafConnectionRemoval
                 key={`removal:${id}:${diagram.ref}`}
                 archive={id}
@@ -1060,7 +1103,9 @@ export function CafGraphPanel({
                     </small>
                   </div>
                   <button
-                    className={removalOpen || combinedOpen ? "" : "primary"}
+                    className={
+                      removalOpen || combinedOpen || orderOpen ? "" : "primary"
+                    }
                     disabled={
                       !connectionTuple ||
                       disabled ||

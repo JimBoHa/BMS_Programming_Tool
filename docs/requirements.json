@@ -1798,5 +1798,14 @@
     "pdf_pages_or_section": "Program / Native backup defaults; docs/native-default-batch-evidence-bundle.md",
     "status": "implemented",
     "implementation_or_gap": "Exact chosen comparison hash, original/current archive byte checks, sealed intent/proof, fixed paths and bounded manifest with member checksums; independent browser ZIP/CRC/hash/source/proof checks preserving numeric atoms, exact download and source/task/receipt/visibility/report retirement. Ordinary and recovery-child results, differences and shared-source roles stay explicit. No complete journal/controller backup, import, credentials/review restoration, field/CCT/runtime or physical authority."
+  },
+  {
+    "id": "FMT-CAF-EXECUTION-ORDER-001",
+    "feature": "Guarded native CAF execution-order copies",
+    "acceptance_criterion": "Reorder existing observed diagram members in a reviewed separate CAF copy while preserving every original wire phase relationship, identities and all unrelated bytes.",
+    "evidence": "Existing observed CAF class536/575 version1.0 order/membership/connection records; docs/caf-execution-order.md",
+    "pdf_pages_or_section": "Recorded property3117; JCI-02/JCI-03",
+    "status": "implemented",
+    "implementation_or_gap": "Strict source-bound local permutation/dependency checks; exact numeric-span edit and independent graph/XML/ZIP readback; bounded retained drafts and byte-checked browser exports. No native runtime, resource, CCT or controller acceptance."
   }
 ]

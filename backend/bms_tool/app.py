@@ -45,6 +45,7 @@ from .caf_connection_removal import connection_removal_router as caf_connection_
 from .caf_constant_api import constant_router
 from .caf_creation_drafts import CafCreationDrafts, creation_draft_router
 from .caf_enum_api import enum_constant_router
+from .caf_execution_order import execution_order_router
 from .caf_float_multiplexer_api import float_multiplexer_router
 from .caf_graph import CafGraph
 from .caf_hardware import CafHardwareBindings, HardwareExportRequest, HardwareMoveRequest
@@ -1546,6 +1547,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.include_router(wiring_draft_router(caf_wiring_drafts, get_caf))
     app.include_router(creation_draft_router(caf_creation_drafts, get_caf))
     app.include_router(caf_connection_removal_router(get_caf))
+    app.include_router(execution_order_router(get_caf))
     app.include_router(combined_copy_router(get_caf))
     app.include_router(constant_router(get_caf))
     app.include_router(boolean_constant_router(get_caf))
