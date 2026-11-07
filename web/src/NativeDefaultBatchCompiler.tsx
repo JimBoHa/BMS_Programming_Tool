@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { apiJsonDocument, apiBlobDocument, saveBlob } from "./api";
 import { sha256Blob } from "./activityContracts";
+import type { ControllerContext } from "./workflow";
+import { NativeDefaultBatchTransfer } from "./NativeDefaultBatchTransfer";
 import { NativeBatchDraftFiles } from "./NativeBatchDraftFiles";
 import {
   defaultBatchBase as base,
@@ -23,6 +25,11 @@ export function NativeDefaultBatchCompiler({
   onExpandedChange,
   parentCurrent,
   drafts,
+  controller,
+  fieldBlocked = true,
+  fieldParentCurrent = () => false,
+  onFieldBusy = () => {},
+  onCaptured = () => {},
 }: {
   source: Data;
   context: string;
@@ -33,6 +40,11 @@ export function NativeDefaultBatchCompiler({
   onExpandedChange: (value: boolean) => boolean;
   parentCurrent: () => boolean;
   drafts: DefaultBatchDrafts;
+  controller?: ControllerContext | null;
+  fieldBlocked?: boolean;
+  fieldParentCurrent?: () => boolean;
+  onFieldBusy?: (value: boolean) => void;
+  onCaptured?: (id: string) => void;
 }) {
   const sourceKey = JSON.stringify([source.capture_id, source.snapshot_sha256]);
   const entries = drafts.get(sourceKey) ?? {};
@@ -54,6 +66,21 @@ export function NativeDefaultBatchCompiler({
     ownerNow.current = owner;
     epoch.current++;
   }
+  const fieldEpoch = useRef(0);
+  const fieldOwner = JSON.stringify([
+    context,
+    generation,
+    visible,
+    expanded,
+    sourceKey,
+    entries,
+  ]);
+  const fieldOwnerNow = useRef(fieldOwner);
+  if (fieldOwnerNow.current !== fieldOwner) {
+    fieldOwnerNow.current = fieldOwner;
+    fieldEpoch.current++;
+  }
+  const fieldTicket = fieldEpoch.current;
   const renderedEpoch = epoch.current;
   const [, redraw] = useState(0);
   const [loaded, setLoaded] = useState<{ key: string; data: Data } | null>(
@@ -67,6 +94,7 @@ export function NativeDefaultBatchCompiler({
   );
   const [pending, setPending] = useState<Owned | null>(null);
   const [saved, setSaved] = useState<Owned | null>(null);
+  const [fieldOpen, setFieldOpen] = useState(false);
   const [search, setSearch] = useState(""),
     [page, setPage] = useState(0),
     [selectedOnly, setSelectedOnly] = useState(false);
@@ -85,6 +113,7 @@ export function NativeDefaultBatchCompiler({
     busy = owns(pending);
   function retire() {
     epoch.current++;
+    fieldEpoch.current++;
     setReview(null);
     setPending(null);
     setFailure(null);
@@ -261,6 +290,12 @@ export function NativeDefaultBatchCompiler({
       if (current(ticket, key)) setPending(null);
     }
   }
+  let fieldProposal: Data | null = null;
+  try {
+    if (opened) fieldProposal = defaultBatchRequest(source, opened, entries);
+  } catch {
+    /* Keep unfinished local text. */
+  }
   const filtered = (opened?.fields ?? []).filter(
     (row: Data) =>
       (!selectedOnly || Object.hasOwn(entries, row.field.ref)) &&
@@ -295,9 +330,10 @@ export function NativeDefaultBatchCompiler({
       </p>
       <p>
         This local task combines up to 16 existing Real, Boolean or Enum
-        defaults after one retained saved-setting merge. It creates no
-        controller transfer. Enum meanings, native execution and physical
-        acceptance remain unverified.
+        defaults after one retained saved-setting merge. Local review and saving
+        create no controller transfer. A separate controller review is required
+        to Apply. Enum meanings, native execution and physical acceptance remain
+        unverified.
       </p>
       {busy && <p role="status">Preparing local batch evidence…</p>}
       {owns(failure) && <p role="alert">{failure!.text}</p>}
@@ -491,7 +527,7 @@ export function NativeDefaultBatchCompiler({
           <div className="button-row">
             <button
               type="button"
-              className="primary"
+              className={fieldOpen ? undefined : "primary"}
               disabled={blocked || busy || !Object.keys(entries).length}
               onClick={() => void preview()}
             >
@@ -512,6 +548,35 @@ export function NativeDefaultBatchCompiler({
           </div>
         </>
       )}
+      <details open={fieldOpen} aria-label="Default batch field workflow">
+        <summary
+          onClick={(event) => {
+            event.preventDefault();
+            if (blocked || busy) return;
+            retire();
+            setFieldOpen((value) => !value);
+          }}
+        >
+          Transfer default batch to controller
+        </summary>
+        <NativeDefaultBatchTransfer
+          source={source}
+          opened={opened}
+          proposal={fieldProposal}
+          controller={controller}
+          visible={visible && expanded && fieldOpen}
+          otherBusy={fieldBlocked || !!busy}
+          revision={fieldTicket}
+          onOwnedBusy={onFieldBusy}
+          onCaptured={onCaptured}
+          parentCurrent={() =>
+            alive.current &&
+            expandedNow.current &&
+            fieldEpoch.current === fieldTicket &&
+            fieldParentCurrent()
+          }
+        />
+      </details>
       {shown && (
         <section
           className="native-compiler-source"

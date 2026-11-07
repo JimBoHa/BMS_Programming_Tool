@@ -1795,6 +1795,7 @@ export function App() {
         "boolean-default",
         "wire-source",
         "connection",
+        "default-batch",
       ].includes(nativeChangeKind)
     ) {
       setTab("native-compiler");
@@ -2078,6 +2079,7 @@ export function App() {
                   <NativeSignalCompiler
                     controller={controller}
                     parentBusy={workflowBusy}
+                    batchParentBusy={connectionBusy}
                     onBusyChange={setNativeCompilerBusy}
                     visible={
                       tab === "native-compiler" &&
