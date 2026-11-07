@@ -197,6 +197,7 @@ class ControllerWorkspace:
                 key: getattr(options, key) for key in ("address", "device", "router", "dnet")
             },
             "identity_verified": False,
+            "identity_checks": [],
             "complete": False,
             "errors": [],
             "started_at": _utc(),
@@ -272,11 +273,20 @@ class ControllerWorkspace:
                 pass
         return native, row
 
-    async def _identity(self, session, budget, options):
+    async def _identity(self, session, budget, options, report, phase):
         value, row = await self._read(session, budget, options.device, "object-identifier")
-        if value != ObjectIdentifier(options.device):
+        matches = row["status"] == "ok" and value == ObjectIdentifier(options.device)
+        report["identity_checks"].append(
+            {"phase": phase, "identity_verified": matches, "property_evidence": row}
+        )
+        if not matches:
+            reason = (
+                f"expected {options.device}, received {value}"
+                if row["status"] == "ok"
+                else f"{row['status']}: {row.get('error', 'No usable identity value.')}"
+            )
             raise ValueError(
-                "Selected Device identity was not verified; repeat controller discovery."
+                f"Selected Device identity was not verified ({reason}); repeat controller discovery."
             )
         return row
 
@@ -297,7 +307,7 @@ class ControllerWorkspace:
             async with asyncio.timeout(self.operation_timeout):
                 async with self.path._path(options) as session:
                     self.reader.pin(session, options.router)
-                    await self._identity(session, budget, options)
+                    await self._identity(session, budget, options, report, "before")
                     for prop in (
                         "object-name",
                         "vendor-identifier",
@@ -318,7 +328,7 @@ class ControllerWorkspace:
                             0 if prop == "object-list" else None,
                         )
                         report["properties"][prop] = row
-                    await self._identity(session, budget, options)
+                    await self._identity(session, budget, options, report, "after")
                     report["identity_verified"] = report["complete"] = True
         except (ValueError, TimeoutError) as exc:
             report["errors"].append(str(exc) or "Controller capability read timed out.")
@@ -346,7 +356,7 @@ class ControllerWorkspace:
             async with asyncio.timeout(self.operation_timeout):
                 async with self.path._path(options) as session:
                     self.reader.pin(session, options.router)
-                    await self._identity(session, budget, options)
+                    await self._identity(session, budget, options, report, "before")
                     await self._read(session, budget, options.device, "vendor-identifier")
                     count, evidence = await self._read(
                         session, budget, options.device, "object-list", 0
@@ -421,7 +431,7 @@ class ControllerWorkspace:
                             }
                         )
                     after, _ = await self._read(session, budget, options.device, "object-list", 0)
-                    await self._identity(session, budget, options)
+                    await self._identity(session, budget, options, report, "after")
                     if after != count:
                         raise ValueError("Controller object inventory changed; reload it.")
                     identifiers = [row["object"] for row in report["objects"]]
@@ -445,7 +455,7 @@ class ControllerWorkspace:
             async with asyncio.timeout(self.operation_timeout):
                 async with self.path._path(options) as session:
                     self.reader.pin(session, options.router)
-                    await self._identity(session, budget, options)
+                    await self._identity(session, budget, options, report, "before")
                     await self._read(session, budget, options.device, "vendor-identifier")
                     for obj in options.object_ids:
                         if time.monotonic() > deadline:
@@ -464,7 +474,7 @@ class ControllerWorkspace:
                         item["properties"].update(
                             await self._fields(session, budget, options, obj, options.properties)
                         )
-                    await self._identity(session, budget, options)
+                    await self._identity(session, budget, options, report, "after")
                     report["identity_verified"] = True
                     report["complete"] = len(report["objects"]) == len(options.object_ids) and all(
                         item["identity_verified"]
