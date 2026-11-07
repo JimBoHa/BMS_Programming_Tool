@@ -171,6 +171,120 @@ async function openController(page: Page, endpoint: string, name: string) {
 const tasks = (page: Page) =>
   page.getByRole("navigation", { name: "Workspace tasks" });
 
+test("Metasys source inspection separates identities and rejects late or wrong-target results", async ({
+  page,
+  request,
+}, testInfo) => {
+  test.setTimeout(60000);
+  const device = await controller("Mapping inspection UI peer", 1);
+  await session(request);
+  const calls: Record<string, unknown>[] = [];
+  let release: (() => void) | undefined;
+  let wrongTarget = false;
+  const writes: string[] = [];
+  page.on("request", (r) => {
+    if (/\/(apply|transfer|write-apply)$/.test(new URL(r.url()).pathname))
+      writes.push(r.url());
+  });
+  await page.route(
+    "**/api/bacnet/controller/metasys-source-mapping/inspect",
+    async (route) => {
+      const body = route.request().postDataJSON();
+      calls.push(body);
+      if (calls.length === 1)
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+      await route.fulfill({
+        json: {
+          target: { ...body, device: wrongTarget ? "device,999" : body.device },
+          object: body.object_id,
+          read_only: true,
+          complete: true,
+          mapping_observed: true,
+          identity_verified: true,
+          finished_at: "2026-01-05T12:00:00Z",
+          errors: [],
+          limitations: ["Historian links not verified."],
+          write_support: {
+            available: false,
+            reason:
+              "A verified NAE configuration-transfer adapter is required.",
+          },
+          mapping: {
+            local_object: body.object_id,
+            local_name: "Mapped current",
+            item_reference: "Site:Engine/Bus.Meter.Current",
+            source_instance: 41,
+            remote_object_name: "Feeder Current",
+          },
+        },
+      });
+    },
+  );
+  try {
+    await interfaceSetup(page);
+    await openController(page, device.endpoint, "Mapping inspection UI peer");
+    await tasks(page)
+      .getByRole("button", { name: "Points & I/O", exact: true })
+      .click();
+    const points = page.getByRole("region", {
+      name: "Connected controller points",
+    });
+    const configure = async (object: string) => {
+      await points
+        .getByRole("row")
+        .filter({ hasText: object })
+        .getByRole("button", { name: "Configuration", exact: true })
+        .click();
+      const panel = points.locator(
+        'details[aria-label="Metasys source mapping"]',
+      );
+      await panel.locator("summary").first().click();
+      return panel;
+    };
+    let panel = await configure("analog-input,1");
+    await panel
+      .getByRole("button", { name: "Read Metasys source mapping", exact: true })
+      .click();
+    await expect.poll(() => calls.length).toBe(1);
+    await points
+      .getByRole("button", { name: "Close configuration", exact: true })
+      .click();
+    panel = await configure("analog-input,2");
+    release!();
+    await expect(panel).not.toContainText("Remote source instance");
+    await panel
+      .getByRole("button", { name: "Read Metasys source mapping", exact: true })
+      .click();
+    await expect(panel).toContainText("Remote source instance");
+    await expect(panel).toContainText("analog-input,2");
+    await expect(panel).toContainText("41");
+    await expect(panel).toContainText("Live remapping is not implemented");
+    await panel.screenshot({
+      path: testInfo.outputPath("metasys-source-mapping.png"),
+    });
+    expect(calls[1]).toEqual({
+      address: device.endpoint,
+      device: "device,4190090",
+      router: null,
+      dnet: null,
+      object_id: "analog-input,2",
+    });
+    expect(writes).toEqual([]);
+    wrongTarget = true;
+    await panel
+      .getByRole("button", { name: "Read Metasys source mapping", exact: true })
+      .click();
+    await expect(panel.getByRole("alert")).toContainText("unexpected target");
+    await expect(panel).not.toContainText("Remote source instance");
+    expect(writes).toEqual([]);
+  } finally {
+    release?.();
+    device.close();
+  }
+});
+
 test("a connected controller supplies actual program information, discovered points and changing live values", async ({
   page,
   request,

@@ -119,6 +119,7 @@ from .macros import (
 )
 from .madd_mz_ahu import madd_mz_ahu_router
 from .masd_ahu import masd_ahu_router
+from .metasys_source_mapping import MetasysSourceMapping, MetasysSourceMappingRequest
 from .models import Program, StrictModel
 from .native_applications import NativeApplications, native_application_router
 from .native_backup_comparison import BackupComparisonRequest, NativeBackupComparison
@@ -612,6 +613,7 @@ def create_app(state_dir=None, *, operation_power=None):
     controller_workspace = ControllerWorkspace(
         bacnet, store, native_readers=(controller_application,)
     )
+    metasys_source_mapping = MetasysSourceMapping(controller_workspace)
 
     native_applications = None
 
@@ -2120,6 +2122,10 @@ def create_app(state_dir=None, *, operation_power=None):
     @app.post("/api/bacnet/controller/properties")
     async def controller_properties(body: ControllerPropertiesRequest):
         return await controller_workspace.properties(**body.model_dump())
+
+    @app.post("/api/bacnet/controller/metasys-source-mapping/inspect")
+    async def controller_metasys_source_mapping(body: MetasysSourceMappingRequest):
+        return await metasys_source_mapping.inspect(**body.model_dump())
 
     @app.post("/api/bacnet/controller/application/read")
     async def controller_application_read(body: ApplicationReadRequest):
