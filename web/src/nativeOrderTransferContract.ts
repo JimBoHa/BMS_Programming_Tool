@@ -91,7 +91,7 @@ async function guardMatches(g: any, proposal: Data, selection: Data) {
       (await connectionSeal(selection.edge_relationships))
   );
 }
-async function intrinsicCompilation(c: any, proposal: Data) {
+export async function orderTransferCompilation(c: any, proposal: Data) {
   if (
     !keys(c, [
       "profile",
@@ -274,7 +274,7 @@ export async function orderTransferReview(
       hash(data.review_sha256) &&
       typeof data.expires_at === "string" &&
       Number.isFinite(Date.parse(data.expires_at)) &&
-      (await intrinsicCompilation(c, proposal)) &&
+      (await orderTransferCompilation(c, proposal)) &&
       same(c.files, source.files) &&
       same(c.parameter_merge, opened.parameter_merge) &&
       c.effective_sha256 === proposal.effective_sha256 &&
@@ -323,7 +323,7 @@ export async function orderTransferReceipt(
       i.change_kind !== "execution-order" ||
       i.operation_profile !== orderTransferProfile ||
       !orderTransferProposal(edit) ||
-      !(await intrinsicCompilation(c, edit)) ||
+      !(await orderTransferCompilation(c, edit)) ||
       !same(i.order_guard, c.order_guard) ||
       i.order_change_confirmed !== true ||
       i.application_transfer_confirmed !== true ||

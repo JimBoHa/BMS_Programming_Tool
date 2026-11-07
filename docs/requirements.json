@@ -1825,5 +1825,14 @@
     "pdf_pages_or_section": "JCI-03/JCI-09; native property3117 and File3/11/12 transfer",
     "status": "implemented",
     "implementation_or_gap": "Exact selected route/interface/identity, explicit order kind/profile and two strict confirmations; fresh capture/configuration/size/capacity guards, one-use restore intent, complete readback and restart-safe reconciliation. Authored direct/routed software qualification; general authoring, resources/packages/runtime, CCT comparison and physical/BTCVT acceptance remain separate."
+  },
+  {
+    "id": "COMM-NATIVE-ORDER-CAPS-001",
+    "feature": "Actual-source native execution-order capability evidence",
+    "acceptance_criterion": "Show independently checked local execution-order compilation and separate transfer prerequisites from actual retained native records, with bounded compiler witnesses and no field authority.",
+    "evidence": "Actual native order records, qualified saved merge, local and transfer compilers; docs/native-order-capabilities.md",
+    "pdf_pages_or_section": "JCI-01/JCI-03/JCI-09; per-operation native support evidence",
+    "status": "implemented",
+    "implementation_or_gap": "Explicit profile22 preserves profile14 and older profiles11-21; bounded real order witnesses, strict source/read-only/phase/width/compiler checks, contextual analysis and exact exports. Current connection, release/package/runtime/CCT and physical acceptance remain separate."
   }
 ]
