@@ -41,6 +41,7 @@ BROWSER = [
     "native-capacity",
     "change-ledger",
 ]
+PREFILL = ["connections-prefill-queue", "connections-hydration"]
 
 
 def git(*args):
@@ -355,8 +356,17 @@ def main():
         "planned_backend_cases_per_build": 326,
         "planned_browser_groups": BROWSER,
         "planned_browser_cases_per_matrix": 425,
+        "connection_prefill": [],
+        "planned_connection_prefill_cases_per_matrix": 6,
     }
     write(output / "qualification.json", report)
+    for number, name in enumerate(PREFILL, 100):
+        report["connection_prefill"].append(
+            browser_group(output, env, args.mode, args.browser, number, name)
+        )
+        assert git("rev-parse", "HEAD") == head and not git("status", "--porcelain")
+        write(output / "qualification.json", report)
+    assert sum(group["passed"] for group in report["connection_prefill"]) == 6
     if args.browser == "chromium":
         report["backend"] = backend(output, env)
     for number, name in enumerate(BROWSER, 1):

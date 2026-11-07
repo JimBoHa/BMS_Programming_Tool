@@ -86,6 +86,10 @@ failures, errors, skips, retries and missing cases fail qualification. Each grou
 keeps its logs, original collection/results JSON and failure traces as artifacts.
 Installed checks verify exact tracked Python, UI assets/build provenance, public
 metadata, reference data and legal files before using the wheel's package and UI.
+Six additional connection-prefill regression cases per matrix precede that
+unchanged cohort, for 2,376 total executions. They cover a queued automatic
+network recommendation or saved-status hydration reaching an already focused
+bind-address draft, including desktop and compact selection/text replacement.
 
 To run a matrix locally after building the UI and installing the locked runtime,
 build tools, pytest and pinned Playwright browsers, use a fresh ignored output

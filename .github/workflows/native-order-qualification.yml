@@ -11,6 +11,10 @@ on:
       - 'web/src/NativeExecutionOrder.tsx'
       - 'web/src/nativeOrder*.ts'
       - 'web/tests/native-order*.ts'
+      - 'web/tests/connections-prefill-queue.spec.ts'
+      - 'web/tests/connections-hydration.spec.ts'
+      - 'web/src/Connections.tsx'
+      - 'web/src/ComputerNetworkPicker.tsx'
       - 'scripts/qualify_native_order.py'
       - '.github/workflows/native-order-qualification.yml'
 
