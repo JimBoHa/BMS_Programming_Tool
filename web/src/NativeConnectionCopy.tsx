@@ -56,6 +56,7 @@ export function NativeConnectionCopy({
   const transferContext = useContext(NativeBooleanTransferContext);
   const fieldBusy = transferContext?.fieldBusy ?? false;
   const [ownedFieldBusy, setOwnedFieldBusy] = useState(false);
+  const [ownedMutationBusy, setOwnedMutationBusy] = useState(false);
   const otherFieldBusy = fieldBusy && !ownedFieldBusy;
   const archiveKey = connectionDraftKey(source, record);
   const destinationKey = archiveKey + "/destination";
@@ -70,6 +71,16 @@ export function NativeConnectionCopy({
       ? destinationChoice.value
       : cachedDestination;
   const [surfaceOpen, setSurfaceOpen] = useState(false);
+  const fieldSurface = useRef(false),
+    fieldGeneration = useRef(0);
+  function surfaceChanged(open: boolean) {
+    if (fieldSurface.current !== open) {
+      fieldGeneration.current++;
+      repaint((value) => value + 1);
+    }
+    fieldSurface.current = open;
+    setSurfaceOpen(open);
+  }
   const [basis, setBasis] = useState<"archive" | "effective">(
     drafts.get(archiveKey + "/basis") === "effective" ? "effective" : "archive",
   );
@@ -331,13 +342,26 @@ export function NativeConnectionCopy({
     }
   }
   const disabled = fieldBusy || !visible || loading === loadKey;
+  const fieldTicket = epoch.current,
+    surfaceTicket = fieldGeneration.current;
   return (
     <details
       className="native-wire-copy"
       aria-label="Native matching connection copy"
-      onToggle={(event) => setSurfaceOpen(event.currentTarget.open)}
+      onToggle={(event) => surfaceChanged(event.currentTarget.open)}
     >
-      <summary>
+      <summary
+        aria-disabled={ownedMutationBusy || otherFieldBusy || !visible}
+        onClick={(event) => {
+          if (ownedMutationBusy || otherFieldBusy || !visible) {
+            event.preventDefault();
+            return;
+          }
+          surfaceChanged(
+            !event.currentTarget.parentElement!.hasAttribute("open"),
+          );
+        }}
+      >
         {fieldMode
           ? "Add a matching connection to the controller"
           : "Add a matching native connection to a local copy"}
@@ -655,7 +679,20 @@ export function NativeConnectionCopy({
           controller={controller}
           visible={visible && fieldMode && surfaceOpen}
           otherBusy={otherFieldBusy}
-          onOwnedBusy={setOwnedFieldBusy}
+          onOwnedBusy={(busy, kind) => {
+            setOwnedFieldBusy(busy);
+            setOwnedMutationBusy(
+              busy && ["capture", "apply", "readback"].includes(kind),
+            );
+          }}
+          parentGeneration={JSON.stringify([fieldTicket, surfaceTicket])}
+          parentCurrent={() =>
+            current(owner, fieldTicket) &&
+            visible &&
+            fieldMode &&
+            fieldGeneration.current === surfaceTicket &&
+            fieldSurface.current
+          }
         />
       </div>
     </details>

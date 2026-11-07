@@ -43,6 +43,8 @@ export function NativeMatchingConnectionTransfer({
   visible,
   otherBusy,
   onOwnedBusy,
+  parentGeneration,
+  parentCurrent,
 }: {
   source: NativeArchiveSource;
   proposal: Data | null;
@@ -50,7 +52,9 @@ export function NativeMatchingConnectionTransfer({
   controller?: ControllerContext | null;
   visible: boolean;
   otherBusy: boolean;
-  onOwnedBusy: (value: boolean) => void;
+  onOwnedBusy: (value: boolean, kind: Kind) => void;
+  parentGeneration: string;
+  parentCurrent: () => boolean;
 }) {
   const context = useContext(NativeBooleanTransferContext);
   const busyOwner = useRef("matching-connection-" + randomUUID());
@@ -81,6 +85,8 @@ export function NativeMatchingConnectionTransfer({
     opened?.effective_sha256,
     visible,
     otherBusy,
+    parentGeneration,
+    context?.workspaceGeneration,
     controller && [
       controllerKey(controller),
       controller.interfaceKey,
@@ -102,7 +108,13 @@ export function NativeMatchingConnectionTransfer({
     epoch.current++;
   }
   const current = (key: string, ticket: number) =>
-    alive.current && ownerNow.current === key && epoch.current === ticket;
+    alive.current &&
+    ownerNow.current === key &&
+    epoch.current === ticket &&
+    parentCurrent() &&
+    (context?.workspaceCurrent?.() ?? true) &&
+    document.visibilityState !== "hidden";
+  const renderedEpoch = epoch.current;
   const shown = plan && current(plan.owner, plan.epoch) ? plan : null;
   const fresh = !!shown && now < Date.parse(shown.data.expires_at);
   const configuration = interfaceConfiguration(controller?.interfaceKey);
@@ -121,6 +133,9 @@ export function NativeMatchingConnectionTransfer({
     status.receipts.some((row: Data) => row.pending === true);
   const locked = busy || otherBusy;
   const canReview =
+    parentCurrent() &&
+    (context?.workspaceCurrent?.() ?? true) &&
+    document.visibilityState !== "hidden" &&
     visible &&
     connected &&
     available &&
@@ -171,7 +186,7 @@ export function NativeMatchingConnectionTransfer({
     if (active.current !== operation) return;
     active.current = null;
     if (alive.current) setBusy(false);
-    onOwnedBusy(false);
+    onOwnedBusy(false, operation.kind);
     context?.onBusy(busyOwner.current, false);
   }
   function retire() {
@@ -255,11 +270,24 @@ export function NativeMatchingConnectionTransfer({
     }
   }
   async function run(kind: Kind) {
-    if (!visible || active.current || otherBusy) return;
+    if (
+      !visible ||
+      active.current ||
+      otherBusy ||
+      !current(owner, renderedEpoch)
+    )
+      return;
     if (kind !== "credentials" && (!connected || !controller || !available))
       return;
     if ((kind === "preview" || kind === "apply") && !canReview) return;
-    if (kind === "apply" && (!shown || !fresh || !confirmed || !interruption))
+    if (
+      kind === "apply" &&
+      (!shown ||
+        !fresh ||
+        !confirmed ||
+        !interruption ||
+        !current(shown.owner, shown.epoch))
+    )
       return;
     if (kind === "readback" && (!receiptMatches || !receipt?.data.pending))
       return;
@@ -274,7 +302,7 @@ export function NativeMatchingConnectionTransfer({
     const originalTarget = controller ? targetOf(controller) : source.target;
     active.current = operation;
     setBusy(true);
-    onOwnedBusy(true);
+    onOwnedBusy(true, kind);
     context?.onBusy(busyOwner.current, true);
     setError("");
     const recordTicket =

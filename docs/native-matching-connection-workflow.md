@@ -85,3 +85,9 @@ Authored direct/routed UDP peers qualify software review, restore, readback,
 recovery, context retirement, recorded evidence and browser behavior. They do not
 establish physical or BTCVT acceptance, arbitrary native compilation, runtime
 semantics or vendor package/resource support. JCI-03 and JCI-09 remain partial.
+
+[Matching review lifetime](native-matching-review-lifecycle.md) now additionally
+checks the current parent/editor and workspace generation at action invocation.
+Task disclosure changes retire field authority synchronously; command phases
+retain their lock and late receipts. Local-copy and server transfer profiles
+retain their existing contracts.

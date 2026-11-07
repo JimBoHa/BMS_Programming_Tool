@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-06. Implementation baseline: GitHub `main` at
-[`361e1199`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/361e1199b570f87cba280f09cac7e9f00e5b2809).
+[`ba6f4fe1`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/ba6f4fe1f7af563546a8f023fadd7c9d880cd6a9).
 
 ## Baseline and purpose
 
@@ -2353,3 +2353,19 @@ workflow and raw draft files. Authored direct and routed localhost peers establi
 software behavior only. Previous-value batch recovery authoring, additional native
 edit kinds, general authoring/packages/resources/runtime, CCT comparison and
 physical/BTCVT acceptance remain separate. JCI-03/JCI-09 remain partial.
+
+## 2026-11-06 QA-01/JCI-09 repair: matching-connection review lifetime
+
+[Matching review lifetime](docs/native-matching-review-lifecycle.md) closes a
+confirmed stale-handler gap in the existing controller workflow. Dispatch checks
+the current review, parent editor/disclosure and native workspace generations
+synchronously, including coalesced away-and-back changes. Late previews cannot
+revive authority. Review preparation remains cancellable by closing the task;
+capture/Apply/readback retain their ownership lock and late original receipts.
+
+Local drafts, local copies, existing profiles, backend writers, timeouts/retries
+and all styles retain their contracts. This repairs an existing acceptance scope
+and adds no new feature-count claim. The register stays at 194 criteria: 140
+implemented, 46 partial and eight pending. General native authoring, CCT/runtime/
+package/resource and physical/BTCVT acceptance remain separate; JCI-09 and the
+broader QA-01 work remain partial.
