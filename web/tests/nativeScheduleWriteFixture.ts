@@ -42,6 +42,30 @@ if os.environ.get('BMS_TEST_HOLD_PULSE_IMPORT')=='1':
    while gate.is_file():await asyncio.sleep(.005)
    return Response(body,status_code=response.status_code,headers=dict(response.headers),background=response.background)
   return response
+if os.environ.get('BMS_TEST_BUNDLE_INSPECTION')=='1':
+ # Inspect the original multipart request once. Capture/hold only its response;
+ # browser route.fetch can replay multipart differently in WebKit.
+ import asyncio
+ from starlette.responses import Response
+ @app.middleware('http')
+ async def observe_bundle_inspection(request,call_next):
+  response=await call_next(request)
+  if request.url.path=='/api/bacnet/controller/native-application/default-batch/result/inspect-evidence':
+   body=b''.join([chunk async for chunk in response.body_iterator])
+   directory=Path(os.environ['BMS_STUDIO_DATA'])
+   with (directory/'bundle-inspection-response-observations.jsonl').open('a') as evidence:
+    evidence.write(json.dumps({'method':request.method,'path':request.url.path,'status':response.status_code,'bytes':len(body)})+chr(10))
+   if request.method!='POST':
+    return Response(body,status_code=response.status_code,headers=dict(response.headers),background=response.background)
+   (directory/'bundle-inspection-original-response.json').write_bytes(body)
+   gate=directory/'hold-bundle-inspection'
+   while gate.is_file():await asyncio.sleep(.005)
+   replacement=directory/'bundle-inspection-response-override.json'
+   if replacement.is_file():body=replacement.read_bytes()
+   (directory/'bundle-inspection-response.json').write_bytes(body)
+   headers=dict(response.headers);headers.pop('content-length',None)
+   return Response(body,status_code=response.status_code,headers=headers,background=response.background)
+  return response
 uvicorn.run(app,host='127.0.0.1',port=int(sys.argv[1]),access_log=False)
 `;
 async function freePort(): Promise<number> {
@@ -59,10 +83,12 @@ async function freePort(): Promise<number> {
 export const test = base.extend<{
   nativeScheduleWriteServer: { url: string; directory: string };
   holdPulseImport: boolean;
+  observeBundleInspection: boolean;
 }>({
   holdPulseImport: [false, { option: true }],
+  observeBundleInspection: [false, { option: true }],
   nativeScheduleWriteServer: [
-    async ({ holdPulseImport }, use) => {
+    async ({ holdPulseImport, observeBundleInspection }, use) => {
       const root = path.resolve(".."),
         port = await freePort(),
         directory = mkdtempSync(
@@ -82,6 +108,7 @@ export const test = base.extend<{
               BMS_STUDIO_DATA: directory,
               BMS_TEST_INSTALLED_TARGET: installed,
               BMS_TEST_HOLD_PULSE_IMPORT: holdPulseImport ? "1" : "",
+              BMS_TEST_BUNDLE_INSPECTION: observeBundleInspection ? "1" : "",
               PYTHONPATH:
                 installed ||
                 [path.join(root, "backend"), root].join(path.delimiter),

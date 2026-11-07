@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { NativeBatchBundleInspection } from "./NativeBatchBundleInspection";
 import { EncodedAnalogTerminalSummary, NativeEncodedAnalogLedgerView } from "./NativeEncodedAnalogLedgerView";
 import { recordedEncodedAnalogTerminal } from "./nativeEncodedAnalogLedger";
 import { recordedEncodedAnalogRecovery } from "./nativeEncodedAnalogRecoveryLedger";
@@ -514,6 +515,7 @@ export function ChangeLedgerPanel({
           </p>
         </div>
       </header>
+      <NativeBatchBundleInspection contextKey={JSON.stringify([context, cafDocument?.sha256, cafDocument?.name, graph?.id, graph?.revision])} />
       {(cafDocument || graph) && (
         <section aria-label="Local work" className="change-ledger-local">
           <h3>Local work</h3>

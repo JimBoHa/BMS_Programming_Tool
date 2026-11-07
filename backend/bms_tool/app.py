@@ -130,6 +130,7 @@ from .native_backup_records import (
     BackupRecordsRequest,
     NativeBackupRecords,
 )
+from .native_batch_bundle_inspection import batch_bundle_inspection_router
 from .native_boolean_compiler import EffectiveBooleanService
 from .native_boolean_copies import BooleanCopyExport, BooleanCopyPreview, NativeBooleanCopies
 from .native_calendar_drafts import calendar_draft_router
@@ -809,6 +810,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.state.native_boolean_copies = boolean_copies
     app.state.native_boolean_compiler = boolean_compiler
     app.include_router(native_application_router(native_applications))
+    app.include_router(batch_bundle_inspection_router())
     app.include_router(backup_import_router(native_applications.storage))
     app.include_router(native_enum_copy_router(backup_records))
     app.include_router(native_enum_compiler_router(backup_records))
@@ -985,8 +987,18 @@ def create_app(state_dir=None, *, operation_power=None):
         ):
             return JSONResponse({"detail": "A valid local session token is required."}, 403)
         length = request.headers.get("content-length")
-        if length and int(length) > 9 * 1024 * 1024:
-            return JSONResponse({"detail": "Request exceeds 9 MiB."}, 413)
+        evidence_upload = (
+            request.method == "POST"
+            and request.url.path
+            == "/api/bacnet/controller/native-application/default-batch/result/inspect-evidence"
+        )
+        request_limit = 20 * 1024 * 1024 + 64 * 1024 if evidence_upload else 9 * 1024 * 1024
+        if length and int(length) > request_limit:
+            detail = (
+                "Evidence upload exceeds 20 MiB plus multipart framing."
+                if evidence_upload else "Request exceeds 9 MiB."
+            )
+            return JSONResponse({"detail": detail}, 413)
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
