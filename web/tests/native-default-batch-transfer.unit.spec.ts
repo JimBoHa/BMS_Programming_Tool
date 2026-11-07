@@ -122,3 +122,40 @@ test("uncertainty and later readback retain original compilation without claimin
   later.latest_readback = { status: "unknown" };
   expect(await defaultBatchTransferReceipt(later, d.review)).toBe(true);
 });
+
+for (const [kind, original, cross] of [
+  ["real", 527, 530],
+  ["boolean", 530, 527],
+  ["enum", 529, 527],
+] as const)
+  for (const replacement of [999, true, String(original), cross])
+    test(`retained ${kind} receipt refuses consistent unqualified class ${JSON.stringify(replacement)}`, async () => {
+      const value = structuredClone(d.receipt);
+      const visit = (v: any) => {
+        if (!v || typeof v !== "object") return;
+        if (v.class_id === original) v.class_id = replacement;
+        for (const child of Object.values(v)) visit(child);
+      };
+      expect(await defaultBatchTransferReceipt(value)).toBe(true);
+      visit(value);
+      expect(await defaultBatchTransferReceipt(value)).toBe(false);
+    });
+for (const replacement of [
+  "",
+  "controller/\u0000invalid",
+  "x".repeat(513),
+  "controller/\ud800",
+])
+  test(`retained receipt refuses consistent invalid native reference ${JSON.stringify(replacement)}`, async () => {
+    const value = structuredClone(d.receipt),
+      original = value.intent.batch_edit.changes[0].record_ref;
+    const visit = (v: any) => {
+      if (!v || typeof v !== "object") return;
+      for (const [key, child] of Object.entries(v)) {
+        if (child === original) v[key] = replacement;
+        else visit(child);
+      }
+    };
+    visit(value);
+    expect(await defaultBatchTransferReceipt(value)).toBe(false);
+  });

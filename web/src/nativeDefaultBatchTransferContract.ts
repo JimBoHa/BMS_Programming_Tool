@@ -55,6 +55,12 @@ export function defaultBatchTransferProposal(edit: Data, opened: Data | null) {
           change.kind === "real" ? "value_text" : "value",
         ]) ||
         typeof change.record_ref !== "string" ||
+        !change.record_ref.length ||
+        [...change.record_ref].length > 512 ||
+        /[\u0000-\u001f\u007f]/.test(change.record_ref) ||
+        new TextDecoder().decode(
+          new TextEncoder().encode(change.record_ref),
+        ) !== change.record_ref ||
         !hash(change.encoded_sha256) ||
         Object.hasOwn(drafts, change.record_ref)
       )
@@ -118,6 +124,13 @@ function compilationWitness(c: Data, edit: Data, opened?: Data) {
         g.record_ref !== change.record_ref ||
         g.encoded_sha256 !== change.encoded_sha256 ||
         g.property !== 3113 ||
+        !(
+          change.kind === "real"
+            ? [526, 527]
+            : change.kind === "boolean"
+              ? [530, 531]
+              : [528, 529]
+        ).includes(g.class_id) ||
         g.class_id !== e.class_id
       )
         return false;
