@@ -91,3 +91,8 @@ acceptance. General JCI compilation and deployment remain partial.
 
 [Source-specific batch operation support](native-batch-capabilities.md) separately
 reports actual local compilation witnesses in the existing capability table.
+
+The separate [controller batch transfer workflow](native-default-batch-transfer.md)
+now supports a guarded existing-default scope. Local compiler reviews and raw
+batch files still grant no field authority; deployment requires a fresh controller
+review and retains its own journal/readback contract.

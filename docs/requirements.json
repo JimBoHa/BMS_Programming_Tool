@@ -1735,5 +1735,14 @@
     "pdf_pages_or_section": "Program / Native backup defaults; docs/native-batch-draft-files.md",
     "status": "implemented",
     "implementation_or_gap": "Strict 64KiB file with at most 16 distinct actual typed fields and 128 UTF-16 code units per raw value; complete source/file/merge/field bindings, atomic admission, replacement refusal, existing 32-source budget and read/digest lifecycle guards. Native compilers, ordinary drafts and field transfer remain separate."
+  },
+  {
+    "id": "FIELD-NATIVE-DEFAULT-BATCH-001",
+    "feature": "Guarded existing typed native default batch transfer",
+    "acceptance_criterion": "Review and apply 1–16 existing typed defaults through one source-bound native restore with fresh selected-value guards, complete readback and durable uncertainty recovery in the controller workspace.",
+    "evidence": "Actual retained Files3/11/12 typed compilers, native restore journal and authored direct/routed BACnet peer qualification",
+    "pdf_pages_or_section": "Program / Native backup defaults; docs/native-default-batch-transfer.md",
+    "status": "implemented",
+    "implementation_or_gap": "Separate strict batch transfer profile, actual fixed Enum slots, fresh unselected-setting merge, one-use review, one durable restore, complete application and selected saved-value verification, restart/readback without replay, exact exports and read-only Changes/History. General authoring/packages/resources/runtime/CCT and physical/Bluetooth acceptance remain separate."
   }
 ]

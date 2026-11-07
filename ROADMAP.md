@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-06. Implementation baseline: GitHub `main` at
-[`cc8dfc77`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/cc8dfc775c33475d14605b7cc394cfbfd652ff43).
+[`361e1199`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/361e1199b570f87cba280f09cac7e9f00e5b2809).
 
 ## Baseline and purpose
 
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 193 scoped criteria: 139
+The public requirement register currently records 194 scoped criteria: 140
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -2336,3 +2336,20 @@ plan or field authority. Ordinary single-field drafts, native compilers, transfe
 profiles and styles keep their existing contracts. Batch field deployment, general
 native authoring/packages/resources/runtime and CCT/physical acceptance remain
 separate work.
+
+## 2026-11-06 JCI-03/JCI-09 delivery: guarded typed default batch transfer
+
+[Typed default batch transfer](docs/native-default-batch-transfer.md) adds a
+separate controller review and one-use File 3 restore inside the existing batch
+editor. One to sixteen recorded Real/Boolean/Enum defaults share a fresh saved
+merge; selected encodings, effective values, types and actual fixed Enum storage
+remain guarded. Other fresh saved values are preserved, every selected value and
+complete native application are read back, and lost acknowledgements retain a
+durable receipt for explicit readback after restart without replay.
+
+Strict browser evidence, exact exports, synchronous lifecycle/ABA guards, owned
+operation locks and bounded local Changes/History preserve the controller/file
+workflow and raw draft files. Authored direct and routed localhost peers establish
+software behavior only. Previous-value batch recovery authoring, additional native
+edit kinds, general authoring/packages/resources/runtime, CCT comparison and
+physical/BTCVT acceptance remain separate. JCI-03/JCI-09 remain partial.

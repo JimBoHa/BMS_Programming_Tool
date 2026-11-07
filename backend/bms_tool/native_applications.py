@@ -59,6 +59,20 @@ from .native_connection_transfer import (
     validate_connection_evidence,
     verify_connection_preservation,
 )
+from .native_default_batch import BatchPreview
+from .native_default_batch_transfer import (
+    PROFILE as BATCH_PROFILE,
+)
+from .native_default_batch_transfer import (
+    SCOPE as BATCH_SCOPE,
+)
+from .native_default_batch_transfer import (
+    BatchTransferApply,
+    BatchTransferPreview,
+    compile_batch_defaults,
+    validate_batch_evidence,
+    verify_batch_preservation,
+)
 from .native_default_recovery import PROFILE as RECOVERY_PROFILE
 from .native_default_recovery import DefaultRecoveryPrepare, NativeDefaultRecovery
 from .native_default_transfer import (
@@ -283,6 +297,8 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
             "enum_default_transfer_scope": ENUM_DEFAULT_SCOPE,
             "wire_source_transfer_profile": WIRE_PROFILE,
             "wire_source_transfer_scope": WIRE_SCOPE,
+            "default_batch_transfer_profile": BATCH_PROFILE,
+            "default_batch_transfer_scope": BATCH_SCOPE,
             "default_wire_transfer_profile": COMBINED_PROFILE,
             "default_wire_transfer_scope": COMBINED_SCOPE,
             "matching_connection_transfer_profile": CONNECTION_PROFILE,
@@ -322,6 +338,14 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                     **(
                         {"wire_edit": r["intent"].get("wire_edit")}
                         if r["intent"].get("change_kind") == "wire-source"
+                        else {}
+                    ),
+                    **(
+                        {
+                            "batch_edit": r["intent"].get("batch_edit"),
+                            "operation_profile": r["intent"].get("operation_profile"),
+                        }
+                        if r["intent"].get("change_kind") == "default-batch"
                         else {}
                     ),
                     **(
@@ -872,6 +896,60 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
         options = EnumTransferPreview(**arguments)
         return await self.preview_typed_default(options, boolean=False, enumerated=True)
 
+    async def preview_default_batch(self, **arguments):
+        options = BatchTransferPreview(**arguments)
+        async with self.operation(options.operation_id, "review-default-batch"):
+            self.available(options)
+            if (self.storage.directory / options.capture_id).is_symlink():
+                raise ValueError("Batch native sources must stay in their original folder.")
+            captured, files = self.check_capture(options)
+            if captured["evidence_sha256"] != options.snapshot_sha256:
+                raise ValueError("The batch native snapshot changed; reopen and review again.")
+            edit = options.model_dump(include=set(BatchPreview.model_fields))
+            output, compilation = compile_batch_defaults(files, edit)
+            if compilation["changed_count"] == 0:
+                raise ValueError("Change at least one selected typed default before transfer.")
+            config, app = copy.deepcopy(self.bacnet.config), self.bacnet.require()
+            async with self.path._path(options) as session:
+                PropertyEvidence.pin(session, options.router)
+                actual, _ = await self.identity(session, options.device)
+            if actual != captured["identity"]:
+                raise ValueError("Controller identity changed after backup; capture again.")
+            body = {
+                "profile": PROFILE,
+                "operation_profile": BATCH_PROFILE,
+                "target": self.target(options),
+                "identity": actual,
+                "old_instance": ObjectIdentifier(options.device)[1],
+                "new_instance": ObjectIdentifier(options.device)[1],
+                "change_kind": "default-batch",
+                "old_name": actual["object-name"],
+                "new_name": actual["object-name"],
+                "capture_id": options.capture_id,
+                "snapshot_sha256": captured["evidence_sha256"],
+                "application_sha256": sha(files[3]),
+                "static_parameters_sha256": sha(files[11]),
+                "batch_edit": edit,
+                "batch_guard": compilation["batch_guard"],
+                "compilation": compilation,
+                "payload_sha256": sha(output),
+                "collision_check": self.default_scope(),
+                "parameter_policy": (
+                    "Capture fresh application/settings before restore. Application, saved "
+                    "directory and every selected effective default/type/capacity/state binding "
+                    "must match. Merge other fresh saved values; final payload may differ "
+                    "from preview. Verify every selected value, full application and saved settings."
+                ),
+                "backup_effects": backup_effects(),
+                "scope": BATCH_SCOPE,
+                "vendor_runtime_required": False,
+                "can_apply": True,
+                "connector_config": config,
+                "created_at": utc(),
+                "expires_at": (datetime.now(UTC) + timedelta(seconds=PLAN_SECONDS)).isoformat(),
+            }
+            return self.retain_plan(body, options, app, config)
+
     async def preview_default_wire(self, **arguments):
         options = CombinedTransferPreview(**arguments)
         async with self.operation(options.operation_id, "review-default-wire"):
@@ -1274,6 +1352,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
             "enum-default",
             "wire-source",
             "default-wire",
+            "default-batch",
             "connection",
             "point-name",
             "input",
@@ -1284,6 +1363,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
         default_edit = change_kind in ("signal-default", "boolean-default", "enum-default")
         wire_edit = change_kind == "wire-source"
         combined_edit = change_kind == "default-wire"
+        batch_edit = change_kind == "default-batch"
         connection_edit = change_kind == "connection"
         point_name_edit = change_kind == "point-name"
         input_edit = change_kind == "input"
@@ -1294,7 +1374,12 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
             or input_edit
             or connection_edit
             or combined_edit
+            or batch_edit
         )
+        if batch_edit:
+            if intent.get("operation_profile") != BATCH_PROFILE:
+                raise ValueError("Unsupported native batch transfer evidence; retain it.")
+            validate_batch_evidence(intent.get("batch_edit"), intent.get("batch_guard"))
         if combined_edit:
             if intent.get("operation_profile") != COMBINED_PROFILE:
                 raise ValueError("Unsupported combined native transfer evidence; retain it.")
@@ -1438,7 +1523,11 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                     else {}
                 )
                 result["preservation"] = (
-                    verify_combined_preservation(
+                    verify_batch_preservation(
+                        original_files, files, intent["batch_edit"], intent["batch_guard"]
+                    )
+                    if batch_edit
+                    else verify_combined_preservation(
                         original_files, files, intent["combined_edit"], intent["combined_guard"]
                     )
                     if combined_edit
@@ -1538,6 +1627,10 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
         request = WireTransferApply(**arguments)
         return await self.apply_reviewed(request, default_edit=False, wire_edit=True)
 
+    async def apply_default_batch(self, **arguments):
+        request = BatchTransferApply(**arguments)
+        return await self.apply_reviewed(request, default_edit=False, batch_edit=True)
+
     async def apply_default_wire(self, **arguments):
         request = CombinedTransferApply(**arguments)
         return await self.apply_reviewed(request, default_edit=False, combined_edit=True)
@@ -1563,6 +1656,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
         input_edit=False,
         connection_edit=False,
         combined_edit=False,
+        batch_edit=False,
     ):
         if (
             sum(
@@ -1573,6 +1667,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                     bool(input_edit),
                     bool(connection_edit),
                     bool(combined_edit),
+                    bool(batch_edit),
                 )
             )
             > 1
@@ -1587,6 +1682,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
             or input_edit
             or connection_edit
             or combined_edit
+            or batch_edit
         )
         plan = self.plans.pop(request.token, None)
         if not plan or plan["digest"] != request.review_sha256 or not plan["body"]["can_apply"]:
@@ -1596,7 +1692,9 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
         renaming = plan["body"].get("change_kind") == "name"
         kind = plan["body"].get("change_kind", "instance")
         expected_kind = (
-            "default-wire"
+            "default-batch"
+            if batch_edit
+            else "default-wire"
             if combined_edit
             else "input"
             if input_edit
@@ -1614,6 +1712,15 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
         )
         if kind not in ((expected_kind,) if program_edit else ("instance", "name")):
             raise ValueError("This review belongs to a different native transfer operation.")
+        if batch_edit:
+            if (
+                plan["body"].get("operation_profile") != BATCH_PROFILE
+                or seal(plan["body"]) != plan["digest"]
+                or plan["body"].get("batch_edit")
+                != plan["options"].model_dump(include=set(BatchPreview.model_fields))
+            ):
+                raise ValueError("The exact native batch review changed; review again.")
+            validate_batch_evidence(plan["body"].get("batch_edit"), plan["body"].get("batch_guard"))
         if combined_edit and (
             plan["body"].get("operation_profile") != COMBINED_PROFILE
             or seal(plan["body"]) != plan["digest"]
@@ -1683,6 +1790,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                 combined_edit
                 and not (request.default_change_confirmed and request.wire_change_confirmed)
             )
+            or (batch_edit and not request.defaults_change_confirmed)
             or (wire_edit and not request.wire_change_confirmed)
             or (connection_edit and not request.connection_change_confirmed)
             or (default_edit and not request.default_change_confirmed)
@@ -1716,7 +1824,9 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                 if seal(self.credentials.get()) != plan["credentials_digest"]:
                     raise ValueError("Transfer credentials changed; review again.")
                 collision = (
-                    self.default_wire_scope()
+                    self.default_scope()
+                    if batch_edit
+                    else self.default_wire_scope()
                     if combined_edit
                     else self.connection_scope()
                     if connection_edit
@@ -1757,7 +1867,14 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                             "Application or saved parameter directory changed after review. Capture and review again."
                         )
                     output, compilation = (
-                        compile_combined(
+                        compile_batch_defaults(
+                            files,
+                            body["batch_edit"],
+                            fresh=True,
+                            expected_guard=body["batch_guard"],
+                        )
+                        if batch_edit
+                        else compile_combined(
                             files,
                             body["combined_edit"],
                             fresh=True,
@@ -1860,7 +1977,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                         )
                     recovery = (
                         {}
-                        if combined_edit
+                        if combined_edit or batch_edit
                         else {
                             **terminal_recovery_origin(self, options, compilation),
                             **encoded_analog_recovery_origin(self, options, compilation),
@@ -1905,6 +2022,17 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                             "native_payload_sha256": sha(MoiIdentity(output).data),
                             "compilation": compilation,
                             "collision_check": collision,
+                            **(
+                                {
+                                    "batch_edit": body["batch_edit"],
+                                    "batch_guard": body["batch_guard"],
+                                    "operation_profile": BATCH_PROFILE,
+                                    "defaults_change_confirmed": request.defaults_change_confirmed,
+                                    "enum_semantics_verified": False,
+                                }
+                                if batch_edit
+                                else {}
+                            ),
                             **(
                                 {
                                     "combined_edit": body["combined_edit"],
@@ -2304,6 +2432,14 @@ def native_application_router(service):
     @router.post("/wire-source/transfer/preview")
     async def preview_wire(body: WireTransferPreview):
         return await service.preview_wire(**body.model_dump())
+
+    @router.post("/default-batch/transfer/preview")
+    async def preview_default_batch(body: BatchTransferPreview):
+        return await service.preview_default_batch(**body.model_dump())
+
+    @router.post("/default-batch/transfer/apply")
+    async def apply_default_batch(body: BatchTransferApply):
+        return await service.apply_default_batch(**body.model_dump())
 
     @router.post("/default-wire/transfer/preview")
     async def preview_default_wire(body: CombinedTransferPreview):

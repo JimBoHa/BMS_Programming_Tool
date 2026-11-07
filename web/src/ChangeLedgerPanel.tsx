@@ -27,6 +27,7 @@ import {
 import { recordedPointName } from "./nativePointNameLedger";
 import { recordedPointNameRecovery } from "./nativePointNameRecoveryLedger";
 import { recordedConnection } from "./nativeConnectionLedger";
+import { recordedDefaultBatch, NativeDefaultBatchLedgerView } from "./NativeDefaultBatchLedgerView";
 import { recordedDefaultWire, NativeDefaultWireLedgerView } from "./NativeDefaultWireLedgerView";
 import {
   recordedEnumRecovery,
@@ -118,6 +119,7 @@ type Row = {
   native_point_name?: unknown;
   native_connection?: unknown;
   native_default_wire?: unknown;
+  native_default_batch?: unknown;
   native_point_name_recovery?: unknown;
   created_at: string;
   state: string;
@@ -407,7 +409,10 @@ export function ChangeLedgerPanel({
     ) ||
       (nativeKind === "connection" &&
         !!recordedConnection(choice.native_connection)) ||
-      (nativeKind === "default-wire" && !!recordedDefaultWire(choice.native_default_wire)));
+      (nativeKind === "default-wire" && !!recordedDefaultWire(choice.native_default_wire)) ||
+      (nativeKind === "default-batch" && !!recordedDefaultBatch(choice.native_default_batch)));
+  const defaultBatch = choice?.source === "native" && !binaryRecoveryPresent && nativeKind === "default-batch"
+    ? recordedDefaultBatch(choice.native_default_batch) : null;
   const combined = choice?.source === "native" && !binaryRecoveryPresent && nativeKind === "default-wire"
     ? recordedDefaultWire(choice.native_default_wire) : null;
   const connection =
@@ -450,6 +455,7 @@ export function ChangeLedgerPanel({
         "boolean-default",
         "wire-source",
         "default-wire",
+        "default-batch",
         "connection",
         "input",
         "point-name",
@@ -462,7 +468,8 @@ export function ChangeLedgerPanel({
       nativeKind === "point-name" &&
       !pointName) ||
     (choice?.source === "native" && nativeKind === "connection" && !connection) ||
-    (choice?.source === "native" && nativeKind === "default-wire" && !combined);
+    (choice?.source === "native" && nativeKind === "default-wire" && !combined) ||
+    (choice?.source === "native" && nativeKind === "default-batch" && !defaultBatch);
   const toolLabel = unsupportedNative
     ? undefined
     : pointName
@@ -722,6 +729,7 @@ export function ChangeLedgerPanel({
                             : "Connection metadata unavailable"}
                         </span>
                       )}
+                      {row.native_default_batch !== undefined && <span>{recordedDefaultBatch(row.native_default_batch) ? "Recorded typed defaults" : "Batch metadata unavailable"}</span>}
                       {row.native_default_wire !== undefined && <span>{recordedDefaultWire(row.native_default_wire) ? "Recorded default and connection" : "Combined metadata unavailable"}</span>}
                       {row.native_binary_terminal_recovery === undefined && <PointNameRecoverySummary row={row} />}
                       {row.native_binary_terminal_recovery === undefined && row.native_encoded_analog_terminal === undefined && row.native_encoded_analog_recovery === undefined && row.native_recovery && (
@@ -847,6 +855,9 @@ export function ChangeLedgerPanel({
           </dl>
           {choice.native_reference_issue && (
             <p>{choice.native_reference_issue}</p>
+          )}
+          {!binaryRecoveryPresent && nativeKind === "default-batch" && (
+            defaultBatch ? <NativeDefaultBatchLedgerView data={defaultBatch} /> : <p>Batch metadata is unavailable. Inspect the original evidence.</p>
           )}
           {!binaryRecoveryPresent && nativeKind === "default-wire" && (
             combined ? <NativeDefaultWireLedgerView data={combined} /> : <p>Combined native metadata is unavailable. Inspect the original evidence.</p>

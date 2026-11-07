@@ -11,6 +11,7 @@ export async function nativeDefaultPeer(
     | "wire"
     | "default-wire"
     | "default-wire-transfer"
+    | "default-batch"
     | "connection"
     | "wire-recovery"
     | "instance"
@@ -76,6 +77,16 @@ async def main():
   app.files=wire_files(target_class=538);app.metadata['object-name']='Authored native wire controller';app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
  elif sys.argv[2]=='default-wire':
   app.files=wire_files();app.metadata['object-name']='Authored native wire controller';app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
+ elif sys.argv[2]=='default-batch':
+  from tests.test_native_default_batch_transfer import update_saved
+  from tests.test_native_default_batch import batch_files
+  import types
+  app.files=batch_files();app.metadata['object-name']='Authored native wire controller';app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
+  original_state=app.do_ReinitializeDeviceRequest
+  async def batch_state(self,message):
+   await original_state(message)
+   if str(message.reinitializedStateOfDevice)=='end-restore':update_saved(self.files)
+  app.do_ReinitializeDeviceRequest=types.MethodType(batch_state,app)
  elif sys.argv[2]=='default-wire-transfer':
   from tests.test_native_default_wire_transfer import combined_files,consume_selected_default
   app.files=combined_files();consume_selected_default(app);app.metadata['object-name']='Authored native wire controller';app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
@@ -109,6 +120,12 @@ async def main():
   elif line=='wire-application-changed':
    import gzip
    app.files[3]=gzip.compress(gzip.decompress(app.files[3]).replace(b'Opaque metadata retained',b'Unsafe metadata retained'),mtime=0)
+  elif line=='batch-other-fresh':real_slot(app.files,0,struct.pack('>f',45))
+  elif line=='batch-selected9':real_slot(app.files,17,struct.pack('>f',9))
+  elif line=='batch-original':
+   from bms_tool.moi_parameters import ParameterApplication
+   app.files=copy.deepcopy(original_files);app.files[3]=ParameterApplication(app.files[3],app.files[11],app.files[12]).compile()[0]
+   app.metadata['system-status']=0;app.mode='normal'
   elif line=='combined-other-fresh':
    from tests.test_native_default_wire_transfer import saved
    real_slot(app.files,0,struct.pack('>f',45));saved(app.files,10,b'\\x00')

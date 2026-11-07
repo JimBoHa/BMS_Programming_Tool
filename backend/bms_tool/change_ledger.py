@@ -26,6 +26,7 @@ from .native_binary_terminal_recovery_ledger import (
     binary_terminal_recovery_reference,
 )
 from .native_connection_ledger import connection_reference
+from .native_default_batch_ledger import batch_reference
 from .native_default_wire_ledger import combined_reference
 from .native_encoded_analog_ledger import encoded_analog_terminal_reference, explicit_encoded_analog
 from .native_encoded_analog_recovery_ledger import encoded_analog_recovery_reference
@@ -359,6 +360,7 @@ class ChangeLedger:
                 "enum-default": "Native Enum code transfer",
                 "wire-source": "Native wire source transfer",
                 "default-wire": "Native Real default and connection transfer",
+                "default-batch": "Native typed default batch transfer",
                 "connection": "Native matching connection transfer",
                 "input": "Native input configuration transfer",
                 "point-name": "Native point-name transfer",
@@ -370,7 +372,9 @@ class ChangeLedger:
             label = labels.get(native_kind, "Native application transfer (unsupported operation)")
             selection = body.get("wire_edit" if native_kind == "wire-source" else "default_edit")
             native_metadata = native_reference(native_kind, selection)
-            if native_kind == "default-wire":
+            if native_kind == "default-batch":
+                native_metadata = batch_reference(body)
+            elif native_kind == "default-wire":
                 native_metadata = combined_reference(body)
             elif (
                 native_kind == "input"
@@ -413,7 +417,7 @@ class ChangeLedger:
                 None
                 if (
                     native_kind == "point-name"
-                    or native_kind == "default-wire"
+                    or native_kind in ("default-wire", "default-batch")
                     or "native_terminal_recovery" in native_metadata
                     or "native_binary_terminal" in native_metadata
                     or "native_encoded_analog_terminal" in native_metadata

@@ -29,11 +29,13 @@ export function NativeSignalCompiler({
   controller,
   visible = true,
   parentBusy = false,
+  batchParentBusy = parentBusy,
   onBusyChange,
 }: {
   controller?: ControllerContext | null;
   visible?: boolean;
   parentBusy?: boolean;
+  batchParentBusy?: boolean;
   onBusyChange?: (busy: boolean) => void;
 }) {
   const [batchTask, setBatchTask] = useState({
@@ -521,6 +523,29 @@ export function NativeSignalCompiler({
           blocked={busy}
           expanded={batchTask.expanded}
           drafts={batchDrafts.current}
+          controller={controller}
+          fieldBlocked={
+            localBusy ||
+            batchParentBusy ||
+            [...busyOwners.current].some((key) => key !== "default-batch")
+          }
+          fieldParentCurrent={() =>
+            alive.current &&
+            visible &&
+            batchTaskNow.current.expanded &&
+            batchTaskNow.current.generation === batchTask.generation &&
+            ownerNow.current === owner &&
+            sourceEpoch.current === combinedSourceTicket &&
+            !localBusy &&
+            !batchParentBusy &&
+            ![...busyOwners.current].some((key) => key !== "default-batch")
+          }
+          onFieldBusy={(value) => transferBusyChanged("default-batch", value)}
+          onCaptured={(id) => {
+            setChoice(id);
+            setPendingSource(id);
+            void refresh();
+          }}
           onExpandedChange={(expanded) => {
             if (busyOwners.current.size || parentBusy || localBusy)
               return false;
