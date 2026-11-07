@@ -555,6 +555,7 @@ export function NativeDefaultBatchCompiler({
             if (blocked || busy) return;
             retire();
             setFieldOpen((value) => !value);
+            redraw((value) => value + 1);
           }}
         >
           Transfer default batch to controller

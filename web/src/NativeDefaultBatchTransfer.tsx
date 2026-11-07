@@ -1,4 +1,6 @@
 import { NativeDefaultBatchValues } from "./NativeDefaultBatchLedgerView";
+import { NativeDefaultBatchRecovery } from "./NativeDefaultBatchRecovery";
+import { defaultBatchRecoveryParent } from "./nativeDefaultBatchRecoveryContract";
 import { randomUUID } from "./browserCrypto";
 import { useEffect, useRef, useState } from "react";
 import { api, apiJsonDocument, apiKeepalive, saveBlob } from "./api";
@@ -450,7 +452,8 @@ export function NativeDefaultBatchTransfer({
         base + "/receipts/" + chosenReceipt,
       );
       if (
-        !(await defaultBatchTransferReceipt(document.data)) ||
+        (!(await defaultBatchTransferReceipt(document.data)) &&
+          !(await defaultBatchRecoveryParent(document.data))) ||
         document.data.intent?.id !== chosenReceipt
       ) {
         throw new Error(
@@ -685,6 +688,14 @@ export function NativeDefaultBatchTransfer({
             <summary>Batch transfer receipt details</summary>
             <pre>{JSON.stringify(receipt.data, null, 2)}</pre>
           </details>
+          <NativeDefaultBatchRecovery
+            opened={opened}
+            receipt={receipt.data}
+            visible={visible}
+            blocked={locked}
+            revision={revision}
+            parentCurrent={parentCurrent}
+          />
         </section>
       )}
       <div className="button-row">

@@ -60,6 +60,7 @@ from .native_connection_transfer import (
     verify_connection_preservation,
 )
 from .native_default_batch import BatchPreview
+from .native_default_batch_recovery import NativeDefaultBatchRecovery
 from .native_default_batch_transfer import (
     PROFILE as BATCH_PROFILE,
 )
@@ -261,6 +262,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
         self.default_recovery = NativeDefaultRecovery(NativeBackupRecords(self.storage))
         self.boolean_recovery = NativeBooleanRecovery(NativeBackupRecords(self.storage))
         self.enum_recovery = NativeEnumRecovery(NativeBackupRecords(self.storage))
+        self.default_batch_recovery = NativeDefaultBatchRecovery(NativeBackupRecords(self.storage))
         self.wire_recovery = NativeHistoricalWireRecovery(NativeBackupRecords(self.storage))
         self.name_recovery = NativeNameRecovery(NativeBackupRecords(self.storage), self.compile)
         self.point_name_recovery = NativePointNameRecovery(NativeBackupRecords(self.storage))
@@ -2436,6 +2438,10 @@ def native_application_router(service):
     @router.post("/default-batch/transfer/preview")
     async def preview_default_batch(body: BatchTransferPreview):
         return await service.preview_default_batch(**body.model_dump())
+
+    @router.post("/default-batch/recovery/prepare")
+    def prepare_default_batch_recovery(body: DefaultRecoveryPrepare):
+        return service.default_batch_recovery.prepare(body.model_dump())
 
     @router.post("/default-batch/transfer/apply")
     async def apply_default_batch(body: BatchTransferApply):

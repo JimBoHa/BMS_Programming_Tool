@@ -1753,5 +1753,14 @@
     "pdf_pages_or_section": "Program / Native backup defaults; docs/native-batch-transfer-capabilities.md",
     "status": "implemented",
     "implementation_or_gap": "Explicit profile21 retains profile20, source-derived candidate/exclusion evidence, at most16 selected fields and one actual compiler probe; strict browser validation, exact response export and synchronous ownership. Selected missing Enum storage is explained without disabling local compilation. API12/UI14 and explicit11\u201320 remain independent. General authoring/CCT/runtime and physical acceptance remain separate."
+  },
+  {
+    "id": "COMM-NATIVE-BATCH-RECOVERY-PREP-001",
+    "feature": "Previous effective typed native batch preparation",
+    "acceptance_criterion": "Derive previous effective defaults from a verified immutable batch receipt and matching retained current source, preserving unrelated saved settings and exact typed evidence without controller queries or field authority.",
+    "evidence": "Existing typed native compiler, durable transfer evidence, historical recovery proof and actual authored direct transfer/capture qualification",
+    "pdf_pages_or_section": "Program / Native backup defaults; docs/native-default-batch-recovery.md",
+    "status": "implemented",
+    "implementation_or_gap": "Strict local preparation and exact received JSON export; complete original compiler reconstruction, actual route/identity/native/static-directory binding, current previous-or-recorded values, finite float32 bits, strict Boolean and fixed Enum storage/state evidence; bounded16-field source order and independent hypothetical compilation. Source/editor/task/visibility retirement preserves ordinary drafts. Fresh lineage-bound recovery deployment, general authoring/CCT and physical acceptance remain separate."
   }
 ]

@@ -63,3 +63,9 @@ distribution assets; it does not establish field or BTCVT acceptance.
 A separate opt-in [source prerequisite analysis](native-batch-transfer-capabilities.md)
 adds profile21 evidence without changing this workflow's original contract or
 creating controller authority.
+
+
+[Previous effective batch preparation](native-default-batch-recovery.md) now
+provides a separate local report from a verified receipt and matching retained
+current source. It does not extend this transfer contract or authorize recovery
+deployment.
