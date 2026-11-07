@@ -6,6 +6,8 @@ receipt, then choose **Prepare previous batch defaults**. Preparation reads loca
 retained evidence and displays previous, recorded-after and retained-current
 values. **Save exact previous batch proposal** exports the original JSON response.
 Ordinary unfinished drafts remain separate and are never replaced.
+Unresolved receipts, receipts with no possible restore, and receipts without a
+retained verified outcome explain why preparation is unavailable.
 
 Read a current native backup separately when needed. That existing capture enters
 and ends backup mode. Preparation itself performs no controller query, command,

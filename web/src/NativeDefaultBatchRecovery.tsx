@@ -51,6 +51,25 @@ export function NativeDefaultBatchRecovery({
   if (actual.current.owner !== owner) epoch.current++;
   actual.current = { owner, visible, blocked, parentCurrent };
   const rendered = epoch.current;
+  const possible =
+    (receipt.result
+      ? receipt.result.may_have_applied
+      : receipt.intent?.may_have_applied) === true;
+  const verified =
+    receipt.result?.status === "verified" ||
+    (Array.isArray(receipt.events) &&
+      receipt.events.some(
+        (event: Data) =>
+          event?.stage === "readback" && event.detail?.status === "verified",
+      ));
+  const parentProblem =
+    receipt.pending !== false
+      ? "Resolve the original batch outcome before preparing previous values."
+      : !receipt.intent || !possible
+        ? "This receipt records no possible batch restore. There are no transferred defaults to recover."
+        : !verified
+          ? "This receipt has no retained verified batch outcome. Read back the original transfer before preparing previous values."
+          : null;
   const current = (key: string, ticket: number) =>
     alive.current &&
     actual.current.owner === key &&
@@ -84,6 +103,7 @@ export function NativeDefaultBatchRecovery({
   async function prepare() {
     if (
       !opened ||
+      parentProblem !== null ||
       receipt.pending !== false ||
       pending ||
       !current(owner, rendered)
@@ -155,12 +175,13 @@ export function NativeDefaultBatchRecovery({
       )}
       <button
         disabled={
-          !opened || receipt.pending !== false || pending || blocked || !visible
+          !opened || parentProblem !== null || pending || blocked || !visible
         }
         onClick={() => void prepare()}
       >
         Prepare previous batch defaults
       </button>
+      {parentProblem && <p role="status">{parentProblem}</p>}
       {pending && <p role="status">Checking retained previous batch values…</p>}
       {error && <p role="alert">{error}</p>}
       {shown && (

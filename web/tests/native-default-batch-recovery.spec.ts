@@ -150,7 +150,7 @@ test("a late retired response cannot replace a newer exact recovery report", asy
     release();
   }
 });
-async function enter(page: Page, data: any, caf = false) {
+async function enter(page: Page, data: any, caf = false, candidate = true) {
   await page.goto("/");
   if (caf) {
     const select = page.waitForEvent("filechooser");
@@ -218,12 +218,12 @@ async function enter(page: Page, data: any, caf = false) {
     name: "Previous typed batch defaults",
     exact: true,
   });
-  await expect(
-    recovery.getByRole("button", {
-      name: "Prepare previous batch defaults",
-      exact: true,
-    }),
-  ).toBeEnabled();
+  const prepare = recovery.getByRole("button", {
+    name: "Prepare previous batch defaults",
+    exact: true,
+  });
+  if (candidate) await expect(prepare).toBeEnabled();
+  else await expect(prepare).toBeVisible();
   return { compiler, batch, field, transfer, recovery, draft };
 }
 for (const caf of [false, true])
@@ -390,3 +390,43 @@ for (const change of ["pagehide", "visibility", "disclosure"])
     await expect(save).toHaveCount(0);
     expect(downloads).toBe(0);
   });
+
+test("a no-dispatch receipt explains unavailable recovery and makes no preparation request", async ({
+  page,
+  nativeScheduleWriteServer,
+}) => {
+  const data = seedBatchRecovery(nativeScheduleWriteServer.directory);
+  let requests = 0;
+  page.on("request", (r) => {
+    if (r.url().endsWith("/default-batch/recovery/prepare")) requests++;
+  });
+  await page.route("**/receipts/" + data.id, async (route) => {
+    const response = await route.fetch(),
+      text = await response.text();
+    const start = text.indexOf(',"result":'),
+      end = text.indexOf(',"pending":', start);
+    expect(start).toBeGreaterThan(0);
+    expect(end).toBeGreaterThan(start);
+    // Preserve the original signed-zero compilation evidence outside this result.
+    const body =
+      text.slice(0, start) +
+      ',"result":' +
+      JSON.stringify({
+        status: "not_sent",
+        may_have_applied: false,
+        protocol_accepted: false,
+      }) +
+      text.slice(end);
+    await route.fulfill({ status: 200, contentType: "application/json", body });
+  });
+  const { recovery, draft } = await enter(page, data, false, false);
+  const prepare = recovery.getByRole("button", {
+    name: "Prepare previous batch defaults",
+    exact: true,
+  });
+  await expect(prepare).toBeDisabled();
+  await expect(recovery).toContainText("no possible batch restore");
+  await prepare.evaluate((button) => (button as HTMLElement).click());
+  expect(requests).toBe(0);
+  await expect(draft).toHaveValue("12.");
+});
