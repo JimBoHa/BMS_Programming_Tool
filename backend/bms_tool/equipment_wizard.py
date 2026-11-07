@@ -497,6 +497,8 @@ def generate(value: Choices):
         inactive += ["damper_min", "damper_max"]
     if value.equipment == "cooling-only":
         inactive += ["heating_setpoint", "fan_on", "fan_off"]
+        if value.setpoint_guard is not None:
+            inactive.append("setpoint_guard.minimum_deadband")
     elif value.equipment == "inline-reheat":
         inactive += ["fan_on", "fan_off"]
     for item in nodes:

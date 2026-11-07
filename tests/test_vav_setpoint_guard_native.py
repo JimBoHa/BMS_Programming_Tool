@@ -68,3 +68,20 @@ def test_compiled_thermal_modes_invalid_configuration_integral_hold_and_quality_
         assert fault["outputs"] == resumed["outputs"]
         assert fault["native_state"] == resumed["native_state"]
     assert process.poll() is not None
+
+
+@pytest.mark.skipif(not iec.profile()["available"], reason="Pinned MatIEC/clang unavailable")
+@pytest.mark.parametrize("unit", ["degF", "degC"])
+def test_actual_compiled_cooling_only_narrow_range_does_not_use_hidden_reheat_deadband(unit):
+    value = guarded(
+        equipment="cooling-only",
+        setpoint_guard={"minimum": 72, "maximum": 74, "minimum_deadband": 5},
+    )
+    if unit == "degC":
+        value = convert_units(value, unit, "cfm")
+    with iec.NativeIEC(generate(value)) as native:
+        for zone, expected in [(75, 52), (70, 20), (73, 20)]:
+            row = native.step({"zone": zone if unit == "degF" else (zone - 32) * 5 / 9})
+            assert row["matches_reference"] and not row["fault"], row
+            assert row["outputs"]["spguard_configuration_valid"] is True
+            assert row["outputs"]["damper"] == pytest.approx(expected, abs=0.0002)

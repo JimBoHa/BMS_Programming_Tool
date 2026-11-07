@@ -17,6 +17,8 @@ or unit conversion. Enabling the option does not silently change the original
 Ordinary editable graph blocks check raw runtime setpoints against bounded
 copies. Reheat also checks their order and gap, with a documented 1e-9 delta-degF
 equivalent binary64 gap tolerance. Cooling-only checks only its cooling range.
+Its unused reheat gap stays in the choice evidence as inactive and does not
+constrain a cooling-only range, including after unit conversion.
 Temperature demand is permitted above the cooling setpoint or below the heating
 setpoint respectively; the thermal modes cannot overlap. Inside the band or with
 an invalid finite configuration, their commands are zero and temperature PI

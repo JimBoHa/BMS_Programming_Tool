@@ -300,6 +300,37 @@ test("nominal deadband and range errors refuse preview until the operator repair
   await preview(page);
 });
 
+test("cooling-only narrow ranges ignore the hidden reheat gap through preview and unit conversion", async ({
+  page,
+}) => {
+  const dialog = await parameters(page, "cooling-only");
+  const guard = await enable(page);
+  await guard
+    .getByLabel("Minimum permitted setpoint (degF)", { exact: true })
+    .fill("72");
+  await guard
+    .getByLabel("Maximum permitted setpoint (degF)", { exact: true })
+    .fill("74");
+  let report = await preview(page);
+  expect(report.program.metadata.equipment_wizard.inactive_choices).toContain(
+    "setpoint_guard.minimum_deadband",
+  );
+  await dialog.getByRole("button", { name: "Back", exact: true }).click();
+  await dialog
+    .getByLabel("Wizard temperature units", { exact: true })
+    .selectOption("degC");
+  await expect(
+    dialog.getByLabel("Wizard temperature units", { exact: true }),
+  ).toHaveValue("degC");
+  report = await preview(page);
+  expect(report.choices.setpoint_guard.minimum).toBeCloseTo(200 / 9, 10);
+  expect(report.choices.setpoint_guard.maximum).toBeCloseTo(210 / 9, 10);
+  expect(report.choices.setpoint_guard.minimum_deadband).toBeCloseTo(
+    25 / 9,
+    10,
+  );
+});
+
 test("absolute range and delta deadband convert together and return without losing source choices", async ({
   page,
 }) => {

@@ -41,8 +41,6 @@ class SetpointGuardChoices(StrictModel):
     def coherent(self):
         if self.minimum >= self.maximum:
             raise ValueError("Setpoint guard minimum must be below its maximum.")
-        if self.minimum_deadband > self.maximum - self.minimum:
-            raise ValueError("Setpoint guard deadband exceeds its declared range.")
         return self
 
 
@@ -68,6 +66,8 @@ def validate_guard(value):
         return
     if value.equipment not in RULES["families"]:
         raise ValueError("This setpoint guard belongs to the three single-duct VAV families.")
+    if value.equipment != "cooling-only" and guard.minimum_deadband > guard.maximum - guard.minimum:
+        raise ValueError("Setpoint guard deadband exceeds its declared range.")
     if not guard.minimum <= value.cooling_setpoint <= guard.maximum:
         raise ValueError("Nominal cooling setpoint is outside the declared guard range.")
     if value.equipment != "cooling-only" and (

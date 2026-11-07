@@ -259,3 +259,25 @@ def test_declared_guard_and_nominal_choices_require_strict_finite_coherent_value
 def test_excluded_families_do_not_silently_inherit_single_duct_policy(family):
     with pytest.raises(ValueError, match="single-duct"):
         guarded(equipment=family)
+
+
+@pytest.mark.parametrize("family", ["cooling-only", "inline-reheat", "parallel-fan-reheat"])
+def test_only_reheat_requires_the_declared_deadband_to_fit_inside_the_permitted_range(family):
+    bounds = {"minimum": 72, "maximum": 74, "minimum_deadband": 5}
+    if family != "cooling-only":
+        with pytest.raises(ValueError, match="deadband exceeds"):
+            guarded(equipment=family, setpoint_guard=bounds)
+        return
+    value = guarded(equipment=family, setpoint_guard=bounds)
+    assert (
+        "setpoint_guard.minimum_deadband"
+        in generate(value).metadata["equipment_wizard"]["inactive_choices"]
+    )
+    for unit in ["degF", "degC"]:
+        converted = convert_units(value, unit, "cfm")
+        engine = Engine(generate(converted))
+        supplied = 75 if unit == "degF" else (75 - 32) * 5 / 9
+        row = engine.step({"zone": supplied})["outputs"]
+        assert row["spguard_configuration_valid"] is True
+        assert row["damper"] == pytest.approx(52)
+        assert "spguard_heat_permitted_output" not in row

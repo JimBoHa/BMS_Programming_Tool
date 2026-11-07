@@ -91,3 +91,30 @@ def test_rejected_guard_creates_no_project_or_field_authority(tmp_path, changes)
             )
         assert client.get("/api/projects").json() == []
         assert not client.get("/api/session").json()["field_network_open"]
+
+
+def test_cooling_only_narrow_range_survives_actual_units_and_preview_endpoints(tmp_path):
+    with TestClient(create_app(tmp_path)) as client:
+        headers = {"X-Studio-Token": client.get("/api/session").json()["token"]}
+        body = guarded(
+            equipment="cooling-only",
+            setpoint_guard={"minimum": 72, "maximum": 74, "minimum_deadband": 5},
+        ).model_dump()
+        units = client.post(
+            "/api/equipment-wizard/units",
+            json={"choices": body, "temperature_unit": "degC", "flow_unit": "cfm"},
+            headers=headers,
+        )
+        assert units.status_code == 200, units.text
+        preview = client.post(
+            "/api/equipment-wizard/preview", json=units.json()["choices"], headers=headers
+        )
+        assert preview.status_code == 200, preview.text
+        result = preview.json()
+        assert (
+            "setpoint_guard.minimum_deadband"
+            in result["program"]["metadata"]["equipment_wizard"]["inactive_choices"]
+        )
+        assert result["can_create"] and not result["controller_writes"]
+        assert client.get("/api/projects").json() == []
+        assert not client.get("/api/session").json()["field_network_open"]
