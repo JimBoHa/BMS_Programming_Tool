@@ -197,7 +197,11 @@ class RawRouter(asyncio.DatagramProtocol):
                 return
             if (dnet, mac) in self.probe_devices:
                 assert hop_count == 255 and packet[1] & 4
-                assert len(apdu[4:]) == 7 and apdu[4] == 0x0C and apdu[9] == 0x19
+                assert len(apdu[4:]) in (7, 9) and apdu[4] == 0x0C and apdu[9] == 0x19
+                if len(apdu[4:]) == 9:
+                    # Opening an identified controller separately checks its
+                    # Object_List count. This peer exposes no object inventory.
+                    assert apdu[10:] == b"\x4c\x29\x00"
                 encoded_identifier = int.from_bytes(apdu[5:9], "big")
                 assert encoded_identifier >> 22 == 8
                 requested = encoded_identifier & 0x3FFFFF
