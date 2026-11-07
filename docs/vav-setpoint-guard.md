@@ -75,3 +75,9 @@ tested trajectories do not imply equality for every value near a representationa
 boundary or acceptance by JCI firmware. Browser checks exercise both entry paths,
 compact navigation, source/profile refusals, revisions, export, simulation and
 late-response retirement. All field and Bluetooth acceptance remains separate.
+
+The broader pacing regression controls monotonic host time while retaining real
+periodic timers. Separate one- and two-scan held batches check exact request and
+receipt counts, quarter-second history timestamps, pause cause and no automatic
+restart after visibility returns. This corrects a test's incidental single-batch
+size assumption; production pacing and scan budgets are unchanged.
