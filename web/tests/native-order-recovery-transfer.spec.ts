@@ -67,7 +67,15 @@ for (const routed of [false, true])
               await route.fulfill({ response, body: exact });
             },
           );
+          const applied = page.waitForResponse(
+            (response) =>
+              response.url().endsWith("/execution-order/transfer/apply") &&
+              response.request().method() === "POST",
+          );
           await apply.click();
+          expect((await applied).ok()).toBe(true);
+          expect(exact).toBeTruthy();
+          const receipt = JSON.parse(exact!.toString());
           await expect(
             opened.transfer.getByRole("region", {
               name: "Execution-order transfer result",
@@ -76,8 +84,12 @@ for (const routed of [false, true])
           ).toContainText(
             "Execution order verified in the complete native readback.",
           );
-          expect(exact).toBeTruthy();
-          const receipt = JSON.parse(exact!.toString());
+          await expect(
+            opened.transfer.getByRole("region", {
+              name: "Execution-order transfer result",
+              exact: true,
+            }),
+          ).toContainText(receipt.intent.id);
           expect(receipt.intent.id).not.toBe(seeded.parent.intent.id);
           expect(receipt.intent.recovery_profile).toBe(
             orderRecoveryTransferProfile,
@@ -493,6 +505,12 @@ test("an active previous-order restore retains its exact late receipt after page
     );
     await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
     release();
+    await expect(
+      opened.transfer.getByRole("region", {
+        name: "Execution-order transfer result",
+        exact: true,
+      }),
+    ).toContainText(actual.data.intent.id);
     await expect(
       opened.transfer.getByRole("region", {
         name: "Execution-order transfer result",

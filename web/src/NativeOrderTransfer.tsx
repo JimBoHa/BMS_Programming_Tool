@@ -752,6 +752,7 @@ export function NativeOrderTransfer({
             controllerProposalAvailable={controllerReady && previousAvailable}
             parentCurrent={() => current(owner, renderedEpoch)}
           />
+          <p>Recorded transfer receipt: {intent.id}.</p>
           {receiptTarget && (
             <p>Original transfer target: {targetLabel(receiptTarget)}.</p>
           )}
