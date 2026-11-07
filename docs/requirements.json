@@ -1780,5 +1780,14 @@
     "pdf_pages_or_section": "Changes; History / Recorded changes; docs/native-default-batch-recovery-ledger.md",
     "status": "implemented",
     "implementation_or_gap": "Bounded16-field recorded projection with exact origin seal, child identity/review bindings, finite float32 bits, strict Boolean and Enum codes; independent client predicate, parent search and exact JSON. No parent/source revalidation, live-state claim or field operation. Ordinary batch records and uncertainty outcomes retain their existing behavior; wider JCI-10 and physical acceptance remain separate."
+  },
+  {
+    "id": "COMM-NATIVE-BATCH-RESULT-MATCH-001",
+    "feature": "Retained source comparison with verified typed batch results",
+    "acceptance_criterion": "Reconstruct a verified typed batch result and compare retained application/effective hashes, exact captured route/identity and current selected typed values without field traffic or transfer authority.",
+    "evidence": "Actual immutable batch/recovery receipts, original typed compiler reconstruction, retained-source readers and authored direct/routed source/installed browser qualification",
+    "pdf_pages_or_section": "Program / Native backup defaults; docs/native-default-batch-result-match.md",
+    "status": "implemented",
+    "implementation_or_gap": "Strict resolved possible-dispatch proof and full original compilation/payload verification; separate container/native/effective hashes, selected current/expected values and original directory evidence; third/unselected saved changes and route differences remain explicit. Supported recovery children require no parent revalidation after dispatch. Independent browser checks, context retirement, exact JSON and ordinary drafts preserved. No field/recovery authority, CCT/runtime or physical acceptance."
   }
 ]

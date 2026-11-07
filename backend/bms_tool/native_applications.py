@@ -64,6 +64,7 @@ from .native_default_batch_recovery import NativeDefaultBatchRecovery
 from .native_default_batch_recovery_transfer import PROFILE as BATCH_RECOVERY_PROFILE
 from .native_default_batch_recovery_transfer import recovery_origin as batch_recovery_origin
 from .native_default_batch_recovery_transfer import validate_plan as validate_batch_recovery_plan
+from .native_default_batch_result_match import NativeDefaultBatchResultMatch
 from .native_default_batch_transfer import (
     PROFILE as BATCH_PROFILE,
 )
@@ -2461,6 +2462,12 @@ def native_application_router(service):
     @router.post("/default-batch/recovery/prepare")
     def prepare_default_batch_recovery(body: DefaultRecoveryPrepare):
         return service.default_batch_recovery.prepare(body.model_dump())
+
+    @router.post("/default-batch/result/compare")
+    def compare_default_batch_result(body: DefaultRecoveryPrepare):
+        return NativeDefaultBatchResultMatch(service.default_batch_recovery.records).compare(
+            body.model_dump()
+        )
 
     @router.post("/default-batch/transfer/apply")
     async def apply_default_batch(body: BatchTransferApply):
