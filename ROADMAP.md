@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-06. Implementation baseline: GitHub `main` at
-[`a079f4d3`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/a079f4d35addb4a14ce0e8a840e4c177e5fa7172).
+[`109ca01f`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/109ca01f38a4af92224551ea12c7f51dcafb8ce6).
 
 ## Baseline and purpose
 
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 195 scoped criteria: 141
+The public requirement register currently records 196 scoped criteria: 142
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -2387,3 +2387,22 @@ controller/file workflow and unfinished drafts. The register now has 195 criteri
 preflight; fresh field review, previous-value batch recovery, general native
 authoring/packages/resources/runtime/CCT and physical/BTCVT acceptance remain
 separate. See [batch transfer prerequisites](docs/native-batch-transfer-capabilities.md).
+
+
+## 2026-11-06 JCI-10 delivery: previous effective typed batch preparation
+
+`COMM-NATIVE-BATCH-RECOVERY-PREP-001` derives previous effective Real/Boolean/Enum
+values from one resolved, historically verified native batch receipt. Actual
+original files, guards, complete compilation and payload must reconstruct exactly.
+The current retained source must match route, identity, expanded application and
+static directory; each selected value must be previous or recorded-after. Other
+current saved values remain current. A bounded hypothetical compilation and exact
+JSON report create no controller query, plan, journal or field authority.
+
+The existing receipt view gains a focused preparation task with typed comparison,
+keyboard table access and source/task/editor lifetime checks. Ordinary unfinished
+drafts remain separate. This completes local preparation only; fresh lineage-bound
+recovery deployment is next, with general rollback, authoring/packages/resources/
+runtime/CCT and physical/BTCVT acceptance still separate. The register now has 196
+criteria: 142 implemented, 46 partial and eight pending. See
+[previous batch preparation](docs/native-default-batch-recovery.md).
