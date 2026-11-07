@@ -251,8 +251,18 @@ test("both wiring candidates require an explicit included operation", async ({
   await expect(
     page.getByLabel("Native new connection destination", { exact: true }),
   ).toHaveValue("8-1/575_1.2_13");
-  page.once("dialog", (dialog) => dialog.dismiss());
-  await panel(page).getByRole("button", { name: "Open CAF copy" }).click();
+  const confirming = page.waitForEvent("dialog");
+  const opening = panel(page)
+    .getByRole("button", { name: "Open CAF copy" })
+    .click();
+  const dialog = await confirming;
+  expect(dialog.type()).toBe("confirm");
+  expect(dialog.message()).toContain("Open the reviewed CAF copy?");
+  await dialog.dismiss();
+  await opening;
+  await expect(
+    panel(page).getByRole("button", { name: "Open CAF copy" }),
+  ).toBeEnabled();
   await expect(
     page.getByLabel("Current CAF archive", { exact: true }),
   ).toHaveText("combined-example.caf");

@@ -53,6 +53,11 @@ It does not create new native blocks, compile a complete program or download one
 The interactive canvas is limited to 1,500 blocks and 6,000 wires per diagram;
 larger diagrams retain their full connection table and can be inspected by module.
 
+The separate [execution-order copy](caf-execution-order.md) now reorders existing
+members through an explicit local review/export. It preserves every original
+wire's before/same/after relationship and all other graph configuration. Canvas
+dragging still changes view positions only; existing rewiring guards stay intact.
+
 The interaction references are the manufacturer's [CCT activities tree](https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Controller-Tool-Help/17.0/User-Interface/User-Interface-Concepts/Classic-View-Workspace/Logic-Tab/Activities-Tree)
 and [connection display](https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Controller-Tool-Help/13.1/Configuring-a-System/Setting-Preferences-Concepts/Control-View-Connections-Option-in-Logic-View),
 plus Automated Logic's [EIKON graphical engineering](https://www.automatedlogic.com/en/products/webctrl-building-automation-system/engineering-tools/eikon/).

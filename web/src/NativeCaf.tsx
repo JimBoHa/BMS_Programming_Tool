@@ -26,6 +26,7 @@ import {
   type CombinedCafCopy,
 } from "./cafCombinedCopyContract";
 import type { CafRemovalDrafts } from "./cafRemovalDrafts";
+import type { OrderDrafts } from "./cafExecutionOrderContract";
 import { CafHardwarePanel } from "./CafHardwarePanel";
 import { CafInstancePanel } from "./CafInstancePanel";
 import { JciPreflight } from "./JciPreflight";
@@ -105,6 +106,7 @@ export function NativeCaf({
   const [graphDirty, setGraphDirty] = useState(false);
   const constantDrafts = useRef<ConstantDrafts>(new Map());
   const removalDrafts = useRef<CafRemovalDrafts>(new Map());
+  const orderDrafts = useRef<OrderDrafts>(new Map());
   const [hardwareDirty, setHardwareDirty] = useState(false);
   const [instanceDirty, setInstanceDirty] = useState(false);
   const [savedScalarKey, setSavedScalarKey] = useState("[]");
@@ -606,6 +608,7 @@ export function NativeCaf({
             <CafGraphPanel
               constantDrafts={constantDrafts.current}
               removalDrafts={removalDrafts.current}
+              orderDrafts={orderDrafts.current}
               removalHint={removalHint}
               onOpenRemovedCopy={openRemovedCopy}
               objectCount={caf.objects}
