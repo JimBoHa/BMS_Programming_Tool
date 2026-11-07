@@ -16,7 +16,7 @@ from .test_connections import free_udp
 from .test_device_details import details_device
 from .test_device_details import routed_details as routed_details
 from .test_point_status import make_point_peer
-from .test_schedule_inventory import text, unsigned
+from .test_schedule_inventory import oid, text, unsigned
 
 
 def workspace_device(port, *, model="Unlisted controller", vendor=999, modules=5, instance=4190090):
@@ -69,6 +69,8 @@ async def test_capability_inventory_and_live_properties_do_not_depend_on_model(
     try:
         profile = await service.profile(**target)
         assert profile["identity_verified"], profile
+        assert [row["phase"] for row in profile["identity_checks"]] == ["before", "after"]
+        assert all(row["identity_verified"] for row in profile["identity_checks"])
         assert profile["properties"]["model-name"]["value"] == model
         assert profile["properties"]["vendor-identifier"]["value"] == vendor
         assert profile["adapter"] == "bacnet-standard" and not profile["native_logic"]["available"]
@@ -103,6 +105,116 @@ async def test_capability_inventory_and_live_properties_do_not_depend_on_model(
         client.close()
         close_application(server)
         await asyncio.sleep(0.02)
+
+
+@pytest.mark.parametrize("operation", ["profile", "inventory", "properties"])
+@pytest.mark.parametrize("failure", ["timeout", "wrong_identity", "native_error", "trailing"])
+async def test_failed_workspace_identity_retains_property_and_transport_evidence(
+    tmp_path, operation, failure
+):
+    peer = await make_point_peer(routed=True, behavior=failure)
+    peer.corrupt_property = "object-identifier"
+    if failure == "wrong_identity":
+        original = peer.value
+
+        def wrong_identity(obj, prop, index):
+            return (
+                b"\xc4" + oid(8, 99) if prop == "object-identifier" else original(obj, prop, index)
+            )
+
+        peer.value = wrong_identity
+    client = Bacnet(Store(tmp_path))
+    await client.connect(f"127.0.0.1:{free_udp()}")
+    service = ControllerWorkspace(client, client.store, timeout=0.1, operation_timeout=3)
+    arguments = dict(address="3001:7", device="device,42", router=peer.endpoint, dnet=3001)
+    if operation == "properties":
+        arguments.update(object_ids=["analog-input,1"], properties=["present-value"])
+    try:
+        report = await getattr(service, operation)(**arguments)
+        assert not report["identity_verified"] and not report["complete"], report
+        (check,) = report["identity_checks"]
+        assert check["phase"] == "before" and not check["identity_verified"]
+        evidence = check["property_evidence"]
+        assert evidence["object"] == "device,42" and evidence["property"] == "object-identifier"
+        assert evidence["request_diagnostics"]["request_timeout_seconds"] == 0.1
+        assert report["read_budget"]["requests"] == len(peer.requests) == 1
+        assert all("identity was not verified" in error for error in report["errors"])
+        if failure == "timeout":
+            assert evidence["status"] == "timeout" and "timeout:" in report["errors"][0]
+            assert "transport_evidence" not in evidence
+        else:
+            assert evidence["transport_evidence"]["next_hop"] == peer.endpoint
+            if failure == "wrong_identity":
+                assert evidence["value"]["value"] == "device,99"
+                assert "expected device,42" in report["errors"][0]
+                assert "device,99" in report["errors"][0]
+            else:
+                assert evidence["status"] == (
+                    "native_error" if failure == "native_error" else "decode_error"
+                )
+                assert evidence["status"] in report["errors"][0]
+        assert not client.app._requests and not client.app.asap.clientTransactions
+        assert not peer.errors
+    finally:
+        client.close()
+        peer.close()
+        await asyncio.sleep(0.03)
+
+
+@pytest.mark.parametrize("operation", ["profile", "inventory", "properties"])
+async def test_final_identity_failure_retains_before_and_after_without_verifying_report(
+    tmp_path, operation
+):
+    peer = await make_point_peer()
+    original = peer.value
+    identities = 0
+
+    def values(obj, prop, index):
+        nonlocal identities
+        if int(obj[0]) == 8 and prop == "object-identifier":
+            identities += 1
+            return b"\xc4" + oid(8, 42 if identities == 1 else 99)
+        if prop == "object-list":
+            entries = [(8, 42), (0, 1)]
+            return (
+                unsigned(len(entries))
+                if index == 0
+                else b"".join(b"\xc4" + oid(*entry) for entry in entries)
+                if index is None
+                else b"\xc4" + oid(*entries[index - 1])
+            )
+        if prop in ("vendor-identifier", "protocol-revision", "max-apdu-length-accepted"):
+            return unsigned(1)
+        if prop in ("protocol-services-supported", "protocol-object-types-supported"):
+            return b"\x82\x07\x00"
+        if prop in (
+            "vendor-name",
+            "model-name",
+            "firmware-revision",
+            "application-software-version",
+        ):
+            return text("Authored peer")
+        return original(obj, prop, index)
+
+    peer.value = values
+    client = Bacnet(Store(tmp_path))
+    await client.connect(f"127.0.0.1:{free_udp()}")
+    service = ControllerWorkspace(client, client.store, timeout=0.2, operation_timeout=5)
+    arguments = dict(address=peer.endpoint, device="device,42")
+    if operation == "properties":
+        arguments.update(object_ids=["analog-input,1"], properties=["present-value"])
+    try:
+        report = await getattr(service, operation)(**arguments)
+        assert not report["identity_verified"] and not report["complete"], report
+        assert [row["phase"] for row in report["identity_checks"]] == ["before", "after"]
+        assert [row["identity_verified"] for row in report["identity_checks"]] == [True, False]
+        assert report["identity_checks"][1]["property_evidence"]["value"]["value"] == "device,99"
+        assert not report.get("native_application_readers")
+        assert not client.app._requests and not client.app.asap.clientTransactions
+    finally:
+        client.close()
+        peer.close()
+        await asyncio.sleep(0.03)
 
 
 async def test_inventory_paging_keeps_source_and_exact_object_membership(tmp_path):

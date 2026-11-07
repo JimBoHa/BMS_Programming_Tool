@@ -184,6 +184,10 @@ async def inspect(link, index=0):
 
 
 async def test_actual_udp_metadata_and_stream_bytes_are_preserved_as_opaque_capture(link):
+    # This checks successful metadata/byte preservation, not 100 ms host latency.
+    # Keep tight fixture deadlines for the separate failure/cancellation cases.
+    link[2].timeout = 1.0
+    link[2].operation_timeout = 10
     server, connector, service, inspection, request = await inspect(link)
     assert inspection["configuration_files"] == ["file,31", "file,32"]
     assert not server.atomic_requests and inspection["files"][0]["read_only"]

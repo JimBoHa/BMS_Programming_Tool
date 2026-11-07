@@ -19,6 +19,12 @@ reference material. Opening the start screen does not open a field interface.
 3. Select the controller by its physical route and choose **Open controller**.
    The application opens the required route and reads the controller identity.
    An open interface alone is not a verified controller.
+   Capability, inventory and point-property reports retain the Device identity
+   checks before and after their reads. If a check fails, its original bounded
+   property and transport evidence remains in the report, and the message
+   distinguishes a timeout, protocol/decode error or a different Device identity.
+   A failed check leaves the result unverified; the tool does not retry it or
+   treat an earlier successful check as current verification.
    Scan results read each responding controller's BACnet Device object-name and
    show that name beside its address and instance. Search by a name such as
    Example VAV-01 or Example HP-01. Names arrive sequentially for all returned controllers,

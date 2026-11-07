@@ -3,6 +3,10 @@ import { spawn } from "node:child_process";
 import { createSocket } from "node:dgram";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import {
+  openCommunicationTool,
+  openConnectionDetails,
+} from "./workflow-navigation";
 
 const root = path.resolve("..");
 async function freePort(): Promise<number> {
@@ -46,7 +50,11 @@ async def main():
 asyncio.run(main())`,
       partial ? "partial" : "complete",
     ],
-    { cwd: root, stdio: ["pipe", "pipe", "pipe"] },
+    {
+      cwd: root,
+      env: { ...process.env, PYTHONPATH: path.join(root, "backend") },
+      stdio: ["pipe", "pipe", "pipe"],
+    },
   );
   let output = "",
     error = "",
@@ -93,7 +101,7 @@ asyncio.run(main())`,
 }
 async function openRoute(page: Page, router: string) {
   await page.goto("/");
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
+  await openConnectionDetails(page);
   await page
     .getByLabel("Local bind address / UDP port", { exact: true })
     .fill(`127.0.0.1:${await freePort()}`);
@@ -104,6 +112,7 @@ async function openRoute(page: Page, router: string) {
   await page
     .getByLabel("MS/TP destination network (optional)", { exact: true })
     .fill("2105");
+  await openCommunicationTool(page, "Address probes");
   const panel = page.getByRole("region", {
     name: "Single controller address probe",
     exact: true,
@@ -114,12 +123,14 @@ async function openRoute(page: Page, router: string) {
       exact: true,
     }),
   ).toBeDisabled();
+  await openCommunicationTool(page, "BACnet/IP connection");
   await page
     .getByRole("button", { name: "Open interface", exact: true })
     .click();
   await expect(
     page.getByText("BACnet interface open", { exact: true }),
   ).toBeVisible();
+  await openCommunicationTool(page, "Address probes");
   await expect(
     panel.getByRole("button", {
       name: "Discover controller by address",
@@ -213,11 +224,15 @@ for (const partial of [false, true]) {
         .getByRole("button", { name: "Use identified controller", exact: true })
         .click();
       await expect(
-        page.getByLabel("Unicast target", { exact: true }),
-      ).toHaveValue("2105:7");
+        page.getByRole("region", { name: "Controller overview", exact: true }),
+      ).toContainText("Independent controller7");
       await expect(
-        page.getByLabel("Object identifier", { exact: true }),
-      ).toHaveValue("device,132007");
+        page.getByLabel("Selected controller path", { exact: true }),
+      ).toContainText("2105:7");
+      await expect(
+        page.getByLabel("Selected controller path", { exact: true }),
+      ).toContainText("device,132007");
+      await openConnectionDetails(page);
       await expect(
         page.getByLabel("Router IP (optional)", { exact: true }),
       ).toHaveValue(peer.router);
@@ -226,12 +241,10 @@ for (const partial of [false, true]) {
           exact: true,
         }),
       ).toHaveValue("2105");
-      await expect(
-        page.getByLabel("File Device object", { exact: true }),
-      ).toHaveValue("device,132007");
       await page
         .getByLabel("MS/TP destination network (optional)", { exact: true })
         .fill("2205");
+      await openCommunicationTool(page, "Address probes");
       await expect(
         panel.getByRole("button", {
           name: "Discover controller by address",
@@ -243,10 +256,16 @@ for (const partial of [false, true]) {
       await request.post("/api/bacnet/disconnect", { headers, data: {} });
       const evidence = await peer.close();
       expect(evidence.requests[0]).toEqual(["object-identifier", 4194303]);
-      expect(evidence.requests).toHaveLength(6);
-      expect(
-        evidence.requests.slice(1).every((row: any) => row[1] === 132007),
-      ).toBe(true);
+      // The six-request probe precedes the separate explicit Open controller verification.
+      expect(evidence.requests.length).toBeGreaterThan(6);
+      expect(evidence.requests.slice(0, 6)).toEqual([
+        ["object-identifier", 4194303],
+        ["object-name", 132007],
+        ["vendor-identifier", 132007],
+        ["model-name", 132007],
+        ["firmware-revision", 132007],
+        ["application-software-version", 132007],
+      ]);
     }
   });
 }
@@ -283,9 +302,11 @@ test("a route draft change discards a delayed actual controller probe", async ({
       })
       .click();
     await waiting;
+    await openConnectionDetails(page);
     await page
       .getByLabel("MS/TP destination network (optional)", { exact: true })
       .fill("2205");
+    await openCommunicationTool(page, "Address probes");
     release();
     await expect(
       panel.getByText("Reading one controller identity…", { exact: true }),

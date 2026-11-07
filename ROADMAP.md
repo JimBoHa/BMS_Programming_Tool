@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-06. Implementation baseline: GitHub `main` at
-[`e0aaabe9`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/e0aaabe92478fd6ebef315788c64559305951c61).
+[`d363dd43`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/d363dd43450add68e174804ead5415416f7e502d).
 
 ## Baseline and purpose
 
