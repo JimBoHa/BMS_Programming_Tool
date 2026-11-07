@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import {
   Download,
   Network,
@@ -624,10 +625,18 @@ export function Connections({
         type={type}
         disabled={busy}
         value={config[name]}
-        onFocus={() => {
+        onFocus={(event) => {
           // Claim the draft before text selection/typing: late status hydration
           // must not replace a focused value or move its insertion point.
           ipDirty.current = true;
+          // A prefill queued before focus can still commit after the ref changes.
+          // Preserve the displayed draft at focus priority, including its exact
+          // input value, before a pending automatic update can move selection.
+          const value =
+            type === "number" && name !== "dnet"
+              ? Number(event.currentTarget.value)
+              : event.currentTarget.value;
+          flushSync(() => setConfig({ ...config, [name]: value }));
         }}
         onChange={(e) => {
           setPlan(null);

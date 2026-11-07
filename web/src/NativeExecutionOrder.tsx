@@ -3,6 +3,7 @@ import { apiBlobDocument, apiJsonDocument, saveBlob } from "./api";
 import { NativeOrderTransfer } from "./NativeOrderTransfer";
 import { NativeBooleanTransferContext } from "./NativeBooleanTransferContext";
 import { controllerKey, type ControllerContext } from "./workflow";
+import { connectionSame } from "./nativeConnectionContract";
 import type { NativeArchiveSource } from "./NativeRecords";
 import { rememberWireDraft, type WireCopyDrafts } from "./nativeWireDrafts";
 import {
@@ -526,6 +527,49 @@ export function NativeExecutionOrder({
       <div hidden={destination !== "controller"}>
         <NativeOrderTransfer
           source={source}
+          onPreviousOrder={(request) => {
+            if (
+              !report ||
+              !usable ||
+              busy ||
+              ownedFieldBusy ||
+              draftError ||
+              !current(context, renderEpoch) ||
+              !nativeOrderAllowed(report.selection, request?.proposed_order) ||
+              !connectionSame(
+                request,
+                nativeOrderRequest(
+                  source,
+                  record,
+                  report,
+                  request.proposed_order,
+                ),
+              )
+            )
+              return false;
+            if (
+              draft &&
+              !connectionSame(proposed, request.proposed_order) &&
+              !window.confirm(
+                "Replace this unfinished local order proposal with the verified previous order? No controller is changed.",
+              )
+            )
+              return false;
+            try {
+              rememberNativeOrder(
+                drafts,
+                key,
+                report.selection,
+                request.proposed_order,
+              );
+              retire();
+              setRefresh((value) => value + 1);
+              return true;
+            } catch (e) {
+              setError({ owner: context, text: String(e) });
+              return false;
+            }
+          }}
           proposal={
             report &&
             !draftError &&

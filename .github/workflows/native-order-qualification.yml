@@ -1,0 +1,75 @@
+name: Native order qualification
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'backend/bms_tool/native_order*.py'
+      - 'backend/bms_tool/native_execution_order.py'
+      - 'backend/bms_tool/native_applications.py'
+      - 'web/src/NativeOrder*.tsx'
+      - 'web/src/NativeExecutionOrder.tsx'
+      - 'web/src/nativeOrder*.ts'
+      - 'web/tests/native-order*.ts'
+      - 'web/tests/connections-prefill-queue.spec.ts'
+      - 'web/tests/connections-hydration.spec.ts'
+      - 'web/src/Connections.tsx'
+      - 'web/src/ComputerNetworkPicker.tsx'
+      - 'scripts/qualify_native_order.py'
+      - '.github/workflows/native-order-qualification.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualification:
+    name: native-order (${{ matrix.mode }}, ${{ matrix.browser }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [source, installed]
+        browser: [chromium, webkit]
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.1-noble@sha256:f1e7e01021efd65dd1a2c56064be399f3e4de00fd021ac561325f2bfbb2b837a
+      options: --init --ipc=host
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Trust the isolated mounted checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install the locked runtime and reviewed test tools
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install -r requirements/build.txt
+          .venv/bin/python -m pip install --require-hashes -r requirements/runtime.txt
+          .venv/bin/python -m pip install pytest==9.1.1 pytest-asyncio==1.4.0
+      - name: Build the exact browser assets
+        working-directory: web
+        run: npm ci && npm run build
+      - name: Qualify original source or installed wheel without retries
+        env:
+          BMS_MODE: ${{ matrix.mode }}
+          BMS_BROWSER: ${{ matrix.browser }}
+        run: |
+          PYTHONPATH=backend:. .venv/bin/python scripts/qualify_native_order.py --mode "$BMS_MODE" --browser "$BMS_BROWSER" --output "release-output/native-order-$BMS_MODE-$BMS_BROWSER"
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always()
+        with:
+          name: native-order-${{ matrix.mode }}-${{ matrix.browser }}
+          path: release-output/native-order-*/
+          if-no-files-found: warn
