@@ -71,3 +71,8 @@ current source. It does not extend this transfer contract or authorize recovery
 deployment.
 
 Previous effective values now have a separate [fresh lineage-bound recovery transfer](native-default-batch-recovery-transfer.md). Its annotated review/intent and receipt predicate remain independent of ordinary batch contracts.
+
+A separate [retained-source result comparison](native-default-batch-result-match.md)
+now reconstructs a verified batch result and compares its application, effective
+values and captured context with a retained source. It creates no recovery proposal
+or field authority and keeps unselected saved changes visible.

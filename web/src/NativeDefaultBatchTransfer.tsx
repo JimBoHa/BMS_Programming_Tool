@@ -1,5 +1,6 @@
 import { NativeDefaultBatchValues } from "./NativeDefaultBatchLedgerView";
 import { NativeDefaultBatchRecovery } from "./NativeDefaultBatchRecovery";
+import { NativeDefaultBatchResultMatch } from "./NativeDefaultBatchResultMatch";
 import { defaultBatchRecoveryParent } from "./nativeDefaultBatchRecoveryContract";
 import {
   batchRecoveryTransferProfile,
@@ -808,6 +809,20 @@ export function NativeDefaultBatchTransfer({
             <summary>Batch transfer receipt details</summary>
             <pre>{JSON.stringify(receipt.data, null, 2)}</pre>
           </details>
+          <NativeDefaultBatchResultMatch
+            source={source}
+            opened={opened}
+            receipt={receipt.data}
+            visible={visible}
+            blocked={locked}
+            revision={revision}
+            parentCurrent={() =>
+              parentCurrent() &&
+              !active.current &&
+              !childBusyNow.current &&
+              !childFocusNow.current
+            }
+          />
           {!recoveryMode && (
             <NativeDefaultBatchRecovery
               source={source}

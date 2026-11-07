@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-06. Implementation baseline: GitHub `main` at
-[`b5cc7e50`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/b5cc7e5064ddcfcb79658bdc178a86781cb75d18).
+[`c6bbb9a1`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/c6bbb9a14c5459448352467e563b14541a9dfce5).
 
 ## Baseline and purpose
 
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 198 scoped criteria: 144
+The public requirement register currently records 199 scoped criteria: 145
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -366,7 +366,7 @@ hardware reassignment remain separate. JCI-03 and JCI-09 remain partial overall.
 
 | ID | Planned addition | Workspace | Acceptance / dependency |
 | --- | --- | --- | --- |
-| JCI-01 | Build an operation-specific protocol/format/release capability matrix from discovered identity, application structure, packages and retained evidence | Overview / Program; Settings for toolchains | Partial: [captured-source operation support](docs/application-operation-capabilities.md) and [native backup analysis](docs/native-backup-operation-capabilities.md) credit actual readers, saved merging and typed compilers while separating transfer preflight, general logic, packages and physical acceptance. Continue package/release evidence, CAF correlation and retained transfer outcomes |
+| JCI-01 | Build an operation-specific protocol/format/release capability matrix from discovered identity, application structure, packages and retained evidence | Overview / Program; Settings for toolchains | Partial: [captured-source operation support](docs/application-operation-capabilities.md) and [native backup analysis](docs/native-backup-operation-capabilities.md) credit actual readers, saved merging and typed compilers while separating transfer preflight, general logic, packages and physical acceptance. A [typed batch result comparison](docs/native-default-batch-result-match.md) now adds separate local recorded-result checks; continue package/release evidence, CAF correlation and other retained transfer outcomes |
 | JCI-02 | Extend real CAF/MOI inspection and loss-preserving editable intermediate representation | Program | Partial: [actual MOI/MOZ reading](docs/moz-application-reading.md), [native record explorer](docs/native-record-explorer.md), [Boolean archive copies](docs/native-boolean-default-copies.md) and [effective Boolean compilation](docs/native-effective-boolean-compiler.md) expose recorded properties, exact bytes and scoped typed local edits. [Existing-wire source copies](docs/native-wire-source-copies.md) preserve the remaining expanded bytes, identities, ports, targets, order and layout. [Retained backup comparison](docs/native-backup-comparison.md) separately preserves original file, recognized engineering-property and unaligned metadata evidence without field queries. Continue the broader editable representation, units and typed golden edits; no general logic generation is inferred |
 | JCI-03 | Implement general native logic authoring: typed parameters, new block identities, links, ordering and full compile/resource validation | Program / Library | Partial: [existing-wire source archive copies](docs/native-wire-source-copies.md) change one observed source index within the original width and independently reparse/preserve the remaining graph bytes. [Effective wire compilation](docs/native-effective-wire-compiler.md) separately merges retained saved settings before that edit and guards original graph structure. [Existing-wire transfer](docs/native-wire-source-transfer.md) separately guards fresh selected configuration and verifies full native/effective readback. Continue full-program transfer, broader typed authoring/new identities and full resource/package/runtime validation; no general compiler or physical acceptance is inferred |
 | JCI-04 | Extend FX/Metasys and cross-release conversion with explicit semantics and package migrations | Program → conversion review | Every supported source/target pair has a loss report and round-trip/behavior evidence; reject unresolved semantics instead of dropping logic |
@@ -2448,3 +2448,22 @@ teal styles remain independent. The register now has 198 scoped criteria: 144
 implemented, 46 partial and eight pending. General rollback, authoring/CCT and
 physical/BTCVT acceptance remain separate; JCI-10 remains partial overall. See
 [recorded batch recovery](docs/native-default-batch-recovery-ledger.md).
+
+## 2026-11-06 JCI-01/JCI-10 delivery: retained typed batch result comparison
+
+`COMM-NATIVE-BATCH-RESULT-MATCH-001` reconstructs a verified original typed batch
+compilation and payload, then compares an explicitly selected retained source.
+Captured route/identity, expanded application, effective saved image, selected
+typed values and the original before-transfer directory remain separate evidence.
+Valid recompression preserves native matches; changed selected or unselected
+saved values and different routes remain visible. Supported recovery children
+use their own immutable backup and historical proof without reopening parents.
+
+The existing Program receipt view adds local comparison and exact JSON export,
+with source/receipt/task/visibility retirement and independent browser checks.
+No field interface, recovery proposal, review token, journal, command or transfer
+is created. Ordinary unfinished drafts, field contracts and teal styles remain
+unchanged. The register now has 199 scoped criteria: 145 implemented, 46 partial
+and eight pending. Other operation families, general native authoring/rollback,
+CCT/runtime comparison and physical/BTCVT acceptance remain separate. See
+[retained result comparison](docs/native-default-batch-result-match.md).
