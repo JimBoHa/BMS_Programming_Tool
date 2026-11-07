@@ -49,10 +49,11 @@ recovery preview/Apply still require their full original evidence. Read-only
 receipt validation preserves historical verified readback after a later
 inconclusive observation without claiming new current-device verification.
 
-Exact receipt JSON remains downloadable. The ordinary Changes/History batch
-projection explains that recovery lineage is not projected there; original
-receipt details remain available. A searchable recorded recovery projection is
-a separate follow-up.
+Exact receipt JSON remains downloadable. A separate
+[recorded recovery projection](native-default-batch-recovery-ledger.md) now shows
+typed original/current/proposed values and searchable parent linkage in
+Changes/History. It grants no preparation or transfer authority and does not
+revalidate the parent, source files or current controller state.
 
 ## API and scope
 
