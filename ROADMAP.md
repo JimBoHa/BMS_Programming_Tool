@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-06. Implementation baseline: GitHub `main` at
-[`ba6f4fe1`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/ba6f4fe1f7af563546a8f023fadd7c9d880cd6a9).
+[`a079f4d3`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/a079f4d35addb4a14ce0e8a840e4c177e5fa7172).
 
 ## Baseline and purpose
 
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 194 scoped criteria: 140
+The public requirement register currently records 195 scoped criteria: 141
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -2369,3 +2369,21 @@ and adds no new feature-count claim. The register stays at 194 criteria: 140
 implemented, 46 partial and eight pending. General native authoring, CCT/runtime/
 package/resource and physical/BTCVT acceptance remain separate; JCI-09 and the
 broader QA-01 work remain partial.
+
+
+## 2026-11-06 JCI-01 delivery: typed batch transfer source prerequisites
+
+`CAP-NATIVE-BATCH-TRANSFER-001` adds explicit profile21 to the existing operation
+support table. The entire profile20 remains independently validated. Actual
+retained fields determine fixed-slot exclusions and at most sixteen candidates
+for one hypothetical transfer compiler check. Unavailable sources and failed
+bounded probes retain separate explanations. No draft, token, journal or
+controller query is created. The batch controller panel explains missing Enum
+storage while preserving local compilation.
+
+Exact evidence downloads and source/task/mode lifetime checks preserve the
+controller/file workflow and unfinished drafts. The register now has 195 criteria:
+141 implemented, 46 partial and eight pending. This completes only source
+preflight; fresh field review, previous-value batch recovery, general native
+authoring/packages/resources/runtime/CCT and physical/BTCVT acceptance remain
+separate. See [batch transfer prerequisites](docs/native-batch-transfer-capabilities.md).

@@ -422,3 +422,40 @@ export async function defaultBatchTransferReceipt(
     return false;
   }
 }
+
+// Compiler consistency is reusable source evidence. Only the separate review
+// envelope above admits a field plan.
+export const defaultBatchTransferCompilation = compilationWitness;
+
+export function defaultBatchTransferProblem(
+  proposal: Data | null,
+  opened: Data | null,
+): string | null {
+  try {
+    if (!opened)
+      return "Inspect the retained typed defaults before controller review.";
+    if (
+      !proposal ||
+      !Array.isArray(proposal.changes) ||
+      !proposal.changes.length
+    )
+      return "Select 1–16 existing defaults and enter valid typed values before controller review.";
+    const missing = proposal.changes.find(
+      (change: Data) =>
+        change.kind === "enum" &&
+        opened.fields.some(
+          (row: Data) =>
+            row.kind === "enum" &&
+            row.field.ref === change.record_ref &&
+            row.field.saved_storage === null,
+        ),
+    );
+    if (missing)
+      return `Selected Enum ${missing.record_ref} has no captured fixed saved-value slot accepted by this transfer profile. Its local copy remains available.`;
+    return defaultBatchTransferProposal(proposal, opened)
+      ? null
+      : "The selected values or recorded field bindings do not meet this transfer profile's prerequisites.";
+  } catch {
+    return "Inspect the retained source and selected typed values before controller review.";
+  }
+}

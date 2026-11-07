@@ -1744,5 +1744,14 @@
     "pdf_pages_or_section": "Program / Native backup defaults; docs/native-default-batch-transfer.md",
     "status": "implemented",
     "implementation_or_gap": "Separate strict batch transfer profile, actual fixed Enum slots, fresh unselected-setting merge, one-use review, one durable restore, complete application and selected saved-value verification, restart/readback without replay, exact exports and read-only Changes/History. General authoring/packages/resources/runtime/CCT and physical/Bluetooth acceptance remain separate."
+  },
+  {
+    "id": "CAP-NATIVE-BATCH-TRANSFER-001",
+    "feature": "Source-specific typed native batch transfer prerequisites",
+    "acceptance_criterion": "Retain the entire prior capability profile and expose actual fixed-slot prerequisites plus one bounded typed transfer compiler witness without controller queries or field authority.",
+    "evidence": "Actual retained Files3/11/12 reader, saved-effective compiler, typed transfer compiler and independent browser contracts",
+    "pdf_pages_or_section": "Program / Native backup defaults; docs/native-batch-transfer-capabilities.md",
+    "status": "implemented",
+    "implementation_or_gap": "Explicit profile21 retains profile20, source-derived candidate/exclusion evidence, at most16 selected fields and one actual compiler probe; strict browser validation, exact response export and synchronous ownership. Selected missing Enum storage is explained without disabling local compilation. API12/UI14 and explicit11\u201320 remain independent. General authoring/CCT/runtime and physical acceptance remain separate."
   }
 ]

@@ -264,7 +264,7 @@ def test_http_requires_token_and_explicit_profile_and_creates_no_interface(tmp_p
         assert r.status_code == 200 and r.json()["operations"][-1]["status"] == "source-qualified"
         for extra in [
             {"controller_write": True},
-            {"capability_profile": "native-backup-operation-capabilities/21"},
+            {"capability_profile": "native-backup-operation-capabilities/22"},
         ]:
             assert (
                 client.post(

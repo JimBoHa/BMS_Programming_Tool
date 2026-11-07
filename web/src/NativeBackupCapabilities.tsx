@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { apiJsonDocument, saveBlob } from "./api";
 import { removalCapabilityEvidence } from "./nativeRemovalCapabilityContract";
+import {
+  batchTransferCapabilityEvidence,
+  batchTransferCapabilityOperationIds,
+  batchTransferCapabilityProfile,
+} from "./nativeBatchTransferCapabilityContract";
 import type { NativeArchiveSource } from "./NativeRecords";
 import { controllerKey } from "./workflow";
 import { NativeTerminalCapabilities } from "./NativeTerminalCapabilities";
@@ -82,19 +87,24 @@ export function NativeBackupCapabilities({
   const [extended, setExtended] = useState({
     value: false,
     batch: false,
+    transfer: false,
     revision: 0,
   });
   const modeNow = useRef(extended);
-  const profile = extended.batch
-    ? batchCapabilityProfile
-    : extended.value
-      ? combinedCapabilityProfile
-      : "native-backup-operation-capabilities/14";
-  const selectedOperationIds = extended.batch
-    ? batchCapabilityOperationIds
-    : extended.value
-      ? combinedCapabilityOperationIds
-      : operationIds;
+  const profile = extended.transfer
+    ? batchTransferCapabilityProfile
+    : extended.batch
+      ? batchCapabilityProfile
+      : extended.value
+        ? combinedCapabilityProfile
+        : "native-backup-operation-capabilities/14";
+  const selectedOperationIds = extended.transfer
+    ? batchTransferCapabilityOperationIds
+    : extended.batch
+      ? batchCapabilityOperationIds
+      : extended.value
+        ? combinedCapabilityOperationIds
+        : operationIds;
   const details = useRef<HTMLDetailsElement>(null);
   const owner = JSON.stringify([
     source.capture_id,
@@ -198,11 +208,13 @@ export function NativeBackupCapabilities({
               (value) => typeof value === "string",
             ),
         ) ||
-        !(extended.batch
-          ? batchCapabilityEvidence(data, source)
-          : extended.value
-            ? combinedCapabilityEvidence(data, source)
-            : removalCapabilityEvidence(data, source)) ||
+        !(extended.transfer
+          ? batchTransferCapabilityEvidence(data, source)
+          : extended.batch
+            ? batchCapabilityEvidence(data, source)
+            : extended.value
+              ? combinedCapabilityEvidence(data, source)
+              : removalCapabilityEvidence(data, source)) ||
         data.operations.find((row: Operation) => row.id === "enum-default-copy")
           ?.status !==
           (data.qualification.archive_enum_default_count > 0
@@ -265,6 +277,7 @@ export function NativeBackupCapabilities({
             const next = {
               value: event.currentTarget.checked,
               batch: false,
+              transfer: false,
               revision: modeNow.current.revision + 1,
             };
             modeNow.current = next;
@@ -287,6 +300,7 @@ export function NativeBackupCapabilities({
               const next = {
                 ...modeNow.current,
                 batch: event.currentTarget.checked,
+                transfer: false,
                 revision: modeNow.current.revision + 1,
               };
               modeNow.current = next;
@@ -298,6 +312,29 @@ export function NativeBackupCapabilities({
             }}
           />
           Include typed default batch compilation support
+        </label>
+      )}
+      {extended.batch && (
+        <label>
+          <input
+            type="checkbox"
+            checked={extended.transfer}
+            onChange={(event) => {
+              if (!modeNow.current.batch) return;
+              const next = {
+                ...modeNow.current,
+                transfer: event.currentTarget.checked,
+                revision: modeNow.current.revision + 1,
+              };
+              modeNow.current = next;
+              epoch.current++;
+              setLoaded(null);
+              setFailure(null);
+              setPending(null);
+              setExtended(next);
+            }}
+          />
+          Include source prerequisites for typed batch transfer
         </label>
       )}
       {busy && <p role="status">Analyzing retained native files…</p>}
