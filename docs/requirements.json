@@ -1789,5 +1789,14 @@
     "pdf_pages_or_section": "Program / Native backup defaults; docs/native-default-batch-result-match.md",
     "status": "implemented",
     "implementation_or_gap": "Strict resolved possible-dispatch proof and full original compilation/payload verification; separate container/native/effective hashes, selected current/expected values and original directory evidence; third/unselected saved changes and route differences remain explicit. Supported recovery children require no parent revalidation after dispatch. Independent browser checks, context retirement, exact JSON and ordinary drafts preserved. No field/recovery authority, CCT/runtime or physical acceptance."
+  },
+  {
+    "id": "COMM-NATIVE-BATCH-EVIDENCE-001",
+    "feature": "Portable retained typed batch comparison evidence export",
+    "acceptance_criterion": "Export a freshly verified retained comparison with its original/current backup archives, sealed intent and selected immutable proof in a bounded checked package without field traffic or restored authority.",
+    "evidence": "Existing immutable native captures, typed result comparison and actual authored direct/routed source/installed export qualification",
+    "pdf_pages_or_section": "Program / Native backup defaults; docs/native-default-batch-evidence-bundle.md",
+    "status": "implemented",
+    "implementation_or_gap": "Exact chosen comparison hash, original/current archive byte checks, sealed intent/proof, fixed paths and bounded manifest with member checksums; independent browser ZIP/CRC/hash/source/proof checks preserving numeric atoms, exact download and source/task/receipt/visibility/report retirement. Ordinary and recovery-child results, differences and shared-source roles stay explicit. No complete journal/controller backup, import, credentials/review restoration, field/CCT/runtime or physical authority."
   }
 ]

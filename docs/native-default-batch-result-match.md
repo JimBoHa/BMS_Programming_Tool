@@ -65,3 +65,7 @@ Chromium/WebKit workflows. No site, Bluetooth or physical-controller testing is
 claimed. This completes one scoped retained-result comparison under JCI-01/JCI-10;
 general authoring, conversion, wider recovery and native/physical acceptance remain
 separate.
+
+The checked comparison now has a separate [portable evidence bundle](native-default-batch-evidence-bundle.md)
+export. It preserves the original/current capture archives and selected immutable
+proof with the comparison, without importing a receipt or granting field authority.
