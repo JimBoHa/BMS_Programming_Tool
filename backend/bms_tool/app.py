@@ -148,6 +148,7 @@ from .native_enum_compiler import native_enum_compiler_router
 from .native_enum_copies import native_enum_copy_router
 from .native_exception_text import exception_text_router
 from .native_exception_write import NativeExceptionWrites, exception_write_router
+from .native_execution_order import execution_order_router as native_execution_order_router
 from .native_historical_wire_copies import NativeHistoricalWireCopies, historical_wire_copy_router
 from .native_identity_text import identity_text_router
 from .native_schedule_exceptions import exception_draft_router
@@ -825,6 +826,7 @@ def create_app(state_dir=None, *, operation_power=None):
         connection_removal_router(connection_removals, effective_connection_removals)
     )
     app.include_router(effective_wire_router(wire_compiler))
+    app.include_router(native_execution_order_router(backup_records))
     app.include_router(default_wire_router(default_wire_compiler))
     app.include_router(default_batch_router(default_batch_compiler))
     app.include_router(terminal_copy_router(terminal_copies, effective_terminal_copies))
