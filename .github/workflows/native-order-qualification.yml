@@ -29,7 +29,9 @@ jobs:
   qualification:
     name: native-order (${{ matrix.mode }}, ${{ matrix.browser }})
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    # The added recovery cohort performs two real authored restores per happy
+    # path. Keep per-test deadlines; allocate time for all 2,778 executions.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:

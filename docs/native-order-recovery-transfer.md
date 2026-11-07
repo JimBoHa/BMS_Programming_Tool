@@ -114,6 +114,16 @@ legal files before importing the wheel package and serving its assets. Original
 failure logs and traces are retained. See `scripts/qualify_native_order.py` for
 the reproducible command and `native-order-recovery-proposal.md` for tool setup.
 
+The browser interaction deadline remains 30 seconds. Happy-path and uncertain
+transfer cases prepare their actual completed original transfer in a separate
+test-owned fixture with its own 30-second setup/cleanup deadline. Both original
+and new restores retain the application's ordinary six-second preparation delay
+and normal acknowledgment/readback budgets. Each phase fails independently;
+no failed sample is retried. The larger 417/480-case cohort has a 45-minute job
+allocation, increased from the preceding 326/425 cohort's 35 minutes. This changes
+total CI capacity, not any original case or assertion deadline. The original
+combined-phase timeout and its complete passing assertion trace remain retained.
+
 These checks establish this bounded software transfer path. Physical controller,
 BTCVT, vendor CCT comparison, general logic/object allocation, hardware remapping,
 changed-current-source recovery and unrestricted cross-brand compilation still

@@ -14,23 +14,17 @@ import {
 import { orderRecoveryTransferProfile } from "../src/nativeOrderRecoveryTransferContract";
 import { connectionSeal } from "../src/nativeConnectionContract";
 import { expectWorkspaceNavigationLocked } from "./workspace-navigation";
+import { originalOrderFixture } from "./native-order-original-fixture";
+import { openOrder } from "./native-execution-order-fixture";
 
 for (const routed of [false, true])
   for (const caf of [false, true])
     for (const width of [1440, 390])
-      test(`${routed ? "routed" : "direct"} ${caf ? "CAF" : "graph"} previous order uses a new verified restore at ${width}px`, async ({
-        page,
-        request,
-      }, info) => {
-        await page.setViewportSize({ width, height: 1000 });
-        const peer = await nativeDefaultPeer("consume", "execution-order");
-        try {
-          const seeded = await seedPreviousOrderAPI(
-            request,
-            peer,
-            routed,
-            routed && caf && width === 1440,
-          );
+      originalOrderFixture(routed, routed && caf && width === 1440)(
+        `${routed ? "routed" : "direct"} ${caf ? "CAF" : "graph"} previous order uses a new verified restore at ${width}px`,
+        async ({ page, request, originalOrder }, info) => {
+          await page.setViewportSize({ width, height: 1000 });
+          const { peer, seeded } = originalOrder;
           const original = await (
             await request.get(
               nativeBase + "/receipts/" + seeded.parent.intent.id,
@@ -160,10 +154,8 @@ for (const routed of [false, true])
               () => document.documentElement.scrollWidth <= innerWidth + 1,
             ),
           ).toBe(true);
-        } finally {
-          peer.close();
-        }
-      });
+        },
+      );
 
 const restores = (events: any[]) =>
   events.filter((row) => row[0] === "state" && row[1] === "start-restore");
@@ -436,125 +428,131 @@ test("pending proposal admission cannot resurrect previous mode after a same-tur
   }
 });
 
-test("a late previous-order review is cancelled after page retirement", async ({
-  page,
-  request,
-}) => {
-  const peer = await nativeDefaultPeer("consume", "execution-order");
-  let release = () => {},
-    finish = () => {};
-  const gate = new Promise<void>((resolve) => (release = resolve)),
-    done = new Promise<void>((resolve) => (finish = resolve));
-  try {
-    const seeded = await seedPreviousOrderAPI(request, peer, false);
-    const opened = await openPreviousOrderUI(page, seeded);
-    const plan = await choosePrevious(page, opened, false);
-    let arrived = false;
-    await page.route("**/execution-order/transfer/preview", async (route) => {
-      try {
-        const response = await route.fetch({ maxRetries: 0 });
-        arrived = true;
+originalOrderFixture(false)(
+  "a late previous-order review is cancelled after page retirement",
+  async ({ page, originalOrder }) => {
+    const { peer, seeded } = originalOrder;
+    let release = () => {},
+      finish = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve)),
+      done = new Promise<void>((resolve) => (finish = resolve));
+    try {
+      const opened = await openPreviousOrderUI(page, seeded);
+      const plan = await choosePrevious(page, opened, false);
+      let arrived = false;
+      await page.route("**/execution-order/transfer/preview", async (route) => {
+        try {
+          const response = await route.fetch({ maxRetries: 0 });
+          arrived = true;
+          await gate;
+          await route.fulfill({ response });
+        } finally {
+          finish();
+        }
+      });
+      await opened.transfer
+        .getByRole("button", {
+          name: "Review previous execution-order transfer",
+          exact: true,
+        })
+        .click();
+      await expect.poll(() => arrived).toBe(true);
+      await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
+      release();
+      await done;
+      await expect(plan).toHaveCount(0);
+      await expect(opened.table).toHaveText(opened.draft!);
+      await expect(
+        opened.transfer.getByRole("button", {
+          name: "Review execution-order transfer",
+          exact: true,
+        }),
+      ).toBeDisabled();
+      await page.evaluate(() => window.dispatchEvent(new Event("pageshow")));
+      await openOrder(page, opened.compiler);
+      await opened.editor
+        .getByLabel("Native execution-order destination", { exact: true })
+        .selectOption("controller");
+      await expect(
+        opened.transfer.getByRole("button", {
+          name: "Review execution-order transfer",
+          exact: true,
+        }),
+      ).toBeEnabled();
+      await expect(opened.table).toHaveText(opened.draft!);
+      expect(restores((await peer.command("stats")).events)).toHaveLength(1);
+    } finally {
+      release();
+    }
+  },
+);
+
+const routedOriginal = originalOrderFixture(true);
+routedOriginal(
+  "an active previous-order restore retains its exact late receipt after page retirement",
+  async ({ page, originalOrder }) => {
+    const { peer, seeded } = originalOrder;
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    let complete!: (value: { bytes: Buffer; data: any }) => void;
+    const received = new Promise<{ bytes: Buffer; data: any }>(
+      (resolve) => (complete = resolve),
+    );
+    try {
+      const opened = await openPreviousOrderUI(page, seeded),
+        { apply } = await reviewedPrevious(page, opened);
+      await page.route("**/execution-order/transfer/apply", async (route) => {
+        const response = await route.fetch({ maxRetries: 0 }),
+          bytes = await response.body();
+        complete({ bytes, data: JSON.parse(bytes.toString()) });
         await gate;
-        await route.fulfill({ response });
-      } finally {
-        finish();
-      }
-    });
-    await opened.transfer
-      .getByRole("button", {
-        name: "Review previous execution-order transfer",
-        exact: true,
-      })
-      .click();
-    await expect.poll(() => arrived).toBe(true);
-    await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
-    release();
-    await done;
-    await expect(
-      opened.transfer.getByRole("button", {
-        name: "Review execution-order transfer",
-        exact: true,
-      }),
-    ).toBeEnabled();
-    await expect(plan).toHaveCount(0);
-    await expect(opened.table).toHaveText(opened.draft!);
-    expect(restores((await peer.command("stats")).events)).toHaveLength(1);
-  } finally {
-    release();
-    peer.close();
-  }
-});
+        await route.fulfill({ response, body: bytes });
+      });
+      await apply.click();
+      await expectWorkspaceNavigationLocked(page);
+      const actual = await received;
+      expect(actual.data.result.status).toBe("verified");
+      expect(actual.data.intent.recovery_origin.parent_receipt_id).toBe(
+        seeded.parent.intent.id,
+      );
+      await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
+      release();
+      await expect(
+        opened.transfer.getByRole("region", {
+          name: "Execution-order transfer result",
+          exact: true,
+        }),
+      ).toContainText(actual.data.intent.id);
+      await expect(
+        opened.transfer.getByRole("region", {
+          name: "Execution-order transfer result",
+          exact: true,
+        }),
+      ).toContainText(
+        "Execution order verified in the complete native readback.",
+      );
+      await page.evaluate(() => window.dispatchEvent(new Event("pageshow")));
+      const saving = page.waitForEvent("download");
+      await opened.transfer
+        .getByRole("button", {
+          name: "Save execution-order transfer receipt",
+          exact: true,
+        })
+        .click();
+      expect(await readFile((await (await saving).path())!)).toEqual(
+        actual.bytes,
+      );
+      expect(restores((await peer.command("stats")).events)).toHaveLength(2);
+    } finally {
+      release();
+    }
+  },
+);
 
-test("an active previous-order restore retains its exact late receipt after page retirement", async ({
-  page,
-  request,
-}) => {
-  const peer = await nativeDefaultPeer("consume", "execution-order");
-  let release = () => {};
-  const gate = new Promise<void>((resolve) => (release = resolve));
-  let complete!: (value: { bytes: Buffer; data: any }) => void;
-  const received = new Promise<{ bytes: Buffer; data: any }>(
-    (resolve) => (complete = resolve),
-  );
-  try {
-    const seeded = await seedPreviousOrderAPI(request, peer, true);
-    const opened = await openPreviousOrderUI(page, seeded),
-      { apply } = await reviewedPrevious(page, opened);
-    await page.route("**/execution-order/transfer/apply", async (route) => {
-      const response = await route.fetch({ maxRetries: 0 }),
-        bytes = await response.body();
-      complete({ bytes, data: JSON.parse(bytes.toString()) });
-      await gate;
-      await route.fulfill({ response, body: bytes });
-    });
-    await apply.click();
-    await expectWorkspaceNavigationLocked(page);
-    const actual = await received;
-    expect(actual.data.result.status).toBe("verified");
-    expect(actual.data.intent.recovery_origin.parent_receipt_id).toBe(
-      seeded.parent.intent.id,
-    );
-    await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
-    release();
-    await expect(
-      opened.transfer.getByRole("region", {
-        name: "Execution-order transfer result",
-        exact: true,
-      }),
-    ).toContainText(actual.data.intent.id);
-    await expect(
-      opened.transfer.getByRole("region", {
-        name: "Execution-order transfer result",
-        exact: true,
-      }),
-    ).toContainText(
-      "Execution order verified in the complete native readback.",
-    );
-    await page.evaluate(() => window.dispatchEvent(new Event("pageshow")));
-    const saving = page.waitForEvent("download");
-    await opened.transfer
-      .getByRole("button", {
-        name: "Save execution-order transfer receipt",
-        exact: true,
-      })
-      .click();
-    expect(await readFile((await (await saving).path())!)).toEqual(
-      actual.bytes,
-    );
-    expect(restores((await peer.command("stats")).events)).toHaveLength(2);
-  } finally {
-    release();
-    peer.close();
-  }
-});
-
-test("uncertain previous-order commit is loaded and read back without replay", async ({
-  page,
-  request,
-}) => {
-  const peer = await nativeDefaultPeer("consume", "execution-order");
-  try {
-    const seeded = await seedPreviousOrderAPI(request, peer, true);
+routedOriginal(
+  "uncertain previous-order commit is loaded and read back without replay",
+  async ({ page, originalOrder }) => {
+    const { peer, seeded } = originalOrder;
     const opened = await openPreviousOrderUI(page, seeded),
       { apply } = await reviewedPrevious(page, opened);
     let receipt: any;
@@ -594,10 +592,8 @@ test("uncertain previous-order commit is loaded and read back without replay", a
     );
     expect(restores((await peer.command("stats")).events)).toHaveLength(2);
     await expect(opened.table).toHaveText(opened.draft!);
-  } finally {
-    peer.close();
-  }
-});
+  },
+);
 
 test("an unavailable recovery profile preserves the local proposal without enabling controller review", async ({
   page,
