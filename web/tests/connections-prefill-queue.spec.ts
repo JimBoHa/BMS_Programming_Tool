@@ -28,6 +28,7 @@ async function claimQueuedPrefill(page: Page, kind: "network" | "status") {
         claimed: false,
         value: "",
         selection: [] as number[],
+        events: [] as { phase: string; value: string }[],
       };
       (window as any).__prefillClaim = state;
       (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
@@ -54,8 +55,40 @@ async function claimQueuedPrefill(page: Page, kind: "network" | "status") {
               : document.body.textContent?.includes("BACnet interface open");
           if (!ready) return;
           state.claimed = true;
+          state.events.push({
+            phase: "post-passive-commit",
+            value: input.value,
+          });
           queueMicrotask(() => {
+            state.events.push({
+              phase: "before-native-focus",
+              value: input.value,
+            });
+            input.addEventListener(
+              "focus",
+              () => {
+                state.events.push({
+                  phase: "native-focus",
+                  value: input.value,
+                });
+              },
+              { once: true },
+            );
+            input.addEventListener(
+              "focusin",
+              () => {
+                state.events.push({
+                  phase: "native-focusin",
+                  value: input.value,
+                });
+              },
+              { once: true },
+            );
             input.focus();
+            state.events.push({
+              phase: "after-native-focus",
+              value: input.value,
+            });
             input.select();
             state.value = input.value;
             state.selection = [input.selectionStart!, input.selectionEnd!];
@@ -169,6 +202,12 @@ for (const kind of ["network", "status"] as const)
             .local_address,
         ).toBe(desired);
       } finally {
+        await test.info().attach("prefill-event-order.json", {
+          body: JSON.stringify(
+            await page.evaluate(() => (window as any).__prefillClaim),
+          ),
+          contentType: "application/json",
+        });
         release();
         const closed = await request.post("/api/bacnet/disconnect", {
           headers,

@@ -366,6 +366,11 @@ def main():
         "planned_connection_prefill_cases_per_matrix": PREFILL_CASES,
     }
     write(output / "qualification.json", report)
+    # Exercise the new workflow before legacy regressions or the backend cohort.
+    # Every declared group still runs; a failed group leaves an incomplete report.
+    report["groups"].append(browser_group(output, env, args.mode, args.browser, 1, BROWSER[0]))
+    assert git("rev-parse", "HEAD") == head and not git("status", "--porcelain")
+    write(output / "qualification.json", report)
     for number, name in enumerate(PREFILL, 100):
         report["connection_prefill"].append(
             browser_group(output, env, args.mode, args.browser, number, name)
@@ -375,7 +380,7 @@ def main():
     assert sum(group["passed"] for group in report["connection_prefill"]) == PREFILL_CASES
     if args.browser == "chromium":
         report["backend"] = backend(output, env)
-    for number, name in enumerate(BROWSER, 1):
+    for number, name in enumerate(BROWSER[1:], 2):
         report["groups"].append(browser_group(output, env, args.mode, args.browser, number, name))
         assert git("rev-parse", "HEAD") == head and not git("status", "--porcelain")
         write(output / "qualification.json", report)
