@@ -122,6 +122,7 @@ from .native_enum_transfer import (
     compile_enum_default,
     verify_enum_preservation,
 )
+from .native_execution_order import OrderPreview
 from .native_historical_wire_recovery import PROFILE as HISTORICAL_WIRE_RECOVERY_PROFILE
 from .native_historical_wire_recovery import NativeHistoricalWireRecovery
 from .native_input_transfer import NativeInputOperations
@@ -140,6 +141,16 @@ from .native_instance_recovery import PROFILE as INSTANCE_RECOVERY_PROFILE
 from .native_instance_recovery import NativeInstanceRecovery
 from .native_name_recovery import PROFILE as NAME_RECOVERY_PROFILE
 from .native_name_recovery import NativeNameRecovery
+from .native_order_transfer import PROFILE as ORDER_PROFILE
+from .native_order_transfer import SCOPE as ORDER_SCOPE
+from .native_order_transfer import (
+    NativeOrderOperations,
+    OrderTransferApply,
+    OrderTransferPreview,
+    compile_order,
+    validate_order_evidence,
+    verify_order_preservation,
+)
 from .native_parameter_qualification import qualify_parameter_additions
 from .native_point_name_recovery import PROFILE as POINT_NAME_RECOVERY_PROFILE
 from .native_point_name_recovery import NativePointNameRecovery
@@ -243,7 +254,7 @@ class NativeCredentials(StrictModel):
     restore: SecretStr
 
 
-class NativeApplications(NativeConnectionOperations, NativeInputOperations):
+class NativeApplications(NativeOrderOperations, NativeConnectionOperations, NativeInputOperations):
     id = "mce-native-application"
 
     def __init__(
@@ -309,6 +320,8 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
             "default_batch_transfer_scope": BATCH_SCOPE,
             "default_wire_transfer_profile": COMBINED_PROFILE,
             "default_wire_transfer_scope": COMBINED_SCOPE,
+            "execution_order_transfer_profile": ORDER_PROFILE,
+            "execution_order_transfer_scope": ORDER_SCOPE,
             "matching_connection_transfer_profile": CONNECTION_PROFILE,
             "matching_connection_transfer_scope": CONNECTION_SCOPE,
             "backup_effects": backup_effects(),
@@ -380,6 +393,14 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                             "operation_profile": r["intent"].get("operation_profile"),
                         }
                         if r["intent"].get("change_kind") == "connection"
+                        else {}
+                    ),
+                    **(
+                        {
+                            "order_edit": r["intent"].get("order_edit"),
+                            "operation_profile": r["intent"].get("operation_profile"),
+                        }
+                        if r["intent"].get("change_kind") == "execution-order"
                         else {}
                     ),
                     "status": (r.get("latest_readback") or r["result"] or r["intent"])["status"],
@@ -1374,6 +1395,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
             "default-wire",
             "default-batch",
             "connection",
+            "execution-order",
             "point-name",
             "input",
         ):
@@ -1384,6 +1406,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
         wire_edit = change_kind == "wire-source"
         combined_edit = change_kind == "default-wire"
         batch_edit = change_kind == "default-batch"
+        order_edit = change_kind == "execution-order"
         connection_edit = change_kind == "connection"
         point_name_edit = change_kind == "point-name"
         input_edit = change_kind == "input"
@@ -1392,6 +1415,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
             or wire_edit
             or point_name_edit
             or input_edit
+            or order_edit
             or connection_edit
             or combined_edit
             or batch_edit
@@ -1404,6 +1428,10 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
             if intent.get("operation_profile") != COMBINED_PROFILE:
                 raise ValueError("Unsupported combined native transfer evidence; retain it.")
             validate_combined_evidence(intent.get("combined_edit"), intent.get("combined_guard"))
+        if order_edit:
+            if intent.get("operation_profile") != ORDER_PROFILE:
+                raise ValueError("Unsupported native order evidence version; retain it.")
+            validate_order_evidence(intent.get("order_edit"), intent.get("order_guard"))
         if connection_edit:
             if intent.get("operation_profile") != CONNECTION_PROFILE:
                 raise ValueError("Unsupported native connection evidence version; retain it.")
@@ -1562,6 +1590,10 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                         original_files, files, intent["point_name_edit"]
                     )
                     if point_name_edit
+                    else verify_order_preservation(
+                        original_files, files, intent["order_edit"], intent["order_guard"]
+                    )
+                    if order_edit
                     else verify_connection_preservation(
                         original_files,
                         files,
@@ -1674,6 +1706,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
         wire_edit=False,
         point_name_edit=False,
         input_edit=False,
+        order_edit=False,
         connection_edit=False,
         combined_edit=False,
         batch_edit=False,
@@ -1685,6 +1718,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                     bool(wire_edit),
                     bool(point_name_edit),
                     bool(input_edit),
+                    bool(order_edit),
                     bool(connection_edit),
                     bool(combined_edit),
                     bool(batch_edit),
@@ -1700,6 +1734,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
             or wire_edit
             or point_name_edit
             or input_edit
+            or order_edit
             or connection_edit
             or combined_edit
             or batch_edit
@@ -1720,6 +1755,8 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
             if input_edit
             else "point-name"
             if point_name_edit
+            else "execution-order"
+            if order_edit
             else "connection"
             if connection_edit
             else "wire-source"
@@ -1763,6 +1800,15 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
             raise ValueError("Unsupported native default transfer evidence version; retain it.")
         if wire_edit and plan["body"].get("operation_profile") != WIRE_PROFILE:
             raise ValueError("Unsupported native wire transfer evidence version; retain it.")
+        if order_edit:
+            if (
+                plan["body"].get("operation_profile") != ORDER_PROFILE
+                or seal(plan["body"]) != plan["digest"]
+                or plan["body"].get("order_edit")
+                != plan["options"].model_dump(include=set(OrderPreview.model_fields))
+            ):
+                raise ValueError("The exact native order review changed; review again.")
+            validate_order_evidence(plan["body"].get("order_edit"), plan["body"].get("order_guard"))
         if connection_edit and plan["body"].get("operation_profile") != CONNECTION_PROFILE:
             raise ValueError("Unsupported native connection evidence version; retain it.")
         if connection_edit and seal(plan["body"]) != plan["digest"]:
@@ -1813,6 +1859,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
             )
             or (batch_edit and not request.defaults_change_confirmed)
             or (wire_edit and not request.wire_change_confirmed)
+            or (order_edit and not request.order_change_confirmed)
             or (connection_edit and not request.connection_change_confirmed)
             or (default_edit and not request.default_change_confirmed)
             or (point_name_edit and not request.point_name_confirmed)
@@ -1849,6 +1896,8 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                     if batch_edit
                     else self.default_wire_scope()
                     if combined_edit
+                    else self.order_scope()
+                    if order_edit
                     else self.connection_scope()
                     if connection_edit
                     else self.wire_scope()
@@ -1910,6 +1959,13 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                         if input_edit
                         else compile_point_name(files, body["point_name_edit"])
                         if point_name_edit
+                        else compile_order(
+                            files,
+                            body["order_edit"],
+                            fresh=True,
+                            expected_guard=body["order_guard"],
+                        )
+                        if order_edit
                         else compile_connection(
                             files,
                             body["connection_edit"],
@@ -2008,7 +2064,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                         }
                         if input_edit
                         else {}
-                        if connection_edit
+                        if connection_edit or order_edit
                         else self.point_name_recovery_origin(options, compilation)
                         if point_name_edit
                         else self.wire_recovery_origin(options, compilation)
@@ -2087,6 +2143,17 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                                     "point_name_confirmed": request.point_name_confirmed,
                                 }
                                 if point_name_edit
+                                else {}
+                            ),
+                            **(
+                                {
+                                    "order_edit": body["order_edit"],
+                                    "order_guard": body["order_guard"],
+                                    "operation_profile": ORDER_PROFILE,
+                                    "order_change_confirmed": request.order_change_confirmed,
+                                    "review_snapshot_sha256": body["snapshot_sha256"],
+                                }
+                                if order_edit
                                 else {}
                             ),
                             **(
@@ -2487,6 +2554,14 @@ def native_application_router(service):
     @router.post("/default-wire/transfer/apply")
     async def apply_default_wire(body: CombinedTransferApply):
         return await service.apply_default_wire(**body.model_dump())
+
+    @router.post("/execution-order/transfer/preview")
+    async def preview_order(body: OrderTransferPreview):
+        return await service.preview_order(**body.model_dump())
+
+    @router.post("/execution-order/transfer/apply")
+    async def apply_order(body: OrderTransferApply):
+        return await service.apply_order(**body.model_dump())
 
     @router.post("/matching-connection/transfer/preview")
     async def preview_connection(body: ConnectionTransferPreview):

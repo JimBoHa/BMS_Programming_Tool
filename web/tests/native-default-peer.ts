@@ -13,6 +13,7 @@ export async function nativeDefaultPeer(
     | "default-wire-transfer"
     | "default-batch"
     | "connection"
+    | "execution-order"
     | "wire-recovery"
     | "instance"
     | "input"
@@ -73,7 +74,7 @@ async def main():
  elif sys.argv[2]=='connection':
   from tests.test_native_connection_compiler import connection_files
   app.files=connection_files(target_class=538);app.metadata['object-name']='Authored native wire controller';app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
- elif sys.argv[2]=='wire':
+ elif sys.argv[2] in ['wire','execution-order']:
   app.files=wire_files(target_class=538);app.metadata['object-name']='Authored native wire controller';app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
  elif sys.argv[2]=='default-wire':
   app.files=wire_files();app.metadata['object-name']='Authored native wire controller';app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
@@ -176,11 +177,12 @@ async def main():
    reader=EffectiveEnumCompiler(app.files);field=reader.fields()[0];record,prop=reader.archive.candidates[field['ref']]
    enum_evidence={'enum_archive_code':field['archive_value'],'enum_effective_code':field['effective_value'],'enum_archive_tag':reader.archive.editor.data[prop['value_start_offset']:prop['value_end_offset']].hex()}
   connection_evidence={}
-  if sys.argv[2] in ['connection','default-wire-transfer']:
+  if sys.argv[2] in ['connection','default-wire-transfer','execution-order']:
    from bms_tool.moi_identity import MoiIdentity
    from tests.test_moi_wire_sources import REF,A,B,C
    try:
     actual=MoiIdentity(app.files[3]);connection_evidence={'connections':actual.reader.diagram(REF)['connections'],'source_default':actual.reader.scalar(actual.reader.records[A],3113),'other_default':actual.reader.scalar(actual.reader.records[B],3113)}
+    if sys.argv[2]=='execution-order':connection_evidence['execution_order']=actual.reader.diagram(REF)['execution_order']
     if sys.argv[2]=='default-wire-transfer':
      prop=actual.reader.records[C]['properties'][3113];offset=prop['value_start_offset']+1
      connection_evidence['combined_real_bits']=actual.data[offset:offset+4].hex()

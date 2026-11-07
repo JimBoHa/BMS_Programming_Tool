@@ -1,5 +1,6 @@
 import { useContext, useEffect, useRef, useState } from "react";
 import { apiBlobDocument, apiJsonDocument, saveBlob } from "./api";
+import { NativeOrderTransfer } from "./NativeOrderTransfer";
 import { NativeBooleanTransferContext } from "./NativeBooleanTransferContext";
 import { controllerKey, type ControllerContext } from "./workflow";
 import type { NativeArchiveSource } from "./NativeRecords";
@@ -48,6 +49,15 @@ export function NativeExecutionOrder({
     ),
     [error, setError] = useState<{ owner: string; text: string } | null>(null);
   const report = loaded?.basis === basis ? loaded.data : null;
+  const [ownedFieldBusy, setOwnedFieldBusy] = useState(false);
+  const [ownedMutationBusy, setOwnedMutationBusy] = useState(false);
+  const otherFieldBusy = !!field?.fieldBusy && !ownedFieldBusy;
+  const destinationKey = key + "/destination";
+  const [destination, setDestination] = useState(
+    drafts.get(destinationKey) === "controller" ? "controller" : "file",
+  );
+  const destinationNow = useRef(destination);
+
   let draft: Data | null = null,
     draftError = "";
   if (report)
@@ -87,6 +97,31 @@ export function NativeExecutionOrder({
     owner.current = context;
     epoch.current++;
   }
+  const fieldOwner = JSON.stringify([
+    basis,
+    visible,
+    opened,
+    life,
+    destination,
+    proposed,
+    draftError,
+    operationGeneration,
+    field?.workspaceGeneration,
+    otherFieldBusy,
+    controller && [
+      controllerKey(controller),
+      controller.interfaceKey,
+      controller.interfaceOpen,
+      controller.ownedCommands,
+    ],
+  ]);
+  const fieldOwnerNow = useRef(fieldOwner),
+    fieldEpoch = useRef(0);
+  if (fieldOwnerNow.current !== fieldOwner) {
+    fieldOwnerNow.current = fieldOwner;
+    fieldEpoch.current++;
+  }
+  const fieldTicket = fieldEpoch.current;
   const renderEpoch = epoch.current;
   const operationNow = useRef(operationCurrent);
   operationNow.current = operationCurrent;
@@ -119,6 +154,7 @@ export function NativeExecutionOrder({
     usableNow = useRef(usable);
   usableNow.current = usable;
   function retire() {
+    fieldEpoch.current++;
     epoch.current++;
     locked.current = false;
     reviewNow.current = null;
@@ -301,13 +337,51 @@ export function NativeExecutionOrder({
         }
       }}
     >
-      <summary>Compile native execution order</summary>
+      <summary
+        aria-disabled={ownedMutationBusy || otherFieldBusy || !visible}
+        onClick={(event) => {
+          if (ownedMutationBusy || otherFieldBusy || !visible) {
+            event.preventDefault();
+            return;
+          }
+          retire();
+          setLife((value) => value + 1);
+        }}
+      >
+        Compile native execution order
+      </summary>
       <p>
         Reorder existing blocks after merging this retained backup's saved
         settings. Existing wire timing relationships and original index widths
         stay unchanged. This saves a local native copy; controller transfer is
         separate.
       </p>
+      <label>
+        Native execution-order destination
+        <select
+          aria-label="Native execution-order destination"
+          value={destination}
+          disabled={!usable || busy || !!field?.fieldBusy}
+          onChange={(event) => {
+            const value = event.target.value;
+            if (value === destinationNow.current) return;
+            if (value === "file") drafts.delete(destinationKey);
+            else if (!rememberWireDraft(drafts, destinationKey, value)) {
+              setError({
+                owner: context,
+                text: "The 256 retained draft slots are full. Discard an older draft first; no work was removed.",
+              });
+              return;
+            }
+            destinationNow.current = value;
+            retire();
+            setDestination(value);
+          }}
+        >
+          <option value="file">Local native copy</option>
+          <option value="controller">Selected controller</option>
+        </select>
+      </label>
       <div className="button-row">
         <button
           className={!report && !shown ? "primary" : ""}
@@ -402,7 +476,7 @@ export function NativeExecutionOrder({
             Native execution and CCT/physical acceptance remain unverified.
           </p>
           <button
-            className={shown ? "" : "primary"}
+            className={destination === "file" && !shown ? "primary" : ""}
             disabled={!usable || busy || !!draftError}
             onClick={() => void prepare(true)}
           >
@@ -449,6 +523,45 @@ export function NativeExecutionOrder({
           </details>
         </section>
       )}
+      <div hidden={destination !== "controller"}>
+        <NativeOrderTransfer
+          source={source}
+          proposal={
+            report &&
+            !draftError &&
+            !proposed.every(
+              (v: number, i: number) =>
+                v === report.selection.original_order[i],
+            )
+              ? nativeOrderRequest(source, record, report, proposed)
+              : null
+          }
+          opened={report}
+          controller={controller}
+          visible={visible && opened && destination === "controller"}
+          otherBusy={otherFieldBusy || !!pending}
+          onOwnedBusy={(value, kind) => {
+            setOwnedFieldBusy(value);
+            setOwnedMutationBusy(
+              value && ["capture", "apply", "readback"].includes(kind),
+            );
+          }}
+          parentGeneration={JSON.stringify([fieldTicket])}
+          parentCurrent={() =>
+            alive.current &&
+            present.current &&
+            visibleNow.current &&
+            opened &&
+            fieldOwnerNow.current === fieldOwner &&
+            fieldEpoch.current === fieldTicket &&
+            destinationNow.current === "controller" &&
+            operationNow.current() &&
+            fieldNow.current?.visible !== false &&
+            fieldNow.current?.workspaceCurrent?.() !== false &&
+            document.visibilityState === "visible"
+          }
+        />
+      </div>
     </details>
   );
 }

@@ -1795,6 +1795,7 @@ export function App() {
         "boolean-default",
         "wire-source",
         "connection",
+        "execution-order",
         "default-batch",
       ].includes(nativeChangeKind)
     ) {

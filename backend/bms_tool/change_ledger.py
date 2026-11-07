@@ -364,6 +364,7 @@ class ChangeLedger:
                 "default-wire": "Native Real default and connection transfer",
                 "default-batch": "Native typed default batch transfer",
                 "connection": "Native matching connection transfer",
+                "execution-order": "Native execution-order transfer",
                 "input": "Native input configuration transfer",
                 "point-name": "Native point-name transfer",
             }
@@ -373,6 +374,8 @@ class ChangeLedger:
             )
             label = labels.get(native_kind, "Native application transfer (unsupported operation)")
             selection = body.get("wire_edit" if native_kind == "wire-source" else "default_edit")
+            if native_kind == "execution-order":
+                selection = body.get("order_edit")
             native_metadata = native_reference(native_kind, selection)
             if native_kind == "default-batch":
                 native_metadata = (
