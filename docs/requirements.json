@@ -1852,5 +1852,14 @@
     "pdf_pages_or_section": "JCI-10;PORT-03; original backup and post-change evidence portability",
     "status": "implemented",
     "implementation_or_gap": "Changes/History opens externally supplied original bundles; source/proof/typed-value checks, exact byte exports, stale/cancellation ownership and offline/connected contexts. Internal consistency is not authenticated provenance, complete backup/journal, current controller, general compiler, CCT or physical acceptance. Catalog ingestion and whole-state migration remain separate."
+  },
+  {
+    "id": "COMM-NATIVE-ORDER-RESULT-MATCH-001",
+    "feature": "Retained execution-order transfer result comparison",
+    "acceptance_criterion": "Reconstruct a supported historically verified native order result from original files and compare its retained route, identity, native/effective application, membership, order, widths and wire relationships without field authority.",
+    "evidence": "Existing native order compiler, original transfer guards and immutable proof; docs/native-order-result-match.md",
+    "pdf_pages_or_section": "JCI-01;JCI-10; post-transfer verification and retained evidence",
+    "status": "implemented",
+    "implementation_or_gap": "Actual original reconstruction and selected-proof checks; separate local comparisons, historical readback qualification, exact exports and contextual source/draft/receipt/lifetime ownership. Other families, recovery, full native/compiler/package/resource/CCT and physical acceptance remain separate."
   }
 ]
