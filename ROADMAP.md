@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-06. Implementation baseline: GitHub `main` at
-[`109ca01f`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/109ca01f38a4af92224551ea12c7f51dcafb8ce6).
+[`6980b0fd`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/6980b0fd8c055a7d357d8a52c458142f22bb599c).
 
 ## Baseline and purpose
 
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 196 scoped criteria: 142
+The public requirement register currently records 197 scoped criteria: 143
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -2406,3 +2406,27 @@ recovery deployment is next, with general rollback, authoring/packages/resources
 runtime/CCT and physical/BTCVT acceptance still separate. The register now has 196
 criteria: 142 implemented, 46 partial and eight pending. See
 [previous batch preparation](docs/native-default-batch-recovery.md).
+
+## 2026-11-06 JCI-09/JCI-10 delivery: previous typed batch controller transfer
+
+`FIELD-NATIVE-BATCH-RECOVERY-001` adds a separate fresh controller review for the
+previous values derived by local batch recovery preparation. Original receipt,
+files, compiler, typed guards and lineage must reconstruct before review and
+again before durable intent. Fresh unrelated saved settings remain current.
+One new confirmed restore verifies the complete application and every selected
+effective value; uncertain outcomes retain their own immutable receipt for
+explicit read-only reconciliation after reload or restart without another restore.
+
+The existing controller/file workflow contains the focused recovery task. Opening
+it retires an ordinary batch review while preserving unfinished text. Shared
+operation ownership and synchronous task/source/visibility/consumed-review checks
+prevent stale callbacks from dispatching. Exact receipt export and loading remain
+available without preparing another proposal. Direct/routed authored peers and
+source/installed Chromium/WebKit qualify this bounded software scope only.
+
+The register now has 197 criteria: 143 implemented, 46 partial and eight pending.
+The ordinary Changes/History batch projection explicitly explains that recovery
+lineage is not projected; a searchable recorded recovery ledger is next. General
+rollback, new blocks/I/O, package/resource/runtime/CCT comparison and physical/
+BTCVT acceptance remain separate. JCI-03, JCI-09 and JCI-10 remain partial overall.
+See [previous batch controller transfer](docs/native-default-batch-recovery-transfer.md).

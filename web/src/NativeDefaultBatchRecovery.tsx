@@ -1,24 +1,34 @@
 import { useEffect, useRef, useState } from "react";
 import { apiJsonDocument, saveBlob } from "./api";
-import {
-  batchRecoveryBase,
-  defaultBatchRecoveryEvidence,
-} from "./nativeDefaultBatchRecoveryContract";
+import { NativeDefaultBatchTransfer } from "./NativeDefaultBatchTransfer";
+import type { ControllerContext } from "./workflow";
+import { preparedBatchRecoveryEvidence } from "./nativeDefaultBatchRecoveryTransferContract";
+import { batchRecoveryBase } from "./nativeDefaultBatchRecoveryContract";
 type Data = Record<string, any>;
 export function NativeDefaultBatchRecovery({
+  source,
   opened,
   receipt,
   visible,
   blocked,
   revision,
   parentCurrent,
+  controller,
+  onOwnedBusy,
+  onCaptured,
+  onFieldFocus,
 }: {
+  source: Data;
   opened: Data | null;
   receipt: Data;
   visible: boolean;
   blocked: boolean;
   revision: number;
   parentCurrent: () => boolean;
+  controller?: ControllerContext | null;
+  onOwnedBusy: (value: boolean) => void;
+  onCaptured: (id: string) => void;
+  onFieldFocus: (value: boolean) => void;
 }) {
   const [document, setDocument] = useState<{
     owner: string;
@@ -28,6 +38,13 @@ export function NativeDefaultBatchRecovery({
   } | null>(null);
   const [pending, setPending] = useState(false),
     [error, setError] = useState("");
+  const [fieldBusy, setFieldBusy] = useState(false),
+    fieldBusyNow = useRef(false);
+  const [fieldOpen, setFieldOpen] = useState(false),
+    fieldOpenNow = useRef(false),
+    fieldGeneration = useRef(0);
+  const [, redrawField] = useState(0);
+  const fieldTicket = fieldGeneration.current;
   const receiptVersion = useRef({ data: receipt, revision: 0 });
   if (receiptVersion.current.data !== receipt) {
     receiptVersion.current = {
@@ -90,6 +107,7 @@ export function NativeDefaultBatchRecovery({
     window.document.addEventListener("visibilitychange", retire);
     return () => {
       alive.current = false;
+      onFieldFocus(false);
       epoch.current++;
       window.removeEventListener("pagehide", retire);
       window.document.removeEventListener("visibilitychange", retire);
@@ -103,6 +121,7 @@ export function NativeDefaultBatchRecovery({
   async function prepare() {
     if (
       !opened ||
+      fieldBusyNow.current ||
       parentProblem !== null ||
       receipt.pending !== false ||
       pending ||
@@ -122,7 +141,7 @@ export function NativeDefaultBatchRecovery({
       });
       if (!current(key, ticket)) return;
       if (
-        !(await defaultBatchRecoveryEvidence(
+        !(await preparedBatchRecoveryEvidence(
           response.data as Data,
           opened,
           receipt,
@@ -175,7 +194,12 @@ export function NativeDefaultBatchRecovery({
       )}
       <button
         disabled={
-          !opened || parentProblem !== null || pending || blocked || !visible
+          !opened ||
+          parentProblem !== null ||
+          pending ||
+          blocked ||
+          !visible ||
+          fieldBusy
         }
         onClick={() => void prepare()}
       >
@@ -189,7 +213,7 @@ export function NativeDefaultBatchRecovery({
           <p role="status">
             {shown.data.already_recorded
               ? "Every previous value is already present in this retained source. No recovery proposal was created."
-              : "Previous values have a source-bound local compilation. Controller recovery transfer is unavailable for this proposal."}
+              : "Previous values have a source-bound local compilation. Open the recovery transfer task for a separate fresh controller review."}
           </p>
           <div
             className="application-operation-table"
@@ -249,6 +273,52 @@ export function NativeDefaultBatchRecovery({
           </details>
         </>
       )}
+      <details open={fieldOpen} aria-label="Previous batch field workflow">
+        <summary
+          onClick={(event) => {
+            event.preventDefault();
+            if (fieldBusyNow.current || blocked) return;
+            fieldGeneration.current++;
+            fieldOpenNow.current = !fieldOpenNow.current;
+            onFieldFocus(fieldOpenNow.current);
+            setFieldOpen(fieldOpenNow.current);
+            redrawField((value) => value + 1);
+          }}
+        >
+          Transfer previous batch values to controller
+        </summary>
+        <NativeDefaultBatchTransfer
+          source={source}
+          opened={opened}
+          proposal={shown?.data.proposal ?? null}
+          controller={controller}
+          visible={visible && fieldOpen}
+          otherBusy={blocked || pending}
+          revision={fieldTicket}
+          parentCurrent={() =>
+            current(owner, rendered) &&
+            fieldOpenNow.current &&
+            fieldGeneration.current === fieldTicket
+          }
+          onCaptured={onCaptured}
+          recoveryMode
+          onOwnedBusy={(value) => {
+            fieldBusyNow.current = value;
+            if (alive.current) setFieldBusy(value);
+            onOwnedBusy(value);
+          }}
+          recoveryContext={
+            shown?.data.proposal
+              ? {
+                  report: shown.data,
+                  parent: receipt,
+                  generation: shown.epoch,
+                  current: () => current(shown.owner, shown.epoch),
+                }
+              : null
+          }
+        />
+      </details>
     </section>
   );
 }

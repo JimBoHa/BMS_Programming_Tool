@@ -1,6 +1,12 @@
 import { NativeDefaultBatchValues } from "./NativeDefaultBatchLedgerView";
 import { NativeDefaultBatchRecovery } from "./NativeDefaultBatchRecovery";
 import { defaultBatchRecoveryParent } from "./nativeDefaultBatchRecoveryContract";
+import {
+  batchRecoveryTransferProfile,
+  batchRecoveryTransferReview,
+  batchRecoveryTransferReceipt,
+  type BatchRecoveryTransferContext,
+} from "./nativeDefaultBatchRecoveryTransferContract";
 import { randomUUID } from "./browserCrypto";
 import { useEffect, useRef, useState } from "react";
 import { api, apiJsonDocument, apiKeepalive, saveBlob } from "./api";
@@ -48,6 +54,8 @@ export function NativeDefaultBatchTransfer({
   onCaptured,
   parentCurrent,
   revision,
+  recoveryMode = false,
+  recoveryContext = null,
 }: {
   source: Data;
   proposal: Data | null;
@@ -59,6 +67,8 @@ export function NativeDefaultBatchTransfer({
   onCaptured: (id: string) => void;
   parentCurrent: () => boolean;
   revision: number;
+  recoveryMode?: boolean;
+  recoveryContext?: BatchRecoveryTransferContext | null;
 }) {
   const [busy, setBusy] = useState(false),
     [status, setStatus] = useState<Data | null>(null);
@@ -74,6 +84,12 @@ export function NativeDefaultBatchTransfer({
   const [receipt, setReceipt] = useState<Document | null>(null),
     [chosenReceipt, setChosenReceipt] = useState("");
   const [receiptLoading, setReceiptLoading] = useState(false);
+  const [childBusy, setChildBusy] = useState(false),
+    childBusyNow = useRef(false);
+  const childFocusNow = useRef(false),
+    focusGeneration = useRef(0);
+  const [, redrawFocus] = useState(0),
+    renderedFocus = focusGeneration.current;
   const [uncertainty, setUncertainty] = useState<{
     target: Data;
     operationId: string;
@@ -88,6 +104,9 @@ export function NativeDefaultBatchTransfer({
     visible,
     otherBusy,
     revision,
+    recoveryMode,
+    recoveryContext?.generation,
+    recoveryContext?.report.origin_sha256,
     controller && [
       controllerKey(controller),
       controller.interfaceKey,
@@ -103,6 +122,8 @@ export function NativeDefaultBatchTransfer({
   const statusTicket = useRef(0),
     receiptTicket = useRef(0),
     receiptNow = useRef(receipt);
+  const planNow = useRef(plan);
+  planNow.current = plan;
   receiptNow.current = receipt;
   if (ownerNow.current !== owner) {
     ownerNow.current = owner;
@@ -130,11 +151,14 @@ export function NativeDefaultBatchTransfer({
       controller,
     );
   const available =
-    status?.default_batch_transfer_profile === defaultBatchTransferProfile;
+    status?.default_batch_transfer_profile === defaultBatchTransferProfile &&
+    (!recoveryMode ||
+      status?.default_batch_recovery_transfer_profile ===
+        batchRecoveryTransferProfile);
   const engineeringPending =
     Array.isArray(status?.receipts) &&
     status.receipts.some((row: Data) => row.pending === true);
-  const locked = busy || otherBusy;
+  const locked = busy || otherBusy || childBusy || childFocusNow.current;
   const selectionProblem = defaultBatchTransferProblem(proposal, opened);
   const canReview =
     parentCurrent() &&
@@ -147,6 +171,7 @@ export function NativeDefaultBatchTransfer({
     sourceMatches &&
     !!opened &&
     !!proposal &&
+    (!recoveryMode || (!!recoveryContext && recoveryContext.current())) &&
     defaultBatchTransferProposal(proposal, opened) &&
     !engineeringPending &&
     !locked;
@@ -160,6 +185,8 @@ export function NativeDefaultBatchTransfer({
     !!intent &&
     defaultBatchTransferTarget(receiptTarget, controller) &&
     connectionSame(intent.connector_config, configuration);
+  const recoveryRecord =
+    recoveryMode || intent?.recovery_profile === batchRecoveryTransferProfile;
   const completed =
     observed?.status === "verified" ||
     observed?.status === "recovered_original";
@@ -198,6 +225,49 @@ export function NativeDefaultBatchTransfer({
     setConfirmed(false);
     setInterruption(false);
     cancelOwned();
+  }
+  function recoveryBusy(value: boolean) {
+    if (childBusyNow.current === value) return;
+    childBusyNow.current = value;
+    if (alive.current) setChildBusy(value);
+    if (value) retire();
+    onOwnedBusy(value);
+  }
+  function recoveryFocus(value: boolean) {
+    if (childFocusNow.current === value) return;
+    childFocusNow.current = value;
+    focusGeneration.current++;
+    if (alive.current) redrawFocus((v) => v + 1);
+    if (value) retire();
+  }
+  async function validReceipt(data: Data, reference?: Data) {
+    return recoveryMode || hasRecovery(data.intent) || hasRecovery(reference)
+      ? batchRecoveryTransferReceipt(data, reference)
+      : defaultBatchTransferReceipt(data, reference);
+  }
+  function hasRecovery(value?: Data) {
+    return (
+      !!value && Object.keys(value).some((key) => key.startsWith("recovery_"))
+    );
+  }
+  async function validReview(data: Data) {
+    return recoveryMode
+      ? !!recoveryContext &&
+          batchRecoveryTransferReview(
+            data,
+            source,
+            proposal!,
+            opened!,
+            controller!,
+            recoveryContext,
+          )
+      : defaultBatchTransferReview(
+          data,
+          source,
+          proposal!,
+          opened!,
+          controller!,
+        );
   }
   async function refresh() {
     const request = ++statusTicket.current,
@@ -275,6 +345,9 @@ export function NativeDefaultBatchTransfer({
   async function run(kind: Kind) {
     if (
       !visible ||
+      childBusyNow.current ||
+      childFocusNow.current ||
+      focusGeneration.current !== renderedFocus ||
       active.current ||
       otherBusy ||
       !parentCurrent() ||
@@ -285,15 +358,27 @@ export function NativeDefaultBatchTransfer({
       return;
     if ((kind === "preview" || kind === "apply") && !canReview) return;
     if (
+      (kind === "preview" || kind === "apply") &&
+      recoveryMode &&
+      (!recoveryContext || !recoveryContext.current())
+    )
+      return;
+    if (
       kind === "apply" &&
       (!shown ||
+        shown !== planNow.current ||
         !fresh ||
         !confirmed ||
         !interruption ||
         !current(shown.owner, shown.epoch))
     )
       return;
-    if (kind === "readback" && (!receiptMatches || !receipt?.data.pending))
+    if (
+      kind === "readback" &&
+      (!receiptMatches ||
+        !receipt?.data.pending ||
+        receipt !== receiptNow.current)
+    )
       return;
     const selectedPlan = shown,
       selectedReceipt = receipt;
@@ -347,17 +432,16 @@ export function NativeDefaultBatchTransfer({
             ...targetOf(controller!),
             ...proposal!,
             operation_id: operation.id,
+            ...(recoveryMode && recoveryContext
+              ? {
+                  recovery_parent_receipt:
+                    recoveryContext.report.origin.parent_receipt_id,
+                  recovery_origin_sha256: recoveryContext.report.origin_sha256,
+                }
+              : {}),
           },
         );
-        if (
-          !(await defaultBatchTransferReview(
-            document.data,
-            source,
-            proposal!,
-            opened!,
-            controller!,
-          ))
-        ) {
+        if (!(await validReview(document.data))) {
           throw new Error(
             "The batch review does not match this controller, source and selected typed defaults.",
           );
@@ -401,7 +485,7 @@ export function NativeDefaultBatchTransfer({
           (kind === "apply" &&
             document.data.intent &&
             document.data.intent.operation_id !== operation.id) ||
-          !(await defaultBatchTransferReceipt(
+          !(await validReceipt(
             document.data,
             kind === "apply"
               ? selectedPlan!.data
@@ -452,8 +536,11 @@ export function NativeDefaultBatchTransfer({
         base + "/receipts/" + chosenReceipt,
       );
       if (
-        (!(await defaultBatchTransferReceipt(document.data)) &&
-          !(await defaultBatchRecoveryParent(document.data))) ||
+        (!(await validReceipt(document.data)) &&
+          !(
+            !hasRecovery(document.data.intent) &&
+            (await defaultBatchRecoveryParent(document.data))
+          )) ||
         document.data.intent?.id !== chosenReceipt
       ) {
         throw new Error(
@@ -474,15 +561,23 @@ export function NativeDefaultBatchTransfer({
     ? status!.receipts.filter(
         (row: Data) =>
           row.change_kind === "default-batch" &&
-          row.operation_profile === defaultBatchTransferProfile,
+          row.operation_profile === defaultBatchTransferProfile &&
+          (!recoveryMode ||
+            row.recovery_profile === batchRecoveryTransferProfile),
       )
     : [];
   return (
     <section
       className="native-compiler-source native-default-transfer"
-      aria-label="Native default batch controller transfer"
+      aria-label={
+        recoveryMode
+          ? "Previous batch controller transfer"
+          : "Native default batch controller transfer"
+      }
     >
-      <h3>Controller transfer</h3>
+      <h3>
+        {recoveryMode ? "Controller recovery transfer" : "Controller transfer"}
+      </h3>
       <p>
         {controller
           ? `Selected controller: ${controller.name} · ${targetLabel(controller)}.`
@@ -603,7 +698,13 @@ export function NativeDefaultBatchTransfer({
         </p>
       )}
       {shown && (
-        <section aria-label="Reviewed controller default batch">
+        <section
+          aria-label={
+            recoveryMode
+              ? "Reviewed previous batch recovery"
+              : "Reviewed controller default batch"
+          }
+        >
           <p>
             Review: {shown.data.compilation.changed_count} of{" "}
             {shown.data.compilation.edit_count} selected defaults change. Device
@@ -611,7 +712,11 @@ export function NativeDefaultBatchTransfer({
           </p>
           <NativeDefaultBatchValues
             selected={shown.data.compilation.selected}
-            label="Reviewed typed default values"
+            label={
+              recoveryMode
+                ? "Reviewed previous batch values"
+                : "Reviewed typed default values"
+            }
           />
           <label>
             <input
@@ -669,6 +774,14 @@ export function NativeDefaultBatchTransfer({
               Readback is unavailable for the current selection.
             </p>
           )}
+          {intent?.recovery_profile === batchRecoveryTransferProfile && (
+            <p>
+              Recorded previous-value recovery from receipt{" "}
+              {intent.recovery_origin?.parent_receipt_id}. Readback verifies
+              this operation; loading does not revalidate its original parent or
+              create a new transfer.
+            </p>
+          )}
           {observed?.error && <p>{String(observed.error)}</p>}
           {Array.isArray(observed?.errors) &&
             observed.errors.map((text: string, index: number) => (
@@ -679,23 +792,37 @@ export function NativeDefaultBatchTransfer({
             onClick={() => {
               const selected = receiptNow.current;
               if (visible && selected === receipt)
-                saveBlob(receipt.blob, "native-default-batch-receipt.json");
+                saveBlob(
+                  receipt.blob,
+                  recoveryRecord
+                    ? "native-previous-batch-receipt.json"
+                    : "native-default-batch-receipt.json",
+                );
             }}
           >
-            Save batch transfer receipt
+            {recoveryRecord
+              ? "Save previous batch recovery receipt"
+              : "Save batch transfer receipt"}
           </button>
           <details>
             <summary>Batch transfer receipt details</summary>
             <pre>{JSON.stringify(receipt.data, null, 2)}</pre>
           </details>
-          <NativeDefaultBatchRecovery
-            opened={opened}
-            receipt={receipt.data}
-            visible={visible}
-            blocked={locked}
-            revision={revision}
-            parentCurrent={parentCurrent}
-          />
+          {!recoveryMode && (
+            <NativeDefaultBatchRecovery
+              source={source}
+              opened={opened}
+              receipt={receipt.data}
+              visible={visible}
+              blocked={busy || otherBusy}
+              revision={revision}
+              parentCurrent={parentCurrent}
+              controller={controller}
+              onOwnedBusy={recoveryBusy}
+              onFieldFocus={recoveryFocus}
+              onCaptured={onCaptured}
+            />
+          )}
         </section>
       )}
       <div className="button-row">
@@ -705,7 +832,9 @@ export function NativeDefaultBatchTransfer({
             disabled={locked || !visible || !connected || !receiptMatches}
             onClick={() => void run("readback")}
           >
-            Read back default batch
+            {recoveryRecord
+              ? "Read back previous batch recovery"
+              : "Read back default batch"}
           </button>
         ) : completed &&
           connectionSame(intent?.batch_edit, proposal) &&
@@ -723,7 +852,9 @@ export function NativeDefaultBatchTransfer({
             disabled={!canReview || !confirmed || !interruption}
             onClick={() => void run("apply")}
           >
-            Apply default batch to controller
+            {recoveryMode
+              ? "Apply previous batch values to controller"
+              : "Apply default batch to controller"}
           </button>
         ) : (
           <button
@@ -731,7 +862,9 @@ export function NativeDefaultBatchTransfer({
             disabled={!canReview}
             onClick={() => void run("preview")}
           >
-            Review default batch transfer
+            {recoveryMode
+              ? "Review previous batch recovery transfer"
+              : "Review default batch transfer"}
           </button>
         )}
         {shown && (
@@ -743,9 +876,15 @@ export function NativeDefaultBatchTransfer({
       <details>
         <summary>Retained default-batch receipts</summary>
         <label>
-          Typed default batch receipt
+          {recoveryMode
+            ? "Previous batch recovery receipt"
+            : "Typed default batch receipt"}
           <select
-            aria-label="Typed default batch receipt"
+            aria-label={
+              recoveryMode
+                ? "Previous batch recovery receipt"
+                : "Typed default batch receipt"
+            }
             value={chosenReceipt}
             disabled={locked || !visible || receiptLoading}
             onChange={(e) => setChosenReceipt(e.target.value)}
@@ -753,6 +892,9 @@ export function NativeDefaultBatchTransfer({
             <option value="">Choose a retained transfer</option>
             {records.map((row) => (
               <option key={row.id} value={row.id}>
+                {row.recovery_profile === batchRecoveryTransferProfile
+                  ? "Previous-value recovery · "
+                  : ""}
                 {row.created_at} · device,{row.old_instance} ·{" "}
                 {row.target.address}
                 {row.target.router
@@ -767,7 +909,9 @@ export function NativeDefaultBatchTransfer({
           disabled={locked || !visible || receiptLoading || !chosenReceipt}
           onClick={() => void loadReceipt()}
         >
-          Load default batch receipt
+          {recoveryMode
+            ? "Load batch recovery receipt"
+            : "Load default batch receipt"}
         </button>
         <p>
           Loaded receipts are recorded evidence. Loading prepares no review,

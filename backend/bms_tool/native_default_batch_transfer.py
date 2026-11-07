@@ -2,7 +2,7 @@
 
 from typing import Annotated, Literal
 
-from pydantic import Field, StrictBool, StrictInt
+from pydantic import Field, StrictBool, StrictInt, model_validator
 
 from .application_preservation import runtime_parameter_changes
 from .device_details import DeviceDetailsRequest
@@ -26,6 +26,14 @@ SCOPE = (
 
 class BatchTransferPreview(BatchPreview, DeviceDetailsRequest):
     operation_id: str = Field(pattern=r"^[A-Za-z0-9_-]{8,80}$")
+    recovery_parent_receipt: str | None = Field(default=None, pattern=r"^[0-9a-f]{32}$")
+    recovery_origin_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def recovery_binding(self):
+        if (self.recovery_parent_receipt is None) != (self.recovery_origin_sha256 is None):
+            raise ValueError("Provide both the recovery parent receipt and prepared origin hash.")
+        return self
 
 
 class BatchTransferApply(StrictModel):

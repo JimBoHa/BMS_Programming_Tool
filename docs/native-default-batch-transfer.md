@@ -69,3 +69,5 @@ creating controller authority.
 provides a separate local report from a verified receipt and matching retained
 current source. It does not extend this transfer contract or authorize recovery
 deployment.
+
+Previous effective values now have a separate [fresh lineage-bound recovery transfer](native-default-batch-recovery-transfer.md). Its annotated review/intent and receipt predicate remain independent of ordinary batch contracts.

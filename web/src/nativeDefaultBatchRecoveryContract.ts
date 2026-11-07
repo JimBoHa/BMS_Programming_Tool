@@ -35,6 +35,7 @@ function originJSON(v: any): string {
     (c) => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"),
   );
 }
+export const batchRecoveryOriginJSON = originJSON;
 const bitsOf = (value: number) => {
   if (!Number.isFinite(value)) return null;
   const view = new DataView(new ArrayBuffer(4));
