@@ -1771,5 +1771,14 @@
     "pdf_pages_or_section": "Program / Native backup defaults; docs/native-default-batch-recovery-transfer.md",
     "status": "implemented",
     "implementation_or_gap": "Paired parent/hash metadata derives exact previous values before review and durable intent; preserves fresh unselected saved settings; one-use ownership, consumed/stale handler refusal, typed full readback, independent uncertain-child reconciliation after restart, exact JSON and focused controller workflow. Searchable recorded recovery lineage, general rollback/authoring/packages/resources/runtime/CCT and physical/BTCVT acceptance remain separate."
+  },
+  {
+    "id": "COMM-NATIVE-BATCH-RECOVERY-LEDGER-001",
+    "feature": "Recorded previous typed native batch recovery lineage",
+    "acceptance_criterion": "Expose strictly validated recorded batch recovery lineage, typed original/current/proposed values and searchable parent references in Changes and History without source reads or controller authority.",
+    "evidence": "Immutable typed batch recovery receipts, strict origin/child bindings and authored source/installed desktop/mobile browser qualification",
+    "pdf_pages_or_section": "Changes; History / Recorded changes; docs/native-default-batch-recovery-ledger.md",
+    "status": "implemented",
+    "implementation_or_gap": "Bounded16-field recorded projection with exact origin seal, child identity/review bindings, finite float32 bits, strict Boolean and Enum codes; independent client predicate, parent search and exact JSON. No parent/source revalidation, live-state claim or field operation. Ordinary batch records and uncertainty outcomes retain their existing behavior; wider JCI-10 and physical acceptance remain separate."
   }
 ]

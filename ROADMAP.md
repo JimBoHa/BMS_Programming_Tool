@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-06. Implementation baseline: GitHub `main` at
-[`6980b0fd`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/6980b0fd8c055a7d357d8a52c458142f22bb599c).
+[`b5cc7e50`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/b5cc7e5064ddcfcb79658bdc178a86781cb75d18).
 
 ## Baseline and purpose
 
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 197 scoped criteria: 143
+The public requirement register currently records 198 scoped criteria: 144
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -2430,3 +2430,21 @@ lineage is not projected; a searchable recorded recovery ledger is next. General
 rollback, new blocks/I/O, package/resource/runtime/CCT comparison and physical/
 BTCVT acceptance remain separate. JCI-03, JCI-09 and JCI-10 remain partial overall.
 See [previous batch controller transfer](docs/native-default-batch-recovery-transfer.md).
+
+## 2026-11-06 JCI-10 delivery: recorded previous typed batch recovery
+
+`COMM-NATIVE-BATCH-RECOVERY-LEDGER-001` adds a strict bounded local projection of
+previous batch recovery lineage to existing Changes and History. Typed original
+previous/result, retained-at-review and recovery-proposed values retain their
+source order and signed-zero/Boolean/Enum distinctions. Parent search and original
+JSON export remain local. Independent browser validation refuses altered metadata
+and suppresses unsupported native-program handoff.
+
+This resolves `IDEA-NATIVE-BATCH-RECOVERY-LEDGER-001`. Parent/source availability
+and current controller state are not revalidated; uncertain and later inconclusive
+child outcomes remain visible. No preparation, review, compilation, controller
+query, restore or reconciliation is added. Ordinary records, field services and
+teal styles remain independent. The register now has 198 scoped criteria: 144
+implemented, 46 partial and eight pending. General rollback, authoring/CCT and
+physical/BTCVT acceptance remain separate; JCI-10 remains partial overall. See
+[recorded batch recovery](docs/native-default-batch-recovery-ledger.md).

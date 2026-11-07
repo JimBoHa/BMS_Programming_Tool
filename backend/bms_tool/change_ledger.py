@@ -27,6 +27,8 @@ from .native_binary_terminal_recovery_ledger import (
 )
 from .native_connection_ledger import connection_reference
 from .native_default_batch_ledger import batch_reference
+from .native_default_batch_recovery_ledger import recovery_namespace as batch_recovery_namespace
+from .native_default_batch_recovery_ledger import recovery_reference as batch_recovery_reference
 from .native_default_wire_ledger import combined_reference
 from .native_encoded_analog_ledger import encoded_analog_terminal_reference, explicit_encoded_analog
 from .native_encoded_analog_recovery_ledger import encoded_analog_recovery_reference
@@ -373,7 +375,11 @@ class ChangeLedger:
             selection = body.get("wire_edit" if native_kind == "wire-source" else "default_edit")
             native_metadata = native_reference(native_kind, selection)
             if native_kind == "default-batch":
-                native_metadata = batch_reference(body)
+                native_metadata = (
+                    batch_recovery_reference(body)
+                    if batch_recovery_namespace(body)
+                    else batch_reference(body)
+                )
             elif native_kind == "default-wire":
                 native_metadata = combined_reference(body)
             elif (
