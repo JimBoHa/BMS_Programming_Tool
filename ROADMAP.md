@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-07. Implementation baseline: GitHub `main` at
-[`9e5f8d25`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/9e5f8d25558bcfd802f5ad336d9ec07fcb6ca74b).
+[`7556bd87`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/7556bd879e90c31433081d4f84c5f25a37ced738).
 
 ## Baseline and purpose
 
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 204 scoped criteria: 150
+The public requirement register currently records 205 scoped criteria: 151
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -2543,3 +2543,19 @@ order analysis with source/authority/proof checks, exact exports and stale-respo
 retirement. It creates no controller query, user draft, field review or transfer
 intent. Full native authoring, release/package/resource/runtime, CCT comparison
 and physical/BTCVT acceptance remain unfinished.
+
+## 2026-11-07 JCI-06/RES-001/UI-003 delivery: native size and capacity evidence
+
+[Application size and capacity](docs/native-capacity-evidence.md) now shows
+actual retained File3 bytes, expanded image size and record/diagram counts, plus
+a separate explicit observation of the original selected controller's reported
+capacity. The owned read validates identity, route/interface and native reply,
+requires no backup credentials and sends no backup-state, restore or write.
+
+The contextual backup inspector keeps historical source and observed capacity
+separate, checks advisory comparison arithmetic, retires stale callbacks and
+preserves exact response exports. Capacity for a retained archive does not
+qualify the current program or a fresh merged payload: existing transfer
+admission still captures/compiles and rechecks capacity before dispatch.
+RAM/flash/scan accounting, native allocation, general compiler/resource/package/
+runtime and CCT/physical acceptance remain incomplete.

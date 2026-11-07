@@ -1834,5 +1834,14 @@
     "pdf_pages_or_section": "JCI-01/JCI-03/JCI-09; per-operation native support evidence",
     "status": "implemented",
     "implementation_or_gap": "Explicit profile22 preserves profile14 and older profiles11-21; bounded real order witnesses, strict source/read-only/phase/width/compiler checks, contextual analysis and exact exports. Current connection, release/package/runtime/CCT and physical acceptance remain separate."
+  },
+  {
+    "id": "COMM-NATIVE-CAPACITY-001",
+    "feature": "Retained native application size and observed controller capacity",
+    "acceptance_criterion": "Expose actual retained File3 sizes and a separate source/route/interface-bound read-only controller capacity observation with native reply validation, advisory comparison and no backup/restore/write or transfer authority.",
+    "evidence": "Actual source parser and existing native File3 property3380 read/admission path; docs/native-capacity-evidence.md",
+    "pdf_pages_or_section": "JCI-06;RES-001;UI-003; native File3 application capacity",
+    "status": "implemented",
+    "implementation_or_gap": "Original encoded/expanded size and record counts; explicit owned direct/routed identity/capacity read, strict Unsigned/source/native-wire proof checks, stale/cancellation handling and exact JSON exports. Historical source is not the current program or fresh merged payload. RAM/flash/scan accounting, native allocation and CCT/physical acceptance remain separate."
   }
 ]
