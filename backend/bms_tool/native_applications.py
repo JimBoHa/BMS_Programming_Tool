@@ -60,6 +60,7 @@ from .native_connection_transfer import (
     verify_connection_preservation,
 )
 from .native_default_batch import BatchPreview
+from .native_default_batch_evidence import BatchEvidenceExport, NativeDefaultBatchEvidence
 from .native_default_batch_recovery import NativeDefaultBatchRecovery
 from .native_default_batch_recovery_transfer import PROFILE as BATCH_RECOVERY_PROFILE
 from .native_default_batch_recovery_transfer import recovery_origin as batch_recovery_origin
@@ -2466,6 +2467,12 @@ def native_application_router(service):
     @router.post("/default-batch/result/compare")
     def compare_default_batch_result(body: DefaultRecoveryPrepare):
         return NativeDefaultBatchResultMatch(service.default_batch_recovery.records).compare(
+            body.model_dump()
+        )
+
+    @router.post("/default-batch/result/evidence")
+    def export_default_batch_evidence(body: BatchEvidenceExport):
+        return NativeDefaultBatchEvidence(service.default_batch_recovery.records).response(
             body.model_dump()
         )
 

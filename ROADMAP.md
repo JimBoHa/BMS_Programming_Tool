@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-06. Implementation baseline: GitHub `main` at
-[`c6bbb9a1`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/c6bbb9a14c5459448352467e563b14541a9dfce5).
+[`fa186f7d`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/fa186f7d4b9d5e3b67e271939c57eb3b92074906).
 
 ## Baseline and purpose
 
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 199 scoped criteria: 145
+The public requirement register currently records 200 scoped criteria: 146
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -2467,3 +2467,20 @@ unchanged. The register now has 199 scoped criteria: 145 implemented, 46 partial
 and eight pending. Other operation families, general native authoring/rollback,
 CCT/runtime comparison and physical/BTCVT acceptance remain separate. See
 [retained result comparison](docs/native-default-batch-result-match.md).
+
+## 2026-11-06 JCI-10 delivery: portable retained comparison evidence
+
+`COMM-NATIVE-BATCH-EVIDENCE-001` exports an explicitly selected current comparison
+with original/current native capture archives, the original sealed intent and one
+immutable verification proof. Fresh reconstruction must retain the displayed
+comparison hash. Source differences remain differences; one shared capture is
+packaged once. Existing archive bytes and field/import contracts stay independent.
+
+The Program comparison adds a checked download with bounded fixed ZIP paths,
+manifest/member checksums, intent/proof seals and synchronous context retirement.
+No field interface, journal write, receipt import, restored credential/review or
+controller action is added. This completes a scoped evidence export, with broader
+verification packages, complete controller backups, import/viewer support, native
+authoring/CCT and physical/BTCVT acceptance remaining separate. The register now
+has 200 criteria: 146 implemented, 46 partial and eight pending. See
+[comparison evidence export](docs/native-default-batch-evidence-bundle.md).

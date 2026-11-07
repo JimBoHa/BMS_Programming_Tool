@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { apiJsonDocument, saveBlob } from "./api";
+import { NativeDefaultBatchEvidenceDownload } from "./NativeDefaultBatchEvidenceDownload";
 import {
   batchResultMatchBase,
   batchResultMatchParent,
@@ -242,6 +243,12 @@ export function NativeDefaultBatchResultMatch({
           >
             Save exact result comparison
           </button>
+          <NativeDefaultBatchEvidenceDownload
+            report={shown.data}
+            current={() =>
+              documentNow.current === shown && current(shown.owner, shown.epoch)
+            }
+          />
           <details>
             <summary>Recorded result comparison details</summary>
             <pre>{JSON.stringify(shown.data, null, 2)}</pre>
