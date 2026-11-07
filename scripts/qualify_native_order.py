@@ -298,6 +298,7 @@ def browser_group(output, env, mode, browser, number, name):
                 if check:
                     assert spec["ok"] and len(spec["tests"]) == 1
                     test = spec["tests"][0]
+                    assert test["timeout"] == 30000
                     assert test["expectedStatus"] == "passed" and len(test["results"]) == 1
                     assert test["results"][0]["status"] == "passed" and not test["results"][0].get(
                         "errors"

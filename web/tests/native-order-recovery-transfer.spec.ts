@@ -17,6 +17,61 @@ import { expectWorkspaceNavigationLocked } from "./workspace-navigation";
 import { originalOrderFixture } from "./native-order-original-fixture";
 import { openOrder } from "./native-execution-order-fixture";
 
+const routedOriginal = originalOrderFixture(true);
+
+routedOriginal(
+  "uncertain previous-order commit is loaded and read back without replay",
+  async ({ page, originalOrder }) => {
+    const { peer, seeded } = originalOrder;
+    const opened = await openPreviousOrderUI(page, seeded),
+      { apply } = await reviewedPrevious(page, opened);
+    let receipt: any;
+    await page.route("**/execution-order/transfer/apply", async (route) => {
+      const response = await route.fetch({ maxRetries: 0 }),
+        bytes = await response.body();
+      receipt = JSON.parse(bytes.toString());
+      await route.fulfill({ response, body: bytes });
+    });
+    await peer.command("mode drop-end");
+    const applied = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/execution-order/transfer/apply") &&
+        response.request().method() === "POST",
+    );
+    await apply.click();
+    expect((await applied).ok()).toBe(true);
+    expect(receipt.pending).toBe(true);
+    const result = opened.transfer.getByRole("region", {
+      name: "Execution-order transfer result",
+      exact: true,
+    });
+    await expect(result).toContainText(receipt.intent.id);
+    await expect(result).toContainText("Execution-order outcome uncertain");
+    expect(receipt.intent.recovery_origin.parent_receipt_id).toBe(
+      seeded.parent.intent.id,
+    );
+    await peer.command("mode normal");
+    await opened.transfer
+      .getByLabel("Execution-order receipt", { exact: true })
+      .selectOption(receipt.intent.id);
+    await opened.transfer
+      .getByRole("button", {
+        name: "Load execution-order receipt",
+        exact: true,
+      })
+      .click();
+    await expect(result).toContainText("Execution-order outcome uncertain");
+    await opened.transfer
+      .getByRole("button", { name: "Read back execution order", exact: true })
+      .click();
+    await expect(result).toContainText(
+      "Execution order verified in the complete native readback.",
+    );
+    expect(restores((await peer.command("stats")).events)).toHaveLength(2);
+    await expect(opened.table).toHaveText(opened.draft!);
+  },
+);
+
 for (const routed of [false, true])
   for (const caf of [false, true])
     for (const width of [1440, 390])
@@ -487,7 +542,6 @@ originalOrderFixture(false)(
   },
 );
 
-const routedOriginal = originalOrderFixture(true);
 routedOriginal(
   "an active previous-order restore retains its exact late receipt after page retirement",
   async ({ page, originalOrder }) => {
@@ -546,52 +600,6 @@ routedOriginal(
     } finally {
       release();
     }
-  },
-);
-
-routedOriginal(
-  "uncertain previous-order commit is loaded and read back without replay",
-  async ({ page, originalOrder }) => {
-    const { peer, seeded } = originalOrder;
-    const opened = await openPreviousOrderUI(page, seeded),
-      { apply } = await reviewedPrevious(page, opened);
-    let receipt: any;
-    await page.route("**/execution-order/transfer/apply", async (route) => {
-      const response = await route.fetch({ maxRetries: 0 }),
-        bytes = await response.body();
-      receipt = JSON.parse(bytes.toString());
-      await route.fulfill({ response, body: bytes });
-    });
-    await peer.command("mode drop-end");
-    await apply.click();
-    const result = opened.transfer.getByRole("region", {
-      name: "Execution-order transfer result",
-      exact: true,
-    });
-    await expect(result).toContainText("Execution-order outcome uncertain");
-    expect(receipt.pending).toBe(true);
-    expect(receipt.intent.recovery_origin.parent_receipt_id).toBe(
-      seeded.parent.intent.id,
-    );
-    await peer.command("mode normal");
-    await opened.transfer
-      .getByLabel("Execution-order receipt", { exact: true })
-      .selectOption(receipt.intent.id);
-    await opened.transfer
-      .getByRole("button", {
-        name: "Load execution-order receipt",
-        exact: true,
-      })
-      .click();
-    await expect(result).toContainText("Execution-order outcome uncertain");
-    await opened.transfer
-      .getByRole("button", { name: "Read back execution order", exact: true })
-      .click();
-    await expect(result).toContainText(
-      "Execution order verified in the complete native readback.",
-    );
-    expect(restores((await peer.command("stats")).events)).toHaveLength(2);
-    await expect(opened.table).toHaveText(opened.draft!);
   },
 );
 
