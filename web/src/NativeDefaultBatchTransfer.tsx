@@ -8,6 +8,7 @@ import {
   defaultBatchTransferBase,
   defaultBatchTransferProfile,
   defaultBatchTransferProposal,
+  defaultBatchTransferProblem,
   defaultBatchTransferReceipt,
   defaultBatchTransferReview,
   defaultBatchTransferTarget,
@@ -132,6 +133,7 @@ export function NativeDefaultBatchTransfer({
     Array.isArray(status?.receipts) &&
     status.receipts.some((row: Data) => row.pending === true);
   const locked = busy || otherBusy;
+  const selectionProblem = defaultBatchTransferProblem(proposal, opened);
   const canReview =
     parentCurrent() &&
     document.visibilityState !== "hidden" &&
@@ -488,6 +490,9 @@ export function NativeDefaultBatchTransfer({
         Capture and readback enter and end backup mode. Apply restores the
         native application and can interrupt control.
       </p>
+      {selectionProblem && (
+        <p role="status">Before controller review: {selectionProblem}</p>
+      )}
       {!!controller && !sourceMatches && (
         <p>
           This retained source belongs to another controller. Capture the

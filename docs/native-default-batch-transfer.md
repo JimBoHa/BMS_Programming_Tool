@@ -58,3 +58,8 @@ cross-brand conversion, previous-value batch recovery authoring, serial/BBMD/
 Bluetooth transfer and physical controller acceptance remain separate work.
 Qualification uses authored localhost BACnet peers and independently installed
 distribution assets; it does not establish field or BTCVT acceptance.
+
+
+A separate opt-in [source prerequisite analysis](native-batch-transfer-capabilities.md)
+adds profile21 evidence without changing this workflow's original contract or
+creating controller authority.

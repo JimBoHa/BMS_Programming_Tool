@@ -59,3 +59,8 @@ It grants no batch field Apply, general native authoring, package/resource/runti
 validation, CCT equivalence or physical/Bluetooth acceptance. Earlier transfer
 rows keep their independent preflight and readback requirements. JCI-01, JCI-03
 and JCI-09 remain partial overall.
+
+
+A separate opt-in [source prerequisite analysis](native-batch-transfer-capabilities.md)
+adds profile21 evidence without changing this workflow's original contract or
+creating controller authority.
