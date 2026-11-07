@@ -43,8 +43,10 @@ reference material. Opening the start screen does not open a field interface.
    block properties across compatible models, and reads an exposed live value for
    the selected block. The view labels its source file and capture time; refresh
    to acquire later application changes. Unrecognized native formats explain the
-   missing reader. Native application editing, compilation and download remain
-   unavailable for this format.
+   missing reader. Source-specific native edits, compilation and transfer use
+   the guarded workflows described in [JCI operation coverage](jci-operation-coverage.md).
+   Reading a diagram does not qualify arbitrary native logic generation or a
+   complete CAF application transfer.
 
 To change an instance number, open **Overview → Edit instance number**, enter the
 new allocated number and choose **Review instance change**. Review the exact
@@ -64,9 +66,11 @@ writing to a controller. Logic and hardware proposals retain their own guarded
 exports; they are not silently combined with a scalar export.
 
 You can connect while the file remains open. Its match to the controller stays
-explicitly unverified. A BACnet metadata connection does not provide native JCI
-application upload or download. CAF simulation inputs describe the original opened
-archive; export and reopen a copy to include application edits.
+explicitly unverified. An open BACnet interface alone does not establish a file
+match or qualify a native transfer. Follow the source, backup, review and
+verification requirements for the supported operation. CAF simulation inputs
+describe the original opened archive; export and reopen a copy to include
+application edits.
 
 ## Working modes and results
 
