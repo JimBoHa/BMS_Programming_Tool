@@ -314,7 +314,7 @@ for (const kind of ["partial", "already", "historical", "later-unknown"])
     await expect(recovery).toContainText(
       kind === "already"
         ? "No recovery proposal was created"
-        : "Controller recovery transfer is unavailable",
+        : "Previous values have a source-bound local compilation",
     );
     await expect(draft).toHaveValue("12.");
   });

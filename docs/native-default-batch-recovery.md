@@ -13,8 +13,10 @@ Read a current native backup separately when needed. That existing capture enter
 and ends backup mode. Preparation itself performs no controller query, command,
 field review, retained plan or journal write. It remains useful offline. The report
 contains a hypothetical compilation and output hash, not a downloadable controller
-application or an executable field plan. Controller recovery transfer is unavailable
-for this proposal; fresh lineage-bound deployment remains a separate feature.
+application or an executable field plan. A separate
+[fresh lineage-bound controller transfer](native-default-batch-recovery-transfer.md)
+can review and deploy the derived previous values. Preparation itself grants no
+field authority.
 
 ## Original evidence and current source
 
@@ -59,8 +61,10 @@ two entry paths, keyboard table scrolling and unfinished drafts remain intact.
 `POST /api/bacnet/controller/native-application/default-batch/recovery/prepare`
 requires the local session token and exactly `receipt_id`, `capture_id` and
 `snapshot_sha256`. Existing batch transfer request/confirmation/receipt contracts
-remain unchanged and do not accept recovery lineage from this report.
+remain independent. The separate recovery transfer accepts only a parent receipt
+and origin hash, rederives the full report, and requires a fresh controller review.
 
-This completes local previous-value batch preparation only. Fresh recovery
-deployment, general rollback, new blocks/I/O, native package/resource/runtime/CCT
-comparison and physical/BTCVT acceptance remain separate. JCI-10 remains partial.
+This profile completes local previous-value batch preparation only. Recovery
+deployment has its separate qualification. General rollback, new blocks/I/O,
+native package/resource/runtime/CCT comparison and physical/BTCVT acceptance remain
+separate. JCI-10 remains partial.

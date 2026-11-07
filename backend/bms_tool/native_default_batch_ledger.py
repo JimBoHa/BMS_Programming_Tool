@@ -40,6 +40,11 @@ def batch_reference(body):
                 "allocation_origin",
             )
         ):
+            if body.get("recovery_profile") == "native-default-batch-recovery-transfer/1":
+                unavailable["native_default_batch"]["scope"] = (
+                    "This ordinary-batch view does not project previous-value recovery lineage. "
+                    "Inspect the original recovery receipt in History."
+                )
             return unavailable
         edit, guard = validate_batch_evidence(body.get("batch_edit"), body.get("batch_guard"))
         if body["batch_edit"] != edit.model_dump() or body["batch_guard"] != guard.model_dump():

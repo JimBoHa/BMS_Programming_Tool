@@ -61,6 +61,9 @@ from .native_connection_transfer import (
 )
 from .native_default_batch import BatchPreview
 from .native_default_batch_recovery import NativeDefaultBatchRecovery
+from .native_default_batch_recovery_transfer import PROFILE as BATCH_RECOVERY_PROFILE
+from .native_default_batch_recovery_transfer import recovery_origin as batch_recovery_origin
+from .native_default_batch_recovery_transfer import validate_plan as validate_batch_recovery_plan
 from .native_default_batch_transfer import (
     PROFILE as BATCH_PROFILE,
 )
@@ -300,6 +303,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
             "wire_source_transfer_profile": WIRE_PROFILE,
             "wire_source_transfer_scope": WIRE_SCOPE,
             "default_batch_transfer_profile": BATCH_PROFILE,
+            "default_batch_recovery_transfer_profile": BATCH_RECOVERY_PROFILE,
             "default_batch_transfer_scope": BATCH_SCOPE,
             "default_wire_transfer_profile": COMBINED_PROFILE,
             "default_wire_transfer_scope": COMBINED_SCOPE,
@@ -328,6 +332,16 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                     "old_name": r["intent"].get("old_name"),
                     "new_name": r["intent"].get("new_name"),
                     "default_edit": r["intent"].get("default_edit"),
+                    **(
+                        {
+                            "recovery_profile": BATCH_RECOVERY_PROFILE,
+                            "recovery_parent_receipt": r["intent"]
+                            .get("recovery_origin", {})
+                            .get("parent_receipt_id"),
+                        }
+                        if r["intent"].get("recovery_profile") == BATCH_RECOVERY_PROFILE
+                        else {}
+                    ),
                     **(
                         {
                             "input_edit": r["intent"]["input_edit"],
@@ -911,6 +925,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
             output, compilation = compile_batch_defaults(files, edit)
             if compilation["changed_count"] == 0:
                 raise ValueError("Change at least one selected typed default before transfer.")
+            recovery = batch_recovery_origin(self, options, compilation)
             config, app = copy.deepcopy(self.bacnet.config), self.bacnet.require()
             async with self.path._path(options) as session:
                 PropertyEvidence.pin(session, options.router)
@@ -949,6 +964,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                 "connector_config": config,
                 "created_at": utc(),
                 "expires_at": (datetime.now(UTC) + timedelta(seconds=PLAN_SECONDS)).isoformat(),
+                **recovery,
             }
             return self.retain_plan(body, options, app, config)
 
@@ -1723,6 +1739,7 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
             ):
                 raise ValueError("The exact native batch review changed; review again.")
             validate_batch_evidence(plan["body"].get("batch_edit"), plan["body"].get("batch_guard"))
+            validate_batch_recovery_plan(plan["body"], plan["options"])
         if combined_edit and (
             plan["body"].get("operation_profile") != COMBINED_PROFILE
             or seal(plan["body"]) != plan["digest"]
@@ -1978,8 +1995,10 @@ class NativeApplications(NativeConnectionOperations, NativeInputOperations):
                             "Native application review or credentials changed during preflight. Review again."
                         )
                     recovery = (
-                        {}
-                        if combined_edit or batch_edit
+                        batch_recovery_origin(self, options, compilation)
+                        if batch_edit
+                        else {}
+                        if combined_edit
                         else {
                             **terminal_recovery_origin(self, options, compilation),
                             **encoded_analog_recovery_origin(self, options, compilation),
