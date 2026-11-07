@@ -2626,3 +2626,8 @@ ordinary separately confirmed new field transfer remains distinct from recorded
 recovery lineage, which is not provided by this local assistance. General native
 authoring, package/resource/runtime/CCT and physical acceptance remain separate.
 See [previous-order proposals](docs/native-order-recovery-proposal.md).
+
+Qualification also preserves a focused connection draft against automatic
+prefills already queued before focus. Controlled desktop/compact regressions
+cover network recommendations and saved-status hydration; unchanged connection
+and field guards still own interface and controller access.

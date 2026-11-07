@@ -70,7 +70,24 @@ for (const kind of [
         await route.fulfill({ response, json: data.cases.refused.report });
       });
     const { support } = await enter(page, data, kind);
+    // Keep the original case/assertion budgets, but start checking the large
+    // report after its actual analysis response rather than while CPU work runs.
+    const largeAnalysis =
+      kind === "large"
+        ? page.waitForResponse(
+            (response) =>
+              response.url().endsWith("/inspection/capabilities") &&
+              response.request().method() === "POST" &&
+              response.request().postDataJSON().capability_profile ===
+                "native-backup-operation-capabilities/22",
+          )
+        : null;
     await choice(support).check();
+    if (largeAnalysis) {
+      const response = await largeAnalysis;
+      expect(response.ok()).toBe(true);
+      expect(await response.finished()).toBeNull();
+    }
     await expect(table(support).getByRole("row")).toHaveCount(30);
     const report = data.cases[kind].report;
     for (const r of report.operations.slice(-2))

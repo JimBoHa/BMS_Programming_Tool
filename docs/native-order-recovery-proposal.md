@@ -90,6 +90,11 @@ Six additional connection-prefill regression cases per matrix precede that
 unchanged cohort, for 2,376 total executions. They cover a queued automatic
 network recommendation or saved-status hydration reaching an already focused
 bind-address draft, including desktop and compact selection/text replacement.
+Focus preserves the displayed complete connection draft synchronously, so an
+automatic prefill queued earlier cannot later replace it or move its insertion
+point. Untouched drafts still receive recommendations and saved settings. The
+large-order capability case observes its actual analysis response before testing
+the rendered report; its existing case/assertion budgets and assertions remain.
 
 To run a matrix locally after building the UI and installing the locked runtime,
 build tools, pytest and pinned Playwright browsers, use a fresh ignored output
