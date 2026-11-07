@@ -76,3 +76,28 @@ exercise CAF/new-graph and compact/desktop paths, exact evidence and compiled-fi
 exports, draft confirmation, forged responses, navigation/lifetime retirement,
 and the existing order editor and transfer workflows. These are software checks,
 not physical acceptance.
+
+The **Native order qualification** GitHub Actions workflow runs the same scoped
+cohort against a clean, immutable commit in source and installed-wheel form, with
+Chromium and WebKit in the repository's pinned Playwright container. It declares
+326 backend cases per build and 425 browser/contract cases per matrix: 2,352
+executions in total. Collection identifiers must match executed identifiers;
+failures, errors, skips, retries and missing cases fail qualification. Each group
+keeps its logs, original collection/results JSON and failure traces as artifacts.
+Installed checks verify exact tracked Python, UI assets/build provenance, public
+metadata, reference data and legal files before using the wheel's package and UI.
+
+To run a matrix locally after building the UI and installing the locked runtime,
+build tools, pytest and pinned Playwright browsers, use a fresh ignored output
+directory from a clean committed checkout:
+
+```sh
+PYTHONPATH=backend:. .venv/bin/python scripts/qualify_native_order.py \
+  --mode installed --browser chromium \
+  --output release-output/native-order-installed-chromium
+```
+
+Repeat with `source` and `webkit` for the other matrix combinations. Backend
+checks run in each build's Chromium job, once per build. Running these authored
+software checks on Linux does not establish macOS desktop-session health or
+physical controller acceptance.
