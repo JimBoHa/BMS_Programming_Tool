@@ -159,18 +159,24 @@ class RecordedNameOrigin(StrictModel):
 
 def native_reference(kind, selection):
     """Read canonical native keys; retain a legacy alias only when unambiguous."""
-    if kind not in {"signal-default", "boolean-default", "enum-default", "wire-source"}:
+    if kind not in {
+        "signal-default",
+        "boolean-default",
+        "enum-default",
+        "wire-source",
+        "execution-order",
+    }:
         return {}
     if not isinstance(selection, dict):
         return {"object": "", "native_reference_issue": "Native edit reference was not recorded."}
-    key = "diagram_ref" if kind == "wire-source" else "record_ref"
+    key = "diagram_ref" if kind in {"wire-source", "execution-order"} else "record_ref"
     value = selection.get(key)
-    if kind != "wire-source" and key not in selection:
+    if kind not in {"wire-source", "execution-order"} and key not in selection:
         value = selection.get("ref")
     if (
         not isinstance(value, str)
         or not 1 <= len(value) <= 512
-        or kind != "wire-source"
+        or kind not in {"wire-source", "execution-order"}
         and key in selection
         and "ref" in selection
         and selection["ref"] != value

@@ -1816,5 +1816,14 @@
     "pdf_pages_or_section": "JCI-02/JCI-03; recorded property3117",
     "status": "implemented",
     "implementation_or_gap": "Identity-qualified immutable File3/11/12 merge; exact width-preserving order patches, independent graph/native readback, strict source/review/export seals and bounded draft-aware local UI. Fresh transfer, new identities, general compiler/resource/package/runtime/CCT and physical acceptance remain separate."
+  },
+  {
+    "id": "COMM-NATIVE-ORDER-TRANSFER-001",
+    "feature": "Guarded native execution-order controller transfer",
+    "acceptance_criterion": "Review and transfer one existing-member execution-order permutation with fresh selected-configuration guards, saved-setting preservation, full native/effective readback and durable uncertainty reconciliation without replay.",
+    "evidence": "Actual retained native order/wire records, qualified saved merge and the common durable restore path; docs/native-order-transfer.md",
+    "pdf_pages_or_section": "JCI-03/JCI-09; native property3117 and File3/11/12 transfer",
+    "status": "implemented",
+    "implementation_or_gap": "Exact selected route/interface/identity, explicit order kind/profile and two strict confirmations; fresh capture/configuration/size/capacity guards, one-use restore intent, complete readback and restart-safe reconciliation. Authored direct/routed software qualification; general authoring, resources/packages/runtime, CCT comparison and physical/BTCVT acceptance remain separate."
   }
 ]

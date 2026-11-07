@@ -6,6 +6,7 @@ from fastapi import APIRouter
 from fastapi.responses import Response
 from pydantic import Field
 
+from .moi_effective_wire import EffectiveWireCompiler
 from .moi_effective_wire import compiler_from_snapshot as qualified_merge
 from .moi_execution_order import MoiExecutionOrder
 from .moi_identity import MoiIdentity, seal, sha
@@ -45,6 +46,16 @@ class EffectiveOrderCompiler:
         if type(snapshot.get("identity", {}).get("vendor-identifier")) is not int:
             raise ValueError("Native order compilation requires a typed vendor identifier.")
         merged = qualified_merge(snapshot, files)
+        self._initialize(merged, files)
+
+    @classmethod
+    def from_files(cls, files):
+        """Compile validated native files without inventing acquisition metadata."""
+        compiler = cls.__new__(cls)
+        compiler._initialize(EffectiveWireCompiler(files), files)
+        return compiler
+
+    def _initialize(self, merged, files):
         before, after = merged.archive.reader, merged.effective.reader
         for ref, record in before.records.items():
             if record["class_id"] in (536, 575) and record["properties"].get(3384, {}).get(

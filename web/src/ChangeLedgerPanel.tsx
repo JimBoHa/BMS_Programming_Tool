@@ -408,7 +408,7 @@ export function ChangeLedgerPanel({
   const batchRecovery = recordedBatchRecovery(choice);
   const nativeProgram =
     choice?.source === "native" && !binaryRecoveryPresent &&
-    (["signal-default", "boolean-default", "wire-source"].includes(
+    (["signal-default", "boolean-default", "wire-source", "execution-order"].includes(
       nativeKind,
     ) ||
       (nativeKind === "connection" &&
@@ -464,6 +464,7 @@ export function ChangeLedgerPanel({
         "default-wire",
         "default-batch",
         "connection",
+        "execution-order",
         "input",
         "point-name",
       ].includes(nativeKind)) ||

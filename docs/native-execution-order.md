@@ -11,7 +11,8 @@ This implements `FMT-NATIVE-EFFECTIVE-ORDER-001`, profile
 `native-effective-execution-order-compiler/1`, with the inner
 `tagged-moi-execution-order-copy/1` profile. It extends native application
 authoring under JCI-02/JCI-03. It creates no controller review or transfer plan.
-The separate [CAF execution-order workflow](caf-execution-order.md), ordinary
+The separate [controller-transfer workflow](native-order-transfer.md) adds fresh
+review, restore and readback. The [CAF execution-order workflow](caf-execution-order.md), ordinary
 native source substitution, connection addition/removal and field writers retain
 their own contracts.
 

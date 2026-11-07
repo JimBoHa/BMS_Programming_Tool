@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-07. Implementation baseline: GitHub `main` at
-[`4b16f098`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/4b16f0987710af3c9c2bac5eaf169e824859fbf1).
+[`67876324`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/678763245ab192ff4ae7cbb00f69cb42f5b7676d).
 
 ## Baseline and purpose
 
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 202 scoped criteria: 148
+The public requirement register currently records 203 scoped criteria: 149
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -2507,6 +2507,23 @@ byte remain exact. Independent native/graph readback, source/review seals and
 checked downloads retain original evidence. Program reuses the existing diagram
 operations and bounded graph drafts, with synchronous context retirement.
 
-Fresh order transfer/readback/recovery is the next independent operation. General
-native authoring, new identities/links, packages/resources/runtime, CCT comparison
-and physical/BTCVT acceptance remain separate. JCI-02/JCI-03/JCI-09 stay partial.
+A separate [controller-transfer operation](docs/native-order-transfer.md) now
+adds fresh capture, one confirmed restore, full readback and durable uncertainty
+reconciliation. General native authoring, new identities/links, packages/resources/
+runtime, CCT comparison and physical/BTCVT acceptance remain separate.
+JCI-02/JCI-03/JCI-09 stay partial.
+
+## 2026-11-07 JCI-03/JCI-09 delivery: guarded native order transfer
+
+[Execution-order controller transfer](docs/native-order-transfer.md) reuses the
+common durable native writer with a distinct operation/guard profile. Fresh
+configuration guards cover the diagram and every existing member while saved
+values are merged again before dispatch. Full native/effective readback verifies
+the permutation, original numeric widths and wire phases. One-use confirmation,
+capacity and ownership checks remain in the shared transaction.
+
+Dropped acknowledgments retain uncertainty and restart/readback never replays
+the restore. Original-image recovery stays distinct from verifying the proposed
+order. Contextual Program controls preserve local drafts and late receipts while
+retiring stale field reviews. Qualification uses authored direct/routed localhost
+peers; physical/BTCVT/CCT acceptance and broader authoring remain unfinished.
