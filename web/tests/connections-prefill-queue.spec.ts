@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./nativeScheduleWriteFixture";
 import { createSocket } from "node:dgram";
 
 async function freePort(): Promise<number> {
