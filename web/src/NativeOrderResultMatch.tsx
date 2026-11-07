@@ -20,6 +20,8 @@ export function NativeOrderResultMatch({
   revision,
   parentCurrent,
   onPreviousOrder,
+  onControllerProposal,
+  controllerProposalAvailable,
 }: {
   source: NativeArchiveSource;
   opened: Data | null;
@@ -29,6 +31,8 @@ export function NativeOrderResultMatch({
   revision: string;
   parentCurrent: () => boolean;
   onPreviousOrder: (request: Data) => boolean;
+  onControllerProposal?: (proposal: Data) => boolean;
+  controllerProposalAvailable?: boolean;
 }) {
   const [document, setDocument] = useState<Document | null>(null),
     [pending, setPending] = useState(false),
@@ -316,6 +320,8 @@ export function NativeOrderResultMatch({
             revision={owner}
             parentCurrent={() => current(shown.owner, shown.epoch)}
             onPreviousOrder={onPreviousOrder}
+            onControllerProposal={onControllerProposal}
+            controllerProposalAvailable={controllerProposalAvailable}
           />
           <p>
             Original archive encoding and saved-directory layout are separate

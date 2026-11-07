@@ -1879,5 +1879,14 @@
     "pdf_pages_or_section": "JCI-03;JCI-10; previous-order assistance and separate fresh review",
     "status": "implemented",
     "implementation_or_gap": "Actual inverse compilation, independent native/phase/width/other-byte preservation, exact evidence/local native-file export and contextual draft/source/proof/lifetime ownership. Changed saved/schema/application sources are refused. Fresh controller review/transfer/readback stays separate; no recorded field recovery lineage, automatic rollback, general native compiler/packages/resources, CCT/firmware/physical acceptance."
+  },
+  {
+    "id": "COMM-NATIVE-ORDER-RECOVERY-TRANSFER-001",
+    "feature": "Fresh previous native execution-order controller transfer",
+    "acceptance_criterion": "Use an exactly reconstructed historically verified original order and matching retained after application/order/static directory to perform a new confirmed one-use transfer, merge fresh other settings, verify complete native/effective readback and retain typed original-proof lineage without replacing unfinished drafts or replaying an old token.",
+    "evidence": "Existing native order compiler, local previous-order proposal and common native transfer/readback; docs/native-order-recovery-transfer.md",
+    "pdf_pages_or_section": "Authored software transfer and evidence contract; physical/runtime acceptance separate",
+    "status": "implemented",
+    "implementation_or_gap": "Separate native-execution-order-recovery-transfer/1 preview/apply profile with repeated original-proof admission, fresh guarded compiler, durable child lineage, restart/readback, controller-centered selection and recorded Changes/History projection. General authoring, arbitrary snapshot recovery, hardware assignment and physical/CCT/BTCVT acceptance remain separate."
   }
 ]

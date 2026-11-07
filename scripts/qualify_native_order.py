@@ -19,6 +19,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 BACKEND = [
+    "native_order_recovery_transfer",
+    "native_order_recovery_ledger",
     "native_order_recovery_proposal",
     "native_order_result_match",
     "native_order_transfer",
@@ -31,6 +33,7 @@ BACKEND = [
     "distribution_resources",
 ]
 BROWSER = [
+    "native-order-recovery-transfer",
     "native-order-recovery-proposal",
     "native-order-result-match",
     "native-order-transfer",
@@ -42,6 +45,9 @@ BROWSER = [
     "change-ledger",
 ]
 PREFILL = ["connections-prefill-queue", "connections-hydration"]
+BACKEND_CASES = 417
+BROWSER_CASES = 480
+PREFILL_CASES = 6
 
 
 def git(*args):
@@ -202,7 +208,7 @@ def backend(output, env):
         for line in (output / "backend-collection.log").read_text().splitlines()
         if line.startswith("tests/") and "::" in line
     ]
-    assert len(planned) == len(set(planned)) == 326
+    assert len(planned) == len(set(planned)) == BACKEND_CASES
     write(output / "backend-planned-case-ids.json", planned)
     run([*args, "--junitxml=" + str(output / "backend.xml")], output / "backend.log", env=env)
     root = ET.parse(output / "backend.xml").getroot()
@@ -215,7 +221,7 @@ def backend(output, env):
         s.get("classname").replace(".", "/") + ".py::" + s.get("name")
         for s in root.iter("testcase")
     ]
-    assert len(actual) == 326 and set(actual) == set(planned)
+    assert len(actual) == BACKEND_CASES and set(actual) == set(planned)
     return {"passed": len(actual), "planned_case_ids": planned, "retries": 0, "skips": 0}
 
 
@@ -353,11 +359,11 @@ def main():
         "skips": 0,
         "complete": False,
         "planned_backend_modules": BACKEND,
-        "planned_backend_cases_per_build": 326,
+        "planned_backend_cases_per_build": BACKEND_CASES,
         "planned_browser_groups": BROWSER,
-        "planned_browser_cases_per_matrix": 425,
+        "planned_browser_cases_per_matrix": BROWSER_CASES,
         "connection_prefill": [],
-        "planned_connection_prefill_cases_per_matrix": 6,
+        "planned_connection_prefill_cases_per_matrix": PREFILL_CASES,
     }
     write(output / "qualification.json", report)
     for number, name in enumerate(PREFILL, 100):
@@ -366,14 +372,14 @@ def main():
         )
         assert git("rev-parse", "HEAD") == head and not git("status", "--porcelain")
         write(output / "qualification.json", report)
-    assert sum(group["passed"] for group in report["connection_prefill"]) == 6
+    assert sum(group["passed"] for group in report["connection_prefill"]) == PREFILL_CASES
     if args.browser == "chromium":
         report["backend"] = backend(output, env)
     for number, name in enumerate(BROWSER, 1):
         report["groups"].append(browser_group(output, env, args.mode, args.browser, number, name))
         assert git("rev-parse", "HEAD") == head and not git("status", "--porcelain")
         write(output / "qualification.json", report)
-    assert sum(group["passed"] for group in report["groups"]) == 425
+    assert sum(group["passed"] for group in report["groups"]) == BROWSER_CASES
     report["complete"] = True
     write(output / "qualification.json", report)
     print(json.dumps({k: v for k, v in report.items() if k not in ("groups", "backend")}))

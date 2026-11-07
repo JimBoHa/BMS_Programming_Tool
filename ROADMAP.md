@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-07. Implementation baseline: GitHub `main` at
-[`a553443b`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/a553443b1629be59c13dcb25119619c989a51505).
+[`49b6e392`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/49b6e392c9bbd339fff47cfda2a530afc02df1bc).
 
 ## Baseline and purpose
 
@@ -19,7 +19,7 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 209 scoped criteria: 155
+The public requirement register currently records 210 scoped criteria: 156
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -2631,3 +2631,27 @@ Qualification also preserves a focused connection draft against automatic
 prefills already queued before focus. Controlled desktop/compact regressions
 cover network recommendations and saved-status hydration; unchanged connection
 and field guards still own interface and controller access.
+
+
+## 2026-11-07 JCI-03/JCI-09/JCI-10 delivery: previous execution-order controller transfer
+
+`COMM-NATIVE-ORDER-RECOVERY-TRANSFER-001` adds a separate fresh controller
+transfer for the verified previous-order proposal. The original actual compiler,
+immutable proof, matching retained after source and exact origin are checked
+before review and again before a durable intent. A new one-use restore merges
+fresh other saved settings and requires complete native/effective readback.
+Uncertain outcomes retain their own receipt for explicit readback, without old
+plan replay. This extends the earlier local-assistance delivery; that local
+proposal itself still grants no controller authority or recorded field lineage.
+
+The selected previous order remains separate from the unfinished local order
+draft. Receipt replacement, source/target/mode/task changes and page retirement
+invalidate pending authority synchronously. Changes/History show typed recorded
+parent/proof/member lineage from the child receipt, without parent-file or field
+revalidation. Existing teal controller/file workflows and drafts remain intact.
+
+General native logic/hardware allocation, arbitrary/changed-source recovery,
+packages/resources/runtime/CCT comparison and physical/BTCVT acceptance remain
+open. JCI-03, JCI-09 and JCI-10 remain partial at their broader scopes. The register
+now contains 210 scoped criteria: 156 implemented, 46 partial and eight pending.
+See [previous-order controller transfer](docs/native-order-recovery-transfer.md).

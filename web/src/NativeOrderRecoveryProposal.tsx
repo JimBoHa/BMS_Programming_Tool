@@ -18,6 +18,8 @@ export function NativeOrderRecoveryProposal({
   revision,
   parentCurrent,
   onPreviousOrder,
+  onControllerProposal,
+  controllerProposalAvailable,
 }: {
   source: NativeArchiveSource;
   opened: Data | null;
@@ -28,6 +30,8 @@ export function NativeOrderRecoveryProposal({
   revision: string;
   parentCurrent: () => boolean;
   onPreviousOrder: (request: Data) => boolean;
+  onControllerProposal?: (proposal: Data) => boolean;
+  controllerProposalAvailable?: boolean;
 }) {
   const [document, setDocument] = useState<Document | null>(null),
     [pending, setPending] = useState(false),
@@ -152,7 +156,7 @@ export function NativeOrderRecoveryProposal({
       }
     }
   }
-  async function replaceLocal() {
+  async function replaceLocal(forController = false) {
     if (
       !shown ||
       !opened ||
@@ -180,7 +184,9 @@ export function NativeOrderRecoveryProposal({
         );
       if (
         current(selected.owner, selected.epoch) &&
-        onPreviousOrder(selected.data.proposal)
+        (forController
+          ? controllerProposalAvailable && onControllerProposal?.(selected.data)
+          : onPreviousOrder(selected.data.proposal))
       )
         retire();
     } catch (e) {
@@ -315,6 +321,19 @@ export function NativeOrderRecoveryProposal({
           >
             Replace local order proposal with previous order
           </button>
+          <button
+            disabled={
+              pending || blocked || !visible || !controllerProposalAvailable
+            }
+            onClick={() => void replaceLocal(true)}
+          >
+            Use previous order for controller review
+          </button>
+          <p>
+            Choosing controller review preserves the unfinished local draft. A
+            new confirmed transfer records the original receipt and proof as
+            recovery lineage; preparation alone grants no field authority.
+          </p>
           <button
             onClick={() => {
               if (current(shown.owner, shown.epoch))
