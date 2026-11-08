@@ -4,6 +4,7 @@ import {
   engineeringSource,
   reportFor,
   openEngineering,
+  engineeringSummary,
   digest,
 } from "./jci-engineering-fixture";
 import {
@@ -43,7 +44,7 @@ for (const width of [1440, 390])
         }),
       ).toBeVisible();
       await expect(panel).toContainText("2 represented objects");
-      await expect(panel).toContainText("native-sct-import-export");
+      await expect(panel).toContainText("Native SCT archive import/export");
       const saved = page.waitForEvent("download");
       await panel
         .getByRole("button", {
@@ -129,7 +130,7 @@ for (const kind of ["moi", "moz", "partial", "program", "unknown"])
           exact: true,
         }),
       ).toBeVisible();
-      await expect(panel).toContainText("not-granted");
+      await expect(panel).toContainText("Not granted by inspection");
       if (kind === "unknown")
         await expect(panel).toContainText("separately qualified native codec");
       if (kind === "partial")
@@ -177,12 +178,7 @@ for (const change of ["source", "clear", "pane", "close", "surface"])
         await panel
           .getByRole("button", { name: "Parity inventory", exact: true })
           .click();
-      if (change === "close")
-        await page
-          .getByText("SCT/JCT engineering sources and parity inventory", {
-            exact: true,
-          })
-          .click();
+      if (change === "close") await engineeringSummary(page).click();
       if (change === "surface") await chooseWorkspaceSurface(page, "Settings");
       release();
       await page.unrouteAll({ behavior: "wait" });
@@ -195,12 +191,7 @@ for (const change of ["source", "clear", "pane", "close", "surface"])
         );
       });
       if (change === "surface") await openEngineering(page, false);
-      if (change === "close")
-        await page
-          .getByText("SCT/JCT engineering sources and parity inventory", {
-            exact: true,
-          })
-          .click();
+      if (change === "close") await engineeringSummary(page).click();
       if (change === "pane")
         await panel
           .getByRole("button", { name: "Source inspection", exact: true })

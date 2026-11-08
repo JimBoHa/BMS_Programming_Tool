@@ -7,6 +7,26 @@ import {
 } from "./jciEngineeringContract";
 import "./jci-engineering.css";
 
+const readerLabels: Record<string, string> = {
+  "jci-single-xml-objects/1": "JCI object XML reader",
+  "jci-moi-tagged/1": "Tagged native field-image reader",
+  "bms-portable-program/1": "BMS portable Program reader",
+};
+const operationLabels: Record<string, string> = {
+  fingerprint: "Fingerprint selected file",
+  "inspect-projection": "Read represented configuration",
+  "export-inspection-report": "Export inspection report",
+  "native-sct-import-export": "Native SCT archive import/export",
+  "native-jct-graphics": "Native JCT graphics",
+  "compile-or-deploy": "Compile or deploy",
+};
+const availabilityLabels: Record<string, string> = {
+  "available-local": "Available locally",
+  unavailable: "No admitted reader",
+  "not-qualified": "Not yet qualified",
+  "not-granted": "Not granted by inspection",
+};
+
 export function JciEngineeringDesk({ active }: { active: boolean }) {
   const [catalog, setCatalog] = useState<any>(null);
   const [catalogError, setCatalogError] = useState("");
@@ -194,7 +214,8 @@ export function JciEngineeringDesk({ active }: { active: boolean }) {
               </h3>
               <p>
                 <strong>{result.source.name}</strong> ·{" "}
-                {result.detected.reader_profile || "No qualified decoder"}
+                {readerLabels[result.detected.reader_profile] ||
+                  "No qualified decoder"}
               </p>
               <p>
                 Selected-file evidence · Read-only · Native supervisory and
@@ -224,8 +245,8 @@ export function JciEngineeringDesk({ active }: { active: boolean }) {
                   <tbody>
                     {result.operations.map((row: any) => (
                       <tr key={row.id}>
-                        <td>{row.id}</td>
-                        <td>{row.status}</td>
+                        <td>{operationLabels[row.id]}</td>
+                        <td>{availabilityLabels[row.status]}</td>
                         <td>{row.reason}</td>
                       </tr>
                     ))}

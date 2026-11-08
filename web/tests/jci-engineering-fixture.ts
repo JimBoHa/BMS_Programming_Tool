@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { python } from "./native-connection-fixture";
-import type { Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { chooseWorkspaceSurface } from "./workspace-navigation";
 export const digest = (raw: Uint8Array | string) =>
   createHash("sha256").update(raw).digest("hex");
@@ -22,15 +22,24 @@ export function reportFor(name = "authored.caf", kind = "caf") {
   );
 }
 export async function openEngineering(page: Page, visit = true) {
-  if (visit) await page.goto("/");
+  if (visit) {
+    await page.goto("/");
+    await expect(
+      page.getByRole("heading", {
+        name: "What are you working on?",
+        exact: true,
+      }),
+    ).toBeVisible();
+  }
   await chooseWorkspaceSurface(page, "Help");
-  await page
-    .getByText("SCT/JCT engineering sources and parity inventory", {
-      exact: true,
-    })
-    .click();
+  await engineeringSummary(page).click();
   return page.getByRole("region", {
     name: "SCT/JCT engineering sources",
     exact: true,
   });
+}
+export function engineeringSummary(page: Page) {
+  return page
+    .locator("summary")
+    .filter({ hasText: /^SCT\/JCT engineering sources and parity inventory$/ });
 }
