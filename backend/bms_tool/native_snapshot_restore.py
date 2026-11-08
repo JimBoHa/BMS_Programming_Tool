@@ -587,6 +587,22 @@ def verify_restore(storage, intent, after):
     current, counters, calculated = runtime_parameter_changes(
         observed, ParameterApplication(after[3], after[11], after[12])
     )
+    if counters:
+        # This restore profile admits narrower runtime exceptions than the
+        # shared historical preservation policy. A global property label alone
+        # never turns changed configuration into a qualified binary counter.
+        _, qualified = current_guard(after)
+        selectors = {(v["class"], v["instance"], v["property"]) for v in qualified}
+        for change in counters:
+            previous, value = change["application_value"], change["current_saved_value"]
+            if (
+                (change["class"], change["instance"], change["property"]) not in selectors
+                or not all(type(v) is int and 0 <= v <= 4294967295 for v in (previous, value))
+                or value < previous
+            ):
+                raise ValueError(
+                    "A restored saved value differs beyond qualified advancing runtime counters."
+                )
     return {
         "profile": "native-retained-application-restore-preservation/1",
         "restored_application_matches_retained_source": True,

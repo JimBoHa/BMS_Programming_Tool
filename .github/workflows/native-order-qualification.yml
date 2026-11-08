@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-24.04
     # Retained-image cases add real authored restores and recovery boundaries.
     # Keep existing per-test deadlines and the 45-minute aggregate allocation.
-    # The expanded source/installed cohort declares 3,200 executions.
+    # The expanded source/installed cohort declares 3,212 executions.
     timeout-minutes: 45
     strategy:
       fail-fast: false

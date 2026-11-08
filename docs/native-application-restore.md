@@ -71,7 +71,12 @@ payload/intents and one attempted restore. Its ordinary five-second preparation,
 four-second request budget and inter-block timing remain unchanged. Exact native
 image and effective saved-value verification precede success. Known post-restore
 runtime/calculated differences remain separately reported by the existing
-preservation policy.
+preservation policy. This restore profile additionally requires every reported
+counter difference to resolve to an actual qualified binary or ACS/DMCS60
+counter with Unsigned values and a monotonic advance. A global counter label,
+changed non-binary configuration or decreased counter cannot verify a restore.
+Known calculated flow outputs remain separately reported; the common policy for
+other transfer families is unchanged.
 
 ## Recorded evidence and interfaces
 
@@ -91,11 +96,11 @@ another edit/recovery family or authorize a replay.
 
 ## Reproducible software qualification and remaining scope
 
-`scripts/qualify_native_order.py` declares 512 backend cases per source/installed
+`scripts/qualify_native_order.py` declares 518 backend cases per source/installed
 build, 538 browser/contract cases and six connection regressions per
-source/installed × Chromium/WebKit matrix: 3,200 executions. The preceding
+source/installed × Chromium/WebKit matrix: 3,212 executions. The preceding
 417 backend, 480 browser/contract and six connection case identifiers remain.
-The added 95 backend and 58 browser/contract cases cover independent literal
+The added 101 backend and 58 browser/contract cases cover independent literal
 native images, raw/gzip sources, direct/authored routed UDP, large multi-block
 images, all three backup roles, current settings/counters, source drift, complete
 HTTP/receipt paths, ACK loss, restart and recorded provenance. Browser cases

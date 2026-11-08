@@ -433,6 +433,53 @@ async def test_current_counter_changes_are_qualified_during_real_restore(
     assert (peer.files[11], peer.files[12]) == (historical[11], historical[12])
 
 
+@pytest.mark.parametrize(
+    "kind,value,expected",
+    [
+        ("binary-COS", 9, "verified"),
+        ("binary-elapsed", 9, "verified"),
+        ("legacy60", 9, "verified"),
+        ("binary-COS", 6, "unknown"),
+        ("binary-elapsed", 6, "unknown"),
+        ("nonbinary-COS", 9, "unknown"),
+    ],
+)
+async def test_post_restore_counter_exception_requires_actual_type_and_monotonic_value(
+    native_link, kind, value, expected
+):
+    peer, _, _, native, target = native_link
+    historical = with_counter(
+        object_type=2 if kind == "nonbinary-COS" else 3,
+        pid=33 if kind == "binary-elapsed" else 15,
+        legacy=kind == "legacy60",
+        version=60 if kind == "legacy60" else 62,
+    )
+    peer.files = copy.deepcopy(historical)
+    old = await native.capture(**target, operation_id="post-counter-historical-capture")
+    old, _ = native.storage.load(old["id"])
+    real_slot(peer.files, 4, struct.pack(">f", 22.5))
+    consume_historical_storage(peer, historical)
+    original = peer.do_ReinitializeDeviceRequest
+
+    async def recalculate(self, request):
+        await original(request)
+        if str(request.reinitializedStateOfDevice) == "end-restore":
+            real_slot(self.files, -5, value.to_bytes(4, "big"))
+
+    peer.do_ReinitializeDeviceRequest = types.MethodType(recalculate, peer)
+    plan = await native.preview_snapshot_restore(
+        **target, **saved_request(old), operation_id="post-counter-review"
+    )
+    result = await native.apply_snapshot_restore(**apply_request(plan))
+    assert result["result"]["status"] == expected, result
+    assert result["pending"] is (expected != "verified")
+    assert mutations(peer).count(("state", "start-restore")) == 1
+    if expected == "verified":
+        changes = result["result"]["preservation"]["runtime_counter_changes"]
+        assert len(changes) == 1 and changes[0]["application_value"] == 7
+        assert changes[0]["current_saved_value"] == value
+
+
 @pytest.mark.parametrize("route", ["source", "export", "preview", "apply"])
 def test_all_restore_HTTP_actions_require_the_real_application_session(tmp_path, route):
     with TestClient(create_app(tmp_path)) as client:
