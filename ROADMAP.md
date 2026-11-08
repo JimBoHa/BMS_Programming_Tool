@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-07. Implementation baseline: GitHub `main` at
-[`5f2ea537`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/5f2ea53756435abec4fee1b2f2691611461ea727).
+[`f9b2e1e7`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/f9b2e1e731bb0ae0fc9bf6b14bd24cae66e62390).
 
 ## Baseline and purpose
 
@@ -21,9 +21,9 @@ been addressed.
 
 ### Added priority: SCT and JCT parity
 
-After the active retained native application restore delivery in PR #330 is
-qualified and merged, begin the [detailed SCT/JCT parity plan](docs/sct-jct-parity-roadmap.md).
-Its 48 planned packages cover six shared foundations, 24 SCT engineering and
+Following the qualified and merged retained native restore delivery in PR #330,
+continue the [detailed SCT/JCT parity plan](docs/sct-jct-parity-roadmap.md).
+Its 48 work packages cover six shared foundations, 24 SCT engineering and
 deployment packages, and 18 JCT archive/graphics/administration packages. The
 [machine-readable backlog](docs/sct-jct-parity-backlog.csv) records dependencies,
 acceptance and source evidence. These packages are planned work, not additional
@@ -38,7 +38,9 @@ missing vendor-format fixtures. Preserve the existing controller/file workspace,
 teal graphics guidance and one-feature-per-PR delivery. SCT/JCT parity is the next
 JCI priority; the remaining original JCI and other-brand work stays on this roadmap.
 
-The public requirement register currently records 211 scoped criteria: 157
+SJ-01 now has a [first read-only source/operation slice](docs/jci-engineering-source-inspection.md) in Help. The package remains partial: native archive/graphics decoding and exhaustive manual/fixture mapping are not completed by a reader match. Source fingerprints, explicit partial coverage and exact report downloads preserve controller/file drafts and grant no field authority.
+
+The public requirement register currently records 212 scoped criteria: 158
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing

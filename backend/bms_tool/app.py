@@ -107,6 +107,7 @@ from .ip_discovery import IpDiscovery, IpScanRequest
 from .jci_hardware import JciHardwareDefinition, plan_hardware_migration
 from .jci_preflight import PreflightRequest, inventory_template, preflight
 from .jci_release_rules import catalog as release_rule_catalog
+from .jci_source_inspection import inspection_router
 from .macros import (
     create_definition,
     delete_macro_definition,
@@ -813,6 +814,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.state.native_boolean_compiler = boolean_compiler
     app.include_router(native_application_router(native_applications))
     app.include_router(batch_bundle_inspection_router())
+    app.include_router(inspection_router())
     app.include_router(backup_import_router(native_applications.storage))
     app.include_router(native_enum_copy_router(backup_records))
     app.include_router(native_enum_compiler_router(backup_records))

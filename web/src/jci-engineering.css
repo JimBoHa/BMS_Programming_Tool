@@ -1,0 +1,63 @@
+.jci-engineering-shell {
+  min-width: 0;
+  padding: 16px;
+}
+.jci-engineering-desk {
+  min-width: 0;
+  padding-top: 16px;
+}
+.jci-engineering-desk p,
+.jci-engineering-desk td,
+.jci-engineering-desk li {
+  overflow-wrap: anywhere;
+}
+.jci-engineering-desk label {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0;
+}
+.jci-engineering-desk input,
+.jci-engineering-desk select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.jci-engineering-tabs,
+.jci-engineering-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0;
+}
+.jci-engineering-tabs [aria-pressed="true"] {
+  color: var(--teal, #00877f);
+  border-color: currentColor;
+}
+.jci-engineering-file,
+.jci-engineering-result {
+  min-width: 0;
+}
+.jci-engineering-result {
+  margin-top: 24px;
+}
+.jci-engineering-table {
+  overflow: auto;
+  max-width: 100%;
+  margin: 16px 0;
+}
+.jci-engineering-table table {
+  min-width: 640px;
+}
+.jci-engineering-desk small {
+  display: block;
+  margin-top: 8px;
+}
+.jci-engineering-desk details {
+  margin-top: 16px;
+}
+.jci-engineering-desk pre {
+  max-width: 100%;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

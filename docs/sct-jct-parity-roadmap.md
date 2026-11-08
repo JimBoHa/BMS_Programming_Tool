@@ -1,13 +1,17 @@
 # SCT and JCT feature parity roadmap
 
-Planning baseline: 2026-11-07. **All packages below are planned.** This document
+Planning baseline: 2026-11-07. **SJ-01 is partial; 47 packages remain planned.** This document
 does not declare SCT/JCT interoperability or deployment complete.
 
-Finish the active retained native application restore delivery in PR #330 first,
-including its exact-head software qualification and merge. Then implement this
-plan one reviewed feature or small coherent group per PR. This is the next JCI
+Retained native application restore PR #330 was qualified and merged before this
+parity work began. Implement this plan one reviewed feature or small coherent
+group per PR. This is the next JCI
 priority; preserve the existing field-controller and other-manufacturer backlog.
 The machine-readable companion is [the parity backlog](sct-jct-parity-backlog.csv).
+
+The [first SJ-01a source/operation inspection](jci-engineering-source-inspection.md)
+now works in Help. It provides explicit reader scope and exact local evidence;
+exhaustive manual mapping and native SCT/JCT codecs remain unfinished.
 
 ## Scope and evidence
 
@@ -276,7 +280,7 @@ Parity is complete only when the manual-derived operation inventory is mapped,
 each claimed operation meets its stated gates and supported version/device pairs
 have evidence. All 48 package rows being labelled complete is insufficient if a
 manual feature, native format or deployment/recovery scope remains unaccounted
-for. The plan itself changes no runtime capability or existing acceptance status.
+for. Only separately delivered scoped criteria grant runtime credit; this plan grants no additional native capability.
 
 ## Evidence register
 
