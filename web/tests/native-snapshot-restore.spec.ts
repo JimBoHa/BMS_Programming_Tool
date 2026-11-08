@@ -275,6 +275,12 @@ for (const routed of [false, true])
               exact: true,
             })
             .click();
+          await expect(
+            page.getByRole("region", {
+              name: "Native backup default compiler",
+              exact: true,
+            }),
+          ).toBeVisible();
           await chooseWorkspaceTool(page, "Local graph editor");
           await expect(
             page.getByLabel("Program name", { exact: true }),
