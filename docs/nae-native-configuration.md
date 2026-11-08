@@ -70,6 +70,17 @@ existing site account was refused; qualification with a working engine account
 is still required. This account path does not depend on a JCT/SCT server and does
 not by itself establish native configuration capture, editing or transfer.
 
+The site-neutral `native_signin_page` factory supports an isolated local
+qualification harness; it is not a product navigation destination or a completed
+selected-controller workflow. Engine details are supplied by the harness and
+escaped as text. Passwords clear on submission and the submit action stays
+disabled until its handlers initialize. A raw Python template preserves JavaScript
+string escapes, correcting a page-refresh bug found during qualification. Chromium
+and WebKit tests exercise the actual generated page against authored local API
+responses: refusal, retry, accepted login, logout, duplicate-submit prevention,
+no navigation, narrow layout and disabled submission without JavaScript. These
+browser checks do not establish that a native engine accepted an account.
+
 The capture implementation is deliberately separate from the older passive File
 reader, which does not enter backup mode, and from the field-controller native
 application transfer. The small common transaction transport extraction preserves
