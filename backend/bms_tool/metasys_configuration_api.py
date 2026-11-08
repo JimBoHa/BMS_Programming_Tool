@@ -114,6 +114,9 @@ class ApiReply:
 
 
 class MetasysConfigurationApi:
+    prefix = PREFIX
+    referer_path = "/UI/"
+
     def __init__(self, server_origin, client):
         self.origin = origin(server_origin)
         if str(client.base_url).rstrip("/") != self.origin:
@@ -157,11 +160,14 @@ class MetasysConfigurationApi:
     def session_key(self):
         if self._session_key is None:
             raise ValueError("Connect the configuration account explicitly first.")
-        return {"origin": self.origin, **self._session_key}
+        return {"origin": self.origin, "api_prefix": self.prefix, **self._session_key}
+
+    def _admitted_path(self, method, path):
+        return path.startswith(self.prefix + "/")
 
     async def _request(self, method, path, *, body=None, authenticated=True):
         if (
-            not path.startswith(PREFIX + "/")
+            not self._admitted_path(method, path)
             or ".." in path
             or "#" in path
             or "\\" in path
@@ -173,7 +179,7 @@ class MetasysConfigurationApi:
         headers = {
             "Accept": "application/json",
             "Origin": self.origin,
-            "Referer": self.origin + "/UI/",
+            "Referer": self.origin + self.referer_path,
         }
         if authenticated:
             headers["Authorization"] = "Bearer " + self._token
@@ -236,7 +242,9 @@ class MetasysConfigurationApi:
             or any(c in username + password for c in "\x00\r\n")
         ):
             raise ValueError("Explicit existing configuration credentials are required.")
-        await self._request("GET", PREFIX + "/Authentication/GetPreLoginState", authenticated=False)
+        await self._request(
+            "GET", self.prefix + "/Authentication/GetPreLoginState", authenticated=False
+        )
         timestamp = int(time.time() * 1000)
         plain = f"^{username}|{password}|{timestamp}$".encode()
         verifier = secrets.token_bytes(len(plain))
@@ -245,7 +253,7 @@ class MetasysConfigurationApi:
         ).digest()
         response = await self._request(
             "POST",
-            PREFIX + "/Authentication/LogIn",
+            self.prefix + "/Authentication/LogIn",
             authenticated=False,
             body={
                 "username": username,
@@ -299,7 +307,7 @@ class MetasysConfigurationApi:
                 raise ValueError("Unexpected object view.")
             query["viewId"] = view
         result = await self._request(
-            "GET", PREFIX + "/v6/objects/" + identifier + "?" + urlencode(query)
+            "GET", self.prefix + "/v6/objects/" + identifier + "?" + urlencode(query)
         )
         if guid(result.data.get("item", {}).get("id")) != identifier:
             raise MetasysApiError("Configuration object identity differs from the requested GUID.")
@@ -307,7 +315,7 @@ class MetasysConfigurationApi:
 
     async def network_device(self, device_id):
         identifier = guid(device_id)
-        reply = await self._request("GET", PREFIX + "/v6/networkDevices/" + identifier)
+        reply = await self._request("GET", self.prefix + "/v6/networkDevices/" + identifier)
         if guid(reply.data.get("id")) != identifier:
             raise MetasysApiError("Network-device metadata returned a different identity.")
         return reply.data
@@ -317,7 +325,7 @@ class MetasysConfigurationApi:
         return (
             await self._request(
                 "GET",
-                PREFIX
+                self.prefix
                 + "/v6/objects?"
                 + urlencode({"pathTo": identifier, "includeEffectivePermissions": "true"}),
             )
@@ -328,7 +336,7 @@ class MetasysConfigurationApi:
         return (
             await self._request(
                 "GET",
-                PREFIX
+                self.prefix
                 + "/v6/objects/"
                 + identifier
                 + "/objects?"
@@ -341,7 +349,7 @@ class MetasysConfigurationApi:
             raise ValueError("This profile admits explicit BACnet monitoring mapper classes only.")
         reply = await self._request(
             "GET",
-            PREFIX
+            self.prefix
             + "/v6/schemas/objectTypes/"
             + object_type
             + "?"
@@ -357,7 +365,7 @@ class MetasysConfigurationApi:
         return (
             await self._request(
                 "GET",
-                PREFIX
+                self.prefix
                 + "/v6/objects/"
                 + guid(object_id)
                 + "/attributes/"
@@ -372,4 +380,4 @@ class MetasysConfigurationApi:
         if configuration_categories and name != "objectCategoryEnumSet":
             raise ValueError("Category permission filter requires the category enumeration.")
         suffix = "?permission=modifyConfigItems" if configuration_categories else ""
-        return (await self._request("GET", PREFIX + "/v6/schemas/enums/" + name + suffix)).data
+        return (await self._request("GET", self.prefix + "/v6/schemas/enums/" + name + suffix)).data

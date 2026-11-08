@@ -2726,3 +2726,17 @@ completion of SCT/JCT parity. Native configuration capture/merge/apply,
 production identity/link preservation and independent value verification remain
 open. No existing requirement status or capability count changes.
 See [source-method qualification](docs/metasys-source-qualification.md).
+
+## 2026-11-08 JCT configuration connection
+
+Settings → Communications & network adds an explicit JCT configuration login
+and bounded archive/device/object inspection. The backend uses its own volatile
+configuration session, separate from online Metasys authority, with pinned TLS,
+browser-owned connection keys, expiry and credential-masked display projections.
+Late sign-in and disconnected reads retire safely without opening a BACnet
+interface. The existing controller/file workflow and navigation remain intact.
+
+This is archive inspection only. Native archive capture/edit/transfer, live
+source changes and preservation qualification remain unfinished. No SCT/JCT
+requirement status or capability count changes. See
+[JCT configuration connection](docs/jct-configuration-connection.md).
