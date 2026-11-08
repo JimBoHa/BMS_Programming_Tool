@@ -7,6 +7,7 @@ This transport admits no configuration mutation, command or restore method.
 from __future__ import annotations
 
 import asyncio
+import copy
 import hashlib
 import re
 import secrets
@@ -21,12 +22,14 @@ from defusedxml.minidom import parseString
 SOAP = "http://schemas.xmlsoap.org/soap/envelope/"
 LOGIN_NS = "http://johnsoncontrols.com/MetasysIII/WebServices/Security/LoginService/"
 SUPPORT_NS = "http://johnsoncontrols.com/MetasysIII/WebServices/Item/Support"
+NAV_NS = "http://johnsoncontrols.com/MetasysIII/WebServices/Item/MonitoringAndCommanding"
 BASE = "/MetasysIII/WS/"
 MAX_RESPONSE = 4 * 1024 * 1024
 READS = {
     ("Item/Support.asmx", "GetConfigView"): SUPPORT_NS,
     ("Item/Support.asmx", "GetPropertyList"): SUPPORT_NS,
     ("Item/Support.asmx", "GetClassInfo"): SUPPORT_NS,
+    ("Item/MonitoringAndCommanding.asmx", "GetNavView"): NAV_NS,
 }
 
 
@@ -128,7 +131,7 @@ class NaeHttps:
                 raise ValueError("Invalid native SOAP parameter name.")
             element = ET.SubElement(action, key)
             if isinstance(value, ET.Element):
-                element.append(ET.fromstring(ET.tostring(value)))
+                element.append(copy.deepcopy(value))
             else:
                 element.text = str(value)
         payload = (
@@ -142,12 +145,15 @@ class NaeHttps:
         if len(payload) > 65536:
             raise ValueError("Native SOAP request exceeds its byte budget.")
         path = BASE + endpoint
+        peer = urlsplit(self.origin)
+        host = "[" + peer.hostname + "]" if ":" in peer.hostname else peer.hostname
         request = self.client.build_request(
             "POST",
             path,
             content=payload,
             headers={
                 "POST": path,
+                "Host": host + ":" + str(peer.port or 443),
                 "Content-Type": "text/xml; charset=utf-8",
                 "SOAPAction": '"' + namespace.rstrip("/") + "/" + method + '"',
                 "Connection": "close",

@@ -1,6 +1,5 @@
 """Authored native SOAP service; no vendor server, SDK or credentials."""
 
-
 import httpx
 import pytest
 from bms_tool.nae_https import LOGIN_NS, SOAP, SUPPORT_NS, NaeHttps, NaeSoapError
@@ -19,11 +18,14 @@ class Peer:
         assert request.method == "POST"
         assert request.headers["POST"] == request.url.path
         assert request.headers["Connection"] == "close"
+        assert request.headers["Host"] == "engine.example:443"
         assert int(request.headers["Content-Length"]) == len(request.content)
         doc = fromstring(request.content)
         action = doc.find("{" + SOAP + "}Body")[0]
         method = action.tag.rsplit("}", 1)[-1]
         if method == "LoginOverSecureConnection":
+            assert b":Credentials" not in request.content and b":UserName" not in request.content
+            assert ('<Credentials xmlns="' + LOGIN_NS + '">').encode() in request.content
             assert request.url.path.endswith("/Security/LoginService.asmx")
             fields = {e.tag.rsplit("}", 1)[-1]: e.text for e in action.iter()}
             assert fields["UserName"] == "authored-user"

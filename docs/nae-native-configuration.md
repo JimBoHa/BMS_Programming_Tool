@@ -60,7 +60,7 @@ uses the NAE's own HTTPS origin and native account, with explicit leaf-certifica
 binding, bounded XML, no redirects/proxy discovery or authentication retries.
 The native local-account domain is supplied explicitly. Session tokens stay in
 memory and their original XML prefixes/bindings survive subsequent read requests.
-Only the named schema/configuration-read methods and logout are admitted; no
+Only the named navigation/schema/configuration-read methods and logout are admitted; no
 command, configuration edit, archive import or restore method is exposed.
 
 The HTTPS software peer tests cover the native credential envelope, legacy POST
