@@ -63,12 +63,38 @@ memory and their original XML prefixes/bindings survive subsequent read requests
 Only the named navigation/schema/configuration-read methods and logout are admitted; no
 command, configuration edit, archive import or restore method is exposed.
 
+The native read family also admits `GetViewList`, `GetView`, `ReadPropertyMultiple`
+and `GetEngView`.
+Their typed helpers validate reference, view identifiers, modes and hierarchy
+depth, encode XML booleans canonically, and use an unfiltered descendant class
+selection for hierarchy reads. The navigation class argument is a child filter;
+passing the selected object's class there can hide its differently typed children.
+These additional methods have software-peer qualification; their live field
+qualification is pending. The engineering reader admits no corresponding writer.
+The property reader selects at most 64 distinct native identifiers from one exact
+reference, using the WSDL's typed request structure rather than substituting an
+XML-element wrapper or a property-name dictionary.
+
 The HTTPS software peer tests cover the native credential envelope, legacy POST
 header, exact namespaces, opaque token preservation, refusal/invalid-XML handling,
-credential-safe errors and changed certificates. A live native login using an
-existing site account was refused; qualification with a working engine account
-is still required. This account path does not depend on a JCT/SCT server and does
-not by itself establish native configuration capture, editing or transfer.
+credential-safe errors and changed certificates. A first existing account was
+refused. A subsequent operator-entered native account authenticated successfully,
+and real engine hierarchy, configuration-definition and property-list reads
+succeeded with the preserved native token. No JCT/SCT server participated.
+These results qualify native authentication and those reads; they do not by
+themselves establish current-configuration capture, editing or transfer.
+
+Live inspection established two distinctions the remaining implementation must
+preserve. `GetConfigView` returns a creation/configuration definition with default
+values, not the referenced object's current settings. It must never supply a
+backup, expected-old value or write readback. The inspected mapper's source-instance
+field appears in that definition but has `use="output"` in its ordinary property
+list. Neither creation configurability nor that directional metadata establishes
+online writability. No write was
+attempted against that operating point. A supported engineering/transfer method
+and an isolated test object remain prerequisites for source edits. The vendor's
+[engine-attribute reference][attributes] also distinguishes the BACnet
+Communications Password from a user-account login.
 
 The site-neutral `native_signin_page` factory supports an isolated local
 qualification harness; it is not a product navigation destination or a completed
@@ -100,9 +126,11 @@ session-discovered identifiers including File zero, opaque/empty originals,
 unknown file size, stale revisions, busy state, duplicate arrays, wrong offsets,
 lost lifecycle replies, password refusal, cancellation and local journal failure.
 Existing application transfer regressions exercise the extracted transport.
-The live result qualifies preflight, native authentication refusal and readback;
-neither software tests nor this refusal establish live file capture, native edit
+The live results qualify preflight, backup refusal/readback and direct native
+authentication plus the named hierarchy/definition/property-list reads. Neither
+software tests nor these field reads establish live file capture, native edit
 or restore acceptance. Exact targets, credentials and captures stay outside Git.
 
 [files]: https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/NAE/NCE-Protocol-Implementation-Conformance-Statement/9/BACnet-Standardized-Device-Profile-Annex-L/Standard-Object-Types-Supported/File
 [backup]: https://bacnet.org/wp-content/uploads/sites/4/2022/08/Add-135-2008n.pdf
+[attributes]: https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/SCT-System-Configuration-Tool-Help/16.0.1/Insert-Menu/Supervisory-Device/Engine-Device-Object/Engine-attributes

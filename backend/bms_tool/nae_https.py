@@ -23,6 +23,7 @@ SOAP = "http://schemas.xmlsoap.org/soap/envelope/"
 LOGIN_NS = "http://johnsoncontrols.com/MetasysIII/WebServices/Security/LoginService/"
 SUPPORT_NS = "http://johnsoncontrols.com/MetasysIII/WebServices/Item/Support"
 NAV_NS = "http://johnsoncontrols.com/MetasysIII/WebServices/Item/MonitoringAndCommanding"
+INTEGRATION_NS = "http://johnsoncontrols.com/MetasysIII/WebServices/Integration"
 BASE = "/MetasysIII/WS/"
 MAX_RESPONSE = 4 * 1024 * 1024
 READS = {
@@ -30,6 +31,10 @@ READS = {
     ("Item/Support.asmx", "GetPropertyList"): SUPPORT_NS,
     ("Item/Support.asmx", "GetClassInfo"): SUPPORT_NS,
     ("Item/MonitoringAndCommanding.asmx", "GetNavView"): NAV_NS,
+    ("Item/MonitoringAndCommanding.asmx", "GetViewList"): NAV_NS,
+    ("Item/MonitoringAndCommanding.asmx", "GetView"): NAV_NS,
+    ("Item/MonitoringAndCommanding.asmx", "ReadPropertyMultiple"): NAV_NS,
+    ("Integration/Integration.asmx", "GetEngView"): INTEGRATION_NS,
 }
 
 
@@ -131,7 +136,15 @@ class NaeHttps:
                 raise ValueError("Invalid native SOAP parameter name.")
             element = ET.SubElement(action, key)
             if isinstance(value, ET.Element):
-                element.append(copy.deepcopy(value))
+                if method == "ReadPropertyMultiple" and key == value.tag == "readRequest":
+                    # This parameter is a typed WSDL structure, unlike the
+                    # XmlElement credential payload wrapped by the data field.
+                    action.remove(element)
+                    action.append(copy.deepcopy(value))
+                else:
+                    element.append(copy.deepcopy(value))
+            elif type(value) is bool:
+                element.text = "true" if value else "false"
             else:
                 element.text = str(value)
         payload = (
@@ -277,6 +290,11 @@ class NaeHttps:
             }
 
     async def config_view(self, reference, class_id, class_version):
+        """Read a creation/configuration definition, including DEFAULT values.
+
+        This is not a capture of the referenced object's current settings.
+        Use native object views for current values and independent readback.
+        """
         if (
             type(reference) is not str
             or not 1 <= len(reference) <= 512
@@ -296,6 +314,114 @@ class NaeHttps:
                 "GetConfigView",
                 SUPPORT_NS,
                 [("reference", reference), ("classID", class_id), ("classVersion", class_version)],
+            )
+            return result
+
+    @staticmethod
+    def _reference(reference, *, root=False):
+        if (
+            type(reference) is not str
+            or not (0 if root else 1) <= len(reference) <= 512
+            or any(c in reference for c in "\x00\r\n")
+        ):
+            raise ValueError("Use the exact native engine reference.")
+
+    async def navigation(self, reference="", *, depth=1, extensions=False):
+        self._reference(reference, root=True)
+        if type(depth) is not int or not 0 <= depth <= 2 or type(extensions) is not bool:
+            raise ValueError("Use a bounded native hierarchy read.")
+        async with self.lock:
+            result, _ = await self._request(
+                "Item/MonitoringAndCommanding.asmx",
+                "GetNavView",
+                NAV_NS,
+                [
+                    ("reference", reference),
+                    ("viewType", "Hardware"),
+                    ("viewId", 0),
+                    ("recursiveDepth", depth),
+                    ("includeExtensions", extensions),
+                    ("classId", -1),
+                    ("classVersion", "1"),
+                ],
+            )
+            # classId is a descendant-class FILTER, not selected-object identity.
+            # -1 requests unfiltered children; identity comes from response nodes.
+            return result
+
+    async def views(self, reference, *, edit_mode=False):
+        self._reference(reference)
+        if type(edit_mode) is not bool:
+            raise ValueError("Use an explicit native view mode.")
+        async with self.lock:
+            result, _ = await self._request(
+                "Item/MonitoringAndCommanding.asmx",
+                "GetViewList",
+                NAV_NS,
+                [
+                    ("reference", reference),
+                    ("activeViewsOnly", True),
+                    ("returnDefaultView", False),
+                    ("editMode", edit_mode),
+                    ("useDictionary", False),
+                ],
+            )
+            return result
+
+    async def view(self, reference, view_id, *, edit_mode=False):
+        self._reference(reference)
+        if type(view_id) is not int or not 0 <= view_id <= 65535 or type(edit_mode) is not bool:
+            raise ValueError("Use a discovered native view identifier and explicit view mode.")
+        async with self.lock:
+            result, _ = await self._request(
+                "Item/MonitoringAndCommanding.asmx",
+                "GetView",
+                NAV_NS,
+                [
+                    ("reference", reference),
+                    ("viewId", view_id),
+                    ("editMode", edit_mode),
+                    ("useDictionary", False),
+                ],
+            )
+            return result
+
+    async def engineering_view(self, reference):
+        self._reference(reference)
+        async with self.lock:
+            result, _ = await self._request(
+                "Integration/Integration.asmx",
+                "GetEngView",
+                INTEGRATION_NS,
+                [("reference", reference), ("engParam1", 0), ("engParam2", 0), ("engParam3", "")],
+            )
+            return result
+
+    async def read_properties(self, reference, properties):
+        self._reference(reference)
+        if (
+            type(properties) is not list
+            or not 1 <= len(properties) <= 64
+            or any(type(p) is not int or not 0 <= p <= 65535 for p in properties)
+            or len(set(properties)) != len(properties)
+        ):
+            raise ValueError("Use a bounded distinct list of native property identifiers.")
+        request = ET.Element("readRequest", {"useDictionary": "false"})
+        items = ET.SubElement(request, "items")
+        ET.SubElement(
+            items,
+            "item",
+            {
+                "reference": reference,
+                "propertyList": " ".join(str(p) for p in properties),
+            },
+        )
+        async with self.lock:
+            result, _ = await self._request(
+                "Item/MonitoringAndCommanding.asmx",
+                "ReadPropertyMultiple",
+                NAV_NS,
+                [("reference", reference), ("readRequest", request)],
             )
             return result
 
