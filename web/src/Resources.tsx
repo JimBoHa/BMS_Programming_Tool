@@ -39,7 +39,7 @@ export function Resources() {
         </div>
         <BookOpen size={32} />
       </div>
-      <details className="card" open={engineeringOpen}>
+      <details className="card jci-engineering-shell" open={engineeringOpen}>
         <summary
           onClick={(e) => {
             e.preventDefault();
