@@ -18,6 +18,14 @@ def main():
     serve.add_argument("--port", type=int, default=8765)
     serve.add_argument("--data")
     serve.add_argument("--open-browser", action="store_true")
+    source_review = sub.add_parser(
+        "metasys-source-review",
+        help="Check a source manifest and supplemental captures locally; never applies changes",
+    )
+    source_review.add_argument("--manifest", type=Path, required=True)
+    source_review.add_argument("--before", type=Path, required=True)
+    source_review.add_argument("--after", type=Path)
+    source_review.add_argument("--output", type=Path, required=True)
     for name in ("validate", "simulate", "export", "caf"):
         p = sub.add_parser(name)
         p.add_argument("file", type=Path)
@@ -54,6 +62,40 @@ def main():
         uvicorn.run(create_app(args.data), host="127.0.0.1", port=args.port, access_log=False)
     elif args.command == "caf":
         print(json.dumps(CafArchive(args.file.read_bytes()).summary(), indent=2))
+    elif args.command == "metasys-source-review":
+        from .metasys_source_preservation import load_capture, review_sources, write_review
+
+        try:
+            report = review_sources(
+                load_capture(args.manifest),
+                load_capture(args.before),
+                load_capture(args.after) if args.after else None,
+            )
+            write_review(args.output, report)
+        except (OSError, ValueError, RecursionError) as exc:
+            parser.error(str(exc))
+        print(
+            json.dumps(
+                {
+                    key: report[key]
+                    for key in (
+                        "point_count",
+                        "original_source_preconditions_match",
+                        "after_checked",
+                        "captured_records_match",
+                        "all_expected_sources_observed_in_after_capture",
+                        "apply_available",
+                        "configuration_writes",
+                    )
+                },
+                indent=2,
+            )
+        )
+        if args.after and not (
+            report["captured_records_match"]
+            and report["all_expected_sources_observed_in_after_capture"]
+        ):
+            raise SystemExit(1)
     else:
         program = import_program(args.file.read_bytes(), args.file.name)
         if args.command == "validate":
