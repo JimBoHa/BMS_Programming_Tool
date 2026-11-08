@@ -24,17 +24,21 @@ LOGIN_NS = "http://johnsoncontrols.com/MetasysIII/WebServices/Security/LoginServ
 SUPPORT_NS = "http://johnsoncontrols.com/MetasysIII/WebServices/Item/Support"
 NAV_NS = "http://johnsoncontrols.com/MetasysIII/WebServices/Item/MonitoringAndCommanding"
 INTEGRATION_NS = "http://johnsoncontrols.com/MetasysIII/WebServices/Integration"
+DEVICE_NS = "http://johnsoncontrols.com/MetasysIII/WebServices/Platform/Device"
 BASE = "/MetasysIII/WS/"
 MAX_RESPONSE = 4 * 1024 * 1024
 READS = {
     ("Item/Support.asmx", "GetConfigView"): SUPPORT_NS,
     ("Item/Support.asmx", "GetPropertyList"): SUPPORT_NS,
     ("Item/Support.asmx", "GetClassInfo"): SUPPORT_NS,
+    ("Item/Support.asmx", "GetEnumSetByCulture"): SUPPORT_NS,
+    ("Item/Support.asmx", "GetEnumSet"): SUPPORT_NS,
     ("Item/MonitoringAndCommanding.asmx", "GetNavView"): NAV_NS,
     ("Item/MonitoringAndCommanding.asmx", "GetViewList"): NAV_NS,
     ("Item/MonitoringAndCommanding.asmx", "GetView"): NAV_NS,
     ("Item/MonitoringAndCommanding.asmx", "ReadPropertyMultiple"): NAV_NS,
     ("Integration/Integration.asmx", "GetEngView"): INTEGRATION_NS,
+    ("DeviceServices/Device.asmx", "GetFileList"): DEVICE_NS,
 }
 
 
@@ -395,6 +399,13 @@ class NaeHttps:
                 INTEGRATION_NS,
                 [("reference", reference), ("engParam1", 0), ("engParam2", 0), ("engParam3", "")],
             )
+            from .nae_object_values import engineering_outcome
+
+            outcome = engineering_outcome(ET.tostring(result, encoding="utf-8"))
+            if outcome["status"] != "returned_data":
+                raise NaeSoapError(
+                    "The native engine returned an engineering-view failure; no complete read was established."
+                )
             return result
 
     async def read_properties(self, reference, properties):
@@ -423,6 +434,59 @@ class NaeHttps:
                 NAV_NS,
                 [("reference", reference), ("readRequest", request)],
             )
+            return result
+
+    async def file_list(self, directory):
+        """List one explicit service directory, nonrecursively; no file-content request.
+
+        This is DeviceServices metadata, not a proven configuration-image export
+        or Background File Transfer implementation. No server path becomes a
+        local filename, and no create/post/finalize/delete method is admitted.
+        """
+        if (
+            type(directory) is not str
+            or not 1 <= len(directory) <= 512
+            or any(ord(c) < 32 for c in directory)
+            or not (
+                (directory.startswith("/") and "\\" not in directory)
+                or (re.match(r"^[A-Za-z]:[\\/]", directory) and ":" not in directory[2:])
+                or re.fullmatch(r"[A-Za-z][A-Za-z0-9 _.-]*(?:[\\/][A-Za-z0-9 _.-]+)*", directory)
+            )
+            or directory.startswith(("//", "\\\\"))
+            or "://" in directory
+            or any(c in directory for c in "*?%")
+            or ".." in re.split(r"[\\/]", directory)
+        ):
+            raise ValueError(
+                "Select one explicit native service directory without traversal, URLs or remote shares."
+            )
+        payload = ET.Element("DirectoryList")
+        ET.SubElement(
+            payload,
+            "Dir",
+            {"name": directory, "isNested": "false", "error": "0", "diskSpaceAvailable": "-1"},
+        )
+        async with self.lock:
+            result, _ = await self._request(
+                "DeviceServices/Device.asmx", "GetFileList", DEVICE_NS, [("dirList", payload)]
+            )
+            for node in result.iter():
+                if node.tag.rsplit("}", 1)[-1] == "Dir" and node.get("error", "0") != "0":
+                    code = node.get("error", "")
+                    suffix = (
+                        " (native code " + code + ")"
+                        if re.fullmatch(r"-?[0-9]{1,11}", code)
+                        else ""
+                    )
+                    raise NaeSoapError(
+                        "The native engine refused the directory listing"
+                        + suffix
+                        + "; no file was requested."
+                    )
+                if node.tag.rsplit("}", 1)[-1] == "error":
+                    raise NaeSoapError(
+                        "The native engine returned a file-list error; no file was read."
+                    )
             return result
 
     async def close(self):

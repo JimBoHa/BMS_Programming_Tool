@@ -3,6 +3,7 @@
 import httpx
 import pytest
 from bms_tool.nae_https import (
+    DEVICE_NS,
     INTEGRATION_NS,
     LOGIN_NS,
     NAV_NS,
@@ -130,6 +131,39 @@ class Peer:
                     + method
                     + "Response>"
                 )
+                if method == "GetEngView":
+                    inner = (
+                        '<error code="410">authored-sensitive-value</error>'
+                        if self.mode == "engineering_error"
+                        else "<row/>"
+                    )
+                    result = (
+                        '<GetEngViewResponse xmlns="' + INTEGRATION_NS + '">'
+                        '<GetEngViewResult><engViewData xmlns="http://johnsoncontrols.com/MetasysIII/2002/3/Core">'
+                        + inner
+                        + "</engViewData></GetEngViewResult></GetEngViewResponse>"
+                    )
+            elif method == "GetFileList":
+                assert header.tag == "{" + DEVICE_NS + "}LoginResult"
+                assert request.url.path.endswith("/DeviceServices/Device.asmx")
+                folders = action.findall(".//{" + DEVICE_NS + "}Dir")
+                assert len(folders) == 1
+                assert folders[0].get("name") in ("/authored", "Object Lists/All")
+                assert folders[0].attrib == {
+                    "name": folders[0].get("name"),
+                    "isNested": "false",
+                    "error": "0",
+                    "diskSpaceAvailable": "-1",
+                }
+                assert action[0].tag == "{" + DEVICE_NS + "}dirList"
+                assert action[0][0].tag == "{" + DEVICE_NS + "}DirectoryList"
+                error = "2" if self.mode == "directory_error" else "0"
+                result = (
+                    '<GetFileListResponse xmlns="' + DEVICE_NS + '"><GetFileListResult>'
+                    '<DirectoryList xmlns="http://johnsoncontrols.com/MetasysIII/2002/3/Core">'
+                    '<Dir name="/authored" error="' + error + '"/>'
+                    "</DirectoryList></GetFileListResult></GetFileListResponse>"
+                )
             else:
                 assert method == "Logout"
                 result = '<LogoutResponse xmlns="' + LOGIN_NS + '"/>'
@@ -184,6 +218,8 @@ async def test_native_refusal_and_invalid_xml_do_not_echo_credentials_or_grant_a
         ("Item/Support.asmx", "GetConfigView", LOGIN_NS),
         ("Integration/Integration.asmx", "WriteEngPropertyMultiple", INTEGRATION_NS),
         ("Item/Creation.asmx", "CreateItem", NAV_NS),
+        ("DeviceServices/Device.asmx", "PostFile", DEVICE_NS),
+        ("DeviceServices/Device.asmx", "FinalizeFile", DEVICE_NS),
     ],
 )
 async def test_native_https_does_not_admit_unqualified_mutations_or_cross_service_namespaces(
@@ -225,6 +261,25 @@ async def test_native_live_view_and_schema_reads_have_distinct_methods_and_canon
     ]
 
 
+async def test_typed_engineering_reader_rejects_business_failure_inside_http_200(link):
+    native, peer = link
+    await native.login(username="authored-user", password="authored & <password>")
+    peer.mode = "engineering_error"
+    with pytest.raises(NaeSoapError, match="engineering-view failure") as exc:
+        await native.engineering_view("Example:Engine")
+    assert "authored-sensitive-value" not in str(exc.value)
+
+
+async def test_native_directory_read_has_explicit_path_and_no_recursive_or_file_write_mode(link):
+    native, peer = link
+    await native.login(username="authored-user", password="authored & <password>")
+    await native.file_list("/authored")
+    await native.file_list("Object Lists/All")
+    peer.mode = "directory_error"
+    with pytest.raises(NaeSoapError, match="refused the directory listing"):
+        await native.file_list("/authored")
+
+
 @pytest.mark.parametrize(
     "kind,args,kwargs",
     [
@@ -241,6 +296,13 @@ async def test_native_live_view_and_schema_reads_have_distinct_methods_and_canon
         ("read_properties", ("Example:Engine", [75, 75]), {}),
         ("read_properties", ("Example:Engine", [-1]), {}),
         ("read_properties", ("Example:Engine", [65536]), {}),
+        ("file_list", ("//remote/share",), {}),
+        ("file_list", ("/\\remote/share",), {}),
+        ("file_list", ("/authored/../other",), {}),
+        ("file_list", ("ftp://remote/dir",), {}),
+        ("file_list", ("/bad\npath",), {}),
+        ("file_list", ("/authored/*",), {}),
+        ("file_list", ("/authored/%2e%2e",), {}),
     ],
 )
 async def test_invalid_native_read_scope_is_rejected_before_dispatch(link, kind, args, kwargs):

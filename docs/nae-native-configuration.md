@@ -69,8 +69,8 @@ Their typed helpers validate reference, view identifiers, modes and hierarchy
 depth, encode XML booleans canonically, and use an unfiltered descendant class
 selection for hierarchy reads. The navigation class argument is a child filter;
 passing the selected object's class there can hide its differently typed children.
-These additional methods have software-peer qualification; their live field
-qualification is pending. The engineering reader admits no corresponding writer.
+Live view-list, current-view, property-value and integration-table reads have now
+succeeded. The engineering reader admits no corresponding writer.
 The property reader selects at most 64 distinct native identifiers from one exact
 reference, using the WSDL's typed request structure rather than substituting an
 XML-element wrapper or a property-name dictionary.
@@ -84,6 +84,29 @@ succeeded with the preserved native token. No JCT/SCT server participated.
 These results qualify native authentication and those reads; they do not by
 themselves establish current-configuration capture, editing or transfer.
 
+Current-value acquisition has a separate field qualification: selected-object
+name, local Object Identifier, native reference, remote source instance, units and
+present value were acquired directly over HTTPS and independently checked against
+BACnet reads of the same local mapper. The configuration definition's default
+source differed from the actual source, confirming why definitions cannot supply
+current values. The current native source field had no writable flag; the Name
+field did. Neither flag is promoted into a qualified writer.
+
+`nae_object_values` decodes bounded current-response artifacts with exact reference,
+class/version, view or requested-property checks. It rejects creation definitions,
+wrong identities, missing/duplicate fields, indexed/foreign read scopes, invalid
+scalars, unsafe XML and excess depth/size. Native property errors remain explicit
+partial results; unknown compound values remain unparsed in the retained input
+artifact. The artifact hash is not a packet/image hash. Multiple extensions with
+the same view type retain distinct references. No field-edit authority or
+restorable-image claim is created by these readouts.
+
+Field inspection also returned a native engineering error inside an HTTP 200
+response for one selected controller. The engineering decoder classifies that
+result as rejected, and the typed client refuses it rather than declaring a
+successful read. The same integration-level service returned a table. These are
+different object/service outcomes, not proof of universal engineering support.
+
 Live inspection established two distinctions the remaining implementation must
 preserve. `GetConfigView` returns a creation/configuration definition with default
 values, not the referenced object's current settings. It must never supply a
@@ -95,6 +118,28 @@ attempted against that operating point. A supported engineering/transfer method
 and an isolated test object remain prerequisites for source edits. The vendor's
 [engine-attribute reference][attributes] also distinguishes the BACnet
 Communications Password from a user-account login.
+
+The operator does not know that password, so the standard BACnet File capture
+remains blocked. Native class metadata advertises that credential setting as
+configurable through the administrator interface. This is not a qualified writer
+or permission to replace an unknown credential: the existing password cannot be
+recovered for rollback, and any tools using it would need updating. No password
+read, replacement, guessed default or subsequent backup attempt was sent.
+A separate native DeviceServices `GetFileList` helper requests
+one explicit service directory nonrecursively, including logical service names,
+with bounded replies, native authentication and refusal of traversal/remote
+shares, wildcard selectors and encoded path selectors. It has authored-peer qualification. Live requests returned native refusal
+codes, which the client surfaced; no successful directory listing or file-content
+capture has been qualified. The helper requests no file contents and
+admits no post, finalize, delete, import or restart request. This is file-service
+metadata, not an implemented Background File Transfer or native-image capture.
+The vendor's [BFT reference][bft] describes a separate staging/activation lifecycle.
+The [network protocol table][bft-network] identifies the engine as the HTTPS
+client and the tool as the HTTPS server. A generic file-list request is not that
+protocol. The BMS receiver/server role, authenticated transfer initiation,
+certificate/manifest handling, lifecycle recovery and native image codec still
+require independent qualification. A live read found no staged firmware/files;
+no staging, cancellation or activation command was sent.
 
 The site-neutral `native_signin_page` factory supports an isolated local
 qualification harness; it is not a product navigation destination or a completed
@@ -127,10 +172,12 @@ unknown file size, stale revisions, busy state, duplicate arrays, wrong offsets,
 lost lifecycle replies, password refusal, cancellation and local journal failure.
 Existing application transfer regressions exercise the extracted transport.
 The live results qualify preflight, backup refusal/readback and direct native
-authentication plus the named hierarchy/definition/property-list reads. Neither
+authentication plus the named hierarchy/definition/property-list/current-value reads. Neither
 software tests nor these field reads establish live file capture, native edit
 or restore acceptance. Exact targets, credentials and captures stay outside Git.
 
 [files]: https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/NAE/NCE-Protocol-Implementation-Conformance-Statement/9/BACnet-Standardized-Device-Profile-Annex-L/Standard-Object-Types-Supported/File
 [backup]: https://bacnet.org/wp-content/uploads/sites/4/2022/08/Add-135-2008n.pdf
 [attributes]: https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/SCT-System-Configuration-Tool-Help/16.0.1/Insert-Menu/Supervisory-Device/Engine-Device-Object/Engine-attributes
+[bft]: https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/SCT-System-Configuration-Tool-Help/17.1/Insert-Menu/Supervisory-Device/Engine-Device-Object/Engine-Concepts/Background-File-Transfer
+[bft-network]: https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Network-and-IT-Guidance-Technical-Bulletin/16.0/Network-and-IT-considerations/Protocols-ports-and-connectivity-for-the-Metasys-system/Protocols-and-ports-tables
