@@ -480,6 +480,70 @@ async def test_post_restore_counter_exception_requires_actual_type_and_monotonic
         assert changes[0]["current_saved_value"] == value
 
 
+@pytest.mark.parametrize(
+    "kind,value,expected",
+    [
+        ("binary-COS", 9, "recovered_original"),
+        ("legacy60", 9, "recovered_original"),
+        ("nonbinary-COS", 9, "unknown"),
+        ("binary-COS", 6, "unknown"),
+    ],
+)
+async def test_original_recovery_obeys_the_same_strict_restore_counter_policy(
+    native_link, kind, value, expected
+):
+    peer, _, _, native, target = native_link
+    legacy = kind == "legacy60"
+    object_type = 2 if kind == "nonbinary-COS" else 3
+    historical = with_counter(object_type=object_type, legacy=legacy, version=60 if legacy else 62)
+    peer.files = copy.deepcopy(historical)
+    old = await native.capture(**target, operation_id="original-counter-historical-capture")
+    old, _ = native.storage.load(old["id"])
+    real_slot(peer.files, 4, struct.pack(">f", 22.5))
+    before = copy.deepcopy(peer.files)
+    consume_historical_storage(peer, historical)
+    plan = await native.preview_snapshot_restore(
+        **target, **saved_request(old), operation_id="original-counter-review"
+    )
+    peer.mode = "drop-end"
+    receipt = await native.apply_snapshot_restore(**apply_request(plan))
+    assert receipt["pending"] and receipt["result"]["status"] == "unknown"
+    peer.mode = "normal"
+    peer.files = before
+    # Independent full original-image oracle, including opaque records and
+    # the binary/proprietary counter after the footer. No production compiler.
+    image = literal_saved_image(real=22.5)
+    if legacy:
+        assert image.count(b"\x21\x3e") == 2
+        image = image.replace(b"\x21\x3e", b"\x21\x3c")
+    cid, pid = (251, 978) if legacy else (777, 15)
+    row = native_record(
+        cid,
+        77,
+        [
+            (32527, encoded(CharacterString("controller/counter"))),
+            (75, encoded(ObjectIdentifier((object_type, 77)))),
+            (pid, encoded(Unsigned(7))),
+        ],
+    )
+    image = image[:10] + (4).to_bytes(4, "little") + image[14:]
+    image += struct.pack("<H", len(row) + 2) + row
+    peer.files[3] = gzip.compress(image, mtime=0)
+    real_slot(peer.files, -5, value.to_bytes(4, "big"))
+    result = await native.reconcile(
+        operation_id="original-counter-explicit-readback", receipt_id=receipt["intent"]["id"]
+    )
+    assert result["latest_readback"]["status"] == expected, result
+    assert result["pending"] is (expected == "unknown")
+    if expected == "unknown":
+        assert "preservation" not in result["latest_readback"]
+        assert "recovery" not in result["latest_readback"]
+    else:
+        changes = result["latest_readback"]["preservation"]["runtime_counter_changes"]
+        assert len(changes) == 1 and changes[0]["current_saved_value"] == value
+    assert mutations(peer).count(("state", "start-restore")) == 1
+
+
 @pytest.mark.parametrize("route", ["source", "export", "preview", "apply"])
 def test_all_restore_HTTP_actions_require_the_real_application_session(tmp_path, route):
     with TestClient(create_app(tmp_path)) as client:

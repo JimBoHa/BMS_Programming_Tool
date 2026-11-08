@@ -77,6 +77,9 @@ counter with Unsigned values and a monotonic advance. A global counter label,
 changed non-binary configuration or decreased counter cannot verify a restore.
 Known calculated flow outputs remain separately reported; the common policy for
 other transfer families is unchanged.
+The same restore-specific counter check also applies before recognising recovery
+of the original pre-write image. An unqualified counter-like setting or decreased
+counter cannot release a pending restore as recovered-original.
 
 ## Recorded evidence and interfaces
 
@@ -96,11 +99,11 @@ another edit/recovery family or authorize a replay.
 
 ## Reproducible software qualification and remaining scope
 
-`scripts/qualify_native_order.py` declares 518 backend cases per source/installed
+`scripts/qualify_native_order.py` declares 522 backend cases per source/installed
 build, 538 browser/contract cases and six connection regressions per
-source/installed × Chromium/WebKit matrix: 3,212 executions. The preceding
+source/installed × Chromium/WebKit matrix: 3,220 executions. The preceding
 417 backend, 480 browser/contract and six connection case identifiers remain.
-The added 101 backend and 58 browser/contract cases cover independent literal
+The added 105 backend and 58 browser/contract cases cover independent literal
 native images, raw/gzip sources, direct/authored routed UDP, large multi-block
 images, all three backup roles, current settings/counters, source drift, complete
 HTTP/receipt paths, ACK loss, restart and recorded provenance. Browser cases

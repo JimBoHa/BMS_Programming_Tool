@@ -49,7 +49,7 @@ BROWSER = [
     "change-ledger",
 ]
 PREFILL = ["connections-prefill-queue", "connections-hydration"]
-BACKEND_CASES = 518
+BACKEND_CASES = 522
 BROWSER_CASES = 538
 PREFILL_CASES = 6
 

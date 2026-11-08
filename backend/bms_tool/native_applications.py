@@ -173,7 +173,7 @@ from .native_point_names import (
 from .native_runtime_calibration import read_runtime_calibration
 from .native_snapshot_restore import PROFILE as SNAPSHOT_RESTORE_PROFILE
 from .native_snapshot_restore import SCOPE as SNAPSHOT_RESTORE_SCOPE
-from .native_snapshot_restore import RestoreExport, RestoreSource
+from .native_snapshot_restore import RestoreExport, RestoreSource, qualify_restore_counters
 from .native_snapshot_restore import reconstruct as reconstruct_snapshot_restore
 from .native_snapshot_restore import reconstruct_intent as reconstruct_snapshot_restore_intent
 from .native_snapshot_restore import verify_restore as verify_snapshot_restore
@@ -1565,12 +1565,17 @@ class NativeApplications(
                 ).compile()
                 original_digest = sha(MoiIdentity(original).data)
                 if digest == original_digest and backup.get("source_identity_matches"):
-                    result["preservation"] = verify_preservation(
+                    original_preservation = verify_preservation(
                         original_files,
                         files,
                         old_instance=intent["old_instance"],
                         new_instance=intent["old_instance"],
                     )
+                    if snapshot_restore:
+                        qualify_restore_counters(
+                            files, original_preservation["runtime_counter_changes"]
+                        )
+                    result["preservation"] = original_preservation
                     if point_name_edit:
                         edit = PointNameEdit(**intent["point_name_edit"])
                         name = await self.path._read(session, edit.object_id, "object-name")
