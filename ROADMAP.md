@@ -19,6 +19,25 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
+### Added priority: SCT and JCT parity
+
+After the active retained native application restore delivery in PR #330 is
+qualified and merged, begin the [detailed SCT/JCT parity plan](docs/sct-jct-parity-roadmap.md).
+Its 48 planned packages cover six shared foundations, 24 SCT engineering and
+deployment packages, and 18 JCT archive/graphics/administration packages. The
+[machine-readable backlog](docs/sct-jct-parity-backlog.csv) records dependencies,
+acceptance and source evidence. These packages are planned work, not additional
+implemented criteria or a replacement for the existing register.
+
+Start with the operation/evidence inventory, portable project/original retention,
+typed site-object model, source-bound explorer, diagnostic reports and local
+comparison. Continue into point/source editing, spaces/equipment and graphics,
+then independently qualified supervisory logic, native capture/deployment, job
+orchestration and synchronization. Keep useful local engineering independent of
+missing vendor-format fixtures. Preserve the existing controller/file workspace,
+teal graphics guidance and one-feature-per-PR delivery. SCT/JCT parity is the next
+JCI priority; the remaining original JCI and other-brand work stays on this roadmap.
+
 The public requirement register currently records 211 scoped criteria: 157
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
