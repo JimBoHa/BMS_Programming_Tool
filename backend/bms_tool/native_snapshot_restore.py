@@ -577,16 +577,8 @@ def reconstruct_intent(storage, intent):
     return output
 
 
-def verify_restore(storage, intent, after):
-    expected = MoiIdentity(reconstruct_intent(storage, intent))
-    if set(after) != {3, 11, 12}:
-        raise ValueError("Restoration readback requires complete application and saved files.")
-    observed = MoiIdentity(after[3])
-    if expected.data != observed.data:
-        raise ValueError("The readback application differs from the exact retained restore image.")
-    current, counters, calculated = runtime_parameter_changes(
-        observed, ParameterApplication(after[3], after[11], after[12])
-    )
+def qualify_restore_counters(after, counters):
+    """Apply the same strict runtime policy to restored and recovered originals."""
     if counters:
         # This restore profile admits narrower runtime exceptions than the
         # shared historical preservation policy. A global property label alone
@@ -603,6 +595,19 @@ def verify_restore(storage, intent, after):
                 raise ValueError(
                     "A restored saved value differs beyond qualified advancing runtime counters."
                 )
+
+
+def verify_restore(storage, intent, after):
+    expected = MoiIdentity(reconstruct_intent(storage, intent))
+    if set(after) != {3, 11, 12}:
+        raise ValueError("Restoration readback requires complete application and saved files.")
+    observed = MoiIdentity(after[3])
+    if expected.data != observed.data:
+        raise ValueError("The readback application differs from the exact retained restore image.")
+    current, counters, calculated = runtime_parameter_changes(
+        observed, ParameterApplication(after[3], after[11], after[12])
+    )
+    qualify_restore_counters(after, counters)
     return {
         "profile": "native-retained-application-restore-preservation/1",
         "restored_application_matches_retained_source": True,
