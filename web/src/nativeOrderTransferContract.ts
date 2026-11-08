@@ -5,6 +5,7 @@ import {
   connectionSeal,
 } from "./nativeConnectionContract";
 import { matchingConnectionTarget } from "./nativeMatchingConnectionContract";
+import { orderRecoveryMetadata } from "./nativeOrderRecoveryTransferContract";
 import {
   nativeOrderAllowed,
   nativeOrderPermutation,
@@ -224,6 +225,7 @@ export async function orderTransferReview(
   proposal: Data,
   opened: Data,
   controller: ControllerContext,
+  previous?: Data,
 ) {
   try {
     const c = data.compilation,
@@ -267,9 +269,8 @@ export async function orderTransferReview(
         "connection_edit",
         "batch_edit",
         "combined_edit",
-        "recovery_origin",
-        "recovery_origin_sha256",
       ].every((k) => data[k] === undefined) &&
+      orderRecoveryMetadata(data, previous || null) &&
       /^[A-Za-z0-9_-]{32}$/.test(data.token || "") &&
       hash(data.review_sha256) &&
       typeof data.expires_at === "string" &&
@@ -325,6 +326,7 @@ export async function orderTransferReceipt(
       !orderTransferProposal(edit) ||
       !(await orderTransferCompilation(c, edit)) ||
       !same(i.order_guard, c.order_guard) ||
+      !orderRecoveryMetadata(i, undefined, reference) ||
       i.order_change_confirmed !== true ||
       i.application_transfer_confirmed !== true ||
       !id(i.review_capture_id) ||
@@ -347,8 +349,6 @@ export async function orderTransferReceipt(
         "connection_edit",
         "batch_edit",
         "combined_edit",
-        "recovery_origin",
-        "recovery_origin_sha256",
       ].some((k) => i[k] !== undefined)
     )
       return false;

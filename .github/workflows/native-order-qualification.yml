@@ -7,9 +7,13 @@ on:
       - 'backend/bms_tool/native_order*.py'
       - 'backend/bms_tool/native_execution_order.py'
       - 'backend/bms_tool/native_applications.py'
+      - 'backend/bms_tool/change_ledger.py'
+      - 'tests/test_native_order*.py'
+      - 'tests/test_native_execution_order.py'
       - 'web/src/NativeOrder*.tsx'
       - 'web/src/NativeExecutionOrder.tsx'
       - 'web/src/nativeOrder*.ts'
+      - 'web/src/ChangeLedgerPanel.tsx'
       - 'web/tests/native-order*.ts'
       - 'web/tests/connections-prefill-queue.spec.ts'
       - 'web/tests/connections-hydration.spec.ts'
@@ -25,7 +29,9 @@ jobs:
   qualification:
     name: native-order (${{ matrix.mode }}, ${{ matrix.browser }})
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    # The added recovery cohort performs two real authored restores per happy
+    # path. Keep per-test deadlines; allocate time for all 2,778 executions.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:

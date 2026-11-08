@@ -8,6 +8,10 @@ import type { NativeArchiveSource } from "./NativeRecords";
 import { controllerKey, type ControllerContext } from "./workflow";
 import { connectionSame } from "./nativeConnectionContract";
 import {
+  orderRecoveryOrigin,
+  orderRecoveryTransferProfile,
+} from "./nativeOrderRecoveryTransferContract";
+import {
   orderTransferBase,
   orderTransferProfile,
   orderTransferProposal,
@@ -75,6 +79,11 @@ export function NativeOrderTransfer({
   >(null);
   const [receipt, setReceipt] = useState<Document | null>(null),
     [chosenReceipt, setChosenReceipt] = useState("");
+  const [previous, setPrevious] = useState<{
+    owner: string;
+    epoch: number;
+    data: Data;
+  } | null>(null);
   const [receiptLoading, setReceiptLoading] = useState(false);
   const [uncertainty, setUncertainty] = useState<{
     target: Data;
@@ -105,6 +114,7 @@ export function NativeOrderTransfer({
     reviewId = useRef<string | null>(null);
   const statusTicket = useRef(0),
     receiptTicket = useRef(0),
+    receiptChanging = useRef(false),
     receiptNow = useRef(receipt);
   receiptNow.current = receipt;
   if (ownerNow.current !== owner) {
@@ -121,6 +131,9 @@ export function NativeOrderTransfer({
   const renderedEpoch = epoch.current;
   const shown = plan && current(plan.owner, plan.epoch) ? plan : null;
   const fresh = !!shown && now < Date.parse(shown.data.expires_at);
+  const selectedPrevious =
+    previous && current(previous.owner, previous.epoch) ? previous.data : null;
+  const activeProposal = selectedPrevious?.proposal || proposal;
   const configuration = interfaceConfiguration(controller?.interfaceKey);
   const connected =
     !!controller?.interfaceOpen &&
@@ -132,11 +145,14 @@ export function NativeOrderTransfer({
     !!controller && orderTransferTarget(source.target, controller);
   const available =
     status?.execution_order_transfer_profile === orderTransferProfile;
+  const previousAvailable =
+    status?.execution_order_recovery_transfer_profile ===
+    orderRecoveryTransferProfile;
   const engineeringPending =
     Array.isArray(status?.receipts) &&
     status.receipts.some((row: Data) => row.pending === true);
   const locked = busy || otherBusy;
-  const canReview =
+  const controllerReady =
     parentCurrent() &&
     (context?.workspaceCurrent?.() ?? true) &&
     document.visibilityState !== "hidden" &&
@@ -146,10 +162,14 @@ export function NativeOrderTransfer({
     status?.credentials_configured === true &&
     sourceMatches &&
     !!opened &&
-    !!proposal &&
-    orderTransferProposal(proposal) &&
+    !receiptLoading &&
     !engineeringPending &&
     !locked;
+  const canReview =
+    controllerReady &&
+    !!activeProposal &&
+    orderTransferProposal(activeProposal) &&
+    (!selectedPrevious || previousAvailable);
   const observed = receipt?.data.latest_readback || receipt?.data.result;
   const intent = receipt?.data.intent;
   const receiptTarget = intent
@@ -200,6 +220,26 @@ export function NativeOrderTransfer({
     setInterruption(false);
     cancelOwned();
   }
+  function choosePrevious(data: Data) {
+    if (
+      !controllerReady ||
+      !previousAvailable ||
+      active.current ||
+      receiptChanging.current ||
+      !current(owner, renderedEpoch) ||
+      !orderTransferProposal(data.proposal) ||
+      data.origin?.parent_receipt_id !== receiptNow.current?.data.intent?.id ||
+      !orderRecoveryOrigin(data.origin, data.origin_sha256) ||
+      data.proposal.capture_id !== source.capture_id ||
+      data.proposal.snapshot_sha256 !== source.snapshot_sha256 ||
+      data.proposal.source_sha256 !== source.sha256 ||
+      !connectionSame(data.comparison?.source, opened)
+    )
+      return false;
+    retire();
+    setPrevious({ owner: ownerNow.current, epoch: epoch.current, data });
+    return true;
+  }
   async function refresh() {
     const request = ++statusTicket.current,
       key = ownerNow.current,
@@ -217,6 +257,7 @@ export function NativeOrderTransfer({
       epoch.current++;
       statusTicket.current++;
       receiptTicket.current++;
+      receiptChanging.current = false;
       document.removeEventListener("visibilitychange", retire);
       window.removeEventListener("pagehide", retire);
       cancelOwned();
@@ -232,11 +273,13 @@ export function NativeOrderTransfer({
     setRestore("");
     setError("");
     setStatus(null);
+    setPrevious(null);
     if (
       !active.current ||
       !["apply", "readback"].includes(active.current.kind)
     ) {
       receiptTicket.current++;
+      receiptChanging.current = false;
       setReceiptLoading(false);
     }
     const key = ownerNow.current,
@@ -253,6 +296,7 @@ export function NativeOrderTransfer({
   }, [shown]);
 
   function retain(document: Document) {
+    receiptNow.current = document;
     setReceipt(document);
     const i = document.data.intent,
       observation = document.data.latest_readback || document.data.result;
@@ -284,6 +328,8 @@ export function NativeOrderTransfer({
     if (kind !== "credentials" && (!connected || !controller || !available))
       return;
     if ((kind === "preview" || kind === "apply") && !canReview) return;
+    if ((kind === "preview" || kind === "apply") && receiptChanging.current)
+      return;
     if (
       kind === "apply" &&
       (!shown ||
@@ -344,16 +390,24 @@ export function NativeOrderTransfer({
         reviewId.current = operation.id;
         const document = await apiJsonDocument(orderTransferBase + "/preview", {
           ...targetOf(controller!),
-          ...proposal!,
+          ...activeProposal!,
+          ...(selectedPrevious
+            ? {
+                recovery_parent_receipt:
+                  selectedPrevious.origin.parent_receipt_id,
+                recovery_origin_sha256: selectedPrevious.origin_sha256,
+              }
+            : {}),
           operation_id: operation.id,
         });
         if (
           !(await orderTransferReview(
             document.data,
             source,
-            proposal!,
+            activeProposal!,
             opened!,
             controller!,
+            selectedPrevious || undefined,
           ))
         ) {
           throw new Error(
@@ -437,7 +491,19 @@ export function NativeOrderTransfer({
     }
   }
   async function loadReceipt() {
-    if (!visible || !/^[a-f0-9]{32}$/.test(chosenReceipt)) return;
+    if (
+      !visible ||
+      active.current ||
+      otherBusy ||
+      receiptChanging.current ||
+      !/^[a-f0-9]{32}$/.test(chosenReceipt)
+    )
+      return;
+    receiptChanging.current = true;
+    if (selectedPrevious) {
+      retire();
+      setPrevious(null);
+    }
     const request = ++receiptTicket.current,
       key = ownerNow.current,
       generation = epoch.current;
@@ -455,14 +521,19 @@ export function NativeOrderTransfer({
           "This receipt does not contain a supported execution-order operation. Inspect its original evidence in History.",
         );
       }
-      if (request === receiptTicket.current && current(key, generation))
+      if (request === receiptTicket.current && current(key, generation)) {
+        retire();
+        setPrevious(null);
         retain(document);
+      }
     } catch (failure) {
       if (request === receiptTicket.current && current(key, generation))
         setError(String(failure));
     } finally {
-      if (alive.current && request === receiptTicket.current)
+      if (alive.current && request === receiptTicket.current) {
+        receiptChanging.current = false;
         setReceiptLoading(false);
+      }
     }
   }
   const records: Data[] = Array.isArray(status?.receipts)
@@ -595,12 +666,41 @@ export function NativeOrderTransfer({
           {uncertainty.text}
         </p>
       )}
+      {selectedPrevious && (
+        <section aria-label="Selected previous execution-order transfer">
+          <h4>Previous order selected for controller review</h4>
+          <p>
+            Original receipt: {selectedPrevious.origin.parent_receipt_id}.
+            Recorded proof: {selectedPrevious.origin.verified_proof.kind} from{" "}
+            {selectedPrevious.origin.verified_proof.time}.
+          </p>
+          <p>
+            Controller review uses the recorded previous member order:{" "}
+            {selectedPrevious.proposal.proposed_order
+              .map((v: number) => v + 1)
+              .join(" → ")}
+            . The unfinished local editor draft is retained separately. A fresh
+            review, both confirmations and complete readback remain required.
+          </p>
+          <button
+            disabled={locked || !visible}
+            onClick={() => {
+              retire();
+              setPrevious(null);
+            }}
+          >
+            Use local order draft for controller review
+          </button>
+        </section>
+      )}
       {shown && (
         <section aria-label="Reviewed controller execution order">
           <p>
-            Review: {proposal!.diagram_ref}. Proposed member order:{" "}
-            {proposal!.proposed_order.map((v: number) => v + 1).join(" → ")}.
-            Device identity stays unchanged.
+            Review: {shown.data.order_edit.diagram_ref}. Proposed member order:{" "}
+            {shown.data.order_edit.proposed_order
+              .map((v: number) => v + 1)
+              .join(" → ")}
+            . Device identity stays unchanged.
           </p>
           <label>
             <input
@@ -648,10 +748,21 @@ export function NativeOrderTransfer({
             blocked={locked}
             revision={owner}
             onPreviousOrder={onPreviousOrder}
+            onControllerProposal={choosePrevious}
+            controllerProposalAvailable={controllerReady && previousAvailable}
             parentCurrent={() => current(owner, renderedEpoch)}
           />
+          <p>Recorded transfer receipt: {intent.id}.</p>
           {receiptTarget && (
             <p>Original transfer target: {targetLabel(receiptTarget)}.</p>
+          )}
+          {intent?.recovery_profile === orderRecoveryTransferProfile && (
+            <p>
+              Previous-order recovery · original receipt{" "}
+              {intent.recovery_origin.parent_receipt_id}. This is the newly
+              confirmed transfer's recorded lineage; the original receipt was
+              retained separately.
+            </p>
           )}
           <p role="status">
             {observed?.status === "verified"
@@ -692,6 +803,7 @@ export function NativeOrderTransfer({
       <div className="button-row">
         {receipt?.data.pending && receiptMatches ? (
           <button
+            key={`readback-${intent.id}-${renderedEpoch}`}
             className={visible ? "primary" : undefined}
             disabled={locked || !visible || !connected || !receiptMatches}
             onClick={() => void run("readback")}
@@ -699,9 +811,10 @@ export function NativeOrderTransfer({
             Read back execution order
           </button>
         ) : completed &&
-          connectionSame(intent?.order_edit, proposal) &&
+          connectionSame(intent?.order_edit, activeProposal) &&
           /^[a-f0-9]{32}$/.test(observed?.verification_capture_id || "") ? (
           <button
+            key={`verified-snapshot-${intent.id}-${renderedEpoch}`}
             className={visible ? "primary" : undefined}
             disabled={locked || !visible}
             onClick={() =>
@@ -712,19 +825,25 @@ export function NativeOrderTransfer({
           </button>
         ) : fresh ? (
           <button
+            key={`apply-${shown!.data.review_sha256}-${renderedEpoch}`}
             className={visible ? "primary" : undefined}
             disabled={!canReview || !confirmed || !interruption}
             onClick={() => void run("apply")}
           >
-            Apply execution order to controller
+            {selectedPrevious
+              ? "Apply previous execution order to controller"
+              : "Apply execution order to controller"}
           </button>
         ) : (
           <button
+            key={`review-${renderedEpoch}`}
             className={visible ? "primary" : undefined}
             disabled={!canReview}
             onClick={() => void run("preview")}
           >
-            Review execution-order transfer
+            {selectedPrevious
+              ? "Review previous execution-order transfer"
+              : "Review execution-order transfer"}
           </button>
         )}
         {shown && (
@@ -741,7 +860,13 @@ export function NativeOrderTransfer({
             aria-label="Execution-order receipt"
             value={chosenReceipt}
             disabled={locked || !visible || receiptLoading}
-            onChange={(e) => setChosenReceipt(e.target.value)}
+            onChange={(e) => {
+              if (selectedPrevious) {
+                retire();
+                setPrevious(null);
+              }
+              setChosenReceipt(e.target.value);
+            }}
           >
             <option value="">Choose a retained transfer</option>
             {records.map((row) => (

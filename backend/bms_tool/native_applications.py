@@ -141,6 +141,11 @@ from .native_instance_recovery import PROFILE as INSTANCE_RECOVERY_PROFILE
 from .native_instance_recovery import NativeInstanceRecovery
 from .native_name_recovery import PROFILE as NAME_RECOVERY_PROFILE
 from .native_name_recovery import NativeNameRecovery
+from .native_order_recovery_transfer import PROFILE as ORDER_RECOVERY_PROFILE
+from .native_order_recovery_transfer import recorded_parent as order_recovery_parent
+from .native_order_recovery_transfer import recovery_origin as order_recovery_origin
+from .native_order_recovery_transfer import validate_plan as validate_order_recovery_plan
+from .native_order_recovery_transfer import validate_recorded_lineage as validate_order_lineage
 from .native_order_transfer import PROFILE as ORDER_PROFILE
 from .native_order_transfer import SCOPE as ORDER_SCOPE
 from .native_order_transfer import (
@@ -322,6 +327,7 @@ class NativeApplications(NativeOrderOperations, NativeConnectionOperations, Nati
             "default_wire_transfer_scope": COMBINED_SCOPE,
             "execution_order_transfer_profile": ORDER_PROFILE,
             "execution_order_transfer_scope": ORDER_SCOPE,
+            "execution_order_recovery_transfer_profile": ORDER_RECOVERY_PROFILE,
             "matching_connection_transfer_profile": CONNECTION_PROFILE,
             "matching_connection_transfer_scope": CONNECTION_SCOPE,
             "backup_effects": backup_effects(),
@@ -355,6 +361,14 @@ class NativeApplications(NativeOrderOperations, NativeConnectionOperations, Nati
                             .get("parent_receipt_id"),
                         }
                         if r["intent"].get("recovery_profile") == BATCH_RECOVERY_PROFILE
+                        else {}
+                    ),
+                    **(
+                        {
+                            "recovery_profile": ORDER_RECOVERY_PROFILE,
+                            "recovery_parent_receipt": order_recovery_parent(r["intent"]),
+                        }
+                        if r["intent"].get("recovery_profile") == ORDER_RECOVERY_PROFILE
                         else {}
                     ),
                     **(
@@ -1432,6 +1446,7 @@ class NativeApplications(NativeOrderOperations, NativeConnectionOperations, Nati
             if intent.get("operation_profile") != ORDER_PROFILE:
                 raise ValueError("Unsupported native order evidence version; retain it.")
             validate_order_evidence(intent.get("order_edit"), intent.get("order_guard"))
+            validate_order_lineage(intent)
         if connection_edit:
             if intent.get("operation_profile") != CONNECTION_PROFILE:
                 raise ValueError("Unsupported native connection evidence version; retain it.")
@@ -1809,6 +1824,7 @@ class NativeApplications(NativeOrderOperations, NativeConnectionOperations, Nati
             ):
                 raise ValueError("The exact native order review changed; review again.")
             validate_order_evidence(plan["body"].get("order_edit"), plan["body"].get("order_guard"))
+            validate_order_recovery_plan(plan["body"], plan["options"])
         if connection_edit and plan["body"].get("operation_profile") != CONNECTION_PROFILE:
             raise ValueError("Unsupported native connection evidence version; retain it.")
         if connection_edit and seal(plan["body"]) != plan["digest"]:
@@ -2063,8 +2079,10 @@ class NativeApplications(NativeOrderOperations, NativeConnectionOperations, Nati
                             **binary_terminal_recovery_origin(self, options, compilation),
                         }
                         if input_edit
+                        else order_recovery_origin(self, options, compilation)
+                        if order_edit
                         else {}
-                        if connection_edit or order_edit
+                        if connection_edit
                         else self.point_name_recovery_origin(options, compilation)
                         if point_name_edit
                         else self.wire_recovery_origin(options, compilation)

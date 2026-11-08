@@ -7,6 +7,7 @@ controller files are accepted. Failed artifacts remain and no test is retried.
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import os
@@ -19,6 +20,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 BACKEND = [
+    "native_order_recovery_transfer",
+    "native_order_recovery_ledger",
     "native_order_recovery_proposal",
     "native_order_result_match",
     "native_order_transfer",
@@ -31,6 +34,7 @@ BACKEND = [
     "distribution_resources",
 ]
 BROWSER = [
+    "native-order-recovery-transfer",
     "native-order-recovery-proposal",
     "native-order-result-match",
     "native-order-transfer",
@@ -42,6 +46,9 @@ BROWSER = [
     "change-ledger",
 ]
 PREFILL = ["connections-prefill-queue", "connections-hydration"]
+BACKEND_CASES = 417
+BROWSER_CASES = 480
+PREFILL_CASES = 6
 
 
 def git(*args):
@@ -202,7 +209,7 @@ def backend(output, env):
         for line in (output / "backend-collection.log").read_text().splitlines()
         if line.startswith("tests/") and "::" in line
     ]
-    assert len(planned) == len(set(planned)) == 326
+    assert len(planned) == len(set(planned)) == BACKEND_CASES
     write(output / "backend-planned-case-ids.json", planned)
     run([*args, "--junitxml=" + str(output / "backend.xml")], output / "backend.log", env=env)
     root = ET.parse(output / "backend.xml").getroot()
@@ -215,7 +222,7 @@ def backend(output, env):
         s.get("classname").replace(".", "/") + ".py::" + s.get("name")
         for s in root.iter("testcase")
     ]
-    assert len(actual) == 326 and set(actual) == set(planned)
+    assert len(actual) == BACKEND_CASES and set(actual) == set(planned)
     return {"passed": len(actual), "planned_case_ids": planned, "retries": 0, "skips": 0}
 
 
@@ -292,6 +299,7 @@ def browser_group(output, env, mode, browser, number, name):
                 if check:
                     assert spec["ok"] and len(spec["tests"]) == 1
                     test = spec["tests"][0]
+                    assert test["timeout"] == 30000
                     assert test["expectedStatus"] == "passed" and len(test["results"]) == 1
                     assert test["results"][0]["status"] == "passed" and not test["results"][0].get(
                         "errors"
@@ -309,7 +317,54 @@ def browser_group(output, env, mode, browser, number, name):
         all(result["stats"][key] == 0 for key in ("unexpected", "skipped", "flaky"))
         and not result["errors"]
     )
-    return {"spec": name, "passed": len(actual), "case_ids": actual}
+    summary = {"spec": name, "passed": len(actual), "case_ids": actual}
+    if name == "connections-prefill-queue":
+        observations = []
+
+        def observe(suite):
+            for spec in suite.get("specs", []):
+                attachments = spec["tests"][0]["results"][0]["attachments"]
+                (attachment,) = [a for a in attachments if a["name"] == "prefill-event-order.json"]
+                if "body" in attachment:
+                    raw = base64.b64decode(attachment["body"], validate=True)
+                else:
+                    path = Path(attachment["path"]).resolve()
+                    assert path.is_relative_to((group / "artifacts").resolve())
+                    raw = path.read_bytes()
+                assert len(raw) <= 16384
+                claim = json.loads(raw)
+                phases = {event["phase"]: event["value"] for event in claim["events"]}
+                assert claim["armed"] is True and claim["claimed"] is True
+                assert claim["automatic"] != "127.0.0.1:47809"
+                assert phases["post-passive-commit"] == "127.0.0.1:47809"
+                assert phases["before-native-focus"] in {"127.0.0.1:47809", claim["automatic"]}
+                assert (
+                    phases["before-native-focus"] == phases["after-native-focus"] == claim["value"]
+                )
+                kind = spec["title"].split()[0]
+                assert kind in {"network", "status"}
+                observations.append(
+                    {
+                        "case_id": [spec["file"], spec["title"]],
+                        "kind": kind,
+                        "pending_at_focus": phases["before-native-focus"] == "127.0.0.1:47809"
+                        and "native-focus" in phases
+                        and "native-focusin" in phases,
+                        "native_focus_observed": "native-focus" in phases
+                        and "native-focusin" in phases,
+                        "before_focus": phases["before-native-focus"],
+                        "after_focus": phases["after-native-focus"],
+                        "automatic": claim["automatic"],
+                    }
+                )
+            for child in suite.get("suites", []):
+                observe(child)
+
+        for suite in result["suites"]:
+            observe(suite)
+        assert len(observations) == 4
+        summary["focus_orderings"] = observations
+    return summary
 
 
 def main():
@@ -353,12 +408,17 @@ def main():
         "skips": 0,
         "complete": False,
         "planned_backend_modules": BACKEND,
-        "planned_backend_cases_per_build": 326,
+        "planned_backend_cases_per_build": BACKEND_CASES,
         "planned_browser_groups": BROWSER,
-        "planned_browser_cases_per_matrix": 425,
+        "planned_browser_cases_per_matrix": BROWSER_CASES,
         "connection_prefill": [],
-        "planned_connection_prefill_cases_per_matrix": 6,
+        "planned_connection_prefill_cases_per_matrix": PREFILL_CASES,
     }
+    write(output / "qualification.json", report)
+    # Exercise the new workflow before legacy regressions or the backend cohort.
+    # Every declared group still runs; a failed group leaves an incomplete report.
+    report["groups"].append(browser_group(output, env, args.mode, args.browser, 1, BROWSER[0]))
+    assert git("rev-parse", "HEAD") == head and not git("status", "--porcelain")
     write(output / "qualification.json", report)
     for number, name in enumerate(PREFILL, 100):
         report["connection_prefill"].append(
@@ -366,14 +426,15 @@ def main():
         )
         assert git("rev-parse", "HEAD") == head and not git("status", "--porcelain")
         write(output / "qualification.json", report)
-    assert sum(group["passed"] for group in report["connection_prefill"]) == 6
+    assert sum(group["passed"] for group in report["connection_prefill"]) == PREFILL_CASES
     if args.browser == "chromium":
         report["backend"] = backend(output, env)
-    for number, name in enumerate(BROWSER, 1):
+        write(output / "qualification.json", report)
+    for number, name in enumerate(BROWSER[1:], 2):
         report["groups"].append(browser_group(output, env, args.mode, args.browser, number, name))
         assert git("rev-parse", "HEAD") == head and not git("status", "--porcelain")
         write(output / "qualification.json", report)
-    assert sum(group["passed"] for group in report["groups"]) == 425
+    assert sum(group["passed"] for group in report["groups"]) == BROWSER_CASES
     report["complete"] = True
     write(output / "qualification.json", report)
     print(json.dumps({k: v for k, v in report.items() if k not in ("groups", "backend")}))

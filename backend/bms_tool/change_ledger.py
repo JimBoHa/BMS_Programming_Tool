@@ -36,6 +36,8 @@ from .native_encoded_analog_recovery_transfer import KEYS as ENCODED_ANALOG_RECO
 from .native_input_ledger import input_reference
 from .native_inputs import TERMINAL_PROFILE
 from .native_ledger_details import native_reference, recovery_lineage
+from .native_order_recovery_ledger import recovery_namespace as order_recovery_namespace
+from .native_order_recovery_ledger import recovery_reference as order_recovery_reference
 from .native_point_name_ledger import point_name_reference
 from .native_point_name_recovery_ledger import point_name_recovery_reference
 from .native_terminal_ledger import terminal_reference
@@ -417,6 +419,8 @@ class ChangeLedger:
                 )
             elif native_kind == "connection":
                 native_metadata = connection_reference(body)
+            elif native_kind == "execution-order" and order_recovery_namespace(body):
+                native_metadata.update(order_recovery_reference(body))
             elif native_kind == "point-name":
                 native_metadata = point_name_reference(body)
                 native_metadata.update(
@@ -430,6 +434,7 @@ class ChangeLedger:
                     or "native_terminal_recovery" in native_metadata
                     or "native_binary_terminal" in native_metadata
                     or "native_encoded_analog_terminal" in native_metadata
+                    or "native_order_recovery" in native_metadata
                 )
                 else recovery_lineage(body, native_kind, native_metadata)
             )

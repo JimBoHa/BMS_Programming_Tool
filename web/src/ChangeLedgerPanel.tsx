@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { NativeBatchBundleInspection } from "./NativeBatchBundleInspection";
+import { NativeOrderRecoveryLedgerView, OrderRecoverySummary } from "./NativeOrderRecoveryLedgerView";
 import { EncodedAnalogTerminalSummary, NativeEncodedAnalogLedgerView } from "./NativeEncodedAnalogLedgerView";
 import { recordedEncodedAnalogTerminal } from "./nativeEncodedAnalogLedger";
 import { recordedEncodedAnalogRecovery } from "./nativeEncodedAnalogRecoveryLedger";
@@ -124,6 +125,7 @@ type Row = {
   native_default_wire?: unknown;
   native_default_batch?: unknown;
   native_default_batch_recovery?: unknown;
+  native_order_recovery?: unknown;
   native_point_name_recovery?: unknown;
   created_at: string;
   state: string;
@@ -747,6 +749,7 @@ export function ChangeLedgerPanel({
                         </span>
                       ) : row.native_default_batch !== undefined && <span>{recordedDefaultBatch(row.native_default_batch) ? "Recorded typed defaults" : "Batch metadata unavailable"}</span>}
                       {row.native_default_wire !== undefined && <span>{recordedDefaultWire(row.native_default_wire) ? "Recorded default and connection" : "Combined metadata unavailable"}</span>}
+                      <OrderRecoverySummary row={row} />
                       {row.native_binary_terminal_recovery === undefined && <PointNameRecoverySummary row={row} />}
                       {row.native_binary_terminal_recovery === undefined && row.native_encoded_analog_terminal === undefined && row.native_encoded_analog_recovery === undefined && row.native_recovery && (
                         <span>
@@ -879,6 +882,9 @@ export function ChangeLedgerPanel({
           )}
           {!binaryRecoveryPresent && nativeKind === "default-wire" && (
             combined ? <NativeDefaultWireLedgerView data={combined} /> : <p>Combined native metadata is unavailable. Inspect the original evidence.</p>
+          )}
+          {!binaryRecoveryPresent && nativeKind === "execution-order" && choice.native_order_recovery !== undefined && (
+            <NativeOrderRecoveryLedgerView row={choice} onParent={searchParent} />
           )}
           {!binaryRecoveryPresent && nativeKind === "connection" && (
             <section aria-label="Recorded native matching connection">

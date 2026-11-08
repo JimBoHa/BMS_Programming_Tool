@@ -22,8 +22,9 @@ list or replay the original transfer.
    guarded original permutation into the existing local editor. Replacing a
    different unfinished draft requires confirmation. No controller changes.
 6. Use the existing local review/export controls to produce a native file copy.
-   To change hardware, the ordinary controller workflow still requires a fresh
-   separately confirmed review, transfer and complete readback. This feature
+   The separate [previous-order controller transfer](native-order-recovery-transfer.md)
+   can select the verified previous order without replacing this draft. It
+   requires its own fresh confirmed review, transfer and complete readback. This feature
    records no field recovery lineage and supplies no field authorization.
 
 An open interface or historical verified result never establishes current
@@ -64,8 +65,9 @@ directories or other native edits that prevent an exact recorded-after match.
 It does not restore arbitrary snapshots, release overrides, reassign hardware,
 allocate new objects, migrate packages or provide a general JCI compiler.
 Firmware runtime/CCT equivalence, physical commissioning and BTCVT acceptance
-remain separate. Field recovery lineage needs its own supported transfer profile;
-an ordinary new order transfer is not retrospectively labelled as recovery.
+remain separate. The separate [previous-order controller transfer](native-order-recovery-transfer.md)
+now records typed lineage through its own profile; an ordinary new order transfer
+is not retrospectively labelled as recovery.
 
 Authored localhost peers exercise both supported diagram classes, raw/gzip
 sources, immutable verified readback, altered proofs/guards, mismatched route or
@@ -77,7 +79,7 @@ exports, draft confirmation, forged responses, navigation/lifetime retirement,
 and the existing order editor and transfer workflows. These are software checks,
 not physical acceptance.
 
-The **Native order qualification** GitHub Actions workflow runs the same scoped
+The initial **Native order qualification** GitHub Actions workflow qualified the scoped
 cohort against a clean, immutable commit in source and installed-wheel form, with
 Chromium and WebKit in the repository's pinned Playwright container. It declares
 326 backend cases per build and 425 browser/contract cases per matrix: 2,352
@@ -110,3 +112,7 @@ Repeat with `source` and `webkit` for the other matrix combinations. Backend
 checks run in each build's Chromium job, once per build. Running these authored
 software checks on Linux does not establish macOS desktop-session health or
 physical controller acceptance.
+
+The separate previous-order transfer expands the same immutable cohort to 417
+backend cases and 480 browser/contract cases, plus the six prefill cases per
+matrix. See [its qualification scope](native-order-recovery-transfer.md).

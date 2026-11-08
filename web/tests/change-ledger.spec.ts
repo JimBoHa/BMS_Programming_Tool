@@ -60,8 +60,14 @@ function report(rows: any[], extra = {}) {
   };
 }
 async function session(request: APIRequestContext) {
+  // Test-owned setup and cleanup must not reuse an idle socket across the UI work.
   const headers = {
-    "X-Studio-Token": (await (await request.get("/api/session")).json()).token,
+    Connection: "close",
+    "X-Studio-Token": (
+      await (
+        await request.get("/api/session", { headers: { Connection: "close" } })
+      ).json()
+    ).token,
   };
   expect(
     (await request.post("/api/bacnet/disconnect", { headers, data: {} })).ok(),

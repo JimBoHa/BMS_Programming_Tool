@@ -7,6 +7,14 @@ async function freePort(): Promise<number> {
     socket.once("error", reject);
     socket.bind(0, "127.0.0.1", () => {
       const address = socket.address();
+      if (typeof address !== "string" && address.port === 47809) {
+        // Keep that port reserved while choosing a different comparison value.
+        void freePort().then(
+          (port) => socket.close(() => resolve(port)),
+          (error) => socket.close(() => reject(error)),
+        );
+        return;
+      }
       socket.close(() =>
         resolve(typeof address === "string" ? 0 : address.port),
       );
@@ -27,7 +35,9 @@ async function claimQueuedPrefill(page: Page, kind: "network" | "status") {
         armed: false,
         claimed: false,
         value: "",
+        automatic: "",
         selection: [] as number[],
+        events: [] as { phase: string; value: string }[],
       };
       (window as any).__prefillClaim = state;
       (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
@@ -54,8 +64,40 @@ async function claimQueuedPrefill(page: Page, kind: "network" | "status") {
               : document.body.textContent?.includes("BACnet interface open");
           if (!ready) return;
           state.claimed = true;
+          state.events.push({
+            phase: "post-passive-commit",
+            value: input.value,
+          });
           queueMicrotask(() => {
+            state.events.push({
+              phase: "before-native-focus",
+              value: input.value,
+            });
+            input.addEventListener(
+              "focus",
+              () => {
+                state.events.push({
+                  phase: "native-focus",
+                  value: input.value,
+                });
+              },
+              { once: true },
+            );
+            input.addEventListener(
+              "focusin",
+              () => {
+                state.events.push({
+                  phase: "native-focusin",
+                  value: input.value,
+                });
+              },
+              { once: true },
+            );
             input.focus();
+            state.events.push({
+              phase: "after-native-focus",
+              value: input.value,
+            });
             input.select();
             state.value = input.value;
             state.selection = [input.selectionStart!, input.selectionEnd!];
@@ -80,11 +122,14 @@ for (const kind of ["network", "status"] as const)
           .token,
       };
       await request.post("/api/bacnet/disconnect", { headers, data: {} });
+      const savedLocalAddress = `127.0.0.1:${await freePort()}`;
+      const automatic =
+        kind === "network" ? "192.0.2.12:47809" : savedLocalAddress;
       if (kind === "status") {
         const response = await request.post("/api/bacnet/connect", {
           headers,
           data: {
-            local_address: `127.0.0.1:${await freePort()}`,
+            local_address: savedLocalAddress,
             instance: 4190032,
           },
         });
@@ -137,23 +182,39 @@ for (const kind of ["network", "status"] as const)
           .getByRole("button", { name: /^Connect to a controller/ })
           .click();
         await received;
-        await page.evaluate(() => {
+        await page.evaluate((automatic) => {
+          (window as any).__prefillClaim.automatic = automatic;
           (window as any).__prefillClaim.armed = true;
-        });
+        }, automatic);
         release();
         await expect
-          .poll(() => page.evaluate(() => (window as any).__prefillClaim.value))
-          .toBe("127.0.0.1:47809");
+          .poll(() =>
+            page.evaluate(() => !!(window as any).__prefillClaim.value),
+          )
+          .toBe(true);
+        const claim = await page.evaluate(() => (window as any).__prefillClaim);
+        const expected = claim.events.find(
+          (event: { phase: string }) => event.phase === "before-native-focus",
+        ).value;
+        expect(claim.events[0]).toEqual({
+          phase: "post-passive-commit",
+          value: "127.0.0.1:47809",
+        });
+        expect(["127.0.0.1:47809", automatic]).toContain(expected);
+        // A queued prefill can commit before the native focus call. Preserve
+        // exactly what was displayed at focus, including that legitimate case.
+        // If it is still pending, the original default must remain unchanged.
+        expect(claim.value).toBe(expected);
         const input = page.getByLabel("Local bind address / UDP port", {
           exact: true,
         });
-        await expect(input).toHaveValue("127.0.0.1:47809");
+        await expect(input).toHaveValue(expected);
         expect(
           await input.evaluate((element) => {
             const input = element as HTMLInputElement;
             return [input.selectionStart, input.selectionEnd];
           }),
-        ).toEqual([0, "127.0.0.1:47809".length]);
+        ).toEqual([0, expected.length]);
         const desired = `127.0.0.1:${await freePort()}`;
         await page.keyboard.insertText(desired);
         await expect(input).toHaveValue(desired);
@@ -169,6 +230,12 @@ for (const kind of ["network", "status"] as const)
             .local_address,
         ).toBe(desired);
       } finally {
+        await test.info().attach("prefill-event-order.json", {
+          body: JSON.stringify(
+            await page.evaluate(() => (window as any).__prefillClaim),
+          ),
+          contentType: "application/json",
+        });
         release();
         const closed = await request.post("/api/bacnet/disconnect", {
           headers,
