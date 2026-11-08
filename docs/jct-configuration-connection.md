@@ -68,3 +68,11 @@ read. Browser tests cover desktop and compact layouts, archive inspection,
 rejected login, expired sessions, delayed profile hydration and late sign-in
 cleanup in Chromium and WebKit. These tests establish software behavior; they
 do not qualify archive edits, supervisory transfers or live source changes.
+
+An authorized live check against configuration service 18.0 also established
+BMS Studio's own session, enumerated the available archives, read a selected
+archive's network devices and inspected a supervisory engine's configuration.
+The engine's native class, Device identifier and firmware were returned, the
+view identified its offline archive provenance, and credential fields were
+withheld. This verifies the live read path only; no archive edits, controller
+downloads or source changes were performed. Site captures remain private.
