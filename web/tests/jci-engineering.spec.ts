@@ -79,8 +79,11 @@ test("searchable inventory keeps parent packages and native gaps explicit", asyn
     .getByRole("button", { name: "Parity inventory", exact: true })
     .click();
   await expect(panel).toContainText("48 of 48");
+  await expect(
+    panel.getByRole("combobox", { name: "Engineering product", exact: true }),
+  ).toHaveAccessibleName("Engineering product");
   await panel
-    .getByLabel("Engineering product", { exact: true })
+    .getByRole("combobox", { name: "Engineering product", exact: true })
     .selectOption("JCT");
   await expect(panel).toContainText("18 of 48");
   await panel
