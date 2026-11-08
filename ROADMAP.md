@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
-Updated: 2026-11-07. Implementation baseline: GitHub `main` at
-[`f9b2e1e7`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/f9b2e1e731bb0ae0fc9bf6b14bd24cae66e62390).
+Updated: 2026-11-08. Implementation baseline: GitHub `main` at
+[`80bc5345`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/80bc53450eac163736ec32c7393bf5523c80f50a).
 
 ## Baseline and purpose
 
@@ -39,6 +39,14 @@ teal graphics guidance and one-feature-per-PR delivery. SCT/JCT parity is the ne
 JCI priority; the remaining original JCI and other-brand work stays on this roadmap.
 
 SJ-01 now has a [first read-only source/operation slice](docs/jci-engineering-source-inspection.md) in Help. The package remains partial: native archive/graphics decoding and exhaustive manual/fixture mapping are not completed by a reader match. Source fingerprints, explicit partial coverage and exact report downloads preserve controller/file drafts and grant no field authority.
+
+The [delivery-order table](#delivery-order) includes this priority. Before starting
+overlapping source, JCT connection or NAE capture work, review the
+[open-PR coordination map](docs/sct-jct-parity-roadmap.md#coordination-with-open-prs).
+It maps PRs #327, #329, #332, #334 and #335 to the parity packages. Reuse compatible,
+qualified code after integration; draft investigations do not grant completed
+capability credit. Preserve existing project revisions, readers, Changes/History
+and field-transfer services as those packages expand.
 
 The public requirement register currently records 212 scoped criteria: 158
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
@@ -347,14 +355,20 @@ commissioning or direct serial survey behavior.
 
 ## Delivery order
 
+SCT/JCT parity is the next JCI implementation priority after retained native
+restore. Baseline and workspace checks remain prerequisites for each affected
+slice. The detailed parity sequence orders the work within its row; the remaining
+JCI, shared and other-manufacturer groups retain their place below it.
+
 | Order | Work group | First deliverables | Dependency / completion gate |
 | --- | --- | --- | --- |
 | 0 | Baseline and evidence | BASE-01–BASE-03: reconcile old claims, preserve current tests and retain local ideas | Current GitHub baseline remains authoritative; no old code/layout replacement |
 | 1 | Workspace coherence and acquisition reliability | UX-01–UX-04, QA-01–QA-02 | Complete target propagation, source isolation and regression coverage before broad new UI |
-| 2 | JCI configuration, native engineering and hardware | JCI-01–JCI-07, JCI-09–JCI-10, IO-01–IO-04 | Reuse current adapter; supported typed edits, allocation, compilation and transfer expand independently |
-| 3 | JCI schedules, application families and commissioning | SCH-01–SCH-03, SEQ-01–SEQ-07, JCI-08 | Build on existing portable foundations; target/code acceptance remains explicit |
-| 4 | Shared semantics, diagnostics and portability | RUN-01–RUN-05, QA-03, PORT-01–PORT-03, REF-01–REF-03 | Small useful groups can proceed while a native or hardware dependency is unavailable |
-| 5 | Remaining manufacturers | ALC-01, HON-01, TRI-01, SED-01, TEM-01, REF-04 | Each adapter has its own format/runtime/transfer and physical acceptance evidence |
+| 2 | SCT/JCT parity: next JCI priority | SJ-01–SJ-06, SCT-01–SCT-24, JCT-01–JCT-18, following the [detailed sequence](docs/sct-jct-parity-roadmap.md#delivery-order-after-the-active-feature) | Review overlapping PRs before adding code; reuse qualified scopes and retain independent native codec, transfer and physical acceptance gates |
+| 3 | Remaining JCI configuration, native engineering and hardware | JCI-01–JCI-07, JCI-09–JCI-10, IO-01–IO-04 | Reuse current adapter; supported typed edits, allocation, compilation and transfer expand independently |
+| 4 | JCI schedules, application families and commissioning | SCH-01–SCH-03, SEQ-01–SEQ-07, JCI-08 | Build on existing portable foundations; target/code acceptance remains explicit |
+| 5 | Shared semantics, diagnostics and portability | RUN-01–RUN-05, QA-03, PORT-01–PORT-03, REF-01–REF-03 | Small useful groups can proceed while a native or hardware dependency is unavailable |
+| 6 | Remaining manufacturers | ALC-01, HON-01, TRI-01, SED-01, TEM-01, REF-04 | Each adapter has its own format/runtime/transfer and physical acceptance evidence |
 
 Within a group, implement one feature or a coherent small set, test it, update
 its criteria and submit a separate PR. Work that needs unavailable hardware or
