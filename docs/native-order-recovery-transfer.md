@@ -117,7 +117,7 @@ the reproducible command and `native-order-recovery-proposal.md` for tool setup.
 The browser interaction deadline remains 30 seconds. Happy-path and uncertain
 transfer cases prepare their actual completed original transfer in a separate
 test-owned fixture with its own 30-second setup/cleanup deadline. Both original
-and new restores retain the application's ordinary six-second preparation delay
+and new restores retain the application's ordinary five-second preparation delay
 and normal acknowledgment/readback budgets. Each phase fails independently;
 no failed sample is retried. The larger 417/480-case cohort has a 45-minute job
 allocation, increased from the preceding 326/425 cohort's 35 minutes. This changes

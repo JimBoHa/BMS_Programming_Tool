@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { NativeBatchBundleInspection } from "./NativeBatchBundleInspection";
 import { NativeOrderRecoveryLedgerView, OrderRecoverySummary } from "./NativeOrderRecoveryLedgerView";
+import { NativeSnapshotRestoreLedgerView, SnapshotRestoreSummary, recordedSnapshotRestore } from "./NativeSnapshotRestoreLedgerView";
 import { EncodedAnalogTerminalSummary, NativeEncodedAnalogLedgerView } from "./NativeEncodedAnalogLedgerView";
 import { recordedEncodedAnalogTerminal } from "./nativeEncodedAnalogLedger";
 import { recordedEncodedAnalogRecovery } from "./nativeEncodedAnalogRecoveryLedger";
@@ -110,6 +111,7 @@ type Row = {
   id: string;
   label: string;
   native_change_kind?: string | null;
+  native_application_restore?: unknown;
   native_reference_issue?: string;
   native_wire_index?: number;
   native_recovery?: NativeRecovery;
@@ -417,6 +419,7 @@ export function ChangeLedgerPanel({
       (nativeKind === "connection" &&
         !!recordedConnection(choice.native_connection)) ||
       (nativeKind === "default-wire" && !!recordedDefaultWire(choice.native_default_wire)) ||
+      (nativeKind === "application-restore" && !!recordedSnapshotRestore(choice)) ||
       (nativeKind === "default-batch" &&
         (choice.native_default_batch_recovery !== undefined
           ? !!batchRecovery
@@ -468,6 +471,7 @@ export function ChangeLedgerPanel({
         "default-batch",
         "connection",
         "execution-order",
+        "application-restore",
         "input",
         "point-name",
       ].includes(nativeKind)) ||
@@ -480,7 +484,8 @@ export function ChangeLedgerPanel({
       !pointName) ||
     (choice?.source === "native" && nativeKind === "connection" && !connection) ||
     (choice?.source === "native" && nativeKind === "default-wire" && !combined) ||
-    (choice?.source === "native" && nativeKind === "default-batch" && !defaultBatch && !batchRecovery);
+    (choice?.source === "native" && nativeKind === "default-batch" && !defaultBatch && !batchRecovery) ||
+    (choice?.source === "native" && nativeKind === "application-restore" && !recordedSnapshotRestore(choice));
   const toolLabel = unsupportedNative
     ? undefined
     : pointName
@@ -750,6 +755,7 @@ export function ChangeLedgerPanel({
                       ) : row.native_default_batch !== undefined && <span>{recordedDefaultBatch(row.native_default_batch) ? "Recorded typed defaults" : "Batch metadata unavailable"}</span>}
                       {row.native_default_wire !== undefined && <span>{recordedDefaultWire(row.native_default_wire) ? "Recorded default and connection" : "Combined metadata unavailable"}</span>}
                       <OrderRecoverySummary row={row} />
+                      <SnapshotRestoreSummary row={row} />
                       {row.native_binary_terminal_recovery === undefined && <PointNameRecoverySummary row={row} />}
                       {row.native_binary_terminal_recovery === undefined && row.native_encoded_analog_terminal === undefined && row.native_encoded_analog_recovery === undefined && row.native_recovery && (
                         <span>
@@ -885,6 +891,9 @@ export function ChangeLedgerPanel({
           )}
           {!binaryRecoveryPresent && nativeKind === "execution-order" && choice.native_order_recovery !== undefined && (
             <NativeOrderRecoveryLedgerView row={choice} onParent={searchParent} />
+          )}
+          {!binaryRecoveryPresent && nativeKind === "application-restore" && (
+            <NativeSnapshotRestoreLedgerView row={choice} />
           )}
           {!binaryRecoveryPresent && nativeKind === "connection" && (
             <section aria-label="Recorded native matching connection">

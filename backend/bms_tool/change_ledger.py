@@ -40,6 +40,7 @@ from .native_order_recovery_ledger import recovery_namespace as order_recovery_n
 from .native_order_recovery_ledger import recovery_reference as order_recovery_reference
 from .native_point_name_ledger import point_name_reference
 from .native_point_name_recovery_ledger import point_name_recovery_reference
+from .native_snapshot_restore_ledger import restore_reference
 from .native_terminal_ledger import terminal_reference
 from .native_terminal_recovery_ledger import terminal_recovery_reference
 
@@ -369,6 +370,7 @@ class ChangeLedger:
                 "execution-order": "Native execution-order transfer",
                 "input": "Native input configuration transfer",
                 "point-name": "Native point-name transfer",
+                "application-restore": "Retained native application restore",
             }
             candidate = body.get("change_kind", "instance")
             native_kind = (
@@ -379,7 +381,9 @@ class ChangeLedger:
             if native_kind == "execution-order":
                 selection = body.get("order_edit")
             native_metadata = native_reference(native_kind, selection)
-            if native_kind == "default-batch":
+            if native_kind == "application-restore":
+                native_metadata = restore_reference(body)
+            elif native_kind == "default-batch":
                 native_metadata = (
                     batch_recovery_reference(body)
                     if batch_recovery_namespace(body)
@@ -435,6 +439,7 @@ class ChangeLedger:
                     or "native_binary_terminal" in native_metadata
                     or "native_encoded_analog_terminal" in native_metadata
                     or "native_order_recovery" in native_metadata
+                    or "native_application_restore" in native_metadata
                 )
                 else recovery_lineage(body, native_kind, native_metadata)
             )

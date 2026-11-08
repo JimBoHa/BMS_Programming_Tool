@@ -171,6 +171,17 @@ from .native_point_names import (
     verify_point_name_preservation,
 )
 from .native_runtime_calibration import read_runtime_calibration
+from .native_snapshot_restore import PROFILE as SNAPSHOT_RESTORE_PROFILE
+from .native_snapshot_restore import SCOPE as SNAPSHOT_RESTORE_SCOPE
+from .native_snapshot_restore import RestoreExport, RestoreSource, qualify_restore_counters
+from .native_snapshot_restore import reconstruct as reconstruct_snapshot_restore
+from .native_snapshot_restore import reconstruct_intent as reconstruct_snapshot_restore_intent
+from .native_snapshot_restore import verify_restore as verify_snapshot_restore
+from .native_snapshot_restore_transfer import (
+    NativeSnapshotRestoreOperations,
+    RestoreApply,
+    RestorePreview,
+)
 from .native_terminal_recovery import NativeTerminalRecovery
 from .native_terminal_recovery_transfer import TerminalRecoveryPreview
 from .native_terminal_recovery_transfer import recovery_origin as terminal_recovery_origin
@@ -259,7 +270,12 @@ class NativeCredentials(StrictModel):
     restore: SecretStr
 
 
-class NativeApplications(NativeOrderOperations, NativeConnectionOperations, NativeInputOperations):
+class NativeApplications(
+    NativeSnapshotRestoreOperations,
+    NativeOrderOperations,
+    NativeConnectionOperations,
+    NativeInputOperations,
+):
     id = "mce-native-application"
 
     def __init__(
@@ -328,6 +344,8 @@ class NativeApplications(NativeOrderOperations, NativeConnectionOperations, Nati
             "execution_order_transfer_profile": ORDER_PROFILE,
             "execution_order_transfer_scope": ORDER_SCOPE,
             "execution_order_recovery_transfer_profile": ORDER_RECOVERY_PROFILE,
+            "retained_application_restore_profile": SNAPSHOT_RESTORE_PROFILE,
+            "retained_application_restore_scope": SNAPSHOT_RESTORE_SCOPE,
             "matching_connection_transfer_profile": CONNECTION_PROFILE,
             "matching_connection_transfer_scope": CONNECTION_SCOPE,
             "backup_effects": backup_effects(),
@@ -353,6 +371,14 @@ class NativeApplications(NativeOrderOperations, NativeConnectionOperations, Nati
                     "old_name": r["intent"].get("old_name"),
                     "new_name": r["intent"].get("new_name"),
                     "default_edit": r["intent"].get("default_edit"),
+                    **(
+                        {
+                            "restore_source": r["intent"].get("restore_source"),
+                            "operation_profile": r["intent"].get("operation_profile"),
+                        }
+                        if r["intent"].get("change_kind") == "application-restore"
+                        else {}
+                    ),
                     **(
                         {
                             "recovery_profile": BATCH_RECOVERY_PROFILE,
@@ -1412,6 +1438,7 @@ class NativeApplications(NativeOrderOperations, NativeConnectionOperations, Nati
             "execution-order",
             "point-name",
             "input",
+            "application-restore",
         ):
             raise ValueError("Unrecognized native transfer operation; retain its evidence.")
         boolean_edit = change_kind == "boolean-default"
@@ -1424,8 +1451,10 @@ class NativeApplications(NativeOrderOperations, NativeConnectionOperations, Nati
         connection_edit = change_kind == "connection"
         point_name_edit = change_kind == "point-name"
         input_edit = change_kind == "input"
+        snapshot_restore = change_kind == "application-restore"
         program_edit = (
-            default_edit
+            snapshot_restore
+            or default_edit
             or wire_edit
             or point_name_edit
             or input_edit
@@ -1447,6 +1476,8 @@ class NativeApplications(NativeOrderOperations, NativeConnectionOperations, Nati
                 raise ValueError("Unsupported native order evidence version; retain it.")
             validate_order_evidence(intent.get("order_edit"), intent.get("order_guard"))
             validate_order_lineage(intent)
+        if snapshot_restore:
+            reconstruct_snapshot_restore_intent(self.storage, intent)
         if connection_edit:
             if intent.get("operation_profile") != CONNECTION_PROFILE:
                 raise ValueError("Unsupported native connection evidence version; retain it.")
@@ -1534,12 +1565,17 @@ class NativeApplications(NativeOrderOperations, NativeConnectionOperations, Nati
                 ).compile()
                 original_digest = sha(MoiIdentity(original).data)
                 if digest == original_digest and backup.get("source_identity_matches"):
-                    result["preservation"] = verify_preservation(
+                    original_preservation = verify_preservation(
                         original_files,
                         files,
                         old_instance=intent["old_instance"],
                         new_instance=intent["old_instance"],
                     )
+                    if snapshot_restore:
+                        qualify_restore_counters(
+                            files, original_preservation["runtime_counter_changes"]
+                        )
+                    result["preservation"] = original_preservation
                     if point_name_edit:
                         edit = PointNameEdit(**intent["point_name_edit"])
                         name = await self.path._read(session, edit.object_id, "object-name")
@@ -1586,7 +1622,9 @@ class NativeApplications(NativeOrderOperations, NativeConnectionOperations, Nati
                     else {}
                 )
                 result["preservation"] = (
-                    verify_batch_preservation(
+                    verify_snapshot_restore(self.storage, intent, files)
+                    if snapshot_restore
+                    else verify_batch_preservation(
                         original_files, files, intent["batch_edit"], intent["batch_guard"]
                     )
                     if batch_edit
@@ -1725,6 +1763,7 @@ class NativeApplications(NativeOrderOperations, NativeConnectionOperations, Nati
         connection_edit=False,
         combined_edit=False,
         batch_edit=False,
+        snapshot_restore=False,
     ):
         if (
             sum(
@@ -1737,6 +1776,7 @@ class NativeApplications(NativeOrderOperations, NativeConnectionOperations, Nati
                     bool(connection_edit),
                     bool(combined_edit),
                     bool(batch_edit),
+                    bool(snapshot_restore),
                 )
             )
             > 1
@@ -1745,7 +1785,8 @@ class NativeApplications(NativeOrderOperations, NativeConnectionOperations, Nati
         ):
             raise ValueError("Choose one native transfer operation.")
         program_edit = (
-            default_edit
+            snapshot_restore
+            or default_edit
             or wire_edit
             or point_name_edit
             or input_edit
@@ -1762,7 +1803,9 @@ class NativeApplications(NativeOrderOperations, NativeConnectionOperations, Nati
         renaming = plan["body"].get("change_kind") == "name"
         kind = plan["body"].get("change_kind", "instance")
         expected_kind = (
-            "default-batch"
+            "application-restore"
+            if snapshot_restore
+            else "default-batch"
             if batch_edit
             else "default-wire"
             if combined_edit
@@ -1784,6 +1827,10 @@ class NativeApplications(NativeOrderOperations, NativeConnectionOperations, Nati
         )
         if kind not in ((expected_kind,) if program_edit else ("instance", "name")):
             raise ValueError("This review belongs to a different native transfer operation.")
+        if snapshot_restore:
+            if seal(plan["body"]) != plan["digest"]:
+                raise ValueError("The exact retained application restore review changed.")
+            self.validate_restore_plan(plan["body"], plan["options"])
         if batch_edit:
             if (
                 plan["body"].get("operation_profile") != BATCH_PROFILE
@@ -1874,6 +1921,7 @@ class NativeApplications(NativeOrderOperations, NativeConnectionOperations, Nati
                 and not (request.default_change_confirmed and request.wire_change_confirmed)
             )
             or (batch_edit and not request.defaults_change_confirmed)
+            or (snapshot_restore and not request.historical_application_confirmed)
             or (wire_edit and not request.wire_change_confirmed)
             or (order_edit and not request.order_change_confirmed)
             or (connection_edit and not request.connection_change_confirmed)
@@ -1908,7 +1956,9 @@ class NativeApplications(NativeOrderOperations, NativeConnectionOperations, Nati
                 if seal(self.credentials.get()) != plan["credentials_digest"]:
                     raise ValueError("Transfer credentials changed; review again.")
                 collision = (
-                    self.default_scope()
+                    self.restore_scope()
+                    if snapshot_restore
+                    else self.default_scope()
                     if batch_edit
                     else self.default_wire_scope()
                     if combined_edit
@@ -1953,7 +2003,9 @@ class NativeApplications(NativeOrderOperations, NativeConnectionOperations, Nati
                             "Application or saved parameter directory changed after review. Capture and review again."
                         )
                     output, compilation = (
-                        compile_batch_defaults(
+                        reconstruct_snapshot_restore(self.storage, body, files)
+                        if snapshot_restore
+                        else compile_batch_defaults(
                             files,
                             body["batch_edit"],
                             fresh=True,
@@ -2069,7 +2121,9 @@ class NativeApplications(NativeOrderOperations, NativeConnectionOperations, Nati
                             "Native application review or credentials changed during preflight. Review again."
                         )
                     recovery = (
-                        batch_recovery_origin(self, options, compilation)
+                        {}
+                        if snapshot_restore
+                        else batch_recovery_origin(self, options, compilation)
                         if batch_edit
                         else {}
                         if combined_edit
@@ -2095,6 +2149,14 @@ class NativeApplications(NativeOrderOperations, NativeConnectionOperations, Nati
                     )
                     if recovery and any(body.get(key) != value for key, value in recovery.items()):
                         raise ValueError("The recovery origin changed after review. Prepare again.")
+                    if snapshot_restore:
+                        checked_output, checked_compilation = reconstruct_snapshot_restore(
+                            self.storage, body, files
+                        )
+                        if checked_output != output or checked_compilation != compilation:
+                            raise ValueError(
+                                "Retained restore sources changed before durable intent."
+                            )
                     intent = self.storage.intent(
                         {
                             **{
@@ -2119,6 +2181,16 @@ class NativeApplications(NativeOrderOperations, NativeConnectionOperations, Nati
                             "native_payload_sha256": sha(MoiIdentity(output).data),
                             "compilation": compilation,
                             "collision_check": collision,
+                            **(
+                                {
+                                    "operation_profile": SNAPSHOT_RESTORE_PROFILE,
+                                    "restore_source": body["restore_source"],
+                                    "review_snapshot_sha256": body["snapshot_sha256"],
+                                    "historical_application_confirmed": request.historical_application_confirmed,
+                                }
+                                if snapshot_restore
+                                else {}
+                            ),
                             **(
                                 {
                                     "batch_edit": body["batch_edit"],
@@ -2383,6 +2455,36 @@ def native_application_router(service):
     @router.post("/preview")
     async def preview(body: NativePreview):
         return await service.preview(**body.model_dump())
+
+    @router.post("/application-restore/source")
+    def inspect_restore_source(body: RestoreSource):
+        return service.restore_source(body.model_dump())[1]
+
+    @router.post("/application-restore/export")
+    def export_restore_source(body: RestoreExport):
+        output, report = service.restore_source(
+            body.model_dump(include=set(RestoreSource.model_fields))
+        )
+        if body.source_evidence_sha256 != report["evidence_sha256"]:
+            raise ValueError("The retained restore image changed; inspect its source again.")
+        return Response(
+            output,
+            media_type="application/octet-stream",
+            headers={
+                "X-BMS-Restore-Source": body.restore_capture_id,
+                "X-BMS-Restore-Snapshot": body.restore_snapshot_sha256,
+                "X-BMS-Restore-Review": report["evidence_sha256"],
+                "X-BMS-Artifact-SHA256": report["compilation"]["compiled_sha256"],
+            },
+        )
+
+    @router.post("/application-restore/preview")
+    async def preview_restore(body: RestorePreview):
+        return await service.preview_snapshot_restore(**body.model_dump())
+
+    @router.post("/application-restore/apply")
+    async def apply_restore(body: RestoreApply):
+        return await service.apply_snapshot_restore(**body.model_dump())
 
     @router.post("/point-name/source")
     async def point_name_source(body: PointNameSource):
