@@ -133,6 +133,14 @@ retain at least one actually pending-at-focus sample of each producer (network
 recommendation and saved status) in source and installed modes across their two
 engines. Both timing outcomes are recorded; no sample is skipped or retried.
 
+The existing Changes regression helper closes its own setup/cleanup HTTP
+connections. A retained source Chromium trace passed all station-change and
+stale-evidence assertions, then reset the cleanup request at the server's
+five-second idle keepalive boundary. Closing the test client's connections avoids
+that reuse boundary without retrying a request or changing application HTTP
+settings, case identifiers, assertions or deadlines. The failed original remains
+retained and the complete immutable cohort must pass again.
+
 These checks establish this bounded software transfer path. Physical controller,
 BTCVT, vendor CCT comparison, general logic/object allocation, hardware remapping,
 changed-current-source recovery and unrestricted cross-brand compilation still
