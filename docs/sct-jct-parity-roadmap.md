@@ -99,14 +99,42 @@ Their remaining gaps stay explicit. In particular:
   source comparison; it does not establish supervisory schema equivalence.
 - Existing graph execution is a foundation for simulation. LCT timing, type,
   state/restart and native compile semantics need their own reference cases.
-- PRs [#327](https://github.com/JimBoHa/BMS_Programming_Tool/pull/327) and
-  [#329](https://github.com/JimBoHa/BMS_Programming_Tool/pull/329) are related
-  source-inspection/preservation work. Review their actual delivery before
-  crediting main; neither supporting scope proves live NAE source reassignment.
 
 Do not rebuild these scopes or replace their field-tested interface wholesale.
 The 48 packages below are implementation work packages, not 48 newly completed
 features or a replacement count for the existing requirement register.
+
+## Coordination with open PRs
+
+Reviewed against GitHub `main` at `80bc5345` on 2026-11-08. The following PRs are
+open drafts at that review point. Refresh their status, diff and qualification
+before starting overlapping work or integrating them. Their proposed scopes are
+reuse candidates; no draft is credited as an implemented capability on `main`.
+
+| PR | Proposed scope to review and reuse | Related parity packages | Remaining boundary |
+| --- | --- | --- | --- |
+| [#327](https://github.com/JimBoHa/BMS_Programming_Tool/pull/327) | Read-only mapped-point source inspection with native identity and route checks | SJ-03; SCT-03; SCT-04 | Inspection does not edit an existing point source or establish preservation after an edit. |
+| [#329](https://github.com/JimBoHa/BMS_Programming_Tool/pull/329) | Exact source manifests and comparison of captured identities, properties and links | SJ-04; SCT-04; SCT-16; SCT-19 | Imported captures are supplemental preservation evidence, not a native backup, fresh readback or authority to apply a change. |
+| [#332](https://github.com/JimBoHa/BMS_Programming_Tool/pull/332) | Authenticated configuration client and isolated source-method qualification | SJ-06; SCT-04; SCT-16 | The investigated ordinary source-write methods were refused. This does not qualify production source reassignment or supervisory deployment. |
+| [#334](https://github.com/JimBoHa/BMS_Programming_Tool/pull/334) | Separate JCT configuration login and read-only archive/device/object inspection in Settings | SJ-03; SCT-03; SCT-15; JCT-17 | JCT configuration authority is separate from online Metasys authority. Readable archive projections do not qualify native backup, editing or transfer. This PR is stacked on #332. |
+| [#335](https://github.com/JimBoHa/BMS_Programming_Tool/pull/335) | Direct NAE native BACnet backup acquisition and native-engine HTTPS authentication/reads | SJ-05; SJ-06; SCT-15; SCT-21 | Internal acquisition and authentication are distinct from native decoding, editing, restore and deployment. Backup File capture and final operator workflows still require their own qualification. |
+
+Integrate one reviewed scope at a time from current `main`. Check branch
+dependencies, preserve the running application and port compatible changes
+rather than replacing files with older branch versions. Record conflict decisions
+and run affected source, installed-build and browser checks as appropriate.
+After merging, update the exact scoped criterion, parent-package credit and
+inventory evidence without marking the full package complete. Until then, keep
+the remaining work and capability counts explicit.
+
+The direct NAE path in #335 and optional JCT archive connection in #334 serve
+different sources and authentication realms. A JCT/SCT service must not become a
+prerequisite for our portable project or the independently qualified direct NAE
+adapter. Reuse existing project revisions, source readers and Changes/History
+where their contracts apply. Retain the existing field-controller transfer
+profiles; supervisory capture, restore and deployment need their own qualified
+transactions and recoverable native originals. SJ-05's durable job requirements
+still apply before exposing new supervisory capture or deployment workflows.
 
 ## Shared foundations: implement first
 
