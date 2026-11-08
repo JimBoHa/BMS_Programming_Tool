@@ -35,7 +35,9 @@ def caf_source(xml=XML, *, second=False, encrypted=False):
         archive.writestr(zipfile.ZipInfo("authored.xml", (1980, 1, 1, 0, 0, 0)), xml)
         archive.comment = b"Authored original"
         if second:
-            archive.writestr("another.xml", b"<different/>")
+            other = zipfile.ZipInfo("another.xml", (1980, 1, 1, 0, 0, 0))
+            other.compress_type = zipfile.ZIP_DEFLATED
+            archive.writestr(other, b"<different/>")
     raw = bytearray(output.getvalue())
     if encrypted:
         raw[6] |= 1
