@@ -1797,6 +1797,7 @@ export function App() {
         "connection",
         "execution-order",
         "default-batch",
+        "application-restore",
       ].includes(nativeChangeKind)
     ) {
       setTab("native-compiler");

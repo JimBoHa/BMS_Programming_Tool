@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { BookOpen, Search, ExternalLink } from "lucide-react";
 import { api } from "./api";
+import { JciEngineeringDesk } from "./JciEngineeringDesk";
 
 export function Resources() {
+  const [engineeringOpen, setEngineeringOpen] = useState(false);
   const [capabilities, setCapabilities] = useState<any[]>([]),
     [references, setReferences] = useState<any[]>([]),
     [requirements, setRequirements] = useState<any[]>([]),
@@ -37,6 +39,17 @@ export function Resources() {
         </div>
         <BookOpen size={32} />
       </div>
+      <details className="card jci-engineering-shell" open={engineeringOpen}>
+        <summary
+          onClick={(e) => {
+            e.preventDefault();
+            setEngineeringOpen((value) => !value);
+          }}
+        >
+          SCT/JCT engineering sources and parity inventory
+        </summary>
+        <JciEngineeringDesk active={engineeringOpen} />
+      </details>
       <section className="card">
         <div className="card-header">
           <h3>Capability matrix</h3>

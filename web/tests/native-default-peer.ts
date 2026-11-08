@@ -19,7 +19,8 @@ export async function nativeDefaultPeer(
     | "input"
     | "binary-input"
     | "encoded-analog-input"
-    | "point-name" = "real",
+    | "point-name"
+    | "application-restore" = "real",
   enumStates = false,
 ) {
   const child = spawn(
@@ -40,7 +41,11 @@ from bacpypes3.local.device import DeviceObject
 from bacpypes3.local.networkport import NetworkPortObject
 async def main():
  p=port();app=NativePeer.from_object_list([DeviceObject(objectIdentifier=('device',5136),objectName='Authored controller',vendorIdentifier=5),NetworkPortObject(f'127.0.0.1:{p}',objectIdentifier=('network-port',1),objectName='Owned native default peer')]);app.setup()
- if sys.argv[2]=='input':
+ if sys.argv[2]=='application-restore':
+  from tests.test_native_snapshot_restore import files,consume_historical_storage
+  app.files=files(modules=1);retained_files=copy.deepcopy(app.files);consume_historical_storage(app,retained_files)
+  app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
+ elif sys.argv[2]=='input':
   from tests.test_native_input_transfer import install_input_peer
   install_input_peer((app,None,None,None,None))
  elif sys.argv[2]=='encoded-analog-input':
@@ -111,7 +116,11 @@ async def main():
  def command():
   line=sys.stdin.readline().strip()
   if not line:return
-  if line=='selected43':real_slot(app.files,-10,struct.pack('>f',43))
+  if line=='snapshot-current':
+   from tests.test_native_snapshot_restore import files
+   app.files=files(modules=4);real_slot(app.files,4,struct.pack('>f',22.5))
+  elif line=='snapshot-setting-changed':real_slot(app.files,4,struct.pack('>f',23))
+  elif line=='selected43':real_slot(app.files,-10,struct.pack('>f',43))
   elif line=='restore42':
    import types
    app.do_ReinitializeDeviceRequest=types.MethodType(NativePeer.do_ReinitializeDeviceRequest,app);controller_storage(app,bits='42280000')
@@ -187,7 +196,12 @@ async def main():
      prop=actual.reader.records[C]['properties'][3113];offset=prop['value_start_offset']+1
      connection_evidence['combined_real_bits']=actual.data[offset:offset+4].hex()
    except ValueError as exc:connection_evidence={'connection_error':str(exc)}
-  print('RESULT '+json.dumps({'command':line,'events':app.events,'instance':app.instance,'router_errors':proxy.errors,'request_types':[r['type'] for r in proxy.requests]}|({'discovery_requests':proxy.discovery_requests,'discovery_responses':proxy.discovery_responses} if sys.argv[2]=='instance' else {})|enum_evidence|connection_evidence),flush=True)
+  snapshot_evidence={}
+  if sys.argv[2]=='application-restore':
+   from bms_tool.moi_identity import MoiIdentity,sha
+   from tests.test_native_snapshot_restore import literal_saved_image
+   actual=MoiIdentity(app.files[3]);snapshot_evidence={'native_sha256':sha(actual.data),'expected_native_sha256':sha(literal_saved_image()),'native_record_count':len(actual.records),'saved_files_sha256':sha(app.files[11]+app.files[12])}
+  print('RESULT '+json.dumps({'command':line,'events':app.events,'instance':app.instance,'router_errors':proxy.errors,'request_types':[r['type'] for r in proxy.requests]}|({'discovery_requests':proxy.discovery_requests,'discovery_responses':proxy.discovery_responses} if sys.argv[2]=='instance' else {})|enum_evidence|connection_evidence|snapshot_evidence),flush=True)
  asyncio.get_running_loop().add_reader(sys.stdin.fileno(),command)
  try:await asyncio.Event().wait()
  finally:transport.close();app.close()

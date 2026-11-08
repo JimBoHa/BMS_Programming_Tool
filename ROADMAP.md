@@ -1,7 +1,7 @@
 # BMS Studio development roadmap
 
 Updated: 2026-11-07. Implementation baseline: GitHub `main` at
-[`49b6e392`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/49b6e392c9bbd339fff47cfda2a530afc02df1bc).
+[`f9b2e1e7`](https://github.com/JimBoHa/BMS_Programming_Tool/commit/f9b2e1e731bb0ae0fc9bf6b14bd24cae66e62390).
 
 ## Baseline and purpose
 
@@ -19,7 +19,28 @@ testing, deploying and verifying controllers. Johnson Controls FX/Metasys comes
 first; other manufacturers follow after independent JCI work or blocked work has
 been addressed.
 
-The public requirement register currently records 210 scoped criteria: 156
+### Added priority: SCT and JCT parity
+
+Following the qualified and merged retained native restore delivery in PR #330,
+continue the [detailed SCT/JCT parity plan](docs/sct-jct-parity-roadmap.md).
+Its 48 work packages cover six shared foundations, 24 SCT engineering and
+deployment packages, and 18 JCT archive/graphics/administration packages. The
+[machine-readable backlog](docs/sct-jct-parity-backlog.csv) records dependencies,
+acceptance and source evidence. These packages are planned work, not additional
+implemented criteria or a replacement for the existing register.
+
+Start with the operation/evidence inventory, portable project/original retention,
+typed site-object model, source-bound explorer, diagnostic reports and local
+comparison. Continue into point/source editing, spaces/equipment and graphics,
+then independently qualified supervisory logic, native capture/deployment, job
+orchestration and synchronization. Keep useful local engineering independent of
+missing vendor-format fixtures. Preserve the existing controller/file workspace,
+teal graphics guidance and one-feature-per-PR delivery. SCT/JCT parity is the next
+JCI priority; the remaining original JCI and other-brand work stays on this roadmap.
+
+SJ-01 now has a [first read-only source/operation slice](docs/jci-engineering-source-inspection.md) in Help. The package remains partial: native archive/graphics decoding and exhaustive manual/fixture mapping are not completed by a reader match. Source fingerprints, explicit partial coverage and exact report downloads preserve controller/file drafts and grant no field authority.
+
+The public requirement register currently records 212 scoped criteria: 158
 implemented, 46 partial and eight pending. Those 54 partial/pending rows are
 cross-referenced in [the roadmap backlog](docs/roadmap-backlog.csv), together with
 additional preserved ideas and workspace gaps. These counts describe the existing
@@ -2655,6 +2676,39 @@ packages/resources/runtime/CCT comparison and physical/BTCVT acceptance remain
 open. JCI-03, JCI-09 and JCI-10 remain partial at their broader scopes. The register
 now contains 210 scoped criteria: 156 implemented, 46 partial and eight pending.
 See [previous-order controller transfer](docs/native-order-recovery-transfer.md).
+
+## 2026-11-07 JCI-09/JCI-10 delivery: retained native application restoration
+
+`COMM-NATIVE-APPLICATION-RESTORE-001` adds a distinct whole retained-application
+restore profile. Program → Native backup defaults → retained backup inspection
+reconstructs the historical File3 image with its supported saved Files11/12
+application values. Original graph, identities and opaque configuration remain
+part of that image. Local inspection and exact `.moz`/`.moi` saving remain useful
+offline; neither action creates a field review.
+
+An explicit controller review requires the original route and complete recorded
+identity, firmware and ACS/DMCS versions, and captures the current application
+separately. Apply requires two confirmations and a fresh third pre-write backup.
+Changed current non-runtime saved configuration is refused; only qualified
+monotonic counters may advance during review. The desired image contains the
+historical application values, including its application-persistent counters.
+One ordinary native restore, complete native/effective readback and durable
+receipts use the existing transaction and timing rules. Uncertain operations
+require explicit readback and never replay automatically.
+
+Reviews retire on source, target, route, interface, workspace, receipt and page
+lifetime changes while drafts and already dispatched receipts survive. Typed
+Changes/History metadata distinguishes historical source, reviewed current
+capture and pre-write backup; the recorded projection performs no file or field
+revalidation. The existing teal workspace and original styles remain intact.
+
+JCI-09/JCI-10 remain partial overall. Arbitrary logic generation, new native
+identity allocation, cross-controller/release migration, whole-controller/runtime
+backups, resources/packages and physical/CCT/BTCVT acceptance remain separate.
+Next, assess remaining controller-generated resources and package dependencies
+against actual native evidence before extending restoration or authoring scopes.
+The register now contains 211 criteria: 157 implemented, 46 partial and eight
+pending. See [retained application restoration](docs/native-application-restore.md).
 
 ## 2026-11-07 supervisory source-method investigation
 
