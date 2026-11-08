@@ -101,7 +101,9 @@ for (const caf of [false, true])
       await apply.evaluate(
         (button) => ((window as any).__oldRouteRestore = button),
       );
-      await page.getByRole("button", { name: "Connect", exact: true }).click();
+      await page
+        .getByRole("button", { name: "Change controller", exact: true })
+        .click();
       await page
         .getByRole("button", { name: "Known controller address", exact: true })
         .click();
