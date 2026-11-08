@@ -124,6 +124,15 @@ allocation, increased from the preceding 326/425 cohort's 35 minutes. This chang
 total CI capacity, not any original case or assertion deadline. The original
 combined-phase timeout and its complete passing assertion trace remain retained.
 
+Connection-prefill evidence records the value at post-passive commit, immediately
+before native focus, during focus/focusin and afterward. A prefill can already
+have committed before focus; that displayed value is then the value to preserve.
+The same test still requires an unchanged focused value/selection, exact text
+replacement and exact interface request/connection. Final aggregate review must
+retain at least one actually pending-at-focus sample of each producer (network
+recommendation and saved status) in source and installed modes across their two
+engines. Both timing outcomes are recorded; no sample is skipped or retried.
+
 These checks establish this bounded software transfer path. Physical controller,
 BTCVT, vendor CCT comparison, general logic/object allocation, hardware remapping,
 changed-current-source recovery and unrestricted cross-brand compilation still

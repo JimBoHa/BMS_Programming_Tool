@@ -7,6 +7,7 @@ controller files are accepted. Failed artifacts remain and no test is retried.
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import os
@@ -316,7 +317,54 @@ def browser_group(output, env, mode, browser, number, name):
         all(result["stats"][key] == 0 for key in ("unexpected", "skipped", "flaky"))
         and not result["errors"]
     )
-    return {"spec": name, "passed": len(actual), "case_ids": actual}
+    summary = {"spec": name, "passed": len(actual), "case_ids": actual}
+    if name == "connections-prefill-queue":
+        observations = []
+
+        def observe(suite):
+            for spec in suite.get("specs", []):
+                attachments = spec["tests"][0]["results"][0]["attachments"]
+                (attachment,) = [a for a in attachments if a["name"] == "prefill-event-order.json"]
+                if "body" in attachment:
+                    raw = base64.b64decode(attachment["body"], validate=True)
+                else:
+                    path = Path(attachment["path"]).resolve()
+                    assert path.is_relative_to((group / "artifacts").resolve())
+                    raw = path.read_bytes()
+                assert len(raw) <= 16384
+                claim = json.loads(raw)
+                phases = {event["phase"]: event["value"] for event in claim["events"]}
+                assert claim["armed"] is True and claim["claimed"] is True
+                assert claim["automatic"] != "127.0.0.1:47809"
+                assert phases["post-passive-commit"] == "127.0.0.1:47809"
+                assert phases["before-native-focus"] in {"127.0.0.1:47809", claim["automatic"]}
+                assert (
+                    phases["before-native-focus"] == phases["after-native-focus"] == claim["value"]
+                )
+                kind = spec["title"].split()[0]
+                assert kind in {"network", "status"}
+                observations.append(
+                    {
+                        "case_id": [spec["file"], spec["title"]],
+                        "kind": kind,
+                        "pending_at_focus": phases["before-native-focus"] == "127.0.0.1:47809"
+                        and "native-focus" in phases
+                        and "native-focusin" in phases,
+                        "native_focus_observed": "native-focus" in phases
+                        and "native-focusin" in phases,
+                        "before_focus": phases["before-native-focus"],
+                        "after_focus": phases["after-native-focus"],
+                        "automatic": claim["automatic"],
+                    }
+                )
+            for child in suite.get("suites", []):
+                observe(child)
+
+        for suite in result["suites"]:
+            observe(suite)
+        assert len(observations) == 4
+        summary["focus_orderings"] = observations
+    return summary
 
 
 def main():
