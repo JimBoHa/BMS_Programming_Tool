@@ -57,6 +57,7 @@ import { ControllerProgram, LiveControllerPoints } from "./LiveController";
 import { NativeInputs } from "./NativeInputs";
 import { ResponsivePanel } from "./ResponsivePanel";
 import { ComputerNetworkPicker } from "./ComputerNetworkPicker";
+import { JctConnection, jctConnectionWork } from "./JctConnection";
 import {
   type ConnectionView,
   type ControllerContext,
@@ -109,6 +110,7 @@ export function Connections({
   const calendarWorkspace = useRef(calendarWork());
   const weeklyWorkspace = useRef(weeklyWork());
   const exceptionWorkspace = useRef(exceptionWork());
+  const jctWorkspace = useRef(jctConnectionWork());
   const groups: Record<ConnectionView, { id: string; label: string }[]> = {
     setup: [],
     overview: [
@@ -138,6 +140,7 @@ export function Connections({
     ],
     settings: [
       { id: "interface", label: "BACnet/IP connection" },
+      { id: "jct-connection", label: "JCT configuration connection" },
       { id: "mstp", label: "Direct serial" },
       { id: "modbus", label: "Modbus" },
       { id: "network-plan", label: "Network plan" },
@@ -1635,6 +1638,9 @@ export function Connections({
                   (/^\d+:/.test(target) ? probeDnet : null)
                 }
               />
+            </TaskMount>
+            <TaskMount active={showTool("jct-connection")} preserve={false}>
+              <JctConnection work={jctWorkspace.current} />
             </TaskMount>
             <TaskMount active={showTool("bbmd-read")} preserve={false}>
               <BbmdTablesPanel

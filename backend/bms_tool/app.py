@@ -108,6 +108,7 @@ from .jci_hardware import JciHardwareDefinition, plan_hardware_migration
 from .jci_preflight import PreflightRequest, inventory_template, preflight
 from .jci_release_rules import catalog as release_rule_catalog
 from .jci_source_inspection import inspection_router
+from .jct_connection import JctConnections, jct_router
 from .macros import (
     create_definition,
     delete_macro_definition,
@@ -614,6 +615,7 @@ def create_app(state_dir=None, *, operation_power=None):
     controller_workspace = ControllerWorkspace(
         bacnet, store, native_readers=(controller_application,)
     )
+    jct_connections = JctConnections(directory=store.directory)
 
     native_applications = None
 
@@ -780,7 +782,10 @@ def create_app(state_dir=None, *, operation_power=None):
                                                     try:
                                                         bacnet.close()
                                                     finally:
-                                                        native.stop()
+                                                        try:
+                                                            native.stop()
+                                                        finally:
+                                                            await jct_connections.close()
 
     app = FastAPI(title="BMS Studio local API", version=__version__, lifespan=lifespan)
     app.state.runtime = runtime
@@ -803,6 +808,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.state.bbmd_admin_startup_error = bbmd_admin_error
     app.state.device_details = device_details
     app.state.controller_workspace = controller_workspace
+    app.state.jct_connections = jct_connections
     app.state.controller_application = controller_application
     app.state.native_applications = native_applications
     app.state.native_signal_compiler = signal_compiler
@@ -815,6 +821,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.include_router(native_application_router(native_applications))
     app.include_router(batch_bundle_inspection_router())
     app.include_router(inspection_router())
+    app.include_router(jct_router(jct_connections))
     app.include_router(backup_import_router(native_applications.storage))
     app.include_router(native_enum_copy_router(backup_records))
     app.include_router(native_enum_compiler_router(backup_records))
