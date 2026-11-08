@@ -3,6 +3,7 @@ import { api } from "./api";
 import { ControllerApplicationPanel } from "./ControllerApplication";
 import { NativePointName } from "./NativePointName";
 import { NativeInputs } from "./NativeInputs";
+import { MetasysSourceMapping } from "./MetasysSourceMapping";
 import { controllerKey, type ControllerContext } from "./workflow";
 
 type RecordValue = Record<string, any>;
@@ -673,6 +674,15 @@ export function LiveControllerPoints({
               }}
               onVerified={() => setReload((value) => value + 1)}
             />
+            {[0, 5].includes(Number(selected.object_type)) && (
+              <MetasysSourceMapping
+                key={source + selected.object}
+                controller={controller}
+                object={selected.object}
+                connected={connected}
+                busy={nameBusy}
+              />
+            )}
             <div className="button-row">
               <label>
                 Additional property name or number
