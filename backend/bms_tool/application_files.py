@@ -32,12 +32,11 @@ MAX_FILE_BYTES = 2 * 1024 * 1024
 STATES = frozenset({"start-backup", "end-backup", "start-restore", "end-restore"})
 
 
-class ApplicationFiles:
-    def __init__(self, path, *, writable_files, timeout=4, gap=0.02):
+class BacnetFileTransport:
+    """Owned standard BACnet transactions, without an application File allowlist."""
+
+    def __init__(self, path, *, timeout=4, gap=0.02):
         self.path = path
-        self.writable_files = frozenset(writable_files)
-        if not self.writable_files or not self.writable_files <= {3, 11, 12}:
-            raise ValueError("Application profile cannot admit firmware or boot File objects.")
         self.timeout, self.gap = timeout, gap
         self.wire = ApplicationWire(path)
 
@@ -85,6 +84,14 @@ class ApplicationFiles:
             **({"password": password} if password is not None else {}),
         )
         await self.exchange(session, request, SimpleAckPDU, before_send=before_send)
+
+
+class ApplicationFiles(BacnetFileTransport):
+    def __init__(self, path, *, writable_files, timeout=4, gap=0.02):
+        super().__init__(path, timeout=timeout, gap=gap)
+        self.writable_files = frozenset(writable_files)
+        if not self.writable_files or not self.writable_files <= {3, 11, 12}:
+            raise ValueError("Application profile cannot admit firmware or boot File objects.")
 
     async def read(self, session, file_id, *, chunk=416):
         if type(file_id) is not int or not 1 <= file_id <= 4194302:
