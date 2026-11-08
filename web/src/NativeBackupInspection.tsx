@@ -4,6 +4,8 @@ import { api } from "./api";
 import { NativeRecords, type NativeArchiveSource } from "./NativeRecords";
 import { NativeBackupCapabilities } from "./NativeBackupCapabilities";
 import { NativeCapacityEvidence } from "./NativeCapacityEvidence";
+import { NativeSnapshotRestore } from "./NativeSnapshotRestore";
+import type { SnapshotRestoreArchive } from "./nativeSnapshotRestoreContract";
 import type { BooleanCopyDrafts } from "./NativeBooleanDefaultCopy";
 import type { WireCopyDrafts } from "./NativeWireSourceCopy";
 import {
@@ -213,6 +215,11 @@ export function NativeBackupInspection({
           </details>
         </>
       )}
+      <NativeSnapshotRestore
+        source={source as SnapshotRestoreArchive | null}
+        controller={controller}
+        visible={visible}
+      />
     </section>
   );
 }

@@ -5,16 +5,24 @@ on:
   pull_request:
     paths:
       - 'backend/bms_tool/native_order*.py'
+      - 'backend/bms_tool/native_snapshot_restore*.py'
       - 'backend/bms_tool/native_execution_order.py'
       - 'backend/bms_tool/native_applications.py'
       - 'backend/bms_tool/change_ledger.py'
       - 'tests/test_native_order*.py'
+      - 'tests/test_native_snapshot_restore*.py'
       - 'tests/test_native_execution_order.py'
       - 'web/src/NativeOrder*.tsx'
+      - 'web/src/NativeSnapshotRestore*.tsx'
+      - 'web/src/nativeSnapshotRestore*.ts'
+      - 'web/src/native-snapshot-restore.css'
+      - 'web/src/NativeBackupInspection.tsx'
       - 'web/src/NativeExecutionOrder.tsx'
       - 'web/src/nativeOrder*.ts'
       - 'web/src/ChangeLedgerPanel.tsx'
       - 'web/tests/native-order*.ts'
+      - 'web/tests/native-snapshot-restore*.ts'
+      - 'web/tests/native-default-peer.ts'
       - 'web/tests/connections-prefill-queue.spec.ts'
       - 'web/tests/connections-hydration.spec.ts'
       - 'web/src/Connections.tsx'
@@ -29,8 +37,9 @@ jobs:
   qualification:
     name: native-order (${{ matrix.mode }}, ${{ matrix.browser }})
     runs-on: ubuntu-24.04
-    # The added recovery cohort performs two real authored restores per happy
-    # path. Keep per-test deadlines; allocate time for all 2,778 executions.
+    # Retained-image cases add real authored restores and recovery boundaries.
+    # Keep existing per-test deadlines and the 45-minute aggregate allocation.
+    # The expanded source/installed cohort declares 3,200 executions.
     timeout-minutes: 45
     strategy:
       fail-fast: false
