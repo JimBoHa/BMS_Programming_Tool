@@ -56,6 +56,14 @@ register, not the entire current feature set: some older gap text predates nativ
 commissioning. The backlog preserves those original statements and adds current
 scope qualifications rather than silently granting or removing support.
 
+The [direct NAE backup adapter](docs/nae-native-configuration.md) now has a first
+internal implementation and independent UDP transaction tests. It discovers
+configuration Files within an owned native backup session without JCT/SCT.
+Live read-only capability/identity preflight passed. An authorized backup attempt
+was refused with password-failure and verified idle/unchanged; the native BACnet
+backup credential is needed before live file capture. Decoding, editing and restore remain
+unfinished. This does not change any requirement status or capability count.
+
 The separate local manual inventory contains 2,343 entries. Many are unassessed,
 overlap reusable primitives, or describe already implemented subsets. They are
 an evidence inventory, not 2,343 missing features. Reassess before adding work.
