@@ -273,7 +273,10 @@ for (const caf of [false, true])
       ).toBeVisible();
       await chooseWorkspaceSurface(page, "Workspace");
       await chooseWorkspaceTask(page, "Program");
-      await chooseWorkspaceTool(page, "Graph editor");
+      await chooseWorkspaceTool(
+        page,
+        caf ? "Graph editor" : "Local graph editor",
+      );
       await expect(
         page.getByLabel("Program name", { exact: true }),
       ).toHaveValue("Preserved retained-restore local graph");
