@@ -1897,5 +1897,14 @@
     "pdf_pages_or_section": "Authored complete-image restoration and three-source evidence contract; physical/runtime acceptance separate",
     "status": "implemented",
     "implementation_or_gap": "Separate native-retained-application-restore/1 source/export/review/apply profile. Historical graph/opaque data and supported application values remain exact, current configuration drift is guarded except qualified advancing counters, uncertain operations require explicit readback, and controller-centered UI/history retain drafts and receipts. Arbitrary generation, allocation/migration, whole-controller/runtime backup, packages and physical/CCT/BTCVT acceptance remain separate."
+  },
+  {
+    "id": "JCI-ENGINEERING-SOURCE-001",
+    "feature": "Read-only SCT/JCT engineering source and capability inspection",
+    "acceptance_criterion": "Inspect selected source bytes with actual bounded object/native/portable readers, distinguish declared filename family from admitted content and partial coverage, export exact source-bound read-only evidence, and expose a searchable parity/operation inventory without changing controller/file drafts or granting native compilation/deployment authority.",
+    "evidence": "Authored source/API, contract and browser fixtures; docs/jci-engineering-source-inspection.md",
+    "pdf_pages_or_section": "SCT19 archive/object and JCT19 archive/graphics topics; SCT Pro18 backup families; operation mapping remains partial",
+    "status": "implemented",
+    "implementation_or_gap": "First SJ-01a slice: bounded source profiles, per-operation evidence, exact report validation/download, lifecycle invalidation and 48-package inventory. Exhaustive manual/fixture mapping and native SCT/JCT codecs, project staging, editing and deployment remain separate."
   }
 ]

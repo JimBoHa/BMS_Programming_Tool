@@ -1,0 +1,1082 @@
+{
+  "profile": "jci-engineering-inventory/1",
+  "slice": "SJ-01a",
+  "manual_operation_mapping": "partial",
+  "scope": "Selected-source identification, bounded read-only projections, operation evidence and remaining parity packages. No native supervisory or graphics decoder or field authority is added.",
+  "manual_sources": [
+    {
+      "id": "S1",
+      "url": "https://docs.johnsoncontrols.com/bas/api/khub/maps/jzVNBtli8gmItAAUTJ4~lw/attachments/nDRklgFXhHrtXxbeqnTi_w-jzVNBtli8gmItAAUTJ4~lw/content"
+    },
+    {
+      "id": "S2",
+      "url": "https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/SCT-System-Configuration-Tool-Help/17.0/Tools-Menu/Database/Export-Database/Exporting-an-Archive-Database?contentId=NXKX~BN_RhjOFOCT7IvJPg"
+    },
+    {
+      "id": "S3",
+      "url": "https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/SCT-System-Configuration-Tool-Help/17.0/Tools-Menu/Manage-Archive/Synchronize?contentId=2IB9RFN4NhCniz7WChDwfQ"
+    },
+    {
+      "id": "S4",
+      "url": "https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/SCT-System-Configuration-Tool-Help/17.0/Tools-Menu/Diagnostics/Archive-Reports?contentId=3D12QCkeGY~iOgGjTmVdjw"
+    },
+    {
+      "id": "S5",
+      "url": "https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/SCT-System-Configuration-Tool-Help/17.0/Tools-Menu/Trunk-Utilities?contentId=7K7qk5VCQHshmTq4pY5hxA"
+    },
+    {
+      "id": "S6",
+      "url": "https://docs.johnsoncontrols.com/bas/api/khub/maps/jzVNBtli8gmItAAUTJ4~lw/attachments/nDRklgFXhHrtXxbeqnTi_w-jzVNBtli8gmItAAUTJ4~lw/content#page=334"
+    },
+    {
+      "id": "S7",
+      "url": "https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/SCT-System-Configuration-Tool-Help/17.0/View-Menu/ActionQ/ActionQ-Overview?contentId=qDQz2sTY0sgcHBIRlpzFgQ"
+    },
+    {
+      "id": "S8",
+      "url": "https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Controller-Provisioning-with-Tools/18.0"
+    },
+    {
+      "id": "J1",
+      "url": "https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Johnson-Controls-System-Configuration-Tool-JCT-Help/19.0/Overview/JCT-introduction?contentId=s_yougNh8frH~sfjD1sfYA"
+    },
+    {
+      "id": "J2",
+      "url": "https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Metasys-UI-and-Johnson-Controls-System-Configuration-Tool-JCT-Technical-Bulletin/15.0/Concepts/JCT/JCT-features"
+    },
+    {
+      "id": "J3",
+      "url": "https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Johnson-Controls-System-Configuration-Tool-JCT-Help/19.0/Archives/Device-Manager/Completing-a-Transfer-From-Device-job?contentId=uMCW39KP6tMeMhq_hvMf8w"
+    },
+    {
+      "id": "J4",
+      "url": "https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Johnson-Controls-System-Configuration-Tool-JCT-Help/19.0/Archives/Device-Manager/Completing-a-Transfer-To-Device-job?contentId=NhdP5cQKFx9jZHG1F6EdqQ"
+    },
+    {
+      "id": "J5",
+      "url": "https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Johnson-Controls-System-Configuration-Tool-JCT-Help/19.0/Navigating-and-searching/Spaces-and-Equipment-Manager?contentId=APLoYqFykBgZHzT2fCUzMg"
+    },
+    {
+      "id": "J6",
+      "url": "https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Johnson-Controls-System-Configuration-Tool-JCT-Help/19.0/JCT-Graphics/Graphics-Manager?contentId=2Yf2fpWpIrHdmbBvnhVtUA"
+    },
+    {
+      "id": "J7",
+      "url": "https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Johnson-Controls-System-Configuration-Tool-JCT-Help/19.0/Widgets-and-dashboards/Logic-Viewer-and-Editor-widget?contentId=xdAyzOOBz2HZZlc0U4MN2Q"
+    },
+    {
+      "id": "J8",
+      "url": "https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Johnson-Controls-System-Configuration-Tool-JCT-Help/19.0/Infrastructure/Security-and-authorization?contentId=qvpBy_fTD2K2porRWzAIxQ"
+    },
+    {
+      "id": "J9",
+      "url": "https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Johnson-Controls-System-Configuration-Tool-JCT-Help/19.0/JCT-Graphics/Graphics-Editor/Working-with-Bindings?contentId=W6Zf8FoaZ1gJd_qKaGuBxw"
+    },
+    {
+      "id": "J10",
+      "url": "https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Johnson-Controls-System-Configuration-Tool-JCT-Help/19.0/JCT-Graphics/Custom-Behaviors?contentId=NbgsnnWHzFRjO1qESZJtxg"
+    },
+    {
+      "id": "J11",
+      "url": "https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Johnson-Controls-System-Configuration-Tool-JCT-Help/19.0/Navigating-and-searching/Creating-and-deleting-objects?contentId=sbFc03zI9Xp9yZIdbAE8gw"
+    },
+    {
+      "id": "JCT19-PDF",
+      "url": "https://docs.johnsoncontrols.com/bas/api/khub/maps/zKFkU8o0bDHyAcelRIVFLQ/attachments/kdN7kPtmyaKFanhYfIyn8g-zKFkU8o0bDHyAcelRIVFLQ/content",
+      "version": "19.0",
+      "pages": 413,
+      "sha256": "3e76d0666c771648157a8b021b2a99bf4912020aa4eebb34fad305d82c80bf7d"
+    },
+    {
+      "id": "SCT-Pro18-backups",
+      "url": "https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/SCT-Pro-Help/18.0/Backing-up-an-archive/How-do-I-perform-a-backup"
+    }
+  ],
+  "artifact_families": [
+    {
+      "id": "jci-objects",
+      "title": "JCI single-XML object container",
+      "extensions": [
+        ".caf"
+      ],
+      "support": "bounded reader profile",
+      "reader_profile": "jci-single-xml-objects/1",
+      "remaining": "Namespace/root alone does not identify CCT/PCT versus SCT origin. No full supervisory import or native compile is granted."
+    },
+    {
+      "id": "jci-moi",
+      "title": "Tagged native field image",
+      "extensions": [
+        ".moi",
+        ".moz"
+      ],
+      "support": "bounded reader profile",
+      "reader_profile": "jci-moi-tagged/1",
+      "remaining": "Detached images lack saved Files11/12, verified device identity and complete supervisory configuration."
+    },
+    {
+      "id": "portable-program",
+      "title": "BMS portable Program graph",
+      "extensions": [
+        ".json"
+      ],
+      "support": "explicit schema-1 reader",
+      "reader_profile": "bms-portable-program/1",
+      "remaining": "This field graph is separate from a native SCT archive, supervisory LCT or JCT graphic."
+    },
+    {
+      "id": "sct-export",
+      "title": "SCT XML archive export",
+      "extensions": [
+        ".dbexport"
+      ],
+      "support": "native codec planned",
+      "reader_profile": null,
+      "remaining": "Actual versioned schemas, opaque sections, relationship coverage and native round-trip samples are required."
+    },
+    {
+      "id": "sct-backup",
+      "title": "SCT database backup",
+      "extensions": [
+        ".backup"
+      ],
+      "support": "native codec planned",
+      "reader_profile": null,
+      "remaining": "The vendor describes this backup as SQL dependent; standalone native restoration is not implemented."
+    },
+    {
+      "id": "sct-protected",
+      "title": "Protected SCT archive/backup",
+      "extensions": [
+        ".sdbexport",
+        ".sbackup"
+      ],
+      "support": "native codec planned",
+      "reader_profile": null,
+      "remaining": "Authorized protected-format samples and credential-aware decoding/preservation are required."
+    },
+    {
+      "id": "jci-items",
+      "title": "JCI item/integration exports",
+      "extensions": [
+        ".imp",
+        ".zip"
+      ],
+      "support": "native codec planned",
+      "reader_profile": null,
+      "remaining": "Item, integration and resource families require independent versioned decoding; a ZIP signature grants no compatibility."
+    },
+    {
+      "id": "jct-graphics",
+      "title": "JCT graphics and resources",
+      "extensions": [],
+      "support": "native codec planned",
+      "reader_profile": null,
+      "remaining": "Native graphics, aliases, symbols, associations and publication need their own samples and adapter. Generic SVG is not native JCT proof."
+    },
+    {
+      "id": "portable-site",
+      "title": "BMS portable site project",
+      "extensions": [],
+      "support": "planned under SJ-02",
+      "reader_profile": null,
+      "remaining": "Immutable original attachment staging and a typed site-project envelope follow this inspection slice."
+    }
+  ],
+  "operations": [
+    {
+      "id": "source-fingerprint",
+      "title": "Fingerprint selected source bytes",
+      "support": "implemented local inspection",
+      "implementation": "backend/bms_tool/jci_source_inspection.py:inspect_source",
+      "tests": "tests/test_jci_source_inspection.py",
+      "evidence_level": "authored software fixtures",
+      "remaining": "Fingerprints establish consistency, not vendor authenticity or native deployment authority."
+    },
+    {
+      "id": "object-reader",
+      "title": "Inspect represented JCI object XML",
+      "support": "implemented bounded reader",
+      "implementation": "backend/bms_tool/caf.py:CafArchive",
+      "tests": "tests/test_formats_caf.py; tests/test_jci_source_inspection.py",
+      "evidence_level": "authored container/XML fixtures",
+      "remaining": "Tool/release and complete supervisory semantics are not inferred from this reader profile."
+    },
+    {
+      "id": "native-reader",
+      "title": "Inspect represented tagged field records",
+      "support": "implemented bounded reader",
+      "implementation": "backend/bms_tool/moi_application.py:MoiApplication",
+      "tests": "tests/test_controller_application.py; tests/test_jci_source_inspection.py",
+      "evidence_level": "authored raw/compressed native records",
+      "remaining": "Unknown or rejected records remain partial coverage. A detached image grants no compilation or restore review."
+    },
+    {
+      "id": "portable-reader",
+      "title": "Inspect explicit portable Program source",
+      "support": "implemented schema-1 reader",
+      "implementation": "backend/bms_tool/models.py:Program; backend/bms_tool/program_source.py:strict_source_json",
+      "tests": "tests/test_program_source.py; tests/test_jci_source_inspection.py",
+      "evidence_level": "authored strict JSON fixtures",
+      "remaining": "This identifies our Program graph, not a native site archive or native executable."
+    },
+    {
+      "id": "report-export",
+      "title": "Save exact inspection evidence",
+      "support": "implemented local report",
+      "implementation": "backend/bms_tool/jci_source_inspection.py:inspection_router; web/src/JciEngineeringDesk.tsx",
+      "tests": "tests/test_jci_source_inspection.py; web/tests/jci-engineering.spec.ts",
+      "evidence_level": "source and installed software checks",
+      "remaining": "The source itself is not retained or round-tripped in this slice; SJ-02 stages original attachments."
+    }
+  ],
+  "packages": [
+    {
+      "id": "SJ-01",
+      "product": "Shared",
+      "category": "Shared foundations: implement first",
+      "priority": 1,
+      "title": "Build the SCT/JCT parity inventory and fixture manifest",
+      "scope": "Build the SCT/JCT parity inventory and fixture manifest. Map manual operations, current code credit, exact release/artifact families, missing samples and evidence levels. Inspect available local archives without publishing site data. Acceptance: every claimed operation links to an actual implementation and reproducible evidence; unknown and unsupported remain distinct. First PR adds useful read-only source/capability inspection, not a blanket support flag. First SJ-01a source inspection is delivered; exhaustive operation and native fixture mapping remains partial.",
+      "acceptance": "every claimed operation links to an actual implementation and reproducible evidence; unknown and unsupported remain distinct. First PR adds useful read-only source/capability inspection, not a blanket support flag.",
+      "workspace": "Help; Overview",
+      "dependencies": [
+        "active-native-restore-delivery"
+      ],
+      "status": "partial",
+      "manual_refs": ""
+    },
+    {
+      "id": "SJ-02",
+      "product": "Shared",
+      "category": "Shared foundations: implement first",
+      "priority": 2,
+      "title": "Implement the portable site-project envelope and local archive staging",
+      "scope": "Implement the portable site-project envelope and local archive staging: source fingerprint, original attachment retention, schema version, duplicate-safe import, revision manifest, copy/export and restart recovery. Add native-container identification with strict content/size/path limits. Acceptance: round-trip authored projects and opaque originals exactly; malformed/encrypted/unknown native sources remain identifiable evidence without invented objects. Native decoding is separately qualified under SCT-02.",
+      "acceptance": "round-trip authored projects and opaque originals exactly; malformed/encrypted/unknown native sources remain identifiable evidence without invented objects. Native decoding is separately qualified under SCT-02.",
+      "workspace": "Library; application workspace",
+      "dependencies": [
+        "SJ-01"
+      ],
+      "status": "planned",
+      "manual_refs": ""
+    },
+    {
+      "id": "SJ-03",
+      "product": "Shared",
+      "category": "Shared foundations: implement first",
+      "priority": 3,
+      "title": "Add the typed supervisory object/relationship model",
+      "scope": "Add the typed supervisory object/relationship model. Preserve native IDs, GUIDs, fully qualified references, parents, point-source identities, extensions, links, serving relationships and resource associations. Acceptance: duplicate/ambiguous IDs and unresolved references are visible; no guessed point inventory or renumbering, and an unchanged import/export preserves every represented relationship and original opaque record.",
+      "acceptance": "duplicate/ambiguous IDs and unresolved references are visible; no guessed point inventory or renumbering, and an unchanged import/export preserves every represented relationship and original opaque record.",
+      "workspace": "Overview; Points & I/O; Program",
+      "dependencies": [
+        "SJ-02"
+      ],
+      "status": "planned",
+      "manual_refs": ""
+    },
+    {
+      "id": "SJ-04",
+      "product": "Shared",
+      "category": "Shared foundations: implement first",
+      "priority": 4,
+      "title": "Implement revisions, semantic diffs and three-way conflict handling using original base, archive draft and fresh observation",
+      "scope": "Implement revisions, semantic diffs and three-way conflict handling using original base, archive draft and fresh observation. Distinguish engineering configuration from runtime samples, logs and counters. Acceptance: additions/deletions/moves and all conflicting edits are explicit; chosen resolutions preserve unaffected identities/links and produce deterministic evidence. Unknown coverage blocks a claim of complete preservation.",
+      "acceptance": "additions/deletions/moves and all conflicting edits are explicit; chosen resolutions preserve unaffected identities/links and produce deterministic evidence. Unknown coverage blocks a claim of complete preservation.",
+      "workspace": "Changes",
+      "dependencies": [
+        "SJ-03"
+      ],
+      "status": "planned",
+      "manual_refs": ""
+    },
+    {
+      "id": "SJ-05",
+      "product": "Shared",
+      "category": "Shared foundations: implement first",
+      "priority": 5,
+      "title": "Add a durable per-device engineering job service",
+      "scope": "Add a durable per-device engineering job service: queued/authenticating/reviewed/dispatched/verifying/uncertain/completed states, dependencies, pause, cancel-before-dispatch, scheduled work and restart recovery. Acceptance: explicit direction and target, per-device credentials, immutable attempts, no replay after uncertain dispatch, and recoverable partial site progress. UI refresh must never enqueue work.",
+      "acceptance": "explicit direction and target, per-device credentials, immutable attempts, no replay after uncertain dispatch, and recoverable partial site progress. UI refresh must never enqueue work.",
+      "workspace": "Changes; History",
+      "dependencies": [
+        "SJ-03",
+        "SJ-04"
+      ],
+      "status": "planned",
+      "manual_refs": ""
+    },
+    {
+      "id": "SJ-06",
+      "product": "Shared",
+      "category": "Shared foundations: implement first",
+      "priority": 6,
+      "title": "Add versioned codec/package provenance and destination resources",
+      "scope": "Add versioned codec/package provenance and destination resources: brand, engine/site/archive/graphics versions, dependencies, licenses for optional vendor assets and actual reported capacity. Acceptance: capability is operation-specific and source-derived; missing packages/resources are named, unsupported conversions have a loss report, and no model name silently supplies a replacement schema or application.",
+      "acceptance": "capability is operation-specific and source-derived; missing packages/resources are named, unsupported conversions have a loss report, and no model name silently supplies a replacement schema or application.",
+      "workspace": "Settings; Overview; validation",
+      "dependencies": [
+        "SJ-01",
+        "SJ-03"
+      ],
+      "status": "planned",
+      "manual_refs": ""
+    },
+    {
+      "id": "SCT-01",
+      "product": "SCT",
+      "category": "SCT configuration: highest practical utility first",
+      "priority": 1,
+      "title": "Archive lifecycle",
+      "scope": "Archive lifecycle: create, open, close, copy/fork, compare, back up, restore locally, rename and delete a project. Keep independent archives and revisions portable between Macs. Acceptance: local actions need no field connection, never overwrite originals implicitly and preserve draft/resource provenance through restart. Local re-index and database maintenance must operate on the selected project only.",
+      "acceptance": "local actions need no field connection, never overwrite originals implicitly and preserve draft/resource provenance through restart. Local re-index and database maintenance must operate on the selected project only.",
+      "workspace": "Library",
+      "dependencies": [
+        "SJ-02",
+        "SJ-03"
+      ],
+      "status": "planned",
+      "manual_refs": "S1;S2"
+    },
+    {
+      "id": "SCT-02",
+      "product": "SCT",
+      "category": "SCT configuration: highest practical utility first",
+      "priority": 2,
+      "title": "Native SCT archive codecs",
+      "scope": "Native SCT archive codecs: qualify actual `.dbexport`, supported native backups, item exports and their relationships to the portable project. Preserve original raw sections and protected attachments; provide an explicit optional extraction bridge when native database decoding needs a compatible external runtime. Acceptance: golden native round-trips, format/version identification and independent SCT import validation for each supported pair. A recognized header alone is not import support.",
+      "acceptance": "golden native round-trips, format/version identification and independent SCT import validation for each supported pair. A recognized header alone is not import support.",
+      "workspace": "Library; Program conversion",
+      "dependencies": [
+        "SJ-02",
+        "SJ-03",
+        "SJ-06"
+      ],
+      "status": "planned",
+      "manual_refs": "S2"
+    },
+    {
+      "id": "SCT-03",
+      "product": "SCT",
+      "category": "SCT configuration: highest practical utility first",
+      "priority": 3,
+      "title": "Site/engine/integration explorer and configuration inspector",
+      "scope": "Site/engine/integration explorer and configuration inspector: discover or import actual hierarchy, names, references, object types, routes, release and resource evidence. Add user views and tailored summaries with search, filters, export and unresolved-object states. Acceptance: duplicate Device IDs on different routes remain distinct, acquisition coverage is explicit and local archive data never substitutes for connected observations.",
+      "acceptance": "duplicate Device IDs on different routes remain distinct, acquisition coverage is explicit and local archive data never substitutes for connected observations.",
+      "workspace": "Overview; Points & I/O",
+      "dependencies": [
+        "SJ-03",
+        "SJ-06"
+      ],
+      "status": "planned",
+      "manual_refs": "S1;S4"
+    },
+    {
+      "id": "SCT-04",
+      "product": "SCT",
+      "category": "SCT configuration: highest practical utility first",
+      "priority": 4,
+      "title": "Supervisory object and source editing",
+      "scope": "Supervisory object and source editing: create, copy, move, rename, delete and edit supported objects; reassign a point's source while preserving its local identity, GUID, incoming references, trends, alarms, graphics and historian destinations. Acceptance: explicit before/after preservation manifest and dependency checks; partial or unknown link coverage cannot pass complete preservation. First scope is local editing; live application uses SCT-16.",
+      "acceptance": "explicit before/after preservation manifest and dependency checks; partial or unknown link coverage cannot pass complete preservation. First scope is local editing; live application uses SCT-16.",
+      "workspace": "Points & I/O; Changes",
+      "dependencies": [
+        "SJ-03",
+        "SJ-04",
+        "SCT-02"
+      ],
+      "status": "planned",
+      "manual_refs": "S1"
+    },
+    {
+      "id": "SCT-05",
+      "product": "SCT",
+      "category": "SCT configuration: highest practical utility first",
+      "priority": 5,
+      "title": "Attribute/type engineering",
+      "scope": "Attribute/type engineering: units, precision, ranges, enums/state text, relinquish/default values, reliability, naming and display metadata, extended/product-version/validation labels, groups and object-specific settings. Acceptance: type/range/units errors and release-specific read-only fields appear before review; unknown properties retain raw values and provenance instead of being dropped. Wire constraints are reported separately from portable-project limits.",
+      "acceptance": "type/range/units errors and release-specific read-only fields appear before review; unknown properties retain raw values and provenance instead of being dropped. Wire constraints are reported separately from portable-project limits.",
+      "workspace": "Points & I/O; Changes",
+      "dependencies": [
+        "SJ-03",
+        "SJ-06",
+        "SCT-04"
+      ],
+      "status": "planned",
+      "manual_refs": "S1"
+    },
+    {
+      "id": "SCT-06",
+      "product": "SCT",
+      "category": "SCT configuration: highest practical utility first",
+      "priority": 6,
+      "title": "Global search and controlled bulk editing",
+      "scope": "Global search and controlled bulk editing: query by object/property/type/route, export a parameter sheet, edit/import changes, rename/substitute references and copy items with children. Acceptance: explicit selection and old-value checks, deterministic dry-run diff, retained duplicate rows, per-object failures and undoable local revision. A bulk review is not an atomic field write.",
+      "acceptance": "explicit selection and old-value checks, deterministic dry-run diff, retained duplicate rows, per-object failures and undoable local revision. A bulk review is not an atomic field write.",
+      "workspace": "Points & I/O; Changes",
+      "dependencies": [
+        "SJ-03",
+        "SJ-04",
+        "SCT-05"
+      ],
+      "status": "planned",
+      "manual_refs": "S1"
+    },
+    {
+      "id": "SCT-07",
+      "product": "SCT",
+      "category": "SCT configuration: highest practical utility first",
+      "priority": 7,
+      "title": "Integration engineering",
+      "scope": "Integration engineering: represent BACnet/IP, MS/TP, BACnet/SC and supported N2/N1, LonWorks, Modbus, M-Bus, KNX and vendor integrations through independent adapters. Edit trunks, address mappings, polling and exposed integration configuration. Acceptance: actual discovery/capability evidence per adapter; unsupported protocols remain visible without fabricated scans or writes. Reuse qualified routing rather than entering addresses again.",
+      "acceptance": "actual discovery/capability evidence per adapter; unsupported protocols remain visible without fabricated scans or writes. Reuse qualified routing rather than entering addresses again.",
+      "workspace": "Points & I/O; Changes",
+      "dependencies": [
+        "SJ-03",
+        "SJ-06",
+        "SCT-03"
+      ],
+      "status": "planned",
+      "manual_refs": "S1"
+    },
+    {
+      "id": "SCT-08",
+      "product": "SCT",
+      "category": "SCT configuration: highest practical utility first",
+      "priority": 8,
+      "title": "Field-point mapping and import",
+      "scope": "Field-point mapping and import: integration-point definitions, point schedules, protocol object/property addresses, mapping diagnostics and duplicate detection. Acceptance: verify the source/destination identifiers and units from real samples, retain unmapped rows and preserve existing engine-local point identities and links. A field Device response does not prove that an NAE mapping points to it correctly.",
+      "acceptance": "verify the source/destination identifiers and units from real samples, retain unmapped rows and preserve existing engine-local point identities and links. A field Device response does not prove that an NAE mapping points to it correctly.",
+      "workspace": "Points & I/O; Changes",
+      "dependencies": [
+        "SCT-04",
+        "SCT-05",
+        "SCT-07"
+      ],
+      "status": "planned",
+      "manual_refs": "S1"
+    },
+    {
+      "id": "SCT-09",
+      "product": "SCT",
+      "category": "SCT configuration: highest practical utility first",
+      "priority": 9,
+      "title": "Extension engineering",
+      "scope": "Extension engineering: alarms, trends, averaging, event/runtime/analog totalization, load and resource-file extensions. Include enablement, thresholds/deadbands/delays, sampling, recipients and storage/reference configuration. Acceptance: independent state/timing cases and full before/after configuration preservation; repository configuration, history retention and data export remain distinct from extension configuration changes. Native deployment requires SCT-16.",
+      "acceptance": "independent state/timing cases and full before/after configuration preservation; repository configuration, history retention and data export remain distinct from extension configuration changes. Native deployment requires SCT-16.",
+      "workspace": "Points & I/O; Changes",
+      "dependencies": [
+        "SCT-04",
+        "SCT-05",
+        "SJ-06"
+      ],
+      "status": "planned",
+      "manual_refs": "S1"
+    },
+    {
+      "id": "SCT-23",
+      "product": "SCT",
+      "category": "SCT configuration: highest practical utility first",
+      "priority": 10,
+      "title": "Rapid engineering",
+      "scope": "Rapid engineering: room/point spreadsheet import, controller templates, parameter population, device-to-template matching, bulk spaces/equipment, serving relationships and reusable extensions/resources. Acceptance: per-row validation and explicit substitutions, stable identities, deterministic generated diffs, retained rejected rows and export/import round-trips. CAF templates do not grant new native compilation or package compatibility.",
+      "acceptance": "per-row validation and explicit substitutions, stable identities, deterministic generated diffs, retained rejected rows and export/import round-trips. CAF templates do not grant new native compilation or package compatibility.",
+      "workspace": "Library; Points & I/O",
+      "dependencies": [
+        "SCT-04",
+        "SCT-06",
+        "SCT-08",
+        "JCT-01",
+        "JCT-02"
+      ],
+      "status": "planned",
+      "manual_refs": "S1"
+    },
+    {
+      "id": "SCT-24",
+      "product": "SCT",
+      "category": "SCT configuration: highest practical utility first",
+      "priority": 11,
+      "title": "Site and engine administration",
+      "scope": "Site and engine administration: site director pairing, server/engine names, communication/time settings, operational startup policy and version-qualified redundant-server architecture. Acceptance: topology and identity changes have explicit reconnect/readback plans and recoverable partial outcomes; simulate failover/restart behavior before qualified native activation. Keep certificate/security changes separately reviewed.",
+      "acceptance": "topology and identity changes have explicit reconnect/readback plans and recoverable partial outcomes; simulate failover/restart behavior before qualified native activation. Keep certificate/security changes separately reviewed.",
+      "workspace": "Overview; Settings",
+      "dependencies": [
+        "SJ-05",
+        "SJ-06",
+        "SCT-15",
+        "SCT-16",
+        "SCT-21"
+      ],
+      "status": "planned",
+      "manual_refs": "S1"
+    },
+    {
+      "id": "SCT-22",
+      "product": "SCT",
+      "category": "SCT testing and validation",
+      "priority": 1,
+      "title": "Archive diagnostics and engineering reports",
+      "scope": "Archive diagnostics and engineering reports: object counts by type/device/class, unresolved references, duplicate IDs, source-binding consistency, package/resource gaps, space/equipment coverage and exportable parameter sheets. Acceptance: every finding links to original evidence, distinguishes absent from unread data, handles partial imports and reproduces the result offline without querying a device. This is the first useful SCT vertical slice after the shared object model.",
+      "acceptance": "every finding links to original evidence, distinguishes absent from unread data, handles partial imports and reproduces the result offline without querying a device. This is the first useful SCT vertical slice after the shared object model.",
+      "workspace": "Overview; Changes",
+      "dependencies": [
+        "SJ-03",
+        "SJ-06",
+        "SCT-03"
+      ],
+      "status": "planned",
+      "manual_refs": "S4"
+    },
+    {
+      "id": "SCT-10",
+      "product": "SCT",
+      "category": "SCT testing and validation",
+      "priority": 2,
+      "title": "Loss-preserving supervisory LCT reading",
+      "scope": "Loss-preserving supervisory LCT reading: program/system blocks, typed pins, constants/enums, references, execution relationships, state and layout. Acceptance: actual native supervisory samples produce a stable graph with source byte references; unknown blocks remain opaque/read-only and do not become guessed CCT blocks. Show incoming/outgoing involvement and error locations.",
+      "acceptance": "actual native supervisory samples produce a stable graph with source byte references; unknown blocks remain opaque/read-only and do not become guessed CCT blocks. Show incoming/outgoing involvement and error locations.",
+      "workspace": "Program",
+      "dependencies": [
+        "SJ-03",
+        "SJ-06",
+        "SCT-02"
+      ],
+      "status": "planned",
+      "manual_refs": "S6"
+    },
+    {
+      "id": "SCT-11",
+      "product": "SCT",
+      "category": "SCT testing and validation",
+      "priority": 3,
+      "title": "Supervisory LCT authoring and native compilation",
+      "scope": "Supervisory LCT authoring and native compilation: add/edit/remove supported blocks and links, pin/type/units checks, ordering, constants, timers, math/Boolean/control/selection/statistical/psychrometric primitives and native object allocation. Acceptance: independent native compile/reimport and behavioral fixtures for each supported block/edge/release, exact preservation outside the edit and explicit resource accounting. A drawable diagram does not qualify compilation.",
+      "acceptance": "independent native compile/reimport and behavioral fixtures for each supported block/edge/release, exact preservation outside the edit and explicit resource accounting. A drawable diagram does not qualify compilation.",
+      "workspace": "Program",
+      "dependencies": [
+        "SCT-10",
+        "SJ-04",
+        "SJ-06"
+      ],
+      "status": "planned",
+      "manual_refs": "S6"
+    },
+    {
+      "id": "SCT-12",
+      "product": "SCT",
+      "category": "SCT testing and validation",
+      "priority": 4,
+      "title": "LCT simulation and trace",
+      "scope": "LCT simulation and trace: deterministic input playback, quality/reliability, timestep, timers/delays, latches/sequencers, PID/control states, startup/retention, breakpoints and object-reference values. Acceptance: independent expected traces and supported native reference behavior agree on timing, units and restart outcomes; simulator-only nodes are labelled and cannot be deployed as unknown native blocks.",
+      "acceptance": "independent expected traces and supported native reference behavior agree on timing, units and restart outcomes; simulator-only nodes are labelled and cannot be deployed as unknown native blocks.",
+      "workspace": "Program simulation",
+      "dependencies": [
+        "SCT-10",
+        "SCT-11"
+      ],
+      "status": "planned",
+      "manual_refs": "S6"
+    },
+    {
+      "id": "SCT-13",
+      "product": "SCT",
+      "category": "SCT testing and validation",
+      "priority": 5,
+      "title": "Supervisory schedules and global calendars",
+      "scope": "Supervisory schedules and global calendars: weekly patterns, exceptions, date ranges, global references, priority/default values, scheduled objects, time zones/DST and effective-state preview. Acceptance: boundary/DST/holiday/conflict cases, exact native target/property links and round-trip evidence. Reuse existing qualified Calendar/Schedule slices without claiming that their remaining context/evaluation gaps are complete.",
+      "acceptance": "boundary/DST/holiday/conflict cases, exact native target/property links and round-trip evidence. Reuse existing qualified Calendar/Schedule slices without claiming that their remaining context/evaluation gaps are complete.",
+      "workspace": "Schedules",
+      "dependencies": [
+        "SJ-03",
+        "SJ-06",
+        "SCT-04"
+      ],
+      "status": "planned",
+      "manual_refs": "S1"
+    },
+    {
+      "id": "SCT-14",
+      "product": "SCT",
+      "category": "SCT testing and validation",
+      "priority": 6,
+      "title": "Supervisory command objects and coordination",
+      "scope": "Supervisory command objects and coordination: interlocks, multiple-command/group objects, broadcasts, load/demand limiting and supported optimization/control policies. Acceptance: simulation proves source/priority/timing/reliability interactions and owned command release; no preview dispatches outputs. Native executable configuration and point-command operations remain separate, explicitly reviewed capabilities.",
+      "acceptance": "simulation proves source/priority/timing/reliability interactions and owned command release; no preview dispatches outputs. Native executable configuration and point-command operations remain separate, explicitly reviewed capabilities.",
+      "workspace": "Points & I/O; Changes",
+      "dependencies": [
+        "SCT-05",
+        "SCT-09",
+        "SCT-11",
+        "SCT-12"
+      ],
+      "status": "planned",
+      "manual_refs": "S1"
+    },
+    {
+      "id": "SCT-15",
+      "product": "SCT",
+      "category": "SCT deployment and post-deployment verification",
+      "priority": 1,
+      "title": "Engine/server configuration capture",
+      "scope": "Engine/server configuration capture: authenticate to the selected device or site director, enumerate available native configuration/resource/security scopes, acquire complete originals with coverage and timestamps, then import into a separate revision. Acceptance: real adapter fixtures prove completeness and cleanup, changed identities/partial reads cannot masquerade as a native backup, and originals survive restart. BACnet object browsing alone is not a full engine upload.",
+      "acceptance": "real adapter fixtures prove completeness and cleanup, changed identities/partial reads cannot masquerade as a native backup, and originals survive restart. BACnet object browsing alone is not a full engine upload.",
+      "workspace": "Changes; Program",
+      "dependencies": [
+        "SJ-05",
+        "SJ-06",
+        "SCT-02",
+        "SCT-03"
+      ],
+      "status": "planned",
+      "manual_refs": "J3"
+    },
+    {
+      "id": "SCT-16",
+      "product": "SCT",
+      "category": "SCT deployment and post-deployment verification",
+      "priority": 2,
+      "title": "Native supervisory deployment",
+      "scope": "Native supervisory deployment: review a selected configuration delta or complete supported archive against fresh current state, retain a usable native original, validate dependencies/resources and stage/activate one qualified transaction per device. Acceptance: preserve object/GUID/reference/historian identities, verify complete fresh configuration/readback and handle rejection, disconnect, activation/restart and uncertain outcomes without replay. First deployable scope must name the exact native mechanism and release evidence.",
+      "acceptance": "preserve object/GUID/reference/historian identities, verify complete fresh configuration/readback and handle rejection, disconnect, activation/restart and uncertain outcomes without replay. First deployable scope must name the exact native mechanism and release evidence.",
+      "workspace": "Changes",
+      "dependencies": [
+        "SCT-15",
+        "SJ-04",
+        "SJ-05",
+        "SJ-06"
+      ],
+      "status": "planned",
+      "manual_refs": "J4"
+    },
+    {
+      "id": "SCT-17",
+      "product": "SCT",
+      "category": "SCT deployment and post-deployment verification",
+      "priority": 3,
+      "title": "Trunk utilities and controller workflow integration",
+      "scope": "Trunk utilities and controller workflow integration: browse actual routed trunks, associate CAF/native files, inspect/edit qualified parameters and transfer individual or selected controllers with explicit firmware/package/transport support. Reuse the existing field writer where its profile applies. Acceptance: verify every selected station independently and preserve engine mappings; native MOI capture is never relabelled a reconstructed CAF or whole supervisory archive. Track legacy HVAC PRO, GX-9100, XTM/DX and N2 loader artifact/pass-through families explicitly; qualified optional bridges do not imply native codec parity. BTCVT remains a separate physical qualification.",
+      "acceptance": "verify every selected station independently and preserve engine mappings; native MOI capture is never relabelled a reconstructed CAF or whole supervisory archive. Track legacy HVAC PRO, GX-9100, XTM/DX and N2 loader artifact/pass-through families explicitly; qualified optional bridges do not imply native codec parity. BTCVT remains a separate physical qualification.",
+      "workspace": "Points & I/O; Program",
+      "dependencies": [
+        "SCT-07",
+        "SCT-08",
+        "SCT-15",
+        "SJ-05"
+      ],
+      "status": "planned",
+      "manual_refs": "S5"
+    },
+    {
+      "id": "SCT-18",
+      "product": "SCT",
+      "category": "SCT deployment and post-deployment verification",
+      "priority": 4,
+      "title": "ActionQ-equivalent site job orchestration",
+      "scope": "ActionQ-equivalent site job orchestration: dependencies, scheduling, progress, per-device authentication, bounded concurrency, stop-on-failure policy, restart-safe checkpoints and result export. Acceptance: mixed success/failed/uncertain jobs remain separately recoverable; pause/cancel never imply an in-flight write was undone. Resuming a queue requires fresh authority where needed and never resends an uncertain operation automatically.",
+      "acceptance": "mixed success/failed/uncertain jobs remain separately recoverable; pause/cancel never imply an in-flight write was undone. Resuming a queue requires fresh authority where needed and never resends an uncertain operation automatically.",
+      "workspace": "Changes; History",
+      "dependencies": [
+        "SJ-05",
+        "SCT-15",
+        "SCT-16",
+        "SCT-17"
+      ],
+      "status": "planned",
+      "manual_refs": "S7"
+    },
+    {
+      "id": "SCT-19",
+      "product": "SCT",
+      "category": "SCT deployment and post-deployment verification",
+      "priority": 5,
+      "title": "Archive/device synchronization with explicit conflicts",
+      "scope": "Archive/device synchronization with explicit conflicts: compare common base, offline revision and fresh native state; review each conflicting property, object, extension, resource and relationship before staged application. Acceptance: no silent archive-wins rule, omitted field-controller applications remain identified, coverage is complete for the selected scope and post-apply readback matches the chosen resolution. Larger changes can be partitioned visibly rather than silently truncated.",
+      "acceptance": "no silent archive-wins rule, omitted field-controller applications remain identified, coverage is complete for the selected scope and post-apply readback matches the chosen resolution. Larger changes can be partitioned visibly rather than silently truncated.",
+      "workspace": "Changes",
+      "dependencies": [
+        "SJ-04",
+        "SCT-15",
+        "SCT-16",
+        "SCT-18"
+      ],
+      "status": "planned",
+      "manual_refs": "S3"
+    },
+    {
+      "id": "SCT-20",
+      "product": "SCT",
+      "category": "SCT deployment and post-deployment verification",
+      "priority": 6,
+      "title": "Upgrade, migration, firmware image and patch planning",
+      "scope": "Upgrade, migration, firmware image and patch planning: version/package dependency resolution, destination mapping, archive conversion, staged images, network/identity migration and recovery paths. Acceptance: signed/hashed authorized images and golden source/target archive pairs, native restore feasibility, exact per-device readback and explicit unsupported semantics. Preserve originals and export a loss report; firmware/image activation needs its own qualified adapter and hardware acceptance.",
+      "acceptance": "signed/hashed authorized images and golden source/target archive pairs, native restore feasibility, exact per-device readback and explicit unsupported semantics. Preserve originals and export a loss report; firmware/image activation needs its own qualified adapter and hardware acceptance.",
+      "workspace": "Settings; Changes",
+      "dependencies": [
+        "SJ-06",
+        "SCT-02",
+        "SCT-15",
+        "SCT-16",
+        "SCT-18"
+      ],
+      "status": "planned",
+      "manual_refs": "S1;S8"
+    },
+    {
+      "id": "SCT-21",
+      "product": "SCT",
+      "category": "SCT deployment and post-deployment verification",
+      "priority": 7,
+      "title": "Security/configuration preservation",
+      "scope": "Security/configuration preservation: inventory and separately manage account/role/security databases, engine/site pairing, certificates, trust chains and protected resource attachments. Acceptance: no implicit password propagation or secret export, authorized protected imports, explicit configuration diffs and recovery, role/expiry failure tests and evidence that unrelated security/historian data survives ordinary program changes. Optional external/vendor tools retain their actual licensing requirements.",
+      "acceptance": "no implicit password propagation or secret export, authorized protected imports, explicit configuration diffs and recovery, role/expiry failure tests and evidence that unrelated security/historian data survives ordinary program changes. Optional external/vendor tools retain their actual licensing requirements.",
+      "workspace": "Settings; Changes",
+      "dependencies": [
+        "SJ-05",
+        "SJ-06",
+        "SCT-15",
+        "SCT-16"
+      ],
+      "status": "planned",
+      "manual_refs": "S1;J8"
+    },
+    {
+      "id": "JCT-01",
+      "product": "JCT",
+      "category": "JCT configuration and graphics",
+      "priority": 1,
+      "title": "Spaces and serving relationships",
+      "scope": "Spaces and serving relationships: create/edit/move/copy/delete campus/building/floor/zone/room hierarchies; assign equipment and served-by/serves relationships, import/export tables and search. Acceptance: stable identities, no cycles or silent orphaning, duplicate-safe mass import and preserved relationships across reopen/export. Connected relationships come from the selected source rather than a local sample tree.",
+      "acceptance": "stable identities, no cycles or silent orphaning, duplicate-safe mass import and preserved relationships across reopen/export. Connected relationships come from the selected source rather than a local sample tree.",
+      "workspace": "Overview; Library",
+      "dependencies": [
+        "SJ-03",
+        "SJ-04",
+        "SCT-03"
+      ],
+      "status": "planned",
+      "manual_refs": "J5"
+    },
+    {
+      "id": "JCT-02",
+      "product": "JCT",
+      "category": "JCT configuration and graphics",
+      "priority": 2,
+      "title": "Equipment definitions and equipment instances",
+      "scope": "Equipment definitions and equipment instances: typed point roles, display categories, capability/units requirements, reusable definitions, bulk discovery/association and overrides. Acceptance: each binding resolves to a real typed source or an explicit unresolved entry; updates to a definition preserve instance overrides and produce a reviewed impact report. Equipment templates never manufacture controller I/O inventories.",
+      "acceptance": "each binding resolves to a real typed source or an explicit unresolved entry; updates to a definition preserve instance overrides and produce a reviewed impact report. Equipment templates never manufacture controller I/O inventories.",
+      "workspace": "Library; Points & I/O",
+      "dependencies": [
+        "JCT-01",
+        "SCT-05",
+        "SCT-08",
+        "SJ-06"
+      ],
+      "status": "planned",
+      "manual_refs": "J5"
+    },
+    {
+      "id": "JCT-03",
+      "product": "JCT",
+      "category": "JCT configuration and graphics",
+      "priority": 3,
+      "title": "Contextual navigation and archive/source views",
+      "scope": "Contextual navigation and archive/source views: building-network and spaces trees, object focus/summary/network/trend views, user-defined views, filters, extension visibility and cross-navigation. Acceptance: exact site/archive/controller/route remains visible, task/surface changes preserve local drafts and stale results cannot return after A→B→A changes. Retain existing responsive navigation and keyboard access.",
+      "acceptance": "exact site/archive/controller/route remains visible, task/surface changes preserve local drafts and stale results cannot return after A→B→A changes. Retain existing responsive navigation and keyboard access.",
+      "workspace": "Workspace explorer",
+      "dependencies": [
+        "SCT-03",
+        "JCT-01",
+        "JCT-02"
+      ],
+      "status": "planned",
+      "manual_refs": "J1"
+    },
+    {
+      "id": "JCT-04",
+      "product": "JCT",
+      "category": "JCT configuration and graphics",
+      "priority": 4,
+      "title": "Graphics Manager and associations",
+      "scope": "Graphics Manager and associations: create, duplicate, version, preview, import/export and delete equipment/space/network/unassigned graphics; manage aliases, exception graphics, master content and legacy associations. Acceptance: association changes are explicit, originals and unresolved resources survive round-trip and preview identifies the selected definition/equipment/source. Native publication depends on a qualified codec/adapter.",
+      "acceptance": "association changes are explicit, originals and unresolved resources survive round-trip and preview identifies the selected definition/equipment/source. Native publication depends on a qualified codec/adapter.",
+      "workspace": "Program graphics; Library",
+      "dependencies": [
+        "SJ-02",
+        "SJ-03",
+        "SJ-04",
+        "JCT-02"
+      ],
+      "status": "planned",
+      "manual_refs": "J6"
+    },
+    {
+      "id": "JCT-05",
+      "product": "JCT",
+      "category": "JCT configuration and graphics",
+      "priority": 5,
+      "title": "Vector graphics editor",
+      "scope": "Vector graphics editor: shapes, text, lines/paths, images, layout/size/position, grouping, layers, master layer, alignment, snapping, zoom and undo/redo. Acceptance: keyboard and pointer editing, readable desktop/compact layouts, deterministic open-document export and exact native preservation for qualified formats. Use code-native/vector assets and retain unknown native elements instead of flattening editable graphics into a screenshot.",
+      "acceptance": "keyboard and pointer editing, readable desktop/compact layouts, deterministic open-document export and exact native preservation for qualified formats. Use code-native/vector assets and retain unknown native elements instead of flattening editable graphics into a screenshot.",
+      "workspace": "Program graphics",
+      "dependencies": [
+        "JCT-04",
+        "SJ-06"
+      ],
+      "status": "planned",
+      "manual_refs": "J6"
+    },
+    {
+      "id": "JCT-06",
+      "product": "JCT",
+      "category": "JCT configuration and graphics",
+      "priority": 6,
+      "title": "Custom symbols and reusable graphics components",
+      "scope": "Custom symbols and reusable graphics components: versioned definitions, typed inputs, nested resources, import/export, dependency tracking and symbol libraries. Acceptance: updates have explicit instance-impact diffs; missing assets/fonts and unsupported behaviors are named. Respect provenance of authorized vendor assets; independently authored symbols must work without installing the vendor's runtime.",
+      "acceptance": "updates have explicit instance-impact diffs; missing assets/fonts and unsupported behaviors are named. Respect provenance of authorized vendor assets; independently authored symbols must work without installing the vendor's runtime.",
+      "workspace": "Library; Program graphics",
+      "dependencies": [
+        "JCT-05",
+        "SJ-06"
+      ],
+      "status": "planned",
+      "manual_refs": "J6"
+    },
+    {
+      "id": "JCT-07",
+      "product": "JCT",
+      "category": "JCT configuration and graphics",
+      "priority": 7,
+      "title": "Equipment/floor-plan templates",
+      "scope": "Equipment/floor-plan templates: independently authored HVAC/plant/terminal equipment, network and floor-plan layouts with reusable point-role bindings and configurable units/styles. Acceptance: template selection creates a local editable draft, unresolved points remain visible and generated graphics have no encoded site inventory or implicit live commands. Source equipment definitions drive binding choices.",
+      "acceptance": "template selection creates a local editable draft, unresolved points remain visible and generated graphics have no encoded site inventory or implicit live commands. Source equipment definitions drive binding choices.",
+      "workspace": "Library; Program graphics",
+      "dependencies": [
+        "JCT-02",
+        "JCT-05",
+        "JCT-06"
+      ],
+      "status": "planned",
+      "manual_refs": "J6"
+    },
+    {
+      "id": "JCT-08",
+      "product": "JCT",
+      "category": "JCT configuration and graphics",
+      "priority": 8,
+      "title": "Binding and alias tools",
+      "scope": "Binding and alias tools: fully qualified/relative references, network-tree/space/equipment bindings, equipment-definition aliases, exception bindings, point selection and global find/replace. Acceptance: type/units/route checks, explicit zero/one/multiple resolutions, complete impact preview and saved binding provenance. Unknown references are retained; replacing a source preserves the graphic's association and other resources.",
+      "acceptance": "type/units/route checks, explicit zero/one/multiple resolutions, complete impact preview and saved binding provenance. Unknown references are retained; replacing a source preserves the graphic's association and other resources.",
+      "workspace": "Program graphics; Changes",
+      "dependencies": [
+        "SJ-03",
+        "SJ-04",
+        "SCT-08",
+        "JCT-04",
+        "JCT-06"
+      ],
+      "status": "planned",
+      "manual_refs": "J9"
+    },
+    {
+      "id": "JCT-16",
+      "product": "JCT",
+      "category": "JCT configuration and graphics",
+      "priority": 9,
+      "title": "Site Device and engine properties",
+      "scope": "Site Device and engine properties: configure supported site/child devices and exposed focus, communication, network and hardware settings through the common typed editor. Acceptance: observed attributes and actual release capabilities select fields; identity/network changes retain old/new route and reconnect evidence. Do not expose an unrestricted raw-property write as full native configuration support.",
+      "acceptance": "observed attributes and actual release capabilities select fields; identity/network changes retain old/new route and reconnect evidence. Do not expose an unrestricted raw-property write as full native configuration support.",
+      "workspace": "Overview; Points & I/O",
+      "dependencies": [
+        "SCT-04",
+        "SCT-05",
+        "SCT-24",
+        "SJ-06"
+      ],
+      "status": "planned",
+      "manual_refs": "J1"
+    },
+    {
+      "id": "JCT-17",
+      "product": "JCT",
+      "category": "JCT configuration and graphics",
+      "priority": 10,
+      "title": "Archive administration and collaboration",
+      "scope": "Archive administration and collaboration: select/create/upgrade archives, refresh source status, switch projects safely and support multiple editors with revision conflicts. Device Manager reuses the shared capture/deploy/job service. Acceptance: independent drafts and protected credentials, no hidden overwrite between editors, durable activity history and no device action during archive selection or refresh.",
+      "acceptance": "independent drafts and protected credentials, no hidden overwrite between editors, durable activity history and no device action during archive selection or refresh.",
+      "workspace": "Library; Changes",
+      "dependencies": [
+        "SCT-01",
+        "SCT-02",
+        "SJ-04",
+        "SJ-05",
+        "SCT-15",
+        "SCT-16"
+      ],
+      "status": "planned",
+      "manual_refs": "J1;J3;J4"
+    },
+    {
+      "id": "JCT-11",
+      "product": "JCT",
+      "category": "JCT testing, simulation and operator verification",
+      "priority": 1,
+      "title": "Involvement and dependency tracing",
+      "scope": "Involvement and dependency tracing: visualize what influences an object's state and what it affects across logic, mappings, schedules, commands, equipment and graphics. Acceptance: edge types, directions and completeness are source-bound; missing or unexamined native relationships remain unknown. Navigating an edge preserves the original context and never commands the target.",
+      "acceptance": "edge types, directions and completeness are source-bound; missing or unexamined native relationships remain unknown. Navigating an edge preserves the original context and never commands the target.",
+      "workspace": "Program; Points & I/O",
+      "dependencies": [
+        "SJ-03",
+        "SCT-10",
+        "SCT-22",
+        "JCT-03"
+      ],
+      "status": "planned",
+      "manual_refs": "J7"
+    },
+    {
+      "id": "JCT-09",
+      "product": "JCT",
+      "category": "JCT testing, simulation and operator verification",
+      "priority": 2,
+      "title": "Graphics behaviors and simulation",
+      "scope": "Graphics behaviors and simulation: typed triggers/rules, visibility, text/units, color, flashing, span/position/rotation, tooltips and qualified command actions. Acceptance: deterministic clocks, values, quality and priority scenarios prove each effect and combined behavior; playback/reload creates no field commands. Connected command controls must use existing ownership/permission/review contracts and retain receipts.",
+      "acceptance": "deterministic clocks, values, quality and priority scenarios prove each effect and combined behavior; playback/reload creates no field commands. Connected command controls must use existing ownership/permission/review contracts and retain receipts.",
+      "workspace": "Program graphics simulation",
+      "dependencies": [
+        "JCT-05",
+        "JCT-06",
+        "JCT-08",
+        "SCT-12"
+      ],
+      "status": "planned",
+      "manual_refs": "J10"
+    },
+    {
+      "id": "JCT-10",
+      "product": "JCT",
+      "category": "JCT testing, simulation and operator verification",
+      "priority": 3,
+      "title": "Configurable space/equipment/network dashboards and widgets",
+      "scope": "Configurable space/equipment/network dashboards and widgets: summaries, detail, equipment data/relationships/activity, trends, alarms, potential problems and graphic views. Acceptance: offline and simulator preview are useful; connected views use the selected source with quality/timestamp/coverage. Widget navigation retains drafts and readable compact/keyboard layouts without adding global feature tiles.",
+      "acceptance": "offline and simulator preview are useful; connected views use the selected source with quality/timestamp/coverage. Widget navigation retains drafts and readable compact/keyboard layouts without adding global feature tiles.",
+      "workspace": "Overview; Trends & Alarms",
+      "dependencies": [
+        "JCT-01",
+        "JCT-02",
+        "JCT-03",
+        "JCT-04",
+        "JCT-08",
+        "SCT-09"
+      ],
+      "status": "planned",
+      "manual_refs": "J1;J7"
+    },
+    {
+      "id": "JCT-12",
+      "product": "JCT",
+      "category": "JCT testing, simulation and operator verification",
+      "priority": 4,
+      "title": "Schedule/calendar widgets and effective-time preview",
+      "scope": "Schedule/calendar widgets and effective-time preview: visual weekly/exception/calendar editing, assigned objects, priorities, enablement and time-zone/DST evaluation. Acceptance: shared semantics match SCT-13; offline editing covers supported Calendar exceptions and historical/future evaluation without an arbitrary vendor UI date horizon. Native wire/date ranges remain explicit and qualified deployment uses the selected actual target.",
+      "acceptance": "shared semantics match SCT-13; offline editing covers supported Calendar exceptions and historical/future evaluation without an arbitrary vendor UI date horizon. Native wire/date ranges remain explicit and qualified deployment uses the selected actual target.",
+      "workspace": "Schedules",
+      "dependencies": [
+        "SCT-13",
+        "SJ-04"
+      ],
+      "status": "planned",
+      "manual_refs": "J2"
+    },
+    {
+      "id": "JCT-18",
+      "product": "JCT",
+      "category": "JCT deployment and administration",
+      "priority": 1,
+      "title": "Graphics/resource publication and verification",
+      "scope": "Graphics/resource publication and verification: package reviewed associations, aliases, symbols, resources and supported UI/legacy graphics for server or engine-only destinations. Acceptance: native import/publication and fresh readback/rendering prove the selected version and bindings; partial resource transfer, missing associations and unknown formats stay explicit. Transfer receipts remain attached to their original archive/device and permit controlled recovery.",
+      "acceptance": "native import/publication and fresh readback/rendering prove the selected version and bindings; partial resource transfer, missing associations and unknown formats stay explicit. Transfer receipts remain attached to their original archive/device and permit controlled recovery.",
+      "workspace": "Program graphics; Changes",
+      "dependencies": [
+        "JCT-04",
+        "JCT-05",
+        "JCT-08",
+        "JCT-09",
+        "SCT-16",
+        "SJ-06"
+      ],
+      "status": "planned",
+      "manual_refs": "J6"
+    },
+    {
+      "id": "JCT-13",
+      "product": "JCT",
+      "category": "JCT deployment and administration",
+      "priority": 2,
+      "title": "Alarm/event/group/recipient and remote-notification configuration",
+      "scope": "Alarm/event/group/recipient and remote-notification configuration: destinations, priorities, filters, schedules, acknowledgements and supported email/SNMP/syslog, announcement/banner or other notification profiles. Acceptance: local test sinks prove routing and event/audit distinctions, recipient data stays private, configuration changes retain original evidence, announcement drafts work offline and activation is explicit. Notification tests must not send messages to real recipients without authorization.",
+      "acceptance": "local test sinks prove routing and event/audit distinctions, recipient data stays private, configuration changes retain original evidence, announcement drafts work offline and activation is explicit. Notification tests must not send messages to real recipients without authorization.",
+      "workspace": "Trends & Alarms; Settings",
+      "dependencies": [
+        "SCT-09",
+        "SCT-14",
+        "SCT-21",
+        "SJ-05"
+      ],
+      "status": "planned",
+      "manual_refs": "J2;J8"
+    },
+    {
+      "id": "JCT-14",
+      "product": "JCT",
+      "category": "JCT deployment and administration",
+      "priority": 3,
+      "title": "User/profile/role administration and external identity",
+      "scope": "User/profile/role administration and external identity: project permissions, native user/role configuration where qualified, session policy and version-supported external identity/OAuth integration. Acceptance: permission/expiry/revocation and concurrent-edit cases, explicit distinction between BMS users and device accounts, protected secret storage and preserved audit evidence. MVE-related review/signature workflows require their own validation; no regulatory equivalence is inferred.",
+      "acceptance": "permission/expiry/revocation and concurrent-edit cases, explicit distinction between BMS users and device accounts, protected secret storage and preserved audit evidence. MVE-related review/signature workflows require their own validation; no regulatory equivalence is inferred.",
+      "workspace": "Settings",
+      "dependencies": [
+        "SCT-21",
+        "SJ-05",
+        "SJ-06"
+      ],
+      "status": "planned",
+      "manual_refs": "J8"
+    },
+    {
+      "id": "JCT-15",
+      "product": "JCT",
+      "category": "JCT deployment and administration",
+      "priority": 4,
+      "title": "BACnet/SC and HTTPS certificate management",
+      "scope": "BACnet/SC and HTTPS certificate management: inventory, chain/expiry/name checks, CSR and certificate import/export, trust configuration, device communication mode and qualified distribution. Acceptance: independently tested invalid/expired/foreign chains, protected private keys, explicit destination review and recoverable partial deployment. Do not disable TLS checking or silently install trust roots to make a connection pass.",
+      "acceptance": "independently tested invalid/expired/foreign chains, protected private keys, explicit destination review and recoverable partial deployment. Do not disable TLS checking or silently install trust roots to make a connection pass.",
+      "workspace": "Settings; Changes",
+      "dependencies": [
+        "SCT-21",
+        "SJ-06"
+      ],
+      "status": "planned",
+      "manual_refs": "J8"
+    }
+  ],
+  "fixture_manifest": [
+    {
+      "id": "authored-engineering-sources",
+      "origin": "independently authored; no building/site archive",
+      "location": "tests/jci_engineering_fixtures.py",
+      "profiles": [
+        "jci-single-xml-objects/1",
+        "jci-moi-tagged/1",
+        "bms-portable-program/1"
+      ],
+      "native_supervisory_reference": false,
+      "physical_evidence": false
+    }
+  ],
+  "read_only": true,
+  "field_actions": false,
+  "native_sct_archive_decoded": false,
+  "native_jct_graphics_decoded": false
+}

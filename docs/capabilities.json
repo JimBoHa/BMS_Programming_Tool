@@ -57,7 +57,7 @@
   {
     "feature": "Shared-signal system simulation",
     "status": "implemented",
-    "scope": "2\u201316 graph instances with a common clock and typed/unit-checked previous-cycle links. All programs commit together; a failed cycle holds every state/output. Bounded sessions/history, quality fault records and portable workspace save/reopen. No field interfaces or equipment/firmware emulation."
+    "scope": "2–16 graph instances with a common clock and typed/unit-checked previous-cycle links. All programs commit together; a failed cycle holds every state/output. Bounded sessions/history, quality fault records and portable workspace save/reopen. No field interfaces or equipment/firmware emulation."
   },
   {
     "feature": "Internal simulation holds and releases",
@@ -678,5 +678,10 @@
     "feature": "Reviewed native Calendar Date_List transfer backend",
     "status": "implemented",
     "scope": "Separate exact-source existing Calendar service15 writer: fresh identities/static value/name/description, actual revision/APDU qualification, one-use review, one unsegmented dispatch without index/priority, full-sync bounded immutable intent/results and independent readback/reconciliation. Unknown/rejected protocol outcomes remain distinct from observed values; passive receipts never grant retries. No new UI Apply button, exception/context/link edits, native CAF, BBMD/serial/segmentation or physical acceptance. Existing weekly writers remain unchanged. See docs/native-calendar-write.md."
+  },
+  {
+    "feature": "SCT/JCT engineering sources and parity inventory",
+    "status": "partial",
+    "scope": "Help exposes bounded read-only object XML, tagged field-image and explicit portable Program inspection, exact source/report evidence and searchable operation/package gaps. Exhaustive manual mapping, native SCT archive/graphics codecs, site projects, supervisory editing and deployment remain planned. See docs/jci-engineering-source-inspection.md."
   }
 ]
