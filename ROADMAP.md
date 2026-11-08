@@ -2655,3 +2655,20 @@ packages/resources/runtime/CCT comparison and physical/BTCVT acceptance remain
 open. JCI-03, JCI-09 and JCI-10 remain partial at their broader scopes. The register
 now contains 210 scoped criteria: 156 implemented, 46 partial and eight pending.
 See [previous-order controller transfer](docs/native-order-recovery-transfer.md).
+
+## 2026-11-07 supervisory source-method investigation
+
+An internal authenticated configuration client and isolated monitoring-mapper
+coordinators add one-use creation, source-method experiments, explicit read-only
+reconciliation and owned empty-object cleanup. Native engine/interface/firmware,
+parent/schema/account and exact point/source checks accompany durable local
+intent records. No new tile or production source-edit route is exposed.
+
+An isolated live device/AI creation and native readback succeeded. Both native
+WriteProperty and authenticated PATCH explicitly denied editing the existing
+source; its original source was verified unchanged and test objects were removed.
+This is a qualified investigation, not supervisory source-edit capability or
+completion of SCT/JCT parity. Native configuration capture/merge/apply,
+production identity/link preservation and independent value verification remain
+open. No existing requirement status or capability count changes.
+See [source-method qualification](docs/metasys-source-qualification.md).

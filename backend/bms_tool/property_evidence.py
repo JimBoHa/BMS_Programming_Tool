@@ -189,18 +189,18 @@ class PropertyEvidence:
                     return False
                 header = APDU.decode(PDU(bytes(npdu.pduData)))
                 if (
-                    header.apduType not in (3, 5, 6, 7)
+                    header.apduType not in (2, 3, 5, 6, 7)
                     or header.apduInvokeID != request.apduInvokeID
                 ):
                     observe(
                         observer,
                         "candidate_classification",
                         reason="unrelated_apdu_type"
-                        if header.apduType not in (3, 5, 6, 7)
+                        if header.apduType not in (2, 3, 5, 6, 7)
                         else "unrelated_invoke",
                     )
                     return False
-                if header.apduType in (3, 5) and header.apduService != 12:
+                if header.apduType in (2, 3, 5) and header.apduService != request.apduService:
                     observe(observer, "candidate_classification", reason="unrelated_service")
                     return False
                 advertised = IPv4Address(raw[4:10]) if raw[1] == 4 else packet.pduSource
