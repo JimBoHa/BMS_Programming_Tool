@@ -16,6 +16,7 @@ from bacpypes3.primitivedata import (
     ClosingTag,
     Enumerated,
     Integer,
+    ObjectIdentifier,
     OpeningTag,
     Real,
     Tag,
@@ -33,6 +34,7 @@ STORAGE = {
     2: (4, Unsigned),
     4: (4, Real),
     9: (2, Enumerated),
+    12: (4, ObjectIdentifier),
     16: (1, Unsigned),
     17: (2, Integer),
     18: (2, Unsigned),
@@ -149,6 +151,14 @@ class ParameterApplication:
                     if payload not in (b"\x00", b"\x01"):
                         raise ValueError("Saved Boolean is outside its native encoding.")
                     value = _encode([*Boolean(bool(payload[0])).encode(), ClosingTag(2)])
+                elif kind is ObjectIdentifier:
+                    identifier = int.from_bytes(payload, "big")
+                    value = _encode(
+                        [
+                            *ObjectIdentifier((identifier >> 22, identifier & 4194303)).encode(),
+                            ClosingTag(2),
+                        ]
+                    )
                 else:
                     number = int.from_bytes(payload, "big", signed=kind is Integer)
                     value = _encode([*kind(number).encode(), ClosingTag(2)])
