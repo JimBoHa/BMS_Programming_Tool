@@ -813,6 +813,9 @@ def create_app(state_dir=None, *, operation_power=None):
     app.state.native_boolean_copies = boolean_copies
     app.state.native_boolean_compiler = boolean_compiler
     app.include_router(native_application_router(native_applications))
+    from .native_vav_configuration import router as native_vav_router
+
+    app.include_router(native_vav_router(bacnet, store, activity_guard=instance_activity_guard))
     app.include_router(batch_bundle_inspection_router())
     app.include_router(inspection_router())
     app.include_router(backup_import_router(native_applications.storage))
