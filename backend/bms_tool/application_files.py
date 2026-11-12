@@ -32,6 +32,24 @@ MAX_FILE_BYTES = 2 * 1024 * 1024
 STATES = frozenset({"start-backup", "end-backup", "start-restore", "end-restore"})
 
 
+def rejection_text(error):
+    """Format simple and structured BACnet errors without masking rejection.
+
+    WritePropertyMultipleError stores its code inside errorType. Calling its
+    inherited __str__ can raise AttributeError instead of returning that code.
+    Preserve the actual exception as the cause; never include request values.
+    """
+    for detail in (getattr(error, "errorType", None), error):
+        error_class = getattr(detail, "errorClass", None)
+        error_code = getattr(detail, "errorCode", None)
+        if error_class is not None and error_code is not None:
+            return f"{error_class}: {error_code}"
+    try:
+        return str(error)[:256] or type(error).__name__
+    except Exception:
+        return type(error).__name__
+
+
 class ApplicationFiles:
     def __init__(self, path, *, writable_files, timeout=4, gap=0.02):
         self.path = path
@@ -62,10 +80,12 @@ class ApplicationFiles:
                 )
             session["last_application_wire"] = self.wire.validate(reply, session, request, proof)
         except ErrorRejectAbortNack as exc:
-            raise ValueError("Application File operation rejected: " + str(exc)) from exc
+            raise ValueError("Application File operation rejected: " + rejection_text(exc)) from exc
         self.path._guard(session)
         if isinstance(reply, ErrorRejectAbortNack):
-            raise ValueError("Application File operation rejected: " + str(reply))
+            raise ValueError(
+                "Application File operation rejected: " + rejection_text(reply)
+            ) from reply
         if (
             not isinstance(reply, expected)
             or reply.pduSource != session["target"]
