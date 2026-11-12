@@ -498,3 +498,54 @@ def test_timestamp_exception_does_not_bypass_crc_checks():
 def test_existing_unqualified_binary_timestamp_encoding_is_rejected():
     with pytest.raises(ValueError, match="timestamp application encoding"):
         ParameterApplication(*binary_saved_state(existing_timestamp=True)).compile()
+
+
+@pytest.mark.parametrize("object_type,instance", [(3, 4000020), (8, 5136), (631, 50210)])
+def test_saved_object_identifier_is_four_byte_big_endian_and_preserves_unknown_records(
+    object_type, instance
+):
+    from bms_tool.native_inputs import archive, replace_properties
+
+    application, static, dynamic = parameters_source(compressed=False)
+    app = MoiIdentity(application)
+    raw = replace_properties(app, app.root, {905: encoded(ObjectIdentifier((3, 42)))})
+    application = archive(
+        app, [raw] + [app.data[r["offset"] : r["end_offset"]] for r in app.records[1:]]
+    )
+    payload = ((object_type << 22) | instance).to_bytes(4, "big")
+    row = ((8 << 22) | 5136).to_bytes(4, "big") + (905).to_bytes(2, "big")
+    row += bytes([0x6F, 12]) + (470).to_bytes(2, "big")
+    row += len(dynamic).to_bytes(2, "big") + b"\x12\x34"
+    static += (len(row) + 2).to_bytes(2, "big") + row
+    dynamic += payload + bytes([header_crc(payload) ^ 255])
+    output, report = ParameterApplication(application, static, dynamic).compile()
+    result = MoiIdentity(output)
+    assert result.reader.scalar(result.root, 905) == str(ObjectIdentifier((object_type, instance)))
+    assert report["matched_parameters"] == 8
+    before = MoiIdentity(application)
+    for left, right in zip(before.records[1:], result.records[1:], strict=True):
+        assert (
+            before.data[left["offset"] : left["end_offset"]]
+            == result.data[right["offset"] : right["end_offset"]]
+        )
+    with pytest.raises(ValueError, match="checksum"):
+        ParameterApplication(application, static, dynamic[:-1] + bytes([dynamic[-1] ^ 1]))
+    with pytest.raises(ValueError):
+        ParameterApplication(application, static, dynamic[:-1])
+
+
+@pytest.mark.parametrize("saved_instance", [5136, 5137])
+def test_saved_object_identifier_cannot_relax_root_header_identity(saved_instance):
+    application, static, dynamic = parameters_source()
+    payload = ((8 << 22) | saved_instance).to_bytes(4, "big")
+    row = ((8 << 22) | 5136).to_bytes(4, "big") + (75).to_bytes(2, "big")
+    row += bytes([0x6F, 12]) + (470).to_bytes(2, "big")
+    row += len(dynamic).to_bytes(2, "big") + b"\x12\x34"
+    static += (len(row) + 2).to_bytes(2, "big") + row
+    dynamic += payload + bytes([header_crc(payload) ^ 255])
+    if saved_instance != 5136:
+        with pytest.raises(ValueError, match="header|identity"):
+            ParameterApplication(application, static, dynamic).compile()
+    else:
+        output, _ = ParameterApplication(application, static, dynamic).compile()
+        assert MoiIdentity(output).instance == 5136
