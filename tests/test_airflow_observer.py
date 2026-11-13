@@ -2,6 +2,7 @@
 
 import json
 import math
+import os
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
@@ -248,6 +249,7 @@ def test_configuration_rejects_unbounded_duration_and_ambiguous_group_names(tmp_
         load_config(path)
 
 
+@pytest.mark.skipif(os.name != "posix", reason="The optional observer uses POSIX process locking.")
 async def test_expired_window_never_opens_a_field_connection(tmp_path, monkeypatch):
     import bms_tool.airflow_observer as module
 
@@ -265,6 +267,7 @@ async def test_expired_window_never_opens_a_field_connection(tmp_path, monkeypat
     assert state["status"] == "incomplete" and "window ended" in state["reason"]
 
 
+@pytest.mark.skipif(os.name != "posix", reason="The optional observer uses POSIX process locking.")
 async def test_scheduled_observer_completes_only_after_startup_and_actual_coverage(
     tmp_path, monkeypatch
 ):
