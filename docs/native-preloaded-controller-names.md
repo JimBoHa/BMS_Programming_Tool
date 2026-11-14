@@ -29,13 +29,10 @@ both the bound configuration point and native owner and does not infer a lost
 acknowledgement or repeat a write. An uncertain attempt blocks further changes at
 the physical station, including when a caller supplies another Balancer identifier.
 
-Field qualification on a CVM with firmware 10.0.0.2125 and application version 10.5
-confirmed one native name change by configuration-point readback, native Name,
-native controller information and subsequent supervisory discovery. No vendor
-runtime was used. Ordinary flow-property and exposed-point writes were rejected;
-those attempts did not establish balancing support. Full factory-image editing,
+This pilot does not establish balancing support. Full factory-image editing,
 output reallocation, persistent airflow commissioning across a restart and other
-firmware/controller families remain unqualified.
+firmware/controller families remain unqualified. Commissioning observations and
+deployment-specific qualification records belong outside this repository.
 
 Authored peer regressions exercise typed dispatch without a priority, one-use and
 stale-source rejection, native versus standard-name lag, uncertainty/reconciliation,
