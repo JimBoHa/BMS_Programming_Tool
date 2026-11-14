@@ -69,9 +69,9 @@ operational identity and independently published I/O properties.
 Authored UDP peers test both edits, assigned/factory source identities, stale
 settings, invalidated reviews, unsupported banks/firmware, typed absence,
 capacity, wrong published I/O and readback without replay. Fixtures contain no
-site captures or credentials. An authorized isolated CVM field trial verified an
-OUT4-to-OUT1 fan binding and a new dry-contact input with an OFF/ON/OFF current
-proof. That field result qualifies the exercised path, not every listed model.
+site captures or credentials. Authored peer tests do not establish physical
+commissioning acceptance or qualify every listed model. Deployment-specific
+wiring, field trials and commissioning records belong outside this repository.
 
 This is API functionality. Integrated UI editing, direct factory-to-custom
 conversion, removal/reallocation, alarm creation, an NAE mapper and fan-proving
