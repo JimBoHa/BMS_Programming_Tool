@@ -680,6 +680,11 @@
     "scope": "Separate exact-source existing Calendar service15 writer: fresh identities/static value/name/description, actual revision/APDU qualification, one-use review, one unsegmented dispatch without index/priority, full-sync bounded immutable intent/results and independent readback/reconciliation. Unknown/rejected protocol outcomes remain distinct from observed values; passive receipts never grant retries. No new UI Apply button, exception/context/link edits, native CAF, BBMD/serial/segmentation or physical acceptance. Existing weekly writers remain unchanged. See docs/native-calendar-write.md."
   },
   {
+    "feature": "Address-by-address native SA-bus communication diagnostics",
+    "status": "implemented",
+    "scope": "Selected-controller Points & I/O workflow with an exact parent IPv4 route and qualified native JCI SA port, inclusive pages of at most 16 MACs, two-minute one-use review, explicit diagnostic confirmation, fresh identity/revision/selector checks and sequential communication-test codes. Only transient Comtest Dest property 1036 on 307,2 is written; Test Status 30033 is polled. Durable pre-dispatch intent, no ACK-loss retries, cancellation, external-owner refusal, original-zero readback, retained recovery and private JSON reports. No operating-point/configured-sensor/application/firmware writes, sensor identity/value inventory, arbitrary private commands, automatic scans, nested-network topology inference or physical sensor acceptance. See docs/sa-bus-probe.md."
+  },
+  {
     "feature": "SCT/JCT engineering sources and parity inventory",
     "status": "partial",
     "scope": "Help exposes bounded read-only object XML, tagged field-image and explicit portable Program inspection, exact source/report evidence and searchable operation/package gaps. Exhaustive manual mapping, native SCT archive/graphics codecs, site projects, supervisory editing and deployment remain planned. See docs/jci-engineering-source-inspection.md."
