@@ -119,6 +119,15 @@ include other native edit families or restore field reviews.
 
 ## Existing capabilities to preserve and credit
 
+The [legacy NetSensor compatibility trial](docs/native-sensor-trial.md) adds a
+separately reviewed, reversible SA definition test within Points & I/O. Native
+66/65 captures retain their existing control inputs and supervisor point
+identities while temporary unconnected NetSensor temperature readers test a
+selected address page. Local copies, controller transfer/preservation, live
+quality and original-definition restoration are separate results. This does
+not complete general SA allocation, permanent family migration, package
+compatibility, physical wiring or hardware acceptance under IO-02–IO-04.
+
 [IP route-change qualification](docs/ip-route-change-qualification.md) now
 exercises the genuine guided workflow against two authored routed controllers
 with the same Device instance. It preserves the bind and verifies each selected

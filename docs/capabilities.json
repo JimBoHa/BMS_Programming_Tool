@@ -683,5 +683,10 @@
     "feature": "SCT/JCT engineering sources and parity inventory",
     "status": "partial",
     "scope": "Help exposes bounded read-only object XML, tagged field-image and explicit portable Program inspection, exact source/report evidence and searchable operation/package gaps. Exhaustive manual mapping, native SCT archive/graphics codecs, site projects, supervisory editing and deployment remain planned. See docs/jci-engineering-source-inspection.md."
+  },
+  {
+    "feature": "Legacy NetSensor compatibility trial",
+    "status": "implemented",
+    "scope": "Points & I/O provides native 66/65 captured-source local trial copies, reviewed temporary NS8000 disable and unconnected legacy NetSensor temperature readers at a bounded 199–206 address page. Complete native image/settings, exact route/identity, object absence, one-use reviews, original/outgoing retention, single-attempt transfer, independent quality reads and reviewed restoration remain distinct. Durable uncertainty/readback never replays a download. Existing public points, control references and supervisor configuration remain intact. Permanent family migration, general SA allocation, sensor firmware and physical/model acceptance remain separate. See docs/native-sensor-trial.md."
   }
 ]

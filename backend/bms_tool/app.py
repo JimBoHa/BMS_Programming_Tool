@@ -173,6 +173,7 @@ from .native_schedule_write import (
 from .native_schedule_write import (
     encoded as native_write_json,
 )
+from .native_sensor_trial_transfer import SensorTrials, sensor_trial_router
 from .native_signal_compiler import (
     SignalCompilerExport,
     SignalCompilerPreview,
@@ -629,6 +630,7 @@ def create_app(state_dir=None, *, operation_power=None):
 
     device_instances = DeviceInstances(bacnet, store, activity_guard=instance_activity_guard)
     native_applications = NativeApplications(bacnet, store, device_instances)
+    native_sensor_trials = SensorTrials(native_applications)
     signal_compiler = SignalCompilerService(native_applications.storage)
     backup_records = NativeBackupRecords(native_applications.storage)
     backup_comparison = NativeBackupComparison(backup_records)
@@ -805,6 +807,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.state.controller_workspace = controller_workspace
     app.state.controller_application = controller_application
     app.state.native_applications = native_applications
+    app.state.native_sensor_trials = native_sensor_trials
     app.state.native_signal_compiler = signal_compiler
     app.state.native_backup_records = backup_records
     app.state.native_backup_comparison = backup_comparison
@@ -813,6 +816,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.state.native_boolean_copies = boolean_copies
     app.state.native_boolean_compiler = boolean_compiler
     app.include_router(native_application_router(native_applications))
+    app.include_router(sensor_trial_router(native_sensor_trials))
     app.include_router(batch_bundle_inspection_router())
     app.include_router(inspection_router())
     app.include_router(backup_import_router(native_applications.storage))

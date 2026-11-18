@@ -9,6 +9,7 @@ import {
 } from "./api";
 import { controllerKey, type ControllerContext } from "./workflow";
 import { NativeRuntimeCalibration } from "./NativeRuntimeCalibration";
+import { NativeSensorTrial } from "./NativeSensorTrial";
 import { NativeRuntimeParametersNotice } from "./NativeRuntimeParametersNotice";
 import { NativeTerminalCopy } from "./NativeTerminalCopy";
 import { NativeBinaryTerminal } from "./NativeBinaryTerminal";
@@ -108,6 +109,7 @@ export function NativeInputs({
     [binaryOpen, setBinaryOpen] = useState(false);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const [sensorTrialOpen, setSensorTrialOpen] = useState(false);
   const [wiring, setWiring] = useState(false),
     [input, setInput] = useState(false),
     [transfer, setTransfer] = useState(false);
@@ -662,9 +664,28 @@ export function NativeInputs({
     ["minimum", "Minimum present value"],
     ["maximum", "Maximum present value"],
   ];
+  if (sensorTrialOpen)
+    return (
+      <NativeSensorTrial
+        key={owner}
+        controller={controller}
+        connected={connected}
+        onBusy={onBusy}
+        onClose={() => setSensorTrialOpen(false)}
+      />
+    );
   return (
     <section aria-label="Native input configuration">
       <h3>Input allocation & electrical modes</h3>
+      <button
+        disabled={busy || binaryBusy || encodedAnalogBusy}
+        onClick={() => {
+          retire();
+          setSensorTrialOpen(true);
+        }}
+      >
+        Test sensor definition compatibility
+      </button>
       {controller ? (
         <p>
           Capture the controller’s native application, select a configured input
@@ -742,8 +763,18 @@ export function NativeInputs({
               captured controller and interface for a field review.
             </p>
           )}
-          {work.binaryChangedCapture === source.capture_id && <p>A binary transfer changed this application. Capture native inputs again before another controller change.</p>}
-          {work.encodedAnalogChangedCapture === source.capture_id && <p>An analog terminal transfer changed this application. Capture native inputs again before another controller change.</p>}
+          {work.binaryChangedCapture === source.capture_id && (
+            <p>
+              A binary transfer changed this application. Capture native inputs
+              again before another controller change.
+            </p>
+          )}
+          {work.encodedAnalogChangedCapture === source.capture_id && (
+            <p>
+              An analog terminal transfer changed this application. Capture
+              native inputs again before another controller change.
+            </p>
+          )}
           <p>
             Available local terminals:{" "}
             {source.available_slots
@@ -1103,37 +1134,78 @@ export function NativeInputs({
           }}
         />
       )}
-      {!binaryOpen && <NativeEncodedAnalogTerminal
-        parent={source}
-        controller={controller}
-        connected={connected && work.binaryChangedCapture !== source?.capture_id}
-        fieldBusy={busy || binaryBusy}
-        credentialsConfigured={status?.credentials_configured === true}
-        onBusy={(value,field)=>{setEncodedAnalogBusy(value);if(field)onBusy(value);}}
-        onVerified={()=>{setWork(w=>({...w,encodedAnalogChangedCapture:source?.capture_id}));onVerified();}}
-        onOpenChange={value=>{epoch.current++;retire();setCopyReview(null);setEncodedAnalogOpen(value);}}
-      />}
-      {!encodedAnalogOpen && <NativeBinaryTerminal
-        parent={source}
-        controller={controller}
-        connected={connected && work.encodedAnalogChangedCapture !== source?.capture_id}
-        fieldBusy={busy || encodedAnalogBusy}
-        credentialsConfigured={status?.credentials_configured === true}
-        onBusy={(value, field) => { setBinaryBusy(value); if (field) onBusy(value); }}
-        onVerified={() => { setWork((w) => ({...w, binaryChangedCapture: source?.capture_id})); onVerified(); }}
-        onOpenChange={(value) => { epoch.current++; retire(); setCopyReview(null); setBinaryOpen(value); }}
-      />}
-      {!binaryOpen && !encodedAnalogOpen && <NativeTerminalCopy
-        controller={controller}
-        connected={connected}
-        fieldBusy={busy || binaryBusy || encodedAnalogBusy}
-      />}
+      {!binaryOpen && (
+        <NativeEncodedAnalogTerminal
+          parent={source}
+          controller={controller}
+          connected={
+            connected && work.binaryChangedCapture !== source?.capture_id
+          }
+          fieldBusy={busy || binaryBusy}
+          credentialsConfigured={status?.credentials_configured === true}
+          onBusy={(value, field) => {
+            setEncodedAnalogBusy(value);
+            if (field) onBusy(value);
+          }}
+          onVerified={() => {
+            setWork((w) => ({
+              ...w,
+              encodedAnalogChangedCapture: source?.capture_id,
+            }));
+            onVerified();
+          }}
+          onOpenChange={(value) => {
+            epoch.current++;
+            retire();
+            setCopyReview(null);
+            setEncodedAnalogOpen(value);
+          }}
+        />
+      )}
+      {!encodedAnalogOpen && (
+        <NativeBinaryTerminal
+          parent={source}
+          controller={controller}
+          connected={
+            connected && work.encodedAnalogChangedCapture !== source?.capture_id
+          }
+          fieldBusy={busy || encodedAnalogBusy}
+          credentialsConfigured={status?.credentials_configured === true}
+          onBusy={(value, field) => {
+            setBinaryBusy(value);
+            if (field) onBusy(value);
+          }}
+          onVerified={() => {
+            setWork((w) => ({
+              ...w,
+              binaryChangedCapture: source?.capture_id,
+            }));
+            onVerified();
+          }}
+          onOpenChange={(value) => {
+            epoch.current++;
+            retire();
+            setCopyReview(null);
+            setBinaryOpen(value);
+          }}
+        />
+      )}
+      {!binaryOpen && !encodedAnalogOpen && (
+        <NativeTerminalCopy
+          controller={controller}
+          connected={connected}
+          fieldBusy={busy || binaryBusy || encodedAnalogBusy}
+        />
+      )}
       <details>
         <summary>Retained input transfers</summary>
         {records.map((r: any) => (
           <p key={r.id}>
             {r.input_edit?.action} · {r.status} · {r.created_at}{" "}
-            <button disabled={busy || binaryBusy || encodedAnalogBusy} onClick={() => void run("retained", r.id)}>
+            <button
+              disabled={busy || binaryBusy || encodedAnalogBusy}
+              onClick={() => void run("retained", r.id)}
+            >
               Open input receipt {r.id.slice(0, 8)}
             </button>
           </p>

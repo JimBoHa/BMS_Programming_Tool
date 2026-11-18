@@ -460,6 +460,8 @@ class NativeApplications(
     def cancel(self, operation_id):
         InstanceCancel(operation_id=operation_id)
         self.cancelled.add(operation_id)
+        if hasattr(self, "sensor_trials"):
+            self.sensor_trials.cancel(operation_id)
         if len(self.cancelled) > 128:
             self.cancelled.pop()
         self.plans = OrderedDict(
@@ -475,6 +477,8 @@ class NativeApplications(
 
     async def close(self):
         self.plans.clear()
+        if hasattr(self, "sensor_trials"):
+            self.sensor_trials.plans.clear()
         if self.active:
             task = self.active["task"]
             self.cancel(self.active["operation_id"])
@@ -1425,6 +1429,17 @@ class NativeApplications(
     async def verify(self, session, intent):
         self.phase("reading back the physical station")
         change_kind = intent.get("change_kind", "instance")
+        if change_kind == "sensor-definition":
+            from .native_sensor_trial import PROFILE as SENSOR_PROFILE
+
+            if intent.get("operation_profile") != SENSOR_PROFILE or not hasattr(
+                self, "sensor_trials"
+            ):
+                raise ValueError(
+                    "Open the matching sensor trial service for this retained receipt."
+                )
+            options = DeviceDetailsRequest(**intent["target"], device=intent["identity"]["device"])
+            return await self.sensor_trials.verify(session, options, intent, allow_original=True)
         if change_kind not in (
             "instance",
             "name",
