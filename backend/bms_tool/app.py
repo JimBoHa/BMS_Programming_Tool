@@ -213,6 +213,7 @@ from .routed_discovery import (
     RouterProbeRequest,
 )
 from .router_discovery import RouterDiscovery, RouterDiscoveryRequest
+from .sa_bus_probe import SaBusProbe, sa_bus_probe_router
 from .schedule_coordination import schedule_coordination_router
 from .schedule_diagnostics import ScheduleDiagnosticRequest
 from .schedule_inventory import (
@@ -617,7 +618,17 @@ def create_app(state_dir=None, *, operation_power=None):
 
     native_applications = None
 
+    def sa_probe_activity_guard():
+        if native_applications is not None and native_applications.has_pending():
+            raise ValueError("Resolve the retained native transfer before an SA-bus diagnostic.")
+
+    sa_probe = SaBusProbe(bacnet, store, activity_guard=sa_probe_activity_guard)
+
     def instance_activity_guard():
+        if sa_probe.status()["recovery_required"] or any(
+            not task.done() for task in sa_probe.tasks.values()
+        ):
+            raise ValueError("Finish SA-bus diagnostics and restoration before an engineering change.")
         if native_applications is not None and native_applications.has_pending():
             raise ValueError(
                 "Resolve the retained native application transfer before another engineering change."
@@ -729,6 +740,7 @@ def create_app(state_dir=None, *, operation_power=None):
             for task in tasks:
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
+            await sa_probe.close()
             await schedule_writes.close()
             await calendar_writes.close()
             await exception_writes.close()
@@ -796,6 +808,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.state.multiple_history = multiple_history
     app.state.event_log = event_log
     app.state.routed_discovery = routed
+    app.state.sa_bus_probe = sa_probe
     app.state.router_discovery = routers
     app.state.ip_discovery = ip_discovery
     app.state.bbmd_tables = bbmd_tables
@@ -813,6 +826,7 @@ def create_app(state_dir=None, *, operation_power=None):
     app.state.native_boolean_copies = boolean_copies
     app.state.native_boolean_compiler = boolean_compiler
     app.include_router(native_application_router(native_applications))
+    app.include_router(sa_bus_probe_router(sa_probe))
     app.include_router(batch_bundle_inspection_router())
     app.include_router(inspection_router())
     app.include_router(backup_import_router(native_applications.storage))

@@ -28,6 +28,7 @@ import { BbmdTablesPanel } from "./BbmdTablesPanel";
 import { BbmdAdminPanel } from "./BbmdAdminPanel";
 import { ControllerProbePanel } from "./ControllerProbePanel";
 import { HardwareSurveyPanel } from "./HardwareSurveyPanel";
+import { SaBusProbePanel } from "./SaBusProbePanel";
 import { EnumMappingPanel, type EnumMappingWork } from "./EnumMappingPanel";
 import { ScheduleInventoryPanel } from "./ScheduleInventoryPanel";
 import { ScheduleLibraryPanel } from "./ScheduleLibraryPanel";
@@ -122,6 +123,7 @@ export function Connections({
       { id: "property", label: "Read properties" },
       { id: "commands", label: "Commands & overrides" },
       { id: "hardware", label: "Hardware survey" },
+      { id: "sa-bus", label: "SA-bus diagnostics" },
       { id: "enum", label: "State mapping" },
     ],
     program: [{ id: "application", label: "Controller application" }],
@@ -1671,6 +1673,19 @@ export function Connections({
                 connected={!!pointReady && !busy}
                 defaultAddress={target}
                 defaultDevice={deviceObject}
+              />
+            </TaskMount>
+            <TaskMount active={showTool("sa-bus")} preserve={false}>
+              <SaBusProbePanel
+                connected={
+                  visible &&
+                  controllerReady &&
+                  !busy &&
+                  status.config?.transport !== "mstp" &&
+                  !status.config?.bbmd_address
+                }
+                target={controller}
+                interfaceIdentity={interfaceIdentity}
               />
             </TaskMount>
             <TaskMount active={showTool("hardware")} preserve={false}>
