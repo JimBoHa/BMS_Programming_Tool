@@ -505,6 +505,7 @@ class SensorTrials:
                         raise ValueError(
                             "Saved configuration changed or the sensor review expired."
                         )
+                    await self.live_guard(session, options, compilation)
                     capacity = int(await native.input_atomic(session, "file,3", 3380, Unsigned))
                     if not len(output) <= capacity <= 2 * 1024 * 1024:
                         raise ValueError("The sensor trial exceeds verified application capacity.")
@@ -542,6 +543,13 @@ class SensorTrials:
                         def dispatch(packet):
                             nonlocal dispatched
                             PropertyEvidence(native.path).guard(session)
+                            if (
+                                stage == "dispatch-start-restore"
+                                and time.monotonic() >= plan["expires"]
+                            ):
+                                raise ValueError(
+                                    "The sensor review expired before restore dispatch."
+                                )
                             native.storage.event(
                                 intent["id"], stage, {**detail, "invoke_id": packet.apduInvokeID}
                             )

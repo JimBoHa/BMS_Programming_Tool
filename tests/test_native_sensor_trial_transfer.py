@@ -277,3 +277,42 @@ async def test_common_native_history_readback_routes_to_sensor_verification_and_
     retained = next(r for r in trials.status()["receipts"] if r["intent"]["id"] == receipt_id)
     assert retained["latest_readback"]["status"] == "verified"
     assert retained["result"]["status"] == "unknown"  # The failed attempt remains immutable.
+
+
+async def test_external_allocator_change_during_fresh_backup_is_rechecked_before_restore(
+    native_link,
+):
+    peer, _, trials = install_sensor_peer(native_link)
+    plan = await preview(native_link, trials)
+    original = peer.do_ReinitializeDeviceRequest
+
+    async def change(self, request):
+        await original(request)
+        if str(request.reinitializedStateOfDevice) == "end-backup":
+            self.next_object = 4000000
+
+    peer.do_ReinitializeDeviceRequest = types.MethodType(change, peer)
+    result = await trials.apply(confirmation(plan))
+    assert result["result"]["status"] == "not_sent"
+    assert not any(e[0] == "write" or e == ("state", "start-restore") for e in peer.events)
+
+
+async def test_review_expiring_after_final_reads_sends_no_restore_request(native_link):
+    peer, _, trials = install_sensor_peer(native_link)
+    plan = await preview(native_link, trials)
+    retained = trials.plans[plan["token"]]
+    original = peer.do_ReadPropertyRequest
+
+    async def expire(self, request):
+        if (
+            request.objectIdentifier == ObjectIdentifier((10, 3))
+            and int(request.propertyIdentifier) == 3380
+        ):
+            retained["expires"] = 0
+        await original(request)
+
+    peer.do_ReadPropertyRequest = types.MethodType(expire, peer)
+    result = await trials.apply(confirmation(plan))
+    assert result["result"]["status"] == "not_sent" and not result["pending"]
+    assert "expired before restore dispatch" in result["result"]["errors"][0]
+    assert not any(e[0] == "write" or e == ("state", "start-restore") for e in peer.events)
