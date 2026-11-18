@@ -20,6 +20,7 @@ export async function nativeDefaultPeer(
     | "binary-input"
     | "encoded-analog-input"
     | "point-name"
+    | "sensor-trial"
     | "application-restore" = "real",
   enumStates = false,
 ) {
@@ -44,6 +45,10 @@ async def main():
  if sys.argv[2]=='application-restore':
   from tests.test_native_snapshot_restore import files,consume_historical_storage
   app.files=files(modules=1);retained_files=copy.deepcopy(app.files);consume_historical_storage(app,retained_files)
+  app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
+ elif sys.argv[2]=='sensor-trial':
+  from tests.test_native_sensor_trial_transfer import install_sensor_peer
+  install_sensor_peer((app,None,None,None,None))
   app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
  elif sys.argv[2]=='input':
   from tests.test_native_input_transfer import install_input_peer
