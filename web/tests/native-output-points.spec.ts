@@ -10,6 +10,7 @@ async function withRuntimeController(
   page: Page,
   request: APIRequestContext,
   work: () => Promise<void>,
+  factory = false,
 ) {
   const peer = spawn(
     "../.venv/bin/python",
@@ -17,20 +18,26 @@ async function withRuntimeController(
       "-u",
       "-c",
       `
-import asyncio, tempfile
+import asyncio, sys, tempfile
 from contextlib import aclosing
 from pathlib import Path
 from pytest import MonkeyPatch
 from tests.test_native_output_points import native_link, io_link, output_link
+from tests.test_native_runtime_io import source
 async def main():
     with tempfile.TemporaryDirectory() as tmp, MonkeyPatch.context() as patch:
         async with aclosing(native_link.__wrapped__(Path(tmp), patch)) as native:
             async with aclosing(io_link.__wrapped__(await anext(native), patch)) as io:
-                _, _, target, _ = await output_link.__wrapped__(await anext(io))
+                peer, _, target, _ = await output_link.__wrapped__(await anext(io))
+                if sys.argv[1] == "factory":
+                    peer.files = source(acs=67, saved_versions=[(4128, 67), (4129, 65)])
+                    peer.metadata["firmware-revision"] = "11.0.2.8"
+                    peer.selector_value = 2
                 print(target["address"], flush=True)
                 await asyncio.to_thread(input)
 asyncio.run(main())
 `,
+      factory ? "factory" : "custom",
     ],
     {
       cwd: process.cwd(),
@@ -93,6 +100,55 @@ asyncio.run(main())
     if (peer.exitCode === null) peer.kill("SIGTERM");
   }
 }
+
+test("reopen a factory capture and review a local output assignment", async ({
+  page,
+  request,
+}, testInfo) => {
+  await withRuntimeController(
+    page,
+    request,
+    async () => {
+      await page
+        .getByRole("button", { name: "Configure output points", exact: true })
+        .click();
+      const editor = page.getByRole("region", {
+        name: "Native output configuration",
+        exact: true,
+      });
+      await editor
+        .getByRole("button", { name: "Capture current application" })
+        .click();
+      await expect(
+        editor.getByText(
+          "This controller application supports local I/O review only.",
+        ),
+      ).toBeVisible();
+      await editor
+        .getByRole("button", { name: "Discard local output draft" })
+        .click();
+      await editor
+        .getByRole("button", { name: "Inspect saved outputs" })
+        .click();
+      await editor.getByLabel("Output source").selectOption("new-discrete");
+      await editor.getByLabel("New point name").fill("Auxiliary relay");
+      await editor.getByLabel("New point instance").fill("3000002");
+      await editor
+        .getByRole("button", { name: "Review local output edit" })
+        .click();
+      await expect(
+        editor.getByText("Local change checked against the saved application."),
+      ).toBeVisible();
+      await expect(
+        editor.getByRole("button", { name: "Review on controller" }),
+      ).toHaveCount(0);
+      await editor.screenshot({
+        path: testInfo.outputPath("factory-local-review.png"),
+      });
+    },
+    true,
+  );
+});
 
 test("review output assignments, retire edited reviews and apply on a loopback controller", async ({
   page,

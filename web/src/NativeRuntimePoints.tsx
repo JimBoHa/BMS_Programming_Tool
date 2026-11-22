@@ -32,6 +32,7 @@ type Draft = {
   capture: Capture;
   outputs: Output[];
   contacts?: ContactCatalog;
+  localReviewOnly?: boolean;
   form: Form;
 };
 const drafts = new Map<string, Draft>();
@@ -253,7 +254,7 @@ export function NativeRuntimePoints({
         );
         let suggestion: number | null = q.suggested_instance;
         let allocatorMessage = "";
-        if (kind === "capture") {
+        if (kind === "capture" && !q.local_review_only) {
           try {
             const live = await api("/bacnet/controller/properties", {
               ...target,
@@ -285,6 +286,7 @@ export function NativeRuntimePoints({
           capture,
           outputs,
           contacts,
+          localReviewOnly: q.local_review_only === true,
           form: {
             ...blank,
             object: first?.object || "",
@@ -483,6 +485,9 @@ export function NativeRuntimePoints({
             Saved application {draft.capture.capture_id.slice(0, 8)} ·{" "}
             {controller.name}
           </p>
+          {draft.localReviewOnly && (
+            <p>This controller application supports local I/O review only.</p>
+          )}
           {draft.contacts ? (
             <NativeContactFields
               catalog={draft.contacts}
@@ -601,7 +606,7 @@ export function NativeRuntimePoints({
                   Review local {direction} edit
                 </button>
               )}
-              {local && !plan && (
+              {local && !plan && !draft.localReviewOnly && (
                 <button
                   className="primary"
                   disabled={!connected}

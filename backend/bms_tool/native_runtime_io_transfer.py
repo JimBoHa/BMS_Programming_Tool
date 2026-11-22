@@ -33,7 +33,13 @@ from .native_output_points import (
     output_options,
     signal,
 )
-from .native_runtime_io import PROFILE, RuntimeIOEdit, compile_io, qualified_io_source
+from .native_runtime_io import (
+    PROFILE,
+    RuntimeIOEdit,
+    compile_io,
+    factory_io_candidate,
+    qualified_io_source,
+)
 from .property_evidence import PropertyEvidence
 
 
@@ -530,9 +536,20 @@ def router(native):
         target = native.target(body)
         return {
             "sources": [
-                s
-                for s in native.input_sources()["sources"]
-                if s["target"] == target and s["identity"]["device"] == body.device
+                {
+                    "capture_id": c["id"],
+                    "snapshot_sha256": c["evidence_sha256"],
+                    "identity": c["identity"],
+                    "target": c["target"],
+                    "captured_at": c["captured_at"],
+                }
+                for c in native.storage.captures()
+                if c["target"] == target
+                and c["identity"]["device"] == body.device
+                and (
+                    c.get("source_identity_matches")
+                    or factory_io_candidate(c.get("application") or {}, c["identity"])
+                )
             ],
             "receipts": [
                 {
@@ -560,7 +577,7 @@ def router(native):
 
     def catalog(body, contacts):
         capture, files = service.capture_source(body)
-        app, _, capacity, _ = qualified_io_source(files, capture["identity"])
+        app, proof, capacity, _ = qualified_io_source(files, capture["identity"])
         instances = [
             ObjectIdentifier(obj)[1]
             for r in app.records
@@ -574,6 +591,10 @@ def router(native):
             "identity": capture["identity"],
             "target": capture["target"],
             "suggested_instance": candidate if candidate <= 4194302 else None,
+            "local_review_only": (
+                proof["factory_identity_materialized"]
+                or capture["identity"].get("firmware-revision") != "10.0.0.2125"
+            ),
             **(
                 contact_options(app, capacity)
                 if contacts

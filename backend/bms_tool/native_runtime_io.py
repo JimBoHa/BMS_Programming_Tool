@@ -32,6 +32,7 @@ from .native_parameter_qualification import qualify_parameter_additions
 
 PROFILE = "native-saved-effective-local-io/1"
 FORMATS = {(66, 65)}
+FACTORY_FORMAT = {"acs": 67, "dmcs": 65}
 CV_MODELS = {
     "M4-CVM03050-0",
     "M4-CVM03050-0P",
@@ -42,19 +43,40 @@ CV_MODELS = {
 }
 
 
+def factory_io_candidate(summary, identity):
+    """Identify a retained factory capture worth inspecting, without granting write authority."""
+    versions = summary.get("format_versions", {})
+    if (
+        summary.get("instance") != 1
+        or summary.get("root_class") != 194
+        or summary.get("root_ref") != "8-1"
+        or identity.get("vendor-identifier") != 5
+        or summary.get("model") not in CV_MODELS
+        or summary.get("model") != identity.get("model-name")
+    ):
+        return False
+    return (versions.get("acs"), versions.get("dmcs")) in FORMATS or (
+        versions == FACTORY_FORMAT
+        and identity.get("model-name") == "M4-CVM03050-0"
+        and identity.get("firmware-revision") == "11.0.2.8"
+    )
+
+
 def effective_source(files, identity):
     if set(files) != {3, 11, 12} or identity.get("vendor-identifier") != 5:
         raise ValueError("A complete native capture and exact native-family identity are required.")
     original = MoiIdentity(files[3])
     summary = original.summary()
     versions = summary["format_versions"]
-    if (versions["acs"], versions["dmcs"]) not in FORMATS:
-        raise ValueError("Saved-effective I/O requires a separately qualified format pair.")
     device = ObjectIdentifier(identity["device"])
     if int(device[0]) != 8 or not 1 <= device[1] <= 4194302:
         raise ValueError("Use an actual responding Device identity.")
     source = files[3]
     factory = original.instance != device[1]
+    if (versions["acs"], versions["dmcs"]) not in FORMATS and not (
+        factory and factory_io_candidate(summary, identity)
+    ):
+        raise ValueError("Saved-effective I/O requires a separately qualified format pair.")
     if factory:
         if original.instance != 1 or original.ref != "8-1" or original.root["class_id"] != 194:
             raise ValueError("An unmatched native root is not a qualified factory identity.")
@@ -77,6 +99,11 @@ def effective_source(files, identity):
         <= matched
     ):
         raise ValueError("Factory identity requires saved Device identifier, name and model.")
+    if versions == FACTORY_FORMAT and not {
+        (194, device[1], 4128),
+        (194, device[1], 4129),
+    } <= matched:
+        raise ValueError("The factory capture must also retain both assigned format versions.")
     if (
         actual.instance != device[1]
         or actual.summary()["name"] != identity["object-name"]
