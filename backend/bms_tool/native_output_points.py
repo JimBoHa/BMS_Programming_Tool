@@ -3,20 +3,25 @@
 import math
 import re
 
-from bacpypes3.primitivedata import CharacterString, ObjectIdentifier
+from bacpypes3.primitivedata import CharacterString, Enumerated, ObjectIdentifier, Unsigned
 
 from .moi_identity import controller_name
 from .native_inputs import encoded, native_record, record_instance, replace_properties
 from .native_io_records import require_unused_point, scalar_bytes, terminal_leaf
 
 OUTPUT_MODES = {
+    "allocate-discrete-output": "binary",
     "allocate-binary-output": "binary",
     "binary-output-terminal": "binary",
     "allocate-proportional-output": "proportional",
     "proportional-output-terminal": "proportional",
 }
 OUTPUT_ACTIONS = set(OUTPUT_MODES)
-ALLOCATION_ACTIONS = {"allocate-binary-output", "allocate-proportional-output"}
+ALLOCATION_ACTIONS = {
+    "allocate-binary-output",
+    "allocate-proportional-output",
+    "allocate-discrete-output",
+}
 TERMINALS = {"binary": (1, 2, 3, 4, 5), "proportional": (4, 5)}
 PUBLIC_TYPES = {"binary": 4, "proportional": 1}
 CLASSES = {"binary": 239, "proportional": 241}
@@ -162,7 +167,47 @@ def output_options(app):
     return options
 
 
+def discrete_terminals(app):
+    occupied = bindings(app)
+    return [slot for slot in (1, 2, 3) if slot not in occupied]
+
+
+def new_discrete_output(app, edit):
+    if edit.slot not in discrete_terminals(app):
+        raise ValueError("Select a free internally powered binary output.")
+    cid, kind = CLASSES["binary"], PUBLIC_TYPES["binary"]
+    oid = str(ObjectIdentifier((kind, edit.object_instance)))
+    require_unused_point(app, cid, kind, edit.object_instance, edit.name, oid)
+    # The normal two-state CV output has no program connection. Its independent
+    # publication must subsequently prove zero default, zero output and clear priorities.
+    properties = [
+        (32527, encoded(CharacterString(f"{app.ref}/{kind}_{edit.object_instance}"))),
+        (4, encoded(CharacterString("On"))),
+        (28, encoded(CharacterString(edit.description))),
+        (31, encoded(CharacterString(label(edit.slot)))),
+        (46, encoded(CharacterString("Off"))),
+        (75, encoded(ObjectIdentifier(oid))),
+        (518, encoded(Enumerated(0))),
+        (931, encoded(Enumerated(83))),
+        (990, encoded(Unsigned(edit.slot))),
+        (2390, encoded(CharacterString(controller_name(edit.name)))),
+    ]
+    change = {
+        "object": oid,
+        "operation": "allocate",
+        "mode": "binary",
+        "name": edit.name,
+        "after_slot": edit.slot,
+        "after_device_type": label(edit.slot),
+        "after_signal": signal(edit.slot, "binary"),
+        "has_slot_alias": False,
+    }
+    return native_record(cid, edit.object_instance, properties), None, change
+
+
 def compile_output(app, edit):
+    if edit.action == "allocate-discrete-output":
+        return new_discrete_output(app, edit)
     occupied = bindings(app)
     mode = OUTPUT_MODES[edit.action]
     cid, kind = CLASSES[mode], PUBLIC_TYPES[mode]

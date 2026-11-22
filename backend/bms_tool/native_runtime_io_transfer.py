@@ -26,7 +26,13 @@ from .moi_identity import MoiIdentity, seal, sha
 from .moi_parameters import ParameterApplication
 from .native_applications import RESTORE_PREPARATION_SECONDS, NativeCapture
 from .native_contact_points import CONTACT_ACTIONS, POLARITIES, contact_options
-from .native_output_points import ALLOCATION_ACTIONS, OUTPUT_ACTIONS, output_options
+from .native_output_points import (
+    ALLOCATION_ACTIONS,
+    OUTPUT_ACTIONS,
+    discrete_terminals,
+    output_options,
+    signal,
+)
 from .native_runtime_io import PROFILE, RuntimeIOEdit, compile_io, qualified_io_source
 from .property_evidence import PropertyEvidence
 
@@ -136,7 +142,7 @@ class RuntimeIOOperations:
                     f"New point identifier is occupied or precedes the reported allocator. Choose an unused instance at or above {next_id}."
                 )
             guard = {"absence": proof, "next_available_instance": next_id}
-            if request.edit.action == "allocate-binary":
+            if request.edit.action in {"allocate-binary", "allocate-discrete-output"}:
                 return guard
             obj = compilation["changes"][0]["source_object"]
         if request.edit.action in CONTACT_ACTIONS:
@@ -562,12 +568,23 @@ def router(native):
             and (obj := app.reader.scalar(r, 75)) is not None
         ]
         candidate = max(max(instances, default=0) + 1, app.reader.scalar(app.root, 787) or 1)
+        free_discrete = [] if contacts else discrete_terminals(app)
         return {
             "capture_id": capture["id"],
             "identity": capture["identity"],
             "target": capture["target"],
             "suggested_instance": candidate if candidate <= 4194302 else None,
-            **(contact_options(app, capacity) if contacts else {"outputs": output_options(app)}),
+            **(
+                contact_options(app, capacity)
+                if contacts
+                else {
+                    "outputs": output_options(app),
+                    "discrete_terminals": free_discrete,
+                    "discrete_terminal_signals": {
+                        slot: signal(slot, "binary") for slot in free_discrete
+                    },
+                }
+            ),
             "controller_queries": False,
             "controller_writes": False,
         }

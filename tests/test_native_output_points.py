@@ -446,3 +446,50 @@ async def test_restore_original_after_two_independent_allocations(output_link):
     after, _ = effective_source(peer.files, identity())
     assert after.data == before.data
     assert output_options(after) == output_options(before)
+
+
+def test_first_discrete_output_from_capture_without_a_binary_template():
+    files = source()
+    raw = MoiIdentity(files[3])
+    files[3] = archive(
+        raw, [raw.data[r["offset"] : r["end_offset"]] for r in raw.records if r["class_id"] != 239]
+    )
+    edit = dict(
+        action="allocate-discrete-output", object_instance=3200102, slot=1, name="Fan command"
+    )
+    original, _ = effective_source(files, identity())
+    assert not any(row["class_id"] == 239 for row in original.records)
+    image, proof = compile_io(files, identity(), edit)
+    rebuilt = MoiIdentity(image)
+    row = next(
+        row for row in rebuilt.records if rebuilt.reader.scalar(row, 75) == proof["object_id"]
+    )
+    for pid, value in {31: "BO OUT1", 990: 1, 518: 0, 4: "On", 46: "Off", 931: 83}.items():
+        assert rebuilt.reader.scalar(row, pid) == value
+    assert proof["all_other_effective_records_preserved"] and not proof["graph_wires_changed"]
+    for patch in ({"slot": 4}, {"expected_slot": 2}, {"template_instance": 5}):
+        with pytest.raises(ValueError):
+            compile_io(files, identity(), edit | patch)
+    with pytest.raises(ValueError, match="free internally powered"):
+        compile_io(configured(), identity(), edit | {"slot": 1})
+
+
+async def test_new_discrete_output_publishes_neutral_and_releases_owned_pulse(output_link):
+    peer, native, target, service = output_link
+    edit = dict(
+        action="allocate-discrete-output", object_instance=3200102, slot=3, name="Fan command"
+    )
+    _, plan = await review(output_link, edit)
+    receipt = await service.apply(confirm(plan, output_wiring_confirmed=True))
+    assert receipt["result"]["status"] == "verified", receipt["result"]
+    assert receipt["result"]["published_io"]["neutral_present_value"] == 0
+    obj = plan["compilation"]["object_id"]
+    peer.command_test_object = ObjectIdentifier(obj)
+    broker = native.bacnet
+    pulse = await broker.plan_write(target["address"], obj, 1, 8)
+    applied = await broker.apply_write(pulse["token"])
+    try:
+        assert int(peer.get_object_id(ObjectIdentifier(obj)).presentValue) == 1
+    finally:
+        assert (await broker.release(applied["command"]))["released"]
+    assert int(peer.get_object_id(ObjectIdentifier(obj)).presentValue) == 0
