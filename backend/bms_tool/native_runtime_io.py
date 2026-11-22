@@ -23,6 +23,7 @@ from .models import StrictModel
 from .moi_identity import MoiIdentity, controller_name, seal, sha
 from .moi_parameters import ParameterApplication
 from .native_inputs import archive, encoded, native_record, replace_properties
+from .native_output_points import ALLOCATION_ACTIONS, OUTPUT_ACTIONS, TERMINALS, compile_output
 from .native_parameter_qualification import qualify_parameter_additions
 
 PROFILE = "native-saved-effective-local-io/1"
@@ -96,15 +97,35 @@ def effective_source(files, identity):
 class RuntimeIOEdit(StrictModel):
     action: str
     object_instance: int = Field(ge=1, le=4194302, strict=True)
-    slot: int = Field(ge=1, le=3, strict=True)
+    slot: int = Field(ge=1, le=5, strict=True)
     name: str | None = None
     description: str = Field(default="", max_length=128)
     expected_slot: int | None = Field(default=None, ge=1, le=5, strict=True)
+    template_instance: int | None = Field(default=None, ge=1, le=4194302, strict=True)
 
     @model_validator(mode="after")
     def shape(self):
         if self.description:
             controller_name(self.description)
+        if self.action not in ALLOCATION_ACTIONS and self.template_instance is not None:
+            raise ValueError("Only a new output takes a source template.")
+        if self.action not in OUTPUT_ACTIONS and self.slot > 3:
+            raise ValueError("Select one of the three supported input or binary terminals.")
+        if self.action in OUTPUT_ACTIONS:
+            mode = "binary" if self.action == "allocate-binary-output" else "proportional"
+            if self.slot not in TERMINALS[mode] or self.expected_slot in (None, self.slot):
+                raise ValueError(
+                    "Select a source and a different terminal compatible with its signal."
+                )
+            if self.action in ALLOCATION_ACTIONS:
+                if self.name is None or self.template_instance in (None, self.object_instance):
+                    raise ValueError(
+                        "A new output requires a name, unused instance and separate source point."
+                    )
+                controller_name(self.name)
+            elif self.name is not None or self.description:
+                raise ValueError("A terminal move preserves the point name and description.")
+            return self
         if self.action == "allocate-binary":
             if self.name is None or self.expected_slot is not None:
                 raise ValueError("Binary allocation requires a new name and no old slot.")
@@ -190,8 +211,7 @@ def _network_only_sa(app, row):
     return {"declaration_sha256": sha(raw), "mapped_network_values": sorted(mapped)}
 
 
-def compile_io(files, identity, edit):
-    edit = RuntimeIOEdit.model_validate(edit)
+def qualified_io_source(files, identity):
     app, proof = effective_source(files, identity)
     capacity = model_capacity(identity["model-name"])
     if capacity is None or identity["model-name"] not in CV_MODELS:
@@ -208,8 +228,17 @@ def compile_io(files, identity, edit):
             2577 in r["properties"] or app.reader.scalar(r, 3645) not in (None, 0)
         ):
             raise ValueError("A physical I/O device reference needs another host profile.")
+    return app, proof, capacity, sa_proof
+
+
+def compile_io(files, identity, edit):
+    edit = RuntimeIOEdit.model_validate(edit)
+    app, proof, capacity, sa_proof = qualified_io_source(files, identity)
     new, replaced = None, None
-    if edit.action == "allocate-binary":
+    if edit.action in OUTPUT_ACTIONS:
+        new, replaced, change = compile_output(app, edit)
+        oid, changes = change["object"], [change]
+    elif edit.action == "allocate-binary":
         if edit.slot not in capacity["universal_inputs"]:
             raise ValueError("Select a documented local universal input.")
         for r in app.records:
@@ -315,7 +344,9 @@ def compile_io(files, identity, edit):
             raise ValueError("An unrelated native record changed during I/O compilation.")
     return output, {
         **proof,
-        "edit": edit.model_dump(),
+        "edit": edit.model_dump(
+            exclude={"template_instance"} if edit.template_instance is None else set()
+        ),
         "changes": changes,
         "effective_source_sha256": app.source_sha256,
         "configuration_guard": configuration_guard(app),

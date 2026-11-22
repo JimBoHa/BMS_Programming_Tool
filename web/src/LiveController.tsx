@@ -3,6 +3,7 @@ import { api } from "./api";
 import { ControllerApplicationPanel } from "./ControllerApplication";
 import { NativePointName } from "./NativePointName";
 import { NativeInputs } from "./NativeInputs";
+import { NativeOutputPoints } from "./NativeOutputPoints";
 import { controllerKey, type ControllerContext } from "./workflow";
 
 type RecordValue = Record<string, any>;
@@ -273,6 +274,7 @@ export function LiveControllerPoints({
 }) {
   const [nameBusy, setNameBusy] = useState(false);
   const [inputOpen, setInputOpen] = useState(false);
+  const [outputOpen, setOutputOpen] = useState(false);
   const [inventory, setInventory] = useState<RecordValue | null>(null),
     [values, setValues] = useState<Record<string, RecordValue>>({});
   const [offset, setOffset] = useState(0),
@@ -490,11 +492,27 @@ export function LiveControllerPoints({
         <div className="button-row">
           <button
             disabled={nameBusy}
-            onClick={() => setInputOpen((value) => !value)}
+            onClick={() => {
+              setOutputOpen(false);
+              setInputOpen((value) => !value);
+            }}
           >
             {inputOpen
               ? "Close input configuration"
               : "Configure native inputs"}
+          </button>
+          <button
+            disabled={nameBusy}
+            aria-expanded={outputOpen}
+            onClick={() => {
+              setInputOpen(false);
+              setSelected(null);
+              setOutputOpen((value) => !value);
+            }}
+          >
+            {outputOpen
+              ? "Close output configuration"
+              : "Configure output points"}
           </button>
           <button
             disabled={busy || !connected}
@@ -536,6 +554,18 @@ export function LiveControllerPoints({
             Show all BACnet objects
           </label>
         </div>
+        {outputOpen && (
+          <NativeOutputPoints
+            key={source}
+            controller={controller}
+            connected={connected}
+            onBusy={(value) => {
+              setNameBusy(value);
+              onBusy?.(value);
+            }}
+            onVerified={() => setReload((value) => value + 1)}
+          />
+        )}
         {inputOpen && (
           <NativeInputs
             key={source}
@@ -601,7 +631,10 @@ export function LiveControllerPoints({
                     <td>
                       <button
                         disabled={nameBusy}
-                        onClick={() => setSelected(row)}
+                        onClick={() => {
+                          setOutputOpen(false);
+                          setSelected(row);
+                        }}
                       >
                         Configuration
                       </button>

@@ -5,7 +5,12 @@ import struct
 from datetime import UTC, datetime, timedelta
 
 from bacpypes3.apdu import ReadPropertyACK, ReadPropertyRequest
-from bacpypes3.object import AnalogInputObject, BinaryInputObject
+from bacpypes3.object import (
+    AnalogInputObject,
+    AnalogOutputObject,
+    BinaryInputObject,
+    BinaryOutputObject,
+)
 from bacpypes3.pdu import PDUData
 from bacpypes3.primitivedata import Boolean, Enumerated, ObjectIdentifier, Real, TagList, Unsigned
 
@@ -198,12 +203,18 @@ class NativeInputOperations:
         return value
 
     async def input_presence(self, session, obj):
+        schema = {
+            0: AnalogInputObject,
+            1: AnalogOutputObject,
+            3: BinaryInputObject,
+            4: BinaryOutputObject,
+        }
         value, row = await PropertyEvidence(self.path).read(
             session,
             ReadBudget(max_requests=1, max_bytes=128 * 1024),
             obj,
             75,
-            BinaryInputObject if ObjectIdentifier(obj)[0] == 3 else AnalogInputObject,
+            schema[int(ObjectIdentifier(obj)[0])],
             timeout=self.files.timeout,
         )
         if row["status"] == "ok" and value == ObjectIdentifier(obj):
