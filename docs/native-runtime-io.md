@@ -16,6 +16,11 @@ requires all three saved identity fields, CRC-valid ObjectIdentifier storage,
 format agreement and an independently captured responding identity. It retains
 the original files and produces a separate saved-effective image.
 
+Points & I/O can also reopen factory captures from an M4-CVM03050-0 running
+firmware 11.0.2.8 with ACS 67 and DMCS 65. Local review checks both format
+versions in the saved Device record as well as the assigned identifier, name
+and model. The editor labels these captures for local review only.
+
 The offline compiler supports the documented M4/F4 CVM03050 and CVE03050 model
 variants listed in the module. Capacity is supplementary hardware evidence; it
 never supplies a point inventory. Physical SA expansion or ambiguous host maps

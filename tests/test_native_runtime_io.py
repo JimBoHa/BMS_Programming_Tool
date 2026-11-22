@@ -29,7 +29,9 @@ from .test_controller_application import encoded, native_record
 from .test_native_applications import native_link as native_link
 
 
-def source(*, compressed=False, saved_id=5136, input_slot=1, output_slot=4):
+def source(
+    *, compressed=False, saved_id=5136, input_slot=1, output_slot=4, acs=66, saved_versions=()
+):
     def record(cid, instance, props):
         return native_record(cid, instance, [(k, encoded(v)) for k, v in props])
 
@@ -41,7 +43,7 @@ def source(*, compressed=False, saved_id=5136, input_slot=1, output_slot=4):
             (75, ObjectIdentifier((8, 1))),
             (2390, CharacterString("CVM")),
             (70, CharacterString("M4-CVM03050-0")),
-            (4128, Unsigned(66)),
+            (4128, Unsigned(acs)),
             (4129, Unsigned(65)),
         ],
     )
@@ -93,6 +95,10 @@ def source(*, compressed=False, saved_id=5136, input_slot=1, output_slot=4):
         return (len(body) + 2).to_bytes(2, "big") + body
 
     static = row(75, 12, b"\x00\x00", 0x6F)
+    for pid, version in saved_versions:
+        static += row(pid, 16, len(dynamic).to_bytes(2, "big"), 0x6F)
+        payload = bytes([version])
+        dynamic += payload + bytes([header_crc(payload) ^ 255])
     for pid, text in [(2390, "Authored controller"), (70, "M4-CVM03050-0")]:
         static += row(
             pid, 7, b"\x1e" + encoded(CharacterString(text)) + b"\x1f" + b"\x00" * 5, 0x4F
@@ -115,6 +121,67 @@ def allocation():
 
 def movement():
     return dict(action="binary-output-terminal", object_instance=2045, slot=1, expected_slot=4)
+
+
+@pytest.mark.parametrize(
+    "edit",
+    [
+        allocation(),
+        dict(action="allocate-discrete-output", object_instance=50000, slot=3, name="Aux relay"),
+    ],
+)
+def test_format_67_factory_copies_preserve_originals_and_all_existing_records(edit):
+    files = source(acs=67, saved_versions=[(4128, 67), (4129, 65)], compressed=True)
+    original = dict(files)
+    responding = {**identity(), "firmware-revision": "11.0.2.8"}
+    before, _ = effective_source(files, responding)
+    output, evidence = compile_io(files, responding, edit)
+    after = MoiIdentity(output)
+    assert evidence["factory_identity_materialized"] and not evidence["controller_writes"]
+    assert after.instance == before.instance == 5136
+    assert (
+        before.summary()["format_versions"]
+        == after.summary()["format_versions"]
+        == {"acs": 67, "dmcs": 65}
+    )
+    assert [r["sha256"] for r in after.records[:-1]] == [r["sha256"] for r in before.records]
+    assert files == original
+
+
+@pytest.mark.parametrize(
+    "saved,firmware,message",
+    [
+        ([(4128, 67)], "11.0.2.8", "both assigned"),
+        ([(4128, 66), (4129, 65)], "11.0.2.8", "format|version|identity|preserv"),
+        ([(4128, 67), (4129, 65)], "unqualified", "format pair"),
+    ],
+)
+def test_unmatched_factory_versions_are_rejected(saved, firmware, message):
+    with pytest.raises(ValueError, match=message):
+        effective_source(
+            source(acs=67, saved_versions=saved), {**identity(), "firmware-revision": firmware}
+        )
+
+
+async def test_67_factory_bank_allows_local_review_and_refuses_field_review(io_link):
+    peer, native, target, service = io_link
+    peer.files = source(acs=67, saved_versions=[(4128, 67), (4129, 65)])
+    peer.metadata["firmware-revision"] = "11.0.2.8"
+    capture = await native.capture(**target, operation_id="read-factory-io")
+    request = IOReview(
+        **target,
+        operation_id="review-factory-io",
+        capture_id=capture["id"],
+        snapshot_sha256=capture["snapshot_evidence_sha256"],
+        edit=allocation(),
+    )
+    assert not capture["source_identity_matches"]
+    _, _, _, local = service.source(request)
+    assert local["factory_identity_materialized"]
+    before = list(peer.events)
+    with pytest.raises(ValueError, match="offline only"):
+        await service.preview(request)
+    assert peer.events == before and not service.plans
 
 
 @pytest.mark.parametrize("compressed", [False, True])
