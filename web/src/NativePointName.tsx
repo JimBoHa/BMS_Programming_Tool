@@ -43,6 +43,8 @@ export function NativePointName({
   onBusy: (busy: boolean) => void;
   onVerified: () => void;
 }) {
+  const applicationTitle = object === "575,1";
+  const subject = applicationTitle ? "application title" : "point name";
   const source = JSON.stringify([
     controllerKey(controller),
     controller.interfaceKey,
@@ -221,10 +223,10 @@ export function NativePointName({
           throw new Error(
             "Point-name source differs from the selected backup.",
           );
-        const field = pointSource.points.find(
-          (p: any) => p.object_id === object,
-        );
-        if (!field)
+        const field = applicationTitle
+          ? pointSource.primary_application
+          : pointSource.points.find((p: any) => p.object_id === object);
+        if (!field || field.object_id !== object)
           throw new Error(
             "This application has no supported native name for the selected point.",
           );
@@ -446,12 +448,12 @@ export function NativePointName({
     ) ?? [];
   return (
     <details>
-      <summary>Edit point name</summary>
-      <section aria-label="Native point name configuration">
+      <summary>Edit {subject}</summary>
+      <section aria-label={`Native ${subject} configuration`}>
         <p>
-          Rename {object} in this controller’s application. The point keeps its
-          identifier, wiring and logic references. Supervisor labels are
-          separate. Applying briefly interrupts control.
+          {applicationTitle
+            ? "Rename the active primary sequence in the controller’s application. Applying briefly interrupts control."
+            : `Rename ${object} in this controller’s application. The point keeps its identifier, wiring and logic references. Supervisor labels are separate. Applying briefly interrupts control.`}
         </p>
         {!status?.credentials_configured && (
           <p>
@@ -463,7 +465,7 @@ export function NativePointName({
           disabled={!connected || busy || !status?.credentials_configured}
           onClick={() => void run("capture")}
         >
-          Read point name backup
+          Read {subject} backup
         </button>
         {hasPointNameWork(work) && (
           <button
@@ -476,7 +478,7 @@ export function NativePointName({
               setError("");
             }}
           >
-            Discard local point name work
+            Discard local {subject} work
           </button>
         )}
         {work.field && (
@@ -486,7 +488,7 @@ export function NativePointName({
               {work.field.object_id}
             </p>
             <label>
-              New point name
+              New {subject}
               <input
                 value={work.name}
                 maxLength={128}
@@ -514,7 +516,7 @@ export function NativePointName({
               }
               onClick={() => void run("review")}
             >
-              Review point name change
+              Review {subject} change
             </button>
           </>
         )}
@@ -538,7 +540,7 @@ export function NativePointName({
                 disabled={!fresh || busy}
                 onChange={(e) => setConfirmed(e.target.checked)}
               />
-              I confirm this point name change.
+              I confirm this {subject} change.
             </label>
             <label>
               <input
@@ -554,7 +556,7 @@ export function NativePointName({
               disabled={!connected || busy || !fresh || !confirmed || !transfer}
               onClick={() => void run("apply")}
             >
-              Apply point name
+              Apply {subject}
             </button>
             {!fresh && (
               <p role="status">Review expired. Review this point name again.</p>
@@ -594,10 +596,10 @@ export function NativePointName({
                   disabled={!connected || busy}
                   onClick={() => void run("readback")}
                 >
-                  Read back point name
+                  Read back {subject}
                 </button>
                 <button disabled={busy} onClick={() => void saveReceipt()}>
-                  Save point name receipt
+                  Save {subject} receipt
                 </button>
               </>
             )}
@@ -605,7 +607,7 @@ export function NativePointName({
         )}
         {work.receipt?.intent && work.capture && work.field && (
           <details>
-            <summary>Previous point name</summary>
+            <summary>Previous {subject}</summary>
             <p>
               Prepare a local proposal from this retained verified transfer and
               the current captured point source. A new confirmed transfer is

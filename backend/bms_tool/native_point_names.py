@@ -16,12 +16,47 @@ from .native_parameter_qualification import qualify_parameter_additions
 
 PROFILE = "native-point-name-transfer/1"
 SCOPE = (
-    "Rename one existing native BACnet value object. Preserve its object identifier, reference, "
+    "Rename one existing native BACnet value object or a verified primary application title. "
+    "Preserve its object identifier, reference, "
     "wires, I/O setup, Device identity and all other fresh merged settings. Backup/readback "
     "enter and end backup mode; Apply transfers File 3 and can interrupt control briefly. "
     "No object creation, supervisor rename, trend/alarm editing or electrical-mode change."
 )
 POINT_TYPES = {0, 1, 2, 3, 4, 5, 13, 14, 19}
+PRIMARY_SEQUENCE = "575,1"
+
+
+async def published_name(service, session, identity, edit):
+    if edit.object_id != PRIMARY_SEQUENCE:
+        return await service.path._read(session, edit.object_id, "object-name")
+    live, info = await service.identity(session, identity["device"])
+    if (
+        live != identity
+        or live["model-name"] != "M4-CVM03050-0"
+        or live["firmware-revision"] != "10.0.0.2125"
+    ):
+        raise ValueError(
+            "The primary application title requires a qualified controller and firmware."
+        )
+    read = service.input_atomic
+    ref = str(await read(session, identity["device"], 32527, CharacterString))
+    if (
+        edit.record_ref != ref + "/575_1"
+        or str(await read(session, PRIMARY_SEQUENCE, 32527, CharacterString)) != edit.record_ref
+        or str(await read(session, PRIMARY_SEQUENCE, 75, ObjectIdentifier)) != PRIMARY_SEQUENCE
+        or str(await service.path._read(session, "multi-state-value,1000", "object-name"))
+        != ref + "/Preloaded App Loader.App Selector"
+        or int(await service.path._read(session, "multi-state-value,1000", "present-value")) != 1
+        or str(await service.path._read(session, "multi-state-value,1000", "state-text", 1))
+        != "Custom Application"
+    ):
+        raise ValueError("Select the active custom application's single primary sequence.")
+    name = str(await read(session, PRIMARY_SEQUENCE, 77, CharacterString))
+    if name != info["application_name"] or name != str(
+        await read(session, PRIMARY_SEQUENCE, 2390, CharacterString)
+    ):
+        raise ValueError("The engineering application title and published sequence names disagree.")
+    return name
 
 
 class PointNameEdit(StrictModel):
@@ -34,6 +69,8 @@ class PointNameEdit(StrictModel):
     @classmethod
     def point(cls, value):
         oid = ObjectIdentifier(value)
+        if str(oid) == PRIMARY_SEQUENCE:
+            return str(oid)
         if int(oid[0]) not in POINT_TYPES or not 0 <= oid[1] <= 4194302:
             raise ValueError("Choose an existing analog, binary or multistate value object.")
         return str(oid)
@@ -122,6 +159,19 @@ class PointNameCompiler:
         ):
             raise ValueError("Saved settings changed Device identity; capture again.")
         self.points = {}
+        sequences = [r for r in self.editor.records if r["class_id"] == 575]
+        self.primary = None
+        if len(sequences) == 1:
+            record = sequences[0]
+            read = self.editor.reader.scalar
+            if (
+                self.editor.summary()["model"] == "M4-CVM03050-0"
+                and self.editor.summary()["format_versions"] == {"acs": 66, "dmcs": 65}
+                and read(record, 75) == PRIMARY_SEQUENCE
+                and read(record, 32527) == self.editor.ref + "/575_1"
+                and isinstance(read(record, 2390), str)
+            ):
+                self.primary = record
         for record in self.editor.records:
             ref = self.editor.reader.scalar(record, 32527)
             oid = self.editor.reader.scalar(record, 75)
@@ -144,21 +194,25 @@ class PointNameCompiler:
                 raise ValueError("Duplicate BACnet point identifiers prevent name matching.")
             self.points[key] = record
 
+    def field(self, record):
+        read = self.editor.reader.scalar
+        return {
+            "object_id": read(record, 75),
+            "record_ref": read(record, 32527),
+            "name": read(record, 2390),
+            "encoded_sha256": record["properties"][2390]["encoded_sha256"],
+            "native_class": record["class_id"],
+        }
+
     def fields(self):
-        return [
-            {
-                "object_id": key,
-                "record_ref": self.editor.reader.scalar(record, 32527),
-                "name": self.editor.reader.scalar(record, 2390),
-                "encoded_sha256": record["properties"][2390]["encoded_sha256"],
-                "native_class": record["class_id"],
-            }
-            for key, record in sorted(self.points.items())
-        ]
+        return [self.field(record) for _, record in sorted(self.points.items())]
+
+    def selected_record(self, object_id):
+        return self.primary if object_id == PRIMARY_SEQUENCE else self.points.get(object_id)
 
     def compile(self, edit):
         edit = PointNameEdit(**edit).model_dump()
-        record = self.points.get(edit["object_id"])
+        record = self.selected_record(edit["object_id"])
         if record is None:
             raise ValueError("This snapshot has no supported native name for that point.")
         if (

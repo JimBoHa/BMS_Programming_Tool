@@ -168,6 +168,7 @@ from .native_point_names import (
     PointNamePreview,
     PointNameSource,
     compile_point_name,
+    published_name,
     verify_point_name_preservation,
 )
 from .native_runtime_calibration import read_runtime_calibration
@@ -875,6 +876,7 @@ class NativeApplications(
         captured, files = self.check_capture(options)
         if captured["evidence_sha256"] != options.snapshot_sha256:
             raise ValueError("The selected native snapshot changed; open it again.")
+        compiler = PointNameCompiler(files)
         return {
             "profile": POINT_NAME_PROFILE,
             "scope": POINT_NAME_SCOPE,
@@ -882,7 +884,8 @@ class NativeApplications(
             "snapshot_sha256": captured["evidence_sha256"],
             "target": self.target(options),
             "device": options.device,
-            "points": PointNameCompiler(files).fields(),
+            "points": compiler.fields(),
+            "primary_application": compiler.field(compiler.primary) if compiler.primary else None,
             "controller_queries": False,
             "controller_writes": False,
         }
@@ -902,7 +905,7 @@ class NativeApplications(
             async with self.path._path(options) as session:
                 PropertyEvidence.pin(session, options.router)
                 actual, _ = await self.identity(session, options.device)
-                published = await self.path._read(session, options.object_id, "object-name")
+                published = await published_name(self, session, actual, options)
             if (
                 actual != captured["identity"]
                 or published != compilation["selected_edit"]["before"]
@@ -1578,7 +1581,7 @@ class NativeApplications(
                     result["preservation"] = original_preservation
                     if point_name_edit:
                         edit = PointNameEdit(**intent["point_name_edit"])
-                        name = await self.path._read(session, edit.object_id, "object-name")
+                        name = await published_name(self, session, identity, edit)
                         if name != intent["compilation"]["selected_edit"]["before"]:
                             raise ValueError("The original published point name is not recovered.")
                         result["published_point_name"] = name
@@ -1682,7 +1685,7 @@ class NativeApplications(
                 )
                 if point_name_edit:
                     edit = PointNameEdit(**intent["point_name_edit"])
-                    name = await self.path._read(session, edit.object_id, "object-name")
+                    name = await published_name(self, session, identity, edit)
                     result["published_point_name"] = name
                     if name != edit.new_name:
                         result["error"] = "The published point name differs from the reviewed name."
@@ -1984,7 +1987,7 @@ class NativeApplications(
                     if actual != body["identity"]:
                         raise ValueError("Controller identity changed after review.")
                     if point_name_edit:
-                        name = await self.path._read(session, options.object_id, "object-name")
+                        name = await published_name(self, session, actual, options)
                         if name != body["compilation"]["selected_edit"]["before"]:
                             raise ValueError("The published point name changed after review.")
                     if input_edit:

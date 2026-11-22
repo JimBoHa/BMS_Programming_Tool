@@ -20,6 +20,7 @@ export async function nativeDefaultPeer(
     | "binary-input"
     | "encoded-analog-input"
     | "point-name"
+    | "application-title"
     | "application-restore" = "real",
   enumStates = false,
 ) {
@@ -57,6 +58,9 @@ async def main():
  elif sys.argv[2]=='wire-recovery':
   from tests.test_native_wire_recovery import FANOUT
   app.files=wire_files(target_class=538,wires=FANOUT);app.metadata['object-name']='Authored native wire controller';app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
+ elif sys.argv[2]=='application-title':
+  from tests.test_native_application_title import install_title_peer
+  install_title_peer(app)
  elif sys.argv[2]=='point-name':
   from tests.test_native_point_names import point_files,attach_point_reads
   app.files=point_files();attach_point_reads(app,published_old=sys.argv[1]=='published-old')

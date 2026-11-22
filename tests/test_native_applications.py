@@ -122,6 +122,9 @@ class NativePeer(Application):
             values = self.metadata
         await self.response(read_reply(request, self.instance, values))
 
+    def application_title(self):
+        return "Authored application"
+
     async def do_ConfirmedPrivateTransferRequest(self, request):
         assert request.vendorID == 5 and request.serviceNumber == 54
         tags = list(request.serviceParameters.tagList)
@@ -134,7 +137,7 @@ class NativePeer(Application):
             CharacterString("1.0"),
             CharacterString("1.0"),
             CharacterString("1.0"),
-            CharacterString("Authored application"),
+            CharacterString(self.application_title()),
             Enumerated(1),
             Enumerated(1),
             CharacterString(""),

@@ -230,6 +230,9 @@ physical calibration, actuator tests or general runtime verification.
 selected point's Configuration within Points & I/O. It preserves the existing
 point identifier, logic references, I/O setup and other merged settings, and
 requires both full native readback and the published BACnet name to agree.
+For a qualified custom CVM sequence, the same review can change its primary
+application title. It also checks the title reported by the engineering service
+and the identity of the active application bank.
 Bounded drafts refuse eviction; exact review/operation/receipt ownership and
 uncertainty recovery remain explicit. This does not allocate points, move
 terminals, rename supervisor objects or complete general native authoring.
