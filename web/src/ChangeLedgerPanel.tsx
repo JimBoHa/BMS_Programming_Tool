@@ -183,7 +183,7 @@ const outcomeText = (row: Row) =>
     : row.outcome === "verified"
       ? "Observed / verified"
       : "Recorded outcome";
-const realText = (value: number) =>
+const realText = (value: number | null) =>
   Object.is(value, -0) ? "-0" : String(value);
 function Target({ row }: { row: Row }) {
   if (!row.target)
@@ -1118,7 +1118,14 @@ export function ChangeLedgerPanel({
                     <dd>{input.wiring_confirmation_recorded ? "Yes" : "No"}</dd>
                   </dl>
                   <p>{input.scope}</p>
+                  {input.requested_configuration?.mode === "nickel-duct-temperature" && (
+                    <p>
+                      1 kΩ nickel RTD with the controller’s discharge-temperature curve.
+                      The compiled input range is 670–1,600 Ω with display limits of −50 to 250 °F.
+                    </p>
+                  )}
                   {input.requested_configuration &&
+                    input.requested_configuration.mode !== "nickel-duct-temperature" &&
                     input.stored_configuration && (
                       <>
                         <p>

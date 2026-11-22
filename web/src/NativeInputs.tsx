@@ -270,6 +270,11 @@ export function NativeInputs({
     else result.configuration_sha256 = field.configuration_sha256;
     if (form.action === "remove-allocated")
       result.allocation_receipt = form.origin;
+    else if (
+      form.action === "allocate" &&
+      form.mode === "nickel-duct-temperature"
+    )
+      result.configuration = { mode: form.mode };
     else if (form.action !== "terminal")
       result.configuration = {
         mode: form.mode,
@@ -759,7 +764,15 @@ export function NativeInputs({
               <select
                 aria-label="Input operation"
                 value={form.action}
-                onChange={(e) => update({ action: e.target.value, object: "" })}
+                onChange={(e) =>
+                  update({
+                    action: e.target.value,
+                    object: "",
+                    ...(form.mode === "nickel-duct-temperature"
+                      ? { mode: "voltage", input_low: "0", input_high: "10" }
+                      : {}),
+                  })
+                }
               >
                 <option value="allocate">Allocate a spare local input</option>
                 <option value="mode">Edit a configured input</option>
@@ -907,6 +920,10 @@ export function NativeInputs({
                     aria-label="Native input electrical mode"
                     value={form.mode}
                     onChange={(e) => {
+                      if (e.target.value === "nickel-duct-temperature") {
+                        update({ mode: e.target.value });
+                        return;
+                      }
                       const m = source.hardware.modes[e.target.value];
                       update({
                         mode: e.target.value,
@@ -922,25 +939,41 @@ export function NativeInputs({
                         </option>
                       ),
                     )}
+                    {form.action === "allocate" &&
+                      source.hardware.nickel_duct_input && (
+                        <option value="nickel-duct-temperature">
+                          1 kΩ nickel RTD · discharge temperature (°F)
+                        </option>
+                      )}
                   </select>
                 </label>
-                <div className="workflow-identity-grid">
-                  {numeric.map(([key, label]) => (
-                    <label key={key}>
-                      {label}
-                      <input
-                        aria-label={label}
-                        value={form[key as keyof Form]}
-                        onChange={(e) => update({ [key]: e.target.value })}
-                      />
-                    </label>
-                  ))}
-                </div>
-                <p>
-                  Scaling maps the electrical range into engineering units. Use
-                  native unit codes (98 = percent, 64 = °F, 62 = °C). The
-                  reviewed values show native Real32 rounding.
-                </p>
+                {form.mode === "nickel-duct-temperature" ? (
+                  <p>
+                    The controller uses its nickel sensor curve and
+                    discharge-air filter. Confirm the passive probe and its
+                    common at the selected terminal.
+                  </p>
+                ) : (
+                  <>
+                    <div className="workflow-identity-grid">
+                      {numeric.map(([key, label]) => (
+                        <label key={key}>
+                          {label}
+                          <input
+                            aria-label={label}
+                            value={form[key as keyof Form]}
+                            onChange={(e) => update({ [key]: e.target.value })}
+                          />
+                        </label>
+                      ))}
+                    </div>
+                    <p>
+                      Scaling maps the electrical range into engineering units.
+                      Use native unit codes (98 = percent, 64 = °F, 62 = °C).
+                      The reviewed values show native Real32 rounding.
+                    </p>
+                  </>
+                )}
               </>
             )}
           </fieldset>

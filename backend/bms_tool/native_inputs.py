@@ -52,6 +52,17 @@ CONFIG = {
     65: "maximum",
 }
 ENUM_FIELDS = {518, 2180, 117}
+NICKEL_DUCT_STORED = {
+    "setup": 3,
+    "field_units": 4,
+    "input_low": 670.0,
+    "input_high": 1600.0,
+    "output_low": None,
+    "output_high": None,
+    "units": 64,
+    "minimum": -50.0,
+    "maximum": 250.0,
+}
 UINT = dict(ge=0, le=4194302, strict=True)
 HASH = r"^[a-f0-9]{64}$"
 
@@ -93,13 +104,19 @@ class InputConfiguration(StrictModel):
         return self
 
 
+class NickelDuctConfiguration(StrictModel):
+    """The controller owns the nickel RTD curve and discharge-temperature filter."""
+
+    mode: Literal["nickel-duct-temperature"]
+
+
 class InputEdit(StrictModel):
     action: Literal["allocate", "mode", "remove-allocated", "terminal", "binary-terminal", "encoded-terminal"]
     object_instance: int = Field(**UINT)
     slot: int = Field(ge=1, le=255, strict=True)
     configuration_sha256: str | None = Field(default=None, pattern=HASH)
     name: str | None = Field(default=None, min_length=1, max_length=128)
-    configuration: InputConfiguration | None = None
+    configuration: InputConfiguration | NickelDuctConfiguration | None = None
     allocation_receipt: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
 
     @field_validator("name")
@@ -109,6 +126,8 @@ class InputEdit(StrictModel):
 
     @model_validator(mode="after")
     def action_fields(self):
+        if isinstance(self.configuration, NickelDuctConfiguration) and self.action != "allocate":
+            raise ValueError("The nickel RTD profile applies to new local input allocation only.")
         if self.action == "allocate":
             if (
                 self.name is None
@@ -307,6 +326,9 @@ class NativeInputCompiler:
                 "This native application/data-model pair has no qualified local input profile."
             )
         self.hardware = input_capabilities(app.summary()["model"])
+        self.hardware["nickel_duct_input"] = app.summary()[
+            "model"
+        ] == "M4-CVM03050-0" and versions == {"acs": 66, "dmcs": 65}
         self.inputs, self.occupied, self.external_ids = {}, {}, set()
         for r in app.records:
             obj, ref, label, slot = (app.reader.scalar(r, pid) for pid in (75, 32527, 31, 519))
@@ -382,6 +404,22 @@ class NativeInputCompiler:
         config = edit.configuration
         if config is None:
             return {}
+        if isinstance(config, NickelDuctConfiguration):
+            if not self.hardware["nickel_duct_input"]:
+                raise ValueError(
+                    "This model and native format have no qualified nickel duct input profile."
+                )
+            # The native sensor library supplies the nonlinear curve. Linear output endpoints
+            # would change its meaning. Process ID 8 selects the discharge-temperature filter.
+            return {
+                pid: encoded((Enumerated if pid in ENUM_FIELDS else Real)(NICKEL_DUCT_STORED[key]))
+                for pid, key in CONFIG.items()
+                if NICKEL_DUCT_STORED[key] is not None
+            } | {
+                22: encoded(Real(0.3)),
+                3407: encoded(Enumerated(0)),
+                3422: encoded(Enumerated(8)),
+            }
         mode = self.hardware["modes"].get(config.mode)
         if mode is None or config.input_low < mode["low"] or config.input_high > mode["high"]:
             raise ValueError(
@@ -438,11 +476,12 @@ class NativeInputCompiler:
                 31: encoded(CharacterString(f"UI IN{edit.slot}")),
                 519: encoded(Unsigned(edit.slot)),
                 22: encoded(Real(0.01)),
-                118: encoded(Unsigned(100)),
                 3407: encoded(Enumerated(2)),
                 3422: encoded(Enumerated(18)),
                 **changed,
             }
+            if not isinstance(edit.configuration, NickelDuctConfiguration):
+                props[118] = encoded(Unsigned(100))
             new_record = native_record(
                 240, edit.object_instance, [(32527, props.pop(32527)), *sorted(props.items())]
             )

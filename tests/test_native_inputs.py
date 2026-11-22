@@ -335,11 +335,8 @@ def test_inverse_linear_scaling_has_ordered_electrical_range_and_bounded_enginee
         InputConfiguration(**{**edit["configuration"], "minimum": 1})
 
 
-@pytest.mark.parametrize(
-    "versions,accepted", [((60, 60), True), ((62, 62), True), ((66, 65), True), ((67, 66), False)]
-)
-def test_input_profile_qualifies_format_pairs_independently_of_model_inventory(versions, accepted):
-    files = source()
+def versioned_input_source(versions=(66, 65), **source_options):
+    files = source(**source_options)
     app = MoiIdentity(files[3])
     records = [
         replace_properties(
@@ -353,7 +350,14 @@ def test_input_profile_qualifies_format_pairs_independently_of_model_inventory(v
     for offset, value in zip([0, 2], versions, strict=True):
         raw = bytes([value])
         dynamic[offset : offset + 2] = raw + bytes([header_crc(raw) ^ 255])
-    files = {**files, 3: archive(app, records), 12: bytes(dynamic)}
+    return {**files, 3: archive(app, records), 12: bytes(dynamic)}
+
+
+@pytest.mark.parametrize(
+    "versions,accepted", [((60, 60), True), ((62, 62), True), ((66, 65), True), ((67, 66), False)]
+)
+def test_input_profile_qualifies_format_pairs_independently_of_model_inventory(versions, accepted):
+    files = versioned_input_source(versions)
     if accepted:
         output, _ = NativeInputCompiler(files).compile(allocation())
         assert NativeInputCompiler({**files, 3: output}).source()["format_versions"] == dict(
@@ -362,6 +366,34 @@ def test_input_profile_qualifies_format_pairs_independently_of_model_inventory(v
     else:
         with pytest.raises(ValueError, match="application/data-model pair"):
             NativeInputCompiler(files)
+
+
+def test_nickel_discharge_profile_preserves_records_and_uses_controller_curve():
+    from bms_tool.native_inputs import NICKEL_DUCT_STORED, InputEdit
+
+    files = versioned_input_source()
+    compiler = NativeInputCompiler(files)
+    edit = {**allocation(), "configuration": {"mode": "nickel-duct-temperature"}}
+    output, result = compiler.compile(edit)
+    after = MoiIdentity(output)
+    new = next(r for r in after.records if after.reader.scalar(r, 75) == result["object_id"])
+    assert [r["sha256"] for r in after.records if r is not new] == [
+        r["sha256"] for r in compiler.app.records
+    ]
+    assert new["class_id"] == 240 and after.reader.scalar(new, 519) == 1
+    assert result["stored_configuration"] == NICKEL_DUCT_STORED
+    assert [after.reader.scalar(new, k) for k in (22, 3407, 3422)] == [pytest.approx(0.3), 0, 8]
+    assert {118, 1295, 1296, 1302}.isdisjoint(new["properties"])
+    assert compiler.source()["hardware"]["nickel_duct_input"]
+    for other in (source(), versioned_input_source(model="FX-PCG2611-0")):
+        with pytest.raises(ValueError, match="nickel duct input profile"):
+            NativeInputCompiler(other).compile(edit)
+    with pytest.raises(ValueError):
+        InputEdit.model_validate(
+            {**edit, "configuration": {**edit["configuration"], "input_high": 10}}
+        )
+    with pytest.raises(ValueError, match="new local input allocation"):
+        InputEdit.model_validate({**edit, "action": "mode"})
 
 
 def test_changed_current_configuration_and_changed_readback_fail_closed():
