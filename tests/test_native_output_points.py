@@ -86,7 +86,7 @@ def test_independent_outputs_preserve_original_points_and_graph(mode, compressed
     files = configured(compressed=compressed)
     baseline, _ = effective_source(files, identity())
     options = {o["mode"]: o for o in output_options(baseline)}
-    assert options["binary"]["available_slots"] == [2, 3]
+    assert options["binary"]["available_slots"] == [2, 3, 4]
     assert options["proportional"]["available_slots"] == [4]
     edit = proposal(mode)
     out, proof = compile_io(files, identity(), edit)
@@ -112,7 +112,7 @@ def test_independent_outputs_preserve_original_points_and_graph(mode, compressed
 @pytest.mark.parametrize(
     "change",
     [
-        dict(slot=4),
+        dict(slot=5),
         dict(slot=1),
         dict(template_instance=72),
         dict(template_instance=3300123),
@@ -138,6 +138,56 @@ def test_unqualified_template_ambiguous_occupancy_and_existing_reference_rejecte
         orphan = native_record(127, 44, [(kind, encoded(value))])
         with pytest.raises(ValueError, match=message):
             compile_io(configured(other=[orphan]), identity(), proposal("binary"))
+
+
+def test_configurable_outputs_share_an_occupancy_map_and_preserve_slot_encodings():
+    from bacpypes3.primitivedata import ApplicationTag
+
+    files = configured()
+    app, _ = effective_source(files, identity())
+    binary = next(r for r in app.records if r["class_id"] == 239)
+    from bms_tool.native_inputs import replace_properties
+
+    def payload(tag, data):
+        return bytes(ApplicationTag(tag, data).encode().pduData)
+
+    edited = replace_properties(
+        app,
+        binary,
+        {
+            31: payload(7, b"\x04" + "BO OUT1".encode("utf-16-be")),
+            990: payload(2, b"\x00\x01"),
+            519: payload(2, b"\x00\x01"),
+        },
+    )
+    files[3] = archive(
+        app,
+        [edited if r is binary else app.data[r["offset"] : r["end_offset"]] for r in app.records],
+    )
+    move = dict(action="binary-output-terminal", object_instance=71, expected_slot=1, slot=4)
+    new, result = compile_io(files, identity(), move)
+    moved = MoiIdentity(new)
+    point = next(r for r in moved.records if r["class_id"] == 239)
+    assert raw_property(moved, point, 31)[:-1] == payload(
+        7, b"\x04" + "CO OUT1".encode("utf-16-be")
+    )
+    assert (
+        raw_property(moved, point, 990)
+        == raw_property(moved, point, 519)
+        == payload(2, b"\x00\x04") + b"\x2f"
+    )
+    assert result["changes"][0]["after_signal"] == "externally powered 24 VAC triac"
+    options = {r["mode"]: r for r in output_options(moved)}
+    assert not options["proportional"]["available_slots"]
+    assert options["binary"]["available_slots"] == [1, 2, 3]
+    with pytest.raises(ValueError, match="free compatible"):
+        compile_io(files, identity(), move | {"slot": 5})
+    # Both configurable positions can accept a BO when the corresponding AO is absent.
+    without_ao = archive(
+        app, [app.data[r["offset"] : r["end_offset"]] for r in app.records if r["class_id"] != 241]
+    )
+    _, fifth = compile_io(files | {3: without_ao}, identity(), proposal("binary") | {"slot": 5})
+    assert fifth["changes"][0]["after_device_type"] == "CO OUT2"
 
 
 def test_proportional_move_preserves_same_point_and_scaling():
@@ -227,11 +277,12 @@ async def output_link(io_link):
 
 
 @pytest.mark.parametrize(
-    ("mode", "values"), [("binary", [1, 0]), ("proportional", [0, 25, 50, 75, 100])]
+    ("mode", "slot", "values"),
+    [("binary", 3, [1, 0]), ("binary", 4, [1, 0]), ("proportional", 4, [0, 25, 50, 75, 100])],
 )
-async def test_allocate_verify_command_release_on_owned_peer(output_link, mode, values):
+async def test_allocate_verify_command_release_on_owned_peer(output_link, mode, slot, values):
     peer, native, target, service = output_link
-    _, plan = await review(output_link, proposal(mode))
+    _, plan = await review(output_link, proposal(mode) | {"slot": slot})
     with pytest.raises(ValueError, match="connected load"):
         await service.apply(confirm(plan))
     assert not any("start-restore" in str(e) for e in peer.events)
@@ -282,18 +333,34 @@ async def test_proportional_slot_disagreement_rejects_review(output_link):
     assert ("state", "start-restore") not in peer.events
 
 
-async def test_move_proportional_output_preserves_identity_and_refuses_existing_command(
+@pytest.mark.parametrize(
+    "mode,instance,source_slot,value",
+    [
+        ("proportional", 72, 5, 42.0),
+        ("binary", 71, 1, 1),
+    ],
+)
+async def test_move_output_preserves_identity_and_refuses_existing_command(
     output_link,
     tmp_path,
+    mode,
+    instance,
+    source_slot,
+    value,
 ):
     peer, _, target, service = output_link
-    edit = dict(action="proportional-output-terminal", object_instance=72, expected_slot=5, slot=4)
-    obj = ObjectIdentifier("analog-output,72")
+    edit = dict(
+        action=f"{mode}-output-terminal",
+        object_instance=instance,
+        expected_slot=source_slot,
+        slot=4,
+    )
+    obj = ObjectIdentifier((1 if mode == "proportional" else 4, instance))
     peer.command_test_object = obj
     operator = Bacnet(Store(tmp_path / "second-operator"))
     await operator.connect(f"127.0.0.1:{port()}", instance=18001)
     try:
-        command = await operator.plan_write(target["address"], str(obj), 42.0, 8)
+        command = await operator.plan_write(target["address"], str(obj), value, 8)
         issued = await operator.apply_write(command["token"])
         try:
             with pytest.raises(ValueError, match="existing output command"):
@@ -306,13 +373,48 @@ async def test_move_proportional_output_preserves_identity_and_refuses_existing_
     result = await service.apply(confirm(plan, output_wiring_confirmed=True))
     assert result["result"]["status"] == "verified", result["result"]
     point = result["result"]["published_io"]
-    assert (point["75"], point["77"], point["31"], point["990"], point["519"]) == (
+    assert (point["75"], point["77"], point["31"], point["990"]) == (
         str(obj),
-        "Example modulator",
+        "Example modulator" if mode == "proportional" else "Example relay",
         "CO OUT1",
         4,
-        4,
     )
+    if mode == "proportional":
+        assert point["519"] == 4
+    else:
+        assert point["518"] == 0
+
+
+async def test_command_arriving_during_backup_prevents_binary_move(
+    output_link, tmp_path, monkeypatch
+):
+    peer, native, target, service = output_link
+    edit = dict(action="binary-output-terminal", object_instance=71, expected_slot=1, slot=4)
+    _, plan = await review(output_link, edit)
+    peer.command_test_object = ObjectIdentifier("binary-output,71")
+    operator = Bacnet(Store(tmp_path / "operator"))
+    await operator.connect(f"127.0.0.1:{port()}", instance=18002)
+    original = native.capture_session
+
+    async def capture(*args, **kwargs):
+        result = await original(*args, **kwargs)
+        command = await operator.plan_write(target["address"], "binary-output,71", 1, 8)
+        await operator.apply_write(command["token"])
+        return result
+
+    monkeypatch.setattr(native, "capture_session", capture)
+    try:
+        with pytest.raises(ValueError, match="connected load"):
+            await service.apply(confirm(plan))
+        r = await service.apply(confirm(plan, output_wiring_confirmed=True))
+        assert r["result"]["status"] == "not_sent" and "existing output command" in str(
+            r["result"]["errors"]
+        )
+        assert ("state", "start-restore") not in peer.events
+    finally:
+        for command in list(operator.commands):
+            assert (await operator.release(command))["released"]
+        await operator.disconnect()
 
 
 async def test_restore_original_after_two_independent_allocations(output_link):

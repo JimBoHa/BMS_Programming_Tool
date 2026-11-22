@@ -6,6 +6,7 @@ import types
 
 import pytest
 from bacpypes3.apdu import ReadPropertyACK
+from bacpypes3.basetypes import PriorityArray, PriorityValue
 from bacpypes3.constructeddata import Any
 from bacpypes3.errors import ExecutionError
 from bacpypes3.pdu import PDUData
@@ -214,6 +215,8 @@ async def io_link(native_link, monkeypatch):
                 raise ExecutionError(errorClass="property", errorCode="unknown-property")
         elif int(oid[0]) == 8 and pid == 787:
             value = Any(Unsigned(self.next_input))
+        elif int(oid[0]) == 4 and pid == 87:
+            value = Any(PriorityArray([PriorityValue(null=()) for _ in range(16)]))
         elif int(oid[0]) in (3, 4):
             app, _ = effective_source(
                 self.files, {"device": f"device,{self.instance}", **self.metadata}

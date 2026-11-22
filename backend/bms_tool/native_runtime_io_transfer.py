@@ -123,12 +123,11 @@ class RuntimeIOOperations:
             pid, expected = (518, 0) if change["mode"] == "binary" else (117, 98)
             if int(await native.input_atomic(session, obj, pid, Enumerated)) != expected:
                 raise ValueError("The source electrical profile differs from the captured output.")
-            if (
-                change["mode"] == "proportional"
-                and int(await native.input_atomic(session, obj, 519, Unsigned)) != actual
-            ):
-                raise ValueError("Published proportional output slot and slot A disagree.")
-            if request.edit.action == "proportional-output-terminal":
+            if (change["mode"] == "proportional" or change.get("has_slot_alias")) and int(
+                await native.input_atomic(session, obj, 519, Unsigned)
+            ) != actual:
+                raise ValueError("Published output slot and slot A disagree.")
+            if request.edit.action not in ALLOCATION_ACTIONS:
                 slots = await native.path._read(session, obj, "priority-array")
                 choices = [getattr(slot, "_choice", None) for slot in slots]
                 if len(choices) != 16 or any(c != "null" for c in choices[:15]):
@@ -212,8 +211,10 @@ class RuntimeIOOperations:
                 }
             )
         if edit.action in OUTPUT_ACTIONS:
-            if change["mode"] == "binary":
+            if change.get("mode", "binary") == "binary":
                 expected[518] = (Enumerated, 0)
+                if change.get("has_slot_alias"):
+                    expected[519] = (Unsigned, edit.slot)
             else:
                 expected[117] = (Enumerated, 98)
                 expected[519] = (Unsigned, edit.slot)
@@ -283,9 +284,12 @@ class RuntimeIOOperations:
             or plan["expires"] <= time.monotonic()
         ):
             raise ValueError("The I/O review is absent, expired, changed or already consumed.")
+        edit = plan["body"]["request"]["edit"]
+        # Dedicated-terminal moves keep their established two-confirmation API.
         if (
-            plan["body"]["request"]["edit"]["action"] in OUTPUT_ACTIONS
+            edit["action"] in OUTPUT_ACTIONS
             and not confirmation.output_wiring_confirmed
+            and (edit["action"] != "binary-output-terminal" or edit["slot"] > 3)
         ):
             raise ValueError(
                 "Confirm the connected load and electrical mode before an output transfer."
@@ -334,6 +338,9 @@ class RuntimeIOOperations:
                     capacity = int(await native.input_atomic(session, "file,3", 3380, Unsigned))
                     if not len(output) <= capacity <= 2 * 1024 * 1024:
                         raise ValueError("The reviewed image exceeds verified File 3 capacity.")
+                    if request.edit.action in OUTPUT_ACTIONS - ALLOCATION_ACTIONS:
+                        # An independent operator may command the point while the backup runs.
+                        await self.live_guard(session, request, compilation)
                     intent = native.storage.intent(
                         {
                             "id": secrets.token_hex(16),
@@ -459,8 +466,7 @@ def router(native):
                 if r["intent"].get("operation_profile") == PROFILE
                 and r["intent"]["target"] == target
                 and r["intent"]["identity"]["device"] == body.device
-                and r["intent"]["request"]["edit"]["action"]
-                in OUTPUT_ACTIONS | {"binary-output-terminal"}
+                and r["intent"]["request"]["edit"]["action"] in OUTPUT_ACTIONS
             ],
         }
 

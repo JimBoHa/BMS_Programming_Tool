@@ -101,7 +101,18 @@ asyncio.run(main())
       "3200100",
     );
     await source.selectOption("binary-output,71");
-    await editor.getByLabel("Destination terminal").selectOption("3");
+    const destination = editor.getByLabel("Destination terminal");
+    await expect(
+      destination.getByRole("option", {
+        name: "OUT4 · externally powered 24 VAC triac",
+      }),
+    ).toHaveCount(1);
+    await expect(
+      destination.getByRole("option", {
+        name: "OUT3 · internally powered 24 VAC triac",
+      }),
+    ).toHaveCount(1);
+    await destination.selectOption("4");
     await editor.getByLabel("New point name").fill("Browser independent relay");
     await editor.getByLabel("New point instance").fill("3300123");
     await editor

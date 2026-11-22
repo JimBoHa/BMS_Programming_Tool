@@ -47,7 +47,7 @@ A binary allocation supplies `action: allocate-binary`, an unused public object
 instance, a spare local UI slot, a visible name and an optional description.
 It creates a normal-polarity Off/On binary input, with no control-logic wires.
 A binary output move supplies `action: binary-output-terminal`, the existing
-object instance, its expected old slot and a spare destination BO slot. It
+object instance, its expected old slot and a spare two-state destination. It
 changes only the terminal label and slot and retains output setup and logic.
 Both edits preserve all unrelated effective application records.
 
@@ -78,13 +78,19 @@ Both edits preserve all unrelated effective application records.
 The new actions are `allocate-binary-output`, `allocate-proportional-output`
 and `proportional-output-terminal`. An addition takes the existing
 `template_instance`, its `expected_slot`, a new `object_instance`, `name`
-and destination `slot`. Binary destinations are dedicated BO terminals 1–3.
-Proportional destinations are configurable terminals 4–5. The source's
+and destination `slot`. Binary points can use dedicated OUT1–3 or a free configurable OUT4–5. The
+destination selector identifies the internally powered dedicated triacs and the
+externally powered configurable triacs. A proportional point uses a free
+configurable terminal in 0–10 VDC mode. Binary and proportional assignments
+share its physical capacity. Review checks engineering priorities before moving
+either output type. Moving a binary point preserves its identifier, state texts,
+slot aliases and control connections. A transfer to a configurable output
+requires explicit wiring confirmation at Apply. The source's
 recorded two-state or percentage configuration supplies the electrical profile.
 A new point starts without control-logic connections. Integral actuator pairs,
 ambiguous slot ownership, occupied terminals and unqualified electrical profiles
 are excluded. The new actions require `output_wiring_confirmed` at Apply.
-[Johnson Controls CV termination diagrams](https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/M4-CV-Series-VAV-Box-Controllers-Installation-Guide/K/15.0/Wiring/Termination-diagrams)
+[Johnson Controls CV terminal ratings](https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/M4-CV-Series-VAV-Box-Controllers-Installation-Guide/F/13.0/Wiring/Terminal-wiring-guidelines-functions-ratings-and-requirements/Input-and-Output-wiring-guidelines/I/O-terminal-blocks-ratings-and-requirements) · [Johnson Controls CV termination diagrams](https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/M4-CV-Series-VAV-Box-Controllers-Installation-Guide/K/15.0/Wiring/Termination-diagrams)
 
 Fresh saved parameters are remerged before transfer. The configuration review
 binds every effective property except separately typed binary runtime counters

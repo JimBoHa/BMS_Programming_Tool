@@ -15,6 +15,7 @@ type Output = {
   mode: "binary" | "proportional";
   slot: number;
   available_slots: number[];
+  terminal_signals?: Record<number, string>;
   unavailable_reason?: string | null;
 };
 type Receipt = { id: string; status: string; pending: boolean };
@@ -313,7 +314,11 @@ export function NativeOutputPoints({
         const c = q.compilation?.changes?.[0];
         if (
           c?.after_slot !== args.edit.slot ||
-          c?.object?.split(",")[1] !== String(args.edit.object_instance)
+          c?.object !==
+            (output.mode === "binary" ? "binary-output," : "analog-output,") +
+              args.edit.object_instance ||
+          c?.before_slot !== output.slot ||
+          c?.operation !== (f.move ? "move" : "allocate")
         )
           throw Error("Returned change differs from the selected output.");
         if (kind === "local") {
@@ -437,7 +442,7 @@ export function NativeOutputPoints({
                 >
                   {output.available_slots.map((n) => (
                     <option key={n} value={n}>
-                      OUT{n} · {output.mode}
+                      OUT{n} · {output.terminal_signals?.[n] ?? output.mode}
                     </option>
                   ))}
                 </select>
