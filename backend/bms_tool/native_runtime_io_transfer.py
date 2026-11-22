@@ -6,22 +6,36 @@ import secrets
 import sqlite3
 import time
 
-from bacpypes3.primitivedata import CharacterString, Enumerated, ObjectIdentifier, Unsigned
+from bacpypes3.basetypes import StatusFlags
+from bacpypes3.errors import InvalidTag
+from bacpypes3.primitivedata import (
+    Boolean,
+    CharacterString,
+    Enumerated,
+    ObjectIdentifier,
+    Real,
+    Unsigned,
+)
 from fastapi import APIRouter
 from pydantic import Field, StrictBool
 
 from .application_preservation import runtime_parameter_changes
+from .device_details import DeviceDetailsRequest
 from .models import StrictModel
 from .moi_identity import MoiIdentity, seal, sha
 from .moi_parameters import ParameterApplication
 from .native_applications import RESTORE_PREPARATION_SECONDS, NativeCapture
-from .native_runtime_io import PROFILE, RuntimeIOEdit, compile_io
+from .native_output_points import ALLOCATION_ACTIONS, OUTPUT_ACTIONS, output_options
+from .native_runtime_io import PROFILE, RuntimeIOEdit, compile_io, qualified_io_source
 from .property_evidence import PropertyEvidence
 
 
-class IOReview(NativeCapture):
+class IOSource(NativeCapture):
     capture_id: str = Field(pattern=r"^[a-f0-9]{32}$")
     snapshot_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class IOReview(IOSource):
     edit: RuntimeIOEdit
 
 
@@ -30,6 +44,7 @@ class IOApply(StrictModel):
     review_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     local_io_testing_confirmed: StrictBool
     application_transfer_confirmed: StrictBool
+    output_wiring_confirmed: StrictBool = False
 
 
 class IOReadback(NativeCapture):
@@ -41,7 +56,7 @@ class RuntimeIOOperations:
         self.native = native
         self.plans = {}
 
-    def source(self, request):
+    def capture_source(self, request):
         capture, files = self.native.storage.load(request.capture_id)
         if (
             capture["evidence_sha256"] != request.snapshot_sha256
@@ -49,6 +64,10 @@ class RuntimeIOOperations:
             or capture["device"] != request.device
         ):
             raise ValueError("Reopen the original native capture for this exact controller.")
+        return capture, files
+
+    def source(self, request):
+        capture, files = self.capture_source(request)
         output, compilation = compile_io(files, capture["identity"], request.edit)
         return capture, files, output, compilation
 
@@ -78,14 +97,18 @@ class RuntimeIOOperations:
     async def live_guard(self, session, request, compilation):
         native = self.native
         obj = compilation["object_id"]
-        if request.edit.action == "allocate-binary":
+        guard = {}
+        if request.edit.action == "allocate-binary" or request.edit.action in ALLOCATION_ACTIONS:
             present, proof = await native.input_presence(session, obj)
             next_id = int(await native.input_atomic(session, request.device, 787, Unsigned))
             if present or request.edit.object_instance < next_id:
                 raise ValueError(
-                    "New input identifier is occupied or precedes the reported allocator."
+                    f"New point identifier is occupied or precedes the reported allocator. Choose an unused instance at or above {next_id}."
                 )
-            return {"absence": proof, "next_available_instance": next_id}
+            guard = {"absence": proof, "next_available_instance": next_id}
+            if request.edit.action == "allocate-binary":
+                return guard
+            obj = compilation["changes"][0]["source_object"]
         if await native.path._read(session, obj, "object-identifier") != ObjectIdentifier(obj):
             raise ValueError("The published output identity changed.")
         actual = int(await native.input_atomic(session, obj, 990, Unsigned))
@@ -93,7 +116,26 @@ class RuntimeIOOperations:
         change = compilation["changes"][0]
         if actual != request.edit.expected_slot or label != change["before_device_type"]:
             raise ValueError("The published output binding changed after capture.")
-        return {"object": obj, "slot": actual, "device_type": label}
+        if request.edit.action in OUTPUT_ACTIONS:
+            name = str(await native.input_atomic(session, obj, 77, CharacterString))
+            if name != change["source_name"]:
+                raise ValueError("The published source output name changed after capture.")
+            pid, expected = (518, 0) if change["mode"] == "binary" else (117, 98)
+            if int(await native.input_atomic(session, obj, pid, Enumerated)) != expected:
+                raise ValueError("The source electrical profile differs from the captured output.")
+            if (
+                change["mode"] == "proportional"
+                and int(await native.input_atomic(session, obj, 519, Unsigned)) != actual
+            ):
+                raise ValueError("Published proportional output slot and slot A disagree.")
+            if request.edit.action == "proportional-output-terminal":
+                slots = await native.path._read(session, obj, "priority-array")
+                choices = [getattr(slot, "_choice", None) for slot in slots]
+                if len(choices) != 16 or any(c != "null" for c in choices[:15]):
+                    raise ValueError(
+                        "Release or resolve the existing output command before moving the point."
+                    )
+        return {**guard, "object": obj, "slot": actual, "device_type": label}
 
     async def preview(self, request):
         native = self.native
@@ -149,16 +191,18 @@ class RuntimeIOOperations:
         post = ParameterApplication(after[3], after[11], after[12])
         current, counters, calculated = runtime_parameter_changes(MoiIdentity(after[3]), post)
         edit, obj = request.edit, intent["compilation"]["object_id"]
+        is_input = edit.action == "allocate-binary"
+        change = intent["compilation"]["changes"][0]
         expected = {
             75: (ObjectIdentifier, obj),
             77: (CharacterString, intent["compilation"]["object_name"]),
             31: (
                 CharacterString,
-                f"UI IN{edit.slot}" if edit.action == "allocate-binary" else f"BO OUT{edit.slot}",
+                f"UI IN{edit.slot}" if is_input else change["after_device_type"],
             ),
             519 if edit.action == "allocate-binary" else 990: (Unsigned, edit.slot),
         }
-        if edit.action == "allocate-binary":
+        if is_input:
             expected.update(
                 {
                     4: (CharacterString, "On"),
@@ -167,6 +211,12 @@ class RuntimeIOOperations:
                     931: (Enumerated, 83),
                 }
             )
+        if edit.action in OUTPUT_ACTIONS:
+            if change["mode"] == "binary":
+                expected[518] = (Enumerated, 0)
+            else:
+                expected[117] = (Enumerated, 98)
+                expected[519] = (Unsigned, edit.slot)
         published = {}
         for pid, (dtype, value) in expected.items():
             if value is None:
@@ -176,6 +226,37 @@ class RuntimeIOOperations:
             if text != value:
                 raise ValueError(f"Independent published I/O property {pid} does not match.")
             published[str(pid)] = text
+        if edit.action in ALLOCATION_ACTIONS:
+            dtype = Enumerated if change["mode"] == "binary" else Real
+            pv = float(await native.input_atomic(session, obj, 85, dtype))
+            default = float(await native.input_atomic(session, obj, 104, dtype))
+            flags = list(await native.input_atomic(session, obj, 111, StatusFlags))
+            reliability = int(await native.input_atomic(session, obj, 103, Enumerated))
+            offline = bool(await native.input_atomic(session, obj, 81, Boolean))
+            slots = await native.path._read(session, obj, "priority-array")
+            choices = [getattr(slot, "_choice", None) for slot in slots]
+            if (
+                pv != 0
+                or default != 0
+                or offline
+                or reliability
+                or any(flags)
+                or len(choices) != 16
+                or any(c != "null" for c in choices[:15])
+                or (
+                    choices[15] != "null"
+                    and (
+                        choices[15] not in ("enumerated", "real")
+                        or float(getattr(slots[15], choices[15])) != 0
+                    )
+                )
+            ):
+                raise ValueError(
+                    "The new output did not publish a healthy, uncommanded neutral state."
+                )
+            published.update(
+                neutral_present_value=pv, relinquish_default=default, priority_1_to_15_clear=True
+            )
         return {
             "status": "verified",
             "operational": True,
@@ -195,13 +276,21 @@ class RuntimeIOOperations:
             or not confirmation.application_transfer_confirmed
         ):
             raise ValueError("Confirm the local I/O test and application transfer before Apply.")
-        plan = self.plans.pop(confirmation.token, None)
+        plan = self.plans.get(confirmation.token)
         if (
             plan is None
             or plan["digest"] != confirmation.review_sha256
             or plan["expires"] <= time.monotonic()
         ):
             raise ValueError("The I/O review is absent, expired, changed or already consumed.")
+        if (
+            plan["body"]["request"]["edit"]["action"] in OUTPUT_ACTIONS
+            and not confirmation.output_wiring_confirmed
+        ):
+            raise ValueError(
+                "Confirm the connected load and electrical mode before an output transfer."
+            )
+        self.plans.pop(confirmation.token)
         native, body = self.native, plan["body"]
         if seal(body) != plan["digest"]:
             raise ValueError("I/O review contents changed.")
@@ -301,7 +390,14 @@ class RuntimeIOOperations:
                             "Controller did not become ready; read back the retained receipt."
                         )
                     result.update(await self.verify(session, request, intent))
-        except (ValueError, OSError, TimeoutError, sqlite3.Error, asyncio.CancelledError) as exc:
+        except (
+            ValueError,
+            InvalidTag,
+            OSError,
+            TimeoutError,
+            sqlite3.Error,
+            asyncio.CancelledError,
+        ) as exc:
             result["errors"].append((str(exc) or type(exc).__name__)[:512])
             result.update(
                 status="unknown" if dispatched else "not_sent", may_have_applied=dispatched
@@ -323,6 +419,13 @@ class RuntimeIOOperations:
         ):
             raise ValueError("This I/O receipt belongs to another profile or controller.")
         request = IOReview.model_validate(intent["request"])
+        if (
+            request.edit.action in OUTPUT_ACTIONS
+            and intent["connector_config"] != native.bacnet.config
+        ):
+            raise ValueError(
+                "Reopen the output receipt's original controller interface before readback."
+            )
         async with native.operation(options.operation_id, "runtime-io-readback"):
             async with native.path._path(options) as session:
                 PropertyEvidence.pin(session, options.router)
@@ -334,6 +437,53 @@ class RuntimeIOOperations:
 def router(native):
     service = RuntimeIOOperations(native)
     routes = APIRouter(prefix="/api/bacnet/controller/native-application/runtime-io")
+
+    @routes.post("/output-sources")
+    def sources(body: DeviceDetailsRequest):
+        target = native.target(body)
+        return {
+            "sources": [
+                s
+                for s in native.input_sources()["sources"]
+                if s["target"] == target and s["identity"]["device"] == body.device
+            ],
+            "receipts": [
+                {
+                    "id": r["intent"]["id"],
+                    "pending": r["pending"],
+                    "status": (r.get("latest_readback") or r.get("result") or {}).get(
+                        "status", "unknown"
+                    ),
+                }
+                for r in native.storage.receipts(include_events=False)
+                if r["intent"].get("operation_profile") == PROFILE
+                and r["intent"]["target"] == target
+                and r["intent"]["identity"]["device"] == body.device
+                and r["intent"]["request"]["edit"]["action"]
+                in OUTPUT_ACTIONS | {"binary-output-terminal"}
+            ],
+        }
+
+    @routes.post("/outputs")
+    def outputs(body: IOSource):
+        capture, files = service.capture_source(body)
+        app, _, _, _ = qualified_io_source(files, capture["identity"])
+        instances = [
+            ObjectIdentifier(obj)[1]
+            for r in app.records
+            if r["class_id"] in (239, 240, 241, 242, 251)
+            and (obj := app.reader.scalar(r, 75)) is not None
+        ]
+        candidate = max(instances + [app.reader.scalar(app.root, 787) or 0]) + 1
+        return {
+            "capture_id": capture["id"],
+            "identity": capture["identity"],
+            "target": capture["target"],
+            "suggested_instance": candidate if candidate <= 4194302 else None,
+            "outputs": output_options(app),
+            "controller_queries": False,
+            "controller_writes": False,
+        }
 
     @routes.post("/source")
     def source(body: IOReview):
