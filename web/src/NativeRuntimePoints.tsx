@@ -24,6 +24,7 @@ type Output = {
   available_slots: number[];
   terminal_signals?: Record<number, string>;
   unavailable_reason?: string | null;
+  independent?: boolean;
 };
 type Receipt = { id: string; status: string; pending: boolean };
 type Form = ContactForm & { move: boolean };
@@ -46,7 +47,7 @@ const blank: Form = {
 
 function outputProposal(output: Output | undefined, f: Form) {
   if (!output || !output.available_slots.includes(Number(f.slot)))
-    throw Error("Choose a configured source and free output terminal.");
+    throw Error("Choose an output and a free terminal.");
   const sourceId = Number(output.object.split(",")[1]);
   if (
     !f.move &&
@@ -56,6 +57,15 @@ function outputProposal(output: Output | undefined, f: Form) {
       Number(f.instance) > 4194302)
   )
     throw Error("Enter a point name and valid unused instance.");
+  if (output.independent) {
+    if (f.move) throw Error("A new point requires an unused terminal.");
+    return {
+      action: "allocate-discrete-output",
+      slot: Number(f.slot),
+      object_instance: Number(f.instance),
+      name: f.name.trim(),
+    };
+  }
   return {
     action: f.move
       ? output.mode + "-output-terminal"
@@ -226,7 +236,19 @@ export function NativeRuntimePoints({
         const contacts: ContactCatalog | undefined = contactsMode
           ? { contacts: q.contacts, available_slots: q.available_slots }
           : undefined;
-        const first: Output | undefined = q.outputs?.find(
+        const outputs: Output[] = [...(q.outputs ?? [])];
+        if (!contactsMode && q.discrete_terminals?.length) {
+          outputs.push({
+            object: "new-discrete",
+            name: "New two-state output",
+            mode: "binary",
+            slot: 0,
+            available_slots: q.discrete_terminals,
+            terminal_signals: q.discrete_terminal_signals,
+            independent: true,
+          });
+        }
+        const first: Output | undefined = outputs.find(
           (o: Output) => o.available_slots.length,
         );
         let suggestion: number | null = q.suggested_instance;
@@ -261,7 +283,7 @@ export function NativeRuntimePoints({
         }
         save({
           capture,
-          outputs: q.outputs ?? [],
+          outputs,
           contacts,
           form: {
             ...blank,
@@ -470,7 +492,7 @@ export function NativeRuntimePoints({
           ) : (
             <>
               <label>
-                Configured source point{" "}
+                Output source{" "}
                 <select
                   value={draft.form.object}
                   onChange={(e) => {
@@ -480,6 +502,7 @@ export function NativeRuntimePoints({
                     edit({
                       object: e.target.value,
                       slot: String(o?.available_slots[0] ?? ""),
+                      move: o?.independent ? false : draft.form.move,
                     });
                   }}
                 >
@@ -490,7 +513,9 @@ export function NativeRuntimePoints({
                       value={o.object}
                       disabled={!o.available_slots.length}
                     >
-                      {o.name} · OUT{o.slot} · {o.mode}
+                      {o.independent
+                        ? o.name
+                        : `${o.name} · OUT${o.slot} · ${o.mode}`}
                       {o.unavailable_reason ? " · " + o.unavailable_reason : ""}
                     </option>
                   ))}
@@ -498,18 +523,20 @@ export function NativeRuntimePoints({
               </label>
               {output && (
                 <>
-                  <label>
-                    Operation{" "}
-                    <select
-                      value={draft.form.move ? "move" : "add"}
-                      onChange={(e) =>
-                        edit({ move: e.target.value === "move" })
-                      }
-                    >
-                      <option value="add">Add independent point</option>
-                      <option value="move">Move existing point</option>
-                    </select>
-                  </label>
+                  {!output.independent && (
+                    <label>
+                      Operation{" "}
+                      <select
+                        value={draft.form.move ? "move" : "add"}
+                        onChange={(e) =>
+                          edit({ move: e.target.value === "move" })
+                        }
+                      >
+                        <option value="add">Add independent point</option>
+                        <option value="move">Move existing point</option>
+                      </select>
+                    </label>
+                  )}
                   <label>
                     Destination terminal{" "}
                     <select
@@ -546,7 +573,9 @@ export function NativeRuntimePoints({
                   <p>
                     {draft.form.move
                       ? `Move ${output.name} from OUT${output.slot} to OUT${draft.form.slot} with its control logic.`
-                      : `Add a ${output.mode} point on OUT${draft.form.slot}. ${output.name} keeps OUT${output.slot}.`}
+                      : output.independent
+                        ? `Add an independent two-state command on OUT${draft.form.slot}.`
+                        : `Add a ${output.mode} point on OUT${draft.form.slot}. ${output.name} keeps OUT${output.slot}.`}
                   </p>
                 </>
               )}

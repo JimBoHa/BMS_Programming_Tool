@@ -84,10 +84,12 @@ retained for recovery. [Native application restore](native-application-restore.m
 1. Open the controller's **Points & I/O** tab and choose **Configure output points**.
    Inspect a saved capture or choose **Capture current application**. A fresh
    capture enters the controller's backup service and can interrupt processing.
-2. Select an existing point with the required signal type. Select **Add independent
-   point** to keep its original assignment and all of its logic. Enter the new
-   point name and instance, then choose a free terminal. **Move existing point**
-   keeps the selected point's identity and control logic and changes its terminal.
+2. For a new relay on a free dedicated triac, choose **New two-state output** under
+   **Output source**. Enter its name and instance and choose the terminal.
+   This also works on a controller whose application has only proportional outputs.
+   To copy an existing point's signal setup, select it and choose **Add independent
+   point**. **Move existing point** keeps a selected point's identity and control
+   logic and changes its terminal.
 3. **Review local output edit** checks the retained application. **Review on
    controller** verifies the source assignment, controller identity and, for
    an addition, the allocator and the proposed object's absence. The operator
@@ -115,6 +117,11 @@ either output type. Moving a binary point preserves its identifier, state texts,
 slot aliases and control connections. A transfer to a configurable output
 requires explicit wiring confirmation at Apply. The source's
 recorded two-state or percentage configuration supplies the electrical profile.
+A separate `allocate-discrete-output` action builds a normal, initially inactive
+On/Off output on dedicated OUT1–3. Its review checks the physical terminal,
+the live instance allocator and every existing output assignment. Both the
+physical command and the current switch can then be observed from Points & I/O.
+A new relay becomes part of automatic equipment control when its program drives it.
 A new point starts without control-logic connections. Integral actuator pairs,
 ambiguous slot ownership, occupied terminals and unqualified electrical profiles
 are excluded. The new actions require `output_wiring_confirmed` at Apply.

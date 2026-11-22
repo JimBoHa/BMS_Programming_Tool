@@ -121,6 +121,18 @@ class RuntimeIOEdit(StrictModel):
             raise ValueError("Only a new output takes a source template.")
         if self.action not in OUTPUT_ACTIONS and self.slot > 3:
             raise ValueError("Select one of the three supported input or binary terminals.")
+        if self.action == "allocate-discrete-output":
+            if (
+                self.name is None
+                or self.slot > 3
+                or self.expected_slot is not None
+                or self.template_instance is not None
+            ):
+                raise ValueError(
+                    "Use a new named two-state point on an internally powered binary terminal."
+                )
+            controller_name(self.name)
+            return self
         if self.action in OUTPUT_ACTIONS:
             mode = OUTPUT_MODES[self.action]
             if self.slot not in TERMINALS[mode] or self.expected_slot in (None, self.slot):

@@ -110,11 +110,31 @@ test("review output assignments, retire edited reviews and apply on a loopback c
     await editor
       .getByRole("button", { name: "Capture current application" })
       .click();
-    const source = editor.getByLabel("Configured source point");
+    const source = editor.getByLabel("Output source");
     await expect(source).toBeVisible({ timeout: 20000 });
     await expect(editor.getByLabel("New point instance")).toHaveValue(
       "3200100",
     );
+    await source.selectOption("new-discrete");
+    await expect(
+      editor.getByRole("option", { name: "Move existing point" }),
+    ).toHaveCount(0);
+    await expect(
+      editor
+        .getByLabel("Destination terminal")
+        .getByRole("option", { name: /OUT4/ }),
+    ).toHaveCount(0);
+    await editor.getByLabel("New point name").fill("Independent relay");
+    await editor
+      .getByRole("button", { name: "Review local output edit" })
+      .click();
+    await expect(
+      editor.getByRole("button", { name: "Review on controller" }),
+    ).toBeEnabled();
+    const independentReview = testInfo.outputPath(
+      "independent-output-review.png",
+    );
+    await editor.screenshot({ path: independentReview });
     await source.selectOption("binary-output,71");
     const destination = editor.getByLabel("Destination terminal");
     await expect(
