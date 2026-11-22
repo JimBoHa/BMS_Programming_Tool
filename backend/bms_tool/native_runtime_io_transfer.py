@@ -25,6 +25,7 @@ from .models import StrictModel
 from .moi_identity import MoiIdentity, seal, sha
 from .moi_parameters import ParameterApplication
 from .native_applications import RESTORE_PREPARATION_SECONDS, NativeCapture
+from .native_contact_points import CONTACT_ACTIONS, POLARITIES, contact_options
 from .native_output_points import ALLOCATION_ACTIONS, OUTPUT_ACTIONS, output_options
 from .native_runtime_io import PROFILE, RuntimeIOEdit, compile_io, qualified_io_source
 from .property_evidence import PropertyEvidence
@@ -45,10 +46,39 @@ class IOApply(StrictModel):
     local_io_testing_confirmed: StrictBool
     application_transfer_confirmed: StrictBool
     output_wiring_confirmed: StrictBool = False
+    input_wiring_confirmed: StrictBool = False
 
 
 class IOReadback(NativeCapture):
     receipt_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+
+
+async def published_fields(native, session, obj, expected):
+    observed = {}
+    for pid, (dtype, wanted) in expected.items():
+        if wanted is None:
+            continue
+        raw = await native.input_atomic(session, obj, pid, dtype)
+        value = str(raw) if dtype in (CharacterString, ObjectIdentifier) else int(raw)
+        if value != wanted:
+            raise ValueError(f"Independent published I/O property {pid} does not match.")
+        observed[str(pid)] = value
+    return observed
+
+
+async def contact_value(native, session, obj):
+    value = int(await native.input_atomic(session, obj, 85, Enumerated))
+    flags = list(await native.input_atomic(session, obj, 111, StatusFlags))
+    reliability = int(await native.input_atomic(session, obj, 103, Enumerated))
+    oos = bool(await native.input_atomic(session, obj, 81, Boolean))
+    if value not in (0, 1) or len(flags) != 4 or any(flags[1:]) or reliability or oos:
+        raise ValueError("The published dry contact has no healthy, in-service binary readback.")
+    return {
+        "present_value": value,
+        "status_flags": flags,
+        "out_of_service": oos,
+        "reliability": reliability,
+    }
 
 
 class RuntimeIOOperations:
@@ -109,6 +139,31 @@ class RuntimeIOOperations:
             if request.edit.action == "allocate-binary":
                 return guard
             obj = compilation["changes"][0]["source_object"]
+        if request.edit.action in CONTACT_ACTIONS:
+            change = compilation["changes"][0]
+            expected = {
+                75: (ObjectIdentifier, obj),
+                77: (CharacterString, change["source_name"]),
+                31: (CharacterString, f"UI IN{request.edit.expected_slot}"),
+                519: (Unsigned, request.edit.expected_slot),
+                4: (CharacterString, change["states"][1]),
+                46: (CharacterString, change["states"][0]),
+                931: (Enumerated, change["states_text_index"]),
+            }
+            await published_fields(native, session, obj, expected)
+            current = int(await native.input_atomic(session, obj, 84, Enumerated))
+            if current not in (0, 1) or change["before_polarity"] not in (
+                None,
+                POLARITIES[current],
+            ):
+                raise ValueError("The published contact polarity differs from the captured input.")
+            if (
+                request.edit.action == "binary-input-polarity"
+                and POLARITIES[current] == request.edit.polarity
+            ):
+                raise ValueError("The published input already has the selected polarity.")
+            await contact_value(native, session, obj)
+            return {"object": obj, "slot": request.edit.expected_slot, "polarity": current}
         if await native.path._read(session, obj, "object-identifier") != ObjectIdentifier(obj):
             raise ValueError("The published output identity changed.")
         actual = int(await native.input_atomic(session, obj, 990, Unsigned))
@@ -190,7 +245,7 @@ class RuntimeIOOperations:
         post = ParameterApplication(after[3], after[11], after[12])
         current, counters, calculated = runtime_parameter_changes(MoiIdentity(after[3]), post)
         edit, obj = request.edit, intent["compilation"]["object_id"]
-        is_input = edit.action == "allocate-binary"
+        is_input = edit.action in CONTACT_ACTIONS
         change = intent["compilation"]["changes"][0]
         expected = {
             75: (ObjectIdentifier, obj),
@@ -199,15 +254,20 @@ class RuntimeIOOperations:
                 CharacterString,
                 f"UI IN{edit.slot}" if is_input else change["after_device_type"],
             ),
-            519 if edit.action == "allocate-binary" else 990: (Unsigned, edit.slot),
+            519 if is_input else 990: (Unsigned, edit.slot),
         }
         if is_input:
             expected.update(
                 {
-                    4: (CharacterString, "On"),
-                    46: (CharacterString, "Off"),
-                    84: (Enumerated, 0),
-                    931: (Enumerated, 83),
+                    4: (CharacterString, change["states"][1]),
+                    46: (CharacterString, change["states"][0]),
+                    84: (
+                        Enumerated,
+                        POLARITIES.index(change["polarity"])
+                        if change.get("polarity") is not None
+                        else intent["contact_source_polarity"],
+                    ),
+                    931: (Enumerated, change.get("states_text_index", 83)),
                 }
             )
         if edit.action in OUTPUT_ACTIONS:
@@ -218,15 +278,9 @@ class RuntimeIOOperations:
             else:
                 expected[117] = (Enumerated, 98)
                 expected[519] = (Unsigned, edit.slot)
-        published = {}
-        for pid, (dtype, value) in expected.items():
-            if value is None:
-                continue
-            observed = await native.input_atomic(session, obj, pid, dtype)
-            text = str(observed) if dtype in (CharacterString, ObjectIdentifier) else int(observed)
-            if text != value:
-                raise ValueError(f"Independent published I/O property {pid} does not match.")
-            published[str(pid)] = text
+        published = await published_fields(native, session, obj, expected)
+        if is_input:
+            published.update(await contact_value(native, session, obj))
         if edit.action in ALLOCATION_ACTIONS:
             dtype = Enumerated if change["mode"] == "binary" else Real
             pv = float(await native.input_atomic(session, obj, 85, dtype))
@@ -294,6 +348,12 @@ class RuntimeIOOperations:
             raise ValueError(
                 "Confirm the connected load and electrical mode before an output transfer."
             )
+        if (
+            edit["action"] in CONTACT_ACTIONS
+            and (edit["action"] != "allocate-binary" or edit.get("polarity") is not None)
+            and not confirmation.input_wiring_confirmed
+        ):
+            raise ValueError("Confirm the input terminal and contact polarity before transfer.")
         self.plans.pop(confirmation.token)
         native, body = self.native, plan["body"]
         if seal(body) != plan["digest"]:
@@ -319,7 +379,13 @@ class RuntimeIOOperations:
                     bank = await self.bank_guard(session, request, actual)
                     if bank != body["application_bank"]:
                         raise ValueError("The active application bank changed after review.")
-                    await self.live_guard(session, request, body["compilation"])
+                    guard = await self.live_guard(session, request, body["compilation"])
+                    if (
+                        edit["action"] in CONTACT_ACTIONS
+                        and edit["action"] != "allocate-binary"
+                        and guard != body["live_guard"]
+                    ):
+                        raise ValueError("The live contact changed after review.")
                     backup, files, chunk = await native.capture_session(
                         request, session, identity=actual
                     )
@@ -338,9 +404,16 @@ class RuntimeIOOperations:
                     capacity = int(await native.input_atomic(session, "file,3", 3380, Unsigned))
                     if not len(output) <= capacity <= 2 * 1024 * 1024:
                         raise ValueError("The reviewed image exceeds verified File 3 capacity.")
-                    if request.edit.action in OUTPUT_ACTIONS - ALLOCATION_ACTIONS:
-                        # An independent operator may command the point while the backup runs.
-                        await self.live_guard(session, request, compilation)
+                    # A new object, device allocator, override or contact polarity can
+                    # change while the backup runs. Check the field evidence once more.
+                    current = await self.live_guard(session, request, compilation)
+                    if (
+                        edit["action"] in {"binary-input-terminal", "binary-input-polarity"}
+                        and current != guard
+                    ):
+                        raise ValueError("The live contact changed during backup.")
+                    if time.monotonic() >= plan["expires"]:
+                        raise ValueError("The I/O review expired during final readback.")
                     intent = native.storage.intent(
                         {
                             "id": secrets.token_hex(16),
@@ -358,6 +431,11 @@ class RuntimeIOOperations:
                             "review_sha256": plan["digest"],
                             "request": request.model_dump(),
                             "compilation": compilation,
+                            **(
+                                {"contact_source_polarity": guard["polarity"]}
+                                if "polarity" in guard
+                                else {}
+                            ),
                             "payload_sha256": sha(output),
                             "native_payload_sha256": sha(MoiIdentity(output).data),
                         }
@@ -426,12 +504,9 @@ class RuntimeIOOperations:
         ):
             raise ValueError("This I/O receipt belongs to another profile or controller.")
         request = IOReview.model_validate(intent["request"])
-        if (
-            request.edit.action in OUTPUT_ACTIONS
-            and intent["connector_config"] != native.bacnet.config
-        ):
+        if intent["connector_config"] != native.bacnet.config:
             raise ValueError(
-                "Reopen the output receipt's original controller interface before readback."
+                "Reopen the I/O receipt's original controller interface before readback."
             )
         async with native.operation(options.operation_id, "runtime-io-readback"):
             async with native.path._path(options) as session:
@@ -445,8 +520,7 @@ def router(native):
     service = RuntimeIOOperations(native)
     routes = APIRouter(prefix="/api/bacnet/controller/native-application/runtime-io")
 
-    @routes.post("/output-sources")
-    def sources(body: DeviceDetailsRequest):
+    def sources(body, actions):
         target = native.target(body)
         return {
             "sources": [
@@ -466,30 +540,45 @@ def router(native):
                 if r["intent"].get("operation_profile") == PROFILE
                 and r["intent"]["target"] == target
                 and r["intent"]["identity"]["device"] == body.device
-                and r["intent"]["request"]["edit"]["action"] in OUTPUT_ACTIONS
+                and r["intent"]["request"]["edit"]["action"] in actions
             ],
         }
 
-    @routes.post("/outputs")
-    def outputs(body: IOSource):
+    @routes.post("/output-sources")
+    def output_sources(body: DeviceDetailsRequest):
+        return sources(body, OUTPUT_ACTIONS)
+
+    @routes.post("/contact-sources")
+    def contact_sources(body: DeviceDetailsRequest):
+        return sources(body, CONTACT_ACTIONS)
+
+    def catalog(body, contacts):
         capture, files = service.capture_source(body)
-        app, _, _, _ = qualified_io_source(files, capture["identity"])
+        app, _, capacity, _ = qualified_io_source(files, capture["identity"])
         instances = [
             ObjectIdentifier(obj)[1]
             for r in app.records
             if r["class_id"] in (239, 240, 241, 242, 251)
             and (obj := app.reader.scalar(r, 75)) is not None
         ]
-        candidate = max(instances + [app.reader.scalar(app.root, 787) or 0]) + 1
+        candidate = max(max(instances, default=0) + 1, app.reader.scalar(app.root, 787) or 1)
         return {
             "capture_id": capture["id"],
             "identity": capture["identity"],
             "target": capture["target"],
             "suggested_instance": candidate if candidate <= 4194302 else None,
-            "outputs": output_options(app),
+            **(contact_options(app, capacity) if contacts else {"outputs": output_options(app)}),
             "controller_queries": False,
             "controller_writes": False,
         }
+
+    @routes.post("/outputs")
+    def outputs(body: IOSource):
+        return catalog(body, False)
+
+    @routes.post("/contacts")
+    def contacts(body: IOSource):
+        return catalog(body, True)
 
     @routes.post("/source")
     def source(body: IOReview):

@@ -1,4 +1,11 @@
 import { useEffect, useRef, useState } from "react";
+import {
+  NativeContactFields,
+  contactProposal,
+  selectContact,
+  type ContactCatalog,
+  type ContactForm,
+} from "./NativeContactFields";
 import { api } from "./api";
 import { controllerKey, type ControllerContext } from "./workflow";
 
@@ -19,14 +26,13 @@ type Output = {
   unavailable_reason?: string | null;
 };
 type Receipt = { id: string; status: string; pending: boolean };
-type Form = {
-  object: string;
-  slot: string;
-  instance: string;
-  name: string;
-  move: boolean;
+type Form = ContactForm & { move: boolean };
+type Draft = {
+  capture: Capture;
+  outputs: Output[];
+  contacts?: ContactCatalog;
+  form: Form;
 };
-type Draft = { capture: Capture; outputs: Output[]; form: Form };
 const drafts = new Map<string, Draft>();
 const blank: Form = {
   object: "",
@@ -34,20 +40,52 @@ const blank: Form = {
   instance: "",
   name: "",
   move: false,
+  contactAction: "add",
+  polarity: "normal",
 };
 
-export function NativeOutputPoints({
+function outputProposal(output: Output | undefined, f: Form) {
+  if (!output || !output.available_slots.includes(Number(f.slot)))
+    throw Error("Choose a configured source and free output terminal.");
+  const sourceId = Number(output.object.split(",")[1]);
+  if (
+    !f.move &&
+    (!f.name.trim() ||
+      !/^\d+$/.test(f.instance) ||
+      Number(f.instance) < 1 ||
+      Number(f.instance) > 4194302)
+  )
+    throw Error("Enter a point name and valid unused instance.");
+  return {
+    action: f.move
+      ? output.mode + "-output-terminal"
+      : "allocate-" + output.mode + "-output",
+    expected_slot: output.slot,
+    slot: Number(f.slot),
+    object_instance: f.move ? sourceId : Number(f.instance),
+    ...(f.move ? {} : { template_instance: sourceId, name: f.name.trim() }),
+  };
+}
+
+export function NativeRuntimePoints({
+  direction,
   controller,
   connected,
   onBusy,
   onVerified,
 }: {
+  direction: "input" | "output";
   controller: ControllerContext;
   connected: boolean;
   onBusy: (busy: boolean) => void;
   onVerified: () => void;
 }) {
-  const owner = controllerKey(controller) + controller.interfaceKey;
+  const contactsMode = direction === "input";
+  const owner = JSON.stringify([
+    controllerKey(controller),
+    controller.interfaceKey,
+    direction,
+  ]);
   const target = {
     address: controller.address,
     device: controller.device,
@@ -86,7 +124,7 @@ export function NativeOutputPoints({
     if (value) {
       if (!drafts.has(owner) && drafts.size >= 32)
         throw Error(
-          "Discard a saved output draft before opening another controller draft.",
+          "Discard a saved I/O draft before opening another controller draft.",
         );
       drafts.set(owner, value);
     } else drafts.delete(owner);
@@ -100,7 +138,10 @@ export function NativeOutputPoints({
     if (draft) save({ ...draft, form: { ...draft.form, ...patch } });
   }
   async function catalog(e: number) {
-    const result = await api(route + "/output-sources", target);
+    const result = await api(
+      route + (contactsMode ? "/contact-sources" : "/output-sources"),
+      target,
+    );
     if (epoch.current !== e) return;
     setSources(result.sources);
     setReceipts(result.receipts);
@@ -129,7 +170,7 @@ export function NativeOutputPoints({
     const timer = window.setTimeout(
       () => {
         retire();
-        setNotice("Review expired. Review the output change again.");
+        setNotice("Review expired. Review the " + direction + " change again.");
       },
       Math.max(0, plan.until - Date.now()),
     );
@@ -148,7 +189,7 @@ export function NativeOutputPoints({
     setError("");
     setNotice("");
     const current = () => epoch.current === e;
-    const operation_id = "output-" + kind + "-" + Date.now().toString(36);
+    const operation_id = direction + "-" + kind + "-" + Date.now().toString(36);
     try {
       if (kind === "saved" || kind === "capture") {
         let capture = sources.find((s) => s.capture_id === chosen);
@@ -167,7 +208,7 @@ export function NativeOutputPoints({
           };
         }
         if (!capture) throw Error("Select a retained controller capture.");
-        const q = await api(route + "/outputs", {
+        const q = await api(route + (contactsMode ? "/contacts" : "/outputs"), {
           ...target,
           operation_id,
           capture_id: capture.capture_id,
@@ -179,8 +220,13 @@ export function NativeOutputPoints({
           controllerKey({ ...q.target, device: q.identity.device }) !==
             controllerKey(controller)
         )
-          throw Error("Output source differs from the selected controller.");
-        const first: Output | undefined = q.outputs.find(
+          throw Error(
+            "The saved application differs from the selected controller.",
+          );
+        const contacts: ContactCatalog | undefined = contactsMode
+          ? { contacts: q.contacts, available_slots: q.available_slots }
+          : undefined;
+        const first: Output | undefined = q.outputs?.find(
           (o: Output) => o.available_slots.length,
         );
         let suggestion: number | null = q.suggested_instance;
@@ -215,11 +261,18 @@ export function NativeOutputPoints({
         }
         save({
           capture,
-          outputs: q.outputs,
+          outputs: q.outputs ?? [],
+          contacts,
           form: {
             ...blank,
             object: first?.object || "",
             slot: String(first?.available_slots[0] ?? ""),
+            ...(contacts
+              ? selectContact(
+                  contacts,
+                  contacts.available_slots.length ? "add" : "polarity",
+                )
+              : {}),
             instance: String(suggestion ?? ""),
           },
         });
@@ -235,9 +288,7 @@ export function NativeOutputPoints({
             !transfer ||
             Date.now() >= plan.until)
         )
-          throw Error(
-            "Review the change and confirm the connected load and transfer.",
-          );
+          throw Error("Review the change and confirm the wiring and transfer.");
         const reviewed = plan;
         retire();
         setLocal(false);
@@ -247,7 +298,9 @@ export function NativeOutputPoints({
                 token: reviewed!.token,
                 review_sha256: reviewed!.review_sha256,
                 local_io_testing_confirmed: true,
-                output_wiring_confirmed: wiring,
+                ...(contactsMode
+                  ? { input_wiring_confirmed: wiring }
+                  : { output_wiring_confirmed: wiring }),
                 application_transfer_confirmed: transfer,
               })
             : await api(route + "/readback", {
@@ -258,9 +311,18 @@ export function NativeOutputPoints({
         if (!current()) return;
         const result = r.latest_readback || r.result;
         if (result?.status === "verified") {
+          const contactState = result.published_io?.present_value;
+          if (contactsMode && contactState !== 0 && contactState !== 1) {
+            throw Error(
+              "The receipt has no valid contact state. Read back the transfer again.",
+            );
+          }
           save(null);
           setNotice(
-            "Controller configuration and output readback verified. Refresh the point inventory to command a point.",
+            contactsMode
+              ? "Controller configuration and input readback verified. Contact state at readback was " +
+                  (contactState === 1 ? "active." : "inactive.")
+              : "Controller configuration and output readback verified. Refresh the point inventory to command a point.",
           );
           parent.current.onVerified();
         } else
@@ -277,34 +339,17 @@ export function NativeOutputPoints({
           );
         await catalog(e);
       } else {
-        if (!draft || !output)
-          throw Error("Choose a configured source and free output terminal.");
-        const f = draft.form,
-          sourceId = Number(output.object.split(",")[1]);
-        if (
-          !f.move &&
-          (!f.name.trim() ||
-            !/^\d+$/.test(f.instance) ||
-            Number(f.instance) < 1 ||
-            Number(f.instance) > 4194302)
-        )
-          throw Error("Enter a point name and valid unused instance.");
+        if (!draft) throw Error("Choose a saved application.");
+        const f = draft.form;
+        const change = draft.contacts
+          ? contactProposal(draft.contacts, f)
+          : outputProposal(output, f);
         const args = {
           ...target,
           operation_id,
           capture_id: draft.capture.capture_id,
           snapshot_sha256: draft.capture.snapshot_sha256,
-          edit: {
-            action: f.move
-              ? output.mode + "-output-terminal"
-              : "allocate-" + output.mode + "-output",
-            expected_slot: output.slot,
-            slot: Number(f.slot),
-            object_instance: f.move ? sourceId : Number(f.instance),
-            ...(f.move
-              ? {}
-              : { template_instance: sourceId, name: f.name.trim() }),
-          },
+          edit: change,
         };
         const q = await api(
           route + (kind === "local" ? "/source" : "/preview"),
@@ -312,15 +357,26 @@ export function NativeOutputPoints({
         );
         if (!current()) return;
         const c = q.compilation?.changes?.[0];
+        const type = contactsMode
+          ? "binary-input"
+          : output?.mode === "binary"
+            ? "binary-output"
+            : "analog-output";
+        const op = contactsMode ? f.contactAction : f.move ? "move" : "add";
+        const sourceId =
+          kind === "local" ? q.capture_id : q.request?.capture_id;
         if (
-          c?.after_slot !== args.edit.slot ||
-          c?.object !==
-            (output.mode === "binary" ? "binary-output," : "analog-output,") +
-              args.edit.object_instance ||
-          c?.before_slot !== output.slot ||
-          c?.operation !== (f.move ? "move" : "allocate")
+          sourceId !== draft.capture.capture_id ||
+          c?.after_slot !== change.slot ||
+          c?.object !== type + "," + change.object_instance ||
+          ("expected_slot" in change &&
+            c?.before_slot !== change.expected_slot) ||
+          ("polarity" in change &&
+            change.polarity &&
+            c?.polarity !== change.polarity) ||
+          c?.operation !== (op === "add" ? "allocate" : op)
         )
-          throw Error("Returned change differs from the selected output.");
+          throw Error("Returned change differs from the selected point.");
         if (kind === "local") {
           setLocal(true);
           setNotice("Local change checked against the saved application.");
@@ -331,7 +387,9 @@ export function NativeOutputPoints({
             until: Date.now() + q.expires_seconds * 1000,
           });
           setNotice(
-            "Controller identity and output assignment verified for this review.",
+            "Controller identity and " +
+              direction +
+              " assignment verified for this review.",
           );
         }
       }
@@ -354,10 +412,16 @@ export function NativeOutputPoints({
   }
   return (
     <section
-      className="native-output-points"
-      aria-label="Native output configuration"
+      className="native-runtime-points"
+      aria-label={
+        contactsMode
+          ? "Dry contact configuration"
+          : "Native output configuration"
+      }
     >
-      <h3>Configure output points</h3>
+      <h3>
+        {contactsMode ? "Configure dry contacts" : "Configure output points"}
+      </h3>
       <fieldset disabled={busy}>
         <legend>Controller application</legend>
         <label>
@@ -380,7 +444,7 @@ export function NativeOutputPoints({
         </label>
         <div className="button-row">
           <button disabled={!chosen} onClick={() => void action("saved")}>
-            Inspect saved outputs
+            {contactsMode ? "Inspect saved inputs" : "Inspect saved outputs"}
           </button>
           <button disabled={!connected} onClick={() => void action("capture")}>
             Capture current application
@@ -390,94 +454,122 @@ export function NativeOutputPoints({
       </fieldset>
       {draft && (
         <fieldset className="output-assignment" disabled={busy}>
-          <legend>Output assignment</legend>
+          <legend>
+            {contactsMode ? "Dry contact assignment" : "Output assignment"}
+          </legend>
           <p>
             Saved application {draft.capture.capture_id.slice(0, 8)} ·{" "}
             {controller.name}
           </p>
-          <label>
-            Configured source point{" "}
-            <select
-              value={draft.form.object}
-              onChange={(e) => {
-                const o = draft.outputs.find(
-                  (v) => v.object === e.target.value,
-                );
-                edit({
-                  object: e.target.value,
-                  slot: String(o?.available_slots[0] ?? ""),
-                });
-              }}
-            >
-              <option value="">Select a compatible point</option>
-              {draft.outputs.map((o) => (
-                <option
-                  key={o.object}
-                  value={o.object}
-                  disabled={!o.available_slots.length}
-                >
-                  {o.name} · OUT{o.slot} · {o.mode}
-                  {o.unavailable_reason ? " · " + o.unavailable_reason : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-          {output && (
+          {draft.contacts ? (
+            <NativeContactFields
+              catalog={draft.contacts}
+              form={draft.form}
+              edit={edit}
+            />
+          ) : (
             <>
               <label>
-                Operation{" "}
+                Configured source point{" "}
                 <select
-                  value={draft.form.move ? "move" : "add"}
-                  onChange={(e) => edit({ move: e.target.value === "move" })}
+                  value={draft.form.object}
+                  onChange={(e) => {
+                    const o = draft.outputs.find(
+                      (v) => v.object === e.target.value,
+                    );
+                    edit({
+                      object: e.target.value,
+                      slot: String(o?.available_slots[0] ?? ""),
+                    });
+                  }}
                 >
-                  <option value="add">Add independent point</option>
-                  <option value="move">Move existing point</option>
-                </select>
-              </label>
-              <label>
-                Destination terminal{" "}
-                <select
-                  value={draft.form.slot}
-                  onChange={(e) => edit({ slot: e.target.value })}
-                >
-                  {output.available_slots.map((n) => (
-                    <option key={n} value={n}>
-                      OUT{n} · {output.terminal_signals?.[n] ?? output.mode}
+                  <option value="">Select a compatible point</option>
+                  {draft.outputs.map((o) => (
+                    <option
+                      key={o.object}
+                      value={o.object}
+                      disabled={!o.available_slots.length}
+                    >
+                      {o.name} · OUT{o.slot} · {o.mode}
+                      {o.unavailable_reason ? " · " + o.unavailable_reason : ""}
                     </option>
                   ))}
                 </select>
               </label>
-              {!draft.form.move && (
+              {output && (
                 <>
                   <label>
-                    New point name{" "}
-                    <input
-                      maxLength={128}
-                      value={draft.form.name}
-                      onChange={(e) => edit({ name: e.target.value })}
-                    />
+                    Operation{" "}
+                    <select
+                      value={draft.form.move ? "move" : "add"}
+                      onChange={(e) =>
+                        edit({ move: e.target.value === "move" })
+                      }
+                    >
+                      <option value="add">Add independent point</option>
+                      <option value="move">Move existing point</option>
+                    </select>
                   </label>
                   <label>
-                    New point instance{" "}
-                    <input
-                      inputMode="numeric"
-                      value={draft.form.instance}
-                      onChange={(e) => edit({ instance: e.target.value })}
-                    />
+                    Destination terminal{" "}
+                    <select
+                      value={draft.form.slot}
+                      onChange={(e) => edit({ slot: e.target.value })}
+                    >
+                      {output.available_slots.map((n) => (
+                        <option key={n} value={n}>
+                          OUT{n} · {output.terminal_signals?.[n] ?? output.mode}
+                        </option>
+                      ))}
+                    </select>
                   </label>
+                  {!draft.form.move && (
+                    <>
+                      <label>
+                        New point name{" "}
+                        <input
+                          maxLength={128}
+                          value={draft.form.name}
+                          onChange={(e) => edit({ name: e.target.value })}
+                        />
+                      </label>
+                      <label>
+                        New point instance{" "}
+                        <input
+                          inputMode="numeric"
+                          value={draft.form.instance}
+                          onChange={(e) => edit({ instance: e.target.value })}
+                        />
+                      </label>
+                    </>
+                  )}
+                  <p>
+                    {draft.form.move
+                      ? `Move ${output.name} from OUT${output.slot} to OUT${draft.form.slot} with its control logic.`
+                      : `Add a ${output.mode} point on OUT${draft.form.slot}. ${output.name} keeps OUT${output.slot}.`}
+                  </p>
                 </>
               )}
-              <p>
-                {draft.form.move
-                  ? `Move ${output.name} from OUT${output.slot} to OUT${draft.form.slot} with its control logic.`
-                  : `Add a ${output.mode} point on OUT${draft.form.slot}. ${output.name} keeps OUT${output.slot}.`}
-              </p>
+              {!draft.outputs.some((o) => o.available_slots.length > 0) && (
+                <p>
+                  This capture has no compatible source point with a free output
+                  terminal.
+                </p>
+              )}
+            </>
+          )}
+          {(draft.contacts
+            ? draft.form.contactAction === "add"
+              ? draft.contacts.available_slots.length > 0
+              : !!draft.form.object
+            : !!output) && (
+            <>
               {!local && (
                 <button
                   className="primary"
                   onClick={() => void action("local")}
                 >
-                  Review local output edit
+                  Review local {direction} edit
                 </button>
               )}
               {local && !plan && (
@@ -491,25 +583,23 @@ export function NativeOutputPoints({
               )}
             </>
           )}
-          {!draft.outputs.some((o) => o.available_slots.length > 0) && (
-            <p>
-              This capture has no compatible source point with a free output
-              terminal.
-            </p>
-          )}
-          <button onClick={() => save(null)}>Discard local output draft</button>
+          <button onClick={() => save(null)}>
+            Discard local {direction} draft
+          </button>
         </fieldset>
       )}
       {plan && (
         <fieldset disabled={busy || !connected}>
-          <legend>Apply reviewed output change</legend>
+          <legend>Apply reviewed {direction} change</legend>
           <label>
             <input
               type="checkbox"
               checked={wiring}
               onChange={(e) => setWiring(e.target.checked)}
             />
-            I verified the connected load, terminal wiring and signal type.
+            {contactsMode
+              ? "I verified the input terminal, contact wiring and intended polarity."
+              : "I verified the connected load, terminal wiring and signal type."}
           </label>
           <label>
             <input
@@ -524,13 +614,13 @@ export function NativeOutputPoints({
             disabled={!wiring || !transfer}
             onClick={() => void action("apply")}
           >
-            Apply output change
+            Apply {direction} change
           </button>
         </fieldset>
       )}
       {receipts.length > 0 && (
         <details open={receipts.some((r) => r.pending)}>
-          <summary>Recorded output transfers</summary>
+          <summary>Recorded {direction} transfers</summary>
           {receipts.map((r) => (
             <p key={r.id}>
               {r.id.slice(0, 8)} · {r.status}{" "}
@@ -544,7 +634,9 @@ export function NativeOutputPoints({
           ))}
         </details>
       )}
-      <p role="status">{busy ? "Checking output configuration…" : notice}</p>
+      <p role="status">
+        {busy ? "Checking " + direction + " configuration…" : notice}
+      </p>
       {error && (
         <p className="inline-error" role="alert">
           {error}

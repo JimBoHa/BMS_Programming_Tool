@@ -7,6 +7,11 @@ configured input, edit the electrical range and engineering scaling, then choose
 transfer before Apply. The result includes complete application preservation and
 independent published-property readback. This adds no workspace destination.
 
+For a maintained dry contact, select **Assign or edit dry contacts** in the
+input configuration task. On supported CV controllers you can assign a spare
+universal input, move an existing contact or reverse its polarity, then read
+its reported state back. [Dry-contact workflow](native-runtime-io.md#configure-a-dry-contact-input)
+
 ## Source and offline work
 
 **Capture native inputs** uses the existing original File 3/11/12 backup workflow,

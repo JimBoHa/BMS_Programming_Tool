@@ -5,16 +5,13 @@ bind the original capture, actual identity, interface, fresh settings and review
 """
 
 import math
-import re
+from typing import Literal
 
 from bacpypes3.pdu import PDUData
 from bacpypes3.primitivedata import (
-    CharacterString,
-    Enumerated,
     ObjectIdentifier,
     TagClass,
     TagList,
-    Unsigned,
 )
 from pydantic import Field, model_validator
 
@@ -22,7 +19,8 @@ from .hardware_survey import model_capacity
 from .models import StrictModel
 from .moi_identity import MoiIdentity, controller_name, seal, sha
 from .moi_parameters import ParameterApplication
-from .native_inputs import archive, encoded, native_record
+from .native_contact_points import CONTACT_ACTIONS, compile_contact
+from .native_inputs import archive
 from .native_output_points import (
     ALLOCATION_ACTIONS,
     OUTPUT_ACTIONS,
@@ -107,12 +105,18 @@ class RuntimeIOEdit(StrictModel):
     name: str | None = None
     description: str = Field(default="", max_length=128)
     expected_slot: int | None = Field(default=None, ge=1, le=5, strict=True)
+    polarity: Literal["normal", "reverse"] | None = None
     template_instance: int | None = Field(default=None, ge=1, le=4194302, strict=True)
 
     @model_validator(mode="after")
     def shape(self):
         if self.description:
             controller_name(self.description)
+        if self.polarity is not None and self.action not in (
+            "allocate-binary",
+            "binary-input-polarity",
+        ):
+            raise ValueError("Only contact allocation and polarity edits accept a polarity.")
         if self.action not in ALLOCATION_ACTIONS and self.template_instance is not None:
             raise ValueError("Only a new output takes a source template.")
         if self.action not in OUTPUT_ACTIONS and self.slot > 3:
@@ -136,14 +140,20 @@ class RuntimeIOEdit(StrictModel):
             if self.name is None or self.expected_slot is not None:
                 raise ValueError("Binary allocation requires a new name and no old slot.")
             controller_name(self.name)
+        elif self.action in CONTACT_ACTIONS:
+            if self.name is not None or self.description or self.expected_slot is None:
+                raise ValueError(
+                    "Select an existing contact and preserve its name and description."
+                )
+            if self.action == "binary-input-terminal" and self.expected_slot == self.slot:
+                raise ValueError("Choose a different contact terminal.")
+            if self.action == "binary-input-polarity" and (
+                self.polarity is None or self.expected_slot != self.slot
+            ):
+                raise ValueError("A polarity edit requires a polarity and the same terminal.")
         else:
             raise ValueError("Select a supported local input or output edit.")
         return self
-
-
-def _local(app, row, kind):
-    ref = app.reader.scalar(row, 32527)
-    return isinstance(ref, str) and bool(re.fullmatch(re.escape(app.ref) + rf"/{kind}_[0-9]+", ref))
 
 
 def configuration_guard(app):
@@ -232,57 +242,11 @@ def qualified_io_source(files, identity):
 def compile_io(files, identity, edit):
     edit = RuntimeIOEdit.model_validate(edit)
     app, proof, capacity, sa_proof = qualified_io_source(files, identity)
-    new, replaced = None, None
     if edit.action in OUTPUT_ACTIONS:
         new, replaced, change = compile_output(app, edit)
-        oid, changes = change["object"], [change]
-    else:  # allocate-binary
-        if edit.slot not in capacity["universal_inputs"]:
-            raise ValueError("Select a documented local universal input.")
-        for r in app.records:
-            if (
-                r["class_id"] == 242
-                and int.from_bytes(app.data[r["offset"] + 6 : r["offset"] + 10], "big") & 4194303
-                == edit.object_instance
-            ):
-                raise ValueError("The native input identifier already exists.")
-            if app.reader.scalar(r, 75) == f"binary-input,{edit.object_instance}":
-                raise ValueError("The proposed public input identifier already exists.")
-            if app.reader.scalar(r, 2390) == edit.name:
-                raise ValueError("The proposed input name already exists.")
-            if r["class_id"] in (240, 242):
-                slot = app.reader.scalar(r, 519)
-                label = app.reader.scalar(r, 31)
-                if slot in capacity["universal_inputs"] and label != f"UI IN{slot}":
-                    raise ValueError("Unknown physical input binding prevents allocation.")
-                if slot == edit.slot:
-                    raise ValueError("The proposed input terminal is already allocated.")
-                if not _local(app, r, 0 if r["class_id"] == 240 else 3):
-                    raise ValueError("An ambiguous hardware host prevents local input allocation.")
-        oid = f"binary-input,{edit.object_instance}"
-        props = {
-            32527: CharacterString(f"{app.ref}/3_{edit.object_instance}"),
-            4: CharacterString("On"),
-            28: CharacterString(edit.description),
-            31: CharacterString(f"UI IN{edit.slot}"),
-            46: CharacterString("Off"),
-            75: ObjectIdentifier(oid),
-            84: Enumerated(0),
-            519: Unsigned(edit.slot),
-            931: Enumerated(83),
-            2390: CharacterString(edit.name),
-        }
-        new = native_record(242, edit.object_instance, [(k, encoded(v)) for k, v in props.items()])
-        changes = [
-            {
-                "object": oid,
-                "operation": "allocate",
-                "slot": edit.slot,
-                "name": edit.name,
-                "polarity": "normal",
-                "states": ["Off", "On"],
-            }
-        ]
+    else:
+        new, replaced, change = compile_contact(app, capacity, edit)
+    oid, changes = change["object"], [change]
     records = [
         new if r is replaced else app.data[r["offset"] : r["end_offset"]] for r in app.records
     ]
@@ -301,10 +265,21 @@ def compile_io(files, identity, edit):
             != checked.data[after["offset"] : after["end_offset"]]
         ):
             raise ValueError("An unrelated native record changed during I/O compilation.")
+    if replaced is not None and edit.action in CONTACT_ACTIONS:
+        # Some controllers save these properties separately from their application.
+        remapped, _ = ParameterApplication(output, files[11], files[12]).compile()
+        replay = MoiIdentity(remapped)
+        ref = app.reader.scalar(replaced, 32527)
+        intended, effective = checked.reader.records[ref], replay.reader.records[ref]
+        for pid in (31, 519, 84):
+            if checked.reader.scalar(intended, pid) != replay.reader.scalar(effective, pid):
+                raise ValueError(
+                    "Saved parameters would reinstate the previous contact configuration."
+                )
     return output, {
         **proof,
         "edit": edit.model_dump(
-            exclude={"template_instance"} if edit.template_instance is None else set()
+            exclude={key for key in ("template_instance", "polarity") if getattr(edit, key) is None}
         ),
         "changes": changes,
         "effective_source_sha256": app.source_sha256,
