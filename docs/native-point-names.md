@@ -1,5 +1,17 @@
 # Native point names in the controller workflow
 
+The native point-name API also returns a separate `primary_application` field
+when a custom CVM application contains a single qualified root control sequence.
+In **Points & I/O**, enable **Show all BACnet objects**, open **Configuration**
+for the primary sequence (`575,1`) and expand **Edit application title**.
+Use that field's object, reference and name digest with the existing review,
+apply and recovery operations to change the displayed application title.
+The device name has its own commissioning operation. The title must agree in
+the engineering identity, the BACnet Object_Name and the native Name property.
+The transfer verifies the active custom bank, captured application and live
+publication before and after the change. The qualified live profile uses the
+M4-CVM03050-0 running 10.0.0.2125 with ACS 66 and DMCS 65.
+
 Open a verified controller, choose **Points & I/O**, select a point's
 **Configuration**, and expand **Edit point name**. Read its application backup,
 enter a name, review, confirm and apply. This stays inside the selected point's

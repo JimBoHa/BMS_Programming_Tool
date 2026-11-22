@@ -29,8 +29,8 @@ async function reset(request: APIRequestContext) {
     ).ok(),
   ).toBe(true);
 }
-async function open(page: Page, endpoint: string) {
-  let published = "Authored input";
+async function open(page: Page, endpoint: string, title = false) {
+  let published = title ? "Authored application" : "Authored input";
   await page.route("**/api/bacnet/controller/inventory", (route) =>
     route.fulfill({
       json: {
@@ -42,9 +42,9 @@ async function open(page: Page, endpoint: string) {
         next_offset: null,
         objects: [
           {
-            object: "analog-input,101",
-            object_type: 0,
-            has_present_value: true,
+            object: title ? "575,1" : "analog-input,101",
+            object_type: title ? 575 : 0,
+            has_present_value: !title,
           },
         ],
         errors: [],
@@ -117,20 +117,59 @@ async function open(page: Page, endpoint: string) {
     page.getByRole("region", { name: "Controller overview" }),
   ).toContainText("Authored controller");
   await chooseWorkspaceTask(page, "Points & I/O");
-  return configure(page);
+  if (title) await page.getByLabel("Show all BACnet objects").check();
+  return configure(page, title);
 }
-async function configure(page: Page) {
+async function configure(page: Page, title = false) {
+  const subject = title ? "application title" : "point name";
   const row = page
     .getByRole("region", { name: "Connected controller points" })
     .getByRole("row")
-    .filter({ hasText: "analog-input,101" });
+    .filter({ hasText: title ? "575,1" : "analog-input,101" });
   await row.getByRole("button", { name: "Configuration", exact: true }).click();
-  await page.getByText("Edit point name", { exact: true }).click();
+  await page.getByText(`Edit ${subject}`, { exact: true }).click();
   return page.getByRole("region", {
-    name: "Native point name configuration",
+    name: `Native ${subject} configuration`,
     exact: true,
   });
 }
+test("select the primary sequence and verify its application title", async ({
+  page,
+  request,
+}, info) => {
+  test.setTimeout(60000);
+  await reset(request);
+  const peer = await nativeDefaultPeer("consume", "application-title");
+  try {
+    const form = await open(page, peer.direct, true);
+    await form
+      .getByRole("button", { name: "Read application title backup" })
+      .click();
+    await expect(form).toContainText("Captured name: Authored application");
+    await form.getByLabel("New application title").fill("Reviewed application");
+    await form
+      .getByRole("button", { name: "Review application title change" })
+      .click();
+    await expect(
+      form.getByLabel("I confirm this application title change."),
+    ).toBeVisible();
+    await form.screenshot({
+      path: info.outputPath("application-title-review.png"),
+    });
+    await form.getByLabel("I confirm this application title change.").check();
+    await form
+      .getByLabel("I reviewed the application transfer and brief interruption.")
+      .check();
+    await form
+      .getByRole("button", { name: "Apply application title", exact: true })
+      .click();
+    await expect(form).toContainText("Published name: Reviewed application", {
+      timeout: 20000,
+    });
+  } finally {
+    peer.close();
+  }
+});
 test("point configuration keeps drafts across tasks, retires reviews, and verifies one owned native transfer", async ({
   page,
   request,

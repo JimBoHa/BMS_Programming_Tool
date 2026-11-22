@@ -73,7 +73,8 @@ class NativePointNameRecovery(NativeDefaultRecovery):
                 "Current point-name source identity, route or static directory changed."
             )
         compiler = PointNameCompiler(files)
-        field = next((p for p in compiler.fields() if p["object_id"] == edit["object_id"]), None)
+        record = compiler.selected_record(edit["object_id"])
+        field = compiler.field(record) if record else None
         if not field or field["record_ref"] != edit["record_ref"]:
             raise ValueError("The original point identifier or native reference changed.")
         name = field["name"]
