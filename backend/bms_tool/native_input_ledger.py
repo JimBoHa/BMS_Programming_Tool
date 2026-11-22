@@ -5,7 +5,14 @@ import math
 import re
 import struct
 
-from .native_inputs import CONFIG, MODES, PROFILE, InputEdit
+from .native_inputs import (
+    CONFIG,
+    MODES,
+    NICKEL_DUCT_STORED,
+    PROFILE,
+    InputEdit,
+    NickelDuctConfiguration,
+)
 
 SCOPE = (
     "Recorded input edit and compilation bindings only. No backup/parent revalidation, "
@@ -55,6 +62,11 @@ def input_reference(body):
                 or origin.get("object_id") != compilation["object_id"]
                 or origin.get("record_ref") != reference
                 or edit.allocation_receipt == body.get("id")
+            ):
+                return unavailable
+        elif isinstance(edit.configuration, NickelDuctConfiguration):
+            if stored != NICKEL_DUCT_STORED or any(
+                type(stored[k]) is not type(v) for k, v in NICKEL_DUCT_STORED.items()
             ):
                 return unavailable
         else:

@@ -9,19 +9,28 @@ from bacpypes3.apdu import ReadPropertyACK
 from bacpypes3.constructeddata import Any
 from bacpypes3.errors import ExecutionError
 from bacpypes3.pdu import PDUData
-from bacpypes3.primitivedata import ObjectIdentifier, TagList, Unsigned
+from bacpypes3.primitivedata import CharacterString, ObjectIdentifier, TagList, Unsigned
 from bms_tool.moi_identity import MoiIdentity
 from bms_tool.moi_parameters import ParameterApplication
 from bms_tool.native_inputs import NativeInputCompiler, raw_property
 
 from .test_native_applications import native_link as native_link
 from .test_native_default_transfer import NativeRouter
-from .test_native_inputs import allocation, config, initialized_input_files, source
+from .test_native_inputs import (
+    allocation,
+    config,
+    initialized_input_files,
+    source,
+    versioned_input_source,
+)
 
 
-def install_input_peer(link, *, initialize=True):
+def install_input_peer(link, *, initialize=True, nickel=False):
     peer, _, _, service, _ = link
-    peer.files = source()
+    peer.files = versioned_input_source() if nickel else source()
+    if nickel:
+        peer.metadata["firmware-revision"] = "10.0.0.2125"
+        peer.input_bank = 1
     peer.metadata["model-name"] = "M4-CVM03050-0"
     peer.next_input = 3000002
     peer.input_fault = ""
@@ -29,7 +38,17 @@ def install_input_peer(link, *, initialize=True):
 
     async def read(self, request):
         obj, pid = request.objectIdentifier, int(request.propertyIdentifier)
-        if obj[0] == 8 and pid == 787:
+        if nickel and obj[0] == 8 and pid == 32527:
+            value = Any(CharacterString("controller"))
+        elif nickel and str(obj) == "multi-state-value,1000" and pid in (77, 85, 110):
+            if pid == 77:
+                value = Any(CharacterString("controller/Preloaded App Loader.App Selector"))
+            elif pid == 85:
+                value = Any(Unsigned(self.input_bank))
+            else:
+                assert request.propertyArrayIndex == 1
+                value = Any(CharacterString("Custom Application"))
+        elif obj[0] == 8 and pid == 787:
             value = Any(Unsigned(self.next_input))
         elif obj[0] == 0:
             app = MoiIdentity(
@@ -68,6 +87,7 @@ def install_input_peer(link, *, initialize=True):
                 context=request,
                 objectIdentifier=obj,
                 propertyIdentifier=request.propertyIdentifier,
+                propertyArrayIndex=request.propertyArrayIndex,
                 propertyValue=value,
             )
         )
@@ -120,6 +140,26 @@ def apply(plan, suffix="first"):
         "input_change_confirmed": True,
         "application_transfer_confirmed": True,
     }
+
+
+async def test_nickel_input_field_binding_and_factory_rejection(native_link):
+    from bms_tool.native_input_ledger import input_reference
+
+    peer, service = install_input_peer(native_link, nickel=True)
+    edit = {**allocation(), "configuration": {"mode": "nickel-duct-temperature"}}
+    peer.input_bank = 2
+    with pytest.raises(ValueError, match="active custom application"):
+        await preview(native_link, edit, "factory-nickel")
+    assert not any(e[:2] == ("state", "start-restore") for e in peer.events)
+    peer.input_bank = 1
+    _, plan = await preview(native_link, edit, "nickel")
+    result = await service.apply_input(**apply(plan, "nickel"))
+    assert result["result"]["status"] == "verified", result["result"]
+    details = input_reference(result["intent"])["native_input"]
+    assert details["state"] == "recorded" and details["stored_configuration"]["setup"] == 3
+    altered = copy.deepcopy(result["intent"])
+    altered["compilation"]["stored_configuration"]["output_high"] = 1
+    assert input_reference(altered)["native_input"]["state"] == "unavailable"
 
 
 @pytest.mark.parametrize("initialize", [False, True])

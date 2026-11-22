@@ -410,9 +410,9 @@ import json,sys
 from pathlib import Path
 from bms_tool.storage import Store
 from bms_tool.application_store import ApplicationStore
-from tests.test_native_inputs import source
+from tests.test_native_inputs import source, versioned_input_source
 s=ApplicationStore(Store(Path(sys.argv[1])))
-c=s.save({'target':{'address':'127.0.0.1:47999','router':None,'dnet':None},'device':'device,5136','identity':{'device':'device,5136','object-name':'Authored controller'},'source_identity_matches':True,'connector_config':{}},source())
+c=s.save({'target':{'address':'127.0.0.1:47999','router':None,'dnet':None},'device':'device,5136','identity':{'device':'device,5136','object-name':'Authored controller'},'source_identity_matches':True,'connector_config':{}},versioned_input_source())
 c['alternate_id']=s.save({'target':{'address':'127.0.0.1:47998','router':None,'dnet':None},'device':'device,5136','identity':{'device':'device,5136','object-name':'Authored controller'},'source_identity_matches':True,'connector_config':{}},source())['id']
 print(json.dumps(c))
 `,
@@ -467,6 +467,13 @@ print(json.dumps(c))
   await p
     .getByLabel("Native input name", { exact: true })
     .fill("Offline spare input");
+  await p
+    .getByLabel("Native input electrical mode", { exact: true })
+    .selectOption("nickel-duct-temperature");
+  await expect(p).toContainText("nickel sensor curve");
+  await expect(
+    p.getByLabel("Electrical range low", { exact: true }),
+  ).toHaveCount(0);
   await chooseWorkspaceTask(page, "Schedules");
   await chooseWorkspaceTask(page, "Points & I/O");
   p = page.getByRole("region", {
@@ -498,6 +505,9 @@ print(json.dumps(c))
     .getByRole("button", { name: "Save native copy", exact: true })
     .click();
   await download;
+  await page.screenshot({
+    path: test.info().outputPath("nickel-input-offline.png"),
+  });
   await p
     .getByLabel("Retained native input source", { exact: true })
     .selectOption(capture.alternate_id);

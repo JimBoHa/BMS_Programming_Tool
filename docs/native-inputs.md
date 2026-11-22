@@ -59,6 +59,16 @@ this profile. Unknown models, formats, host relationships, ambiguous assignments
 duplicate identities and unsupported datatypes stop compilation explicitly.
 
 Native Setup 1 means user-range volts, 0 user-range ohms and 2 user-range current.
+For the M4-CVM03050-0 with ACS 66 and DMCS 65, allocation also offers
+**1 kΩ nickel RTD · discharge temperature (°F)**. Select it for a compatible
+passive probe on a spare universal input. This uses the controller’s native
+nickel curve (Setup 3), resistance range of 670–1,600 Ω, display limits of
+−50 to 250 °F, 0.3 °F COV increment and discharge-temperature process filter.
+The controller determines the nonlinear conversion. The input has no linear
+output endpoints. A measured temperature requires a connected, verified probe.
+Live transfer is qualified for an operational custom application on firmware
+10.0.0.2125. The identity and active bank are checked at review and before the
+write. Confirm the probe type, terminal and common before applying.
 Voltage uses native unit 5, resistance 4 and current 2. Native engineering units
 are separate (for example 62 °C, 64 °F, 98 percent). The compiler checks finite
 Real32 storage, increasing electrical endpoints, distinct engineering endpoints
@@ -85,8 +95,9 @@ interface, durable intent and original backup. Before restore it checks:
 The compiler merges fresh saved settings first, preserves every other raw record,
 unknown property, wire and framing style, and changes only the selected input.
 Apply writes File 3 only. It does not write firmware, boot, Static or Dynamic files.
-Allocation adds one minimally configured Monitor Only analog input with Process
-ID Other; it does not connect it to the running control graph.
+Linear allocation adds a Monitor Only analog input with Process ID Other.
+Nickel RTD allocation uses the discharge-air process filter. Both add one
+unconnected monitoring point. Connecting a control loop is a separate edit.
 
 Verification compares the complete native application and saved settings, checks
 operational status, and separately reads published Object_Identifier, Object_Name,

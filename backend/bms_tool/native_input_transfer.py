@@ -7,7 +7,15 @@ from datetime import UTC, datetime, timedelta
 from bacpypes3.apdu import ReadPropertyACK, ReadPropertyRequest
 from bacpypes3.object import AnalogInputObject, BinaryInputObject
 from bacpypes3.pdu import PDUData
-from bacpypes3.primitivedata import Boolean, Enumerated, ObjectIdentifier, Real, TagList, Unsigned
+from bacpypes3.primitivedata import (
+    Boolean,
+    CharacterString,
+    Enumerated,
+    ObjectIdentifier,
+    Real,
+    TagList,
+    Unsigned,
+)
 
 from .application_store import PROFILE as TRANSFER_PROFILE
 from .moi_identity import MoiIdentity, seal, sha
@@ -223,6 +231,25 @@ class NativeInputOperations:
     async def input_live_guard(self, session, options, compilation, files):
         edit = options.edit
         obj = compilation["object_id"]
+        if edit.configuration and edit.configuration.mode == "nickel-duct-temperature":
+            device = options.device
+            if str(await self.path._read(session, device, "firmware-revision")) != "10.0.0.2125":
+                raise ValueError(
+                    "Nickel input transfer requires the qualified custom-application firmware."
+                )
+            root = str(await self.input_atomic(session, device, 32527, CharacterString))
+            selector = "multi-state-value,1000"
+            if (
+                str(await self.path._read(session, selector, "object-name"))
+                != root + "/Preloaded App Loader.App Selector"
+                or int(await self.path._read(session, selector, "present-value")) != 1
+                or str(await self.path._read(session, selector, "state-text", 1))
+                != "Custom Application"
+                or int(await self.path._read(session, device, "system-status")) != 0
+            ):
+                raise ValueError(
+                    "Nickel input transfer requires an operational, active custom application."
+                )
         present, presence = await self.input_presence(session, obj)
         if edit.action == "allocate":
             next_id = int(await self.input_atomic(session, options.device, 787, Unsigned))

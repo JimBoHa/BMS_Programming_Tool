@@ -12,9 +12,11 @@ export type RecordedInput = {
   terminal_label: string;
   requested_name: string | null;
   requested_configuration:
-    | ({ mode: "voltage" | "resistance" | "current" } & Record<string, any>)
+    | ({
+        mode: "voltage" | "resistance" | "current" | "nickel-duct-temperature";
+      } & Record<string, any>)
     | null;
-  stored_configuration: Record<string, number> | null;
+  stored_configuration: Record<string, number | null> | null;
   allocation_receipt_id: string | null;
   wiring_confirmation_recorded: boolean;
   scope: string;
@@ -84,6 +86,28 @@ export function recordedInput(v: any): RecordedInput | null {
       v.stored_configuration !== null ||
       typeof v.allocation_receipt_id !== "string" ||
       !/^[a-f0-9]{32}$/.test(v.allocation_receipt_id)
+    )
+      return null;
+  } else if (v.requested_configuration?.mode === "nickel-duct-temperature") {
+    const expected = {
+      setup: 3,
+      field_units: 4,
+      input_low: 670,
+      input_high: 1600,
+      output_low: null,
+      output_high: null,
+      units: 64,
+      minimum: -50,
+      maximum: 250,
+    };
+    if (
+      v.action !== "allocate" ||
+      v.allocation_receipt_id !== null ||
+      !exact(v.requested_configuration, ["mode"]) ||
+      !exact(v.stored_configuration, Object.keys(expected)) ||
+      !Object.entries(expected).every(([k, val]) =>
+        Object.is(v.stored_configuration[k], val),
+      )
     )
       return null;
   } else {
