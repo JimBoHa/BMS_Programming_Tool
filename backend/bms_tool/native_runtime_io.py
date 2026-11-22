@@ -22,8 +22,14 @@ from .hardware_survey import model_capacity
 from .models import StrictModel
 from .moi_identity import MoiIdentity, controller_name, seal, sha
 from .moi_parameters import ParameterApplication
-from .native_inputs import archive, encoded, native_record, replace_properties
-from .native_output_points import ALLOCATION_ACTIONS, OUTPUT_ACTIONS, TERMINALS, compile_output
+from .native_inputs import archive, encoded, native_record
+from .native_output_points import (
+    ALLOCATION_ACTIONS,
+    OUTPUT_ACTIONS,
+    OUTPUT_MODES,
+    TERMINALS,
+    compile_output,
+)
 from .native_parameter_qualification import qualify_parameter_additions
 
 PROFILE = "native-saved-effective-local-io/1"
@@ -112,7 +118,7 @@ class RuntimeIOEdit(StrictModel):
         if self.action not in OUTPUT_ACTIONS and self.slot > 3:
             raise ValueError("Select one of the three supported input or binary terminals.")
         if self.action in OUTPUT_ACTIONS:
-            mode = "binary" if self.action == "allocate-binary-output" else "proportional"
+            mode = OUTPUT_MODES[self.action]
             if self.slot not in TERMINALS[mode] or self.expected_slot in (None, self.slot):
                 raise ValueError(
                     "Select a source and a different terminal compatible with its signal."
@@ -130,16 +136,8 @@ class RuntimeIOEdit(StrictModel):
             if self.name is None or self.expected_slot is not None:
                 raise ValueError("Binary allocation requires a new name and no old slot.")
             controller_name(self.name)
-        elif self.action == "binary-output-terminal":
-            if (
-                self.name is not None
-                or self.description
-                or self.expected_slot is None
-                or self.expected_slot == self.slot
-            ):
-                raise ValueError("Output movement requires distinct old/new slots and no rename.")
         else:
-            raise ValueError("Select binary input allocation or binary output terminal movement.")
+            raise ValueError("Select a supported local input or output edit.")
         return self
 
 
@@ -238,7 +236,7 @@ def compile_io(files, identity, edit):
     if edit.action in OUTPUT_ACTIONS:
         new, replaced, change = compile_output(app, edit)
         oid, changes = change["object"], [change]
-    elif edit.action == "allocate-binary":
+    else:  # allocate-binary
         if edit.slot not in capacity["universal_inputs"]:
             raise ValueError("Select a documented local universal input.")
         for r in app.records:
@@ -283,45 +281,6 @@ def compile_io(files, identity, edit):
                 "name": edit.name,
                 "polarity": "normal",
                 "states": ["Off", "On"],
-            }
-        ]
-    else:
-        oid = f"binary-output,{edit.object_instance}"
-        matches = [
-            r for r in app.records if r["class_id"] == 239 and app.reader.scalar(r, 75) == oid
-        ]
-        if len(matches) != 1 or not _local(app, matches[0], 4):
-            raise ValueError("Select one unambiguous local configured binary output.")
-        replaced = matches[0]
-        old = app.reader.scalar(replaced, 990)
-        label = app.reader.scalar(replaced, 31)
-        if (
-            old != edit.expected_slot
-            or label != (f"BO OUT{old}" if old <= 3 else f"CO OUT{old - 3}")
-            or app.reader.scalar(replaced, 518) != 0
-        ):
-            raise ValueError("The current binary output allocation/setup differs from the review.")
-        for r in app.records:
-            if r is replaced or r["class_id"] not in (239, 241, 251):
-                continue
-            if any(app.reader.scalar(r, pid) == edit.slot for pid in (990, 991, 519)):
-                raise ValueError("The destination output terminal is already allocated.")
-        new = replace_properties(
-            app,
-            replaced,
-            {
-                31: encoded(CharacterString(f"BO OUT{edit.slot}")),
-                990: encoded(Unsigned(edit.slot)),
-            },
-        )
-        changes = [
-            {
-                "object": oid,
-                "operation": "move",
-                "before_slot": old,
-                "after_slot": edit.slot,
-                "before_device_type": label,
-                "after_device_type": f"BO OUT{edit.slot}",
             }
         ]
     records = [

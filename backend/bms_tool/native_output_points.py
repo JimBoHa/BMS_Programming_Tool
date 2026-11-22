@@ -5,18 +5,21 @@ import re
 
 from bacpypes3.errors import InvalidTag
 from bacpypes3.pdu import PDUData
-from bacpypes3.primitivedata import CharacterString, ObjectIdentifier, Tag, TagClass, Unsigned
+from bacpypes3.primitivedata import CharacterString, ObjectIdentifier, Tag, TagClass
 
 from .moi_identity import controller_name
+from .moi_terminal_labels import EncodedTerminalCopies
 from .native_inputs import encoded, native_record, raw_property, record_instance, replace_properties
 
-OUTPUT_ACTIONS = {
-    "allocate-binary-output",
-    "allocate-proportional-output",
-    "proportional-output-terminal",
+OUTPUT_MODES = {
+    "allocate-binary-output": "binary",
+    "binary-output-terminal": "binary",
+    "allocate-proportional-output": "proportional",
+    "proportional-output-terminal": "proportional",
 }
+OUTPUT_ACTIONS = set(OUTPUT_MODES)
 ALLOCATION_ACTIONS = {"allocate-binary-output", "allocate-proportional-output"}
-TERMINALS = {"binary": (1, 2, 3), "proportional": (4, 5)}
+TERMINALS = {"binary": (1, 2, 3, 4, 5), "proportional": (4, 5)}
 PUBLIC_TYPES = {"binary": 4, "proportional": 1}
 CLASSES = {"binary": 239, "proportional": 241}
 TAGS = {"Unsigned": 2, "Real": 4, "CharacterString": 7, "Enumerated": 9, "ObjectIdentifier": 12}
@@ -24,6 +27,12 @@ TAGS = {"Unsigned": 2, "Real": 4, "CharacterString": 7, "Enumerated": 9, "Object
 
 def label(slot):
     return f"BO OUT{slot}" if slot <= 3 else f"CO OUT{slot - 3}"
+
+
+def signal(slot, mode):
+    if mode == "proportional":
+        return "0–10 VDC proportional"
+    return ("internally powered" if slot <= 3 else "externally powered") + " 24 VAC triac"
 
 
 def scalar_bytes(app, row, pid, dtype):
@@ -45,6 +54,21 @@ def scalar_bytes(app, row, pid, dtype):
     ):
         raise ValueError(f"Output property {pid} contains more than one typed value.")
     return raw[:-1]
+
+
+def terminal_leaf(app, row, pid, value):
+    dtype = "CharacterString" if pid == 31 else "Unsigned"
+    raw = scalar_bytes(app, row, pid, dtype)
+    previous = bytes(Tag.decode(PDUData(raw)).tag_data)
+    if pid == 31:
+        payload = EncodedTerminalCopies.label_payload(previous, value)
+        if len(payload) != len(previous):
+            raise ValueError("Unqualified terminal label size.")
+    else:
+        if not 1 <= len(previous) <= 4:
+            raise ValueError("Invalid terminal slot width.")
+        payload = value.to_bytes(len(previous), "big")
+    return raw[: -len(previous)] + payload
 
 
 def bindings(app):
@@ -168,6 +192,9 @@ def output_options(app):
                 "available_slots": [n for n in TERMINALS[mode] if n not in occupied]
                 if not unavailable
                 else [],
+                "terminal_signals": {
+                    n: signal(n, mode) for n in TERMINALS[mode] if n not in occupied
+                },
                 "unavailable_reason": unavailable,
             }
         )
@@ -176,7 +203,7 @@ def output_options(app):
 
 def compile_output(app, edit):
     occupied = bindings(app)
-    mode = "binary" if edit.action == "allocate-binary-output" else "proportional"
+    mode = OUTPUT_MODES[edit.action]
     cid, kind = CLASSES[mode], PUBLIC_TYPES[mode]
     allocate = edit.action in ALLOCATION_ACTIONS
     if edit.slot not in TERMINALS[mode] or edit.slot in occupied:
@@ -185,7 +212,13 @@ def compile_output(app, edit):
     source_id = edit.template_instance if allocate else edit.object_instance
     if source is None or source["class_id"] != cid or record_instance(app, source) != source_id:
         raise ValueError("The selected source output or its original terminal changed.")
-    fields = electrical_fields(app, source, mode)
+    if not allocate and mode == "binary":
+        if app.reader.scalar(source, 518) != 0:
+            raise ValueError("Select a configured two-state binary output for a terminal move.")
+        scalar_bytes(app, source, 518, "Enumerated")
+    # A move keeps the complete source record. Unknown configuration is never cloned.
+    if allocate or mode == "proportional" or (edit.expected_slot <= 3 < edit.slot):
+        fields = electrical_fields(app, source, mode)
     oid = str(ObjectIdentifier((kind, edit.object_instance)))
     old_label = app.reader.scalar(source, 31)
     new_label = label(edit.slot)
@@ -199,10 +232,15 @@ def compile_output(app, edit):
         "before_device_type": old_label,
         "after_slot": edit.slot,
         "after_device_type": new_label,
+        "after_signal": signal(edit.slot, mode),
+        "has_slot_alias": 519 in source["properties"],
     }
-    terminal = {31: encoded(CharacterString(new_label)), 990: encoded(Unsigned(edit.slot))}
+    terminal = {
+        31: terminal_leaf(app, source, 31, new_label),
+        990: terminal_leaf(app, source, 990, edit.slot),
+    }
     if 519 in source["properties"]:
-        terminal[519] = encoded(Unsigned(edit.slot))
+        terminal[519] = terminal_leaf(app, source, 519, edit.slot)
     if not allocate:
         return replace_properties(app, source, terminal), source, change
 
