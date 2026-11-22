@@ -199,10 +199,10 @@
     align-items: stretch;
   }
 }
-.native-output-points {
+.native-runtime-points {
   margin-block: 1.25rem;
 }
-.native-output-points fieldset {
+.native-runtime-points fieldset {
   display: grid;
   gap: 0.65rem 1rem;
   min-width: 0;
@@ -211,21 +211,21 @@
   border: 0;
   border-top: 1px solid var(--border);
 }
-.native-output-points legend {
+.native-runtime-points legend {
   padding-right: 0.5rem;
   font-weight: 600;
 }
-.native-output-points .output-assignment {
+.native-runtime-points .output-assignment {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
 }
-.native-output-points fieldset p {
+.native-runtime-points fieldset p {
   grid-column: 1 / -1;
   margin: 0;
 }
-.native-output-points fieldset > button {
+.native-runtime-points fieldset > button {
   justify-self: start;
 }
-.native-output-points label:has(input[type="checkbox"]) {
+.native-runtime-points label:has(input[type="checkbox"]) {
   display: flex;
   flex-direction: row;
   align-items: center;

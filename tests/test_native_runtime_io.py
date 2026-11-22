@@ -6,11 +6,18 @@ import types
 
 import pytest
 from bacpypes3.apdu import ReadPropertyACK
-from bacpypes3.basetypes import PriorityArray, PriorityValue
+from bacpypes3.basetypes import PriorityArray, PriorityValue, StatusFlags
 from bacpypes3.constructeddata import Any
 from bacpypes3.errors import ExecutionError
 from bacpypes3.pdu import PDUData
-from bacpypes3.primitivedata import CharacterString, Enumerated, ObjectIdentifier, TagList, Unsigned
+from bacpypes3.primitivedata import (
+    Boolean,
+    CharacterString,
+    Enumerated,
+    ObjectIdentifier,
+    TagList,
+    Unsigned,
+)
 from bms_tool.moi_identity import MoiIdentity
 from bms_tool.moi_parameters import ParameterApplication
 from bms_tool.mstp import header_crc
@@ -229,9 +236,37 @@ async def io_link(native_link, monkeypatch):
                     raise ExecutionError(errorClass="property", errorCode="unknown-property")
                 raise ExecutionError(errorClass="object", errorCode="unknown-object")
             raw = raw_property(app, record, 2390 if pid == 77 else pid)
-            if raw is None:
+            if int(oid[0]) == 3 and pid in (85, 103, 111, 81):
+                polarity = app.reader.scalar(record, 84)
+                if polarity is None:
+                    polarity = getattr(self, "implicit_polarity", 0)
+                closed = getattr(self, "contact_terminals", {}).get(
+                    app.reader.scalar(record, 519), 0
+                )
+                value = Any(
+                    {
+                        85: Enumerated(closed ^ polarity),
+                        103: Enumerated(0),
+                        111: StatusFlags([0, 0, 0, 0]),
+                        81: Boolean(getattr(self, "contact_oos", False)),
+                    }[pid]
+                )
+            elif (
+                int(oid[0]) == 3
+                and pid == 84
+                and (raw is None or getattr(self, "contact_polarity_override", None) is not None)
+            ):
+                value = Any(
+                    Enumerated(
+                        getattr(self, "contact_polarity_override", None)
+                        if getattr(self, "contact_polarity_override", None) is not None
+                        else getattr(self, "implicit_polarity", 0)
+                    )
+                )
+            elif raw is None:
                 raise ExecutionError(errorClass="property", errorCode="unknown-property")
-            value = Any(TagList.decode(PDUData(raw[:-1])))
+            else:
+                value = Any(TagList.decode(PDUData(raw[:-1])))
             if self.io_fault == "wrong-publication" and pid in (519, 990):
                 value = Any(Unsigned(3))
         else:

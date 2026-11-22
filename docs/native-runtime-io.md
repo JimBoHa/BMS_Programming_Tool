@@ -2,9 +2,9 @@
 
 In **Points & I/O → Configure output points**, an engineer can add an independent
 binary or proportional point or move an existing output to a compatible spare
-terminal. The editor reads one selected controller application and displays its
-actual source points and available destinations. Dry-contact input allocation
-is also available through the existing runtime I/O API.
+terminal. In **Configure native inputs → Assign or edit dry contacts**, an
+engineer can add a maintained dry contact, move it or change its polarity.
+Both editors display the selected controller's actual points and free terminals.
 
 ## Source and scope
 
@@ -38,6 +38,8 @@ The route prefix is `/api/bacnet/controller/native-application/runtime-io`.
 | --- | --- |
 | `POST /output-sources` | List retained captures and output-transfer receipts for the selected device and route. |
 | `POST /outputs` | Inspect a retained capture for compatible output points and spare terminals. |
+| `POST /contact-sources` | List retained captures and dry-contact transfer receipts for the selected controller and route. |
+| `POST /contacts` | Inspect the capture for configured contacts, their polarity and free universal inputs. |
 | `POST /source` | Compile a capture-bound local copy and preservation evidence; no controller reads or writes and no apply token. |
 | `POST /preview` | Verify the exact route, identity, interface, custom bank, allocator/object presence and old output binding. Issue a one-use, 120-second review. |
 | `POST /apply` | Consume the review; recheck credentials, interface, bank, identity and bindings; take a recoverable fresh original; reject changed configuration; journal intent before the first mutation; transfer File 3 once; independently verify. |
@@ -45,11 +47,37 @@ The route prefix is `/api/bacnet/controller/native-application/runtime-io`.
 
 A binary allocation supplies `action: allocate-binary`, an unused public object
 instance, a spare local UI slot, a visible name and an optional description.
-It creates a normal-polarity Off/On binary input, with no control-logic wires.
+It creates an independent Off/On binary input. Polarity defaults to normal and
+can be set explicitly to reverse.
 A binary output move supplies `action: binary-output-terminal`, the existing
 object instance, its expected old slot and a spare two-state destination. It
 changes only the terminal label and slot and retains output setup and logic.
 Both edits preserve all unrelated effective application records.
+
+## Configure a dry-contact input
+
+1. Open the selected controller's **Points & I/O → Configure native inputs** and
+   select **Assign or edit dry contacts**. Choose **Inspect saved inputs** or
+   **Capture current application**. A fresh backup can interrupt control briefly.
+2. Choose **Assign a new dry contact** to create an independent binary point.
+   Enter a name and unused instance, choose a spare universal input and select
+   normal or reverse polarity. **Move an existing dry contact** retains its
+   identifier, state labels, polarity and program references. **Change contact
+   polarity** swaps how that contact reports its state on its present terminal.
+3. **Review local input edit** checks the saved application. **Review on
+   controller** checks the exact target and the current binding. Confirm the
+   wiring and restart window, then choose **Apply input change**.
+4. Readback verifies the application, saved settings, published binding,
+   polarity, labels and input quality. The screen reports the sampled active
+   or inactive state. Operate the wired contact and observe both states to
+   verify physical wiring. An uncertain transfer remains available under
+   **Recorded input transfers → Read back transfer**.
+
+The API actions for existing points are `binary-input-terminal` and
+`binary-input-polarity`. Both require the original slot. Newly added points
+have no control-logic wires. A move or polarity change is rejected if saved
+parameters would restore the old assignment. The original application is
+retained for recovery. [Native application restore](native-application-restore.md)
 
 ## Configure an output point
 
@@ -120,3 +148,8 @@ a loopback BACnet peer. The tests cover binary and proportional commands,
 priority release, uncertain readback and restoration of both original terminal
 assignments. Supervisor mappings, field wiring and physical actuator feedback
 have separate commissioning workflows.
+
+Browser and UDP tests exercise dry-contact assignment, terminal moves and
+polarity reversal. The test controller models both contact states and reports
+the published value independently of the saved edit. Additional tests cover
+changed source bindings, out-of-service feedback and recovery by readback.

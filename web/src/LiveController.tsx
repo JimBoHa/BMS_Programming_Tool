@@ -3,7 +3,7 @@ import { api } from "./api";
 import { ControllerApplicationPanel } from "./ControllerApplication";
 import { NativePointName } from "./NativePointName";
 import { NativeInputs } from "./NativeInputs";
-import { NativeOutputPoints } from "./NativeOutputPoints";
+import { NativeRuntimePoints } from "./NativeRuntimePoints";
 import { controllerKey, type ControllerContext } from "./workflow";
 
 type RecordValue = Record<string, any>;
@@ -274,6 +274,9 @@ export function LiveControllerPoints({
 }) {
   const [nameBusy, setNameBusy] = useState(false);
   const [inputOpen, setInputOpen] = useState(false);
+  const [inputTask, setInputTask] = useState<"existing" | "contacts">(
+    "existing",
+  );
   const [outputOpen, setOutputOpen] = useState(false);
   const [inventory, setInventory] = useState<RecordValue | null>(null),
     [values, setValues] = useState<Record<string, RecordValue>>({});
@@ -554,9 +557,27 @@ export function LiveControllerPoints({
             Show all BACnet objects
           </label>
         </div>
-        {outputOpen && (
-          <NativeOutputPoints
-            key={source}
+        {inputOpen && (
+          <label>
+            Input configuration task
+            <select
+              value={inputTask}
+              disabled={nameBusy}
+              onChange={(e) =>
+                setInputTask(e.target.value as "existing" | "contacts")
+              }
+            >
+              <option value="existing">
+                Analog inputs and configured terminal moves
+              </option>
+              <option value="contacts">Assign or edit dry contacts</option>
+            </select>
+          </label>
+        )}
+        {(outputOpen || (inputOpen && inputTask === "contacts")) && (
+          <NativeRuntimePoints
+            key={source + (outputOpen ? "-outputs" : "-contacts")}
+            direction={outputOpen ? "output" : "input"}
             controller={controller}
             connected={connected}
             onBusy={(value) => {
@@ -566,7 +587,7 @@ export function LiveControllerPoints({
             onVerified={() => setReload((value) => value + 1)}
           />
         )}
-        {inputOpen && (
+        {inputOpen && inputTask === "existing" && (
           <NativeInputs
             key={source}
             controller={controller}

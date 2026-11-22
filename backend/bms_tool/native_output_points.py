@@ -3,13 +3,11 @@
 import math
 import re
 
-from bacpypes3.errors import InvalidTag
-from bacpypes3.pdu import PDUData
-from bacpypes3.primitivedata import CharacterString, ObjectIdentifier, Tag, TagClass
+from bacpypes3.primitivedata import CharacterString, ObjectIdentifier
 
 from .moi_identity import controller_name
-from .moi_terminal_labels import EncodedTerminalCopies
-from .native_inputs import encoded, native_record, raw_property, record_instance, replace_properties
+from .native_inputs import encoded, native_record, record_instance, replace_properties
+from .native_io_records import require_unused_point, scalar_bytes, terminal_leaf
 
 OUTPUT_MODES = {
     "allocate-binary-output": "binary",
@@ -22,7 +20,6 @@ ALLOCATION_ACTIONS = {"allocate-binary-output", "allocate-proportional-output"}
 TERMINALS = {"binary": (1, 2, 3, 4, 5), "proportional": (4, 5)}
 PUBLIC_TYPES = {"binary": 4, "proportional": 1}
 CLASSES = {"binary": 239, "proportional": 241}
-TAGS = {"Unsigned": 2, "Real": 4, "CharacterString": 7, "Enumerated": 9, "ObjectIdentifier": 12}
 
 
 def label(slot):
@@ -33,42 +30,6 @@ def signal(slot, mode):
     if mode == "proportional":
         return "0–10 VDC proportional"
     return ("internally powered" if slot <= 3 else "externally powered") + " 24 VAC triac"
-
-
-def scalar_bytes(app, row, pid, dtype):
-    prop = row["properties"].get(pid, {})
-    if (prop.get("scalar") or {}).get("datatype") != dtype:
-        raise ValueError(f"Output property {pid} lacks its expected {dtype} value.")
-    raw = raw_property(app, row, pid)
-    data = PDUData(raw)
-    try:
-        first, closing = Tag.decode(data), Tag.decode(data)
-    except (InvalidTag, ValueError, IndexError) as exc:
-        raise ValueError(f"Output property {pid} has invalid scalar framing.") from exc
-    if (
-        first.tag_class != TagClass.application
-        or first.tag_number != TAGS[dtype]
-        or closing.tag_class != TagClass.closing
-        or closing.tag_number != 2
-        or data.pduData
-    ):
-        raise ValueError(f"Output property {pid} contains more than one typed value.")
-    return raw[:-1]
-
-
-def terminal_leaf(app, row, pid, value):
-    dtype = "CharacterString" if pid == 31 else "Unsigned"
-    raw = scalar_bytes(app, row, pid, dtype)
-    previous = bytes(Tag.decode(PDUData(raw)).tag_data)
-    if pid == 31:
-        payload = EncodedTerminalCopies.label_payload(previous, value)
-        if len(payload) != len(previous):
-            raise ValueError("Unqualified terminal label size.")
-    else:
-        if not 1 <= len(previous) <= 4:
-            raise ValueError("Invalid terminal slot width.")
-        payload = value.to_bytes(len(previous), "big")
-    return raw[: -len(previous)] + payload
 
 
 def bindings(app):
@@ -244,26 +205,7 @@ def compile_output(app, edit):
     if not allocate:
         return replace_properties(app, source, terminal), source, change
 
-    for row in app.records:
-        name = app.reader.scalar(row, 2390)
-        if (
-            row["class_id"] == cid
-            and record_instance(app, row) == edit.object_instance
-            or app.reader.scalar(row, 75) == oid
-            or app.reader.scalar(row, 32527) == f"{app.ref}/{kind}_{edit.object_instance}"
-            or isinstance(name, str)
-            and name.casefold() == edit.name.casefold()
-        ):
-            raise ValueError("The proposed output name or identifier is in use.")
-    # An unresolved reference could begin driving a freshly allocated point.
-    suffix = f"/{kind}_{edit.object_instance}"
-    identifiers = [(n << 22 | edit.object_instance).to_bytes(4, "big") for n in (kind, cid)]
-    if any(token in app.data for token in identifiers) or any(
-        suffix.encode(charset) in app.data for charset in ("ascii", "utf-16-le", "utf-16-be")
-    ):
-        raise ValueError(
-            "The proposed output identifier occurs in the retained image. Choose an unused identifier."
-        )
+    require_unused_point(app, cid, kind, edit.object_instance, edit.name, oid)
     props = {
         32527: encoded(CharacterString(f"{app.ref}/{kind}_{edit.object_instance}")),
         28: encoded(CharacterString(edit.description)),
