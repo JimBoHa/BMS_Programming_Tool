@@ -119,6 +119,33 @@ def test_saved_analog_defaults_do_not_qualify_an_undeclared_data_model(versions,
         ((66, 65), 910, 518, Boolean(True), Enumerated(1)),
         ((66, 65), 628, 1302, Boolean(False), Unsigned(0)),
         ((62, 62), 241, 652, Real(0), Unsigned(0)),
+        ((62, 62), 526, 3113, Real(21), Unsigned(21)),
+        ((62, 62), 251, 84, Enumerated(1), Enumerated(2)),
+        ((62, 62), 251, 84, Enumerated(0), Unsigned(0)),
+        ((60, 60), 241, 652, Real(1), Unsigned(1)),
+        ((60, 60), 241, 653, Real(1), Unsigned(1)),
+        *[
+            pytest.param(
+                (60, 60),
+                cid,
+                28,
+                CharacterString("Example"),
+                Unsigned(1),
+                id=f"60-description-{cid}",
+            )
+            for cid in (526, 527, 528, 530)
+        ],
+        *[
+            pytest.param(
+                (62, 62),
+                cid,
+                28,
+                CharacterString("Example"),
+                Unsigned(1),
+                id=f"legacy-description-{cid}",
+            )
+            for cid in (526, 527, 529, 530)
+        ],
     ],
 )
 def test_saved_release_fields_use_explicit_application_datatypes(versions, cid, pid, value, wrong):
@@ -128,7 +155,7 @@ def test_saved_release_fields_use_explicit_application_datatypes(versions, cid, 
         ]
         == 1
     )
-    with pytest.raises(ValueError, match="qualified application datatype"):
+    with pytest.raises(ValueError, match="qualified application datatype|actuator polarity"):
         qualify_parameter_additions(*single_saved_field(versions, cid, pid, wrong))
     with pytest.raises(ValueError, match="Unqualified omitted"):
         qualify_parameter_additions(*single_saved_field((67, 65), cid, pid, value))
