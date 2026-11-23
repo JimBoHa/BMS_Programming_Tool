@@ -33,6 +33,7 @@ from .native_parameter_qualification import qualify_parameter_additions
 PROFILE = "native-saved-effective-local-io/1"
 FORMATS = {(66, 65)}
 FACTORY_FORMAT = {"acs": 67, "dmcs": 65}
+RETAINED_CV_VERSIONS = {"10.0.0.2125": (66, 65), "11.0.2.8": (67, 65)}
 CV_MODELS = {
     "M4-CVM03050-0",
     "M4-CVM03050-0P",
@@ -62,7 +63,20 @@ def factory_io_candidate(summary, identity):
     )
 
 
-def effective_source(files, identity):
+def retained_cv_identity(summary, identity):
+    versions = summary["format_versions"]
+    return (
+        identity.get("vendor-identifier") == 5
+        and identity.get("model-name") == summary.get("model") == "M4-CVM03050-0"
+        and summary.get("root_class") == 194
+        and summary.get("root_ref") == "8-1"
+        and RETAINED_CV_VERSIONS.get(identity.get("firmware-revision"))
+        == (versions["acs"], versions["dmcs"])
+        and (summary["instance"] == 1 or summary["name"] == identity.get("object-name"))
+    )
+
+
+def effective_source(files, identity, *, retained_copy=False):
     if set(files) != {3, 11, 12} or identity.get("vendor-identifier") != 5:
         raise ValueError("A complete native capture and exact native-family identity are required.")
     original = MoiIdentity(files[3])
@@ -73,15 +87,20 @@ def effective_source(files, identity):
         raise ValueError("Use an actual responding Device identity.")
     source = files[3]
     factory = original.instance != device[1]
+    retained = retained_copy and factory and retained_cv_identity(summary, identity)
     if (versions["acs"], versions["dmcs"]) not in FORMATS and not (
-        factory and factory_io_candidate(summary, identity)
+        retained or (factory and factory_io_candidate(summary, identity))
     ):
         raise ValueError("Saved-effective I/O requires a separately qualified format pair.")
     if factory:
-        if original.instance != 1 or original.ref != "8-1" or original.root["class_id"] != 194:
+        if not retained and (
+            original.instance != 1 or original.ref != "8-1" or original.root["class_id"] != 194
+        ):
             raise ValueError("An unmatched native root is not a qualified factory identity.")
         query = dict(
-            source_sha256=original.source_sha256, expected_instance=1, new_instance=device[1]
+            source_sha256=original.source_sha256,
+            expected_instance=original.instance,
+            new_instance=device[1],
         )
         review = original.preview(**query)
         source, _ = original.export(**query, plan_sha256=review["plan_sha256"])
@@ -89,17 +108,12 @@ def effective_source(files, identity):
     output, merge = parameters.compile()
     actual = MoiIdentity(output)
     matched = {(r["class"], r["instance"], r["property"]) for r in parameters.parameters}
-    if (
-        factory
-        and not {
-            (194, device[1], 75),
-            (194, device[1], 2390),
-            (194, device[1], 70),
-        }
-        <= matched
-    ):
+    required = {75, 70, 2390}
+    if retained and summary["name"] == identity["object-name"]:
+        required.remove(2390)  # Unchanged names can be stored solely in the native root.
+    if factory and not {(194, device[1], prop) for prop in required} <= matched:
         raise ValueError("Factory identity requires saved Device identifier, name and model.")
-    if versions == FACTORY_FORMAT and not {
+    if (retained or versions == FACTORY_FORMAT) and not {
         (194, device[1], 4128),
         (194, device[1], 4129),
     } <= matched:
@@ -117,7 +131,7 @@ def effective_source(files, identity):
         "original_file_sha256": {str(k): sha(v) for k, v in files.items()},
         "original_identity": summary,
         "effective_identity": actual.summary(),
-        "factory_identity_materialized": factory,
+        "factory_identity_materialized": factory and original.instance == 1,
         "saved_parameter_merge": merge,
         "parameter_type_qualification": qualified,
         "controller_queries": False,

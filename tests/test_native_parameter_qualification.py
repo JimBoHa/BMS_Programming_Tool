@@ -3,7 +3,14 @@
 import struct
 
 import pytest
-from bacpypes3.primitivedata import CharacterString, Enumerated, ObjectIdentifier, Real, Unsigned
+from bacpypes3.primitivedata import (
+    Boolean,
+    CharacterString,
+    Enumerated,
+    ObjectIdentifier,
+    Real,
+    Unsigned,
+)
 from bms_tool.moi_parameters import ParameterApplication
 from bms_tool.mstp import header_crc
 from bms_tool.native_parameter_qualification import qualify_parameter_additions
@@ -71,9 +78,7 @@ def test_saved_analog_input_defaults_require_their_actual_application_types(pid,
             qualify_parameter_additions(bytes(data), report)
 
 
-@pytest.mark.parametrize("versions", [(60, 60), (62, 62), (66, 65), (66, 66), (102, 102), (60, 62)])
-@pytest.mark.parametrize("pid,value", [(813, Unsigned(1)), (3164, Real(900))])
-def test_saved_analog_defaults_do_not_qualify_an_undeclared_data_model(versions, pid, value):
+def single_saved_field(versions, cid, pid, value):
     root = native_record(
         194,
         5136,
@@ -87,18 +92,46 @@ def test_saved_analog_defaults_do_not_qualify_an_undeclared_data_model(versions,
         ],
     )
     ai = native_record(
-        240, 101, [(32527, encoded(CharacterString("controller/input"))), (pid, encoded(value))]
+        cid, 101, [(32527, encoded(CharacterString("controller/input"))), (pid, encoded(value))]
     )
     application = struct.pack("<6sHHI", b"\x02\x00MOI\x00", 194, 1, 2)
     application += b"".join(struct.pack("<H", len(r) + 2) + r for r in (root, ai))
     report = {
-        "changed_parameters": [{"class": 240, "instance": 101, "property": pid, "added": True}]
+        "changed_parameters": [{"class": cid, "instance": 101, "property": pid, "added": True}]
     }
+    return application, report
+
+
+@pytest.mark.parametrize("versions", [(60, 60), (62, 62), (66, 65), (66, 66), (102, 102), (60, 62)])
+@pytest.mark.parametrize("pid,value", [(813, Unsigned(1)), (3164, Real(900))])
+def test_saved_analog_defaults_do_not_qualify_an_undeclared_data_model(versions, pid, value):
+    application, report = single_saved_field(versions, 240, pid, value)
     if versions in {(60, 60), (62, 62), (66, 65)}:
         assert qualify_parameter_additions(application, report)["qualified_fields"] == 1
     else:
         with pytest.raises(ValueError, match="Unqualified omitted application property"):
             qualify_parameter_additions(application, report)
+
+
+@pytest.mark.parametrize(
+    "versions,cid,pid,value,wrong",
+    [
+        ((66, 65), 910, 518, Boolean(True), Enumerated(1)),
+        ((66, 65), 628, 1302, Boolean(False), Unsigned(0)),
+        ((62, 62), 241, 652, Real(0), Unsigned(0)),
+    ],
+)
+def test_saved_release_fields_use_explicit_application_datatypes(versions, cid, pid, value, wrong):
+    assert (
+        qualify_parameter_additions(*single_saved_field(versions, cid, pid, value))[
+            "qualified_fields"
+        ]
+        == 1
+    )
+    with pytest.raises(ValueError, match="qualified application datatype"):
+        qualify_parameter_additions(*single_saved_field(versions, cid, pid, wrong))
+    with pytest.raises(ValueError, match="Unqualified omitted"):
+        qualify_parameter_additions(*single_saved_field((67, 65), cid, pid, value))
 
 
 @pytest.mark.parametrize("external,cid", [(3, 242), (4, 239), (5, 168)])

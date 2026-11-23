@@ -9,10 +9,12 @@ backup.
 
 ## Operator workflow
 
-An M4-CVM03050-0 factory application on firmware 11.0.2.8 can contain a
-placeholder Device 1 in File 3. On ACS 67 / DMCS 65, **Inspect retained restore
-image** reconciles the captured station with the Device identifier, name, model
-and both format versions in its original saved settings. **Save saved-application
+On M4-CVM03050-0 firmware 10.0.0.2125 (ACS 66 / DMCS 65) and 11.0.2.8
+(ACS 67 / DMCS 65), File 3 can retain the factory Device 1 or a previous
+assignment. **Inspect retained restore image** verifies the assigned Device,
+model and both format versions in the original saved settings. A name present
+only in File 3 must match the independently captured station name. A root with
+a previous assignment must also carry that matching name. **Save saved-application
 copy** exports this reconstructed native application and leaves the three source
 files intact. The factory source is explicitly labeled in the review. An existing
 factory preset needs a separately qualified transfer to an active custom

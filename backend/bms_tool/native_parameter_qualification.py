@@ -26,6 +26,12 @@ ANALOG_DEFAULT_TYPES = {
     (240, 813): "unsigned-byte",  # AI calculation default, not an Enum or Boolean
     (240, 3164): 4,  # AI filter Time Constant (Real seconds)
 }
+# Data-model 65 declares these input attributes as Boolean. The output field
+# in 62/62 is a Real in the native application, including when stored in PSS.
+RELEASE_FIELD_TYPES = {
+    (66, 65): {(910, 518): 1, (628, 1302): 1},
+    (62, 62): {(241, 652): 4},
+}
 
 
 def qualify_parameter_additions(application, parameter_merge):
@@ -45,7 +51,9 @@ def qualify_parameter_additions(application, parameter_merge):
             raise ValueError("An omitted saved field no longer has its original native object.")
         expected = ROOT_TYPES.get(pid) if record is app.root else MODULE_TYPES.get((cid, pid))
         versions = app.summary()["format_versions"]
-        if (versions["acs"], versions["dmcs"]) in ANALOG_DEFAULT_FORMATS:
+        version = (versions["acs"], versions["dmcs"])
+        expected = RELEASE_FIELD_TYPES.get(version, {}).get((cid, pid), expected)
+        if version in ANALOG_DEFAULT_FORMATS:
             expected = ANALOG_DEFAULT_TYPES.get((cid, pid), expected)
         if (cid, pid) == (251, 978) and app.summary()["format_versions"] == {"acs": 60, "dmcs": 60}:
             # The native 6.0 application definition declares this actuator

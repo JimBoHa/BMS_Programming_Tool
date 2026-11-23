@@ -15,7 +15,7 @@ import { controllerKey, type ControllerContext } from "./workflow";
 import {
   snapshotRestoreBase as base,
   snapshotRestoreProfile,
-  factoryRestoreSourceProfile,
+  snapshotRestoreSourceProfile,
   snapshotRestoreSource,
   snapshotRestoreReview,
   snapshotRestoreReceipt,
@@ -121,7 +121,8 @@ export function NativeSnapshotRestore({
     (context?.workspaceCurrent?.() ?? true) &&
     document.visibilityState !== "hidden";
   const opened = inspected?.owner === owner ? inspected : null;
-  const factorySource = opened?.data.profile === factoryRestoreSourceProfile;
+  const localCopy =
+    !!opened && opened.data.profile !== snapshotRestoreSourceProfile;
   const shown = plan && current(plan.owner, plan.epoch) ? plan : null;
   const fresh = !!shown && now < Date.parse(shown.data.expires_at);
   const config = configuration(controller?.interfaceKey);
@@ -141,7 +142,7 @@ export function NativeSnapshotRestore({
   const canReview =
     !!source &&
     !!opened &&
-    !factorySource &&
+    !localCopy &&
     !!controller &&
     connected &&
     available &&
@@ -473,7 +474,7 @@ export function NativeSnapshotRestore({
             : "Local reconstruction and saving remain available without a controller."}
         </p>
         <p>
-          {factorySource
+          {localCopy
             ? opened.data.scope
             : "A restore replaces the application and its saved settings. Review captures the current configuration. Apply keeps a fresh backup and can interrupt control. Recovery covers saved application settings."}
         </p>
