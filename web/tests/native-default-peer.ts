@@ -20,6 +20,7 @@ export async function nativeDefaultPeer(
     | "binary-input"
     | "encoded-analog-input"
     | "point-name"
+    | "factory-restore-source"
     | "application-restore" = "real",
   enumStates = false,
 ) {
@@ -41,7 +42,11 @@ from bacpypes3.local.device import DeviceObject
 from bacpypes3.local.networkport import NetworkPortObject
 async def main():
  p=port();app=NativePeer.from_object_list([DeviceObject(objectIdentifier=('device',5136),objectName='Authored controller',vendorIdentifier=5),NetworkPortObject(f'127.0.0.1:{p}',objectIdentifier=('network-port',1),objectName='Owned native default peer')]);app.setup()
- if sys.argv[2]=='application-restore':
+ if sys.argv[2]=='factory-restore-source':
+  from tests.test_native_runtime_io import source
+  app.files=source(acs=67,compressed=True,saved_versions=[(4128,67),(4129,65)])
+  app.metadata.update({'model-name':'M4-CVM03050-0','firmware-revision':'11.0.2.8'})
+ elif sys.argv[2]=='application-restore':
   from tests.test_native_snapshot_restore import files,consume_historical_storage
   app.files=files(modules=1);retained_files=copy.deepcopy(app.files);consume_historical_storage(app,retained_files)
   app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]

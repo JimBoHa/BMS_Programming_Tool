@@ -17,6 +17,7 @@ from .native_snapshot_restore import (
     Hash,
     RestoreSource,
     compile_restore,
+    require_restore_source,
     source,
     validate_evidence,
 )
@@ -54,6 +55,7 @@ class NativeSnapshotRestoreOperations:
         options = RestorePreview(**arguments)
         request = options.model_dump(include=set(RestoreSource.model_fields))
         _, desired = self.restore_source(request)
+        require_restore_source(desired)
         expected_target = {**self.target(options), "device": options.device}
         if desired["target"] != expected_target:
             raise ValueError("Select the retained source's original controller route and Device.")

@@ -9,6 +9,15 @@ backup.
 
 ## Operator workflow
 
+An M4-CVM03050-0 factory application on firmware 11.0.2.8 can contain a
+placeholder Device 1 in File 3. On ACS 67 / DMCS 65, **Inspect retained restore
+image** reconciles the captured station with the Device identifier, name, model
+and both format versions in its original saved settings. **Save saved-application
+copy** exports this reconstructed native application and leaves the three source
+files intact. The factory source is explicitly labeled in the review. An existing
+factory preset needs a separately qualified transfer to an active custom
+application. Local recovery-image inspection does not issue a field restore token.
+
 1. Open a controller or a local CAF/graph. In **Program → Native backup defaults**,
    select and inspect a retained native backup. Expand **Restore a retained
    application** and **Inspect retained restore image**. The comparison identifies
