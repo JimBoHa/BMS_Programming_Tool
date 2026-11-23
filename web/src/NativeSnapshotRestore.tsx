@@ -16,6 +16,7 @@ import {
   snapshotRestoreBase as base,
   snapshotRestoreProfile,
   snapshotRestoreSourceProfile,
+  reinstallCompilationProfile,
   snapshotRestoreSource,
   snapshotRestoreReview,
   snapshotRestoreReceipt,
@@ -73,6 +74,7 @@ export function NativeSnapshotRestore({
     [failure, setFailure] = useState(""),
     [uncertainty, setUncertainty] = useState("");
   const [confirmed, setConfirmed] = useState(false),
+    [reinstall, setReinstall] = useState(false),
     [interruption, setInterruption] = useState(false),
     [now, setNow] = useState(Date.now());
   const [backup, setBackup] = useState(""),
@@ -214,6 +216,7 @@ export function NativeSnapshotRestore({
   }, []);
   useEffect(() => {
     cancelOwned();
+    setReinstall(false);
     setPlan(null);
     setConfirmed(false);
     setInterruption(false);
@@ -363,11 +366,14 @@ export function NativeSnapshotRestore({
         reviewID.current = operation.id;
         const doc = await apiJsonDocument(base + "/preview", {
           ...targetOf(controller!),
+          ...(reinstall ? { reinstall_matching_image: true } : {}),
           restore_capture_id: selected!.capture_id,
           restore_snapshot_sha256: selected!.snapshot_sha256,
           operation_id: operation.id,
         });
         if (
+          (doc.data.compilation?.profile === reinstallCompilationProfile) !==
+            reinstall ||
           !(await snapshotRestoreReview(
             doc.data,
             selected!,
@@ -401,6 +407,10 @@ export function NativeSnapshotRestore({
                 review_sha256: review!.data.review_sha256,
                 historical_application_confirmed: true,
                 application_transfer_confirmed: true,
+                ...(review!.data.compilation.profile ===
+                reinstallCompilationProfile
+                  ? { reinstall_matching_image_confirmed: true }
+                  : {}),
               }
             : {
                 operation_id: operation.id,
@@ -644,8 +654,10 @@ export function NativeSnapshotRestore({
                     disabled={locked || !fresh || !visible}
                     onChange={(e) => setConfirmed(e.target.checked)}
                   />
-                  I confirm this historical application and its saved values are
-                  correct for the selected controller and connected I/O.
+                  {shown.data.compilation.profile ===
+                  reinstallCompilationProfile
+                    ? "I confirm reinstallation of the identical program and saved settings on this controller."
+                    : "I confirm this historical application and its saved values are correct for the selected controller and connected I/O."}
                 </label>
                 <label className="restore-confirmation">
                   <input
@@ -676,6 +688,18 @@ export function NativeSnapshotRestore({
                   Save exact controller restore review
                 </button>
               </section>
+            )}
+            {!shown && canReview && (
+              <label className="restore-confirmation">
+                <input
+                  type="checkbox"
+                  checked={reinstall}
+                  disabled={locked}
+                  onChange={(e) => setReinstall(e.target.checked)}
+                />
+                Reinstall only if the complete program and saved settings
+                already match.
+              </label>
             )}
             {shown ? (
               <button

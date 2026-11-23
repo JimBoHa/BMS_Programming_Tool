@@ -26,6 +26,8 @@ const factoryRestoreScope =
   "Reconstruct the factory application with the captured controller's saved identity and settings. This is a local recovery image. A factory-to-custom transfer requires a separately verified commissioning path.";
 export const snapshotRestoreCompilationProfile =
   "native-retained-application-restore-compilation/1";
+export const reinstallCompilationProfile =
+  "native-matching-application-reinstall-compilation/1";
 export const snapshotRestoreScope =
   "Restore one retained native application and its supported historical saved application settings to the matching recorded route and complete Device/model/firmware identity. Read a separate current application for review and retain a fresh pre-write backup. Refuse changed current non-runtime settings; permit only qualified monotonic counters. One newly confirmed restore and complete native/effective readback are required. No automatic replay, new identity allocation, cross-controller/release migration, general logic compiler, whole-controller/runtime backup or CCT/physical acceptance.";
 export const snapshotRestoreSourceScope =
@@ -235,7 +237,10 @@ export async function snapshotRestoreCompilation(c: any, source: Data) {
         "non_application_runtime_restored",
         "compilation_sha256",
       ]) ||
-      c.profile !== snapshotRestoreCompilationProfile ||
+      ![
+        snapshotRestoreCompilationProfile,
+        reinstallCompilationProfile,
+      ].includes(c.profile) ||
       c.scope !== snapshotRestoreScope ||
       c.restore_source_evidence_sha256 !== source.evidence_sha256 ||
       !exact(c.reviewed_current, ["capture_id", "snapshot_sha256"]) ||
@@ -287,7 +292,13 @@ export async function snapshotRestoreCompilation(c: any, source: Data) {
         d.restored_records &&
       d.changed_existing_records <= d.before_records - d.removed_records &&
       restoreHash(d.before_native_sha256) &&
-      d.before_native_sha256 !== d.restored_native_sha256 &&
+      (c.profile === reinstallCompilationProfile
+        ? d.before_native_sha256 === d.restored_native_sha256 &&
+          d.added_records === 0 &&
+          d.removed_records === 0 &&
+          d.changed_existing_records === 0 &&
+          same(c.reviewed_current_guard, c.prewrite_guard)
+        : d.before_native_sha256 !== d.restored_native_sha256) &&
       d.restored_native_sha256 === c.compiled_native_sha256 &&
       d.scope ===
         "Complete native record-byte comparison, including opaque records; not runtime behavior or physical I/O compatibility."
@@ -395,6 +406,8 @@ export async function snapshotRestoreReceipt(
       i.old_name !== i.identity["object-name"] ||
       i.new_name !== i.old_name ||
       i.historical_application_confirmed !== true ||
+      (i.reinstall_matching_image_confirmed ?? false) !==
+        (c.profile === reinstallCompilationProfile) ||
       i.application_transfer_confirmed !== true ||
       !restoreHash(i.review_sha256) ||
       !object(i.connector_config) ||

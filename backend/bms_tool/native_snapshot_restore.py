@@ -29,6 +29,7 @@ FACTORY_SOURCE_SCOPE = (
     "This is a local recovery image. A factory-to-custom transfer requires a separately verified commissioning path."
 )
 COMPILATION_PROFILE = "native-retained-application-restore-compilation/1"
+REINSTALL_PROFILE = "native-matching-application-reinstall-compilation/1"
 GUARD_PROFILE = "native-restore-current-configuration/1"
 DIFFERENCE_SCOPE = "Complete native record-byte comparison, including opaque records; not runtime behavior or physical I/O compatibility."
 SCOPE = (
@@ -427,7 +428,7 @@ def require_restore_source(report):
         raise ValueError(FACTORY_SOURCE_SCOPE)
 
 
-def compile_restore(storage, desired_request, current_request, fresh_files):
+def compile_restore(storage, desired_request, current_request, fresh_files, *, reinstall=False):
     """Reconstruct desired bytes and independently guard the reviewed current state."""
     output, desired = source(storage, desired_request)
     require_restore_source(desired)
@@ -448,14 +449,23 @@ def compile_restore(storage, desired_request, current_request, fresh_files):
         raise ValueError(
             "Retained and current route, identity, firmware or native format disagree."
         )
-    if (
+    matches = (
         desired["compilation"]["compiled_native_sha256"]
         == current["compilation"]["compiled_native_sha256"]
-    ):
+    )
+    if matches and not reinstall:
         raise ValueError("The reviewed current application already matches this retained image.")
+    if reinstall and not matches:
+        raise ValueError(
+            "Reinstallation requires the same complete current program and saved application values."
+        )
     reviewed_guard, prewrite_guard = fresh_current(reviewed_files, fresh_files)
+    if reinstall and reviewed_guard != prewrite_guard:
+        raise ValueError(
+            "Saved settings or counters changed before reinstallation. Capture and review again."
+        )
     report = {
-        "profile": COMPILATION_PROFILE,
+        "profile": REINSTALL_PROFILE if reinstall else COMPILATION_PROFILE,
         "scope": SCOPE,
         "restore_source_evidence_sha256": desired["evidence_sha256"],
         "reviewed_current": current_request,
@@ -520,11 +530,26 @@ def _validate_evidence(body):
         or d["scope"] != DIFFERENCE_SCOPE
     ):
         raise ValueError("Unknown recorded native record comparison.")
+    reinstall = c["profile"] == REINSTALL_PROFILE
+    if reinstall != (d["before_native_sha256"] == d["restored_native_sha256"]) or (
+        reinstall
+        and (
+            d["before_records"] != d["restored_records"]
+            or any(
+                d[k] != 0 for k in ("added_records", "removed_records", "changed_existing_records")
+            )
+            or c["reviewed_current_guard"] != c["prewrite_guard"]
+        )
+    ):
+        raise ValueError(
+            "The recorded program comparison does not match the selected restore operation."
+        )
     if (
         body.get("profile") != APPLICATION_PROFILE
         or body.get("change_kind") != "application-restore"
         or body.get("operation_profile") != PROFILE
-        or c.get("profile") != COMPILATION_PROFILE
+        or c.get("profile") not in (COMPILATION_PROFILE, REINSTALL_PROFILE)
+        or ("id" in body and body.get("reinstall_matching_image_confirmed", False) is not reinstall)
         or c.get("scope") != SCOPE
         or desired.get("profile") != SOURCE_PROFILE
         or desired.get("scope") != SOURCE_SCOPE
@@ -600,6 +625,7 @@ def reconstruct(storage, body, fresh_files):
         body["restore_source"]["request"],
         body["compilation"]["reviewed_current"],
         fresh_files,
+        reinstall=body["compilation"]["profile"] == REINSTALL_PROFILE,
     )
     if (
         desired != body["restore_source"]

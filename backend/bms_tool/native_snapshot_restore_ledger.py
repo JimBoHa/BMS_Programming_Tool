@@ -46,7 +46,6 @@ def restore_reference(body):
             != d["restored_records"]
             or d["changed_existing_records"] > d["before_records"] - d["removed_records"]
             or d["restored_native_sha256"] != body["native_payload_sha256"]
-            or d["before_native_sha256"] == d["restored_native_sha256"]
         ):
             return unavailable
         return {

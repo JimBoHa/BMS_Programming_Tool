@@ -19,6 +19,7 @@ export async function seedSnapshot(
   peer: any,
   routed: boolean,
   factory = false,
+  matching = false,
 ) {
   const headers = {
     Connection: "close",
@@ -53,10 +54,14 @@ export async function seedSnapshot(
     ...target,
     operation_id: "seed-retained-application",
   });
-  if (!factory) await peer.command("snapshot-current");
+  if (!factory && !matching) await peer.command("snapshot-current");
   return { original, target, headers };
 }
-export function snapshotFixture(routed = false, factory = false) {
+export function snapshotFixture(
+  routed = false,
+  factory = false,
+  matching = false,
+) {
   return base.extend<{
     snapshot: {
       peer: Awaited<ReturnType<typeof nativeDefaultPeer>>;
@@ -72,7 +77,13 @@ export function snapshotFixture(routed = false, factory = false) {
         try {
           await use({
             peer,
-            seeded: await seedSnapshot(request, peer, routed, factory),
+            seeded: await seedSnapshot(
+              request,
+              peer,
+              routed,
+              factory,
+              matching,
+            ),
           });
         } finally {
           peer.close();
