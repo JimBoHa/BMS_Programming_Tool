@@ -15,6 +15,8 @@ from bacpypes3.apdu import (
     AtomicWriteFileACK,
     AtomicWriteFileRequest,
     ErrorRejectAbortNack,
+    ReadPropertyACK,
+    ReadPropertyRequest,
     ReinitializeDeviceRequest,
     SimpleAckPDU,
 )
@@ -23,7 +25,10 @@ from bacpypes3.basetypes import (
     AtomicReadFileRequestAccessMethodChoiceStreamAccess,
     AtomicWriteFileRequestAccessMethodChoice,
     AtomicWriteFileRequestAccessMethodChoiceStreamAccess,
+    BackupState,
 )
+from bacpypes3.errors import InvalidTag
+from bacpypes3.primitivedata import Unsigned
 
 from .application_wire import ApplicationWire
 from .bacnet_exchange import confirmed_exchange
@@ -41,7 +46,7 @@ class ApplicationFiles:
         self.timeout, self.gap = timeout, gap
         self.wire = ApplicationWire(path)
 
-    async def exchange(self, session, request, expected, *, before_send=None):
+    async def exchange(self, session, request, expected, *, before_send=None, optional=False):
         self.path._guard(session)
         delay = self.gap - (time.monotonic() - session.get("last_file_request", 0))
         if delay > 0:
@@ -50,20 +55,27 @@ class ApplicationFiles:
         session["last_file_request"] = time.monotonic()
         try:
             async with self.wire.receive(session, request) as proof:
-                reply = await asyncio.wait_for(
-                    confirmed_exchange(
-                        session["app"],
-                        request,
-                        single_attempt=True,
-                        before_send=before_send,
-                        response_timeout=self.timeout,
-                    ),
-                    self.timeout + 2,
-                )
+                try:
+                    reply = await asyncio.wait_for(
+                        confirmed_exchange(
+                            session["app"],
+                            request,
+                            single_attempt=True,
+                            before_send=before_send,
+                            response_timeout=self.timeout,
+                        ),
+                        self.timeout + 2,
+                    )
+                except ErrorRejectAbortNack as exc:
+                    if not optional or not self.unknown_property(exc):
+                        raise
+                    reply = exc
             session["last_application_wire"] = self.wire.validate(reply, session, request, proof)
         except ErrorRejectAbortNack as exc:
             raise ValueError("Application File operation rejected: " + str(exc)) from exc
         self.path._guard(session)
+        if optional and self.unknown_property(reply):
+            return None  # Exact negative response from the selected station.
         if isinstance(reply, ErrorRejectAbortNack):
             raise ValueError("Application File operation rejected: " + str(reply))
         if (
@@ -76,6 +88,60 @@ class ApplicationFiles:
                 "Application reply does not match its station, service or transaction."
             )
         return reply
+
+    @staticmethod
+    def unknown_property(reply):
+        return (
+            str(getattr(reply, "errorClass", "")) == "property"
+            and str(getattr(reply, "errorCode", "")) == "unknown-property"
+        )
+
+    async def optional_device_value(self, session, device, prop, datatype=Unsigned):
+        request = ReadPropertyRequest(objectIdentifier=device, propertyIdentifier=prop)
+        ack = await self.exchange(session, request, ReadPropertyACK, optional=True)
+        if ack is None:
+            return None
+        if (
+            ack.objectIdentifier != request.objectIdentifier
+            or ack.propertyIdentifier != request.propertyIdentifier
+            or ack.propertyArrayIndex is not None
+        ):
+            raise ValueError(f"Device {prop} response does not match its request.")
+        try:
+            value = int(ack.propertyValue.cast_out(datatype))
+        except (InvalidTag, TypeError, ValueError) as exc:
+            raise ValueError(f"Device {prop} has an invalid datatype.") from exc
+        if not 0 <= value <= 65535:
+            raise ValueError(f"Device {prop} is outside the supported range.")
+        return value
+
+    async def wait_preparation(self, session, device, mode, seconds, *, minimum=0):
+        """Only a ready state, or an older peer without the property, admits File access."""
+        deadline = time.monotonic() + seconds
+        ready, preparing = (3, 1) if mode == "backup" else (4, 2)
+        if minimum:
+            await asyncio.sleep(minimum)
+        while True:
+            final_probe = time.monotonic() >= deadline
+            try:
+                state = await self.optional_device_value(
+                    session, device, "backup-and-restore-state", BackupState
+                )
+            except TimeoutError:
+                if final_probe:
+                    raise
+            else:
+                if state is None:
+                    await asyncio.sleep(max(0, deadline - time.monotonic()))
+                    break
+                if state == ready:
+                    break
+                if state != preparing or final_probe:
+                    raise ValueError(
+                        f"Controller {mode} preparation did not complete (state {state})."
+                    )
+            await asyncio.sleep(max(0, min(1, deadline - time.monotonic())))
+        self.path._guard(session)
 
     async def state(self, session, state, *, password=None, before_send=None):
         if state not in STATES:

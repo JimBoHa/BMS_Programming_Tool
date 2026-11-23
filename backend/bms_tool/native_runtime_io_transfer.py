@@ -24,7 +24,7 @@ from .device_details import DeviceDetailsRequest
 from .models import StrictModel
 from .moi_identity import MoiIdentity, seal, sha
 from .moi_parameters import ParameterApplication
-from .native_applications import RESTORE_PREPARATION_SECONDS, NativeCapture
+from .native_applications import NativeCapture
 from .native_contact_points import CONTACT_ACTIONS, POLARITIES, contact_options
 from .native_output_points import (
     ALLOCATION_ACTIONS,
@@ -424,6 +424,7 @@ class RuntimeIOOperations:
                         and current != guard
                     ):
                         raise ValueError("The live contact changed during backup.")
+                    windows = await native.restore_windows(session, request.device)
                     if time.monotonic() >= plan["expires"]:
                         raise ValueError("The I/O review expired during final readback.")
                     intent = native.storage.intent(
@@ -470,7 +471,7 @@ class RuntimeIOOperations:
                         password=native.credentials.get()["restore"],
                         before_send=before("dispatch-start-restore", {}),
                     )
-                    await asyncio.sleep(RESTORE_PREPARATION_SECONDS)
+                    await native.prepare_restore(session, request.device, intent["id"], windows)
                     await native.files.write(
                         session,
                         3,
@@ -481,7 +482,9 @@ class RuntimeIOOperations:
                     await native.files.state(
                         session, "end-restore", before_send=before("dispatch-end-restore", {})
                     )
-                    readiness = await native.wait_for_restore_readiness(session, intent)
+                    readiness = await native.wait_for_restore_readiness(
+                        session, intent, windows["verification_window_seconds"]
+                    )
                     if not readiness["ready"]:
                         raise ValueError(
                             "Controller did not become ready; read back the retained receipt."
