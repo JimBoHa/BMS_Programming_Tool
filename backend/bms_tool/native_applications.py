@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 
 from bacpypes3.apdu import ReadPropertyACK, ReadPropertyRequest
+from bacpypes3.basetypes import BackupState
 from bacpypes3.primitivedata import ObjectIdentifier, Unsigned
 from fastapi import APIRouter, Response
 from pydantic import Field, SecretStr, StrictBool, field_validator
@@ -308,6 +309,7 @@ class NativeApplications(
         )
         self.credentials = ApplicationCredentials(store.directory)
         self.operation_timeout = operation_timeout
+        self.operation_deadline = None
         self.active, self.plans, self.cancelled = None, OrderedDict(), set()
 
     def status(self):
@@ -497,6 +499,7 @@ class NativeApplications(
         try:
             deadline = asyncio.timeout(self.operation_timeout)
             async with deadline:
+                self.operation_deadline = deadline.when()
                 yield
         except asyncio.CancelledError as exc:
             raise ValueError(
@@ -518,7 +521,41 @@ class NativeApplications(
                 + (" " + detail if detail else "")
             ) from exc
         finally:
+            self.operation_deadline = None
             self.active = None
+
+    def require_time(self, seconds):
+        if self.operation_deadline is not None and (
+            asyncio.get_running_loop().time() + seconds >= self.operation_deadline
+        ):
+            raise ValueError("Controller timing exceeds the remaining native operation window.")
+
+    async def restore_windows(self, session, device):
+        prep = await self.files.optional_device_value(session, device, "restore-preparation-time")
+        completion = await self.files.optional_device_value(
+            session, device, "restore-completion-time"
+        )
+        prepare_for = max(RESTORE_PREPARATION_SECONDS, prep or 0)
+        # Give a station that returns at the end of its advertised window a full read attempt.
+        verify_for = max(
+            RESTORE_READINESS_SECONDS,
+            completion + RESTORE_READINESS_INTERVAL + self.files.timeout if completion else 0,
+        )
+        self.require_time(prepare_for + verify_for)
+        return {
+            "advertised_preparation_seconds": prep,
+            "advertised_completion_seconds": completion,
+            "wait_seconds": prepare_for,
+            "verification_window_seconds": verify_for,
+        }
+
+    async def prepare_restore(self, session, device, receipt_id, windows):
+        self.phase("preparing controller application storage")
+        self.storage.event(receipt_id, "restore-preparation-start", windows)
+        await self.files.wait_preparation(
+            session, device, "restore", windows["wait_seconds"], minimum=RESTORE_PREPARATION_SECONDS
+        )
+        self.storage.event(receipt_id, "restore-preparation-finished", {})
 
     @staticmethod
     def target(options):
@@ -562,10 +599,15 @@ class NativeApplications(
         ):
             raise ValueError("The native application File has an unsupported format.")
         secrets_config = self.credentials.get()
+        prepare_for = await self.files.optional_device_value(
+            session, options.device, "backup-preparation-time"
+        )
+        self.require_time(prepare_for or 0)
         files, started, cleanup_error, capture_error = {}, False, None, None
         try:
             await self.files.state(session, "start-backup", password=secrets_config["backup"])
             started = True
+            await self.files.wait_preparation(session, options.device, "backup", prepare_for or 0)
             for file_id in (11, 12, 3):
                 self.phase(f"capturing backup File {file_id}")
                 files[file_id] = await self.files.read(session, file_id, chunk=chunk)
@@ -1387,10 +1429,10 @@ class NativeApplications(
                 ]
         return observation, attempt
 
-    async def wait_for_restore_readiness(self, session, intent):
+    async def wait_for_restore_readiness(self, session, intent, window=None):
         """Wait for the reviewed station using reads, before entering backup mode."""
         self.phase("waiting for controller after application restore")
-        deadline = time.monotonic() + RESTORE_READINESS_SECONDS
+        deadline = time.monotonic() + (RESTORE_READINESS_SECONDS if window is None else window)
         attempts = []
         while True:
             self.path._guard(session)
@@ -1406,12 +1448,32 @@ class NativeApplications(
                     "identity_status": observation["status"],
                     "errors": observation["errors"],
                 }
+            ready = attempt.get("system_status") == 0
+            state = None
+            if ready and window is not None:
+                try:
+                    state = await self.files.optional_device_value(
+                        session,
+                        observation["identity"]["device"],
+                        "backup-and-restore-state",
+                        BackupState,
+                    )
+                    if state is not None:
+                        attempt["backup_and_restore_state"] = state
+                        ready = state == BackupState.idle
+                except (TimeoutError, ValueError, OSError) as exc:
+                    ready = False
+                    attempt["errors"] = [*attempt.get("errors", []), str(exc) or type(exc).__name__]
             attempts.append(attempt)
             self.storage.event(intent["id"], "restore-readiness-read", attempt)
-            ready = attempt.get("system_status") == 0
             # A different identity is evidence to stop, rather than to wait out.
             mismatch = observation["status"] in ("identity_mismatch", "different_instance")
-            if ready or mismatch or time.monotonic() >= deadline:
+            if (
+                ready
+                or mismatch
+                or state in (BackupState.restoreFailure, BackupState.backupFailure)
+                or time.monotonic() >= deadline
+            ):
                 return {
                     "ready": ready,
                     "read_only": True,
@@ -2105,6 +2167,7 @@ class NativeApplications(
                         )
                     if input_edit:
                         await self.input_live_guard(session, options, compilation, files)
+                    windows = await self.restore_windows(session, options.device)
                     # A concurrent import can use the space observed before the fresh backup.
                     self.storage.require_capture_capacity()
                     # Durable payload and original backup exist before the first restore request.
@@ -2321,15 +2384,7 @@ class NativeApplications(
                     self.storage.event(
                         receipt_id, "ack-start-restore", session["last_application_wire"]
                     )
-                    self.phase("preparing controller application storage")
-                    self.storage.event(
-                        receipt_id,
-                        "restore-preparation-start",
-                        {"wait_seconds": RESTORE_PREPARATION_SECONDS},
-                    )
-                    await asyncio.sleep(RESTORE_PREPARATION_SECONDS)
-                    self.path._guard(session)
-                    self.storage.event(receipt_id, "restore-preparation-finished", {})
+                    await self.prepare_restore(session, options.device, receipt_id, windows)
                     self.phase("transferring reviewed application")
 
                     def block(detail, packet):
@@ -2347,7 +2402,9 @@ class NativeApplications(
                         receipt_id, "ack-end-restore", session["last_application_wire"]
                     )
                     result.update(protocol_accepted=True, may_have_applied=True)
-                    readiness = await self.wait_for_restore_readiness(session, intent)
+                    readiness = await self.wait_for_restore_readiness(
+                        session, intent, windows["verification_window_seconds"]
+                    )
                     result["restore_readiness"] = readiness
                     if readiness["ready"]:
                         result.update(await self.verify(session, intent))

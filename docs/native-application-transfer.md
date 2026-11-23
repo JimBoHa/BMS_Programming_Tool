@@ -77,10 +77,15 @@ IPv4 router. Backup uses ReinitializeDevice start-backup/end-backup and bounded
 AtomicReadFile requests for the family application's virtual Files 11, 12 and 3.
 Application transfer reads the controller's application capacity (File 3 property
 3380) before entering restore and refuses an oversized payload. It uses
-start-restore, a five-second application-storage preparation interval,
-AtomicWriteFile for File 3 only, and end-restore. A start-restore acknowledgement
-precedes storage readiness; sending the first block immediately can lose that
-request and leave the controller reporting download required. Preparation is
+start-restore, AtomicWriteFile for File 3 only, and end-restore. Before starting
+backup or restore, the tool reads the selected Device's BACnet preparation time.
+It also reads the restore completion time before starting restore. During
+preparation it checks the Device's backup/restore state. An explicit ready state
+admits file access. Older devices that report the state property is absent use
+the time interval. The native adapter retains its five-second minimum for
+restore. Failed preparation stops file access. Independent operational and
+application readback uses at least the controller's completion window.
+Preparation is
 journalled, and cancellation during it retains an unresolved transfer without
 sending an application block. Boot and firmware writes are excluded. Direct MS/TP, BBMD/foreign
 device transfer, firmware conversion and background downloads are outside this

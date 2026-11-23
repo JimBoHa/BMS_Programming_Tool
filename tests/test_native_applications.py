@@ -13,12 +13,14 @@ from bacpypes3.apdu import (
     AtomicReadFileACK,
     AtomicWriteFileACK,
     ConfirmedPrivateTransferACK,
+    ReadPropertyACK,
     SimpleAckPDU,
 )
 from bacpypes3.app import Application
 from bacpypes3.basetypes import (
     AtomicReadFileACKAccessMethodChoice,
     AtomicReadFileACKAccessMethodStreamAccess,
+    BackupState,
 )
 from bacpypes3.constructeddata import Any
 from bacpypes3.errors import ExecutionError
@@ -709,6 +711,93 @@ async def test_application_capacity_is_checked_before_entering_restore(native_li
     assert result["result"]["status"] == "not_sent" and not result["pending"]
     assert "capacity" in result["result"]["errors"][0]
     assert not any(e[0] == "write" or e == ("state", "start-restore") for e in peer.events)
+
+
+async def test_advertised_windows_wait_for_storage_and_late_operational_readback(native_link):
+    peer, _, _, service, _ = native_link
+    _, plan = await review(native_link)
+    peer.metadata.update({"restore-preparation-time": 1, "restore-completion-time": 1})
+    peer.restore_delay = 0.35
+    read = peer.do_ReadPropertyRequest
+
+    async def read_state(request):
+        if str(request.propertyIdentifier) == "backup-and-restore-state" and peer.restore:
+            ready = time.monotonic() >= peer.restore_ready_at
+            return await peer.response(
+                ReadPropertyACK(
+                    context=request,
+                    objectIdentifier=request.objectIdentifier,
+                    propertyIdentifier=request.propertyIdentifier,
+                    propertyValue=Any(BackupState(4 if ready else 2)),
+                )
+            )
+        return await read(request)
+
+    peer.do_ReadPropertyRequest = read_state
+    probe = service.restore_readiness_probe
+    started = []
+
+    async def delayed(session, intent):
+        if not started:
+            started.append(time.monotonic())
+        if time.monotonic() - started[0] < 0.3:
+            return {"status": "unconfirmed"}, {"identity_status": "unconfirmed", "errors": []}
+        return await probe(session, intent)
+
+    service.restore_readiness_probe = delayed
+    receipt = await service.apply(**apply_request(plan))
+    assert receipt["result"]["status"] == "verified", receipt
+    event = next(e for e in receipt["events"] if e["stage"] == "restore-preparation-start")
+    assert event["detail"]["advertised_completion_seconds"] == event["detail"]["wait_seconds"] == 1
+    assert peer.events.count(("state", "start-restore")) == 1
+    assert not any(e[0] == "early-block" for e in peer.events)
+
+
+@pytest.mark.parametrize("fault", ["over-budget", "denied", "mistyped", "oversized"])
+async def test_invalid_restore_timing_stops_before_start_restore(native_link, fault):
+    peer, _, _, service, _ = native_link
+    _, plan = await review(native_link)
+    if fault == "denied":
+        read = peer.do_ReadPropertyRequest
+
+        async def denied(request):
+            if str(request.propertyIdentifier) == "restore-preparation-time":
+                raise ExecutionError(errorClass="property", errorCode="read-access-denied")
+            return await read(request)
+
+        peer.do_ReadPropertyRequest = denied
+    else:
+        peer.metadata["restore-preparation-time"] = {
+            "over-budget": 1800,
+            "mistyped": "1",
+            "oversized": 65536,
+        }[fault]
+    receipt = await service.apply(**apply_request(plan))
+    assert receipt["result"]["status"] == "not_sent" and receipt["result"]["errors"]
+    assert not any(e[0] == "write" or e == ("state", "start-restore") for e in peer.events)
+
+
+async def test_backup_failure_ends_session_without_reading_files(native_link):
+    peer, _, _, service, target = native_link
+    peer.metadata["backup-preparation-time"] = 2
+    read = peer.do_ReadPropertyRequest
+
+    async def failed(request):
+        if str(request.propertyIdentifier) == "backup-and-restore-state":
+            return await peer.response(
+                ReadPropertyACK(
+                    context=request,
+                    objectIdentifier=request.objectIdentifier,
+                    propertyIdentifier=request.propertyIdentifier,
+                    propertyValue=Any(BackupState(5)),
+                )
+            )
+        return await read(request)
+
+    peer.do_ReadPropertyRequest = failed
+    with pytest.raises(ValueError, match="preparation did not complete"):
+        await service.capture(**target, operation_id="backup-failure-state")
+    assert peer.events == [("state", "start-backup"), ("state", "end-backup")]
 
 
 async def test_cancel_during_storage_preparation_preserves_pending_without_sending_a_block(

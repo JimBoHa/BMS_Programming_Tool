@@ -368,7 +368,6 @@ async def io_link(native_link, monkeypatch):
         )
 
     peer.do_ReadPropertyRequest = types.MethodType(read, peer)
-    monkeypatch.setattr("bms_tool.native_runtime_io_transfer.RESTORE_PREPARATION_SECONDS", 0.03)
     yield peer, native, target, RuntimeIOOperations(native)
 
 
