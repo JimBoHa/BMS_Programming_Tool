@@ -678,6 +678,67 @@ async def test_unchanged_current_program_never_creates_a_restore_plan(native_lin
     assert not native.plans and not mutations(peer)
 
 
+@pytest.mark.parametrize("mode", ["normal", "drop-end", "drop-start"])
+async def test_explicit_matching_reinstall_requires_acknowledgement_and_application_readback(
+    native_link, mode
+):
+    peer, _, _, native, target = native_link
+    peer.files = files(modules=1)
+    captured = await native.capture(**target, operation_id="capture-program-for-reinstall")
+    source, _ = native.storage.load(captured["id"])
+    plan = await native.preview_snapshot_restore(
+        **target,
+        **saved_request(source),
+        operation_id="review-matching-reinstall",
+        reinstall_matching_image=True,
+    )
+    assert plan["compilation"]["difference"]["changed_existing_records"] == 0
+    with pytest.raises(ValueError, match="Confirm"):
+        await native.apply_snapshot_restore(**apply_request(plan))
+    assert not mutations(peer)
+    plan = await native.preview_snapshot_restore(
+        **target,
+        **saved_request(source),
+        operation_id="new-matching-reinstall-review",
+        reinstall_matching_image=True,
+    )
+    peer.mode = mode
+    result = await native.apply_snapshot_restore(
+        **apply_request(plan, reinstall_matching_image_confirmed=True)
+    )
+    assert result["intent"]["reinstall_matching_image_confirmed"] is True
+    if mode == "normal":
+        assert result["result"]["status"] == "verified" and result["result"]["protocol_accepted"], (
+            result
+        )
+        assert result["result"]["native_sha256"] == plan["compilation"]["compiled_native_sha256"]
+        assert any(e["stage"] == "ack-end-restore" for e in result["events"])
+    else:
+        assert result["pending"] and result["result"]["status"] == "unknown"
+        peer.mode = "normal"
+        receipt = await native.reconcile(
+            operation_id="recheck-equal-image", receipt_id=result["intent"]["id"]
+        )
+        assert receipt["pending"] and receipt["latest_readback"]["status"] == "unknown"
+        assert "unconfirmed" in receipt["latest_readback"]["error"]
+
+
+async def test_matching_reinstall_rejects_different_current_program(native_link):
+    peer, _, _, native, target = native_link
+    peer.files = files(modules=1)
+    captured = await native.capture(**target, operation_id="capture-to-reinstall")
+    source, _ = native.storage.load(captured["id"])
+    peer.files = files(modules=2)
+    with pytest.raises(ValueError, match="same complete current program"):
+        await native.preview_snapshot_restore(
+            **target,
+            **saved_request(source),
+            operation_id="review-changed-program",
+            reinstall_matching_image=True,
+        )
+    assert not native.plans and not mutations(peer)
+
+
 @pytest.mark.parametrize("wrong", ["address", "device", "router", "network"])
 async def test_foreign_route_is_rejected_before_current_controller_reads(native_link, wrong):
     peer, _, _, native, initial = native_link

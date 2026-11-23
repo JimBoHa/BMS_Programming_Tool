@@ -23,6 +23,32 @@ const verified = (panel: any) =>
     exact: true,
   });
 
+snapshotFixture(
+  true,
+  false,
+  true,
+)(
+  "matching program reinstall binds explicit intent and verifies the full program",
+  async ({ page, snapshot }, info) => {
+    const { peer, seeded } = snapshot;
+    const { panel } = await openSnapshot(page, seeded);
+    await panel.getByLabel("Reinstall only if", { exact: false }).check();
+    const { reviewed, apply } = await reviewSnapshot(page, panel, true);
+    await expect(reviewed).toContainText(
+      "reinstallation of the identical program",
+    );
+    await reviewed.screenshot({
+      path: info.outputPath("matching-program.png"),
+    });
+    await apply.click();
+    await expect(verified(panel)).toContainText(
+      "Retained application and saved values verified",
+      { timeout: 30000 },
+    );
+    expect(restores((await peer.command("stats")).events)).toHaveLength(1);
+  },
+);
+
 snapshotFixture(true, true)(
   "factory source exports the controller-specific image and keeps field review unavailable",
   async ({ page, request, snapshot }, info) => {

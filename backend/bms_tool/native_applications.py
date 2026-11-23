@@ -172,8 +172,13 @@ from .native_point_names import (
 )
 from .native_runtime_calibration import read_runtime_calibration
 from .native_snapshot_restore import PROFILE as SNAPSHOT_RESTORE_PROFILE
+from .native_snapshot_restore import (
+    REINSTALL_PROFILE,
+    RestoreExport,
+    RestoreSource,
+    qualify_restore_counters,
+)
 from .native_snapshot_restore import SCOPE as SNAPSHOT_RESTORE_SCOPE
-from .native_snapshot_restore import RestoreExport, RestoreSource, qualify_restore_counters
 from .native_snapshot_restore import reconstruct as reconstruct_snapshot_restore
 from .native_snapshot_restore import reconstruct_intent as reconstruct_snapshot_restore_intent
 from .native_snapshot_restore import verify_restore as verify_snapshot_restore
@@ -1559,6 +1564,14 @@ class NativeApplications(
                 expected_native_sha256=intent["native_payload_sha256"],
             )
             _, original_files = self.storage.load(intent["backup_id"])
+            if snapshot_restore and intent["compilation"]["profile"] == REINSTALL_PROFILE:
+                stages = {e["stage"] for e in self.storage.receipt(intent["id"])["events"]}
+                if not {"application-file-acknowledged", "ack-end-restore"} <= stages:
+                    result["error"] = (
+                        "The complete application and end-restore acknowledgements were not both recorded. "
+                        "Reinstallation is unconfirmed."
+                    )
+                    return result
             if identity == intent["identity"] and digest != intent["native_payload_sha256"]:
                 original, _ = ParameterApplication(
                     original_files[3], original_files[11], original_files[12]
@@ -1922,6 +1935,11 @@ class NativeApplications(
             )
             or (batch_edit and not request.defaults_change_confirmed)
             or (snapshot_restore and not request.historical_application_confirmed)
+            or (
+                snapshot_restore
+                and request.reinstall_matching_image_confirmed
+                != (plan["body"]["compilation"]["profile"] == REINSTALL_PROFILE)
+            )
             or (wire_edit and not request.wire_change_confirmed)
             or (order_edit and not request.order_change_confirmed)
             or (connection_edit and not request.connection_change_confirmed)
@@ -2187,6 +2205,11 @@ class NativeApplications(
                                     "restore_source": body["restore_source"],
                                     "review_snapshot_sha256": body["snapshot_sha256"],
                                     "historical_application_confirmed": request.historical_application_confirmed,
+                                    **(
+                                        {"reinstall_matching_image_confirmed": True}
+                                        if request.reinstall_matching_image_confirmed
+                                        else {}
+                                    ),
                                 }
                                 if snapshot_restore
                                 else {}

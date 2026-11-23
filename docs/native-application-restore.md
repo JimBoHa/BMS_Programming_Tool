@@ -94,6 +94,15 @@ counter cannot release a pending restore as recovered-original.
 
 ## Recorded evidence and interfaces
 
+To test a whole-program download on a supported controller, capture its running
+program. Select **Reinstall only if the complete program and saved settings already
+match** before reviewing the retained image. The fresh read must agree with the
+selected program byte for byte after reconstruction. The options and confirmations
+are bound to that controller. Apply takes another backup and checks the saved
+settings and counters before sending the complete application. Verification requires
+both transfer acknowledgements and an independent matching operational readback.
+A matching image alone cannot resolve a lost completion acknowledgement.
+
 The session-protected `/application-restore/source`, `/export`, `/preview` and
 `/apply` endpoints share the existing native-application service. Source/export
 perform no field queries. Preview and Apply have closed strict request schemas;

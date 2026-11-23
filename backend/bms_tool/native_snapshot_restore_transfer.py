@@ -13,6 +13,7 @@ from .models import StrictModel
 from .moi_identity import sha
 from .native_snapshot_restore import (
     PROFILE,
+    REINSTALL_PROFILE,
     SCOPE,
     Hash,
     RestoreSource,
@@ -26,6 +27,7 @@ from .property_evidence import PropertyEvidence
 
 class RestorePreview(RestoreSource, DeviceDetailsRequest):
     operation_id: str = Field(pattern=r"^[A-Za-z0-9_-]{8,80}$")
+    reinstall_matching_image: StrictBool = False
 
 
 class RestoreApply(StrictModel):
@@ -34,6 +36,7 @@ class RestoreApply(StrictModel):
     review_sha256: Hash
     historical_application_confirmed: StrictBool
     application_transfer_confirmed: StrictBool
+    reinstall_matching_image_confirmed: StrictBool = False
 
 
 class NativeSnapshotRestoreOperations:
@@ -75,6 +78,7 @@ class NativeSnapshotRestoreOperations:
                 request,
                 {"capture_id": current["id"], "snapshot_sha256": current["evidence_sha256"]},
                 files,
+                reinstall=options.reinstall_matching_image,
             )
             if reloaded != desired:
                 raise ValueError("The retained restore source changed during current capture.")
@@ -111,6 +115,10 @@ class NativeSnapshotRestoreOperations:
     @staticmethod
     def validate_restore_plan(body, options):
         validate_evidence(body)
+        if (
+            body["compilation"]["profile"] == REINSTALL_PROFILE
+        ) != options.reinstall_matching_image:
+            raise ValueError("The selected restore operation differs from its reviewed program.")
         if body["restore_source"]["request"] != options.model_dump(
             include=set(RestoreSource.model_fields)
         ):
