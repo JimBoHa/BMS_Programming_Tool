@@ -23,6 +23,52 @@ const verified = (panel: any) =>
     exact: true,
   });
 
+snapshotFixture(true, true)(
+  "factory source exports the controller-specific image and keeps field review unavailable",
+  async ({ page, request, snapshot }, info) => {
+    const { seeded, peer } = snapshot;
+    expect(seeded.original.source_identity_matches).toBe(false);
+    const { panel } = await openSnapshot(page, seeded);
+    await expect(panel).toContainText("local recovery image");
+    await expect(
+      panel.getByRole("button", {
+        name: "Review retained application restore",
+      }),
+    ).toBeDisabled();
+    const source = {
+      restore_capture_id: seeded.original.id,
+      restore_snapshot_sha256: seeded.original.snapshot_evidence_sha256,
+    };
+    const response = await request.post(restoreBase + "/source", {
+      headers: seeded.headers,
+      data: source,
+    });
+    expect(response.ok()).toBe(true);
+    const report = await response.json();
+    const download = page.waitForEvent("download");
+    await panel
+      .getByRole("button", { name: "Save saved-application copy" })
+      .click();
+    const bytes = await readFile((await (await download).path())!);
+    expect(createHash("sha256").update(gunzipSync(bytes)).digest("hex")).toBe(
+      report.compilation.compiled_native_sha256,
+    );
+    const before = await peer.command("stats");
+    const refused = await request.post(restoreBase + "/preview", {
+      headers: seeded.headers,
+      data: {
+        ...seeded.target,
+        ...source,
+        operation_id: "factory-review-ineligible",
+      },
+    });
+    expect(refused.status()).toBe(422);
+    expect(await refused.text()).toContain("factory-to-custom");
+    expect((await peer.command("stats")).events).toEqual(before.events);
+    await panel.screenshot({ path: info.outputPath("factory-source.png") });
+  },
+);
+
 snapshotFixture()(
   "selecting an original recorded restore retires the current Apply before loading its exact receipt",
   async ({ page, request, snapshot }) => {

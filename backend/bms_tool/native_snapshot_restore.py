@@ -14,9 +14,15 @@ from .moi_identity import MoiIdentity, seal, sha
 from .moi_parameters import ParameterApplication
 from .native_backup_records import BackupInspectionSource, NativeBackupRecords
 from .native_parameter_qualification import qualify_parameter_additions
+from .native_runtime_io import FACTORY_FORMAT, effective_source, factory_io_candidate
 
 PROFILE = "native-retained-application-restore/1"
 SOURCE_PROFILE = "native-retained-application-restore-source/1"
+FACTORY_SOURCE_PROFILE = "native-retained-factory-application-source/1"
+FACTORY_SOURCE_SCOPE = (
+    "Reconstruct the factory application with the captured controller's saved identity and settings. "
+    "This is a local recovery image. A factory-to-custom transfer requires a separately verified commissioning path."
+)
 COMPILATION_PROFILE = "native-retained-application-restore-compilation/1"
 GUARD_PROFILE = "native-restore-current-configuration/1"
 DIFFERENCE_SCOPE = "Complete native record-byte comparison, including opaque records; not runtime behavior or physical I/O compatibility."
@@ -215,11 +221,31 @@ def _source(storage, request):
             "snapshot_sha256": options.restore_snapshot_sha256,
         }
     )
-    output, app, _, merge, qualification = merged(files)
-    identity, summary = snapshot["identity"], app.summary()
+    identity = snapshot["identity"]
+    original = MoiIdentity(files[3])
+    original_summary = original.summary()
+    factory = (
+        snapshot.get("source_identity_matches") is False
+        and original_summary["format_versions"] == FACTORY_FORMAT
+        and factory_io_candidate(original_summary, identity)
+    )
+    if factory:
+        app, proof = effective_source(files, identity)
+        root_class = original.root["class_id"] << 22
+        old_root = root_class | original.instance
+        new_root = root_class | app.instance
+        expected_records = [new_root if oid == old_root else oid for oid in records(original)]
+        if not proof["factory_identity_materialized"] or list(records(app)) != expected_records:
+            raise ValueError("Factory recovery image differs from the captured record inventory.")
+        output = app.source
+        merge = proof["saved_parameter_merge"]
+        qualification = proof["parameter_type_qualification"]
+    else:
+        output, app, _, merge, qualification = merged(files)
+    summary = app.summary()
     target = DeviceDetailsRequest(**snapshot["target"], device=snapshot["device"]).model_dump()
     if (
-        snapshot.get("source_identity_matches") is not True
+        (not factory and snapshot.get("source_identity_matches") is not True)
         or set(identity)
         != {
             "device",
@@ -248,7 +274,7 @@ def _source(storage, request):
         raise ValueError("Restore source lacks matching native and complete recorded identity.")
     compilation = {
         "files": {str(k): {"bytes": len(v), "sha256": sha(v)} for k, v in files.items()},
-        "archive_native_sha256": sha(MoiIdentity(files[3]).data),
+        "archive_native_sha256": sha(original.data),
         "compiled_sha256": sha(output),
         "compiled_native_sha256": sha(app.data),
         "compiled_bytes": len(output),
@@ -262,8 +288,8 @@ def _source(storage, request):
         "non_application_runtime_restored": False,
     }
     body = {
-        "profile": SOURCE_PROFILE,
-        "scope": SOURCE_SCOPE,
+        "profile": FACTORY_SOURCE_PROFILE if factory else SOURCE_PROFILE,
+        "scope": FACTORY_SOURCE_SCOPE if factory else SOURCE_SCOPE,
         "request": options.model_dump(),
         "captured_at": snapshot["captured_at"],
         "target": target,
@@ -384,9 +410,15 @@ def difference(before, after):
     }
 
 
+def require_restore_source(report):
+    if report["profile"] != SOURCE_PROFILE:
+        raise ValueError(FACTORY_SOURCE_SCOPE)
+
+
 def compile_restore(storage, desired_request, current_request, fresh_files):
     """Reconstruct desired bytes and independently guard the reviewed current state."""
     output, desired = source(storage, desired_request)
+    require_restore_source(desired)
     current_output, current = source(
         storage,
         {
@@ -394,6 +426,7 @@ def compile_restore(storage, desired_request, current_request, fresh_files):
             "restore_snapshot_sha256": current_request["snapshot_sha256"],
         },
     )
+    require_restore_source(current)
     _, reviewed_files = NativeBackupRecords(storage).load_files(current_request)
     if (
         desired["identity"] != current["identity"]

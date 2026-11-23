@@ -18,6 +18,7 @@ export async function seedSnapshot(
   request: APIRequestContext,
   peer: any,
   routed: boolean,
+  factory = false,
 ) {
   const headers = {
     Connection: "close",
@@ -52,10 +53,10 @@ export async function seedSnapshot(
     ...target,
     operation_id: "seed-retained-application",
   });
-  await peer.command("snapshot-current");
+  if (!factory) await peer.command("snapshot-current");
   return { original, target, headers };
 }
-export function snapshotFixture(routed = false) {
+export function snapshotFixture(routed = false, factory = false) {
   return base.extend<{
     snapshot: {
       peer: Awaited<ReturnType<typeof nativeDefaultPeer>>;
@@ -64,11 +65,14 @@ export function snapshotFixture(routed = false) {
   }>({
     snapshot: [
       async ({ request }, use) => {
-        const peer = await nativeDefaultPeer("consume", "application-restore");
+        const peer = await nativeDefaultPeer(
+          "consume",
+          factory ? "factory-restore-source" : "application-restore",
+        );
         try {
           await use({
             peer,
-            seeded: await seedSnapshot(request, peer, routed),
+            seeded: await seedSnapshot(request, peer, routed, factory),
           });
         } finally {
           peer.close();
@@ -165,7 +169,7 @@ export async function openSnapshot(
     })
     .click();
   await expect(panel).toContainText(
-    "Reconstructed historical image: 3 native records",
+    `Reconstructed historical image: ${seeded.original.source_identity_matches ? 3 : 4} native records`,
   );
   return { compiler, inspection, panel };
 }

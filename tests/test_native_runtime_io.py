@@ -1,5 +1,6 @@
 """Authored factory saved identities, local I/O copies and an owned UDP peer."""
 
+import copy
 import gzip
 import struct
 import types
@@ -18,7 +19,7 @@ from bacpypes3.primitivedata import (
     TagList,
     Unsigned,
 )
-from bms_tool.moi_identity import MoiIdentity
+from bms_tool.moi_identity import MoiIdentity, sha
 from bms_tool.moi_parameters import ParameterApplication
 from bms_tool.mstp import header_crc
 from bms_tool.native_inputs import raw_property
@@ -168,6 +169,24 @@ async def test_67_factory_bank_allows_local_review_and_refuses_field_review(io_l
     peer.files = source(acs=67, saved_versions=[(4128, 67), (4129, 65)])
     peer.metadata["firmware-revision"] = "11.0.2.8"
     capture = await native.capture(**target, operation_id="read-factory-io")
+    original = copy.deepcopy(peer.files)
+    args = {
+        "restore_capture_id": capture["id"],
+        "restore_snapshot_sha256": capture["snapshot_evidence_sha256"],
+    }
+    before = copy.deepcopy(peer.events)
+    image, report = native.restore_source(args)
+    recovered = MoiIdentity(image)
+    assert report["profile"] == "native-retained-factory-application-source/1"
+    assert report["compilation"]["files"]["3"]["sha256"] == sha(original[3])
+    assert sha(image) == report["compilation"]["compiled_sha256"]
+    assert recovered.instance == int(target["device"].split(",")[1])
+    assert recovered.summary()["name"] == peer.metadata["object-name"]
+    assert len(recovered.records) == len(MoiIdentity(original[3]).records)
+    assert native.restore_source(args) == (image, report)
+    with pytest.raises(ValueError, match="factory-to-custom"):
+        await native.preview_snapshot_restore(**target, **args, operation_id="reject-factory-restore")
+    assert not native.plans and peer.events == before and peer.files == original
     request = IOReview(
         **target,
         operation_id="review-factory-io",

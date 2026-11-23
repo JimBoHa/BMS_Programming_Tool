@@ -6,13 +6,20 @@ import { matchingConnectionTarget } from "./nativeMatchingConnectionContract";
 import type { NativeArchiveSource } from "./NativeRecords";
 import type { ControllerContext } from "./workflow";
 type Data = Record<string, any>;
-export type SnapshotRestoreArchive = NativeArchiveSource & { identity: Data };
+export type SnapshotRestoreArchive = NativeArchiveSource & {
+  identity: Data;
+  source_identity_matches: boolean;
+};
 
 export const snapshotRestoreBase =
   "/bacnet/controller/native-application/application-restore";
 export const snapshotRestoreProfile = "native-retained-application-restore/1";
 export const snapshotRestoreSourceProfile =
   "native-retained-application-restore-source/1";
+export const factoryRestoreSourceProfile =
+  "native-retained-factory-application-source/1";
+const factoryRestoreScope =
+  "Reconstruct the factory application with the captured controller's saved identity and settings. This is a local recovery image. A factory-to-custom transfer requires a separately verified commissioning path.";
 export const snapshotRestoreCompilationProfile =
   "native-retained-application-restore-compilation/1";
 export const snapshotRestoreScope =
@@ -103,8 +110,16 @@ export async function snapshotRestoreSource(
         "can_apply",
         "evidence_sha256",
       ]) ||
-      v.profile !== snapshotRestoreSourceProfile ||
-      v.scope !== snapshotRestoreSourceScope ||
+      !(
+        (v.profile === snapshotRestoreSourceProfile &&
+          v.scope === snapshotRestoreSourceScope) ||
+        (v.profile === factoryRestoreSourceProfile &&
+          v.scope === factoryRestoreScope &&
+          v.identity?.["model-name"] === "M4-CVM03050-0" &&
+          v.identity?.["firmware-revision"] === "11.0.2.8" &&
+          v.compilation?.format_versions?.acs === 67 &&
+          v.compilation?.format_versions?.dmcs === 65)
+      ) ||
       !exact(v.request, ["restore_capture_id", "restore_snapshot_sha256"]) ||
       !restoreID(v.request.restore_capture_id) ||
       !restoreHash(v.request.restore_snapshot_sha256) ||
@@ -185,6 +200,8 @@ export async function snapshotRestoreSource(
       !source ||
       (v.request.restore_capture_id === source.capture_id &&
         v.request.restore_snapshot_sha256 === source.snapshot_sha256 &&
+        source.source_identity_matches ===
+          (v.profile === snapshotRestoreSourceProfile) &&
         snapshotRestoreTarget(v.target, source.target) &&
         same(v.identity, source.identity) &&
         same(c.files, source.files))
@@ -295,6 +312,7 @@ export async function snapshotRestoreReview(
       ) &&
       same(v.identity, inspected.identity) &&
       same(v.restore_source, inspected) &&
+      v.restore_source?.profile === snapshotRestoreSourceProfile &&
       (await snapshotRestoreSource(v.restore_source, selected)) &&
       (await snapshotRestoreCompilation(v.compilation, v.restore_source)) &&
       v.capture_id === v.compilation.reviewed_current.capture_id &&
@@ -346,6 +364,7 @@ export async function snapshotRestoreReceipt(
       i.operation_profile !== snapshotRestoreProfile ||
       i.change_kind !== "application-restore" ||
       !(await restoreSealed(i, "evidence_sha256")) ||
+      i.restore_source?.profile !== snapshotRestoreSourceProfile ||
       !(await snapshotRestoreSource(i.restore_source)) ||
       !(await snapshotRestoreCompilation(c, i.restore_source)) ||
       !snapshotRestoreTarget(
