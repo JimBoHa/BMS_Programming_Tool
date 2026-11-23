@@ -26,6 +26,28 @@ ANALOG_DEFAULT_TYPES = {
     (240, 813): "unsigned-byte",  # AI calculation default, not an Enum or Boolean
     (240, 3164): 4,  # AI filter Time Constant (Real seconds)
 }
+# Each field has a release definition and an independent typed application
+# or device-property observation. PSS storage alone does not admit a field.
+RELEASE_FIELD_TYPES = {
+    (60, 60): {
+        (241, 652): 4,
+        (241, 653): 4,
+        (526, 28): 7,
+        (527, 28): 7,
+        (528, 28): 7,
+        (530, 28): 7,
+    },
+    (66, 65): {(910, 518): 1, (628, 1302): 1},
+    (62, 62): {
+        (241, 652): 4,
+        (251, 84): "polarity",
+        (526, 3113): 4,
+        (526, 28): 7,
+        (527, 28): 7,
+        (529, 28): 7,
+        (530, 28): 7,
+    },
+}
 
 
 def qualify_parameter_additions(application, parameter_merge):
@@ -45,7 +67,9 @@ def qualify_parameter_additions(application, parameter_merge):
             raise ValueError("An omitted saved field no longer has its original native object.")
         expected = ROOT_TYPES.get(pid) if record is app.root else MODULE_TYPES.get((cid, pid))
         versions = app.summary()["format_versions"]
-        if (versions["acs"], versions["dmcs"]) in ANALOG_DEFAULT_FORMATS:
+        version = (versions["acs"], versions["dmcs"])
+        expected = RELEASE_FIELD_TYPES.get(version, {}).get((cid, pid), expected)
+        if version in ANALOG_DEFAULT_FORMATS:
             expected = ANALOG_DEFAULT_TYPES.get((cid, pid), expected)
         if (cid, pid) == (251, 978) and app.summary()["format_versions"] == {"acs": 60, "dmcs": 60}:
             # The native 6.0 application definition declares this actuator
@@ -65,6 +89,17 @@ def qualify_parameter_additions(application, parameter_merge):
         if raw[-1:] != b"\x2f":
             raise ValueError("Omitted application property has an unclosed value.")
         tags = list(TagList.decode(PDUData(raw[:-1])))
+        if expected == "polarity":
+            if not (
+                len(tags) == 1
+                and tags[0].tag_class == TagClass.application
+                and tags[0].tag_number == 9
+                and tags[0].tag_data in (b"\x00", b"\x01")
+            ):
+                raise ValueError(
+                    "Omitted actuator polarity must be a normal or reverse application Enumerated."
+                )
+            continue
         valid = (
             (
                 len(tags) == 1

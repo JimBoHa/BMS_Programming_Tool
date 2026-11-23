@@ -31,18 +31,27 @@ from .test_native_applications import native_link as native_link
 
 
 def source(
-    *, compressed=False, saved_id=5136, input_slot=1, output_slot=4, acs=66, saved_versions=()
+    *,
+    compressed=False,
+    saved_id=5136,
+    input_slot=1,
+    output_slot=4,
+    acs=66,
+    saved_versions=(),
+    root_id=1,
+    root_name="CVM",
+    save_name=True,
 ):
     def record(cid, instance, props):
         return native_record(cid, instance, [(k, encoded(v)) for k, v in props])
 
     root = record(
         194,
-        1,
+        root_id,
         [
             (32527, CharacterString("8-1")),
-            (75, ObjectIdentifier((8, 1))),
-            (2390, CharacterString("CVM")),
+            (75, ObjectIdentifier((8, root_id))),
+            (2390, CharacterString(root_name)),
             (70, CharacterString("M4-CVM03050-0")),
             (4128, Unsigned(acs)),
             (4129, Unsigned(65)),
@@ -101,6 +110,8 @@ def source(
         payload = bytes([version])
         dynamic += payload + bytes([header_crc(payload) ^ 255])
     for pid, text in [(2390, "Authored controller"), (70, "M4-CVM03050-0")]:
+        if pid == 2390 and not save_name:
+            continue
         static += row(
             pid, 7, b"\x1e" + encoded(CharacterString(text)) + b"\x1f" + b"\x00" * 5, 0x4F
         )
@@ -185,7 +196,9 @@ async def test_67_factory_bank_allows_local_review_and_refuses_field_review(io_l
     assert len(recovered.records) == len(MoiIdentity(original[3]).records)
     assert native.restore_source(args) == (image, report)
     with pytest.raises(ValueError, match="factory-to-custom"):
-        await native.preview_snapshot_restore(**target, **args, operation_id="reject-factory-restore")
+        await native.preview_snapshot_restore(
+            **target, **args, operation_id="reject-factory-restore"
+        )
     assert not native.plans and peer.events == before and peer.files == original
     request = IOReview(
         **target,
@@ -201,6 +214,62 @@ async def test_67_factory_bank_allows_local_review_and_refuses_field_review(io_l
     with pytest.raises(ValueError, match="offline only"):
         await service.preview(request)
     assert peer.events == before and not service.plans
+
+
+@pytest.mark.parametrize(
+    "firmware,acs,original_id",
+    [("10.0.0.2125", 66, 1), ("10.0.0.2125", 66, 6123), ("11.0.2.8", 67, 1)],
+)
+async def test_retained_saved_id_uses_unchanged_native_name_and_keeps_field_scope_closed(
+    io_link, firmware, acs, original_id
+):
+    peer, native, target, _ = io_link
+    peer.metadata["firmware-revision"] = firmware
+    peer.files = source(
+        acs=acs,
+        root_id=original_id,
+        root_name="Authored controller",
+        save_name=False,
+        saved_versions=[(4128, acs), (4129, 65)],
+    )
+    capture = await native.capture(**target, operation_id="capture-saved-root")
+    request = {
+        "restore_capture_id": capture["id"],
+        "restore_snapshot_sha256": capture["snapshot_evidence_sha256"],
+    }
+    events = list(peer.events)
+    image, proof = native.restore_source(request)
+    assert (
+        MoiIdentity(image).instance == 5136 and MoiIdentity(peer.files[3]).instance == original_id
+    )
+    assert proof["profile"] == (
+        "native-retained-factory-application-source/1"
+        if original_id == 1
+        else "native-retained-reassigned-application-source/1"
+    )
+    assert not proof["can_apply"] and not proof["field_transfer_enabled"]
+    with pytest.raises(ValueError, match="factory-to-custom|local inspection"):
+        await native.preview_snapshot_restore(
+            **target, **request, operation_id="retained-field-review"
+        )
+    assert peer.events == events and not native.plans
+
+
+@pytest.mark.parametrize(
+    "root_name,saved_id", [("Different controller", 5136), ("Authored controller", 5122)]
+)
+def test_reassigned_retained_source_rejects_conflicting_identity(root_name, saved_id):
+    files = source(
+        root_id=6123,
+        root_name=root_name,
+        saved_id=saved_id,
+        save_name=False,
+        saved_versions=[(4128, 66), (4129, 65)],
+    )
+    with pytest.raises(ValueError):
+        effective_source(
+            files, {**identity(), "firmware-revision": "10.0.0.2125"}, retained_copy=True
+        )
 
 
 @pytest.mark.parametrize("compressed", [False, True])

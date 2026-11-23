@@ -18,6 +18,10 @@ export const snapshotRestoreSourceProfile =
   "native-retained-application-restore-source/1";
 export const factoryRestoreSourceProfile =
   "native-retained-factory-application-source/1";
+const assignedRestoreSourceProfile =
+  "native-retained-reassigned-application-source/1";
+const assignedRestoreScope =
+  "Reconstruct the retained application with the Device identifier in its captured saved settings. The native root retains the previous identifier. This image is available for local inspection and export.";
 const factoryRestoreScope =
   "Reconstruct the factory application with the captured controller's saved identity and settings. This is a local recovery image. A factory-to-custom transfer requires a separately verified commissioning path.";
 export const snapshotRestoreCompilationProfile =
@@ -113,11 +117,15 @@ export async function snapshotRestoreSource(
       !(
         (v.profile === snapshotRestoreSourceProfile &&
           v.scope === snapshotRestoreSourceScope) ||
-        (v.profile === factoryRestoreSourceProfile &&
-          v.scope === factoryRestoreScope &&
+        (((v.profile === factoryRestoreSourceProfile &&
+          v.scope === factoryRestoreScope) ||
+          (v.profile === assignedRestoreSourceProfile &&
+            v.scope === assignedRestoreScope)) &&
           v.identity?.["model-name"] === "M4-CVM03050-0" &&
-          v.identity?.["firmware-revision"] === "11.0.2.8" &&
-          v.compilation?.format_versions?.acs === 67 &&
+          ((v.identity?.["firmware-revision"] === "11.0.2.8" &&
+            v.compilation?.format_versions?.acs === 67) ||
+            (v.identity?.["firmware-revision"] === "10.0.0.2125" &&
+              v.compilation?.format_versions?.acs === 66)) &&
           v.compilation?.format_versions?.dmcs === 65)
       ) ||
       !exact(v.request, ["restore_capture_id", "restore_snapshot_sha256"]) ||

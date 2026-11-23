@@ -14,11 +14,16 @@ from .moi_identity import MoiIdentity, seal, sha
 from .moi_parameters import ParameterApplication
 from .native_backup_records import BackupInspectionSource, NativeBackupRecords
 from .native_parameter_qualification import qualify_parameter_additions
-from .native_runtime_io import FACTORY_FORMAT, effective_source, factory_io_candidate
+from .native_runtime_io import effective_source, retained_cv_identity
 
 PROFILE = "native-retained-application-restore/1"
 SOURCE_PROFILE = "native-retained-application-restore-source/1"
 FACTORY_SOURCE_PROFILE = "native-retained-factory-application-source/1"
+ASSIGNED_SOURCE_PROFILE = "native-retained-reassigned-application-source/1"
+ASSIGNED_SOURCE_SCOPE = (
+    "Reconstruct the retained application with the Device identifier in its captured saved settings. "
+    "The native root retains the previous identifier. This image is available for local inspection and export."
+)
 FACTORY_SOURCE_SCOPE = (
     "Reconstruct the factory application with the captured controller's saved identity and settings. "
     "This is a local recovery image. A factory-to-custom transfer requires a separately verified commissioning path."
@@ -224,19 +229,24 @@ def _source(storage, request):
     identity = snapshot["identity"]
     original = MoiIdentity(files[3])
     original_summary = original.summary()
-    factory = (
+    materialized = (
         snapshot.get("source_identity_matches") is False
-        and original_summary["format_versions"] == FACTORY_FORMAT
-        and factory_io_candidate(original_summary, identity)
+        and snapshot["device"] != f"device,{original.instance}"
+        and retained_cv_identity(original_summary, identity)
     )
-    if factory:
-        app, proof = effective_source(files, identity)
+    profile, scope = SOURCE_PROFILE, SOURCE_SCOPE
+    if materialized:
+        app, proof = effective_source(files, identity, retained_copy=True)
         root_class = original.root["class_id"] << 22
         old_root = root_class | original.instance
         new_root = root_class | app.instance
         expected_records = [new_root if oid == old_root else oid for oid in records(original)]
-        if not proof["factory_identity_materialized"] or list(records(app)) != expected_records:
-            raise ValueError("Factory recovery image differs from the captured record inventory.")
+        if list(records(app)) != expected_records:
+            raise ValueError("Reconstructed image differs from the captured record inventory.")
+        if proof["factory_identity_materialized"]:
+            profile, scope = FACTORY_SOURCE_PROFILE, FACTORY_SOURCE_SCOPE
+        else:
+            profile, scope = ASSIGNED_SOURCE_PROFILE, ASSIGNED_SOURCE_SCOPE
         output = app.source
         merge = proof["saved_parameter_merge"]
         qualification = proof["parameter_type_qualification"]
@@ -245,7 +255,7 @@ def _source(storage, request):
     summary = app.summary()
     target = DeviceDetailsRequest(**snapshot["target"], device=snapshot["device"]).model_dump()
     if (
-        (not factory and snapshot.get("source_identity_matches") is not True)
+        (not materialized and snapshot.get("source_identity_matches") is not True)
         or set(identity)
         != {
             "device",
@@ -288,8 +298,8 @@ def _source(storage, request):
         "non_application_runtime_restored": False,
     }
     body = {
-        "profile": FACTORY_SOURCE_PROFILE if factory else SOURCE_PROFILE,
-        "scope": FACTORY_SOURCE_SCOPE if factory else SOURCE_SCOPE,
+        "profile": profile,
+        "scope": scope,
         "request": options.model_dump(),
         "captured_at": snapshot["captured_at"],
         "target": target,
@@ -411,6 +421,8 @@ def difference(before, after):
 
 
 def require_restore_source(report):
+    if report["profile"] == ASSIGNED_SOURCE_PROFILE:
+        raise ValueError(ASSIGNED_SOURCE_SCOPE)
     if report["profile"] != SOURCE_PROFILE:
         raise ValueError(FACTORY_SOURCE_SCOPE)
 
