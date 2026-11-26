@@ -457,6 +457,11 @@ inventory or an assertion that every release accepts the same application.
 
 ### Complete JCI application families and sequence acceptance
 
+The [inline hot-water airflow interlock](docs/native-inline-airflow.md) covers the
+controller's measured airflow permissive and proportional valve
+command on the qualified custom application. Whole-equipment acceptance also
+requires discharge-temperature protection and physical commissioning.
+
 | ID | Planned addition | Workspace | Remaining behavior / acceptance |
 | --- | --- | --- | --- |
 | SEQ-01 | Six qualified native VAV deliverables: FX and Metasys × cooling-only, inline reheat without a fan, parallel fan-powered reheat | Program / Library; conformance | Extend existing graphs with full required sequence behavior; independently verify native files, exact hardware/releases and project-specific 2025 Title 24 requirements. Inline reheat is not a series fan-powered box |
@@ -2723,3 +2728,9 @@ Next, assess remaining controller-generated resources and package dependencies
 against actual native evidence before extending restoration or authoring scopes.
 The register now contains 211 criteria: 157 implemented, 46 partial and eight
 pending. See [retained application restoration](docs/native-application-restore.md).
+
+A source-matched legacy proportional inline valve can now run an input and timing
+diagnostic, then the complete elapsed-airflow and discharge-limit sequence with
+its original output connections intact. Activation separately reviews the running
+sequence and the two control connections. The [field qualification procedure](docs/native-inline-monitor.md)
+describes the original backup, measured checks and verified readback.
