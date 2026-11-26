@@ -393,7 +393,7 @@ class MoiApplication:
             ],
         }
 
-    def diagram(self, ref):
+    def diagram(self, ref, *, retained_activity_refs=False):
         record = self.records.get(ref)
         if record is None or record["class_id"] not in (536, 575):
             raise ValueError("Select an actual native activity or control sequence.")
@@ -409,9 +409,21 @@ class MoiApplication:
         if sorted(sequence) != list(range(len(identifiers))):
             raise ValueError("Native graph order does not list each block exactly once.")
         blocks, seen = [], set()
+        aliases = None
         for index, oid in enumerate(identifiers):
             child = f"{ref}.{int(oid[0])}_{int(oid[1])}"
             found = self.records.get(child)
+            if (
+                retained_activity_refs
+                and int(oid[0]) == 536
+                and self.record_framing == "declared-lengths"
+            ):
+                if aliases is None:
+                    aliases = self._retained_activity_refs(ref)
+                unique = aliases.get(str(oid))
+                if found is not None and found is not unique:
+                    raise ValueError("Ambiguous or mismatched retained activity identity.")
+                found = unique
             if found is None or child in seen or self.scalar(found, 75) != str(oid):
                 raise ValueError(
                     "Native block reference is missing, duplicated or does not match its identity."
@@ -454,13 +466,32 @@ class MoiApplication:
             "read_only": True,
         }
 
+    def _retained_activity_refs(self, parent):
+        """Resolve a renamed activity only within its owning, length-framed diagram."""
+        aliases = {}
+        if self.record_framing != "declared-lengths" or self.errors:
+            return aliases
+        for ref, record in self.records.items():
+            path, _, leaf = ref.rpartition(".")
+            if path != parent or record["class_id"] != 536 or not re.fullmatch(r"536_[0-9]+", leaf):
+                continue
+            offset = record["offset"] + 6
+            header = int.from_bytes(self.data[offset : offset + 4], "big")
+            oid = self.scalar(record, 75)
+            # A duplicate declared identity invalidates the alias even if only one header matches.
+            if oid in aliases or oid != str(ObjectIdentifier((536, header & 0x3FFFFF))):
+                aliases[oid] = None
+            else:
+                aliases[oid] = record
+        return aliases
+
     def display_diagram(self, ref):
         """Decorate a fresh graph without changing the compiler's canonical evidence.
 
         Observed pin labels change when connections are edited. Keep that derived
         metadata outside the graph equality checks used by native copy compilers.
         """
-        graph = self.diagram(ref)
+        graph = self.diagram(ref, retained_activity_refs=True)
         blocks = graph["blocks"]
         by_ref = {block["ref"]: block for block in blocks}
         for block in blocks:
@@ -505,7 +536,7 @@ class MoiApplication:
             if record["class_id"] not in (536, 575):
                 continue
             try:
-                graph = self.diagram(ref)
+                graph = self.diagram(ref, retained_activity_refs=True)
                 diagrams.append(
                     {
                         "ref": ref,

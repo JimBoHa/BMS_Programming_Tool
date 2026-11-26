@@ -2723,3 +2723,9 @@ Next, assess remaining controller-generated resources and package dependencies
 against actual native evidence before extending restoration or authoring scopes.
 The register now contains 211 criteria: 157 implemented, 46 partial and eight
 pending. See [retained application restoration](docs/native-application-restore.md).
+
+A source-matched legacy proportional inline valve can now run an input and timing
+diagnostic, then the complete elapsed-airflow and discharge-limit sequence with
+its original output connections intact. Activation separately reviews the running
+sequence and the two control connections. The [field qualification procedure](docs/native-inline-monitor.md)
+describes the original backup, measured checks and verified readback.

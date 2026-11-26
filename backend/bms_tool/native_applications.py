@@ -14,6 +14,9 @@ from bacpypes3.primitivedata import ObjectIdentifier, Unsigned
 from fastapi import APIRouter, Response
 from pydantic import Field, SecretStr, StrictBool, field_validator
 
+from . import native_inline_activation as inline_activation
+from . import native_inline_monitor_transfer as inline_monitor
+from . import native_inline_shadow as inline_shadow
 from .application_files import ApplicationFiles
 from .application_preservation import verify_preservation
 from .application_store import (
@@ -203,6 +206,8 @@ from .property_evidence import PropertyEvidence
 # Allow a fresh backup to finish inside the review window on slower trunks, and
 # reserve a separate operation budget for backup + transfer + verified readback.
 # Per-request deadlines, single dispatch and the pre-restore expiry guard remain.
+INLINE_OPERATIONS = {op.KIND: op for op in (inline_monitor, inline_shadow, inline_activation)}
+
 PLAN_SECONDS = 15 * 60
 OPERATION_SECONDS = 30 * 60
 # Objects-only restore acknowledges before application storage is ready.
@@ -1439,6 +1444,7 @@ class NativeApplications(
             "point-name",
             "input",
             "application-restore",
+            *INLINE_OPERATIONS,
         ):
             raise ValueError("Unrecognized native transfer operation; retain its evidence.")
         boolean_edit = change_kind == "boolean-default"
@@ -1451,9 +1457,11 @@ class NativeApplications(
         connection_edit = change_kind == "connection"
         point_name_edit = change_kind == "point-name"
         input_edit = change_kind == "input"
+        inline_operation = INLINE_OPERATIONS.get(change_kind)
         snapshot_restore = change_kind == "application-restore"
         program_edit = (
             snapshot_restore
+            or inline_operation is not None
             or default_edit
             or wire_edit
             or point_name_edit
@@ -1476,6 +1484,8 @@ class NativeApplications(
                 raise ValueError("Unsupported native order evidence version; retain it.")
             validate_order_evidence(intent.get("order_edit"), intent.get("order_guard"))
             validate_order_lineage(intent)
+        if inline_operation:
+            inline_operation.reconstruct(self, intent)
         if snapshot_restore:
             reconstruct_snapshot_restore_intent(self.storage, intent)
         if connection_edit:
@@ -1571,7 +1581,7 @@ class NativeApplications(
                         old_instance=intent["old_instance"],
                         new_instance=intent["old_instance"],
                     )
-                    if snapshot_restore:
+                    if snapshot_restore or inline_operation:
                         qualify_restore_counters(
                             files, original_preservation["runtime_counter_changes"]
                         )
@@ -1622,7 +1632,9 @@ class NativeApplications(
                     else {}
                 )
                 result["preservation"] = (
-                    verify_snapshot_restore(self.storage, intent, files)
+                    inline_operation.verify(self, intent, files)
+                    if inline_operation
+                    else verify_snapshot_restore(self.storage, intent, files)
                     if snapshot_restore
                     else verify_batch_preservation(
                         original_files, files, intent["batch_edit"], intent["batch_guard"]
@@ -1764,7 +1776,11 @@ class NativeApplications(
         combined_edit=False,
         batch_edit=False,
         snapshot_restore=False,
+        inline_kind=None,
     ):
+        if inline_kind is not None and inline_kind not in INLINE_OPERATIONS:
+            raise ValueError("Unsupported native inline sequence operation.")
+        inline_operation = INLINE_OPERATIONS.get(inline_kind)
         if (
             sum(
                 (
@@ -1777,6 +1793,7 @@ class NativeApplications(
                     bool(combined_edit),
                     bool(batch_edit),
                     bool(snapshot_restore),
+                    bool(inline_operation),
                 )
             )
             > 1
@@ -1786,6 +1803,7 @@ class NativeApplications(
             raise ValueError("Choose one native transfer operation.")
         program_edit = (
             snapshot_restore
+            or inline_operation is not None
             or default_edit
             or wire_edit
             or point_name_edit
@@ -1803,7 +1821,9 @@ class NativeApplications(
         renaming = plan["body"].get("change_kind") == "name"
         kind = plan["body"].get("change_kind", "instance")
         expected_kind = (
-            "application-restore"
+            inline_kind
+            if inline_operation
+            else "application-restore"
             if snapshot_restore
             else "default-batch"
             if batch_edit
@@ -1827,6 +1847,8 @@ class NativeApplications(
         )
         if kind not in ((expected_kind,) if program_edit else ("instance", "name")):
             raise ValueError("This review belongs to a different native transfer operation.")
+        if inline_operation:
+            inline_operation.validate_review(plan)
         if snapshot_restore:
             if seal(plan["body"]) != plan["digest"]:
                 raise ValueError("The exact retained application restore review changed.")
@@ -1922,6 +1944,7 @@ class NativeApplications(
             )
             or (batch_edit and not request.defaults_change_confirmed)
             or (snapshot_restore and not request.historical_application_confirmed)
+            or (inline_operation and not getattr(request, inline_operation.CONFIRMATION))
             or (wire_edit and not request.wire_change_confirmed)
             or (order_edit and not request.order_change_confirmed)
             or (connection_edit and not request.connection_change_confirmed)
@@ -1956,7 +1979,9 @@ class NativeApplications(
                 if seal(self.credentials.get()) != plan["credentials_digest"]:
                     raise ValueError("Transfer credentials changed; review again.")
                 collision = (
-                    self.restore_scope()
+                    inline_operation.scope()
+                    if inline_operation
+                    else self.restore_scope()
                     if snapshot_restore
                     else self.default_scope()
                     if batch_edit
@@ -2003,7 +2028,9 @@ class NativeApplications(
                             "Application or saved parameter directory changed after review. Capture and review again."
                         )
                     output, compilation = (
-                        reconstruct_snapshot_restore(self.storage, body, files)
+                        inline_operation.fresh_compile(self, body, files)
+                        if inline_operation
+                        else reconstruct_snapshot_restore(self.storage, body, files)
                         if snapshot_restore
                         else compile_batch_defaults(
                             files,
@@ -2103,6 +2130,8 @@ class NativeApplications(
                         raise ValueError(
                             "Compiled application exceeds the controller-reported application capacity."
                         )
+                    if inline_operation:
+                        await inline_operation.guard(self, session, actual, compilation)
                     if input_edit:
                         await self.input_live_guard(session, options, compilation, files)
                     # A concurrent import can use the space observed before the fresh backup.
@@ -2122,7 +2151,7 @@ class NativeApplications(
                         )
                     recovery = (
                         {}
-                        if snapshot_restore
+                        if snapshot_restore or inline_operation
                         else batch_recovery_origin(self, options, compilation)
                         if batch_edit
                         else {}
@@ -2181,6 +2210,15 @@ class NativeApplications(
                             "native_payload_sha256": sha(MoiIdentity(output).data),
                             "compilation": compilation,
                             "collision_check": collision,
+                            **(
+                                {
+                                    "operation_profile": inline_operation.PROFILE,
+                                    **inline_operation.receipt_fields(options),
+                                    inline_operation.CONFIRMATION: True,
+                                }
+                                if inline_operation
+                                else {}
+                            ),
                             **(
                                 {
                                     "operation_profile": SNAPSHOT_RESTORE_PROFILE,
@@ -2455,6 +2493,36 @@ def native_application_router(service):
     @router.post("/preview")
     async def preview(body: NativePreview):
         return await service.preview(**body.model_dump())
+
+    @router.post("/inline-sequence/activate/review")
+    async def review_inline_activation(body: inline_activation.ActivationReview):
+        return await inline_activation.review(service, body)
+
+    @router.post("/inline-sequence/activate/apply")
+    async def apply_inline_activation(body: inline_activation.ActivationApply):
+        return await service.apply_reviewed(
+            body, default_edit=False, inline_kind=inline_activation.KIND
+        )
+
+    @router.post("/inline-sequence/observe/review")
+    async def review_inline_shadow(body: inline_shadow.ShadowReview):
+        return await inline_shadow.review(service, body)
+
+    @router.post("/inline-sequence/observe/apply")
+    async def apply_inline_shadow(body: inline_shadow.ShadowApply):
+        return await service.apply_reviewed(
+            body, default_edit=False, inline_kind=inline_shadow.KIND
+        )
+
+    @router.post("/inline-monitor/review")
+    async def review_inline_monitor(body: inline_monitor.MonitorReview):
+        return await inline_monitor.review(service, body)
+
+    @router.post("/inline-monitor/apply")
+    async def apply_inline_monitor(body: inline_monitor.MonitorApply):
+        return await service.apply_reviewed(
+            body, default_edit=False, inline_kind=inline_monitor.KIND
+        )
 
     @router.post("/application-restore/source")
     def inspect_restore_source(body: RestoreSource):
