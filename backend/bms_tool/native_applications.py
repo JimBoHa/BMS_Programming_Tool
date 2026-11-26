@@ -849,7 +849,7 @@ class NativeApplications(
             "recovery_origin_sha256": prepared["origin_sha256"],
         }
 
-    def retain_plan(self, body, options, app, config):
+    def retain_plan(self, body, options, app, config, *, lifetime=PLAN_SECONDS):
         token, digest = secrets.token_urlsafe(24), seal(body)
         self.plans = OrderedDict(
             (k, p)
@@ -861,7 +861,7 @@ class NativeApplications(
             "options": options,
             "app": app,
             "config": config,
-            "expires": time.monotonic() + PLAN_SECONDS,
+            "expires": time.monotonic() + lifetime,
             "digest": digest,
             "credentials_digest": seal(self.credentials.get()),
             "operation_id": options.operation_id,

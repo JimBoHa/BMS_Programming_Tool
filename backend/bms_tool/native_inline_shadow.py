@@ -32,9 +32,12 @@ class ShadowApply(StrictModel):
 
 
 def selection(options):
-    return options.model_dump(
-        include={"first_instance", "prototype_capture_id", "prototype_sha256"}
-    )
+    return {
+        "sampling_mode": "elapsed-phase",
+        **options.model_dump(
+            include={"first_instance", "prototype_capture_id", "prototype_sha256"}
+        ),
+    }
 
 
 def compile_shadow(native, identity, options, files):
@@ -52,7 +55,12 @@ def compile_shadow(native, identity, options, files):
         raise ValueError(
             "The primitive source needs a verified backup from the same model and firmware."
         )
-    compiler = InlineSequenceCompiler(files, library[3], options["first_instance"])
+    mode = options.get("sampling_mode")
+    if mode not in (None, "elapsed-phase"):
+        raise ValueError("Unsupported observation sampling mode.")
+    compiler = InlineSequenceCompiler(
+        files, library[3], options["first_instance"], phase_sampling=mode == "elapsed-phase"
+    )
     qualification = qualify_parameter_additions(compiler.application.source, compiler.merge)
     compiler.body()
     out, report = compiler.export(shadow=True)

@@ -2,6 +2,7 @@
 
 import copy
 import math
+import time
 from datetime import UTC, datetime, timedelta
 
 from bacpypes3.object import Object
@@ -139,6 +140,15 @@ async def review(native, options, *, shadow=False, activation=False):
 
         require_restore_source(recovery)
         if activation:
+            observation = native.storage.receipt(
+                options.observation_receipt_id, include_events=False
+            )
+            if (observation.get("intent") or {}).get("sequence_selection", {}).get(
+                "sampling_mode"
+            ) != "elapsed-phase":
+                raise ValueError(
+                    "Install and verify the elapsed-phase observation before activating the valve."
+                )
             out, compilation = valve.prepare(
                 native,
                 capture["identity"],
@@ -160,9 +170,18 @@ async def review(native, options, *, shadow=False, activation=False):
                 raise ValueError(
                     "The current controller differs from the selected original backup."
                 )
+            guard_started = time.monotonic()
             guard = await (operation.guard if operation else check_allocations)(
                 native, session, identity, compilation
             )
+            guard_seconds = time.monotonic() - guard_started
+        # A slow trunk must repeat the entire allocation walk at apply. Allow
+        # time for that measured walk and the separate fresh backup.
+        lifetime = (
+            min(45 * 60, max(PLAN_SECONDS, math.ceil(1.5 * guard_seconds + 4 * 60)))
+            if shadow
+            else PLAN_SECONDS
+        )
         instance = int(ObjectIdentifier(options.device)[1])
         body = dict(
             profile=APPLICATION_PROFILE,
@@ -194,10 +213,10 @@ async def review(native, options, *, shadow=False, activation=False):
             ),
             connector_config=config,
             created_at=utc(),
-            expires_at=(datetime.now(UTC) + timedelta(seconds=PLAN_SECONDS)).isoformat(),
+            expires_at=(datetime.now(UTC) + timedelta(seconds=lifetime)).isoformat(),
         )
         body.update(operation.receipt_fields(options) if operation else receipt_fields(options))
-        return native.retain_plan(body, options, app, config)
+        return native.retain_plan(body, options, app, config, lifetime=lifetime)
 
 
 def validate_review(plan):

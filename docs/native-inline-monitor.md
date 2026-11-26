@@ -51,10 +51,19 @@ remain in control at this stage.
 
 The sequence checks the measured pickup, calculated airflow and service flags,
 uses the lower corroborated airflow, and collects 30 elapsed one-second samples.
+Each second on the native timer addresses a separate airflow register. Further
+logic executions in the same second address the same register. Timers on the
+registers verify that each sample is recent, and complementary clock phases
+detect a stalled timer. Loss of input quality inhibits heat. The final valve
+can advance by one opening increment during each elapsed second.
 It checks the higher of the two discharge readings. Reopening is limited to five
 percentage points per second. A sensor, timing or tuning fault inhibits heating.
 The field release profile requires a proportional valve and integral damper.
 Each observation installation also checks object allocation and file capacity.
+On a slow trunk, the allocation check can take several minutes. The review
+includes time to repeat the measured walk and capture a fresh backup, subject
+to a 45-minute limit. A missing reply gets one further read of that same object.
+The controller must explicitly identify every proposed object as unused.
 Johnson Controls publishes this controller family's object budgets in its
 [System Capacity Indicator reference](https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Controller-Tool-Help/16.0.1/User-Interface/User-Interface-Concepts/Status-Bar/System-Capacity-Indicator).
 

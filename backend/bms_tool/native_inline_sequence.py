@@ -77,7 +77,8 @@ def one(sequence, message):
 
 
 class InlineSequenceCompiler:
-    def __init__(self, files, donor, first):
+    def __init__(self, files, donor, first, *, phase_sampling=False):
+        self.phase_sampling = phase_sampling
         self.first_instance = first
         self.original = files
         effective, self.merge = ParameterApplication(files[3], files[11], files[12]).compile()
@@ -518,6 +519,111 @@ class InlineSequenceCompiler:
             self.wire(hardware_reading if port == 3504 else origin, idx, port)
         return idx, 3505
 
+    def phase_window(self, phase, clock_ok, data_ok, flow):
+        """Use sustained clock levels to address 30 independent one-second samples."""
+        q = self.arithmetic
+        upper = q("ge", "Inline upper half minute", phase, 30.0)
+        slot = self.select(
+            "Inline second of half minute",
+            upper,
+            q("sub", "Inline folded clock", phase, 30.0),
+            phase,
+        )
+        gates = [q("ge", f"Inline second at least {i:02d}", slot, float(i)) for i in range(1, 30)]
+        phases = [self.block("xor", "Inline second 00", (7000, gates[0]), defaults={7001: True})]
+        phases.extend(
+            q("xor", f"Inline second {i:02d}", gates[i - 1], gates[i]) for i in range(1, 29)
+        )
+        phases.append(gates[-1])
+
+        def combine(nodes, kind, label):
+            depth = 0
+            while len(nodes) > 1:
+                depth += 1
+                nodes = [
+                    q(kind, f"{label} {depth}-{i // 2 + 1}", nodes[i], nodes[i + 1])
+                    if i + 1 < len(nodes)
+                    else nodes[i]
+                    for i in range(0, len(nodes), 2)
+                ]
+            return nodes[0]
+
+        # A held level survives the immediate re-execution of native Last Value.
+        # The other 29 registers cannot change while this clock sector is active.
+        values, counts = [], []
+        for i, active in enumerate(phases):
+            memory = self.block("prevF", f"Inline stored airflow {i:02d}")
+            value = self.select(f"Inline captured airflow {i:02d}", active, flow, memory)
+            self.wire(value, memory[0], 513)
+            values.append(value)
+            alive = self.block(
+                "timer",
+                f"Inline recent second {i:02d}",
+                (513, q("and", f"Inline valid sample {i:02d}", active, data_ok)),
+                defaults={518: 4, 1080: 29.0},
+            )
+            counts.append(self.select(f"Inline measured second {i:02d}", alive, 1.0))
+        count = combine(counts, "add", "Inline observed seconds")
+        total = combine(values, "add", "Inline measured CFM sum")
+        even = combine(phases[::2], "or", "Inline even clock sector")
+        odd = self.block("xor", "Inline odd clock sector", (7000, even), defaults={7001: True})
+        even_recent = self.block(
+            "timer", "Inline even clock active", (513, even), defaults={518: 4, 1080: 2.0}
+        )
+        odd_recent = self.block(
+            "timer", "Inline odd clock active", (513, odd), defaults={518: 4, 1080: 2.0}
+        )
+        ticking = q("and", "Inline alternating seconds proven", even_recent, odd_recent)
+        valid = q("and", "Inline valid sensors and timer", data_ok, clock_ok)
+        warm = self.block(
+            "timer", "Inline full window elapsed", (513, valid), defaults={518: 2, 1080: 30.0}
+        )
+        complete = q(
+            "and",
+            "Inline full measured window",
+            q("ge", "Inline 30 recent elapsed seconds", count, 30.0),
+            q("and", "Inline healthy sampling", ticking, valid),
+        )
+        ready = q(
+            "and",
+            "Inline complete timed history",
+            warm,
+            self.block(
+                "timer",
+                "Inline last measured second elapsed",
+                (513, complete),
+                defaults={518: 2, 1080: 1.0},
+            ),
+        )
+        mean = self.select(
+            "Inline complete 30-second mean",
+            complete,
+            q("div", "Inline airflow 30-second mean", total, 30.0),
+        )
+        return even, odd, count, ready, mean
+
+    def phase_ramp(self, even, odd, permit, target):
+        """Each half of a two-phase register can advance once in its elapsed second."""
+        q = self.arithmetic
+        a = self.block("prevF", "Inline even valve memory")
+        b = self.block("prevF", "Inline odd valve memory")
+
+        def bank(label, active, own, other):
+            upper = q("add", label + " five point allowance", other, 5.0)
+            advanced = q("min", label + " bounded opening", target, upper)
+            retained = self.select(label + " elapsed second", active, advanced, own)
+            value = self.select(
+                label + " clear on inhibit",
+                permit,
+                q("min", label + " immediate cutback", retained, target),
+            )
+            self.wire(value, own[0], 513)
+            return value
+
+        even_value = bank("Inline even valve", even, a, b)
+        odd_value = bank("Inline odd valve", odd, b, a)
+        return self.select("Inline protected valve command", even, even_value, odd_value)
+
     def body(self):
 
         q = self.arithmetic
@@ -656,78 +762,84 @@ class InlineSequenceCompiler:
             remaining,
         )
         previous_clock = self.block("prevF", "Inline previous clock second", (513, phase))
-        difference = q("sub", "Inline clock second difference", previous_clock, phase)
-        delta = self.select(
-            "Inline elapsed seconds",
-            q("ge", "Inline clock did not wrap", difference, 0.0),
-            difference,
-            q("add", "Inline wrapped countdown", difference, 60.0),
-        )
-        advanced = q("ge", "Inline countdown advanced", delta, 1.0)
-        gap = q("gt", "Inline missed one-second notification", delta, 1.0)
-        continuous = self.block(
-            "xor", "Inline sample continuity", (7000, gap), defaults={7001: True}
-        )
-        tick = q("and", "Inline one fresh sample", advanced, continuous)
-        watchdog = self.block(
-            "timer", "Inline ticking watchdog", (513, tick), defaults={518: 4, 1080: 5.0}
-        )
-        timed = q(
-            "and",
-            "Inline clock reports usable timing",
-            clockok,
-            q("and", "Inline clock fresh without gap", watchdog, continuous),
-        )
-        have_clock = q("and", "Inline clock and data healthy", timed, pathok)
-        warm_input = q(
-            "and",
-            "Inline valid window timing",
-            pathok,
-            q("and", "Inline reliable uninterrupted clock", clockok, continuous),
-        )
-        warm = self.block(
-            "timer", "Inline full window elapsed", (513, warm_input), defaults={518: 2, 1080: 30.0}
-        )
-        accepted = q("and", "Inline fresh airflow sample", have_clock, tick)
-        previous = self.block("prevF", "Inline prior sample count")
-        plus = q("add", "Inline increment sample count", previous, 1.0)
-        bounded = q("min", "Inline cap sample count", plus, 30.0)
-        total = self.select("Inline sample count on tick", accepted, bounded, previous)
-        total = self.select("Inline clear count on fault", have_clock, total)
-        self.wire(total, previous[0], 513)
-        full = q("ge", "Inline 30 samples collected", total, 30.0)
-        ready = q("and", "Inline complete timed history", full, warm)
-        prev = self.block("prevF", "Inline airflow history 01")
-        values = []
-        src = safe
-        for i in range(1, 31):
-            if i > 1:
-                prev = self.block("prevF", f"Inline airflow history {i:02d}")
-            present = self.select(f"Inline airflow sample {i:02d}", accepted, src, prev)
-            self.wire(present, prev[0], 513)
-            values.append(present)
-            src = prev
-        level = 0
-        while len(values) > 1:
-            level += 1
-            new = []
-            for pos in range(0, len(values), 2):
-                new.append(
-                    q(
-                        "add",
-                        f"Inline airflow sum {level}-{pos // 2 + 1}",
-                        values[pos],
-                        values[pos + 1],
+        if self.phase_sampling:
+            tick, odd, total, ready, mean = self.phase_window(phase, clockok, pathok, safe)
+        else:
+            difference = q("sub", "Inline clock second difference", previous_clock, phase)
+            delta = self.select(
+                "Inline elapsed seconds",
+                q("ge", "Inline clock did not wrap", difference, 0.0),
+                difference,
+                q("add", "Inline wrapped countdown", difference, 60.0),
+            )
+            advanced = q("ge", "Inline countdown advanced", delta, 1.0)
+            gap = q("gt", "Inline missed one-second notification", delta, 1.0)
+            continuous = self.block(
+                "xor", "Inline sample continuity", (7000, gap), defaults={7001: True}
+            )
+            tick = q("and", "Inline one fresh sample", advanced, continuous)
+            watchdog = self.block(
+                "timer", "Inline ticking watchdog", (513, tick), defaults={518: 4, 1080: 5.0}
+            )
+            timed = q(
+                "and",
+                "Inline clock reports usable timing",
+                clockok,
+                q("and", "Inline clock fresh without gap", watchdog, continuous),
+            )
+            have_clock = q("and", "Inline clock and data healthy", timed, pathok)
+            warm_input = q(
+                "and",
+                "Inline valid window timing",
+                pathok,
+                q("and", "Inline reliable uninterrupted clock", clockok, continuous),
+            )
+            warm = self.block(
+                "timer",
+                "Inline full window elapsed",
+                (513, warm_input),
+                defaults={518: 2, 1080: 30.0},
+            )
+            accepted = q("and", "Inline fresh airflow sample", have_clock, tick)
+            previous = self.block("prevF", "Inline prior sample count")
+            plus = q("add", "Inline increment sample count", previous, 1.0)
+            bounded = q("min", "Inline cap sample count", plus, 30.0)
+            total = self.select("Inline sample count on tick", accepted, bounded, previous)
+            total = self.select("Inline clear count on fault", have_clock, total)
+            self.wire(total, previous[0], 513)
+            full = q("ge", "Inline 30 samples collected", total, 30.0)
+            ready = q("and", "Inline complete timed history", full, warm)
+            prev = self.block("prevF", "Inline airflow history 01")
+            values = []
+            src = safe
+            for i in range(1, 31):
+                if i > 1:
+                    prev = self.block("prevF", f"Inline airflow history {i:02d}")
+                present = self.select(f"Inline airflow sample {i:02d}", accepted, src, prev)
+                self.wire(present, prev[0], 513)
+                values.append(present)
+                src = prev
+            level = 0
+            while len(values) > 1:
+                level += 1
+                new = []
+                for pos in range(0, len(values), 2):
+                    new.append(
+                        q(
+                            "add",
+                            f"Inline airflow sum {level}-{pos // 2 + 1}",
+                            values[pos],
+                            values[pos + 1],
+                        )
+                        if pos + 1 < len(values)
+                        else values[pos]
                     )
-                    if pos + 1 < len(values)
-                    else values[pos]
-                )
-            values = new
-        mean = self.select(
-            "Inline complete 30-second mean",
-            full,
-            q("div", "Inline airflow 30-second mean", values[0], 30.0),
-        )
+                values = new
+            mean = self.select(
+                "Inline complete 30-second mean",
+                full,
+                q("div", "Inline airflow 30-second mean", values[0], 30.0),
+            )
         lock_ok = self.block("reliable", "Inline lockout setting reliable", (513, lock))
         lock = self.select("Inline valid lockout value or zero", lock_ok, lock)
         high_ok = self.block("reliable", "Inline discharge setting reliable", (513, high))
@@ -794,20 +906,25 @@ class InlineSequenceCompiler:
             q("max", "Inline nonnegative heat demand", usable, 0),
             cap,
         )
-        last = self.block("prevF", "Inline previous valve target")
-        step = self.select("Inline permitted opening per tick", tick, 5)
-        ramp = q(
-            "min",
-            "Inline limited upward travel",
-            target,
-            q("add", "Inline valve opening allowance", last, step),
-        )
-        output = self.select(
-            "Inline protected valve command",
-            q("and", "Inline final automatic permit", permit, demandok),
-            ramp,
-        )
-        self.wire(output, last[0], 513)
+        if self.phase_sampling:
+            output = self.phase_ramp(
+                tick, odd, q("and", "Inline final automatic permit", permit, demandok), target
+            )
+        else:
+            last = self.block("prevF", "Inline previous valve target")
+            step = self.select("Inline permitted opening per tick", tick, 5)
+            ramp = q(
+                "min",
+                "Inline limited upward travel",
+                target,
+                q("add", "Inline valve opening allowance", last, step),
+            )
+            output = self.select(
+                "Inline protected valve command",
+                q("and", "Inline final automatic permit", permit, demandok),
+                ramp,
+            )
+            self.wire(output, last[0], 513)
         self.bind = {
             "airflow": self.read(raw_cfm, 75),
             "discharge": self.read(probe, 75),
