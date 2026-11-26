@@ -88,11 +88,15 @@ async def operating_state(native, session, identity, compilation):
 
 async def confirm_individual_absence(native, session, points):
     reader = PropertyEvidence(native.path)
-    budget = None
-    for index, point in enumerate(points):
-        if index % 16 == 0:
-            budget = ReadBudget(max_requests=16, max_bytes=128 * 1024)
+    for point in points:
+        # Recheck a lost read of this exact slot. Only the final attributed
+        # unknown-object reply can establish its absence.
+        budget = ReadBudget(max_requests=2, max_bytes=128 * 1024)
         _, row = await reader.read(session, budget, point, 75, Object, timeout=native.files.timeout)
+        if row["status"] == "timeout":
+            _, row = await reader.read(
+                session, budget, point, 75, Object, timeout=native.files.timeout
+            )
         error = row.get("native_error") or {}
         if (
             row["status"] != "native_error"
@@ -100,7 +104,8 @@ async def confirm_individual_absence(native, session, points):
             or error.get("errorClass", {}).get("value") != 1
             or error.get("errorCode", {}).get("value") != 31
         ):
-            raise ValueError(f"The controller did not confirm that {point} is unused.")
+            detail = row.get("error") or row["status"]
+            raise ValueError(f"The controller did not confirm that {point} is unused ({detail}).")
 
 
 async def check_allocations(native, session, identity, compilation):

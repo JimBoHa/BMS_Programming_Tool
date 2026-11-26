@@ -295,6 +295,7 @@ def observation_peer(peer, fault):
     peer.files = fixture()
     peer.metadata.update({"model-name": "FX-PCV1630-0", "firmware-revision": "6.2.0.1054"})
     direct = peer.do_ReadPropertyRequest
+    peer.clearance_reads = []
     physical = {
         (0, 14): ("DA-VP", 58),
         (0, 15): ("DA-T", 64),
@@ -333,7 +334,14 @@ def observation_peer(peer, fault):
             else:
                 raise ExecutionError(errorClass="property", errorCode="unknown-property")
         elif 100 <= key[1] < 126 and pid == 75:
-            if fault == "collision":
+            peer.clearance_reads.append(key)
+            if key[1] == 100 and (
+                fault == "silent"
+                or fault in ("lost-first", "collision-after-loss")
+                and peer.clearance_reads.count(key) == 1
+            ):
+                return
+            if fault == "collision" or (fault == "collision-after-loss" and key[1] == 100):
                 value = obj
             else:
                 raise ExecutionError(errorClass="object", errorCode="unknown-object")
@@ -356,7 +364,13 @@ from .test_native_applications import native_link as native_link  # noqa: E402, 
 
 @pytest.mark.parametrize(
     "fault,reason",
-    [("override", "command"), ("out-of-service", "quality"), ("collision", "unused")],
+    [
+        ("override", "command"),
+        ("out-of-service", "quality"),
+        ("collision", "unused"),
+        ("collision-after-loss", "unused"),
+        ("silent", "before deadline"),
+    ],
 )
 async def test_real_datagrams_refuse_unproven_operating_conditions(native_link, fault, reason):
     from bms_tool.native_inline_monitor_transfer import review
@@ -373,6 +387,27 @@ async def test_real_datagrams_refuse_unproven_operating_conditions(native_link, 
     )
     with pytest.raises(ValueError, match=reason):
         await review(service, options)
+    assert ("state", "start-restore") not in peer.events
+
+
+async def test_lost_allocation_read_requires_a_new_attributed_absence(native_link):
+    from bms_tool.native_inline_monitor_transfer import review
+
+    peer, _, _, service, target = native_link
+    observation_peer(peer, "lost-first")
+    cap = await service.capture(**target, operation_id="capture-clearance")
+    plan = await review(
+        service,
+        MonitorReview(
+            **target,
+            operation_id="retry-clearance",
+            capture_id=cap["id"],
+            snapshot_sha256=cap["snapshot_evidence_sha256"],
+            first_instance=100,
+        ),
+    )
+    assert plan["live_review"]["confirmed_absent"] == 26
+    assert len(set(peer.clearance_reads)) == 26 and len(peer.clearance_reads) == 27
     assert ("state", "start-restore") not in peer.events
 
 
