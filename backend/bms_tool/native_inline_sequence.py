@@ -225,7 +225,7 @@ class InlineSequenceCompiler:
         meta = {2390: encoded(CharacterString(label))}
         if clock:
             required(
-                kind == "timer" and vals.get(518) == 5 and vals.get(1080) == 60,
+                kind == "timer" and vals.get(518) == 5 and vals.get(1080) in (60, 3601),
                 "Unsupported sampling clock",
             )
             meta[1184] = encoded(Unsigned(1))
@@ -519,8 +519,7 @@ class InlineSequenceCompiler:
             self.wire(hardware_reading if port == 3504 else origin, idx, port)
         return idx, 3505
 
-    def phase_window(self, phase, clock_ok, data_ok, flow):
-        """Use sustained clock levels to address 30 independent one-second samples."""
+    def phase_sectors(self, phase):
         q = self.arithmetic
         upper = q("ge", "Inline upper half minute", phase, 30.0)
         slot = self.select(
@@ -536,18 +535,24 @@ class InlineSequenceCompiler:
         )
         phases.append(gates[-1])
 
-        def combine(nodes, kind, label):
-            depth = 0
-            while len(nodes) > 1:
-                depth += 1
-                nodes = [
-                    q(kind, f"{label} {depth}-{i // 2 + 1}", nodes[i], nodes[i + 1])
-                    if i + 1 < len(nodes)
-                    else nodes[i]
-                    for i in range(0, len(nodes), 2)
-                ]
-            return nodes[0]
+        return phases
 
+    def combine(self, nodes, kind, label):
+        depth = 0
+        while len(nodes) > 1:
+            depth += 1
+            nodes = [
+                self.arithmetic(kind, f"{label} {depth}-{i // 2 + 1}", nodes[i], nodes[i + 1])
+                if i + 1 < len(nodes)
+                else nodes[i]
+                for i in range(0, len(nodes), 2)
+            ]
+        return nodes[0]
+
+    def phase_window(self, phase, clock_ok, data_ok, flow):
+        """Use sustained clock levels to address 30 independent one-second samples."""
+        q = self.arithmetic
+        phases = self.phase_sectors(phase)
         # A held level survives the immediate re-execution of native Last Value.
         # The other 29 registers cannot change while this clock sector is active.
         values, counts = [], []
@@ -563,9 +568,9 @@ class InlineSequenceCompiler:
                 defaults={518: 4, 1080: 29.0},
             )
             counts.append(self.select(f"Inline measured second {i:02d}", alive, 1.0))
-        count = combine(counts, "add", "Inline observed seconds")
-        total = combine(values, "add", "Inline measured CFM sum")
-        even = combine(phases[::2], "or", "Inline even clock sector")
+        count = self.combine(counts, "add", "Inline observed seconds")
+        total = self.combine(values, "add", "Inline measured CFM sum")
+        even = self.combine(phases[::2], "or", "Inline even clock sector")
         odd = self.block("xor", "Inline odd clock sector", (7000, even), defaults={7001: True})
         even_recent = self.block(
             "timer", "Inline even clock active", (513, even), defaults={518: 4, 1080: 2.0}
@@ -1050,3 +1055,104 @@ class InlineSequenceCompiler:
             effective_native_sha256=sha(self.application.data),
         )
         return payload, report
+
+
+class CompactInlineSequenceCompiler(InlineSequenceCompiler):
+    """Offline candidate using two clock witnesses for the thirty airflow registers."""
+
+    def __init__(self, files, donor, first):
+        super().__init__(files, donor, first, phase_sampling=True)
+
+    def held(self, label, gate, signal):
+        prior = self.block("prevF", label + " memory")
+        value = self.select(label, gate, signal, prior)
+        self.wire(value, prior[0], 513)
+        return value
+
+    def phase_window(self, phase, clock_ok, data_ok, flow):
+        q = self.arithmetic
+        sectors = self.phase_sectors(phase)
+        values = [
+            self.held(f"Inline airflow second {i:02d}", sector, flow)
+            for i, sector in enumerate(sectors)
+        ]
+        even = self.combine(sectors[::2], "or", "Inline even clock sector")
+        odd = self.block("xor", "Inline odd clock sector", (7000, even), defaults={7001: True})
+
+        # The opposite parity register stays closed throughout the current second,
+        # including re-executions triggered by a Last Value propagation.
+        # A second timer has a period coprime with the one-minute addressing
+        # clock. A missed minute must not appear as the expected next second.
+        long_clock = self.block(
+            "timer", "Inline long continuity timer", defaults={518: 5, 1080: 3601.0}, clock=True
+        )
+        raw = (long_clock[0], 1081)
+        long_ok = self.block("reliable", "Inline long clock reliable", (513, raw))
+        long_phase = self.select(
+            "Inline long clock reading",
+            q("ge", "Inline long clock rollover", raw, 3601.0),
+            0.0,
+            raw,
+        )
+
+        def elapsed(current, period, name):
+            last_even = self.held(name + " even second", even, current)
+            last_odd = self.held(name + " odd second", odd, current)
+            previous = self.select(name + " opposite second", even, last_odd, last_even)
+            difference = q("sub", name + " difference", previous, current)
+            return self.select(
+                name + " elapsed",
+                q("ge", name + " nonwrapped", difference, 0),
+                difference,
+                q("add", name + " wrapped", difference, period),
+            )
+
+        delta = elapsed(phase, 60.0, "Inline short clock")
+        long_delta = elapsed(long_phase, 3601.0, "Inline long clock")
+        long_step = q(
+            "and",
+            "Inline secondary clock consecutive",
+            q("ge", "Inline secondary clock advanced", long_delta, 1),
+            q("ge", "Inline secondary clock bounded", 1, long_delta),
+        )
+        one_step = q(
+            "and",
+            "Inline consecutive clock seconds",
+            q("ge", "Inline at least one second", delta, 1),
+            q("ge", "Inline at most one second", 1, delta),
+        )
+        recent_even = self.block(
+            "timer", "Inline even clock active", (513, even), defaults={518: 4, 1080: 2.0}
+        )
+        recent_odd = self.block(
+            "timer", "Inline odd clock active", (513, odd), defaults={518: 4, 1080: 2.0}
+        )
+        continuous = q(
+            "and",
+            "Inline clock advances every second",
+            one_step,
+            q("and", "Inline clock switches parity", recent_even, recent_odd),
+        )
+        valid = q("and", "Inline both sampling sources healthy", data_ok, clock_ok)
+        valid = q(
+            "and",
+            "Inline secondary timer confirms progress",
+            valid,
+            q("and", "Inline long clock advances reliably", long_ok, long_step),
+        )
+        warm = self.block(
+            "timer",
+            "Inline complete timed history",
+            (513, q("and", "Inline uninterrupted observation", continuous, valid)),
+            defaults={518: 2, 1080: 30.0},
+        )
+        # Warm-up starts only after a valid elapsed tick. Thirty consecutive
+        # healthy seconds replace every register, also after quality recovery.
+        count = self.select("Inline confirmed samples in complete window", warm, 30.0)
+        total = self.combine(values, "add", "Inline measured CFM sum")
+        mean = self.select(
+            "Inline complete 30-second mean",
+            warm,
+            q("div", "Inline airflow 30-second mean", total, 30.0),
+        )
+        return even, odd, count, warm, mean

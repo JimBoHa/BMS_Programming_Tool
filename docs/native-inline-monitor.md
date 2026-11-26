@@ -34,46 +34,40 @@ advancing clock, valid sensor bindings and observed heating operation are
 separate results. This diagnostic preserves the existing control program and
 output wiring. It publishes no supervisory points.
 
-## Qualifying the inline reheat sequence
+## Reviewing the inline reheat sequence offline
 
-The `inline-sequence/observe/review` route accepts a verified station capture
-and a verified primitive-source capture from the same model and firmware. Both
-references include their snapshot digests. The compiler copies type-checked
-math, timer and selection primitives, retaining the target's sensor terminals,
-output action, flow calibration and original heating demand. Its observation
-program adds two BACnet analog values. The existing heat and damper connections
-remain in control at this stage.
+The full reheat program is an engineering draft for matching 6.2 applications.
+During commissioning, one version's elapsed clock advanced while its sample
+count stayed at zero. A subsequent version received a complete transfer
+acknowledgement and the controller restarted with no application. Operators
+recovered the original from its verified pre-transfer backup. New observation
+downloads and valve activations for this sequence are disabled on the server.
+Existing diagnostic receipts can still be reconstructed, read back and used
+for recovery.
 
-| Tuning point | Default | Behavior |
+Open the local draft with `inline-sequence/observe/review`. Supply the target's
+retained capture and a verified primitive-library capture from the same model
+and firmware, including their snapshot digests. The response contains the
+proposed graph, its two point definitions, file size, expanded size, native
+record count and root member count. It works with the field interface
+disconnected. It returns `can_apply: false` and issues no transfer token.
+
+| Proposed tuning point | Default | Intended control action |
 | --- | --- | --- |
-| VLV-LOCKOUT-CFM | 30 CFM | Enables heat at or above this 30-second average when the inputs and sampling clock are healthy. |
-| MAX-DA-T | 125°F | Limits the commanded opening over the last 10°F below the ceiling. Reaching the ceiling closes the valve. Reopening requires 2°F of recovery. |
+| VLV-LOCKOUT-CFM | 30 CFM | Heat requires a complete 30-second window of measured airflow at or above the threshold. |
+| MAX-DA-T | 125°F | The valve opening limit drops from 100% to zero over the last 10°F below the ceiling. Heat can resume after a 2°F recovery. |
 
-The sequence checks the measured pickup, calculated airflow and service flags,
-uses the lower corroborated airflow, and collects 30 elapsed one-second samples.
-Each second on the native timer addresses a separate airflow register. Further
-logic executions in the same second address the same register. Timers on the
-registers verify that each sample is recent, and complementary clock phases
-detect a stalled timer. Loss of input quality inhibits heat. The final valve
-can advance by one opening increment during each elapsed second.
-It checks the higher of the two discharge readings. Reopening is limited to five
-percentage points per second. A sensor, timing or tuning fault inhibits heating.
-The field release profile requires a proportional valve and integral damper.
-Each observation installation also checks object allocation and file capacity.
-On a slow trunk, the allocation check can take several minutes. The review
-includes time to repeat the measured walk and capture a fresh backup, subject
-to a 45-minute limit. A missing reply gets one further read of that same object.
-The controller must explicitly identify every proposed object as unused.
-Johnson Controls publishes this controller family's object budgets in its
-[System Capacity Indicator reference](https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Controller-Tool-Help/16.0.1/User-Interface/User-Interface-Concepts/Status-Bar/System-Capacity-Indicator).
+The draft takes one corroborated airflow sample per elapsed second. Thirty
+registers hold the rolling history. Two timers with different periods check
+that the clock advances in order, including across a missed minute. Invalid airflow data or timing restarts airflow proof. An invalid discharge
+reading also inhibits heat. The
+valve can reopen by up to five percentage points per second. Independent
+simulation exercises these connections and the discharge limit.
 
-Review and apply the observation program before proposing activation. Use its
-verified receipt ID and the exact current capture in
-`inline-sequence/activate/review`. The review measures the downstream sampling
-clock, window count, airflow mean, supply-air threshold, discharge limit and
-proposed valve command on the running station. Activation requires a completed
-window and an output consistent with the observed airflow and temperature.
-`inline-sequence/activate/apply` repeats the checks, retains the fresh original
-and changes the existing heating-enable and valve-source connections together.
-Verify the returned receipt and compare automatic output, measured airflow,
-discharge temperature and any independent position feedback during commissioning.
+Further field qualification requires a matching off-equipment controller or
+firmware simulator. Verify startup, the complete sample window with changing
+inputs, input loss, timing gaps, adjustable limits, valve action and recovery
+of the original application. Object count and compressed archive size alone
+cannot establish that an application will execute. Johnson Controls describes
+separate BACnet and controller object limits and recommends simulation above
+85% of system capacity. [System Capacity Indicator](https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Controller-Tool-Help/16.0.1/User-Interface/User-Interface-Concepts/Status-Bar/System-Capacity-Indicator)

@@ -2,7 +2,6 @@
 
 import copy
 import math
-import time
 from datetime import UTC, datetime, timedelta
 
 from bacpypes3.object import Object
@@ -119,14 +118,10 @@ async def check_allocations(native, session, identity, compilation):
     return {"allocator": floor, "confirmed_absent": len(points), "values": readings}
 
 
-async def review(native, options, *, shadow=False, activation=False):
-    from . import native_inline_activation as valve
-    from . import native_inline_shadow
+async def review(native, options):
     from .native_applications import PLAN_SECONDS, backup_effects
 
-    operation = valve if activation else native_inline_shadow if shadow else None
-    kind = operation.KIND if operation else KIND
-    async with native.operation(options.operation_id, f"review-{kind}"):
+    async with native.operation(options.operation_id, "review-inline-monitor"):
         native.available(options)
         capture, files = native.check_capture(options)
         if capture["evidence_sha256"] != options.snapshot_sha256:
@@ -139,29 +134,7 @@ async def review(native, options, *, shadow=False, activation=False):
         from .native_snapshot_restore import require_restore_source
 
         require_restore_source(recovery)
-        if activation:
-            observation = native.storage.receipt(
-                options.observation_receipt_id, include_events=False
-            )
-            if (observation.get("intent") or {}).get("sequence_selection", {}).get(
-                "sampling_mode"
-            ) != "elapsed-phase":
-                raise ValueError(
-                    "Install and verify the elapsed-phase observation before activating the valve."
-                )
-            out, compilation = valve.prepare(
-                native,
-                capture["identity"],
-                files,
-                options.observation_receipt_id,
-                native.target(options),
-            )
-        elif shadow:
-            out, compilation = native_inline_shadow.compile_shadow(
-                native, capture["identity"], native_inline_shadow.selection(options), files
-            )
-        else:
-            out, compilation = compile_monitor(files, options.first_instance)
+        out, compilation = compile_monitor(files, options.first_instance)
         config, app = copy.deepcopy(native.bacnet.config), native.bacnet.require()
         async with native.path._path(options) as session:
             PropertyEvidence.pin(session, options.router)
@@ -170,23 +143,12 @@ async def review(native, options, *, shadow=False, activation=False):
                 raise ValueError(
                     "The current controller differs from the selected original backup."
                 )
-            guard_started = time.monotonic()
-            guard = await (operation.guard if operation else check_allocations)(
-                native, session, identity, compilation
-            )
-            guard_seconds = time.monotonic() - guard_started
-        # A slow trunk must repeat the entire allocation walk at apply. Allow
-        # time for that measured walk and the separate fresh backup.
-        lifetime = (
-            min(45 * 60, max(PLAN_SECONDS, math.ceil(1.5 * guard_seconds + 4 * 60)))
-            if shadow
-            else PLAN_SECONDS
-        )
+            guard = await check_allocations(native, session, identity, compilation)
         instance = int(ObjectIdentifier(options.device)[1])
         body = dict(
             profile=APPLICATION_PROFILE,
-            operation_profile=operation.PROFILE if operation else PROFILE,
-            change_kind=operation.KIND if operation else KIND,
+            operation_profile=PROFILE,
+            change_kind=KIND,
             target=native.target(options),
             identity=identity,
             old_instance=instance,
@@ -200,23 +162,17 @@ async def review(native, options, *, shadow=False, activation=False):
             compilation=compilation,
             live_review=guard,
             payload_sha256=sha(out),
-            collision_check=operation.scope() if operation else allocation_scope(),
+            collision_check=allocation_scope(),
             recovery_source_sha256=recovery["evidence_sha256"],
             backup_effects=backup_effects(),
             can_apply=True,
-            scope=(
-                "Connect the observed airflow permissive and discharge limit to the inline valve. Application transfer temporarily interrupts control."
-                if activation
-                else "Install the complete airflow and discharge-limit logic with its two tuning points for observation. The existing valve connection remains active."
-                if shadow
-                else "Install internal sensor and timer observations. Existing control connections are preserved. Application transfer temporarily interrupts control."
-            ),
+            scope="Install internal sensor and timer observations. Existing control connections are preserved. Application transfer temporarily interrupts control.",
             connector_config=config,
             created_at=utc(),
-            expires_at=(datetime.now(UTC) + timedelta(seconds=lifetime)).isoformat(),
+            expires_at=(datetime.now(UTC) + timedelta(seconds=PLAN_SECONDS)).isoformat(),
         )
-        body.update(operation.receipt_fields(options) if operation else receipt_fields(options))
-        return native.retain_plan(body, options, app, config, lifetime=lifetime)
+        body.update(receipt_fields(options))
+        return native.retain_plan(body, options, app, config)
 
 
 def validate_review(plan):

@@ -10,12 +10,17 @@ from .application_preservation import runtime_parameter_changes
 from .models import StrictModel
 from .moi_identity import MoiIdentity, seal, sha
 from .moi_parameters import ParameterApplication
-from .native_inline_sequence import InlineSequenceCompiler
+from .native_inline_sequence import CompactInlineSequenceCompiler, InlineSequenceCompiler
 from .native_parameter_qualification import qualify_parameter_additions
 from .native_snapshot_restore import Hash, Identifier, fresh_current, qualify_restore_counters
 
 PROFILE = "native-inline-sequence-observation/1"
 KIND = "inline-sequence-observe"
+TRANSFER_HOLD = (
+    "This legacy inline sequence is available for offline review. A controller accepted "
+    "an earlier image and restarted with no application. Target boot and sampling qualification "
+    "on a matching off-equipment controller is still outstanding."
+)
 
 
 class ShadowReview(monitor.MonitorReview):
@@ -33,7 +38,7 @@ class ShadowApply(StrictModel):
 
 def selection(options):
     return {
-        "sampling_mode": "elapsed-phase",
+        "sampling_mode": "consecutive-seconds",
         **options.model_dump(
             include={"first_instance", "prototype_capture_id", "prototype_sha256"}
         ),
@@ -56,11 +61,14 @@ def compile_shadow(native, identity, options, files):
             "The primitive source needs a verified backup from the same model and firmware."
         )
     mode = options.get("sampling_mode")
-    if mode not in (None, "elapsed-phase"):
+    if mode not in (None, "elapsed-phase", "consecutive-seconds"):
         raise ValueError("Unsupported observation sampling mode.")
-    compiler = InlineSequenceCompiler(
-        files, library[3], options["first_instance"], phase_sampling=mode == "elapsed-phase"
-    )
+    if mode == "consecutive-seconds":
+        compiler = CompactInlineSequenceCompiler(files, library[3], options["first_instance"])
+    else:
+        compiler = InlineSequenceCompiler(
+            files, library[3], options["first_instance"], phase_sampling=mode == "elapsed-phase"
+        )
     qualification = qualify_parameter_additions(compiler.application.source, compiler.merge)
     compiler.body()
     out, report = compiler.export(shadow=True)
@@ -145,7 +153,43 @@ async def check_allocations(native, session, identity, compilation):
 
 
 async def review(native, options):
-    return await monitor.review(native, options, shadow=True)
+    """Prepare the local draft from retained sources, including when disconnected."""
+    from .native_snapshot_restore import require_restore_source
+
+    capture, files = native.storage.load(options.capture_id)
+    if (
+        capture["target"] != native.target(options)
+        or capture["device"] != options.device
+        or capture["evidence_sha256"] != options.snapshot_sha256
+        or not capture.get("source_identity_matches")
+    ):
+        raise ValueError("Select the exact target and verified source capture for this draft.")
+    _, recovery = native.restore_source(
+        {"restore_capture_id": capture["id"], "restore_snapshot_sha256": options.snapshot_sha256}
+    )
+    require_restore_source(recovery)
+    selected = selection(options)
+    out, compiled = compile_shadow(native, capture["identity"], selected, files)
+    return {
+        "operation_profile": PROFILE,
+        "target": capture["target"],
+        "identity": capture["identity"],
+        "capture_id": capture["id"],
+        "snapshot_sha256": options.snapshot_sha256,
+        "payload_sha256": sha(out),
+        "compilation": compiled,
+        "selection": selected,
+        "can_apply": False,
+        "sizing": {
+            "original_native_bytes": len(MoiIdentity(files[3]).data),
+            "candidate_native_bytes": len(MoiIdentity(out).data),
+            "candidate_file_bytes": len(out),
+            "candidate_records": compiled["original_record_count"] + compiled["added_records"],
+            "root_members": compiled["root_members"],
+        },
+        "controller_queries": False,
+        "reason": TRANSFER_HOLD,
+    }
 
 
 def validate_review(plan):
@@ -172,6 +216,8 @@ def reconstruct(native, intent):
         or intent.get("sequence_observation_confirmed") is not True
     ):
         raise ValueError("The receipt does not contain a confirmed observation sequence.")
+    if intent["sequence_selection"].get("sampling_mode") not in (None, "elapsed-phase"):
+        raise ValueError("An offline-only sequence cannot be used as a field receipt.")
     _, files = native.storage.load(intent["backup_id"])
     output, report = compile_shadow(native, intent["identity"], intent["sequence_selection"], files)
     if (

@@ -1793,6 +1793,10 @@ class NativeApplications(
     ):
         if inline_kind is not None and inline_kind not in INLINE_OPERATIONS:
             raise ValueError("Unsupported native inline sequence operation.")
+        if inline_kind in (inline_shadow.KIND, inline_activation.KIND):
+            # Also retire one-use tokens issued before this image was withdrawn.
+            self.plans.pop(request.token, None)
+            raise ValueError(inline_shadow.TRANSFER_HOLD)
         inline_operation = INLINE_OPERATIONS.get(inline_kind)
         if (
             sum(

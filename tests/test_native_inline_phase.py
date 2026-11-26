@@ -6,16 +6,23 @@ from random import Random
 
 import pytest
 from bms_tool.moi_identity import MoiIdentity
-from bms_tool.native_inline_sequence import SPECS, InlineSequenceCompiler
+from bms_tool.native_inline_sequence import (
+    SPECS,
+    CompactInlineSequenceCompiler,
+    InlineSequenceCompiler,
+)
 
 from .test_native_inline_sequence import authored_source
 
 
 class PhasePeer:
-    def __init__(self):
+    def __init__(self, *, compact=False):
         source = authored_source()
-        compiler = InlineSequenceCompiler(
-            source, authored_source(catalog=True)[3], 200, phase_sampling=True
+        library = authored_source(catalog=True)[3]
+        compiler = (
+            CompactInlineSequenceCompiler(source, library, 200)
+            if compact
+            else InlineSequenceCompiler(source, library, 200, phase_sampling=True)
         )
         compiler.body()
         raw, report = compiler.export(shadow=True)
@@ -54,6 +61,13 @@ class PhasePeer:
             "Inline valid flow or zero": flow if healthy else 0,
             "Inline lesser of room and cap": demand,
         }
+        if "Inline long clock reading" in labels:
+            boundary.update(
+                {
+                    "Inline long clock reading": (3601 - sec % 3601) % 3601,
+                    "Inline long clock reliable": True,
+                }
+            )
         seeds = {labels[n]: v for n, v in boundary.items()}
         ready = labels["Inline complete timed history"]
         permit = labels["Inline final automatic permit"]
@@ -152,3 +166,53 @@ def test_elapsed_registers_cover_varying_flow_repeated_executions_and_faults():
     for t in range(190, 195):
         last = peer.run(t, 70, phase=(60 - 189 % 60) % 60)
     assert last == (0, False, 0)
+
+
+def test_compact_window_tracks_each_second_and_restarts_after_discontinuity():
+    peer = PhasePeer(compact=True)
+    samples = deque(maxlen=30)
+    random = Random(320)
+    for t in range(125):
+        value = random.randrange(48, 146)
+        samples.append(value)
+        mean, ready, valve = peer.run(t, value)
+        assert peer.run(t, value) == (mean, ready, valve)
+        assert ready == (t >= 31)
+        if ready:
+            assert mean == pytest.approx(sum(samples) / 30)
+            assert 0 < valve <= 100
+        else:
+            assert (mean, valve) == (0, 0)
+    # Missing one second, an entire odd/even pair, and stopping the clock
+    # all withdraw heat. Repeated evaluations cannot fill the window.
+    assert peer.run(126, 100) == (0, False, 0)
+    for t in range(127, 157):
+        assert peer.run(t, 100) == (0, False, 0)
+    assert peer.run(157, 100) == (100, True, 5)
+    assert peer.run(160, 100) == (0, False, 0)
+    for t in range(161, 191):
+        assert peer.run(t, 100)[2] == 0
+    assert peer.run(191, 100) == (100, True, 5)
+    assert peer.run(192, 100, healthy=False) == (0, False, 0)
+    for t in range(193, 223):
+        assert peer.run(t, 70) == (0, False, 0)
+    assert peer.run(223, 70) == (70, True, 5)
+    for t in range(224, 230):
+        stalled = peer.run(t, 70, phase=(60 - 223 % 60) % 60)
+    assert stalled == (0, False, 0)
+
+
+def test_compact_window_rejects_a_gap_aliasing_either_sampling_clock():
+    peer = PhasePeer(compact=True)
+    for sec in range(60):
+        peer.run(sec, 80)
+    assert peer.run(60, 80)[1]
+    sec = 60
+    for since_last in (61, 121, 3599, 3601, 3602, 7203):
+        sec += since_last
+        assert peer.run(sec, 80) == (0, False, 0)
+        for _ in range(30):
+            sec += 1
+            assert peer.run(sec, 80)[2] == 0
+        sec += 1
+        assert peer.run(sec, 80) == (80, True, 5)

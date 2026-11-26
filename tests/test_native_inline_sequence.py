@@ -1,15 +1,6 @@
 """Build a synthetic inline valve and typed primitive library without controller archives."""
 
-from types import MethodType
-
 import pytest
-from bacpypes3.apdu import ReadPropertyMultipleACK
-from bacpypes3.basetypes import (
-    ErrorType,
-    ReadAccessResult,
-    ReadAccessResultElement,
-    ReadAccessResultElementChoice,
-)
 from bacpypes3.primitivedata import (
     Boolean,
     CharacterString,
@@ -209,153 +200,122 @@ def test_complete_sequence_preserves_originals_and_proposes_only_two_control_edg
     )
 
 
-async def test_complete_shadow_uses_one_reviewed_native_transfer_and_preserves_old_valve(
-    native_link,
-):
+async def test_withdrawn_sequence_draft_stays_offline_and_old_tokens_cannot_dispatch(native_link):
+    from bms_tool import native_inline_activation as activation
+    from bms_tool import native_inline_shadow as shadow
+    from bms_tool.moi_identity import sha
+
     peer, _, _, service, target = native_link
-    # The full-size peer parses the committed image before acknowledging. Exercise the
-    # shipping service's wire timeout; the tiny identity-fixture timeout is 100 ms.
-    service.files.timeout = 4
     observation_peer(peer, "")
     peer.files = authored_source(catalog=True)
     donor = await service.capture(**target, operation_id="capture-primitives")
     peer.files = authored_source()
     cap = await service.capture(**target, operation_id="capture-field")
-    original = peer.do_ReadPropertyRequest
-    from bacpypes3.apdu import ReadPropertyACK
-    from bacpypes3.constructeddata import Any
-
-    async def read(self, req):
-        if int(req.propertyIdentifier) == 76 and req.propertyArrayIndex == 0:
-            await self.response(
-                ReadPropertyACK(
-                    context=req,
-                    objectIdentifier=req.objectIdentifier,
-                    propertyIdentifier=req.propertyIdentifier,
-                    propertyArrayIndex=0,
-                    propertyValue=Any(Unsigned(110)),
-                )
-            )
-        else:
-            await original(req)
-
-    async def multiple(self, req):
-        results = [
-            ReadAccessResult(
-                objectIdentifier=row.objectIdentifier,
-                listOfResults=[
-                    ReadAccessResultElement(
-                        propertyIdentifier=75,
-                        readResult=ReadAccessResultElementChoice(
-                            propertyAccessError=ErrorType(
-                                errorClass="object", errorCode="unknown-object"
-                            )
-                        ),
-                    )
-                ],
-            )
-            for row in req.listOfReadAccessSpecs
-        ]
-        await self.response(ReadPropertyMultipleACK(context=req, listOfReadAccessResults=results))
-
-    peer.do_ReadPropertyRequest = MethodType(read, peer)
-    peer.do_ReadPropertyMultipleRequest = MethodType(multiple, peer)
     options = ShadowReview(
         **target,
-        operation_id="review-shadow",
+        operation_id="draft-application",
         capture_id=cap["id"],
         snapshot_sha256=cap["snapshot_evidence_sha256"],
         first_instance=200,
         prototype_capture_id=donor["id"],
         prototype_sha256=donor["snapshot_evidence_sha256"],
     )
-    plan = await review(service, options)
-    assert plan["live_review"]["confirmed_absent"] == plan["compilation"]["added_records"]
-    req = ShadowApply(
-        operation_id="apply-shadow",
-        token=plan["token"],
-        review_sha256=plan["review_sha256"],
-        sequence_observation_confirmed=True,
-        application_transfer_confirmed=True,
-    )
-    receipt = await service.apply_reviewed(
-        req, default_edit=False, inline_kind="inline-sequence-observe"
-    )
-    assert receipt["result"]["status"] == "verified", receipt["result"].get("errors")
-    assert receipt["result"]["preservation"]["existing_control_connections_preserved"]
-    assert peer.events.count(("state", "start-restore")) == 1
-
-    # Use the actual guarded capture and the verified observation receipt to change
-    # exactly the two source wires. The authored station supplies its own runtime
-    # values on UDP; a cold valve is the correct output for this zero-flow case.
-    from time import monotonic
-
-    from bms_tool import native_inline_activation as activation
-
-    current, files = service.storage.load(receipt["result"]["verification_capture_id"])
-    local_target = service.target(options)
-    _, proposal = activation.prepare(
-        service, current["identity"], files, receipt["intent"]["id"], local_target
-    )
-    with pytest.raises(ValueError, match="station"):
-        activation.prepare(
-            service,
-            current["identity"],
-            files,
-            receipt["intent"]["id"],
-            {**local_target, "address": "another-station"},
-        )
-    by_id = {oid: name for name, (oid, _) in proposal["selectors"].items()}
-
-    async def running(self, request):
-        results = []
-        for spec in request.listOfReadAccessSpecs:
-            name = by_id[str(spec.objectIdentifier)]
-            vals = {
-                "ready": Boolean(True),
-                "permit": Boolean(False),
-                "threshold": Real(30),
-                "limit": Real(125),
-                "count": Real(30),
-                "duct": Real(64),
-                "clock_witness": Real(59 - int(monotonic()) % 60),
-            }
-            fields = [
-                ReadAccessResultElement(
-                    propertyIdentifier=p,
-                    readResult=ReadAccessResultElementChoice(propertyValue=Any(v)),
-                )
-                for p, v in ((85, vals.get(name, Real(0))), (103, Enumerated(0)))
-            ]
-            results.append(
-                ReadAccessResult(objectIdentifier=spec.objectIdentifier, listOfResults=fields)
-            )
-        await self.response(
-            ReadPropertyMultipleACK(context=request, listOfReadAccessResults=results)
-        )
-
-    peer.do_ReadPropertyMultipleRequest = MethodType(running, peer)
+    await service.bacnet.disconnect()
+    before = list(peer.events)
+    draft = await review(service, options)
+    assert draft["can_apply"] is draft["controller_queries"] is False
+    assert "token" not in draft and not service.plans
+    assert draft["compilation"]["old_wires_replaced"] == 0
+    assert draft["sizing"]["candidate_native_bytes"] > draft["sizing"]["original_native_bytes"]
+    with pytest.raises(ValueError, match="exact target"):
+        await review(service, options.model_copy(update={"device": "device,987"}))
+    with pytest.raises(ValueError, match="exact target"):
+        await review(service, options.model_copy(update={"snapshot_sha256": "0" * 64}))
+    with pytest.raises(ValueError, match="same model"):
+        await review(service, options.model_copy(update={"prototype_sha256": "0" * 64}))
     active = activation.ActivationReview(
         **target,
         operation_id="review-valve",
-        capture_id=current["id"],
-        snapshot_sha256=current["evidence_sha256"],
-        observation_receipt_id=receipt["intent"]["id"],
+        capture_id=cap["id"],
+        snapshot_sha256=cap["snapshot_evidence_sha256"],
+        observation_receipt_id="a" * 32,
     )
-    plan = await activation.review(service, active)
-    active_req = activation.ActivationApply(
-        operation_id="enable-valve",
-        token=plan["token"],
-        review_sha256=plan["review_sha256"],
-        valve_connection_confirmed=True,
-        application_transfer_confirmed=True,
+    with pytest.raises(ValueError, match="off-equipment"):
+        await activation.review(service, active)
+    for kind, req in (
+        (
+            shadow.KIND,
+            ShadowApply(
+                operation_id="old-observation",
+                token="a" * 32,
+                review_sha256="b" * 64,
+                sequence_observation_confirmed=True,
+                application_transfer_confirmed=True,
+            ),
+        ),
+        (
+            activation.KIND,
+            activation.ActivationApply(
+                operation_id="old-activation",
+                token="c" * 32,
+                review_sha256="d" * 64,
+                valve_connection_confirmed=True,
+                application_transfer_confirmed=True,
+            ),
+        ),
+    ):
+        service.plans[req.token] = {"digest": req.review_sha256, "body": {"can_apply": True}}
+        with pytest.raises(ValueError, match="off-equipment"):
+            await service.apply_reviewed(req, default_edit=False, inline_kind=kind)
+        assert req.token not in service.plans
+    assert before == peer.events
+
+    # Historical images can still be reconstructed and verified from a sealed journal.
+    _, files = service.storage.load(cap["id"])
+    historical_selection = {**draft["selection"], "sampling_mode": "elapsed-phase"}
+    raw, report = shadow.compile_shadow(service, cap["identity"], historical_selection, files)
+    parent = service.storage.intent(
+        {
+            "id": "e" * 32,
+            "identity": cap["identity"],
+            "target": cap["target"],
+            "change_kind": shadow.KIND,
+            "operation_profile": shadow.PROFILE,
+            "backup_id": cap["id"],
+            "compilation": report,
+            "sequence_selection": historical_selection,
+            "sequence_observation_confirmed": True,
+            "payload_sha256": sha(raw),
+            "native_payload_sha256": sha(MoiIdentity(raw).data),
+        }
     )
-    receipt = await service.apply_reviewed(
-        active_req, default_edit=False, inline_kind=activation.KIND
+    with pytest.raises(ValueError, match="offline-only"):
+        shadow.reconstruct(service, {**parent, "sequence_selection": draft["selection"]})
+    after = {**files, 3: raw}
+    verified = shadow.verify(service, parent, after)
+    service.storage.finish(
+        parent["id"],
+        {
+            "status": "verified",
+            "operational": True,
+            "intent_sha256": parent["evidence_sha256"],
+            "preservation": verified,
+        },
     )
-    assert receipt["result"]["status"] == "verified", receipt["result"].get("errors")
-    assert receipt["result"]["preservation"]["control_connections_changed"] == 2
-    assert peer.events.count(("state", "start-restore")) == 2
+    enabled, proposal = activation.prepare(
+        service, cap["identity"], after, parent["id"], cap["target"]
+    )
+    assert enabled != raw and len(proposal["selectors"]) >= 10
+    assert len(report["control_edges"]) == 2 and verified["existing_control_connections_preserved"]
+    with pytest.raises(ValueError, match="station"):
+        activation.prepare(
+            service,
+            cap["identity"],
+            after,
+            parent["id"],
+            {**cap["target"], "address": "different-station"},
+        )
+    assert before == peer.events
 
 
 def observations():

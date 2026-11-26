@@ -272,7 +272,9 @@ async def guard(native, session, identity, compiled):
 
 
 async def review(native, options):
-    return await monitor.review(native, options, activation=True)
+    from .native_inline_shadow import TRANSFER_HOLD
+
+    raise ValueError(TRANSFER_HOLD)
 
 
 def validate_review(plan):
