@@ -20,6 +20,11 @@ data models do not inherit that declaration. An unknown property or mismatched
 application datatype blocks capture eligibility and transfer review before a
 restore can begin. Original application and PSS files remain available locally.
 
+For ACS/DMCS 62/62, the analog output class (241) stores its minimum and
+maximum output settings (652 and 653) as BACnet Real values. A reversed
+output range can have a maximum of zero. The qualifier checks the tag even
+when an integer would have the same numeric value.
+
 The storage merger remains independently usable for local analysis. Its ability
 to decode a saved slot does not grant field-transfer eligibility. Identity,
 point-name, Real/Boolean-default and wire-source transfers all enforce the same
