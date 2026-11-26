@@ -8,6 +8,10 @@ remains separate: a recorded permission denial continues to block that method.
 
 ## Operator workflow
 
+Commissioning an inline heating interlock uses a dedicated source-bound review and
+checks the valve's automatic output below the commissioned airflow threshold.
+[Inline hot-water reheat airflow interlock](native-inline-airflow.md)
+
 1. Open and verify the controller through its exact IPv4 endpoint or router,
    network and station. Stop owned commands, field polling and COV monitoring.
 2. Choose **Connected application transfer** in the instance editor. Configure

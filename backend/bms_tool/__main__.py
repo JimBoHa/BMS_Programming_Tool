@@ -18,6 +18,18 @@ def main():
     serve.add_argument("--port", type=int, default=8765)
     serve.add_argument("--data")
     serve.add_argument("--open-browser", action="store_true")
+    gate = sub.add_parser(
+        "inline-heat-gate", help="Review a native inline heating permissive in a local backup"
+    )
+    gate.add_argument("application", type=Path)
+    gate.add_argument("static", type=Path)
+    gate.add_argument("dynamic", type=Path)
+    for option in ("diagram", "pressure", "flow", "enable", "passthrough", "valve"):
+        gate.add_argument("--" + option, required=True)
+    gate.add_argument("--threshold-cfm", type=float, required=True)
+    gate.add_argument("--first-instance", type=int, default=3_000_000)
+    gate.add_argument("--output", type=Path)
+    gate.add_argument("--review-sha256")
     for name in ("validate", "simulate", "export", "caf"):
         p = sub.add_parser(name)
         p.add_argument("file", type=Path)
@@ -52,6 +64,10 @@ def main():
 
             threading.Timer(1.5, lambda: webbrowser.open(f"http://127.0.0.1:{args.port}")).start()
         uvicorn.run(create_app(args.data), host="127.0.0.1", port=args.port, access_log=False)
+    elif args.command == "inline-heat-gate":
+        from .native_inline_heat import local_copy
+
+        print(json.dumps(local_copy(args), indent=2))
     elif args.command == "caf":
         print(json.dumps(CafArchive(args.file.read_bytes()).summary(), indent=2))
     else:

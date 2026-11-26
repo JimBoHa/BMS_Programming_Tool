@@ -15,6 +15,7 @@ from fastapi import APIRouter, Response
 from pydantic import Field, SecretStr, StrictBool, field_validator
 
 from . import native_inline_activation as inline_activation
+from . import native_inline_heat_transfer as inline_heat
 from . import native_inline_monitor_transfer as inline_monitor
 from . import native_inline_shadow as inline_shadow
 from .application_files import ApplicationFiles
@@ -1445,6 +1446,7 @@ class NativeApplications(
             "input",
             "application-restore",
             *INLINE_OPERATIONS,
+            "inline-heat",
         ):
             raise ValueError("Unrecognized native transfer operation; retain its evidence.")
         boolean_edit = change_kind == "boolean-default"
@@ -1459,8 +1461,12 @@ class NativeApplications(
         input_edit = change_kind == "input"
         inline_operation = INLINE_OPERATIONS.get(change_kind)
         snapshot_restore = change_kind == "application-restore"
+        inline_edit = change_kind == "inline-heat"
+        if inline_edit and intent.get("operation_profile") != inline_heat.PROFILE:
+            raise ValueError("Unsupported inline reheat commissioning receipt.")
         program_edit = (
-            snapshot_restore
+            inline_edit
+            or snapshot_restore
             or inline_operation is not None
             or default_edit
             or wire_edit
@@ -1634,6 +1640,8 @@ class NativeApplications(
                 result["preservation"] = (
                     inline_operation.verify(self, intent, files)
                     if inline_operation
+                    else inline_heat.verify_inline(original_files, files, intent["inline_edit"])
+                    if inline_edit
                     else verify_snapshot_restore(self.storage, intent, files)
                     if snapshot_restore
                     else verify_batch_preservation(
@@ -1692,6 +1700,10 @@ class NativeApplications(
                         )
                     )
                 )
+                if inline_edit:
+                    result["inline_operating_state"] = await inline_heat.installed_state(
+                        self, session, intent, files
+                    )
                 if point_name_edit:
                     edit = PointNameEdit(**intent["point_name_edit"])
                     name = await self.path._read(session, edit.object_id, "object-name")
@@ -1777,6 +1789,7 @@ class NativeApplications(
         batch_edit=False,
         snapshot_restore=False,
         inline_kind=None,
+        inline_edit=False,
     ):
         if inline_kind is not None and inline_kind not in INLINE_OPERATIONS:
             raise ValueError("Unsupported native inline sequence operation.")
@@ -1794,6 +1807,7 @@ class NativeApplications(
                     bool(batch_edit),
                     bool(snapshot_restore),
                     bool(inline_operation),
+                    bool(inline_edit),
                 )
             )
             > 1
@@ -1802,7 +1816,8 @@ class NativeApplications(
         ):
             raise ValueError("Choose one native transfer operation.")
         program_edit = (
-            snapshot_restore
+            inline_edit
+            or snapshot_restore
             or inline_operation is not None
             or default_edit
             or wire_edit
@@ -1823,6 +1838,8 @@ class NativeApplications(
         expected_kind = (
             inline_kind
             if inline_operation
+            else "inline-heat"
+            if inline_edit
             else "application-restore"
             if snapshot_restore
             else "default-batch"
@@ -1849,6 +1866,8 @@ class NativeApplications(
             raise ValueError("This review belongs to a different native transfer operation.")
         if inline_operation:
             inline_operation.validate_review(plan)
+        if inline_edit:
+            inline_heat.validate_review(plan)
         if snapshot_restore:
             if seal(plan["body"]) != plan["digest"]:
                 raise ValueError("The exact retained application restore review changed.")
@@ -1945,6 +1964,7 @@ class NativeApplications(
             or (batch_edit and not request.defaults_change_confirmed)
             or (snapshot_restore and not request.historical_application_confirmed)
             or (inline_operation and not getattr(request, inline_operation.CONFIRMATION))
+            or (inline_edit and not request.inline_heat_confirmed)
             or (wire_edit and not request.wire_change_confirmed)
             or (order_edit and not request.order_change_confirmed)
             or (connection_edit and not request.connection_change_confirmed)
@@ -1981,6 +2001,8 @@ class NativeApplications(
                 collision = (
                     inline_operation.scope()
                     if inline_operation
+                    else self.name_scope()
+                    if inline_edit
                     else self.restore_scope()
                     if snapshot_restore
                     else self.default_scope()
@@ -2030,6 +2052,8 @@ class NativeApplications(
                     output, compilation = (
                         inline_operation.fresh_compile(self, body, files)
                         if inline_operation
+                        else inline_heat.compile_fresh(self, body, files)
+                        if inline_edit
                         else reconstruct_snapshot_restore(self.storage, body, files)
                         if snapshot_restore
                         else compile_batch_defaults(
@@ -2134,6 +2158,8 @@ class NativeApplications(
                         await inline_operation.guard(self, session, actual, compilation)
                     if input_edit:
                         await self.input_live_guard(session, options, compilation, files)
+                    if inline_edit:
+                        await inline_heat.live_review(self, session, options, actual, compilation)
                     # A concurrent import can use the space observed before the fresh backup.
                     self.storage.require_capture_capacity()
                     # Durable payload and original backup exist before the first restore request.
@@ -2151,7 +2177,7 @@ class NativeApplications(
                         )
                     recovery = (
                         {}
-                        if snapshot_restore or inline_operation
+                        if snapshot_restore or inline_edit or inline_operation
                         else batch_recovery_origin(self, options, compilation)
                         if batch_edit
                         else {}
@@ -2217,6 +2243,12 @@ class NativeApplications(
                                     inline_operation.CONFIRMATION: True,
                                 }
                                 if inline_operation
+                                else {
+                                    "operation_profile": inline_heat.PROFILE,
+                                    "inline_edit": body["inline_edit"],
+                                    "inline_heat_confirmed": True,
+                                }
+                                if inline_edit
                                 else {}
                             ),
                             **(
@@ -2452,6 +2484,15 @@ def native_application_router(service):
     )
 
     router = APIRouter(prefix="/api/bacnet/controller/native-application")
+
+    @router.post("/inline-heat/review")
+    async def review_inline_heat(body: inline_heat.InlineReview):
+        return await inline_heat.preview(service, body)
+
+    @router.post("/inline-heat/apply")
+    async def apply_inline_heat(body: inline_heat.InlineApply):
+        return await service.apply_reviewed(body, default_edit=False, inline_edit=True)
+
     library = NativeBackupLifecycle(service.storage)
     integrity = NativeBackupIntegrity(service.storage)
 
