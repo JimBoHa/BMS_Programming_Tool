@@ -1490,8 +1490,7 @@ class NativeApplications(
                 raise ValueError("Unsupported native order evidence version; retain it.")
             validate_order_evidence(intent.get("order_edit"), intent.get("order_guard"))
             validate_order_lineage(intent)
-        if inline_operation:
-            inline_operation.reconstruct(self, intent)
+        inline_image = inline_operation.reconstruct(self, intent) if inline_operation else None
         if snapshot_restore:
             reconstruct_snapshot_restore_intent(self.storage, intent)
         if connection_edit:
@@ -1548,6 +1547,24 @@ class NativeApplications(
         identity = observed.get("identity")
         if program_edit and identity is not None and identity != intent["identity"]:
             result["error"] = "Controller identity changed during the native application transfer."
+            if inline_operation is inline_shadow:
+                from .native_application_start_failure import inspect_failed_start
+
+                failure = await inspect_failed_start(self, session, intent, identity, inline_image)
+                if failure is not None:
+                    result["application_start"] = failure
+                    result["read_only"] = True
+                    result["backup_effects"] = {
+                        **backup_effects(),
+                        "scope": "acknowledged image readback after a failed application start",
+                        "possible_state_commands": [],
+                        "file_reads": [3],
+                    }
+                    if failure["status"] == "image_present_application_not_running":
+                        result["error"] = (
+                            "The controller retains the acknowledged image and reports no running "
+                            "application. Its original recovery image is available."
+                        )
             return result
         if identity is not None:
             try:

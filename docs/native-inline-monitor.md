@@ -45,6 +45,19 @@ downloads and valve activations for this sequence are disabled on the server.
 Existing diagnostic receipts can still be reconstructed, read back and used
 for recovery.
 
+If a legacy observation receipt is pending after the controller acknowledges
+the transfer and reports no application, submit its `receipt_id` and a fresh
+`operation_id` to the native application API's `/readback` endpoint. On the
+matching model, firmware and route, BMS Tool compares each byte of the
+acknowledged image with the controller archive and checks the controller
+identity and last restore time again. A full match returns
+`image_present_application_not_running`, the number of bytes compared and
+the verified original capture and export digests. The existing
+`/application-restore/source` and `/application-restore/export` endpoints
+can use that capture to verify and save the original locally. Readback leaves the
+receipt pending. A missing acknowledgement, a changed identity or an
+incomplete match leaves the startup diagnosis unconfirmed.
+
 Open the local draft with `inline-sequence/observe/review`. Supply the target's
 retained capture and a verified primitive-library capture from the same model
 and firmware, including their snapshot digests. The response contains the
@@ -59,10 +72,11 @@ disconnected. It returns `can_apply: false` and issues no transfer token.
 
 The draft takes one corroborated airflow sample per elapsed second. Thirty
 registers hold the rolling history. Two timers with different periods check
-that the clock advances in order, including across a missed minute. Invalid airflow data or timing restarts airflow proof. An invalid discharge
-reading also inhibits heat. The
-valve can reopen by up to five percentage points per second. Independent
-simulation exercises these connections and the discharge limit.
+that the clock advances in order, including across a missed minute. Invalid
+airflow data or timing restarts airflow proof. An invalid discharge reading
+also inhibits heat. The valve can reopen by up to five percentage points per
+second. Independent simulation exercises these connections and the discharge
+limit.
 
 Further field qualification requires a matching off-equipment controller or
 firmware simulator. Verify startup, the complete sample window with changing
