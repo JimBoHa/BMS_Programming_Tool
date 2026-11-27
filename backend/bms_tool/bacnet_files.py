@@ -43,12 +43,14 @@ from bacpypes3.primitivedata import Boolean, CharacterString, ObjectIdentifier, 
 
 from .bacnet_exchange import confirmed_exchange
 from .file_access import file_lock, open_regular, regular_file, storage_profile, sync_directory
+from .hardware_survey import read_fields
 
 PROFILE = "bacnet-opaque-file/1"
 SCOPE = "Existing BACnet File object bytes only; not CAF conversion or a coherent native application backup."
 MAX_BYTES = 2 * 1024 * 1024
 MAX_FILES = 16
 MAX_OBJECTS = 512
+MAX_ARRAY_READ_OBJECTS = 85
 MAX_RECORDS = 4096
 MAX_PAGES = 8192
 MAX_CAPTURES = 32
@@ -249,6 +251,42 @@ class BacnetFiles:
             files.append(identifier)
         return files
 
+    async def _large_object_list(self, session, device, count, maximum):
+        # Leave room for the response envelope and a two-byte index on each value.
+        page_size = max(1, min(20, (maximum - 32) // 16))
+        values = []
+        for first in range(1, count + 1, page_size):
+            indices = range(first, min(first + page_size, count + 1))
+            if page_size == 1 or session.get("single_file_directory_reads"):
+                values.extend(
+                    [
+                        await self._property(session, device, "object-list", ObjectIdentifier, i)
+                        for i in indices
+                    ]
+                )
+                continue
+            fields = [("object-list", i, ObjectIdentifier) for i in indices]
+            rows = await read_fields(self, session, device, fields)
+            for row in rows:
+                if "rpm_fallback_reason" in row:
+                    # read_fields already retried these exact indices individually.
+                    session["single_file_directory_reads"] = True
+                if "error" in row:
+                    if (
+                        "rpm_fallback_reason" in row
+                        or row["error"] != "services/optional-functionality-not-supported"
+                    ):
+                        raise ValueError(f"BACnet object-list index {row['index']}: {row['error']}")
+                    # Some peers accept ReadProperty but reject array elements in RPM.
+                    session["single_file_directory_reads"] = True
+                    value = await self._property(
+                        session, device, "object-list", ObjectIdentifier, row["index"]
+                    )
+                else:
+                    value = ObjectIdentifier(row["value"])
+                values.append(value)
+        return values
+
     async def _advertised_files(self, session, device, configuration_files, maximum):
         if configuration_files:
             return list(configuration_files), None, None
@@ -259,13 +297,16 @@ class BacnetFiles:
                 "profile. Use object inventory to identify File objects; no guessed selection is made."
             )
         local_maximum = int(session["app"].device_object.maxApduLengthAccepted)
-        array_limit = min(85, max(0, (min(local_maximum, maximum) - 32) // 5))
+        maximum = min(local_maximum, maximum)
+        array_limit = min(MAX_ARRAY_READ_OBJECTS, max(0, (maximum - 32) // 5))
         if count <= array_limit:
             values = list(
                 await self._property(session, device, "object-list", ArrayOf(ObjectIdentifier))
             )
             if len(values) != count:
                 raise ValueError("Device object-list array length differs from its original count.")
+        elif count > MAX_ARRAY_READ_OBJECTS:
+            values = await self._large_object_list(session, device, count, maximum)
         else:
             values = [
                 await self._property(session, device, "object-list", ObjectIdentifier, index)
