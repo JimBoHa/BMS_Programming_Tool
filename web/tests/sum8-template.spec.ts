@@ -1,4 +1,8 @@
 import {
+  chooseWorkspaceSurface,
+  openGraphSimulation,
+} from "./workspace-navigation";
+import {
   test,
   expect,
   simulationServerResponseJSON,
@@ -32,7 +36,7 @@ function pythonSource(script: string, body: Buffer | string) {
   });
 }
 async function load(page: Page, body: Buffer) {
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Workspace");
   await page.locator('input[type=file][accept*=".st"]').setInputFiles({
     name: "sum-source.json",
     mimeType: "application/json",
@@ -57,7 +61,7 @@ async function openSeed(page: Page, unit: string) {
     { cwd: root, env: environment() },
   );
   await load(page, body);
-  await page.getByRole("button", { name: "Macros", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Library");
   const card = page.getByRole("region", {
     name: "Eight-input sum template",
     exact: true,
@@ -153,7 +157,7 @@ async function imported(page: Page, card: Locator) {
   return raw;
 }
 async function exportEditor(page: Page) {
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Workspace");
   await page.getByLabel("Export format", { exact: true }).selectOption("json");
   const waiting = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export", exact: true }).click();
@@ -217,7 +221,7 @@ for (const unit of units)
         .getByRole("button", { name: "Add instance to program", exact: true })
         .click(),
     );
-    await page.getByRole("button", { name: "Program", exact: true }).click();
+    await chooseWorkspaceSurface(page, "Workspace");
     const graph = projectedSourceFixture(JSON.parse(added.toString())),
       instance = graph.nodes.find((n: any) => n.kind === "Macro");
     expect(instance.params.definition).toBe(report.data.definition_id);
@@ -233,6 +237,7 @@ for (const unit of units)
         added,
       );
       await load(page, wired);
+      await openGraphSimulation(page);
       const waiting = page.waitForResponse(
         (r) => new URL(r.url()).pathname === "/api/simulation/step",
       );
@@ -266,9 +271,7 @@ for (const unit of units)
         simulationServerResponseText(fault),
       );
       const saved = await capture(page, "/api/projects", () =>
-        page
-          .getByRole("button", { name: "Save revision", exact: true })
-          .click(),
+        page.getByRole("button", { name: "Save project", exact: true }).click(),
       );
       const savedProgram = projectedSourceFixture(JSON.parse(saved.toString()));
       expect(savedProgram.revision).toBe(1);
@@ -340,7 +343,7 @@ for (const kind of [
       before: Buffer | undefined;
     if (kind.startsWith("import")) {
       before = await exportEditor(page);
-      await page.getByRole("button", { name: "Macros", exact: true }).click();
+      await chooseWorkspaceSurface(page, "Library");
       card = page.getByRole("region", {
         name: "Eight-input sum template",
         exact: true,
@@ -378,9 +381,7 @@ for (const kind of [
           .getByLabel("Program name", { exact: true })
           .fill("Changed current source");
       else if (kind === "import-unmount")
-        await page
-          .getByRole("button", { name: "Program", exact: true })
-          .click();
+        await chooseWorkspaceSurface(page, "Workspace");
       else
         await card
           .getByRole("button", {
@@ -394,7 +395,7 @@ for (const kind of [
         const refreshed = page.waitForResponse(
           (r) => new URL(r.url()).pathname === "/api/macros/catalog",
         );
-        await page.getByRole("button", { name: "Macros", exact: true }).click();
+        await chooseWorkspaceSurface(page, "Library");
         await refreshed;
         card = page.getByRole("region", {
           name: "Eight-input sum template",
@@ -493,7 +494,7 @@ test("a conflicting edited definition is refused by the existing import API with
   );
   await load(page, seed);
   const before = await exportEditor(page);
-  await page.getByRole("button", { name: "Macros", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Library");
   const card = page.getByRole("region", {
     name: "Eight-input sum template",
     exact: true,
@@ -614,7 +615,7 @@ print('exact source-only definition retained before attempted import')`,
         difference,
       }),
     );
-    await page.getByRole("button", { name: "Macros", exact: true }).click();
+    await chooseWorkspaceSurface(page, "Library");
     const card = page.getByRole("region", {
       name: "Eight-input sum template",
       exact: true,

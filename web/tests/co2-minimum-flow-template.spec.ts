@@ -1,4 +1,8 @@
 import {
+  chooseWorkspaceSurface,
+  openGraphSimulation,
+} from "./workspace-navigation";
+import {
   test,
   expect,
   simulationServerResponseJSON,
@@ -41,7 +45,7 @@ print(p.model_dump_json())`,
   );
 }
 async function load(page: Page, body: Buffer) {
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Workspace");
   await page.locator('input[type=file][accept*=".st"]').setInputFiles({
     name: "co2-source.json",
     mimeType: "application/json",
@@ -52,7 +56,7 @@ async function load(page: Page, body: Buffer) {
   );
 }
 async function macros(page: Page) {
-  await page.getByRole("button", { name: "Macros", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Library");
   const card = page.getByRole("region", {
     name: "CO2 minimum-airflow template",
     exact: true,
@@ -121,7 +125,8 @@ async function preview(page: Page, card: Locator) {
   return { raw, data: value(raw) };
 }
 async function exported(page: Page) {
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  if (!(await page.getByLabel("Export format", { exact: true }).isVisible()))
+    await chooseWorkspaceSurface(page, "Workspace");
   await page.getByLabel("Export format", { exact: true }).selectOption("json");
   const pending = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export", exact: true }).click();
@@ -130,7 +135,7 @@ async function exported(page: Page) {
   return raw;
 }
 async function step(page: Page) {
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await openGraphSimulation(page);
   const pending = page.waitForResponse(
     (r) =>
       new URL(r.url()).pathname === "/api/simulation/step" &&
@@ -261,7 +266,7 @@ async function placed(page: Page, id: string, graphical = false) {
     instance = p.nodes.find((n: any) => n.kind === "Activity").id;
   expect(p.metadata.macros.definitions[0].id).toBe(id);
   if (graphical) {
-    await page.getByRole("button", { name: "Program", exact: true }).click();
+    await chooseWorkspaceSurface(page, "Workspace");
     const actor = page.locator(`.react-flow__node[data-id="${instance}"]`);
     for (const port of [
       "co2",
@@ -350,7 +355,7 @@ for (const [unit, scan] of [
     expect(saves).toBe(0);
     expect(dialogs).toBe(0);
     await placed(page, p.data.definition_id, unit === "cfm");
-    await page.getByRole("button", { name: "Program", exact: true }).click();
+    await openGraphSimulation(page);
     await set(page, "co2", "900");
     const f = 0.4719474432;
     expect((await step(page)).last.outputs).toEqual({
@@ -379,9 +384,7 @@ v=json.load(sys.stdin);p=Program.model_validate_json(v['program']);assert all(im
     );
     await retain("independent-source-interchange", checked);
     const saved = await capture(page, "/api/projects", () =>
-        page
-          .getByRole("button", { name: "Save revision", exact: true })
-          .click(),
+        page.getByRole("button", { name: "Save project", exact: true }).click(),
       ),
       data = value(saved);
     expect(data.revision).toBe(1);
@@ -401,7 +404,7 @@ test("live endpoint changes invalid hold repair and extreme finite samples stay 
   page,
 }) => {
   await open(page, true);
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await openGraphSimulation(page);
   await set(page, "co2", "900");
   expect((await step(page)).last.outputs).toEqual({ flow0: 625, valid0: true });
   await set(page, "co2_reset_b", "800");
@@ -432,7 +435,7 @@ test("first bad quality preserves empty startup invalid first commit zero and la
   page,
 }) => {
   await open(page, true);
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await openGraphSimulation(page);
   await page
     .getByLabel("Quality co2", { exact: true })
     .selectOption("open-circuit");
@@ -465,7 +468,7 @@ test("terminal output force does not rewrite retained unforced selected airflow"
   page,
 }) => {
   await open(page, true);
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await openGraphSimulation(page);
   await set(page, "co2", "900");
   await step(page);
   const source = await exported(page),
@@ -627,10 +630,7 @@ for (const kind of [
         await page
           .getByLabel("Program name", { exact: true })
           .fill("Newer source");
-      else
-        await page
-          .getByRole("button", { name: "Program", exact: true })
-          .click();
+      else await chooseWorkspaceSurface(page, "Workspace");
     } finally {
       await gate.release();
     }

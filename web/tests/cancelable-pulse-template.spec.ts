@@ -1,4 +1,8 @@
 import {
+  chooseWorkspaceSurface,
+  openGraphSimulation,
+} from "./workspace-navigation";
+import {
   test,
   expect,
   simulationServerResponseJSON,
@@ -31,7 +35,7 @@ function source(script: string, body: Buffer | string) {
   });
 }
 async function load(page: Page, body: Buffer) {
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Workspace");
   await page.locator('input[type=file][accept*=".st"]').setInputFiles({
     name: "pulse-source.json",
     mimeType: "application/json",
@@ -56,7 +60,7 @@ async function open(page: Page, scan = 1) {
   return macros(page);
 }
 async function macros(page: Page) {
-  await page.getByRole("button", { name: "Macros", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Library");
   const card = page.getByRole("region", {
     name: "Cancelable pulse template",
     exact: true,
@@ -110,7 +114,7 @@ async function preview(page: Page, card: Locator, duration = 5, scan = 1) {
   return { raw, data: projectedSourceFixture(JSON.parse(raw.toString())) };
 }
 async function exportedEditor(page: Page) {
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Workspace");
   await page.getByLabel("Export format", { exact: true }).selectOption("json");
   const waiting = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export", exact: true }).click();
@@ -238,6 +242,7 @@ for (const [duration, scan] of [
       added,
     );
     await load(page, wired);
+    await openGraphSimulation(page);
     await page.getByLabel("Simulate request", { exact: true }).check();
     let row = await step(page);
     expect(row.last.outputs).toEqual({ pulse_result: true });
@@ -288,9 +293,7 @@ for (const [duration, scan] of [
     );
     if (duration === 5) {
       const saved = await capture(page, "/api/projects", () =>
-        page
-          .getByRole("button", { name: "Save revision", exact: true })
-          .click(),
+        page.getByRole("button", { name: "Save project", exact: true }).click(),
       );
       const p = projectedSourceFixture(JSON.parse(saved.toString()));
       expect(p.revision).toBe(1);
@@ -355,9 +358,7 @@ for (const kind of [
           .getByLabel("Program name", { exact: true })
           .fill("Changed pulse source");
       else if (kind === "import-unmount")
-        await page
-          .getByRole("button", { name: "Program", exact: true })
-          .click();
+        await chooseWorkspaceSurface(page, "Workspace");
       else
         await card
           .getByRole("button", {
@@ -442,7 +443,7 @@ test("parent clock and blank or nonaligned declarations refuse before preview th
   expect(previews).toBe(0);
   await preview(page, card, 6, 3);
   expect(previews).toBe(1);
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Workspace");
   await page.getByTitle("Program settings", { exact: true }).click();
   await page.getByLabel("Scan interval (seconds)", { exact: true }).fill("2");
   await page.getByLabel("Close settings", { exact: true }).click();

@@ -1,3 +1,9 @@
+import {
+  chooseWorkspaceSurface,
+  chooseWorkspaceTask,
+  chooseWorkspaceTool,
+  openGraphSimulation,
+} from "./workspace-navigation";
 import { simulationServerResponseText } from "./simulationFixture";
 import {
   test,
@@ -56,6 +62,7 @@ async function seed(
 }
 async function open(page: Page, id: string) {
   await page.goto("/");
+  await chooseWorkspaceSurface(page, "Workspace");
   await page.getByLabel("Open saved project", { exact: true }).selectOption(id);
   await expect(page.locator(".validation-bar")).toContainText("r1");
   await page.getByTitle("Fit view", { exact: true }).click();
@@ -91,9 +98,8 @@ for (const [name, expression] of [
     const pending = page.waitForResponse((r) =>
       r.url().endsWith("/api/conformance/catalog"),
     );
-    await page
-      .getByRole("button", { name: "Conformance tests", exact: true })
-      .click();
+    await chooseWorkspaceTask(page, "Changes");
+    await chooseWorkspaceTool(page, "Validate graph");
     const catalog = await (await pending).json();
     expect(catalog.template.program_sha256).toBe(seeded.digest);
     expect(catalog.saved).toHaveLength(1);
@@ -101,9 +107,9 @@ for (const [name, expression] of [
       page.getByLabel("Saved conformance suites", { exact: true }),
     ).toContainText("Exact source criteria");
     await page.reload();
-    await page
-      .getByRole("button", { name: "Conformance tests", exact: true })
-      .click();
+    await chooseWorkspaceSurface(page, "Workspace");
+    await chooseWorkspaceTask(page, "Changes");
+    await chooseWorkspaceTool(page, "Validate graph");
     await expect(
       page.getByLabel("Saved conformance suites", { exact: true }),
     ).toContainText("Exact source criteria");
@@ -118,13 +124,12 @@ test("unsafe integer graph remains archival exact through unrelated edit, save a
   expect(details(await exported(page)).value).toBe("9007199254740993");
   await page.locator('.react-flow__node[data-id="number"]').click();
   await page.getByLabel("Label", { exact: true }).fill("Changed only label");
-  await page
-    .getByRole("button", { name: "Save revision", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Save project", exact: true }).click();
   await expect(
     page.getByLabel("Last saved revision", { exact: true }),
   ).toContainText("r2");
   await page.reload();
+  await chooseWorkspaceSurface(page, "Workspace");
   const result = details(await exported(page));
   expect(result.value).toBe("9007199254740993");
   expect(result.opaque).toBe("[1.0, -0.0, 9007199254740993]");
@@ -162,24 +167,21 @@ test("nested macro source survives wiresheet recovery, library export/import and
   page,
 }) => {
   await page.goto("/");
+  await chooseWorkspaceSurface(page, "Workspace");
   const buffer = Buffer.from(
     py(
       "from tests.test_macro_integration import nested_rate_program;p=nested_rate_program();p.metadata['opaque']={'values':[1.0,-0.0,9007199254740993]};[(setattr(n,'x',(i//2)*280),setattr(n,'y',(i%2)*240+100)) for i,n in enumerate(p.nodes)];d=p.metadata['macros']['definitions'][0]['program'];d['metadata']['opaque']={'values':[1.0,-0.0,9007199254740993]};[(n['params'].update(rate=1.0,initial=-0.0)) for n in d['nodes'] if n['kind']=='Slew'];print(p.model_dump_json())",
     ),
   );
-  await page
-    .locator(
-      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"]',
-    )
-    .setInputFiles({
-      name: "exact-nested.bms.json",
-      mimeType: "application/json",
-      buffer,
-    });
+  await page.locator('input[type=file][accept*=".st"]').setInputFiles({
+    name: "exact-nested.bms.json",
+    mimeType: "application/json",
+    buffer,
+  });
   await expect(page.locator(".toast")).toContainText(
     "Imported as a new local project",
   );
-  await page.getByRole("button", { name: "Macros", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Library");
   await page
     .getByRole("button", { name: "Edit definition on wiresheet", exact: true })
     .click();
@@ -188,6 +190,10 @@ test("nested macro source survives wiresheet recovery, library export/import and
     .getByLabel("Program name", { exact: true })
     .fill("Only nested graph name changed");
   await page.reload();
+  await page
+    .getByRole("region", { name: "Continue local work", exact: true })
+    .getByRole("button", { name: "Program", exact: true })
+    .click();
   await expect(page.getByLabel("Program name", { exact: true })).toHaveValue(
     "Only nested graph name changed",
   );
@@ -195,7 +201,7 @@ test("nested macro source survives wiresheet recovery, library export/import and
     .getByRole("button", { name: "Apply definition changes", exact: true })
     .click();
   await expect(page.locator(".macro-edit-banner")).toHaveCount(0);
-  await page.getByRole("button", { name: "Macros", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Library");
   const pending = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export macro", exact: true }).click();
   const bundle = readFileSync((await (await pending).path())!);
@@ -213,7 +219,7 @@ test("nested macro source survives wiresheet recovery, library export/import and
         row.slew.includes("1.0:-0.0"),
     ),
   ).toBeTruthy();
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Workspace");
   await page.locator('.react-flow__node[data-id="first"]').click();
   await page.keyboard.press("Control+a");
   await page.keyboard.press("Control+c");
@@ -226,7 +232,7 @@ test("nested macro source survives wiresheet recovery, library export/import and
     ),
   ).toBeTruthy();
   await page.getByRole("button", { name: "New program", exact: true }).click();
-  await page.getByRole("button", { name: "Macros", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Library");
   await page
     .getByLabel("Import macro bundle file", { exact: true })
     .setInputFiles({
@@ -235,7 +241,7 @@ test("nested macro source survives wiresheet recovery, library export/import and
       buffer: bundle,
     });
   await expect(page.locator(".macro-count")).toContainText("definition");
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Workspace");
   expect(
     inspect(await exported(page)).some((row: any) =>
       row.slew.includes("1.0:-0.0"),
@@ -247,20 +253,17 @@ test("array and whole JSON parameter replacements preserve type sign and order; 
   page,
 }) => {
   await page.goto("/");
+  await chooseWorkspaceSurface(page, "Workspace");
   const buffer = Buffer.from(
     py(
       "from bms_tool.models import Program,Node;p=Program(id='source-calendar',nodes=[Node(id='calendar',kind='Schedule',value_type='boolean',params={'weekdays':[1.0,-0.0,9007199254740993],'exceptions':[{'date':'2026-01-01','enabled':True,'on_hour':1.0,'off_hour':-0.0}]},x=100,y=100)]);print(p.model_dump_json())",
     ),
   );
-  await page
-    .locator(
-      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"]',
-    )
-    .setInputFiles({
-      name: "exact-calendar.bms.json",
-      mimeType: "application/json",
-      buffer,
-    });
+  await page.locator('input[type=file][accept*=".st"]').setInputFiles({
+    name: "exact-calendar.bms.json",
+    mimeType: "application/json",
+    buffer,
+  });
   await expect(page.locator(".toast")).toContainText(
     "Imported as a new local project",
   );
@@ -294,6 +297,7 @@ test("array and whole JSON parameter replacements preserve type sign and order; 
   );
   expect(params(await exported(page))).toBe(params(raw));
   await page.reload();
+  await chooseWorkspaceSurface(page, "Workspace");
   expect(params(await exported(page))).toBe(params(raw));
 });
 test("a corrupt exact-source response is refused without adopting a rounded fallback", async ({
@@ -302,6 +306,7 @@ test("a corrupt exact-source response is refused without adopting a rounded fall
 }) => {
   const seeded = await seed(request, "1.0", false);
   await page.goto("/");
+  await chooseWorkspaceSurface(page, "Workspace");
   await expect(page.getByLabel("Program name", { exact: true })).toBeVisible();
   const before = await page
     .getByLabel("Program name", { exact: true })
@@ -333,6 +338,7 @@ test("large exact live force reaches Python as the declared integer without shor
   const seeded = await seed(request, "1.0", false);
   await open(page, seeded.id);
   await page.locator('.react-flow__node[data-id="number"]').click();
+  await openGraphSimulation(page);
   await page
     .getByLabel("Simulation force value", { exact: true })
     .fill("1152921504606846976");

@@ -78,3 +78,9 @@ export async function chooseWorkspaceSurface(page: Page, label: string) {
       .click();
   }
 }
+
+export async function openGraphSimulation(page: Page) {
+  const mode = page.getByRole("button", { name: "Simulate", exact: true });
+  await mode.click();
+  await expect(mode).toHaveAttribute("aria-pressed", "true");
+}

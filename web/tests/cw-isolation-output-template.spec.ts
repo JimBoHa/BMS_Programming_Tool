@@ -1,4 +1,8 @@
 import {
+  chooseWorkspaceSurface,
+  openGraphSimulation,
+} from "./workspace-navigation";
+import {
   test,
   expect,
   simulationServerResponseJSON,
@@ -41,7 +45,7 @@ print(p.model_dump_json())`,
   );
 }
 async function load(page: Page, body: Buffer) {
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Workspace");
   await page.locator('input[type=file][accept*=".st"]').setInputFiles({
     name: "cw-source.json",
     mimeType: "application/json",
@@ -52,7 +56,7 @@ async function load(page: Page, body: Buffer) {
   );
 }
 async function macros(page: Page) {
-  await page.getByRole("button", { name: "Macros", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Library");
   const card = page.getByRole("region", {
     name: "CW isolation output template",
     exact: true,
@@ -134,7 +138,8 @@ async function preview(
   return { raw, data: value(raw) };
 }
 async function exported(page: Page) {
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  if (!(await page.getByLabel("Export format", { exact: true }).isVisible()))
+    await chooseWorkspaceSurface(page, "Workspace");
   await page.getByLabel("Export format", { exact: true }).selectOption("json");
   const pending = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export", exact: true }).click();
@@ -143,7 +148,7 @@ async function exported(page: Page) {
   return raw;
 }
 async function step(page: Page) {
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await openGraphSimulation(page);
   const pending = page.waitForResponse(
     (r) =>
       new URL(r.url()).pathname === "/api/simulation/step" &&
@@ -275,7 +280,7 @@ async function placed(page: Page, id: string, graphical = false) {
     instance = p.nodes.find((n: any) => n.kind === "Activity").id;
   expect(p.metadata.macros.definitions[0].id).toBe(id);
   if (graphical) {
-    await page.getByRole("button", { name: "Program", exact: true }).click();
+    await chooseWorkspaceSurface(page, "Workspace");
     const actor = page.locator(`.react-flow__node[data-id="${instance}"]`);
     await wire(
       page,
@@ -330,7 +335,7 @@ for (const [minimum, stroke, scan] of [
     });
     let card = await open(page);
     if (scan !== 1) {
-      await page.getByRole("button", { name: "Program", exact: true }).click();
+      await chooseWorkspaceSurface(page, "Workspace");
       const next = py(
         "import sys;from bms_tool.models import Program;p=Program.model_validate_json(sys.stdin.read());p.scan_seconds=3;print(p.model_dump_json())",
         seed(),
@@ -361,6 +366,7 @@ for (const [minimum, stroke, scan] of [
     );
     expect(saves).toBe(0);
     await placed(page, p.data.definition_id, minimum === "20");
+    await openGraphSimulation(page);
     await page.getByLabel("Simulate enable", { exact: true }).check();
     await page.getByLabel("Simulate requested", { exact: true }).fill("100");
     const first = await step(page);
@@ -392,9 +398,7 @@ for (const [minimum, stroke, scan] of [
     await retain("independent-source-interchange", checked);
     if (minimum === "20") {
       const saved = await capture(page, "/api/projects", () =>
-        page
-          .getByRole("button", { name: "Save revision", exact: true })
-          .click(),
+        page.getByRole("button", { name: "Save project", exact: true }).click(),
       );
       const data = value(saved);
       expect(data.revision).toBe(1);
@@ -415,7 +419,7 @@ test("enabled up/down tracking, target floor, immediate disable and terminal out
   page,
 }) => {
   await open(page, true);
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await openGraphSimulation(page);
   await page.getByLabel("Simulate enable", { exact: true }).check();
   await page.getByLabel("Simulate requested", { exact: true }).fill("100");
   expect((await step(page)).last.outputs.effective0).toBe(25);
@@ -455,7 +459,7 @@ test("bad command quality with false enable retains positive complete transactio
   page,
 }) => {
   await open(page, true);
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await openGraphSimulation(page);
   await page.getByLabel("Simulate enable", { exact: true }).check();
   await page.getByLabel("Simulate requested", { exact: true }).fill("100");
   const previous = await step(page);
@@ -551,10 +555,7 @@ for (const kind of [
             exact: true,
           })
           .click();
-      else
-        await page
-          .getByRole("button", { name: "Program", exact: true })
-          .click();
+      else await chooseWorkspaceSurface(page, "Workspace");
     } finally {
       await gate.release();
     }
