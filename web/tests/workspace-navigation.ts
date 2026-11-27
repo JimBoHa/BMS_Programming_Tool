@@ -15,13 +15,17 @@ export async function chooseWorkspaceTask(page: Page, label: string) {
     await navigation.getByRole("button", { name: label, exact: true }).click();
 }
 
-export async function chooseWorkspaceTool(page: Page, label: string) {
+export async function chooseWorkspaceTool(
+  page: Page,
+  label: string,
+  region = "Current task tools",
+) {
   const navigation = page.getByRole("navigation", {
-    name: "Current task tools",
+    name: region,
     exact: true,
   });
   const select = navigation.getByRole("combobox", {
-    name: "Current task tools",
+    name: region,
     exact: true,
   });
   if (await select.isVisible()) await select.selectOption({ label });
