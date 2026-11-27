@@ -369,6 +369,7 @@ async function connect(
   request: APIRequestContext,
   endpoint: string,
   routed: boolean,
+  expectedName = "Authored native wire controller",
 ) {
   const headers = {
     "X-Studio-Token": (await (await request.get("/api/session")).json()).token,
@@ -410,12 +411,59 @@ async function connect(
     .click();
   await expect(
     page.getByRole("region", { name: "Controller overview", exact: true }),
-  ).toContainText("Authored native wire controller");
+  ).toContainText(expectedName);
   await page
     .getByRole("button", { name: "Edit controller name", exact: true })
     .click();
   return panel(page);
 }
+
+test("a captured box flow test shows its ordered samples during identity review", async ({
+  page,
+  request,
+  nativeScheduleWriteServer,
+}, info) => {
+  expect(nativeScheduleWriteServer.directory).toBeTruthy();
+  const peer = await nativeDefaultPeer("normal", "box-flow-history");
+  try {
+    const p = await connect(
+      page,
+      request,
+      peer.router,
+      true,
+      "Authored controller",
+    );
+    await p
+      .getByRole("button", { name: "Read application backup", exact: true })
+      .click();
+    const history = p.getByText("Recorded box flow test results", {
+      exact: true,
+    });
+    await history.focus();
+    await history.press("Enter");
+    const samples = p.getByRole("table", {
+      name: "Flow test samples for module 81",
+    });
+    await expect(samples.locator("tbody tr")).toHaveCount(2);
+    await expect(
+      samples.locator("tbody tr").first().getByRole("cell"),
+    ).toHaveText(["1", "8", "16"]);
+    await expect(
+      samples.locator("tbody tr").last().getByRole("cell"),
+    ).toHaveText(["2", "20", "50"]);
+    await expect(p.getByRole("alert")).toContainText(
+      "preservation during a field transfer",
+    );
+    await expect(
+      p.getByLabel("New controller name", { exact: true }),
+    ).toHaveCount(0);
+    await samples.screenshot({
+      path: info.outputPath("captured-box-flow.png"),
+    });
+  } finally {
+    peer.close();
+  }
+});
 async function confirm(p: Locator, suffix: string) {
   await p
     .getByRole("button", { name: "Review name change", exact: true })

@@ -29,6 +29,11 @@ ANALOG_DEFAULT_TYPES = {
 
 
 def qualify_parameter_additions(application, parameter_merge):
+    if parameter_merge.get("box_flow_results"):
+        raise ValueError(
+            "Historical box flow test results are available in this capture. "
+            "Their preservation during a field transfer has not been verified."
+        )
     added = [row for row in parameter_merge["changed_parameters"] if row.get("added")]
     if not added:
         return {"profile": PROFILE, "qualified_fields": 0, "model_inventory_used": False}

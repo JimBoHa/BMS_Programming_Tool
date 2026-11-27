@@ -62,3 +62,9 @@ Binary change counts and elapsed times remain separately typed application field
 The review explains that a transfer does not restore historical runtime event
 times. Original PSS files remain intact in the private backup; retaining a value
 there does not claim the controller's current event timestamp stayed unchanged.
+
+## Box flow test history
+
+On native application format 60/60, the Box Flow Test module can retain an eight-bit result summary and a series of flow and damper-position readings in the saved parameter file. Open **Recorded box flow test results** under the captured application to review them. The original backup keeps the native bytes. Local inspection checks the structure and reads the ordered samples without changing the application.
+
+The tool can also read the flow data property of a responding Johnson Controls Box Flow Test module. The source determines the units of the recorded flow. The displayed damper position belongs to the historical test. A transfer for these captures still requires evidence that the controller preserves its recorded test results. [Johnson Controls Box Flow Test attributes](https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Controller-Tool-Help/14.0/State-Generation-Modules/VAV-Specific-Sequencing/Box-Flow-Test/Attributes-Box-Flow-Test)

@@ -17,6 +17,7 @@ from bacpypes3.primitivedata import ObjectIdentifier, PropertyIdentifier, TagCla
 from bacpypes3.vendor import get_vendor_info
 from pydantic import Field, field_validator
 
+from .box_flow_results import flow_samples
 from .device_details import DeviceDetails, DeviceDetailsRequest
 from .hardware_survey import read_fields
 from .property_evidence import PropertyEvidence, ReadBudget, _encoded, _utc, native_value
@@ -247,28 +248,50 @@ class ControllerWorkspace:
             try:
                 tags = list(TagList.decode(PDU(bytes.fromhex(row["encoded_value"]["hex"]))))
                 if (
-                    len(tags) == 3
-                    and tags[0].tag_class == TagClass.opening
-                    and tags[-1].tag_class == TagClass.closing
+                    session.get("vendor_identifier") == 5
+                    and int(ObjectIdentifier(obj)[0]) == 612
+                    and prop == "3669"
+                    and index is None
                 ):
-                    tags = tags[1:-1]
-                if len(tags) == 1 and tags[0].tag_class == TagClass.application:
-                    value = tags[0].app_to_object()
-                    candidate = {
-                        **row,
-                        "status": "ok",
-                        "value": native_value(value, []),
-                        "datatype": type(value).__name__,
-                        "decoding": "primitive wire tag; property semantics unavailable",
-                    }
-                    candidate.pop("error", None)
-                    growth = max(0, len(_encoded(candidate)) - len(_encoded(row)))
                     if (
-                        len(_encoded(candidate)) <= 64 * 1024
-                        and budget.retained_bytes + growth <= budget.max_bytes
+                        len(tags) < 2
+                        or tags[0].tag_class != TagClass.opening
+                        or tags[-1].tag_class != TagClass.closing
+                        or tags[0].tag_number != 3
+                        or tags[-1].tag_number != 3
                     ):
-                        budget.retained_bytes += growth
-                        native, row = value, candidate
+                        return native, row
+                    value = decoded = flow_samples(tags[1:-1], 4)
+                    datatype = "BoxFlowTestSamples"
+                    decoding = "Native box flow test history; flow units follow the source."
+                else:
+                    if (
+                        len(tags) == 3
+                        and tags[0].tag_class == TagClass.opening
+                        and tags[-1].tag_class == TagClass.closing
+                    ):
+                        tags = tags[1:-1]
+                    if len(tags) != 1 or tags[0].tag_class != TagClass.application:
+                        return native, row
+                    value = tags[0].app_to_object()
+                    decoded = native_value(value, [])
+                    datatype = type(value).__name__
+                    decoding = "primitive wire tag; property semantics unavailable"
+                candidate = {
+                    **row,
+                    "status": "ok",
+                    "value": decoded,
+                    "datatype": datatype,
+                    "decoding": decoding,
+                }
+                candidate.pop("error", None)
+                growth = max(0, len(_encoded(candidate)) - len(_encoded(row)))
+                if (
+                    len(_encoded(candidate)) <= 64 * 1024
+                    and budget.retained_bytes + growth <= budget.max_bytes
+                ):
+                    budget.retained_bytes += growth
+                    native, row = value, candidate
             except (ValueError, TypeError, AttributeError):
                 pass
         return native, row

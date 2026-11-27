@@ -321,6 +321,11 @@ Relevant current contracts:
 [parameter storage](docs/native-parameter-storage.md) and
 [read-only batch observation](docs/batch-controller-observation.md).
 
+Box Flow Test history is available in connected property inspection and in
+format 60/60 backup reviews. The tool retains the original measurements and
+records the outstanding field-transfer preservation requirement.
+[Saved parameter storage](docs/native-parameter-storage.md#box-flow-test-history)
+
 ## Preserve the older local ideas without restoring older code
 
 All 31 affected files in the original Mac checkout were privately copied and
