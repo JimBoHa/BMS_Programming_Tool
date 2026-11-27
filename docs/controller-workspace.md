@@ -41,8 +41,13 @@ reference material. Opening the start screen does not open a field interface.
    an explicit local-source selection. Use **Read controller application** to discover and read a published native
    application file. The tagged MOI reader displays actual diagrams and configured
    block properties across compatible models, and reads an exposed live value for
-   the selected block. The view labels its source file and capture time; refresh
-   to acquire later application changes. Unrecognized native formats explain the
+   the selected block. Some applications retain an earlier path number on a float,
+   enumeration or Boolean signal. For display, BMS Studio resolves it within the
+   owning drawing when a unique signal's typed object identifier and native record
+   header match the drawing's member. Ambiguous signals leave the drawing
+   unavailable. Native editing uses its existing exact-path checks. The view
+   labels its source file and capture time. Refresh it to acquire later
+   application changes. Unrecognized native formats explain the
    missing reader. Source-specific native edits, compilation and transfer use
    the guarded workflows described in [JCI operation coverage](jci-operation-coverage.md).
    Reading a diagram does not qualify arbitrary native logic generation or a
