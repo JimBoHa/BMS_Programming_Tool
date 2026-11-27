@@ -16,8 +16,12 @@ same route, Device, operation ID and first free instance. The review checks
 the manufacturer, exact model and firmware, source graph, saved settings,
 recoverable original application, live I/O quality, command priorities and
 the availability of each proposed object. The current profile covers native
-62/62 applications on MS-VMA1630-0 and FX-PCV1630-0 firmware 6.2.0.1054 with a
-physical proportional heat output and integral damper.
+62/62 applications on MS-VMA1630-0 and FX-PCV1630-0 firmware 6.2.0.1054 with
+an integral damper and either a proportional heat output or an external floating
+valve. For a floating valve, review and apply both read the numbered opening and
+closing terminals, their order in the device type, the full stroke time and the
+command priorities. These values must match the selected controller's capture.
+The floating valve and integral damper keep their existing control connections.
 
 A confirmed `inline-monitor/apply` uses the one-use review token and digest,
 `monitor_confirmed` and `application_transfer_confirmed`. Transfer temporarily
@@ -103,7 +107,7 @@ the command must use percent units. The review reports the terminals in their
 stored order. The observation draft preserves the valve and damper records,
 their travel settings and the existing control connections.
 
-Further field qualification requires a matching off-equipment controller or
+Qualification of the complete reheat application requires a matching off-equipment controller or
 firmware simulator. Verify startup, the complete sample window with changing
 inputs, input loss, timing gaps, adjustable limits, valve action and recovery
 of the original application. Object count and compressed archive size alone

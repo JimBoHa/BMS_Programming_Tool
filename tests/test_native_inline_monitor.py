@@ -283,7 +283,7 @@ def test_readback_requires_original_lineage_and_verifies_effective_settings():
         reconstruct(native, {**intent, "first_instance": 700})
 
 
-def observation_peer(peer, fault):
+def observation_peer(peer, fault, *, floating=None):
     import time
     from types import MethodType
 
@@ -314,7 +314,9 @@ def observation_peer(peer, fault):
             value = Unsigned(90)
         elif key in physical:
             name, unit = physical[key]
-            if pid == 77:
+            if key == (1, 16) and floating is not None and pid in floating:
+                value = floating[pid]
+            elif pid == 77:
                 value = CharacterString(name)
             elif pid == 117:
                 value = Enumerated(unit)

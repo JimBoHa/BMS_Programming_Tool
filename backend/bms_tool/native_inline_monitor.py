@@ -208,7 +208,7 @@ def sources(app, graph, *, allow_floating=False):
     )
 
 
-def compile_monitor(files, first_instance, *, preserve_root_layout=True):
+def compile_monitor(files, first_instance, *, preserve_root_layout=True, allow_floating=False):
     if type(first_instance) is not int or not 1 <= first_instance <= LIMIT:
         raise ValueError("Select a valid first native object instance.")
     effective, merge = ParameterApplication(files[3], files[11], files[12]).compile()
@@ -233,7 +233,9 @@ def compile_monitor(files, first_instance, *, preserve_root_layout=True):
     g = app.reader.diagram(ref, retained_activity_refs=True)
     if any(read(r, 2390) in (CLOCK, PREVIOUS) for r in app.records):
         raise ValueError("This application already includes the sampling monitor.")
-    physical = sources(app, g)
+    physical = sources(app, g, allow_floating=allow_floating)
+    valve = physical["valve"]
+    floating = floating_valve_configuration(app, valve) if valve["class_id"] == 251 else None
     taken = {
         int.from_bytes(app.data[r["offset"] + 6 : r["offset"] + 10], "big") & 0x3FFFFF
         for r in app.records
@@ -417,6 +419,7 @@ def compile_monitor(files, first_instance, *, preserve_root_layout=True):
         "clock_witness": clock_output,
         "added_objects": identifiers,
         "points": {k: read(v, 75) for k, v in physical.items()},
+        **({"floating_valve": floating} if floating is not None else {}),
         "saved_settings": merge["matched_parameters"],
         "parameter_qualification": qualification,
     }
