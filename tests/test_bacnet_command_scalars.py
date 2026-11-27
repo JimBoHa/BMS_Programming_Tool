@@ -6,6 +6,7 @@ import json
 import pytest
 from bacpypes3.apdu import APDU, ConfirmedRequestPDU, SimpleAckPDU
 from bacpypes3.basetypes import PriorityValue
+from bacpypes3.errors import ExecutionError
 from bacpypes3.local.analog import AnalogOutputObject, AnalogValueObjectCmd
 from bacpypes3.local.cmd import Commandable
 from bacpypes3.local.multistate import MultiStateOutputObject, MultiStateValueObject
@@ -17,6 +18,111 @@ from bms_tool.connections import Bacnet
 from bms_tool.storage import Store
 
 from .test_connections import application, free_udp, point
+
+
+@pytest.mark.asyncio
+async def test_denied_point_write_can_be_reconciled_by_read_after_restart(tmp_path, monkeypatch):
+    port = free_udp()
+    device = "device,4190086"
+    server = application(port, 4190086)
+    obj = point()
+    server.add_object(obj)
+    writes = track_write_packets(server)
+
+    async def deny_write(request):
+        raise ExecutionError(errorClass="property", errorCode="writeAccessDenied")
+
+    server.do_WritePropertyRequest = deny_write
+    client = Bacnet(Store(tmp_path))
+    try:
+        await client.connect(f"127.0.0.1:{free_udp()}")
+        plan = await client.plan_write(f"127.0.0.1:{port}", "analog-value,1", 12.5, 14)
+        with pytest.raises(ValueError, match="write-access-denied"):
+            await client.apply_write(plan["token"])
+        [command] = client.commands
+        config = client.config.copy()
+        client.close()
+        await asyncio.sleep(0.05)
+        client = Bacnet(Store(tmp_path))
+        await client.connect(**config)
+        with pytest.raises(ValueError, match="explicit"):
+            await client.confirm_empty_slot(command, "device,4194303")
+        with pytest.raises(ValueError, match="unknown-object"):
+            await client.confirm_empty_slot(command, "device,4190087")
+        with pytest.raises(ValueError, match="not found"):
+            await client.confirm_empty_slot("absent", device)
+        with monkeypatch.context() as m:
+
+            def fail_persist():
+                raise OSError("unavailable command journal")
+
+            m.setattr(client, "_persist", fail_persist)
+            with pytest.raises(OSError, match="unavailable command journal"):
+                await client.confirm_empty_slot(command, device)
+        assert (
+            command in client.commands
+            and command in json.loads(client.journal.read_text())["commands"]
+        )
+        result = await client.confirm_empty_slot(command, device)
+        assert (result["status"], result["write_sent"], result["prior_status"]) == (
+            "observed_empty",
+            False,
+            "pending-verification",
+        )
+        assert result["present_value"] == 12.5 and result["slot"] == {"type": "null", "value": None}
+        assert result["device"] == device and result["object"] == "analog-value,1"
+        assert len(writes) == 1 and not client.commands
+        assert not json.loads(client.journal.read_text())["commands"]
+        assert any(row["operation"] == "bacnet.write.slot_empty" for row in client.store.audit())
+    finally:
+        client.close()
+        server.close()
+        await asyncio.sleep(0.05)
+
+
+@pytest.mark.asyncio
+async def test_changed_slot_during_confirmation_keeps_ownership(tmp_path):
+    port = free_udp()
+    server = application(port, 4190087)
+    obj = point()
+    server.add_object(obj)
+    writes = track_write_packets(server)
+    client = Bacnet(Store(tmp_path))
+    try:
+        target = f"127.0.0.1:{port}"
+        await client.connect(f"127.0.0.1:{free_udp()}")
+        plan = await client.plan_write(target, "analog-value,1", 18.0, 14)
+        command = (await client.apply_write(plan["token"]))["command"]
+        with pytest.raises(ValueError, match="occupied"):
+            await client.confirm_empty_slot(command, "device,4190087")
+        await obj.write_property("presentValue", Null(()), priority=14)
+        read = server.do_ReadPropertyRequest
+        slot_reads = 0
+
+        async def change_before_second_read(request):
+            nonlocal slot_reads
+            if (
+                str(request.propertyIdentifier) == "priority-array"
+                and request.propertyArrayIndex == 14
+            ):
+                slot_reads += 1
+                if slot_reads == 2:
+                    await obj.write_property("presentValue", Real(21.0), priority=14)
+            await read(request)
+
+        server.do_ReadPropertyRequest = change_before_second_read
+        with pytest.raises(ValueError, match="occupied"):
+            await client.confirm_empty_slot(command, "device,4190087")
+        assert slot_reads == 2 and len(writes) == 1 and float(obj.presentValue) == 21.0
+        assert (
+            command in client.commands
+            and command in json.loads(client.journal.read_text())["commands"]
+        )
+    finally:
+        client.close()
+        server.close()
+        await asyncio.sleep(0.05)
+
 
 # Authored isolated vendor descriptors exercise an explicitly known Double and
 # an unsupported analog datatype. They make no claim about any real product.

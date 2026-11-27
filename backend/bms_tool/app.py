@@ -508,6 +508,10 @@ class TokenRequest(StrictModel):
     token: str
 
 
+class ConfirmEmptySlotRequest(TokenRequest):
+    device: str = Field(min_length=1, max_length=80)
+
+
 class RuntimePlan(StrictModel):
     program: Program
     inputs: dict[str, Any] = Field(default_factory=dict)
@@ -2739,6 +2743,10 @@ def create_app(state_dir=None, *, operation_power=None):
     @app.post("/api/bacnet/release")
     async def release(body: TokenRequest):
         return await bacnet.release(body.token)
+
+    @app.post("/api/bacnet/commands/confirm-empty")
+    async def confirm_empty_slot(body: ConfirmEmptySlotRequest):
+        return await bacnet.confirm_empty_slot(body.token, body.device)
 
     @app.post("/api/modbus/read")
     async def modbus(body: ModbusRead):

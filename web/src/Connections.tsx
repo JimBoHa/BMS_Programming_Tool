@@ -216,6 +216,10 @@ export function Connections({
     [busy, setBusy] = useState(false),
     [command, setCommand] = useState("50"),
     [priority, setPriority] = useState(16),
+    [emptySlotReceipt, setEmptySlotReceipt] = useState<{
+      context: string;
+      message: string;
+    } | null>(null),
     [plan, setPlan] = useState<{ receipt: any; text: string } | null>(null),
     [serialPorts, setSerialPorts] = useState<any[]>([]),
     [mstp, setMstp] = useState({
@@ -604,7 +608,7 @@ export function Connections({
       clearInterval(timer);
     };
   }, [status.config?.transport, status.config?.bbmd_address]);
-  async function action(fn: () => Promise<any>) {
+  async function action(fn: () => Promise<any>, refreshAfterError = false) {
     if (busy) return;
     statusEpoch.current++;
     setBusy(true);
@@ -613,7 +617,15 @@ export function Connections({
       await fn();
       await refresh();
     } catch (e) {
-      setError(String(e));
+      let detail = String(e);
+      if (refreshAfterError) {
+        try {
+          await refresh();
+        } catch (readError) {
+          detail += ` · Could not refresh owned commands: ${readError}`;
+        }
+      }
+      setError(detail);
     } finally {
       setBusy(false);
     }
@@ -1870,13 +1882,13 @@ export function Connections({
                         disabled={busy || !pointReady}
                         onClick={() =>
                           action(async () => {
+                            setPlan(null);
                             setValue(
                               await api("/bacnet/write-apply", {
                                 token: plan.receipt.token,
                               }),
                             );
-                            setPlan(null);
-                          })
+                          }, true)
                         }
                       >
                         Apply previewed command
@@ -1936,8 +1948,38 @@ export function Connections({
                       >
                         Release override
                       </button>
+                      {controllerReady && controller?.address === c.address && (
+                        <button
+                          disabled={busy}
+                          onClick={() =>
+                            action(async () => {
+                              const receipt = await api(
+                                "/bacnet/commands/confirm-empty",
+                                {
+                                  token: c.id,
+                                  device: controller.device,
+                                },
+                              );
+                              setEmptySlotReceipt({
+                                context:
+                                  controllerKey(controller) +
+                                  controller.interfaceKey,
+                                message: `Verified priority ${receipt.priority} empty on ${receipt.name} (${receipt.object}). Cleared the local command record.`,
+                              });
+                            })
+                          }
+                        >
+                          Verify empty slot
+                        </button>
+                      )}
                     </div>
                   ))}
+                  {controllerReady &&
+                    controller &&
+                    emptySlotReceipt?.context ===
+                      controllerKey(controller) + controller.interfaceKey && (
+                      <p role="status">{emptySlotReceipt.message}</p>
+                    )}
                 </div>
               </section>
             </TaskMount>
