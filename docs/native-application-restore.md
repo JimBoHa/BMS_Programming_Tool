@@ -119,11 +119,13 @@ another edit/recovery family or authorize a replay.
 
 ## Reproducible software qualification and remaining scope
 
-`scripts/qualify_native_order.py` declares 522 backend cases per source/installed
-build, 538 browser/contract cases and six connection regressions per
-source/installed × Chromium/WebKit matrix: 3,220 executions. The preceding
-417 backend, 480 browser/contract and six connection case identifiers remain.
-The added 105 backend and 58 browser/contract cases cover independent literal
+`scripts/qualify_native_order.py` declares 536 backend cases for each of the
+source and installed builds. Each of the four browser jobs declares 540 browser
+and contract cases plus six connection cases, for 3,256 executions overall.
+The backend suite also exercises matching-program restore verification.
+
+The original 417 backend, 480 browser and six connection cases are retained.
+The subsequent 105 backend and 58 browser cases cover independent literal
 native images, raw/gzip sources, direct/authored routed UDP, large multi-block
 images, all three backup roles, current settings/counters, source drift, complete
 HTTP/receipt paths, ACK loss, restart and recorded provenance. Browser cases
@@ -143,3 +145,14 @@ New native identity allocation, arbitrary logic generation, cross-controller or
 release migration, firmware/resources/packages, whole-controller backup and
 physical/runtime/CCT acceptance remain separate. Both broader JCI-09 and JCI-10
 roadmap items remain partial.
+
+## Matching-image verification on 6.2
+
+On MS-VMA1630-0 and FX-PCV1630-0 firmware 6.2.0.1054, a matching-image
+reinstall also reads the controller's BACnet Last Restore Time before transfer
+and after readback. When the controller supplies a dated marker, the receipt
+stays pending until that timestamp advances. An initially unspecified date
+can acquire its first specific value. An explicitly unsupported property or a
+time-only marker is recorded as such. Complete file and commit acknowledgements,
+native and saved-setting readback and operational identity are still required.
+A pending receipt can be read again without sending another download.

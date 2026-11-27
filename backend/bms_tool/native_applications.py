@@ -14,6 +14,7 @@ from bacpypes3.primitivedata import ObjectIdentifier, Unsigned
 from fastapi import APIRouter, Response
 from pydantic import Field, SecretStr, StrictBool, field_validator
 
+from . import native_restore_witness as restore_witness
 from .application_files import ApplicationFiles
 from .application_preservation import verify_preservation
 from .application_store import (
@@ -1572,6 +1573,18 @@ class NativeApplications(
                         "Reinstallation is unconfirmed."
                     )
                     return result
+                before = intent.get("prewrite_restore_time")
+                if before is not None:
+                    witness = await restore_witness.verify_marker(
+                        self, session, options.device, before
+                    )
+                    result["restore_time_witness"] = witness
+                    if before["state"] in ("dated", "unspecified") and not witness["advanced"]:
+                        result["error"] = (
+                            "The application's bytes match, but the controller has not reported "
+                            "a newer restore time. Reinstallation remains unconfirmed."
+                        )
+                        return result
             if identity == intent["identity"] and digest != intent["native_payload_sha256"]:
                 original, _ = ParameterApplication(
                     original_files[3], original_files[11], original_files[12]
@@ -2175,6 +2188,14 @@ class NativeApplications(
                             raise ValueError(
                                 "Retained restore sources changed before durable intent."
                             )
+                    restore_marker = {}
+                    if (
+                        snapshot_restore
+                        and compilation["profile"] == REINSTALL_PROFILE
+                        and restore_witness.applies(actual)
+                    ):
+                        stamp = await restore_witness.read_marker(self, session, options.device)
+                        restore_marker = {"prewrite_restore_time": stamp}
                     intent = self.storage.intent(
                         {
                             **{
@@ -2194,6 +2215,7 @@ class NativeApplications(
                             "operation_id": request.operation_id,
                             "review_sha256": request.review_sha256,
                             "review_capture_id": body["capture_id"],
+                            **restore_marker,
                             "backup_id": backup["id"],
                             "payload_sha256": sha(output),
                             "native_payload_sha256": sha(MoiIdentity(output).data),
