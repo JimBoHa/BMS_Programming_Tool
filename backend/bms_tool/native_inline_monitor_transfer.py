@@ -1,7 +1,9 @@
 """Review a source-built, observation-only graph through the existing native writer."""
 
+import asyncio
 import copy
 import math
+import time
 from datetime import UTC, datetime, timedelta
 
 from bacpypes3.object import Object
@@ -226,6 +228,57 @@ def verify(native, intent, files):
         "device_calculated_changes": calculated,
         "runtime_sampling_verified": False,
     }
+
+
+async def observe_execution(native, session, intent):
+    """Read the installed timer's downstream value without polling the timer itself."""
+    witness = intent["compilation"]["clock_witness"]
+    evidence = {"object": witness, "status": "unconfirmed", "samples": [], "read_only": True}
+    try:
+        if int(await native.input_atomic(session, witness, 103, Enumerated)) != 0:
+            raise ValueError("The installed clock witness reports unreliable data.")
+        start = time.monotonic()
+        for index in range(6):
+            await asyncio.sleep(max(0, start + index - time.monotonic()))
+            before = time.monotonic() - start
+            value = float(await native.input_atomic(session, witness, 85, Real))
+            after = time.monotonic() - start
+            if not value.is_integer() or not 0 <= value <= 60 or after >= 30:
+                raise ValueError("The clock value or read window is outside the diagnostic range.")
+            evidence["samples"].append(
+                {"requested": before, "received": after, "seconds": int(value)}
+            )
+        if int(await native.input_atomic(session, witness, 103, Enumerated)) != 0:
+            raise ValueError("The clock witness became unreliable during observation.")
+        if (
+            await native.instances._identity(session, intent["identity"]["device"])
+            != intent["identity"]
+        ):
+            raise ValueError("The controller identity changed during clock observation.")
+        samples = evidence["samples"]
+        if len({r["seconds"] % 60 for r in samples}) == 1:
+            evidence["status"] = "stationary"
+            return evidence
+        advance = 0
+        for previous, current in zip(samples, samples[1:], strict=False):
+            step = (previous["seconds"] - current["seconds"]) % 60
+            low = current["requested"] - previous["received"] - 1
+            high = current["received"] - previous["requested"] + 1
+            if not low <= step <= high:
+                raise ValueError("The downstream countdown differs from elapsed observation time.")
+            advance += step
+        first, last = samples[0], samples[-1]
+        if (
+            advance < 3
+            or not last["requested"] - first["received"] - 1
+            <= advance
+            <= last["received"] - first["requested"] + 1
+        ):
+            raise ValueError("Insufficient elapsed countdown progression.")
+        evidence.update(status="advancing", countdown_seconds=advance)
+    except (ValueError, TimeoutError, OSError) as exc:
+        evidence["error"] = (str(exc) or type(exc).__name__)[:256]
+    return evidence
 
 
 KIND = "inline-monitor"

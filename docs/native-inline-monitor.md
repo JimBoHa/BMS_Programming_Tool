@@ -34,6 +34,12 @@ tables by one row per added block or wire. It checks both counts again after
 serialization. An inconsistent original drawing stops the new graph edit at
 review. Receipts from the previous encoder still reproduce their original bytes.
 
+The new diagnostic receipt also reports whether its downstream clock advanced,
+stayed stationary, or could not be confirmed. Six reads check elapsed time,
+countdown direction and rollover, signal reliability and controller identity.
+The program and saved-setting verification remains available if the clock stalls,
+so the operator can still select and restore the original application.
+
 Read the witness across a complete timer cycle without polling the timer.
 Compare each internal sensor observation with its corresponding physical
 property. Record time, input quality and discrepancies. An installed graph, an
