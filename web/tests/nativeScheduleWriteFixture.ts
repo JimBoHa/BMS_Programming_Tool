@@ -1,9 +1,9 @@
 import { test as base } from "@playwright/test";
 import { spawn } from "node:child_process";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
 import path from "node:path";
+import { retireOwnedProcess } from "./operationPowerOwnedProcess.mjs";
 export { expect } from "@playwright/test";
 export type { Page, APIRequestContext } from "@playwright/test";
 
@@ -88,12 +88,11 @@ export const test = base.extend<{
   holdPulseImport: [false, { option: true }],
   observeBundleInspection: [false, { option: true }],
   nativeScheduleWriteServer: [
-    async ({ holdPulseImport, observeBundleInspection }, use) => {
+    async ({ holdPulseImport, observeBundleInspection }, use, info) => {
+      mkdirSync(info.outputDir, { recursive: true });
+      const directory = mkdtempSync(info.outputPath("native-write-state-"));
       const root = path.resolve(".."),
         port = await freePort(),
-        directory = mkdtempSync(
-          path.join(tmpdir(), "bms-native-write-fixture-"),
-        ),
         installed = process.env.BMS_TEST_INSTALLED_TARGET?.trim()
           ? path.resolve(process.env.BMS_TEST_INSTALLED_TARGET.trim())
           : "",
@@ -120,9 +119,9 @@ export const test = base.extend<{
       child.stdout.on("data", (data) => process.stdout.write(data));
       child.stderr.on("data", (data) => (errors += data.toString()));
       child.on("error", (error) => (errors += String(error)));
+      let ready = false;
       try {
         const deadline = Date.now() + 10000;
-        let ready = false;
         while (Date.now() < deadline && child.exitCode === null) {
           try {
             ready = (await fetch(url + "/api/session")).ok;
@@ -138,18 +137,14 @@ export const test = base.extend<{
           );
         await use({ url, directory });
       } finally {
-        if (child.exitCode === null) {
-          const stopped = new Promise<void>((resolve) =>
-            child.once("exit", () => resolve()),
-          );
-          child.kill("SIGTERM");
-          let timer: ReturnType<typeof setTimeout>;
-          await Promise.race([
-            stopped,
-            new Promise((resolve) => (timer = setTimeout(resolve, 3000))),
-          ]);
-          clearTimeout(timer!);
-          if (child.exitCode === null) child.kill("SIGKILL");
+        const stopped = await retireOwnedProcess(child, 3000, 1500);
+        if (
+          ready &&
+          stopped.exited &&
+          !stopped.forced_owned_only &&
+          info.status === "passed"
+        ) {
+          rmSync(directory, { recursive: true });
         }
       }
     },
