@@ -7,11 +7,14 @@ on:
       - 'backend/bms_tool/native_order*.py'
       - 'backend/bms_tool/native_snapshot_restore*.py'
       - 'backend/bms_tool/native_execution_order.py'
+      - 'backend/bms_tool/application_files.py'
+      - 'backend/bms_tool/native_restore_witness.py'
       - 'backend/bms_tool/native_applications.py'
       - 'backend/bms_tool/change_ledger.py'
       - 'tests/test_native_order*.py'
       - 'tests/test_native_snapshot_restore*.py'
       - 'tests/test_native_execution_order.py'
+      - 'tests/test_native_restore_witness.py'
       - 'web/src/NativeOrder*.tsx'
       - 'web/src/NativeSnapshotRestore*.tsx'
       - 'web/src/nativeSnapshotRestore*.ts'
@@ -39,7 +42,7 @@ jobs:
     runs-on: ubuntu-24.04
     # Retained-image cases add real authored restores and recovery boundaries.
     # Keep existing per-test deadlines and the 45-minute aggregate allocation.
-    # The expanded source/installed cohort declares 3,220 executions.
+    # The expanded source/installed cohort declares 3,256 executions.
     timeout-minutes: 45
     strategy:
       fail-fast: false
