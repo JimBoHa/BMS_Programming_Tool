@@ -734,8 +734,11 @@ async def test_cancel_during_storage_preparation_preserves_pending_without_sendi
 
 @pytest.mark.parametrize("renaming", [False, True])
 async def test_post_restore_read_timeouts_wait_without_repeating_the_transfer(
-    native_link, renaming
+    native_link, renaming, monkeypatch
 ):
+    # The third attempt performs real loopback identity reads. The fixture's
+    # short deadline is for cases that deliberately exhaust every attempt.
+    monkeypatch.setattr("bms_tool.native_applications.RESTORE_READINESS_SECONDS", 3.0)
     peer, _, _, service, target = native_link
     if renaming:
         capture = await service.capture(**target, operation_id="readiness-capture")
@@ -761,7 +764,7 @@ async def test_post_restore_read_timeouts_wait_without_repeating_the_transfer(
     service.restore_readiness_probe = rebooting
     request = {**apply_request(plan), "name_change_confirmed": renaming}
     result = await service.apply(**request)
-    assert result["result"]["status"] == "verified", result
+    assert result["result"]["status"] == "verified", result["result"]
     readiness = result["result"]["restore_readiness"]
     assert readiness["ready"] and readiness["read_only"]
     assert [a["identity_status"] for a in readiness["attempts"]] == [
