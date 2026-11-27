@@ -676,6 +676,9 @@ class Bacnet:
                 self.store.record("bacnet.disconnected", {"config": self.config})
             except (OSError, sqlite3.Error) as exc:
                 result["audit_error"] = f"Interface closed; audit completion failed: {exc}"
+            # Datagram transports release their sockets on the next event-loop turn.
+            # A caller may bind the same endpoint immediately after this returns.
+            await asyncio.sleep(0)
             return result
 
     def status(self):
