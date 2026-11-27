@@ -31,9 +31,9 @@ from .formats import ConversionError, export_st, iec_source_parts
 from .iec_symbols import symbol_profile
 from .macros import expand_macros
 from .models import Program
+from .resources import toolchain_path
 from .source_profiles import source_profile
 
-ROOT = Path(__file__).resolve().parents[2]
 PIN = "3a41303bcb4e50403417bc39c63f88981d7d961e"
 _LOCK = threading.RLock()
 _CONFIGURATION = """
@@ -58,7 +58,7 @@ def _library_digest(directory):
 def toolchain():
     if os.name != "posix":
         raise ConversionError("The current native IEC host profile requires POSIX process pipes.")
-    home = Path(os.environ.get("BMS_IEC_HOME", ROOT.parent / ".toolchain" / ("matiec-" + PIN[:12])))
+    home = toolchain_path("BMS_IEC_HOME", Path(".toolchain") / ("matiec-" + PIN[:12]))
     if not (home / "manifest.json").is_file() or not (home / "bin/iec2c").is_file():
         raise ConversionError("Native IEC compiler unavailable. Run scripts/setup_iec.py first.")
     manifest = json.loads((home / "manifest.json").read_text())

@@ -133,6 +133,11 @@ New features follow the [workflow style guide](docs/workflow-style-guide.md).
 
 ## Optional native Temco toolchain
 
+For source checkouts, Studio looks for optional Temco, MatIEC and Sedona tools
+beside the current checkout. A linked Git worktree can also use tools installed
+beside its main checkout. An explicit toolchain environment setting takes
+precedence, including when it points to a missing installation.
+
 The configured Mac already has the pinned manufacturer compiler/interpreter host. A fresh checkout needs `git` and a C++ compiler:
 
 ```sh

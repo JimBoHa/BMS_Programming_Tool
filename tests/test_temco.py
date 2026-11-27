@@ -2,7 +2,6 @@
 
 import hashlib
 import json
-import os
 from pathlib import Path
 
 import pytest
@@ -14,6 +13,7 @@ from bms_tool.temco import (
     STATELESS,
     SUPPORTED,
     TemcoError,
+    _toolchain,
     capabilities,
     compile_program,
     compile_source,
@@ -335,8 +335,7 @@ def test_resource_limit_is_actual_manufacturer_bytecode_limit():
 
 
 def test_setup_provenance_retains_original_manufacturer_license():
-    default = Path(__file__).resolve().parents[2] / "Reference_Sources/temcocontrols--T3000/build/bms-host"
-    home = Path(os.environ.get("BMS_TEMCO_HOME", default))
+    home, _ = _toolchain()
     license_text = (home / "LICENSE.txt").read_text()
     assert "Copyright (c) 2017 Temco Controls" in license_text
     assert "MIT License" in license_text

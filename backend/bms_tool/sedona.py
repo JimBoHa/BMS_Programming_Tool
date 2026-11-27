@@ -26,6 +26,7 @@ from .executable_numbers import _legacy_source_projection
 from .file_access import file_lock
 from .formats import ConversionError, structured_text_parts
 from .models import Program, canonical
+from .resources import toolchain_path, toolchain_roots
 from .source_profiles import (
     CURRENT,
     LEGACY,
@@ -60,11 +61,15 @@ def _tool_lock(sdk):
 
 
 def toolchain():
-    sdk = Path(os.environ.get("BMS_SEDONA_HOME", ROOT.parent / "Reference_Sources/sedona"))
+    sdk = toolchain_path("BMS_SEDONA_HOME", "Reference_Sources/sedona")
     java = os.environ.get("BMS_JAVA")
     if not java:
-        candidates = sorted((ROOT.parent / ".toolchain").glob("jdk-17*/Contents/Home/bin/java"))
-        java = str(candidates[-1]) if candidates else "java"
+        java = "java"
+        for root in toolchain_roots():
+            candidates = sorted((root / ".toolchain").glob("jdk-17*/Contents/Home/bin/java"))
+            if candidates:
+                java = str(candidates[-1])
+                break
     if not all((sdk / "lib" / jar).is_file() for jar in ("sedona.jar", "sedonac.jar")):
         raise ConversionError("Sedona SDK is unavailable. Run scripts/setup_sedona.py first.")
     return sdk.resolve(), java
