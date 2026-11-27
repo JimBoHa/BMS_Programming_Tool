@@ -1,4 +1,8 @@
 import {
+  chooseWorkspaceSurface,
+  openGraphSimulation,
+} from "./workspace-navigation";
+import {
   test,
   expect,
   simulationServerResponseJSON,
@@ -47,7 +51,7 @@ print(p.model_dump_json())`,
   );
 }
 async function load(page: Page, body: Buffer) {
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Workspace");
   await page.locator('input[type=file][accept*=".st"]').setInputFiles({
     name: "parallel-purge-source.json",
     mimeType: "application/json",
@@ -58,7 +62,7 @@ async function load(page: Page, body: Buffer) {
   );
 }
 async function macros(page: Page) {
-  await page.getByRole("button", { name: "Macros", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Library");
   const card = page.getByRole("region", {
     name: "Parallel fan purge template",
     exact: true,
@@ -127,7 +131,8 @@ async function preview(page: Page, card: Locator) {
   return { raw, data: value(raw) };
 }
 async function exported(page: Page) {
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  if (!(await page.getByLabel("Export format", { exact: true }).isVisible()))
+    await chooseWorkspaceSurface(page, "Workspace");
   await page.getByLabel("Export format", { exact: true }).selectOption("json");
   const pending = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export", exact: true }).click();
@@ -136,7 +141,7 @@ async function exported(page: Page) {
   return raw;
 }
 async function step(page: Page) {
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await openGraphSimulation(page);
   const pending = page.waitForResponse(
     (r) =>
       new URL(r.url()).pathname === "/api/simulation/step" &&
@@ -267,7 +272,7 @@ async function placed(page: Page, id: string, graphical = false) {
     instance = p.nodes.find((n: any) => n.kind === "Activity").id;
   expect(p.metadata.macros.definitions[0].id).toBe(id);
   if (graphical) {
-    await page.getByRole("button", { name: "Program", exact: true }).click();
+    await chooseWorkspaceSurface(page, "Workspace");
     const actor = page.locator(`.react-flow__node[data-id="${instance}"]`);
     for (const port of ports)
       await wire(
@@ -366,7 +371,7 @@ for (const [scan, duration] of [
     const again = await imported(page, card);
     expect(value(again).metadata.macros.definitions).toHaveLength(1);
     await placed(page, p.data.definition_id, scan === 1);
-    await page.getByRole("button", { name: "Program", exact: true }).click();
+    await openGraphSimulation(page);
     await set(page, "heating_percent_command", "10");
     expect((await step(page)).last.outputs).toEqual({
       fan0: true,
@@ -406,9 +411,7 @@ v=json.load(sys.stdin);p=Program.model_validate_json(v['program']);assert all(im
       ),
     );
     const saved = await capture(page, "/api/projects", () =>
-        page
-          .getByRole("button", { name: "Save revision", exact: true })
-          .click(),
+        page.getByRole("button", { name: "Save project", exact: true }).click(),
       ),
       data = value(saved);
     expect(data.revision).toBe(1);
@@ -426,7 +429,7 @@ test("raw in-band heating resets purge while cooling in-band retains and new coo
   page,
 }) => {
   await open(page, true);
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await openGraphSimulation(page);
   await set(page, "heating_percent_command", "10");
   expect((await step(page)).last.outputs.fan0).toBe(true);
   await set(page, "heating_percent_command", "0");
@@ -450,7 +453,7 @@ test("live duration changes preserve elapsed and invalid good configuration rese
   page,
 }) => {
   await open(page, true);
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await openGraphSimulation(page);
   await set(page, "fan_off_threshold", "0");
   expect((await step(page)).last.outputs).toEqual({
     fan0: false,
@@ -486,7 +489,7 @@ test("quality rollback and terminal fan force preserve internal request and elap
   page,
 }) => {
   await open(page, true, 1, 4);
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await openGraphSimulation(page);
   await set(page, "heating_percent_command", "10");
   await step(page);
   await set(page, "heating_percent_command", "0");
@@ -615,10 +618,7 @@ for (const kind of ["preview-discard", "import-ABA", "export-unmount"])
         await page
           .getByLabel("Program name", { exact: true })
           .fill("Parallel purge source");
-      } else
-        await page
-          .getByRole("button", { name: "Program", exact: true })
-          .click();
+      } else await chooseWorkspaceSurface(page, "Workspace");
     } finally {
       await gate.release();
     }

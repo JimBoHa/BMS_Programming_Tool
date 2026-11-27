@@ -1,3 +1,7 @@
+import {
+  chooseWorkspaceSurface,
+  openGraphSimulation,
+} from "./workspace-navigation";
 import { expect, test, type Locator, type Page } from "./simulationFixture";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -13,15 +17,11 @@ async function loadMacroSource(page: Page) {
     ],
     { cwd: root },
   );
-  await page
-    .locator(
-      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"]',
-    )
-    .setInputFiles({
-      name: "rate-limiters.bms.json",
-      mimeType: "application/json",
-      buffer,
-    });
+  await page.locator('input[type=file][accept*=".st"]').setInputFiles({
+    name: "rate-limiters.bms.json",
+    mimeType: "application/json",
+    buffer,
+  });
   await expect(page.locator(".react-flow__node")).toHaveCount(5);
 }
 
@@ -63,9 +63,10 @@ test("extract a typed macro, run independent instances and exchange its library"
   page,
 }) => {
   await page.goto("/");
+  await chooseWorkspaceSurface(page, "Workspace");
   await loadMacroSource(page);
   await page.locator('.react-flow__node[data-id="rate"]').click();
-  await page.getByRole("button", { name: "Macros", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Library");
   await expect(page.locator(".macro-selection-summary")).toContainText(
     "1 selected block",
   );
@@ -85,7 +86,7 @@ test("extract a typed macro, run independent instances and exchange its library"
     .getByRole("button", { name: "Add instance to program", exact: true })
     .click();
   await expect(page.locator(".macro-stat-row")).toContainText("2 instances");
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Workspace");
   await expect(page.locator(".react-flow__node")).toHaveCount(6);
   const instance = page
     .locator('.react-flow__node[data-id^="use_macro_Rate_limiter"]')
@@ -108,13 +109,14 @@ test("extract a typed macro, run independent instances and exchange its library"
       .locator(".react-flow__handle-left"),
   );
   await expect(page.locator(".react-flow__edge")).toHaveCount(4);
+  await openGraphSimulation(page);
   for (let index = 0; index < 3; index++) {
     await stepSimulation(page);
   }
   await expect(page.locator(".trend-legend")).toContainText("out: 3");
   await expect(page.locator(".trend-legend")).toContainText("out_second: 2");
 
-  await page.getByRole("button", { name: "Macros", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Library");
   await page
     .getByRole("button", { name: "Edit definition on wiresheet", exact: true })
     .click();
@@ -140,6 +142,10 @@ test("extract a typed macro, run independent instances and exchange its library"
     )
     .toBe(2);
   await page.reload();
+  await page
+    .getByRole("region", { name: "Continue local work", exact: true })
+    .getByRole("button", { name: "Program", exact: true })
+    .click();
   await expect(page.locator(".macro-edit-banner")).toContainText(
     "Editing definition: macro_Rate_limiter",
   );
@@ -157,13 +163,14 @@ test("extract a typed macro, run independent instances and exchange its library"
   await expect(
     page.locator('.react-flow__node[data-id^="use_macro_Rate_limiter"]'),
   ).toHaveCount(2);
+  await openGraphSimulation(page);
   await page.getByTitle("Reset simulation", { exact: true }).click();
   await stepSimulation(page);
   await stepSimulation(page);
   await expect(page.locator(".trend-legend")).toContainText("out: 4");
   await expect(page.locator(".trend-legend")).toContainText("out_second: 2");
 
-  await page.getByRole("button", { name: "Macros", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Library");
   await page
     .getByRole("button", { name: "Edit definition on wiresheet", exact: true })
     .click();
@@ -174,12 +181,13 @@ test("extract a typed macro, run independent instances and exchange its library"
     .click();
   await expect(page.locator(".macro-edit-banner")).toHaveCount(0);
   await expect(page.locator(".react-flow__node")).toHaveCount(6);
+  await openGraphSimulation(page);
   await page.getByTitle("Reset simulation", { exact: true }).click();
   await stepSimulation(page);
   await expect(page.locator(".trend-legend")).toContainText("out: 2");
   await expect(page.locator(".trend-legend")).toContainText("out_second: 2");
 
-  await page.getByRole("button", { name: "Macros", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Library");
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export macro", exact: true }).click();
   const file = await download;
@@ -199,9 +207,9 @@ test("extract a typed macro, run independent instances and exchange its library"
     fullPage: true,
   });
 
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Workspace");
   await page.getByRole("button", { name: "New program", exact: true }).click();
-  await page.getByRole("button", { name: "Macros", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Library");
   await expect(page.locator(".macro-count")).toHaveText("0 definitions");
   await page
     .getByLabel("Import macro bundle file", { exact: true })
