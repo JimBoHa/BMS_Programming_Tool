@@ -14,7 +14,7 @@ from bacpypes3.primitivedata import (
 from .moi_application import _list
 from .moi_identity import MoiIdentity, sha
 from .moi_parameters import ParameterApplication
-from .native_inline_monitor import MODELS, sources
+from .native_inline_monitor import MODELS, floating_valve_configuration, sources
 from .native_inputs import archive, encoded, raw_property, record_instance, replace_properties
 from .native_root_layout import assemble_root, verify_layout
 
@@ -79,6 +79,7 @@ def one(sequence, message):
 
 class InlineSequenceCompiler:
     separate_root_layout = False  # Historic receipt images retain their exact encoding.
+    allow_floating = False
 
     def __init__(self, files, donor, first, *, phase_sampling=False):
         self.phase_sampling = phase_sampling
@@ -112,7 +113,13 @@ class InlineSequenceCompiler:
         )
         self.rootref = get_ref(self.application, self.root)
         self.g = self.application.reader.diagram(self.rootref, retained_activity_refs=True)
-        self.physical = sources(self.application, self.g)
+        self.physical = sources(self.application, self.g, allow_floating=self.allow_floating)
+        valve = self.physical["valve"]
+        self.floating_valve = (
+            floating_valve_configuration(self.application, valve)
+            if valve["class_id"] == 251
+            else None
+        )
         self.old = self.g["blocks"]
         self.order = list(self.g["execution_order"])
         refs = {b["ref"]: b["index"] for b in self.old}
@@ -662,6 +669,11 @@ class InlineSequenceCompiler:
             )
 
         val = obj(valve, (241, 251))
+        if self.floating_valve is not None:
+            required(
+                val["offset"] == self.physical["valve"]["offset"],
+                "The inline heat sink must reference the verified external floating valve.",
+            )
         dp = obj(pressure, (240,))
         probe = obj(dat, (240,))
         required(
@@ -948,6 +960,8 @@ class InlineSequenceCompiler:
             "permit": permit[0],
         }
         self.original_edges = [old_enable, original]
+        if self.floating_valve is not None:
+            self.bind["floating_valve"] = self.floating_valve
         self.new_edges = [(*permit, passthrough["index"], 513), (*output, valve["index"], 7000)]
         self.schedule = (
             self.order[:early]

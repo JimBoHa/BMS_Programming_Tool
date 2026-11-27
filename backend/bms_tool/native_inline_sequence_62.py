@@ -9,6 +9,7 @@ from .native_inputs import encoded
 
 class LegacyInlineSequenceCompiler(CompactInlineSequenceCompiler):
     separate_root_layout = True
+    allow_floating = True
 
     def __init__(self, files, donor, first):
         super().__init__(files, donor, first)
