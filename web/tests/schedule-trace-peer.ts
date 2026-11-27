@@ -102,6 +102,7 @@ export async function openScheduleController(
   request: APIRequestContext,
   peer: { endpoint: string },
   routed = false,
+  localAddress?: string,
 ) {
   const headers = {
     "X-Studio-Token": (await (await request.get("/api/session")).json()).token,
@@ -113,10 +114,18 @@ export async function openScheduleController(
   await page.getByRole("button", { name: /^Connect to a controller/ }).click();
   await page
     .getByLabel("Local bind address / UDP port", { exact: true })
-    .fill(`127.0.0.1:${await freePort()}`);
+    .fill(localAddress ?? `127.0.0.1:${await freePort()}`);
   await page
     .getByRole("button", { name: "Open interface", exact: true })
     .click();
+  return selectKnownScheduleController(page, peer, routed);
+}
+
+export async function selectKnownScheduleController(
+  page: Page,
+  peer: { endpoint: string },
+  routed = false,
+) {
   await page
     .getByRole("button", { name: "Known controller address", exact: true })
     .click();
