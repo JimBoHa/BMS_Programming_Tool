@@ -111,6 +111,7 @@
   border-style: dashed;
 }
 .engineering-node .logic-junction {
+  pointer-events: none;
   position: absolute;
   right: -11px;
   top: 9px;

@@ -6,13 +6,17 @@ const root = path.resolve(".."),
   python = path.join(root, ".venv/bin/python"),
   ref = "8-1/575_1";
 function fixture(kind = "basic", title = "Authored example") {
+  const options: Record<string, string> = {
+    single: "wires=[(0,663,2,513)]",
+    fanout: "extra_wire=(0,663,3,514)",
+  };
   return execFileSync(
     python,
     [
       "-c",
       kind === "nested"
         ? "from tests.test_caf_logic_display import nested_graph; import sys; sys.stdout.buffer.write(nested_graph())"
-        : `from tests.test_caf_graph import make_graph,pack; from bms_tool.caf import CafArchive; import sys; data=make_graph(${kind === "single" ? "wires=[(0,663,2,513)]" : ""}); sys.stdout.buffer.write(pack(CafArchive(data).xml.replace(b'Authored example',sys.argv[1].encode())))`,
+        : `from tests.test_caf_graph import make_graph,pack; from bms_tool.caf import CafArchive; import sys; data=make_graph(${options[kind] || ""}); sys.stdout.buffer.write(pack(CafArchive(data).xml.replace(b'Authored example',sys.argv[1].encode())))`,
       title,
     ],
     {
@@ -158,6 +162,50 @@ test("dragging native ports reviews and exports an existing connection source ch
   expect(result.order).toEqual([0, 1, 2, 3]);
   expect(result.layout[0]).toEqual({ x: "1.000", y: "2.000", opaque_code: 0 });
 });
+test("a branched output accepts a drag from its visible junction", async ({
+  page,
+}) => {
+  const panel = await open(page, "fanout");
+  const source = ref + ".2_10";
+  const destination = ref + ".2_13";
+  const node = panel.locator(`.react-flow__node[data-id="${source}"]`);
+  const marker = node.locator(".logic-junction");
+  const handle = node.locator('[data-handleid="out:663"]');
+  await expect(marker).toBeVisible();
+  await expect(marker).toHaveCSS("pointer-events", "none");
+  await expect(handle).toHaveAttribute("title", "2 recorded destinations");
+  await wire(page, panel, source, destination);
+  const review = panel.getByLabel("Native rewire review", { exact: true });
+  await expect(review).toContainText("[0,663,3,513]");
+  const download = page.waitForEvent("download");
+  await panel
+    .getByRole("button", {
+      name: "Check and export native CAF rewire",
+      exact: true,
+    })
+    .click();
+  const copy = await download;
+  const connections = execFileSync(
+    python,
+    [
+      "-c",
+      "from bms_tool.caf_graph import CafGraph; from pathlib import Path; import json,sys; graph=CafGraph(Path(sys.argv[1]).read_bytes()).diagram(sys.argv[2]); print(json.dumps([w['raw'] for w in graph['connections']]))",
+      (await copy.path())!,
+      ref,
+    ],
+    {
+      cwd: root,
+      env: { ...process.env, PYTHONPATH: path.join(root, "backend") },
+      encoding: "utf8",
+    },
+  );
+  expect(JSON.parse(connections)).toEqual([
+    [0, 663, 2, 513],
+    [0, 663, 3, 513],
+    [0, 663, 3, 514],
+  ]);
+});
+
 test("dragging to an unused native input uses an original prototype and preserves object inventory", async ({
   page,
 }) => {
