@@ -1,27 +1,15 @@
-import {
-  expect,
-  test,
-  type APIRequestContext,
-  type Page,
-} from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { spawn, type ChildProcess } from "node:child_process";
-import { createSocket } from "node:dgram";
+import { openEventController, showControllerEvents } from "./event-workspace";
+import { chooseWorkspaceTask } from "./workspace-navigation";
+import { disconnectTestInterface } from "./workflow-peer";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 const root = path.resolve("..");
-async function freePort(): Promise<number> {
-  const socket = createSocket("udp4");
-  return new Promise((resolve, reject) => {
-    socket.once("error", reject);
-    socket.bind(0, "127.0.0.1", () => {
-      const port = (socket.address() as { port: number }).port;
-      socket.close(() => resolve(port));
-    });
-  });
-}
-async function peer(
-  mode = "accept",
-): Promise<{
+test.afterEach(async ({ request }) => {
+  await disconnectTestInterface(request);
+});
+async function peer(mode = "accept"): Promise<{
   process: ChildProcess;
   port: number;
   packets: () => number;
@@ -103,35 +91,9 @@ asyncio.run(main())
   });
   return { process: child, port, packets: () => packets, reads: () => reads };
 }
-async function open(page: Page, request: APIRequestContext, port: number) {
-  const headers = {
-    "X-Studio-Token": (await (await request.get("/api/session")).json()).token,
-  };
-  expect(
-    (
-      await request.post("/api/bacnet/connect", {
-        headers,
-        data: { local_address: `127.0.0.1:${await freePort()}` },
-      })
-    ).ok(),
-  ).toBe(true);
-  await page.goto("/");
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
-  const events = page.getByRole("region", {
-    name: "BACnet field events",
-    exact: true,
-  });
-  await expect(
-    events.getByRole("button", { name: "Query device events", exact: true }),
-  ).toBeEnabled();
-  await events
-    .getByLabel("Event device address", { exact: true })
-    .fill(`127.0.0.1:${port}`);
-  await events
-    .getByLabel("Event Device object", { exact: true })
-    .fill("device,4190096");
+async function open(page: Page, port: number) {
+  const events = await openEventController(page, port);
   return {
-    headers,
     events,
     ack: page.getByRole("region", {
       name: "Reviewed event acknowledgement",
@@ -158,11 +120,10 @@ async function prepare(events: any, ack: any) {
 }
 test("fresh preview is read only; deliberate Apply exports exact native acceptance evidence", async ({
   page,
-  request,
 }) => {
   const server = await peer();
   try {
-    const { headers, events, ack } = await open(page, request, server.port);
+    const { events, ack } = await open(page, server.port);
     expect(server.reads()).toBe(0);
     expect(server.packets()).toBe(0);
     await prepare(events, ack);
@@ -214,19 +175,15 @@ test("fresh preview is read only; deliberate Apply exports exact native acceptan
     );
     expect(evidence.request_apdu_sha256).toMatch(/^[a-f0-9]{64}$/);
     expect(evidence.automatic_retries).toBe(false);
-    await request.post("/api/bacnet/disconnect", { headers, data: {} });
   } finally {
     server.process.kill();
   }
 });
 for (const mode of ["stale", "unsafe"])
-  test(`${mode} evidence visibly defers without a write`, async ({
-    page,
-    request,
-  }) => {
+  test(`${mode} evidence visibly defers without a write`, async ({ page }) => {
     const server = await peer(mode);
     try {
-      const { headers, events, ack } = await open(page, request, server.port);
+      const { events, ack } = await open(page, server.port);
       await prepare(events, ack);
       const review = ack.getByRole("region", {
         name: "Acknowledgement review",
@@ -245,18 +202,16 @@ for (const mode of ["stale", "unsafe"])
         }),
       ).toHaveCount(0);
       expect(server.packets()).toBe(0);
-      await request.post("/api/bacnet/disconnect", { headers, data: {} });
     } finally {
       server.process.kill();
     }
   });
 test("missing response remains unknown, invalidates review and never retries", async ({
   page,
-  request,
 }) => {
   const server = await peer("hold");
   try {
-    const { headers, events, ack } = await open(page, request, server.port);
+    const { events, ack } = await open(page, server.port);
     await prepare(events, ack);
     await ack
       .getByRole("button", {
@@ -276,18 +231,17 @@ test("missing response remains unknown, invalidates review and never retries", a
         exact: true,
       }),
     ).toHaveCount(0);
-    await request.post("/api/bacnet/disconnect", { headers, data: {} });
   } finally {
     server.process.kill();
   }
 });
-test("leaving Connect retires the write and retains its unknown receipt", async ({
+test("leaving Controller events retires the write and retains its unknown receipt", async ({
   page,
   request,
 }) => {
   const server = await peer("hold");
   try {
-    const { headers, events, ack } = await open(page, request, server.port);
+    const { events, ack } = await open(page, server.port);
     await prepare(events, ack);
     await ack
       .getByRole("button", {
@@ -296,7 +250,7 @@ test("leaving Connect retires the write and retains its unknown receipt", async 
       })
       .click();
     await expect.poll(server.packets).toBe(1);
-    await page.getByRole("button", { name: "Program", exact: true }).click();
+    await chooseWorkspaceTask(page, "Program");
     await expect
       .poll(
         async () =>
@@ -309,7 +263,7 @@ test("leaving Connect retires the write and retains its unknown receipt", async 
     ).json();
     expect(profile.receipts[0].status).toBe("unknown");
     expect(profile.receipts[0].may_have_applied).toBe(true);
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
+    await showControllerEvents(page);
     await ack
       .getByText("Earlier acknowledgement receipts in this session", {
         exact: true,
@@ -325,7 +279,6 @@ test("leaving Connect retires the write and retains its unknown receipt", async 
       ack.getByRole("region", { name: "Acknowledgement receipt", exact: true }),
     ).toContainText("Acknowledgement unknown");
     expect(server.packets()).toBe(1);
-    await request.post("/api/bacnet/disconnect", { headers, data: {} });
   } finally {
     server.process.kill();
   }
