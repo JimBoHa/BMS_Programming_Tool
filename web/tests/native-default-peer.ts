@@ -20,6 +20,7 @@ export async function nativeDefaultPeer(
     | "binary-input"
     | "encoded-analog-input"
     | "point-name"
+    | "box-flow-history"
     | "application-restore" = "real",
   enumStates = false,
 ) {
@@ -99,6 +100,11 @@ async def main():
  elif sys.argv[2]=='instance':
   from tests.test_native_instance_recovery_transfer import controller_storage as instance_storage
   app.files=signal_files();instance_storage(app);app.mode='normal' if sys.argv[1]=='consume' else sys.argv[1]
+ elif sys.argv[2]=='box-flow-history':
+  from tests.test_box_flow_results import source,static_row,pair
+  archive,static,dynamic=source(60)
+  static+=static_row(3668,8,b'\\x82\\x00\\x80')+static_row(3669,22,pair(2,8,16)+pair(2,20,50))
+  app.files={3:archive,11:static,12:dynamic}
  elif sys.argv[2]=='boolean':app.files=boolean_files();storage_outcome(app,mode=sys.argv[1])
  elif sys.argv[2]=='enum':
   from tests.test_moi_effective_enum import enum_files

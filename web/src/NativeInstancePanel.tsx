@@ -1,3 +1,4 @@
+import { BoxFlowHistory } from "./BoxFlowHistory";
 import { randomUUID } from "./browserCrypto";
 import { useEffect, useId, useRef, useState } from "react";
 import { NativeRuntimeCalibration } from "./NativeRuntimeCalibration";
@@ -1101,6 +1102,9 @@ export function NativeInstancePanel(
               {capture.application.record_count ?? "Unrecognized"} application
               records. Original application and both parameter files retained.
             </p>
+            <BoxFlowHistory
+              results={capture.parameter_merge?.box_flow_results}
+            />
             {capture.instance_edit_supported === false ? (
               <p role="alert">
                 This format cannot yet be compiled: {capture.compiler_error}

@@ -652,7 +652,7 @@ class NativeApplications(
                     raise ValueError(receipt["source_identity_error"])
                 merged, receipt["parameter_merge"] = ParameterApplication(
                     files[3], files[11], files[12]
-                ).compile()
+                ).compile(inspection_only=True)
                 receipt["parameter_transfer_qualification"] = qualify_parameter_additions(
                     merged, receipt["parameter_merge"]
                 )

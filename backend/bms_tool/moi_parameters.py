@@ -24,6 +24,7 @@ from bacpypes3.primitivedata import (
     Unsigned,
 )
 
+from .box_flow_results import flow_samples, result_bits
 from .moi_identity import MoiIdentity, sha
 from .mstp import header_crc
 
@@ -43,8 +44,8 @@ def _encode(tags):
     return bytes(TagList(tags).encode().pduData)
 
 
-def _inline(data, datatype):
-    if datatype not in (7, 24) or not data or data[0] != 0x1E:
+def _inline_tags(data):
+    if not data or data[0] != 0x1E:
         raise ValueError("Unsupported inline application parameter datatype.")
     pdu, tags, depth = PDUData(data), [], []
     while pdu.pduData:
@@ -63,7 +64,13 @@ def _inline(data, datatype):
         raise ValueError("Inline parameter has unsupported trailing data.")
     if not tags or tags[-1].tag_number != 1:
         raise ValueError("Unterminated inline parameter group.")
-    return _encode([*tags[1:-1], ClosingTag(2)])
+    return tags[1:-1]
+
+
+def _inline(data, datatype):
+    if datatype not in (7, 24):
+        raise ValueError("Unsupported inline application parameter datatype.")
+    return _encode([*_inline_tags(data), ClosingTag(2)])
 
 
 class ParameterApplication:
@@ -81,6 +88,7 @@ class ParameterApplication:
             objects[oid] = record
         self.replacements, self.insertions, self.parameters = {}, {}, []
         self.retained_runtime_parameters = []
+        self.box_flow_results = []
         used, selectors, resolved_selectors, offset = {}, {}, set(), 0
         while offset < len(static):
             length = int.from_bytes(static[offset : offset + 2], "big")
@@ -153,6 +161,29 @@ class ParameterApplication:
                     number = int.from_bytes(payload, "big", signed=kind is Integer)
                     value = _encode([*kind(number).encode(), ClosingTag(2)])
             elif flags == 0x4F:
+                if (
+                    cid == 612
+                    and oid >> 22 == cid
+                    and pid in (3668, 3669)
+                    and datatype in (8, 22)
+                    and record is not None
+                    and app.summary()["format_versions"] == {"acs": 60, "dmcs": 60}
+                ):
+                    if datatype != (8 if pid == 3668 else 22) or prop is not None:
+                        raise ValueError("Unqualified native box flow test result storage.")
+                    tags = _inline_tags(row[12:-2])
+                    values = result_bits(tags) if pid == 3668 else flow_samples(tags, 2)
+                    self.box_flow_results.append(
+                        {
+                            "class": cid,
+                            "instance": resolved_instance,
+                            "property": pid,
+                            "encoded_sha256": sha(_encode(tags)),
+                            "value": values,
+                        }
+                    )
+                    offset += length
+                    continue
                 value = _inline(row[12:-2], datatype)
             else:
                 raise ValueError("Unsupported saved parameter storage flags.")
@@ -230,7 +261,12 @@ class ParameterApplication:
             raise ValueError("Dynamic parameter storage contains unaccounted values.")
         self.static_sha256, self.dynamic_sha256 = sha(static), sha(dynamic)
 
-    def compile(self):
+    def compile(self, *, inspection_only=False):
+        if self.box_flow_results and not inspection_only:
+            raise ValueError(
+                "The backup contains historical box flow test results. Local inspection is "
+                "available. Restoration of these results after a transfer is unverified."
+            )
         app = self.application
         output, previous_end = bytearray(app.data[:14]), 14
         for record in app.records:
@@ -276,6 +312,7 @@ class ParameterApplication:
             "static_sha256": self.static_sha256,
             "dynamic_sha256": self.dynamic_sha256,
             "matched_parameters": len(self.parameters),
+            **({"box_flow_results": self.box_flow_results} if self.box_flow_results else {}),
             "changed_parameters": [p for p in self.parameters if p["changed"]],
             "retained_runtime_parameters": self.retained_runtime_parameters,
             "vendor_runtime_required": False,
