@@ -38,6 +38,8 @@ MAX_EXPANDED = 8 * 1024 * 1024
 MAX_RECORDS = 20000
 MAX_PROPERTIES = 4096
 MAX_TAGS = 20000
+# Public object types for native float, enumeration and Boolean input/output blocks.
+SIGNAL_OBJECT_TYPES = {526: 2, 527: 2, 528: 19, 529: 19, 530: 5, 531: 5}
 
 
 def _expect(tag, kind, number):
@@ -393,7 +395,42 @@ class MoiApplication:
             ],
         }
 
-    def diagram(self, ref):
+    def _retained_signal_refs(self, parent):
+        """Index unambiguous signal identities in a single length-framed drawing."""
+        aliases = {}
+        if self.record_framing != "declared-lengths" or self.errors:
+            return aliases
+        for ref, record in self.records.items():
+            owner, _, leaf = ref.rpartition(".")
+            if owner != parent:
+                continue
+            prop = record["properties"].get(75, {}).get("scalar") or {}
+            identity = prop.get("value")
+            if not isinstance(identity, str):
+                continue
+            if identity in aliases:
+                aliases[identity] = None
+                continue
+            # Reserve even a malformed sibling's claim so a collision stays ambiguous.
+            aliases[identity] = None
+            kind = SIGNAL_OBJECT_TYPES.get(record["class_id"])
+            if kind is None or prop["datatype"] != "ObjectIdentifier":
+                continue
+            match = re.fullmatch(rf"{kind}_([0-9]{{1,7}})", leaf)
+            if not match or int(match[1]) >= 0x3FFFFF:
+                continue
+            start = record["offset"] + 6
+            header = int.from_bytes(self.data[start : start + 4], "big")
+            instance = header & 0x3FFFFF
+            if (
+                header >> 22 == record["class_id"]
+                and instance < 0x3FFFFF
+                and identity == str(ObjectIdentifier((kind, instance)))
+            ):
+                aliases[identity] = record
+        return aliases
+
+    def diagram(self, ref, *, retained_signal_refs=False):
         record = self.records.get(ref)
         if record is None or record["class_id"] not in (536, 575):
             raise ValueError("Select an actual native activity or control sequence.")
@@ -409,9 +446,18 @@ class MoiApplication:
         if sorted(sequence) != list(range(len(identifiers))):
             raise ValueError("Native graph order does not list each block exactly once.")
         blocks, seen = [], set()
+        signal_refs = None
         for index, oid in enumerate(identifiers):
             child = f"{ref}.{int(oid[0])}_{int(oid[1])}"
             found = self.records.get(child)
+            if (
+                found is None
+                and retained_signal_refs
+                and int(oid[0]) in SIGNAL_OBJECT_TYPES.values()
+            ):
+                if signal_refs is None:
+                    signal_refs = self._retained_signal_refs(ref)
+                found = signal_refs.get(str(oid))
             if found is None or child in seen or self.scalar(found, 75) != str(oid):
                 raise ValueError(
                     "Native block reference is missing, duplicated or does not match its identity."
@@ -460,7 +506,7 @@ class MoiApplication:
         Observed pin labels change when connections are edited. Keep that derived
         metadata outside the graph equality checks used by native copy compilers.
         """
-        graph = self.diagram(ref)
+        graph = self.diagram(ref, retained_signal_refs=True)
         blocks = graph["blocks"]
         by_ref = {block["ref"]: block for block in blocks}
         for block in blocks:
@@ -505,7 +551,7 @@ class MoiApplication:
             if record["class_id"] not in (536, 575):
                 continue
             try:
-                graph = self.diagram(ref)
+                graph = self.diagram(ref, retained_signal_refs=True)
                 diagrams.append(
                     {
                         "ref": ref,
