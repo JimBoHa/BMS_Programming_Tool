@@ -1,4 +1,8 @@
 import {
+  openEquipmentWizard,
+  reopenWizardProject,
+} from "./equipment-wizard-navigation";
+import {
   test,
   expect,
   simulationServerResponseJSON,
@@ -16,10 +20,7 @@ const root = path.resolve(".."),
   python = path.join(root, ".venv/bin/python"),
   title = "Portable heat-pump browser";
 async function open(page: Page) {
-  await page.goto("/");
-  await page
-    .getByRole("button", { name: "Equipment wizard", exact: true })
-    .click();
+  await openEquipmentWizard(page);
   await page
     .getByRole("button", { name: "Heat-pump wizard", exact: true })
     .click();
@@ -93,6 +94,7 @@ async function create(page: Page, dialog: ReturnType<Page["getByRole"]>) {
   await expect(page.getByLabel("Program name", { exact: true })).toHaveValue(
     title,
   );
+  await page.getByRole("button", { name: "Simulate", exact: true }).click();
 }
 async function step(page: Page) {
   const receipt = page.waitForResponse(
@@ -157,9 +159,7 @@ test("declared cooling graph simulates compressor timing, retains exact review b
   expect(outputs.heating_active).toBe(false);
   expect(outputs.reversing_valve).toBe(true);
   expect(outputs.fan).toBe(true);
-  await page
-    .getByRole("button", { name: "Save revision", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Save project", exact: true }).click();
   await expect(
     page.getByLabel("Last saved revision", { exact: true }),
   ).toContainText("r1");
@@ -182,7 +182,7 @@ test("declared cooling graph simulates compressor timing, retains exact review b
     ).trim();
     expect(digest).toBe(report.program_sha256);
   }
-  await page.reload();
+  await reopenWizardProject(page, report.program.id);
   await expect(page.getByLabel("Program name", { exact: true })).toHaveValue(
     title,
   );
