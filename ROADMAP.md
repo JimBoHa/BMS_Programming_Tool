@@ -461,6 +461,9 @@ The [inline hot-water airflow interlock](docs/native-inline-airflow.md) covers t
 controller's measured airflow permissive and proportional valve
 command on the qualified custom application. Whole-equipment acceptance also
 requires discharge-temperature protection and physical commissioning.
+The [legacy VAV timing diagnostic](docs/native-inline-monitor.md) can verify
+a captured external floating valve's two output terminals and stroke time
+before installing its internal input and timer observations.
 
 | ID | Planned addition | Workspace | Remaining behavior / acceptance |
 | --- | --- | --- | --- |

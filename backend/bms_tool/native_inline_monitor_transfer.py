@@ -76,7 +76,19 @@ async def operating_state(native, session, identity, compilation):
         readings[key] = value
     if bool(await native.input_atomic(session, points["flow"], 3368, Boolean)):
         raise ValueError("Airflow must be out of test mode.")
-    for key, terminal in (("valve", "CO OUT4"), ("damper", "BO1-Int,BO2-Int")):
+    valve_terminal = "CO OUT4"
+    floating = compilation.get("floating_valve")
+    if floating is not None:
+        valve = points["valve"]
+        first = int(await native.input_atomic(session, valve, 990, Unsigned))
+        second = int(await native.input_atomic(session, valve, 991, Unsigned))
+        stroke = float(await native.input_atomic(session, valve, 3478, Real))
+        if [first, second] != floating["terminals"] or stroke != floating["stroke_seconds"]:
+            raise ValueError(
+                "The live floating valve terminals or stroke time differ from the capture."
+            )
+        valve_terminal = f"BO OUT{first},BO OUT{second}"
+    for key, terminal in (("valve", valve_terminal), ("damper", "BO1-Int,BO2-Int")):
         obj = points[key]
         slots = list(await native.path._read(session, obj, "priority-array"))
         if (
@@ -136,7 +148,7 @@ async def review(native, options):
         from .native_snapshot_restore import require_restore_source
 
         require_restore_source(recovery)
-        out, compilation = compile_monitor(files, options.first_instance)
+        out, compilation = compile_monitor(files, options.first_instance, allow_floating=True)
         config, app = copy.deepcopy(native.bacnet.config), native.bacnet.require()
         async with native.path._path(options) as session:
             PropertyEvidence.pin(session, options.router)
@@ -192,7 +204,9 @@ def fresh_compile(native, body, files):
     if reviewed["evidence_sha256"] != body["snapshot_sha256"]:
         raise ValueError("The reviewed original backup has changed.")
     fresh_current(before, files)
-    return compile_monitor(files, body["first_instance"])
+    return compile_monitor(
+        files, body["first_instance"], allow_floating="floating_valve" in body["compilation"]
+    )
 
 
 def reconstruct(native, intent):
@@ -203,6 +217,7 @@ def reconstruct(native, intent):
         files,
         intent["first_instance"],
         preserve_root_layout=intent["compilation"].get("root_layout_version") == 2,
+        allow_floating="floating_valve" in intent["compilation"],
     )
     if (
         report != intent["compilation"]

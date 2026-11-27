@@ -4,6 +4,8 @@ import pytest
 from bacpypes3.primitivedata import CharacterString, Enumerated, ObjectIdentifier, Real, Unsigned
 from bms_tool.moi_identity import MoiIdentity
 from bms_tool.native_inline_monitor import compile_monitor
+from bms_tool.native_inline_monitor_transfer import MonitorApply, MonitorReview
+from bms_tool.native_inline_monitor_transfer import review as review_monitor
 from bms_tool.native_inline_sequence_62 import LegacyInlineSequenceCompiler
 from bms_tool.native_inline_shadow import ShadowReview, reconstruct, review
 from bms_tool.native_inputs import archive, encoded, raw_property
@@ -85,6 +87,86 @@ def test_floating_draft_rejects_unverified_terminal_pair_or_stroke(override):
     donor = authored_source(catalog=True, wide=True)
     with pytest.raises(ValueError, match="floating valve|I/O property"):
         LegacyInlineSequenceCompiler(files, donor[3], 300)
+    with pytest.raises(ValueError, match="floating valve|I/O property"):
+        compile_monitor(files, 300, allow_floating=True)
+
+
+@pytest.mark.parametrize(
+    "change", ["none", "terminal order", "stroke before apply", "terminal label"]
+)
+async def test_floating_monitor_validates_live_wiring_and_recovers_original(native_link, change):
+    peer, _, _, native, target = native_link
+    binding = {
+        31: CharacterString("BO OUT2,BO OUT3"),
+        990: Unsigned(2),
+        991: Unsigned(3),
+        3478: Real(83),
+    }
+    observation_peer(peer, "", floating=binding)
+    original = floating_source()
+    peer.files = dict(original)
+    capture = await native.capture(**target, operation_id="capture-floating-monitor")
+    options = MonitorReview(
+        **target,
+        operation_id="review-floating-monitor",
+        capture_id=capture["id"],
+        snapshot_sha256=capture["snapshot_evidence_sha256"],
+        first_instance=100,
+    )
+    if change == "terminal order":
+        binding[990], binding[991] = binding[991], binding[990]
+    if change == "terminal label":
+        binding[31] = CharacterString("BO OUT3,BO OUT2")
+    if change in ("terminal order", "terminal label"):
+        with pytest.raises(ValueError, match="terminal"):
+            await review_monitor(native, options)
+        assert ("state", "start-restore") not in peer.events
+        return
+
+    plan = await review_monitor(native, options)
+    assert plan["compilation"]["floating_valve"] == {"terminals": [2, 3], "stroke_seconds": 83}
+    if change == "stroke before apply":
+        binding[3478] = Real(84)
+    receipt = await native.apply_reviewed(
+        MonitorApply(
+            operation_id="apply-floating-monitor",
+            token=plan["token"],
+            review_sha256=plan["review_sha256"],
+            monitor_confirmed=True,
+            application_transfer_confirmed=True,
+        ),
+        default_edit=False,
+        inline_kind="inline-monitor",
+    )
+    if change == "stroke before apply":
+        assert receipt["result"]["status"] == "not_sent"
+        assert ("state", "start-restore") not in peer.events
+        return
+
+    assert receipt["result"]["status"] == "verified", receipt["result"]
+    assert receipt["result"]["diagnostic_execution"]["status"] == "advancing"
+    before, after = MoiIdentity(original[3]), MoiIdentity(peer.files[3])
+    for ref in ("controller/valve", "controller/damper"):
+        assert before.reader.records[ref]["sha256"] == after.reader.records[ref]["sha256"]
+    original_wires = before.reader.diagram(plan["compilation"]["root"])["connections"]
+    assert after.reader.diagram(plan["compilation"]["root"])["connections"][:-1] == original_wires
+    restore = await native.preview_snapshot_restore(
+        **target,
+        operation_id="review-floating-original",
+        restore_capture_id=capture["id"],
+        restore_snapshot_sha256=capture["snapshot_evidence_sha256"],
+    )
+    restored = await native.apply_snapshot_restore(
+        operation_id="restore-floating-original",
+        token=restore["token"],
+        review_sha256=restore["review_sha256"],
+        historical_application_confirmed=True,
+        application_transfer_confirmed=True,
+    )
+    assert restored["result"]["status"] == "verified"
+    assert restored["result"]["preservation"]["effective_saved_application_values_verified"]
+    assert peer.files[11] == original[11] and peer.files[12] == original[12]
+    assert peer.events.count(("state", "start-restore")) == 2
 
 
 def test_heat_sink_cannot_bind_to_integral_damper_with_same_percent_units():
