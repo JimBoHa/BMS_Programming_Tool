@@ -15,6 +15,7 @@ from .moi_identity import MoiIdentity, sha
 from .moi_parameters import ParameterApplication
 from .native_inputs import archive, encoded, raw_property, replace_properties
 from .native_parameter_qualification import qualify_parameter_additions
+from .native_root_layout import assemble_root, verify_layout
 
 PROFILE = "native-inline-input-and-clock-monitor/1"
 MODELS = {"MS-VMA1630-0", "FX-PCV1630-0"}
@@ -159,7 +160,7 @@ def sources(app, graph):
     )
 
 
-def compile_monitor(files, first_instance):
+def compile_monitor(files, first_instance, *, preserve_root_layout=True):
     if type(first_instance) is not int or not 1 <= first_instance <= LIMIT:
         raise ValueError("Select a valid first native object instance.")
     effective, merge = ParameterApplication(files[3], files[11], files[12]).compile()
@@ -316,17 +317,22 @@ def compile_monitor(files, first_instance):
     originals = [
         root_bytes if r is root else app.data[r["offset"] : r["end_offset"]] for r in app.records
     ]
-    output = archive(app, originals + additions)
+    ordered, added_at, footer = originals + additions, len(originals), None
+    if preserve_root_layout:
+        ordered, added_at, footer = assemble_root(app, root, originals, additions, g, members, 1)
+    output = archive(app, ordered)
     actual = MoiIdentity(output)
     parsed = actual.reader.diagram(ref, retained_activity_refs=True)
+    verify_layout(app, actual, footer, parsed)
+    retained = actual.records[:added_at] + actual.records[added_at + len(additions) :]
     if (
         actual.reader.errors
         or actual.instance != app.instance
         or len(actual.records) != len(originals) + len(additions)
         or any(
             a["sha256"] != b["sha256"]
-            for a, b in zip(app.records, actual.records[: len(originals)], strict=True)
-            if a is not root
+            for i, (a, b) in enumerate(zip(app.records, retained, strict=True))
+            if a is not root and i != footer
         )
         or [b["ref"] for b in parsed["blocks"][:n]] != [b["ref"] for b in g["blocks"]]
         or parsed["execution_order"] != g["execution_order"] + list(range(n, n + len(members)))
@@ -339,11 +345,19 @@ def compile_monitor(files, first_instance):
             "target_ref": witness,
             "target_port": 513,
         }
-        or any(actual.reader.scalar(r, 3807) is True for r in actual.records[len(originals) :])
+        or any(
+            actual.reader.scalar(r, 3807) is True
+            for r in actual.records[added_at : added_at + len(additions)]
+        )
     ):
         raise ValueError("The decoded monitoring graph does not preserve the original application.")
     return output, {
         "profile": PROFILE,
+        **(
+            {"root_layout_version": 2, "separate_root_layout_updated": footer is not None}
+            if preserve_root_layout
+            else {}
+        ),
         "source_sha256": sha(files[3]),
         "native_edited_sha256": sha(actual.data),
         "root": ref,

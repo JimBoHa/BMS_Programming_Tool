@@ -2729,8 +2729,10 @@ against actual native evidence before extending restoration or authoring scopes.
 The register now contains 211 criteria: 157 implemented, 46 partial and eight
 pending. See [retained application restoration](docs/native-application-restore.md).
 
-A source-matched legacy proportional inline valve can now run an input and timing
-diagnostic, then the complete elapsed-airflow and discharge-limit sequence with
-its original output connections intact. Activation separately reviews the running
-sequence and the two control connections. The [field qualification procedure](docs/native-inline-monitor.md)
-describes the original backup, measured checks and verified readback.
+On the two supported 1630 models running 6.2.0.1054, the native transfer workflow
+supports the output-independent input and timing diagnostic and restoration of the
+original program. The revised encoder keeps the separate root drawing tables in
+step with the program. Full elapsed-airflow and discharge-limit control remains
+in offline qualification pending an operating test of that complete image.
+The procedure covers backup, controller execution evidence and recovery.
+[Legacy VAV qualification](docs/native-inline-monitor.md)

@@ -284,6 +284,7 @@ def test_readback_requires_original_lineage_and_verifies_effective_settings():
 
 
 def observation_peer(peer, fault):
+    import time
     from types import MethodType
 
     from bacpypes3.apdu import ReadPropertyACK
@@ -296,6 +297,7 @@ def observation_peer(peer, fault):
     peer.metadata.update({"model-name": "FX-PCV1630-0", "firmware-revision": "6.2.0.1054"})
     direct = peer.do_ReadPropertyRequest
     peer.clearance_reads = []
+    peer.clock_started = None
     physical = {
         (0, 14): ("DA-VP", 58),
         (0, 15): ("DA-T", 64),
@@ -333,6 +335,26 @@ def observation_peer(peer, fault):
                 value = PriorityArray(slots)
             else:
                 raise ExecutionError(errorClass="property", errorCode="unknown-property")
+        elif 100 <= key[1] < 126 and pid in (85, 103):
+            installed = MoiIdentity(self.files[3])
+            rd = installed.reader
+            clock_output = {
+                rd.scalar(child, 75)
+                for ref, child in rd.records.items()
+                if rd.scalar(child, 3365) == 85
+                and (owner := rd.records.get(ref.rpartition(".")[0]))
+                and rd.scalar(owner, 2390) == "Sampling interval witness"
+            }
+            if str(obj) not in clock_output:
+                raise ExecutionError(errorClass="object", errorCode="unknown-object")
+            if peer.clock_started is None:
+                peer.clock_started = time.monotonic()
+            elapsed = int(time.monotonic() - peer.clock_started)
+            value = (
+                Enumerated(0)
+                if pid == 103
+                else Real(37 if fault == "clock-stalled" else (2 - elapsed) % 60)
+            )
         elif 100 <= key[1] < 126 and pid == 75:
             peer.clearance_reads.append(key)
             if key[1] == 100 and (
@@ -411,11 +433,12 @@ async def test_lost_allocation_read_requires_a_new_attributed_absence(native_lin
     assert ("state", "start-restore") not in peer.events
 
 
-async def test_real_datagrams_apply_reconcile_and_recover_reviewed_original(native_link):
+@pytest.mark.parametrize("clock", ["advancing", "stationary"])
+async def test_real_datagrams_apply_reconcile_and_recover_reviewed_original(native_link, clock):
     from bms_tool.native_inline_monitor_transfer import MonitorApply, review
 
     peer, _, _, service, target = native_link
-    observation_peer(peer, "")
+    observation_peer(peer, "clock-stalled" if clock == "stationary" else "")
     cap = await service.capture(**target, operation_id="capture-original")
     options = MonitorReview(
         **target,
@@ -435,6 +458,9 @@ async def test_real_datagrams_apply_reconcile_and_recover_reviewed_original(nati
     receipt = await service.apply_reviewed(req, default_edit=False, inline_kind="inline-monitor")
     assert receipt["result"]["status"] == "verified", receipt["result"]
     assert receipt["result"]["preservation"]["native_graph_verified"]
+    evidence = receipt["result"]["diagnostic_execution"]
+    assert evidence["read_only"] and len(evidence["samples"]) == 6
+    assert evidence["status"] == clock
     assert not receipt["result"]["preservation"]["runtime_sampling_verified"]
     with pytest.raises(ValueError, match="consumed"):
         await service.apply_reviewed(req, default_edit=False, inline_kind="inline-monitor")

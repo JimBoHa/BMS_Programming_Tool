@@ -11,6 +11,7 @@ from .models import StrictModel
 from .moi_identity import MoiIdentity, seal, sha
 from .moi_parameters import ParameterApplication
 from .native_inline_sequence import CompactInlineSequenceCompiler, InlineSequenceCompiler
+from .native_inline_sequence_62 import LegacyInlineSequenceCompiler
 from .native_parameter_qualification import qualify_parameter_additions
 from .native_snapshot_restore import Hash, Identifier, fresh_current, qualify_restore_counters
 
@@ -38,7 +39,7 @@ class ShadowApply(StrictModel):
 
 def selection(options):
     return {
-        "sampling_mode": "consecutive-seconds",
+        "sampling_mode": "native-62-seconds",
         **options.model_dump(
             include={"first_instance", "prototype_capture_id", "prototype_sha256"}
         ),
@@ -61,9 +62,11 @@ def compile_shadow(native, identity, options, files):
             "The primitive source needs a verified backup from the same model and firmware."
         )
     mode = options.get("sampling_mode")
-    if mode not in (None, "elapsed-phase", "consecutive-seconds"):
+    if mode not in (None, "elapsed-phase", "consecutive-seconds", "native-62-seconds"):
         raise ValueError("Unsupported observation sampling mode.")
-    if mode == "consecutive-seconds":
+    if mode == "native-62-seconds":
+        compiler = LegacyInlineSequenceCompiler(files, library[3], options["first_instance"])
+    elif mode == "consecutive-seconds":
         compiler = CompactInlineSequenceCompiler(files, library[3], options["first_instance"])
     else:
         compiler = InlineSequenceCompiler(

@@ -1,7 +1,8 @@
 """Exercise elapsed-time registers decoded from the authored native fixture."""
 
 from collections import deque
-from operator import add, and_, ge, gt, or_, sub, xor
+from functools import reduce
+from operator import add, and_, eq, ge, gt, or_, sub, xor
 from random import Random
 
 import pytest
@@ -11,16 +12,19 @@ from bms_tool.native_inline_sequence import (
     CompactInlineSequenceCompiler,
     InlineSequenceCompiler,
 )
+from bms_tool.native_inline_sequence_62 import LegacyInlineSequenceCompiler
 
 from .test_native_inline_sequence import authored_source
 
 
 class PhasePeer:
-    def __init__(self, *, compact=False):
-        source = authored_source()
-        library = authored_source(catalog=True)[3]
+    def __init__(self, *, compact=False, legacy=False, model="FX-PCV1630-0"):
+        source = authored_source(model=model)
+        library = authored_source(catalog=True, model=model, wide=legacy)[3]
         compiler = (
-            CompactInlineSequenceCompiler(source, library, 200)
+            LegacyInlineSequenceCompiler(source, library, 200)
+            if legacy
+            else CompactInlineSequenceCompiler(source, library, 200)
             if compact
             else InlineSequenceCompiler(source, library, 200, phase_sampling=True)
         )
@@ -41,6 +45,7 @@ class PhasePeer:
                 record, 3113
             )
         kinds = {spec[0]: name for name, spec in SPECS.items()}
+        kinds[30] = "eq"
         self.blocks = {
             b["index"]: (
                 kinds.get(app.reader.scalar(app.reader.records[b["ref"]], 3670)),
@@ -94,6 +99,7 @@ class PhasePeer:
             "min": min,
             "max": max,
             "ge": ge,
+            "eq": eq,
             "gt": gt,
             "div": lambda a, b: a / b,
         }
@@ -131,8 +137,12 @@ class PhasePeer:
                 elif kind == "select":
                     values[i] = get(7001 if get(961) else 7000)
                 else:
-                    ports = (50083, 50084) if kind in ("ge", "gt") else (7000, 7001)
-                    values[i] = ops[kind](*(get(p) for p in ports))
+                    ports = (
+                        (50083, 50084)
+                        if kind in ("ge", "gt", "eq")
+                        else sorted(p for p in default if p >= 7000)
+                    )
+                    values[i] = reduce(ops[kind], (get(p) for p in ports))
             new = {i: values[src] for i, src in pending.items()}
             if new == self.memory:
                 return values[mean], values[ready], values[output]
@@ -168,8 +178,16 @@ def test_elapsed_registers_cover_varying_flow_repeated_executions_and_faults():
     assert last == (0, False, 0)
 
 
-def test_compact_window_tracks_each_second_and_restarts_after_discontinuity():
-    peer = PhasePeer(compact=True)
+@pytest.mark.parametrize(
+    "legacy,model",
+    [
+        (False, "FX-PCV1630-0"),
+        (True, "FX-PCV1630-0"),
+        (True, "MS-VMA1630-0"),
+    ],
+)
+def test_compact_window_tracks_each_second_and_restarts_after_discontinuity(legacy, model):
+    peer = PhasePeer(compact=True, legacy=legacy, model=model)
     samples = deque(maxlen=30)
     random = Random(320)
     for t in range(125):
@@ -202,8 +220,9 @@ def test_compact_window_tracks_each_second_and_restarts_after_discontinuity():
     assert stalled == (0, False, 0)
 
 
-def test_compact_window_rejects_a_gap_aliasing_either_sampling_clock():
-    peer = PhasePeer(compact=True)
+@pytest.mark.parametrize("legacy", [False, True])
+def test_compact_window_rejects_a_gap_aliasing_either_sampling_clock(legacy):
+    peer = PhasePeer(compact=True, legacy=legacy)
     for sec in range(60):
         peer.run(sec, 80)
     assert peer.run(60, 80)[1]

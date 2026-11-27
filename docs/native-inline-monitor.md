@@ -27,6 +27,19 @@ the transfer. Readback checks the native graph, identity and saved settings.
 Use the receipt for readback after a lost reply. The original capture remains
 available for a separately reviewed restoration.
 
+Firmware 6.2 archives may store the root's Block Position List and Continuation
+List in a separate trailing record. The encoder preserves each existing drawing
+row, inserts the new native objects before the trailing record and extends its
+tables by one row per added block or wire. It checks both counts again after
+serialization. An inconsistent original drawing stops the new graph edit at
+review. Receipts from the previous encoder still reproduce their original bytes.
+
+The new diagnostic receipt also reports whether its downstream clock advanced,
+stayed stationary, or could not be confirmed. Six reads check elapsed time,
+countdown direction and rollover, signal reliability and controller identity.
+The program and saved-setting verification remains available if the clock stalls,
+so the operator can still select and restore the original application.
+
 Read the witness across a complete timer cycle without polling the timer.
 Compare each internal sensor observation with its corresponding physical
 property. Record time, input quality and discrepancies. An installed graph, an
@@ -77,6 +90,11 @@ airflow data or timing restarts airflow proof. An invalid discharge reading
 also inhibits heat. The valve can reopen by up to five percentage points per
 second. Independent simulation exercises these connections and the discharge
 limit.
+
+The 62/62 draft uses a zero-differential Float Equal comparison for each
+clock second. It groups additions and Boolean reductions when a matching
+native block in the source or library demonstrates that input layout.
+Both use the normal release 6.2 primitive types. [Johnson Controls comparison blocks](https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Controller-Tool-Help/15.0/Logic/Compare)
 
 Further field qualification requires a matching off-equipment controller or
 firmware simulator. Verify startup, the complete sample window with changing

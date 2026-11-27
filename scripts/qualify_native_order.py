@@ -33,6 +33,12 @@ BACKEND = [
     "native_applications",
     "native_application_api",
     "native_order_capabilities",
+    "native_inline_heat",
+    "native_inline_heat_transfer",
+    "native_inline_monitor",
+    "native_inline_phase",
+    "native_inline_sequence",
+    "native_root_layout_62",
     "distribution_resources",
 ]
 BROWSER = [
@@ -49,8 +55,8 @@ BROWSER = [
     "change-ledger",
 ]
 PREFILL = ["connections-prefill-queue", "connections-hydration"]
-BACKEND_CASES = 522
-BROWSER_CASES = 538
+BACKEND_CASES = 595
+BROWSER_CASES = 539
 PREFILL_CASES = 6
 
 
@@ -212,7 +218,10 @@ def backend(output, env):
         for line in (output / "backend-collection.log").read_text().splitlines()
         if line.startswith("tests/") and "::" in line
     ]
-    assert len(planned) == len(set(planned)) == BACKEND_CASES
+    assert len(planned) == len(set(planned)) == BACKEND_CASES, (
+        f"Collected {len(planned)} backend cases ({len(set(planned))} unique), "
+        f"expected {BACKEND_CASES}."
+    )
     write(output / "backend-planned-case-ids.json", planned)
     run([*args, "--junitxml=" + str(output / "backend.xml")], output / "backend.log", env=env)
     root = ET.parse(output / "backend.xml").getroot()

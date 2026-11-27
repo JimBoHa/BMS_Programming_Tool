@@ -1735,6 +1735,13 @@ class NativeApplications(
                 result["runtime_calibration"] = await read_runtime_calibration(
                     files[3], self.files.exchange, session
                 )
+                if (
+                    inline_operation is inline_monitor
+                    and intent["compilation"].get("root_layout_version") == 2
+                ):
+                    result["diagnostic_execution"] = await inline_monitor.observe_execution(
+                        self, session, intent
+                    )
                 status = int(await self.path._read(session, options.device, "system-status"))
                 result.update(system_status=status, operational=status == 0)
                 if status == 0:
