@@ -1,4 +1,8 @@
 import {
+  openEquipmentWizard,
+  reopenWizardProject,
+} from "./equipment-wizard-navigation";
+import {
   test,
   expect,
   simulationServerResponseJSON,
@@ -15,10 +19,7 @@ const root = path.resolve(".."),
   python = path.join(root, ".venv/bin/python");
 const title = "Fan-coil browser foundation";
 async function parameters(page: Page) {
-  await page.goto("/");
-  await page
-    .getByRole("button", { name: "Equipment wizard", exact: true })
-    .click();
+  await openEquipmentWizard(page);
   const dialog = page.getByRole("dialog", {
     name: "Equipment and sequence wizard",
     exact: true,
@@ -80,6 +81,7 @@ async function create(page: Page, dialog: ReturnType<Page["getByRole"]>) {
   await expect(page.getByLabel("Program name", { exact: true })).toHaveValue(
     title,
   );
+  await page.getByRole("button", { name: "Simulate", exact: true }).click();
 }
 async function step(page: Page) {
   const arrived = page.waitForResponse(
@@ -118,7 +120,7 @@ for (const fan of ["single-speed", "variable-speed"])
         expect(values.fan_speed).toBeCloseTo(52.16, 10);
       else expect(values).not.toHaveProperty("fan_speed");
       await page
-        .getByRole("button", { name: "Save revision", exact: true })
+        .getByRole("button", { name: "Save project", exact: true })
         .click();
       await expect(
         page.getByLabel("Last saved revision", { exact: true }),
@@ -160,7 +162,7 @@ p.revision=0;print(json.dumps({'program_sha256':p.digest(),'choices_sha256':w['c
       expect(proof.program_sha256).toBe(report.program_sha256);
       expect(proof.choices_sha256).toBe(report.choices_sha256);
       expect(proof.profile_sha256).toBe(report.profile_sha256);
-      await page.reload();
+      await reopenWizardProject(page, report.program.id);
       await expect(
         page.getByLabel("Program name", { exact: true }),
       ).toHaveValue(title);
