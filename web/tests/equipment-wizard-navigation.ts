@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { chooseWorkspaceSurface } from "./workspace-navigation";
 
 export async function openEquipmentWizard(page: Page) {
@@ -17,6 +17,9 @@ export async function openEquipmentWizard(page: Page) {
 
 export async function reopenWizardProject(page: Page, projectId: string) {
   await page.reload();
+  await expect(
+    page.getByRole("button", { name: "New application", exact: true }),
+  ).toBeVisible();
   await chooseWorkspaceSurface(page, "Workspace");
   await page
     .getByLabel("Open saved project", { exact: true })
