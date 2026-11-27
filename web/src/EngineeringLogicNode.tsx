@@ -48,6 +48,11 @@ export const EngineeringLogicNode = memo(function EngineeringLogicNode({
         type={side === "inputs" ? "target" : "source"}
         position={side === "inputs" ? Position.Left : Position.Right}
         id={`${side === "inputs" ? "in" : "out"}:${p.id}`}
+        title={
+          side === "outputs" && data.fanout[p.id] > 1
+            ? `${data.fanout[p.id]} recorded destinations`
+            : undefined
+        }
         aria-label={`${side === "inputs" ? "Input" : "Output"} ${p.id} on ${blockTitle(block)}`}
       />
       {!view.terminal && <span className="logic-pin-tag">{p.label}</span>}
