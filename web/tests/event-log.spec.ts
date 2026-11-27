@@ -8,6 +8,8 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { createSocket } from "node:dgram";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { openMonitoring } from "./monitoring-navigation";
+import { chooseWorkspaceTask } from "./workspace-navigation";
 const root = path.resolve("..");
 async function freePort(): Promise<number> {
   const socket = createSocket("udp4");
@@ -101,9 +103,7 @@ async function open(page: Page, request: APIRequestContext, port: number) {
     ).ok(),
   ).toBe(true);
   await page.goto("/");
-  await page
-    .getByRole("button", { name: "Device history", exact: true })
-    .click();
+  await openMonitoring(page, "Controller history");
   const panel = page.getByRole("region", {
     name: "BACnet Event Log history",
     exact: true,
@@ -125,6 +125,17 @@ async function open(page: Page, request: APIRequestContext, port: number) {
     .fill("100");
   return { headers, panel };
 }
+
+test("compact workspace opens Event Log history from a fresh page", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await openMonitoring(page, "Controller history");
+  await expect(
+    page.getByRole("region", { name: "BACnet Event Log history", exact: true }),
+  ).toBeVisible();
+});
 
 test("native Event Log reads notifications/status/clock entries and exports sealed history", async ({
   page,
@@ -301,7 +312,7 @@ test("leaving Device history cancels the owned Event Log query without restartin
       .getByRole("button", { name: "Read event-log history", exact: true })
       .click();
     await expect.poll(server.reads).toBe(2);
-    await page.getByRole("button", { name: "Program", exact: true }).click();
+    await chooseWorkspaceTask(page, "Program");
     await expect
       .poll(
         async () =>

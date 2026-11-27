@@ -65,6 +65,11 @@ export async function chooseWorkspaceSurface(page: Page, label: string) {
     name: "Open navigation",
     exact: true,
   });
+  const railButton = page
+    .getByRole("navigation", { name: "Main navigation", exact: true })
+    .getByRole("button", { name: label, exact: true });
+  // A new page can still be loading its shell when this helper is first called.
+  await expect(opener.or(railButton).first()).toBeVisible();
   if (await opener.isVisible()) {
     await opener.click();
     await page
@@ -72,9 +77,6 @@ export async function chooseWorkspaceSurface(page: Page, label: string) {
       .getByRole("button", { name: label, exact: true })
       .click();
   } else {
-    await page
-      .getByRole("navigation", { name: "Main navigation", exact: true })
-      .getByRole("button", { name: label, exact: true })
-      .click();
+    await railButton.click();
   }
 }
