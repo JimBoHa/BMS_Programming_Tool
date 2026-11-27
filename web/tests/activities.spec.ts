@@ -6,6 +6,10 @@ import {
   type Page,
   type Locator,
 } from "./simulationFixture";
+import {
+  chooseWorkspaceSurface,
+  chooseWorkspaceTool,
+} from "./workspace-navigation";
 import { projectedSourceFixture } from "./sourceTransportFixtures";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -81,7 +85,7 @@ function fixture(mode = "mixed") {
   return py(fixtureScript, mode);
 }
 async function load(page: Page, bytes: Buffer) {
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Workspace");
   await page.locator('input[type=file][accept*=".st"]').setInputFiles({
     name: "activities.json",
     mimeType: "application/json",
@@ -95,7 +99,7 @@ async function open(page: Page, mode = "mixed") {
   await page.goto("/");
   await load(page, fixture(mode));
   if (mode === "legacy") {
-    await page.getByRole("button", { name: "Macros", exact: true }).click();
+    await chooseWorkspaceSurface(page, "Library");
     const card = page.getByRole("region", {
       name: "Multi-output activity migration",
       exact: true,
@@ -111,7 +115,7 @@ async function open(page: Page, mode = "mixed") {
   return library(page);
 }
 async function library(page: Page) {
-  await page.getByRole("button", { name: "Macros", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Library");
   const card = page.getByRole("region", {
     name: "Reusable multi-output activities",
     exact: true,
@@ -167,7 +171,7 @@ async function capture(
   return raw!;
 }
 async function editor(page: Page) {
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Workspace");
   await page.getByLabel("Export format", { exact: true }).selectOption("json");
   const waiting = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export", exact: true }).click();
@@ -176,7 +180,14 @@ async function editor(page: Page) {
   return raw;
 }
 async function step(page: Page) {
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  if (
+    !(await page
+      .getByRole("button", { name: "Step simulation", exact: true })
+      .isVisible())
+  ) {
+    await chooseWorkspaceSurface(page, "Workspace");
+    await page.getByRole("button", { name: "Simulate", exact: true }).click();
+  }
   const waiting = page.waitForResponse(
     (r) =>
       new URL(r.url()).pathname === "/api/simulation/step" &&
@@ -294,7 +305,7 @@ async function held(page: Page, endpoint: string) {
   };
 }
 async function migration(page: Page) {
-  await page.getByRole("button", { name: "Macros", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Library");
   const card = page.getByRole("region", {
     name: "Multi-output activity migration",
     exact: true,
@@ -320,7 +331,7 @@ test("mixed ports share one state, hold/release explicit aliases and roll back q
   page,
 }) => {
   await open(page);
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Workspace");
   const node = page.locator('.react-flow__node[data-id="use0"]');
   await node.click();
   await expect(node.locator(".react-flow__handle-right")).toHaveCount(3);
@@ -411,7 +422,7 @@ for (const mode of ["nested", "two"])
       await retain("original-interchange-" + format, raw);
     }
     const saved = await capture(page, "/api/projects", () =>
-      page.getByRole("button", { name: "Save revision", exact: true }).click(),
+      page.getByRole("button", { name: "Save project", exact: true }).click(),
     );
     const p = projectedSourceFixture(JSON.parse(saved.toString()));
     expect(p.revision).toBe(1);
@@ -429,6 +440,7 @@ for (const mode of ["nested", "two"])
     );
     await retain("independent-original-interchange-check", validation);
     await page.reload();
+    await chooseWorkspaceSurface(page, "Workspace");
     await expect(page.getByLabel("Program name", { exact: true })).toHaveValue(
       "Mixed activity source",
     );
@@ -466,7 +478,7 @@ test("import a dependency archive, place an instance and wire both output handle
   );
   const p = projectedSourceFixture(JSON.parse(raw.toString())),
     id = p.nodes.find((n: any) => n.kind === "Activity").id;
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Workspace");
   const node = page.locator(`.react-flow__node[data-id="${id}"]`);
   await wire(
     page,
@@ -494,7 +506,7 @@ test("extract mixed-output selection and retain distinct source ports and fanout
   page,
 }) => {
   await open(page, "raw");
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Workspace");
   await page.locator('.react-flow__node[data-id="ramp"]').click();
   await page
     .locator('.react-flow__node[data-id="zero"]')
@@ -613,7 +625,7 @@ test("review original migration bytes, dismiss confirmation, then promote with f
   page,
 }) => {
   await open(page, "legacy");
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Workspace");
   await page.locator('.react-flow__node[data-id="instance"]').click();
   await page.getByLabel("Simulation force value", { exact: true }).fill("99");
   await page
@@ -713,7 +725,7 @@ test("unfinished parent retains named handles and diagnostics without alias forc
 }) => {
   const card = await open(page, "incomplete");
   await expect(card).toContainText("unfinished or not executable");
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Workspace");
   const node = page.locator('.react-flow__node[data-id="use0"]');
   await node.click();
   await expect(node.locator(".react-flow__handle-right")).toHaveCount(3);
@@ -733,7 +745,7 @@ test("prototype-like definition and port IDs render and simulate as ordinary cas
   await expect(
     card.getByRole("table", { name: "Activity port contracts", exact: true }),
   ).toContainText("hasOwnProperty");
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Workspace");
   const node = page.locator('.react-flow__node[data-id="use0"]');
   await expect(node.locator('[data-handleid="toString"]')).toHaveCount(1);
   expect((await step(page)).last.outputs).toEqual({
@@ -765,9 +777,7 @@ for (const kind of ["source", "discard", "unmount", "ABA"])
           })
           .click();
       else if (kind === "unmount")
-        await page
-          .getByRole("button", { name: "Program", exact: true })
-          .click();
+        await chooseWorkspaceSurface(page, "Workspace");
       else {
         await page
           .getByLabel("Program name", { exact: true })
@@ -803,9 +813,7 @@ for (const kind of ["unmount", "migration"])
         });
       await gate.started;
       if (kind === "unmount") {
-        await page
-          .getByRole("button", { name: "Program", exact: true })
-          .click();
+        await chooseWorkspaceSurface(page, "Workspace");
         await page
           .getByLabel("Program name", { exact: true })
           .fill("Keep later editor");
@@ -880,7 +888,7 @@ for (const fault of ["profile", "alias", "source"])
     });
     const card = await open(page);
     await expect(card.getByRole("alert")).toBeVisible();
-    await page.getByRole("button", { name: "Program", exact: true }).click();
+    await chooseWorkspaceSurface(page, "Workspace");
     await page.locator('.react-flow__node[data-id="use0"]').click();
     await expect(
       page.getByRole("button", { name: "Hold simulation value", exact: true }),
@@ -987,7 +995,7 @@ test("failed current criteria reload retires a held alias and session before fre
   page,
 }) => {
   await open(page);
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Workspace");
   await page.locator('.react-flow__node[data-id="use0"]').click();
   const port = page.getByRole("region", {
     name: "Activity output first",
@@ -1027,10 +1035,11 @@ test("failed current criteria reload retires a held alias and session before fre
   await card
     .getByRole("button", { name: "Reload activity criteria", exact: true })
     .click();
-  await expect(card.getByRole("alert")).toContainText(
-    "current criteria unavailable",
-  );
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await expect(
+    card.getByRole("alert").filter({ hasText: "current criteria unavailable" }),
+  ).toBeVisible();
+  await chooseWorkspaceSurface(page, "Workspace");
+  await page.getByRole("button", { name: "Simulate", exact: true }).click();
   await page.locator('.react-flow__node[data-id="use0"]').click();
   await expect(
     page.getByRole("button", { name: "Step simulation", exact: true }),
@@ -1062,7 +1071,9 @@ test("activity mixed outputs compile and execute through the existing Temco web 
   page,
 }) => {
   await open(page);
-  await page.getByRole("button", { name: "Temco native", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Workspace");
+  await page.getByRole("button", { name: "Simulate", exact: true }).click();
+  await chooseWorkspaceTool(page, "Temco");
   const panel = page.locator(".temco-simulator");
   await expect(panel).toContainText("Native compiler available");
   await expect(panel.getByRole("alert")).toHaveCount(0);

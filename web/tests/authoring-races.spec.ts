@@ -1,4 +1,8 @@
 import { test, expect, type Page, type Route } from "@playwright/test";
+import {
+  chooseWorkspaceSurface,
+  chooseWorkspaceTool,
+} from "./workspace-navigation";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -21,6 +25,11 @@ function program(name: string, id: string) {
       { cwd: root, encoding: "utf8" },
     ),
   );
+}
+
+async function openAuthoring(page: Page) {
+  await page.goto("/");
+  await chooseWorkspaceSurface(page, "Workspace");
 }
 
 async function importProgram(page: Page, source: any) {
@@ -95,7 +104,7 @@ test("saving a snapshot retains newer content and advances only its saved base r
   page,
   request,
 }) => {
-  await page.goto("/");
+  await openAuthoring(page);
   await importProgram(page, program("Snapshot before save", "save-race"));
   const hold = await holdActual(
     page,
@@ -104,7 +113,7 @@ test("saving a snapshot retains newer content and advances only its saved base r
   );
   try {
     const save = page.getByRole("button", {
-      name: "Save revision",
+      name: "Save project",
       exact: true,
     });
     await save.click();
@@ -147,7 +156,7 @@ test("saving a snapshot retains newer content and advances only its saved base r
 test("a completed save cannot replace a different new draft", async ({
   page,
 }) => {
-  await page.goto("/");
+  await openAuthoring(page);
   await importProgram(page, program("Saved separate project", "save-new-race"));
   const hold = await holdActual(
     page,
@@ -156,7 +165,7 @@ test("a completed save cannot replace a different new draft", async ({
   );
   try {
     await page
-      .getByRole("button", { name: "Save revision", exact: true })
+      .getByRole("button", { name: "Save project", exact: true })
       .click();
     const saved = (await hold.captured).data;
     await page
@@ -200,7 +209,7 @@ test("a save completing during a requested load cannot invalidate that newer nav
       ).ok(),
     ).toBe(true);
   }
-  await page.goto("/");
+  await openAuthoring(page);
   await page
     .getByLabel("Open saved project", { exact: true })
     .selectOption(first.id);
@@ -221,7 +230,7 @@ test("a save completing during a requested load cannot invalidate that newer nav
   );
   try {
     await page
-      .getByRole("button", { name: "Save revision", exact: true })
+      .getByRole("button", { name: "Save project", exact: true })
       .click();
     expect((await saving.captured).data.revision).toBe(2);
     await page
@@ -248,7 +257,7 @@ test("a save completing during a requested load cannot invalidate that newer nav
 test("late imports cannot overwrite edits or a more recent import", async ({
   page,
 }) => {
-  await page.goto("/");
+  await openAuthoring(page);
   const first = program("First delayed import", "import-first");
   const second = program("Most recent import", "import-second");
   const hold = await holdActual(page, "**/api/import");
@@ -312,7 +321,7 @@ test("saved project loads respect request order and preserve edits made while lo
       ).ok(),
     ).toBe(true);
   }
-  await page.goto("/");
+  await openAuthoring(page);
   const loading = await holdActual(page, "**/api/projects/load-a");
   try {
     await page
@@ -356,7 +365,7 @@ test("saved project loads respect request order and preserve edits made while lo
 test("an old validation response cannot attach graph errors to a newer valid draft", async ({
   page,
 }) => {
-  await page.goto("/");
+  await openAuthoring(page);
   const validation = await holdActual(
     page,
     "**/api/validate",
@@ -389,9 +398,10 @@ test("a late sandbox preview is rejected until the exact current proposal is rev
   page,
   request,
 }) => {
-  await page.goto("/");
+  await openAuthoring(page);
   await importProgram(page, program("Old sandbox proposal", "runtime-race"));
-  await page.getByRole("button", { name: "Runtime", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Settings");
+  await chooseWorkspaceTool(page, "Local runtime", "settings tools");
   const before = await (await request.get("/api/runtime")).json();
   const preview = await holdActual(page, "**/api/runtime/plan");
   try {
