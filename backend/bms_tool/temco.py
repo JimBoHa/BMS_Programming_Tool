@@ -13,7 +13,6 @@ import base64
 import hashlib
 import json
 import math
-import os
 import re
 import subprocess
 import tempfile
@@ -26,6 +25,7 @@ from .calendar_schedule import compile_schedule
 from .engine import Engine, execution_order, output_type, validate
 from .macros import expand_macros
 from .models import Edge, Node, Program, Target
+from .resources import toolchain_path
 from .temperature import DELTA_FOR_ABSOLUTE, DELTA_UNITS, TEMPERATURE_BLOCKS, difference_expression
 
 UPSTREAM = "https://github.com/temcocontrols/T3000_Building_Automation_System"
@@ -693,11 +693,9 @@ def import_source(source: str) -> Program:
 
 
 def _toolchain():
-    default = (
-        Path(__file__).resolve().parents[3]
-        / "Reference_Sources/temcocontrols--T3000/build/bms-host"
-    )
-    home = Path(os.environ.get("BMS_TEMCO_HOME", default)).expanduser().resolve()
+    home = toolchain_path(
+        "BMS_TEMCO_HOME", "Reference_Sources/temcocontrols--T3000/build/bms-host"
+    ).expanduser().resolve()
     try:
         manifest = json.loads((home / "manifest.json").read_text())
         if manifest["format"] != "bms-temco-host/1" or manifest["source_commit"] != PIN:

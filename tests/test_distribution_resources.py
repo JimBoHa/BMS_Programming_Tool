@@ -25,6 +25,53 @@ def package_paths(tmp_path, monkeypatch, *, checkout=False):
     return source, package
 
 
+def test_linked_checkout_finds_shared_toolchain_and_prefers_local_choice(tmp_path, monkeypatch):
+    main = tmp_path / "engineering" / "main"
+    linked = tmp_path / "test runs" / "linked"
+    main.mkdir(parents=True)
+    subprocess.run(["git", "init", "-q", str(main)], check=True)
+    (main / "pyproject.toml").write_text("[project]\nname='example'\n")
+    subprocess.run(["git", "-C", str(main), "add", "pyproject.toml"], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(main),
+            "-c",
+            "user.name=Example",
+            "-c",
+            "user.email=author@example.invalid",
+            "commit",
+            "--no-gpg-sign",
+            "-qm",
+            "Example",
+        ],
+        check=True,
+    )
+    subprocess.run(["git", "-C", str(main), "worktree", "add", "--detach", str(linked)], check=True)
+    monkeypatch.setattr(resources, "SOURCE", linked)
+    monkeypatch.setattr(resources, "PACKAGE", linked / "backend" / "bms_tool")
+    monkeypatch.delenv("BMS_TOOLCHAIN_EXAMPLE", raising=False)
+    shared = main.parent / "sdk"
+    local = linked.parent / "sdk"
+    assert resources.toolchain_path("BMS_TOOLCHAIN_EXAMPLE", "sdk") == local
+    shared.mkdir()
+    assert resources.toolchain_path("BMS_TOOLCHAIN_EXAMPLE", "sdk") == shared
+    local.mkdir()
+    assert resources.toolchain_path("BMS_TOOLCHAIN_EXAMPLE", "sdk") == local
+    override = tmp_path / "unavailable explicit selection"
+    monkeypatch.setenv("BMS_TOOLCHAIN_EXAMPLE", str(override))
+    assert resources.toolchain_path("BMS_TOOLCHAIN_EXAMPLE", "sdk") == override
+
+
+def test_malformed_link_and_installed_package_keep_the_existing_default(tmp_path, monkeypatch):
+    source, _ = package_paths(tmp_path, monkeypatch, checkout=True)
+    (source / ".git").write_text("invalid metadata\n")
+    assert list(resources.toolchain_roots()) == [source.parent]
+    monkeypatch.setattr(resources, "PACKAGE", source / "installed" / "bms_tool")
+    assert list(resources.toolchain_roots()) == [source.parent]
+
+
 def test_package_ignores_unrelated_neighboring_web_and_docs(tmp_path, monkeypatch):
     source, package = package_paths(tmp_path, monkeypatch)
     (source / "web" / "dist").mkdir(parents=True)
