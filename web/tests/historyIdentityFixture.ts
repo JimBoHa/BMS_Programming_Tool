@@ -1,9 +1,9 @@
 import { test as base } from "@playwright/test";
 import { spawn } from "node:child_process";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, mkdtempSync } from "node:fs";
 import { createServer } from "node:net";
 import path from "node:path";
+import { retireOwnedProcess } from "./operationPowerOwnedProcess.mjs";
 
 export { expect } from "@playwright/test";
 export type { Page, APIRequestContext } from "@playwright/test";
@@ -23,14 +23,21 @@ async function freePort(): Promise<number> {
 /** Each worker owns its seeded SQLite server; no shared API history is cleared. */
 export const test = base.extend<{}, { historyIdentityServer: string }>({
   historyIdentityServer: [
-    async ({ browserName }, use) => {
+    async ({ browserName }, use, worker) => {
       if (browserName !== "chromium" && browserName !== "webkit")
         throw new Error(
           "History identity fixture supports Chromium and WebKit lanes only.",
         );
+      // Worker fixtures share their evidence across tests in the same run.
+      mkdirSync(worker.project.outputDir, { recursive: true });
       const root = path.resolve(".."),
         port = await freePort(),
-        directory = mkdtempSync(path.join(tmpdir(), "bms-history-id-fixture-")),
+        directory = mkdtempSync(
+          path.join(
+            worker.project.outputDir,
+            `history-state-${worker.workerIndex}-`,
+          ),
+        ),
         installed = process.env.BMS_TEST_INSTALLED_TARGET?.trim()
           ? path.resolve(process.env.BMS_TEST_INSTALLED_TARGET.trim())
           : "",
@@ -79,21 +86,7 @@ export const test = base.extend<{}, { historyIdentityServer: string }>({
           throw new Error("Isolated history server failed to start: " + errors);
         await use(url);
       } finally {
-        if (child.exitCode === null) {
-          const stopped = new Promise<void>((resolve) =>
-            child.once("exit", () => resolve()),
-          );
-          child.kill("SIGTERM");
-          let timer: ReturnType<typeof setTimeout>;
-          await Promise.race([
-            stopped,
-            new Promise((resolve) => {
-              timer = setTimeout(resolve, 3000);
-            }),
-          ]);
-          clearTimeout(timer!);
-          if (child.exitCode === null) child.kill("SIGKILL");
-        }
+        await retireOwnedProcess(child, 3000, 1500);
       }
     },
     { scope: "worker" },

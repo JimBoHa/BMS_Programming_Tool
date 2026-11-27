@@ -23,6 +23,10 @@ async function deliveries(
   const route = routes.find((row: any) => row.name === "Identity " + project);
   await page.goto("/");
   await page
+    .getByRole("navigation", { name: "Main navigation" })
+    .getByRole("button", { name: "Settings", exact: true })
+    .click();
+  await page
     .getByRole("button", { name: "Alarm delivery", exact: true })
     .click();
   await expect(
@@ -39,7 +43,11 @@ async function deliveries(
 async function observations(page: Page, project: string) {
   await page.goto("/");
   await page
-    .getByRole("button", { name: "Trends & alarms", exact: true })
+    .getByRole("navigation", { name: "Main navigation" })
+    .getByRole("button", { name: "History", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Recorded trends & alarms", exact: true })
     .click();
   const chooser = page.getByLabel("Observation source", { exact: true });
   await expect(

@@ -14,7 +14,11 @@ const bounded = (promise, milliseconds, message) => {
     }),
   ]).finally(() => clearTimeout(timer));
 };
-async function reap(child, graceMilliseconds, killMilliseconds) {
+export async function retireOwnedProcess(
+  child,
+  graceMilliseconds,
+  killMilliseconds,
+) {
   const result = {
     pid: child.pid ?? null,
     graceful_requested: false,
@@ -84,7 +88,7 @@ export async function withOwnedPowerProcess(options, body) {
       errors.push(error);
     }
     try {
-      retirement = await reap(
+      retirement = await retireOwnedProcess(
         child,
         options.graceMilliseconds ?? 5000,
         options.killMilliseconds ?? 3000,
