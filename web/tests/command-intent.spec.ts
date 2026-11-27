@@ -7,6 +7,10 @@ import {
 import { spawn, execFileSync } from "node:child_process";
 import { createSocket } from "node:dgram";
 import path from "node:path";
+import {
+  chooseWorkspaceTask,
+  chooseWorkspaceTool,
+} from "./workspace-navigation";
 
 const root = path.resolve(".."),
   python = path.join(root, ".venv/bin/python");
@@ -28,7 +32,7 @@ async function freePort(): Promise<number> {
     });
   });
 }
-async function peer() {
+async function peer(denyWrites = false) {
   const child = spawn(
     python,
     [
@@ -37,6 +41,7 @@ async function peer() {
       `import asyncio,json,sys
 from tests.test_connections import application,point,free_udp
 from tests.test_bacnet_commands import binary
+from bacpypes3.errors import ExecutionError
 async def main():
     port=free_udp(); app=application(port,4190098); analog=point(); discrete=binary(); app.add_object(analog); app.add_object(discrete)
     counts={'reads':0,'writes':0}; read=app.do_ReadPropertyRequest; write=app.do_WritePropertyRequest
@@ -45,6 +50,7 @@ async def main():
         await read(request)
     async def write_counted(request):
         counts['writes']+=1
+        if sys.argv[1]=='deny': raise ExecutionError(errorClass='property',errorCode='writeAccessDenied')
         await write(request)
     app.do_ReadPropertyRequest=read_counted; app.do_WritePropertyRequest=write_counted
     print(json.dumps({'port':port}),flush=True)
@@ -56,6 +62,7 @@ async def main():
     finally:
         app.close(); await asyncio.sleep(.05)
 asyncio.run(main())`,
+      denyWrites ? "deny" : "allow",
     ],
     { cwd: root, stdio: ["pipe", "pipe", "pipe"] },
   );
@@ -105,26 +112,33 @@ asyncio.run(main())`,
 }
 async function connect(page: Page, request: APIRequestContext, port: number) {
   await page.goto("/");
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
+  await page.getByRole("button", { name: /^Connect to a controller/ }).click();
   await page
     .getByLabel("Local bind address / UDP port", { exact: true })
     .fill(`127.0.0.1:${await freePort()}`);
-  await page.getByLabel("Router IP (optional)", { exact: true }).fill("");
-  await page
-    .getByLabel("MS/TP destination network (optional)", { exact: true })
-    .fill("");
-  await page
-    .getByLabel("BBMD address / UDP port (optional)", { exact: true })
-    .fill("");
   await page
     .getByRole("button", { name: "Open interface", exact: true })
     .click();
-  await expect(
-    page.getByText("BACnet interface open", { exact: true }),
-  ).toBeVisible();
   await page
-    .getByLabel("Unicast target", { exact: true })
+    .getByRole("button", { name: "Known controller address", exact: true })
+    .click();
+  await page
+    .getByLabel("Known controller address", { exact: true })
     .fill(`127.0.0.1:${port}`);
+  await page
+    .getByLabel("Known Device object", { exact: true })
+    .fill("device,4190098");
+  await page
+    .getByRole("button", { name: "Open controller", exact: true })
+    .click();
+  await expect(
+    page.getByRole("region", { name: "Controller overview" }),
+  ).toBeVisible();
+  await chooseWorkspaceTask(page, "Changes");
+  await chooseWorkspaceTool(page, "Controller changes");
+  await page
+    .getByLabel("Command point object", { exact: true })
+    .fill("analog-value,1");
   return {
     "X-Studio-Token": (await (await request.get("/api/session")).json()).token,
   };
@@ -150,7 +164,7 @@ async function preview(page: Page, text: string) {
       .click();
     const row = await captured;
     await expect(
-      page.getByLabel("BACnet command preview", { exact: true }),
+      page.getByLabel("BACnet command preview", { exact: true }).locator("pre"),
     ).toHaveText(row.response);
     return row;
   } finally {
@@ -175,6 +189,8 @@ test("unsafe numeric or nonscalar command intent refuses before any preview requ
     headers = await connect(page, request, device.port);
   const previews: string[] = [],
     writes: string[] = [];
+  const before = await device.stats();
+  expect(before.writes).toBe(0);
   page.on("request", (r) => {
     if (r.url().endsWith("/api/bacnet/write-plan"))
       previews.push(r.postData()!);
@@ -219,7 +235,7 @@ test("unsafe numeric or nonscalar command intent refuses before any preview requ
     expect(previews).toEqual([]);
     expect(writes).toEqual([]);
     expect(await device.stats()).toEqual({
-      reads: 0,
+      reads: before.reads,
       writes: 0,
       analog: 12.5,
       binary: 0,
@@ -294,7 +310,7 @@ test("bare or quoted enum labels and Boolean commands retain owned apply and rel
     headers = await connect(page, request, device.port);
   try {
     await page
-      .getByLabel("Object identifier", { exact: true })
+      .getByLabel("Command point object", { exact: true })
       .fill("binary-value,1");
     for (const [input, expected, kind] of [
       ["active", 1, "str"],
@@ -314,12 +330,53 @@ r=json.load(sys.stdin); q=json.loads(r['request']); p=json.loads(r['response']);
       await expect(page.locator(".owned-command")).toHaveCount(1);
       expect((await device.stats()).binary).toBe(expected);
       await page
-        .getByRole("button", { name: "Relinquish", exact: true })
+        .getByRole("button", { name: "Release override", exact: true })
         .click();
       await expect(page.locator(".owned-command")).toHaveCount(0);
       expect((await device.stats()).binary).toBe(0);
     }
     expect((await device.stats()).writes).toBe(8);
+  } finally {
+    await close(request, headers, device.child);
+  }
+});
+
+test("a rejected command shows its pending record and can verify the empty slot without a second write", async ({
+  page,
+  request,
+}) => {
+  const device = await peer(true),
+    headers = await connect(page, request, device.port);
+  try {
+    await preview(page, "24");
+    await page
+      .getByRole("button", { name: "Apply previewed command", exact: true })
+      .click();
+    await expect(page.getByRole("alert")).toContainText("write-access-denied");
+    await expect(page.locator(".owned-command")).toContainText(
+      "pending-verification",
+    );
+    await expect(
+      page.getByRole("button", {
+        name: "Apply previewed command",
+        exact: true,
+      }),
+    ).toHaveCount(0);
+    const verify = page.getByRole("button", {
+      name: "Verify empty slot",
+      exact: true,
+    });
+    await verify.focus();
+    await expect(verify).toBeFocused();
+    await verify.press("Enter");
+    await expect(
+      page.getByRole("status").filter({ hasText: "Verified priority" }),
+    ).toContainText("Cleared the local command record.");
+    await expect(page.locator(".owned-command")).toHaveCount(0);
+    expect((await device.stats()).writes).toBe(1);
+    expect(
+      (await (await request.get("/api/bacnet/status")).json()).commands,
+    ).toEqual([]);
   } finally {
     await close(request, headers, device.child);
   }
@@ -376,31 +433,36 @@ test("delayed real preflight receipt after navigation cannot revive a command pl
 }) => {
   const device = await peer(),
     headers = await connect(page, request, device.port);
-  let release!: () => void, seen!: () => void;
+  let release!: () => void, seen!: () => void, settled!: () => void;
   const gate = new Promise<void>((resolve) => (release = resolve)),
-    arrived = new Promise<void>((resolve) => (seen = resolve));
+    arrived = new Promise<void>((resolve) => (seen = resolve)),
+    delivery = new Promise<void>((resolve) => (settled = resolve));
   await page.route("**/api/bacnet/write-plan", async (route) => {
     const response = await route.fetch();
     expect(response.ok()).toBe(true);
     seen();
     await gate;
-    await route.fulfill({ response });
+    try {
+      await route.fulfill({ response });
+    } finally {
+      settled();
+    }
   });
   try {
     await page
       .getByRole("button", { name: "Preview command", exact: true })
       .click();
     await arrived;
-    await page.getByRole("button", { name: "Program", exact: true }).click();
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
     await expect(
-      page.getByRole("heading", { name: "Connections", exact: true }),
+      page.getByRole("button", { name: "Program", exact: true }),
+    ).toBeDisabled();
+    await page.reload();
+    await expect(
+      page.getByRole("button", { name: /^Connect to a controller/ }),
     ).toBeVisible();
-    const settled = page.waitForResponse((r) =>
-      r.url().endsWith("/api/bacnet/write-plan"),
-    );
     release();
-    await settled;
+    await delivery;
+    await connect(page, request, device.port);
     await expect(
       page.getByRole("button", {
         name: "Apply previewed command",

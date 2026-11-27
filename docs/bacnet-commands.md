@@ -37,6 +37,15 @@ no automatic null write, retry after return, or restart recovery write occurs.
 Reconnect the same saved interface and explicitly inspect/relinquish the owned
 slot. A changed slot is not automatically overwritten or released.
 
+If the controller rejects a command or another operator already released it,
+open that controller and select **Changes → Owned commands → Verify empty slot**.
+Studio checks the responding Device, original point name and priority slot
+twice, with a present-value read between the two checks. Two empty readings
+retire the local ownership record and retain the observation in History. The
+operation uses BACnet reads. An occupied slot, changed identity or incomplete
+read keeps the record available for investigation. The receipt describes the
+slot at verification time. The earlier command can still have an unknown outcome.
+
 `tests/test_bacnet_commands.py` exercises actual loopback UDP for canonical
 BinaryPV inputs, invalid-value refusal, preview/apply/readback/release, restart
 ownership, accepted-write cancellation, acknowledgement-service mismatch and

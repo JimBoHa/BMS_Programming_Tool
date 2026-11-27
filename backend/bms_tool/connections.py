@@ -23,7 +23,7 @@ from bacpypes3.apdu import ErrorRejectAbortNack
 from bacpypes3.app import Application
 from bacpypes3.basetypes import BinaryPV
 from bacpypes3.pdu import Address, LocalBroadcast
-from bacpypes3.primitivedata import Double, Null, Real, Unsigned
+from bacpypes3.primitivedata import Double, Null, ObjectIdentifier, Real, Unsigned
 from serial.tools import list_ports
 
 from .bacnet_read import close_application, read_property
@@ -610,6 +610,55 @@ class Bacnet:
                     },
                 )
                 raise
+
+    async def confirm_empty_slot(self, command, device):
+        """Retire a local claim after observing its exact empty slot on the selected Device."""
+        expected = ObjectIdentifier(device)
+        if int(expected[0]) != 8 or not 0 <= expected[1] <= 4194302:
+            raise ValueError("Select an explicit BACnet Device instance to verify the slot.")
+        async with self.lock:
+            plan = self.commands.get(command)
+            if not plan:
+                raise ValueError("Owned command not found.")
+            if self.config is None or self.config != plan.get("config"):
+                raise ValueError("Reconnect the original interface to verify the owned slot.")
+            address, obj, priority = plan["address"], plan["object_id"], plan["priority"]
+            empty = {"type": "null", "value": None}
+
+            async def verify_target_and_slot():
+                actual = await self._read(address, str(expected), "object-identifier")
+                if actual != expected:
+                    raise ValueError("Responding Device differs from the selected controller.")
+                if str(await self._read(address, obj, "object-name")) != plan.get("name"):
+                    raise ValueError("Point name differs from the original command review.")
+                slot = json_value(await self._read(address, obj, "priority-array", priority))
+                if slot != empty:
+                    raise ValueError("The selected priority is occupied. The command is retained.")
+
+            await verify_target_and_slot()
+            present = json_value(await self._read(address, obj))
+            await verify_target_and_slot()
+            result = {
+                "command": command,
+                "status": "observed_empty",
+                "device": str(expected),
+                "address": address,
+                "object": obj,
+                "name": plan["name"],
+                "priority": priority,
+                "prior_status": plan["status"],
+                "present_value": present,
+                "slot": empty,
+                "write_sent": False,
+            }
+            self.store.record("bacnet.write.slot_empty", result)
+            del self.commands[command]
+            try:
+                self._persist()
+            except OSError:
+                self.commands[command] = plan
+                raise
+            return result
 
     async def release(self, command):
         async with self.lock:
