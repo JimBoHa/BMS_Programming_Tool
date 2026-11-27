@@ -1,3 +1,4 @@
+import { chooseWorkspaceSurface } from "./workspace-navigation";
 import {
   sourceFixtureData,
   resealSourceFixture,
@@ -9,6 +10,12 @@ const root = path.resolve(".."),
   python = path.join(root, ".venv/bin/python");
 async function open(page: Page) {
   await page.goto("/");
+  await page
+    .getByRole("button", { name: "New application", exact: true })
+    .click();
+  await page
+    .getByLabel("Choose VAV template", { exact: true })
+    .selectOption({ index: 1 });
   await page
     .getByRole("button", { name: "Equipment wizard", exact: true })
     .click();
@@ -113,13 +120,12 @@ test("author measured-airflow project, preview actual signals, protect current d
   await expect(page.getByLabel("Program name", { exact: true })).toHaveValue(
     "Wizard browser authoring",
   );
+  await page.getByRole("button", { name: "Simulate", exact: true }).click();
   await page
     .getByRole("button", { name: "Step simulation", exact: true })
     .click();
   await expect(page.locator(".elapsed")).toHaveText("1.0 s");
-  await page
-    .getByRole("button", { name: "Save revision", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Save project", exact: true }).click();
   await expect(
     page.getByLabel("Last saved revision", { exact: true }),
   ).toContainText("r1");
@@ -142,6 +148,10 @@ test("author measured-airflow project, preview actual signals, protect current d
   expect(inspected.hash).toBe(preview.program_sha256);
   expect(inspected.choice_hash).toBe(preview.choices_sha256);
   await page.reload();
+  await chooseWorkspaceSurface(page, "Workspace");
+  await page
+    .getByLabel("Open saved project", { exact: true })
+    .selectOption(preview.program.id);
   await expect(page.getByLabel("Program name", { exact: true })).toHaveValue(
     "Wizard browser authoring",
   );
@@ -176,6 +186,7 @@ test("unit changes convert defaults and inverse gains without changing simulated
   await dialog
     .getByRole("button", { name: "Create editable project", exact: true })
     .click();
+  await page.getByRole("button", { name: "Simulate", exact: true }).click();
   await page
     .getByRole("button", { name: "Step simulation", exact: true })
     .click();
@@ -209,6 +220,7 @@ test("position mapping and P-only strategy preview no flow sensor and stale para
   await dialog
     .getByRole("button", { name: "Create editable project", exact: true })
     .click();
+  await page.getByRole("button", { name: "Simulate", exact: true }).click();
   await page
     .getByRole("button", { name: "Step simulation", exact: true })
     .click();

@@ -1,3 +1,4 @@
+import { chooseWorkspaceSurface } from "./workspace-navigation";
 import {
   test,
   expect,
@@ -29,6 +30,12 @@ const environment = () => ({
 const sha = (body: Buffer) => createHash("sha256").update(body).digest("hex");
 async function open(page: Page) {
   await page.goto("/");
+  await page
+    .getByRole("button", { name: "New application", exact: true })
+    .click();
+  await page
+    .getByLabel("Choose VAV template", { exact: true })
+    .selectOption({ index: 1 });
   await page
     .getByRole("button", { name: "Equipment wizard", exact: true })
     .click();
@@ -128,6 +135,7 @@ async function create(page: Page, dialog: Locator) {
   await expect(page.getByLabel("Program name", { exact: true })).toHaveValue(
     title,
   );
+  await page.getByRole("button", { name: "Simulate", exact: true }).click();
 }
 async function scan(page: Page) {
   const pending = page.waitForResponse(
@@ -272,7 +280,7 @@ for (const unit of ["degF", "degC"])
       expect(outputs.reheat_valve).toBeCloseTo(32, 8);
       expect(outputs.primary_flow_target).toBeCloseTo(flowValue(100, flow), 8);
       await page
-        .getByRole("button", { name: "Save revision", exact: true })
+        .getByRole("button", { name: "Save project", exact: true })
         .click();
       await expect(
         page.getByLabel("Last saved revision", { exact: true }),
@@ -296,6 +304,10 @@ for (const unit of ["degF", "degC"])
         });
       }
       await page.reload();
+      await chooseWorkspaceSurface(page, "Workspace");
+      await page
+        .getByLabel("Open saved project", { exact: true })
+        .selectOption(report.program.id);
       await expect(
         page.getByLabel("Program name", { exact: true }),
       ).toHaveValue(title);
@@ -426,8 +438,14 @@ test("good invalid primaryflow and zone targets inhibit commands without a fault
     ["zone_temperature", "-100", "74"],
     ["heating_setpoint", "90", "68"],
   ]) {
-    await page.getByLabel("Simulate " + field, { exact: true }).fill(invalid);
-    const out = await step(page);
+    const input = page.getByLabel("Simulate " + field, { exact: true });
+    await input.fill(invalid);
+    await expect(input).toHaveValue(invalid);
+    const { response, data } = await scan(page);
+    expect(response.request().postDataJSON().inputs[field]).toBe(
+      Number(invalid),
+    );
+    const out = data.history.at(-1).outputs;
     expect(out.raw_run_request).toBe(true);
     expect(out.fan_ready).toBe(false);
     expect(out.fan_fault).toBe(false);
@@ -607,9 +625,7 @@ test("scientific original Program values survive review export creation and save
   expect(original.bytes.toString()).toContain("1e-06");
   expect(report.choices.heating_setpoint).toBe(1e-6);
   await create(page, dialog);
-  await page
-    .getByRole("button", { name: "Save revision", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Save project", exact: true }).click();
   await expect(
     page.getByLabel("Last saved revision", { exact: true }),
   ).toContainText("r1");
@@ -793,6 +809,12 @@ test("unsupported same-ID catalog rules cannot initialize a series draft", async
     await route.fulfill({ response, json: value });
   });
   await page.goto("/");
+  await page
+    .getByRole("button", { name: "New application", exact: true })
+    .click();
+  await page
+    .getByLabel("Choose VAV template", { exact: true })
+    .selectOption({ index: 1 });
   await page
     .getByRole("button", { name: "Equipment wizard", exact: true })
     .click();
