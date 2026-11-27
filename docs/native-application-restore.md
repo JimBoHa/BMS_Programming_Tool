@@ -143,3 +143,14 @@ New native identity allocation, arbitrary logic generation, cross-controller or
 release migration, firmware/resources/packages, whole-controller backup and
 physical/runtime/CCT acceptance remain separate. Both broader JCI-09 and JCI-10
 roadmap items remain partial.
+
+## Matching-image verification on 6.2
+
+On MS-VMA1630-0 and FX-PCV1630-0 firmware 6.2.0.1054, a matching-image
+reinstall also reads the controller's BACnet Last Restore Time before transfer
+and after readback. When the controller supplies a dated marker, the receipt
+stays pending until that timestamp advances. An initially unspecified date
+can acquire its first specific value. An explicitly unsupported property or a
+time-only marker is recorded as such. Complete file and commit acknowledgements,
+native and saved-setting readback and operational identity are still required.
+A pending receipt can be read again without sending another download.

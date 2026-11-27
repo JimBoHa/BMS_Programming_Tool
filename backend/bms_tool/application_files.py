@@ -41,7 +41,7 @@ class ApplicationFiles:
         self.timeout, self.gap = timeout, gap
         self.wire = ApplicationWire(path)
 
-    async def exchange(self, session, request, expected, *, before_send=None):
+    async def exchange(self, session, request, expected, *, before_send=None, optional=False):
         self.path._guard(session)
         delay = self.gap - (time.monotonic() - session.get("last_file_request", 0))
         if delay > 0:
@@ -50,20 +50,27 @@ class ApplicationFiles:
         session["last_file_request"] = time.monotonic()
         try:
             async with self.wire.receive(session, request) as proof:
-                reply = await asyncio.wait_for(
-                    confirmed_exchange(
-                        session["app"],
-                        request,
-                        single_attempt=True,
-                        before_send=before_send,
-                        response_timeout=self.timeout,
-                    ),
-                    self.timeout + 2,
-                )
+                try:
+                    reply = await asyncio.wait_for(
+                        confirmed_exchange(
+                            session["app"],
+                            request,
+                            single_attempt=True,
+                            before_send=before_send,
+                            response_timeout=self.timeout,
+                        ),
+                        self.timeout + 2,
+                    )
+                except ErrorRejectAbortNack as exc:
+                    if not optional or not self.unknown_property(exc):
+                        raise
+                    reply = exc
             session["last_application_wire"] = self.wire.validate(reply, session, request, proof)
         except ErrorRejectAbortNack as exc:
             raise ValueError("Application File operation rejected: " + str(exc)) from exc
         self.path._guard(session)
+        if optional and self.unknown_property(reply):
+            return None  # Exact negative response from the selected station.
         if isinstance(reply, ErrorRejectAbortNack):
             raise ValueError("Application File operation rejected: " + str(reply))
         if (
@@ -76,6 +83,13 @@ class ApplicationFiles:
                 "Application reply does not match its station, service or transaction."
             )
         return reply
+
+    @staticmethod
+    def unknown_property(reply):
+        return (
+            str(getattr(reply, "errorClass", "")) == "property"
+            and str(getattr(reply, "errorCode", "")) == "unknown-property"
+        )
 
     async def state(self, session, state, *, password=None, before_send=None):
         if state not in STATES:
