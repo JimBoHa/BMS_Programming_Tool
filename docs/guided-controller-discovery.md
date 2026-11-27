@@ -21,6 +21,9 @@ controller**, within the existing controller workspace.
    verifies the exact endpoint, router, network and Device identity before opening
    its workspace.
 
+After disconnect completes, the BACnet/IP port is available for another interface
+or for reconnecting on the same port. Release any owned commands before disconnecting.
+
 Ordinary IP I-Am replies establish candidates, not proof of downstream routing or
 NAE hardware. No vendor/model inventory supplies candidates or trunk numbers.
 Endpoints merge using the default BACnet UDP port without merging separate

@@ -68,6 +68,26 @@ def free_udp():
         return s.getsockname()[1]
 
 
+@pytest.mark.asyncio
+async def test_disconnect_releases_udp_port_before_returning(tmp_path):
+    port = free_udp()
+    address = f"127.0.0.1/32:{port}"
+    first = Bacnet(Store(tmp_path / "first"))
+    second = Bacnet(Store(tmp_path / "second"))
+    try:
+        await first.connect(address)
+        assert (await first.disconnect())["connected"] is False
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as other:
+            other.bind(("127.0.0.1", port))
+            with pytest.raises(OSError):
+                await second.connect(address)
+        await second.connect(address)
+        assert second.status()["connected"] is True
+    finally:
+        await first.disconnect()
+        await second.disconnect()
+
+
 def application(port, instance):
     return Application.from_args(
         Namespace(
