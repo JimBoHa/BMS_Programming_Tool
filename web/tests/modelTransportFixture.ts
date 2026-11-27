@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import {
   mkdirSync,
+  existsSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -97,13 +98,23 @@ export const test = base.extend<{
           });
         });
         const token = (await (await request.get("/api/session")).json()).token;
-        const response = await request.post("/api/bacnet/connect", {
-          headers: { "X-Studio-Token": token },
-          data: { local_address: peer.client_address },
-        });
-        expect(response.ok(), await response.text()).toBe(true);
+        if (children.length === 1) {
+          const response = await request.post("/api/bacnet/connect", {
+            headers: { "X-Studio-Token": token },
+            data: { local_address: peer.client_address },
+          });
+          expect(response.ok(), await response.text()).toBe(true);
+        }
         return {
           ...peer,
+          selectionComplete: async () => {
+            child.stdin.write("selection-complete\n");
+            const marker = evidence + ".selection.json";
+            await expect.poll(() => existsSync(marker)).toBe(true);
+            expect(
+              JSON.parse(readFileSync(marker, "utf8")).reads,
+            ).toBeGreaterThan(0);
+          },
           token,
           expectReads: () => (owned.expectReads = true),
         };
@@ -150,9 +161,14 @@ export const test = base.extend<{
             );
             if (proof)
               await attempt(() => {
-                if (expectReads)
-                  expect(proof.native_reads.length).toBeGreaterThan(0);
-                else expect(proof.native_reads).toEqual([]);
+                const marker = JSON.parse(
+                  readFileSync(evidence + ".selection.json", "utf8"),
+                );
+                expect(proof.selection_reads).toBe(marker.reads);
+                expect(marker.reads).toBeGreaterThan(0);
+                const surveyReads = proof.native_reads.slice(marker.reads);
+                if (expectReads) expect(surveyReads.length).toBeGreaterThan(0);
+                else expect(surveyReads).toEqual([]);
                 expect(proof.proxy_errors).toEqual([]);
                 expect(proof.pending_proxy_clients).toBe(0);
               });

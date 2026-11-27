@@ -1,3 +1,7 @@
+import {
+  chooseWorkspaceTask,
+  chooseWorkspaceTool,
+} from "./workspace-navigation";
 import { test, expect } from "./modelTransportFixture";
 import { readFileSync } from "node:fs";
 import type { Locator, Page } from "@playwright/test";
@@ -7,22 +11,73 @@ const rootRegion = (page: Page) =>
     name: "Controller hardware and input survey",
     exact: true,
   });
+async function openHardwareSurvey(page: Page) {
+  await chooseWorkspaceTask(page, "Points & I/O");
+  await chooseWorkspaceTool(page, "Hardware survey", "Controller task tools");
+}
 async function open(page: Page, peer: any, routed = false) {
   await page.goto("/");
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
-  const panel = rootRegion(page);
-  await panel
-    .getByLabel("Hardware controller address", { exact: true })
+  await page.getByRole("button", { name: /^Connect to a controller/ }).click();
+  return selectController(page, peer, routed);
+}
+async function changeController(page: Page, peer: any) {
+  await page
+    .getByLabel("Working context")
+    .getByRole("button", { name: "Change controller", exact: true })
+    .click();
+  return selectController(page, peer, false);
+}
+async function selectController(page: Page, peer: any, routed: boolean) {
+  await page
+    .getByRole("button", { name: "Known controller address", exact: true })
+    .click();
+  const form = page.getByRole("region", {
+    name: "Known controller connection",
+  });
+  await form
+    .getByLabel("Known controller address", { exact: true })
     .fill(routed ? "3001:7" : peer.address);
-  await panel
-    .getByLabel("Hardware Device object", { exact: true })
+  await form
+    .getByLabel("Known Device object", { exact: true })
     .fill(peer.device);
-  await panel
-    .getByLabel("Hardware router (optional)", { exact: true })
+  await form
+    .getByLabel("Known router", { exact: true })
     .fill(routed ? peer.router : "");
-  await panel
-    .getByLabel("Hardware destination network (optional)", { exact: true })
+  await form
+    .getByLabel("Known network", { exact: true })
     .fill(routed ? "3001" : "");
+  const [response] = await Promise.all([
+    page.waitForResponse(
+      (r) => new URL(r.url()).pathname === "/api/bacnet/device-details",
+    ),
+    form.getByRole("button", { name: "Open controller", exact: true }).click(),
+  ]);
+  expect(response.ok(), await response.text()).toBe(true);
+  const identity = await response.json();
+  expect(identity.identity_verified, JSON.stringify(identity.errors)).toBe(
+    true,
+  );
+  const overview = page.getByRole("region", { name: "Controller overview" });
+  await expect(overview).toContainText(identity.properties["object-name"]);
+  await expect(overview).toContainText(peer.device);
+  const inventory = page.waitForResponse((r) =>
+    r.url().endsWith("/api/bacnet/controller/inventory"),
+  );
+  await openHardwareSurvey(page);
+  expect(await (await inventory).json()).toMatchObject({
+    identity_verified: true,
+    target: {
+      address: routed ? "3001:7" : peer.address,
+      device: peer.device,
+      router: routed ? peer.router : null,
+      dnet: routed ? 3001 : null,
+    },
+  });
+  await peer.selectionComplete();
+  const panel = rootRegion(page);
+  await expect(
+    panel.getByLabel("Hardware controller address", { exact: true }),
+  ).toHaveCount(0);
   return panel;
 }
 async function enable(
@@ -285,12 +340,11 @@ test("model protocol target and explicit discard each retire read admission", as
     .getByLabel("Declared current controller protocol", { exact: true })
     .selectOption("bacnet-ip");
   await preview(panel);
-  await panel
-    .getByLabel("Hardware Device object", { exact: true })
-    .fill("device,123");
+  await changeController(page, await modelPeer());
   await expect(
     panel.getByLabel("Model target review", { exact: true }),
   ).toHaveCount(0);
+  await enable(panel);
   await preview(panel);
   await panel
     .getByRole("button", { name: "Discard model target preview", exact: true })
@@ -330,19 +384,25 @@ for (const leave of ["target", "unmount"])
       })
       .click();
     await seen;
-    if (leave === "target")
-      await panel
-        .getByLabel("Hardware controller address", { exact: true })
-        .fill("127.0.0.1:47801");
+    if (leave === "target") await changeController(page, await modelPeer());
     else
-      await page.getByRole("button", { name: "Program", exact: true }).click();
+      await chooseWorkspaceTool(
+        page,
+        "Detailed point evidence",
+        "Controller task tools",
+      );
     release();
     await page.unrouteAll({ behavior: "wait" });
     if (leave === "unmount")
-      await page.getByRole("button", { name: "Connect", exact: true }).click();
+      await chooseWorkspaceTool(
+        page,
+        "Hardware survey",
+        "Controller task tools",
+      );
     await expect(
       rootRegion(page).getByLabel("Model target review", { exact: true }),
     ).toHaveCount(0);
+    if (leave === "target") await enable(panel);
     if (leave === "target")
       await expect(
         panel.getByRole("button", {
@@ -361,15 +421,25 @@ test("refreshing a changed open interface retires the prior model review", async
     panel = await open(page, peer);
   await enable(panel);
   await preview(panel);
+  const refreshInterface = async (connected: boolean) => {
+    const pending = page.waitForResponse((r) =>
+      r.url().endsWith("/api/bacnet/status"),
+    );
+    await page
+      .getByRole("button", { name: "Refresh interface status", exact: true })
+      .click();
+    expect(await (await pending).json()).toMatchObject({ connected });
+  };
+  await refreshInterface(true);
+  await expect(
+    panel.getByLabel("Model target review", { exact: true }),
+  ).toContainText("Model-qualified read admitted");
   const response = await request.post("/api/bacnet/disconnect", {
     headers: { "X-Studio-Token": peer.token },
     data: {},
   });
   expect(response.ok()).toBe(true);
-  await page
-    .getByRole("button", { name: "Refresh serial interfaces", exact: true })
-    .first()
-    .click();
+  await refreshInterface(false);
   await expect(
     panel.getByLabel("Model target review", { exact: true }),
   ).toHaveCount(0);

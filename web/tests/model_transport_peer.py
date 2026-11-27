@@ -108,7 +108,7 @@ async def main():
             return await original(request)
 
         setattr(peer, name, tracking)
-    proxy = transport = ready = None
+    proxy = transport = ready = selection_reads = None
     try:
         if sys.argv[2] == 'routed':
             transport, proxy = await asyncio.get_running_loop().create_datagram_endpoint(
@@ -125,14 +125,21 @@ async def main():
         }
         exclusive(os.environ['BMS_MODEL_IDENTITY'], identity('startup'))
         print('MODEL_TRANSPORT_PEER=' + json.dumps(ready), flush=True)
-        await asyncio.to_thread(sys.stdin.readline)
+        while True:
+            command = (await asyncio.to_thread(sys.stdin.readline)).strip()
+            if command in ('', 'close'):
+                break
+            if command != 'selection-complete' or selection_reads is not None:
+                raise ValueError('Unexpected peer evidence command')
+            selection_reads = len(calls)
+            exclusive(os.environ['BMS_MODEL_EVIDENCE'] + '.selection.json', {'reads': selection_reads})
     finally:
         if transport:
             transport.close()
         close_application(peer)
         await asyncio.sleep(0.02)
         evidence = {
-            'ready': ready, 'native_reads': calls,
+            'ready': ready, 'native_reads': calls, 'selection_reads': selection_reads,
             'routed_requests': proxy.requests if proxy else [],
             'routed_responses': proxy.responses if proxy else [],
             'proxy_errors': proxy.errors if proxy else [],

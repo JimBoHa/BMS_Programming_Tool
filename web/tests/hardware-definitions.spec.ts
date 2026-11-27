@@ -1,3 +1,7 @@
+import {
+  chooseWorkspaceSurface,
+  chooseWorkspaceTool,
+} from "./workspace-navigation";
 import { test, expect } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
@@ -18,7 +22,8 @@ test("review native hardware aliases, metric profiles and explicit migration bin
     );
   const original = fixture();
   await page.goto("/");
-  await page.getByRole("button", { name: "JCI hardware", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Library");
+  await chooseWorkspaceTool(page, "Hardware definitions", "library tools");
   const panel = page.getByRole("region", {
     name: "JCI hardware definitions",
     exact: true,
