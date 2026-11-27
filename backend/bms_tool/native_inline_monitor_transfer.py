@@ -197,7 +197,11 @@ def reconstruct(native, intent):
     if intent.get("operation_profile") != PROFILE or intent.get("monitor_confirmed") is not True:
         raise ValueError("The monitor receipt has no matching confirmed operation.")
     _, files = native.storage.load(intent["backup_id"])
-    out, report = compile_monitor(files, intent["first_instance"])
+    out, report = compile_monitor(
+        files,
+        intent["first_instance"],
+        preserve_root_layout=intent["compilation"].get("root_layout_version") == 2,
+    )
     if (
         report != intent["compilation"]
         or sha(out) != intent["payload_sha256"]

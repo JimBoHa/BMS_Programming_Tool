@@ -26,8 +26,8 @@ def atoms(t, values):
     return b"".join(encoded(t(v)) for v in values)
 
 
-def authored_source(*, catalog=False):
-    base, static, dynamic = parameters_source(cid=194, model="FX-PCV1630-0", modules=0)
+def authored_source(*, catalog=False, model="FX-PCV1630-0", wide=False):
+    base, static, dynamic = parameters_source(cid=194, model=model, modules=0)
     app = MoiIdentity(base)
     rows = [app.data[r["offset"] : r["end_offset"]] for r in app.records]
 
@@ -43,7 +43,12 @@ def authored_source(*, catalog=False):
 
     if catalog:
         n = 100
-        for name, (function, cls, setup, pins) in SPECS.items():
+        prototypes = list(SPECS.items())
+        if wide:
+            for name in ("and", "mul"):
+                fn, cid, setup, pins = SPECS[name]
+                prototypes.append((name, (fn, cid, setup, {**pins, 7002: pins[7001]})))
+        for name, (function, cls, setup, pins) in prototypes:
             n += 1
             parent = f"controller/library_{n}"
             p = {3670: Enumerated(function), 3184: atoms(Enumerated, pins)}

@@ -16,6 +16,7 @@ from .moi_identity import MoiIdentity, sha
 from .moi_parameters import ParameterApplication
 from .native_inline_monitor import MODELS, sources
 from .native_inputs import archive, encoded, raw_property, record_instance, replace_properties
+from .native_root_layout import assemble_root, verify_layout
 
 
 def _wire(*fields):
@@ -77,6 +78,8 @@ def one(sequence, message):
 
 
 class InlineSequenceCompiler:
+    separate_root_layout = False  # Historic receipt images retain their exact encoding.
+
     def __init__(self, files, donor, first, *, phase_sampling=False):
         self.phase_sampling = phase_sampling
         self.first_instance = first
@@ -211,8 +214,8 @@ class InlineSequenceCompiler:
         self.nodes[label] = index
         return index
 
-    def block(self, kind, label, *inputs, defaults=None, clock=False):
-        doc, parent, children = self.specs[kind]
+    def block(self, kind, label, *inputs, defaults=None, clock=False, prototype=None, fields=None):
+        doc, parent, children = prototype or self.specs[kind]
         num = self.alloc()
         cls = parent["class_id"]
         ref = f"{self.rootref}.{cls}_{num}"
@@ -222,7 +225,7 @@ class InlineSequenceCompiler:
         required((inputmap.keys() | vals.keys()) <= children.keys(), "Unknown input port")
         exposed = [int(v) for v in _list(parent["properties"][3184]["tags"], Enumerated)]
         required(85 in exposed and inputmap.keys() <= set(exposed), "Connection to a hidden port")
-        meta = {2390: encoded(CharacterString(label))}
+        meta = {2390: encoded(CharacterString(label)), **(fields or {})}
         if clock:
             required(
                 kind == "timer" and vals.get(518) == 5 and vals.get(1080) in (60, 3601),
@@ -980,9 +983,21 @@ class InlineSequenceCompiler:
             else self.application.data[r["offset"] : r["end_offset"]]
             for r in self.application.records
         ]
-        payload = archive(self.application, records + self.added)
+        ordered, added_at, footer = records + self.added, len(records), None
+        if self.separate_root_layout:
+            ordered, added_at, footer = assemble_root(
+                self.application,
+                self.root,
+                records,
+                self.added,
+                self.g,
+                self.ids,
+                len(wires) - len(self.source_wires),
+            )
+        payload = archive(self.application, ordered)
         re = MoiIdentity(payload)
         g = re.reader.diagram(self.rootref, retained_activity_refs=True)
+        verify_layout(self.application, re, footer, g)
         ix = {b["ref"]: b["index"] for b in g["blocks"]}
         wr = [
             (ix[k["source_ref"]], k["source_port"], ix[k["target_ref"]], k["target_port"])
@@ -1001,12 +1016,12 @@ class InlineSequenceCompiler:
             and len(g["blocks"]) == len(self.old) + len(self.ids),
             "Native reparse failed",
         )
-        for r, z in zip(
-            self.application.records, re.records[: len(self.application.records)], strict=True
-        ):
-            if r["offset"] != self.root["offset"]:
+        original_positions = re.records[:added_at] + re.records[added_at + len(self.added) :]
+        for i, (r, z) in enumerate(zip(self.application.records, original_positions, strict=True)):
+            if r["offset"] != self.root["offset"] and i != footer:
                 required(r["sha256"] == z["sha256"], "Original record changed")
-        exposed = [r for r in re.records[len(records) :] if re.reader.scalar(r, 3807) is True]
+        new_records = re.records[added_at : added_at + len(self.added)]
+        exposed = [r for r in new_records if re.reader.scalar(r, 3807) is True]
         required(
             {re.reader.scalar(r, 2390) for r in exposed} == set(self.exposures)
             and len(exposed) == 2,
@@ -1030,7 +1045,7 @@ class InlineSequenceCompiler:
             "root_ref": self.rootref,
             "valve_wiring": self.bind,
             "new_avs": self.exposures,
-            "original_records_preserved": len(records) - 1,
+            "original_records_preserved": len(records) - 1 - int(footer is not None),
             "original_parameters_merged": self.merge["matched_parameters"],
             "added_records": len(self.added),
             "root_members": len(g["blocks"]),
@@ -1054,6 +1069,8 @@ class InlineSequenceCompiler:
             ],
             effective_native_sha256=sha(self.application.data),
         )
+        if self.separate_root_layout:
+            report["separate_root_layout_updated"] = footer is not None
         return payload, report
 
 
