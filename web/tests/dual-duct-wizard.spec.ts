@@ -1,3 +1,4 @@
+import { chooseWorkspaceSurface } from "./workspace-navigation";
 import { test, expect, type Page } from "./simulationFixture";
 import {
   sourceFixtureData,
@@ -8,6 +9,9 @@ import path from "node:path";
 
 async function parameters(page: Page, flow = true) {
   await page.goto("/");
+  await page
+    .getByRole("button", { name: "New application", exact: true })
+    .click();
   await page
     .getByRole("button", { name: "Equipment wizard", exact: true })
     .click();
@@ -73,12 +77,13 @@ for (const layout of ["hot-cold", "hot-total", "cold-total"]) {
     await dialog
       .getByRole("button", { name: "Create editable project", exact: true })
       .click();
+    await page.getByRole("button", { name: "Simulate", exact: true }).click();
     await page
       .getByRole("button", { name: "Step simulation", exact: true })
       .click();
     await expect(page.locator(".elapsed")).toHaveText("1.0 s");
     await page
-      .getByRole("button", { name: "Save revision", exact: true })
+      .getByRole("button", { name: "Save project", exact: true })
       .click();
     await expect(
       page.getByLabel("Last saved revision", { exact: true }),
@@ -120,6 +125,10 @@ p.revision=0;print(json.dumps({'program_sha256':p.digest(),'profile_sha256':w['p
     expect(proof.profile_sha256).toBe(reviewed.report.profile_sha256);
     expect(proof.choices_sha256).toBe(reviewed.report.choices_sha256);
     await page.reload();
+    await chooseWorkspaceSurface(page, "Workspace");
+    await page
+      .getByLabel("Open saved project", { exact: true })
+      .selectOption(reviewed.report.program.id);
     await expect(page.getByLabel("Program name", { exact: true })).toHaveValue(
       "Dual-deck browser authoring",
     );
@@ -222,6 +231,7 @@ test("unit changes preserve both deck defaults and inverse gains before the gene
   await dialog
     .getByRole("button", { name: "Create editable project", exact: true })
     .click();
+  await page.getByRole("button", { name: "Simulate", exact: true }).click();
   await page
     .getByRole("button", { name: "Step simulation", exact: true })
     .click();
