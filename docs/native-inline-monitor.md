@@ -96,6 +96,13 @@ clock second. It groups additions and Boolean reductions when a matching
 native block in the source or library demonstrates that input layout.
 Both use the normal release 6.2 primitive types. [Johnson Controls comparison blocks](https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Controller-Tool-Help/15.0/Logic/Compare)
 
+For a 62/62 inline application with an external floating heating valve, the
+offline review reads its two binary output assignments and configured actuator
+stroke time. The assignments must agree with the captured terminal label, and
+the command must use percent units. The review reports the terminals in their
+stored order. The observation draft preserves the valve and damper records,
+their travel settings and the existing control connections.
+
 Further field qualification requires a matching off-equipment controller or
 firmware simulator. Verify startup, the complete sample window with changing
 inputs, input loss, timing gaps, adjustable limits, valve action and recovery

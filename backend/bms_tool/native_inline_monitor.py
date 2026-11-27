@@ -1,5 +1,7 @@
 """Compile a fixed, output-independent timing and input monitor for a legacy VAV."""
 
+import math
+
 from bacpypes3.primitivedata import (
     Boolean,
     CharacterString,
@@ -13,7 +15,8 @@ from bacpypes3.primitivedata import (
 from .moi_application import _atomic, _expect
 from .moi_identity import MoiIdentity, sha
 from .moi_parameters import ParameterApplication
-from .native_inputs import archive, encoded, raw_property, replace_properties
+from .native_inputs import archive, encoded, raw_property, record_instance, replace_properties
+from .native_io_records import scalar_bytes
 from .native_parameter_qualification import qualify_parameter_additions
 from .native_root_layout import assemble_root, verify_layout
 
@@ -52,13 +55,55 @@ def single(items, reason):
     return items[0]
 
 
-def sources(app, graph):
+def floating_valve_configuration(app, valve):
+    read = app.reader.scalar
+    for pid, datatype in (
+        (75, "ObjectIdentifier"),
+        (31, "CharacterString"),
+        (32527, "CharacterString"),
+        (117, "Enumerated"),
+        (990, "Unsigned"),
+        (991, "Unsigned"),
+        (3478, "Real"),
+    ):
+        scalar_bytes(app, valve, pid, datatype)
+    first, second = read(valve, 990), read(valve, 991)
+    if 519 in valve["properties"]:
+        scalar_bytes(app, valve, 519, "Unsigned")
+    expected_object = f"analog-output,{record_instance(app, valve)}"
+    stroke = read(valve, 3478)
+    if (
+        first not in (1, 2, 3)
+        or second not in (1, 2, 3)
+        or first == second
+        or read(valve, 31) != f"BO OUT{first},BO OUT{second}"
+        or read(valve, 75) != expected_object
+        or read(valve, 117) != 98
+        or read(valve, 32527).rpartition("/")[0] != app.ref
+        or read(valve, 519) not in (None, first)
+        or not math.isfinite(stroke)
+        or stroke <= 0
+    ):
+        raise ValueError(
+            "The captured floating valve needs two distinct external binary terminals, a percentage command and a positive stroke time."
+        )
+    return {"terminals": [first, second], "stroke_seconds": stroke}
+
+
+def sources(app, graph, *, allow_floating=False):
     read = app.reader.scalar
     rows = app.records
     outputs = [r for r in rows if r["class_id"] in (239, 241, 251)]
     valve = single(
-        (r for r in outputs if r["class_id"] == 241 and read(r, 2390) == "HTG-O"),
-        "Expected one proportional inline valve.",
+        (
+            r
+            for r in outputs
+            if read(r, 2390) == "HTG-O"
+            and (r["class_id"] == 241 or (allow_floating and r["class_id"] == 251))
+        ),
+        "Expected one configured inline valve."
+        if allow_floating
+        else "Expected one proportional inline valve.",
     )
     damper = single(
         (r for r in outputs if r["class_id"] == 251 and read(r, 2390) == "DPR-O"),
@@ -67,7 +112,10 @@ def sources(app, graph):
     if (
         len(outputs) != 2
         or (read(damper, 990), read(damper, 991)) != (6, 7)
-        or (read(valve, 31), read(valve, 990), read(valve, 117)) != ("CO OUT4", 4, 98)
+        or (
+            valve["class_id"] == 241
+            and (read(valve, 31), read(valve, 990), read(valve, 117)) != ("CO OUT4", 4, 98)
+        )
         or read(damper, 31) != "BO1-Int,BO2-Int"
     ):
         raise ValueError(
