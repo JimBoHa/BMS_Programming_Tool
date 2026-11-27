@@ -1,3 +1,7 @@
+import {
+  chooseWorkspaceSurface,
+  chooseWorkspaceTool,
+} from "./workspace-navigation";
 import { expect, test, type Page, type Locator } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -20,7 +24,8 @@ function fixture(replacement = false) {
 }
 async function open(page: Page, replacement = false) {
   await page.goto("/");
-  await page.getByRole("button", { name: "JCI hardware", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Library");
+  await chooseWorkspaceTool(page, "Hardware definitions", "library tools");
   const panel = page.getByRole("region", {
     name: "JCI hardware definitions",
     exact: true,
@@ -136,7 +141,7 @@ test("held XML export cannot download after workspace unmount", async ({
     .getByRole("button", { name: "Export current XML original", exact: true })
     .click();
   await entered;
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Workspace");
   await expect(panel).toHaveCount(0);
   const late = page.waitForEvent("download", { timeout: 1000 }).then(
     () => true,
@@ -394,13 +399,12 @@ for (const phase of [
         })
         .click();
     await entered;
-    await page.getByRole("button", { name: "Program", exact: true }).click();
+    await chooseWorkspaceSurface(page, "Workspace");
     await expect(panel).toHaveCount(0);
     release();
     await completed;
-    await page
-      .getByRole("button", { name: "JCI hardware", exact: true })
-      .click();
+    await chooseWorkspaceSurface(page, "Library");
+    await chooseWorkspaceTool(page, "Hardware definitions", "library tools");
     await expect(panel).toBeVisible();
     await expect(region(panel, "selection")).toHaveCount(0);
     await expect(region(panel, "migration")).toHaveCount(0);

@@ -692,6 +692,14 @@ export function Connections({
               ? "BACnet interface open"
               : "No BACnet interface open"}
           </span>
+          {controller && (
+            <button
+              disabled={busy}
+              onClick={() => refresh().catch((e) => setError(e.message))}
+            >
+              <RefreshCw size={15} /> Refresh interface status
+            </button>
+          )}
           {(status.connected ||
             status.foreign_device ||
             status.serial_link) && (

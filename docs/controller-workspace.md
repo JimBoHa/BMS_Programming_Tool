@@ -34,6 +34,9 @@ reference material. Opening the start screen does not open a field interface.
 4. Work in Overview, Points & I/O, Program, Schedules, Trends & Alarms or Changes.
    The selected target supplies downstream address and route fields. The header
    retains its name, Device instance, route and last verification age.
+   Use **Refresh interface status** to check whether the BACnet interface still
+   matches the selected controller. The hardware survey keeps its model review
+   while the interface matches and retires it when the interface closes or changes.
    Points & I/O opens the controller's object inventory and reads live values,
    units and native quality fields automatically. It does not require manually
    entering object IDs. Program defaults to actual controller application
