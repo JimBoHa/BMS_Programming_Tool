@@ -38,6 +38,16 @@ retain its proposal for a new review against fresh settings.
 and public identifiers, rather than selecting a program inventory by model.
 Native ACS/DMCS pairs 60/60, 62/62 and 66/65 are supported. Physical terminal
 capacity comes separately from exact documented hardware model evidence.
+
+On an FX-PCG2611-0 with local I/O, the editor recognizes a dedicated contact
+on IN7 or IN8 when reviewing a universal input on IN1 through IN6.
+The compiler checks the binary object's native identity, terminal
+label, numbered slot and controller reference. Each dedicated contact retains
+its original bytes in the proposed application. Expansion-module assignments
+and ambiguous bindings still require their own host evidence. The physical
+current-loop jumper determines whether a universal terminal accepts 4–20 mA.
+[PCG26 input wiring and point types](https://docs.johnsoncontrols.com/bas/r/Facility-Explorer/en-US/FX-PCG26-General-Purpose-Programmable-Controller-Installation-Guide/G/Terminal-wiring-guidelines-functions-ratings-and-requirements/Point-type-counts-per-model)
+
 The newly admitted omitted analog-input defaults (813 and 3164) use the same
 three-pair boundary; an undeclared or mixed data-model pair remains blocked.
 

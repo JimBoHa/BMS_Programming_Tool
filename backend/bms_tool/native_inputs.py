@@ -269,6 +269,39 @@ def record_instance(app, record):
     return int.from_bytes(app.data[record["offset"] + 6 : record["offset"] + 10], "big") & 4194303
 
 
+def documented_binary_terminal(app, record, obj, ref, label, slot, capacity):
+    """Recognize an occupied dedicated BI while inspecting the separate universal terminals."""
+    if record["class_id"] != 242 or type(slot) is not int or slot not in capacity["binary_inputs"]:
+        return False
+    if app.summary()["model"].strip().upper() != "FX-PCG2611-0" or any(
+        r["class_id"] in (598, 910) for r in app.records
+    ):
+        return False
+    props = record["properties"]
+    if {2577, 3645}.intersection(props):
+        return False
+    expected_types = {
+        31: "CharacterString",
+        75: "ObjectIdentifier",
+        519: "Unsigned",
+        32527: "CharacterString",
+    }
+    if any(
+        (props.get(pid, {}).get("scalar") or {}).get("datatype") != kind
+        for pid, kind in expected_types.items()
+    ):
+        return False
+    instance = record_instance(app, record)
+    header = int.from_bytes(app.data[record["offset"] + 6 : record["offset"] + 10], "big")
+    return (
+        instance < 4194303
+        and header == (242 << 22 | instance)
+        and obj == f"binary-input,{instance}"
+        and ref == f"{app.ref}/3_{instance}"
+        and label == f"BI IN{slot}"
+    )
+
+
 def replace_properties(app, record, replacements):
     """Replace value leaves without reordering/re-encoding unrelated properties."""
     data = bytearray(app.data[record["offset"] : record["end_offset"]])
@@ -338,6 +371,13 @@ class NativeInputCompiler:
                 continue  # An integral DPT is never an editable or spare terminal.
             match = re.fullmatch(r"UI IN([0-9]+)", label or "")
             if not match:
+                if documented_binary_terminal(
+                    app, r, obj, ref, label, slot, self.hardware["capacity"]
+                ):
+                    if slot in self.occupied:
+                        raise ValueError("Duplicate or conflicting local terminal assignments.")
+                    self.occupied[slot] = obj
+                    continue
                 if slot is not None and r["class_id"] in (240, 242):
                     raise ValueError(
                         "Unknown local hardware assignment prevents terminal allocation."
