@@ -8,6 +8,11 @@ import { spawn, execFileSync } from "node:child_process";
 import { createInterface } from "node:readline";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import {
+  openScheduleController,
+  selectKnownScheduleController,
+} from "./schedule-trace-peer";
+import { chooseWorkspaceTask } from "./workspace-navigation";
 
 const root = path.resolve(".."),
   python = path.join(root, ".venv/bin/python"),
@@ -15,10 +20,22 @@ const root = path.resolve(".."),
 const peerSource = `
 import asyncio,json,sys
 from tests.test_native_schedule_write import WeeklyPeer
+from tests.browser_schedule_trace_peer import BrowserSchedulePeer
+from bacpypes3.basetypes import ObjectTypesSupported, ServicesSupported
+from bms_tool.native_inputs import encoded
+class BrowserWeeklyPeer(WeeklyPeer, BrowserSchedulePeer):
+ def value(self, obj, prop, index):
+  if int(obj[0]) == 8 and prop == 'protocol-services-supported':
+   return encoded(ServicesSupported(['read-property','write-property']))
+  if int(obj[0]) == 8 and prop == 'protocol-object-types-supported':
+   kinds = ObjectTypesSupported([0])
+   for kind, instance in self.object_list: kinds[kind] = 1
+   return encoded(kinds)
+  return super().value(obj,prop,index)
 from tests.test_schedule_inventory import options
 from tests.test_connections import free_udp
 async def main():
- p=WeeklyPeer(routed=sys.argv[1]=='routed')
+ p=BrowserWeeklyPeer(routed=sys.argv[1]=='routed')
  await asyncio.get_running_loop().create_datagram_endpoint(lambda:p,local_addr=('127.0.0.1',0))
  print(json.dumps({'options':options(p,object_ids=['schedule,1']),'local':f'127.0.0.1:{free_udp()}'}),flush=True)
  while True:
@@ -75,6 +92,14 @@ async function peer(routed: boolean) {
     },
   };
 }
+async function reopenOfflineSchedules(page: Page) {
+  await page.reload();
+  await page
+    .getByRole("button", { name: "New application", exact: true })
+    .click();
+  await chooseWorkspaceTask(page, "Schedules");
+}
+
 async function headers(request: APIRequestContext) {
   return {
     "X-Studio-Token": (await (await request.get("/api/session")).json()).token,
@@ -126,11 +151,13 @@ async function setup(
     });
     expect(saved.ok()).toBe(true);
     const capture = await saved.json();
-    await page.goto("/");
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
-    await expect(
-      page.getByRole("button", { name: "Read native schedules", exact: true }),
-    ).toBeEnabled();
+    await openScheduleController(
+      page,
+      request,
+      { endpoint: server.options.router || server.options.address },
+      routed,
+      server.local,
+    );
     const library = page.getByRole("region", {
       name: "Native Schedule capture library",
       exact: true,
@@ -171,29 +198,32 @@ async function setup(
       name: "Native weekly-day deployment",
       exact: true,
     });
-    await panel
-      .getByRole("button", {
-        name: "Open native deployment and local history",
-        exact: true,
-      })
-      .click();
-    await panel
-      .getByLabel("Declared native write operator", { exact: true })
-      .fill("Authored UI Operator");
-    await panel
-      .getByLabel("Native write rationale", { exact: true })
-      .fill("Authored loopback day review");
-    await expect(
-      panel.getByRole("button", {
-        name: "Preview fresh native weekly-day write",
-        exact: true,
-      }),
-    ).toBeEnabled();
+    await declareWrite(panel);
     return { server, library, panel, capture };
   } catch (failure) {
     await server.close();
     throw failure;
   }
+}
+async function declareWrite(panel: ReturnType<Page["getByRole"]>) {
+  await panel
+    .getByRole("button", {
+      name: "Open native deployment and local history",
+      exact: true,
+    })
+    .click();
+  await panel
+    .getByLabel("Declared native write operator", { exact: true })
+    .fill("Authored UI Operator");
+  await panel
+    .getByLabel("Native write rationale", { exact: true })
+    .fill("Authored loopback day review");
+  await expect(
+    panel.getByRole("button", {
+      name: "Preview fresh native weekly-day write",
+      exact: true,
+    }),
+  ).toBeEnabled();
 }
 async function preview(panel: ReturnType<Page["getByRole"]>) {
   await panel
@@ -291,8 +321,7 @@ for (const routed of [false, true])
       ).toEqual(raw);
       await disconnect(request);
       const before = await server.command("stats");
-      await page.reload();
-      await page.getByRole("button", { name: "Connect", exact: true }).click();
+      await reopenOfflineSchedules(page);
       const reopened = page.getByRole("region", {
         name: "Native weekly-day deployment",
         exact: true,
@@ -561,8 +590,7 @@ with s.connect() as db:
       { cwd: root },
     );
     const before = await server.command("stats");
-    await page.reload();
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
+    await reopenOfflineSchedules(page);
     const reopened = page.getByRole("region", {
       name: "Native weekly-day deployment",
       exact: true,
@@ -666,19 +694,51 @@ test("connection draft changes retire ready authority and explicit cancellation 
   page,
   request,
 }) => {
-  const { server, panel, library } = await setup(page, request);
+  const { server, panel, library, capture } = await setup(page, request);
   try {
     await preview(panel);
-    const input = page.getByLabel("Schedule source address", { exact: true }),
-      original = await input.inputValue();
-    await input.fill("192.0.2.77");
-    await expect(
-      panel.getByRole("button", {
-        name: "Apply one native weekly-day request",
+    const other = await peer(false);
+    try {
+      await page
+        .getByLabel("Working context")
+        .getByRole("button", { name: "Change controller", exact: true })
+        .click();
+      await selectKnownScheduleController(page, {
+        endpoint: other.options.address,
+      });
+      await expect(
+        panel.getByRole("button", {
+          name: "Apply one native weekly-day request",
+          exact: true,
+        }),
+      ).toHaveCount(0);
+      expect((await other.command("stats")).writes).toBe(0);
+      await page
+        .getByLabel("Working context")
+        .getByRole("button", { name: "Change controller", exact: true })
+        .click();
+      await selectKnownScheduleController(page, {
+        endpoint: server.options.address,
+      });
+    } finally {
+      await other.close();
+    }
+    await library
+      .getByRole("button", {
+        name: `Open capture ${capture.id.slice(0, 12)}`,
         exact: true,
-      }),
-    ).toHaveCount(0);
-    await input.fill(original);
+      })
+      .click();
+    await expect(
+      library.getByLabel("Transition 1 exact value text", { exact: true }),
+    ).toHaveValue("2.5");
+    await library
+      .getByRole("button", { name: "Review native weekly draft", exact: true })
+      .click();
+    await expect(
+      library.getByLabel("Native weekly draft review", { exact: true }),
+    ).toBeVisible();
+    await declareWrite(panel);
     await server.command("hold");
     await panel
       .getByRole("button", {
@@ -767,10 +827,10 @@ test("leaving during a held actual write response cannot display late authority 
       })
       .click();
     await entered;
-    await page.getByRole("button", { name: "Reference", exact: true }).click();
+    await chooseWorkspaceTask(page, "Program");
     release();
     await delivered;
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
+    await chooseWorkspaceTask(page, "Schedules");
     await panel
       .getByRole("button", {
         name: "Open native deployment and local history",
