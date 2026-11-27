@@ -1,4 +1,8 @@
 import {
+  openEquipmentWizard,
+  reopenWizardProject,
+} from "./equipment-wizard-navigation";
+import {
   test,
   expect,
   simulationServerResponseJSON,
@@ -19,10 +23,7 @@ const root = fileURLToPath(new URL("../..", import.meta.url)),
   base = "/api/masd-ahu-wizard",
   title = "Portable AHU browser";
 async function open(page: Page) {
-  await page.goto("/");
-  await page
-    .getByRole("button", { name: "Equipment wizard", exact: true })
-    .click();
+  await openEquipmentWizard(page);
   await page
     .getByRole("button", { name: "Mixed-air AHU wizard", exact: true })
     .click();
@@ -99,6 +100,7 @@ async function create(page: Page, dialog: Locator) {
   await expect(page.getByLabel("Program name", { exact: true })).toHaveValue(
     title,
   );
+  await page.getByRole("button", { name: "Simulate", exact: true }).click();
 }
 async function step(page: Page) {
   const receipt = page.waitForResponse(
@@ -230,7 +232,7 @@ for (const [fan, econ, unit, temperature] of [
     }
     if (fan === "constant-speed" && econ === "off") {
       await page
-        .getByRole("button", { name: "Save revision", exact: true })
+        .getByRole("button", { name: "Save project", exact: true })
         .click();
       await expect(
         page.getByLabel("Last saved revision", { exact: true }),
@@ -258,7 +260,7 @@ for (const [fan, econ, unit, temperature] of [
         ).trim();
         expect(digest).toBe(report.program_sha256);
       }
-      await page.reload();
+      await reopenWizardProject(page, report.program.id);
       await expect(
         page.getByLabel("Program name", { exact: true }),
       ).toHaveValue(title);
@@ -628,10 +630,7 @@ test("a same-ID catalog with an unsupported rules hash cannot initialize AHU cho
     value.profile_sha256 = "0".repeat(64);
     await route.fulfill({ response, json: value });
   });
-  await page.goto("/");
-  await page
-    .getByRole("button", { name: "Equipment wizard", exact: true })
-    .click();
+  await openEquipmentWizard(page);
   await page
     .getByRole("button", { name: "Mixed-air AHU wizard", exact: true })
     .click();

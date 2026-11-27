@@ -1,4 +1,8 @@
 import {
+  openEquipmentWizard,
+  reopenWizardProject,
+} from "./equipment-wizard-navigation";
+import {
   test,
   expect,
   simulationServerResponseJSON,
@@ -19,10 +23,7 @@ const root = fileURLToPath(new URL("../..", import.meta.url)),
   base = "/api/madd-mz-ahu-wizard",
   title = "Portable dual-deck browser";
 async function open(page: Page) {
-  await page.goto("/");
-  await page
-    .getByRole("button", { name: "Equipment wizard", exact: true })
-    .click();
+  await openEquipmentWizard(page);
   await page
     .getByRole("button", { name: "MADD-MZ AHU wizard", exact: true })
     .click();
@@ -103,6 +104,7 @@ async function create(page: Page, dialog: Locator) {
   await expect(page.getByLabel("Program name", { exact: true })).toHaveValue(
     title,
   );
+  await page.getByRole("button", { name: "Simulate", exact: true }).click();
 }
 async function step(page: Page) {
   const receipt = page.waitForResponse(
@@ -243,7 +245,7 @@ for (const econ of ["off", "fixed-drybulb", "differential-drybulb"])
       }
       if (econ === "off") {
         await page
-          .getByRole("button", { name: "Save revision", exact: true })
+          .getByRole("button", { name: "Save project", exact: true })
           .click();
         await expect(
           page.getByLabel("Last saved revision", { exact: true }),
@@ -269,7 +271,7 @@ for (const econ of ["off", "fixed-drybulb", "differential-drybulb"])
           ).trim();
           expect(digest).toBe(report.program_sha256);
         }
-        await page.reload();
+        await reopenWizardProject(page, report.program.id);
         await expect(
           page.getByLabel("Program name", { exact: true }),
         ).toHaveValue(title);
@@ -669,10 +671,7 @@ test("unsupported same-ID catalog cannot initialize dual-deck choices", async ({
     value.profile_sha256 = "0".repeat(64);
     await route.fulfill({ response, json: value });
   });
-  await page.goto("/");
-  await page
-    .getByRole("button", { name: "Equipment wizard", exact: true })
-    .click();
+  await openEquipmentWizard(page);
   await page
     .getByRole("button", { name: "MADD-MZ AHU wizard", exact: true })
     .click();
@@ -721,12 +720,12 @@ test("scientific deck gain and default retain original Program tokens through re
   );
   await create(page, dialog);
   await page
-    .getByRole("button", { name: "Save revision", exact: true })
+    .getByRole("button", { name: "Save project", exact: true })
     .click();
   await expect(
     page.getByLabel("Last saved revision", { exact: true }),
   ).toContainText("r1");
-  await page.reload();
+  await reopenWizardProject(page, value.program.id);
   await expect(page.getByLabel("Program name", { exact: true })).toHaveValue(
     title,
   );
