@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,20 +7,7 @@ import { chooseWorkspaceTask } from "./workspace-navigation";
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
 
-export async function disconnectPointInterface(request: APIRequestContext) {
-  const token = (await (await request.get("/api/session")).json()).token;
-  const closed = await request.post("/api/bacnet/disconnect", {
-    headers: { "X-Studio-Token": token },
-    data: {},
-  });
-  expect(
-    closed.ok(),
-    "This test's loopback interface must close even after failures",
-  ).toBe(true);
-  expect(
-    (await (await request.get("/api/bacnet/status")).json()).connected,
-  ).toBe(false);
-}
+export { disconnectTestInterface as disconnectPointInterface } from "./workflow-peer";
 
 export async function startPointPeer(routed = false, behavior = "normal") {
   const child = spawn(

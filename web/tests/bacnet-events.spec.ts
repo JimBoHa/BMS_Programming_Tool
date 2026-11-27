@@ -1,26 +1,19 @@
-import {
-  expect,
-  test,
-  type APIRequestContext,
-  type Page,
-} from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { spawn, execFileSync, type ChildProcess } from "node:child_process";
-import { createSocket } from "node:dgram";
+import {
+  openEventController,
+  showControllerEvents,
+  selectEventController,
+} from "./event-workspace";
+import { chooseWorkspaceTask } from "./workspace-navigation";
+import { disconnectTestInterface } from "./workflow-peer";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
 const root = path.resolve("..");
-async function freePort(): Promise<number> {
-  const socket = createSocket("udp4");
-  return new Promise((resolve, reject) => {
-    socket.once("error", reject);
-    socket.bind(0, "127.0.0.1", () => {
-      const address = socket.address();
-      const port = typeof address === "string" ? 0 : address.port;
-      socket.close(() => resolve(port));
-    });
-  });
-}
+test.afterEach(async ({ request }) => {
+  await disconnectTestInterface(request);
+});
 async function peer(
   behavior = "normal",
 ): Promise<{ process: ChildProcess; port: number; events: () => number }> {
@@ -89,34 +82,7 @@ asyncio.run(main())
   });
   return { process: child, port, events: () => count };
 }
-async function open(page: Page, request: APIRequestContext, port: number) {
-  const headers = {
-    "X-Studio-Token": (await (await request.get("/api/session")).json()).token,
-  };
-  const connected = await request.post("/api/bacnet/connect", {
-    headers,
-    data: { local_address: `127.0.0.1:${await freePort()}` },
-  });
-  expect(connected.ok()).toBe(true);
-  await page.goto("/");
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
-  const panel = page.getByRole("region", {
-    name: "BACnet field events",
-    exact: true,
-  });
-  await expect(
-    panel.getByRole("button", { name: "Query device events", exact: true }),
-  ).toBeEnabled();
-  await panel
-    .getByLabel("Event device address", { exact: true })
-    .fill(`127.0.0.1:${port}`);
-  await panel
-    .getByLabel("Event Device object", { exact: true })
-    .fill("device,4190096");
-  return { panel, headers };
-}
-
-test("Connect explicitly queries real EventSummary pages and exports raw state/timestamp evidence", async ({
+test("Selected controller explicitly queries real EventSummary pages and exports raw state/timestamp evidence", async ({
   page,
   request,
 }) => {
@@ -126,7 +92,7 @@ test("Connect explicitly queries real EventSummary pages and exports raw state/t
     if (value.url().endsWith("/api/bacnet/events/read")) reads++;
   });
   try {
-    const { panel, headers } = await open(page, request, server.port);
+    const panel = await openEventController(page, server.port);
     await page.waitForLoadState("networkidle");
     expect(reads).toBe(0);
     expect(server.events()).toBe(0);
@@ -217,20 +183,35 @@ test("Connect explicitly queries real EventSummary pages and exports raw state/t
       path: "test-results/bacnet-field-events.png",
       fullPage: true,
     });
-    await panel
-      .getByLabel("Event Device object", { exact: true })
-      .fill("analog-value,1");
-    await expect(
-      panel.getByRole("button", { name: "Export event JSON", exact: true }),
-    ).toBeDisabled();
-    await panel
-      .getByRole("button", { name: "Query device events", exact: true })
-      .click();
-    await expect(panel.getByRole("alert")).toContainText(
-      "actual Device instance",
-    );
+    const headers = {
+      "X-Studio-Token": (await (await request.get("/api/session")).json())
+        .token,
+    };
+    const refused = await request.post("/api/bacnet/events/read", {
+      headers,
+      data: {
+        address: `127.0.0.1:${server.port}`,
+        device: "analog-value,1",
+        operation_id: "wrong-device-type",
+      },
+    });
+    expect(refused.status()).toBe(422);
+    expect(await refused.text()).toContain("actual Device instance");
+    const other = await peer();
+    try {
+      await page
+        .getByLabel("Working context")
+        .getByRole("button", { name: "Change controller", exact: true })
+        .click();
+      const next = await selectEventController(page, other.port);
+      await expect(
+        next.getByRole("button", { name: "Export event JSON", exact: true }),
+      ).toBeDisabled();
+      expect(other.events()).toBe(0);
+    } finally {
+      other.process.kill();
+    }
     expect(server.events()).toBe(2);
-    await request.post("/api/bacnet/disconnect", { headers, data: {} });
   } finally {
     server.process.kill();
   }
@@ -238,11 +219,10 @@ test("Connect explicitly queries real EventSummary pages and exports raw state/t
 
 test("real unsupported event service remains distinct from an empty event list", async ({
   page,
-  request,
 }) => {
   const server = await peer("unsupported");
   try {
-    const { panel, headers } = await open(page, request, server.port);
+    const panel = await openEventController(page, server.port);
     await panel
       .getByRole("button", { name: "Query device events", exact: true })
       .click();
@@ -253,19 +233,18 @@ test("real unsupported event service remains distinct from an empty event list",
     await expect(panel).not.toContainText(
       "empty complete GetEventInformation list",
     );
-    await request.post("/api/bacnet/disconnect", { headers, data: {} });
   } finally {
     server.process.kill();
   }
 });
 
-test("explicit cancel and leaving Connect stop the owned event query", async ({
+test("explicit cancel and leaving Controller events stop the owned event query", async ({
   page,
   request,
 }) => {
   const server = await peer("hold");
   try {
-    const { panel, headers } = await open(page, request, server.port);
+    const panel = await openEventController(page, server.port);
     await panel
       .getByRole("button", { name: "Query device events", exact: true })
       .click();
@@ -284,7 +263,7 @@ test("explicit cancel and leaving Connect stop the owned event query", async ({
       .getByRole("button", { name: "Query device events", exact: true })
       .click();
     await expect.poll(server.events).toBe(2);
-    await page.getByRole("button", { name: "Program", exact: true }).click();
+    await chooseWorkspaceTask(page, "Program");
     await expect
       .poll(
         async () =>
@@ -292,13 +271,12 @@ test("explicit cancel and leaving Connect stop the owned event query", async ({
             .active_operation,
       )
       .toBeNull();
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
+    await showControllerEvents(page);
     await expect(
       page
         .getByRole("region", { name: "BACnet field events", exact: true })
         .getByRole("button", { name: "Export event JSON", exact: true }),
     ).toBeDisabled();
-    await request.post("/api/bacnet/disconnect", { headers, data: {} });
   } finally {
     server.process.kill();
   }

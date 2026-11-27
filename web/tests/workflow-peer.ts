@@ -1,8 +1,24 @@
+import { expect, type APIRequestContext } from "@playwright/test";
 import { spawn } from "node:child_process";
 import { createSocket } from "node:dgram";
 import path from "node:path";
 
 const root = path.resolve("..");
+export async function disconnectTestInterface(request: APIRequestContext) {
+  const token = (await (await request.get("/api/session")).json()).token;
+  const closed = await request.post("/api/bacnet/disconnect", {
+    headers: { "X-Studio-Token": token },
+    data: {},
+  });
+  expect(
+    closed.ok(),
+    "This test's loopback interface must close even after failures",
+  ).toBe(true);
+  expect(
+    (await (await request.get("/api/bacnet/status")).json()).connected,
+  ).toBe(false);
+}
+
 export async function freePort(): Promise<number> {
   const socket = createSocket("udp4");
   return new Promise((resolve, reject) => {
