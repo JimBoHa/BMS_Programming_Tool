@@ -190,7 +190,10 @@ def test_register_can_route_its_clock_through_a_typed_native_activity(model):
         compile_monitor(files, 2020, activity_input=True)
 
 
-async def test_activity_register_receipt_preserves_and_reconstructs_its_exact_graph(native_link):
+@pytest.mark.parametrize("register_source", ["countdown", "supply-airflow"])
+async def test_activity_register_receipt_preserves_and_reconstructs_its_exact_graph(
+    native_link, register_source
+):
     peer, _, _, service, target = native_link
     observation_peer(peer, "", first_instance=2020, allocated_count=42)
     peer.files = station()
@@ -203,11 +206,22 @@ async def test_activity_register_receipt_preserves_and_reconstructs_its_exact_gr
         snapshot_sha256=cap["snapshot_evidence_sha256"],
         sample_register=True,
     )
-    request = ClockMonitorReview(**kwargs, activity_input=True)
+    request = ClockMonitorReview(**kwargs, activity_input=True, register_source=register_source)
     plan = await review(service, request)
     assert len(set(peer.clearance_reads)) == plan["live_review"]["confirmed_absent"] == 42
     assert "Float activity input" in plan["scope"]
     body = {key: value for key, value in plan.items() if key not in ("token", "review_sha256")}
+    alternate = "countdown" if register_source == "supply-airflow" else "supply-airflow"
+    with pytest.raises(ValueError, match="exact monitor review"):
+        validate_review(
+            {
+                "body": body,
+                "digest": seal(body),
+                "options": ClockMonitorReview(
+                    **kwargs, activity_input=True, register_source=alternate
+                ),
+            }
+        )
     with pytest.raises(ValueError, match="exact monitor review"):
         validate_review(
             {"body": body, "digest": seal(body), "options": ClockMonitorReview(**kwargs)}
@@ -229,3 +243,41 @@ async def test_activity_register_receipt_preserves_and_reconstructs_its_exact_gr
     verify_clock_activity(
         MoiIdentity(peer.files[3]), plan["compilation"]["register_input_activity"]
     )
+
+
+@pytest.mark.parametrize("model", ["MS-VMA1630-0", "FX-PCV1630-0"])
+@pytest.mark.parametrize("activity", [False, True])
+def test_airflow_register_changes_only_the_diagnostic_data_wire(model, activity):
+    files = station(model)
+    options = dict(sample_register=True, activity_input=activity)
+    normal, timing = compile_monitor(files, 2020, **options)
+    assert (normal, timing) == compile_monitor(files, 2020, register_source="countdown", **options)
+    payload, result = compile_monitor(files, 2020, register_source="supply-airflow", **options)
+    assert result["added_objects"] == timing["added_objects"]
+    source = result["sampling_register"]["airflow_source"]
+    assert source["object"] == result["points"]["flow"]
+    assert (source["units"], source["port"]) == (84, 3505)
+    app = MoiIdentity(payload)
+    assert app.reader.scalar(app.reader.records[source["reference"]], 75) == source["object"]
+    assert source["reference"].rpartition(".")[0] == source["parent"]
+    original = MoiIdentity(normal).reader.diagram(ROOT, retained_activity_refs=True)
+    graph = app.reader.diagram(ROOT, retained_activity_refs=True)
+    assert graph["execution_order"] == original["execution_order"]
+    switch = graph["blocks"][-1]
+    assert switch["name"] == "Gated airflow sample"
+    (selected,) = [
+        r
+        for r in graph["connections"]
+        if r["target_ref"] == switch["ref"] and r["target_port"] == 7001
+    ]
+    assert (selected["source_ref"], selected["source_port"]) == (source["parent"], 3505)
+    assert graph["connections"] == [
+        {**wire, "source_ref": source["parent"], "source_port": source["port"]}
+        if wire["target_ref"] == switch["ref"] and wire["target_port"] == 7001
+        else wire
+        for wire in original["connections"]
+    ]
+    with pytest.raises(ValueError, match="enabled sample register"):
+        compile_monitor(files, 2020, register_source="supply-airflow")
+    with pytest.raises(ValueError, match="verified supply airflow"):
+        compile_monitor(files, 2020, sample_register=True, register_source="arbitrary-point")

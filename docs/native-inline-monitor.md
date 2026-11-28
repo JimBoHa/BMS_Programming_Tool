@@ -53,6 +53,17 @@ output wiring. It publishes no supervisory points.
 
 ### Observing one gated sample
 
+Set `sample_register` to `true` and `register_source` to `supply-airflow` to
+sample the selected application's calculated supply flow in CFM. This uses the
+existing calculation linked to its local velocity-pressure pickup. The review
+records the source object, native reference, output port and units in
+`compilation.sampling_register.airflow_source`. The countdown still opens the
+gate at 30 seconds and above. During the lower half of the cycle the register
+holds the last admitted airflow value. Read the source, its status flags and the
+register across the transition. An overridden source limits any conclusion
+about actual duct airflow. The program's original damper and valve connections
+stay in control throughout the diagnostic.
+
 Set `sample_register` to `true` in a clock-monitor review to add three
 internal blocks from the selected application's own primitive definitions.
 The comparator selects the countdown at 30 seconds and above. Below 30, the
