@@ -1,22 +1,20 @@
 import { test, expect, type Page } from "@playwright/test";
 import { execFileSync, spawn } from "node:child_process";
-import { createSocket } from "node:dgram";
+import {
+  openMonitoringInterface,
+  selectKnownMonitoringController,
+} from "./event-workspace";
+import {
+  chooseWorkspaceSurface,
+  chooseWorkspaceTask,
+  chooseWorkspaceTool,
+} from "./workspace-navigation";
+import { disconnectTestInterface, freePort } from "./workflow-peer";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
 const root = path.resolve("..");
-async function freePort(): Promise<number> {
-  const socket = createSocket("udp4");
-  return new Promise((resolve, reject) => {
-    socket.once("error", reject);
-    socket.bind(0, "127.0.0.1", () => {
-      const address = socket.address();
-      const port = typeof address === "string" ? 0 : address.port;
-      socket.close(() => resolve(port));
-    });
-  });
-}
 async function filePeer(emptyConfiguration = false) {
   const child = spawn(
     path.join(root, ".venv/bin/python"),
@@ -46,7 +44,11 @@ async def main():
 asyncio.run(main())`,
       emptyConfiguration ? "empty" : "configured",
     ],
-    { cwd: root, stdio: ["pipe", "pipe", "pipe"] },
+    {
+      cwd: root,
+      env: { ...process.env, PYTHONPATH: path.join(root, "backend") },
+      stdio: ["pipe", "pipe", "pipe"],
+    },
   );
   let output = "",
     error = "",
@@ -91,34 +93,69 @@ asyncio.run(main())`,
     },
   };
 }
-async function openInterface(page: Page, address: string) {
-  await page.goto("/");
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
-  await page
-    .getByLabel("Local bind address / UDP port", { exact: true })
-    .fill(`127.0.0.1:${await freePort()}`);
-  await page
-    .getByLabel("BBMD address / UDP port (optional)", { exact: true })
-    .fill("");
-  await page.getByLabel("Router IP (optional)", { exact: true }).fill("");
-  await page
-    .getByLabel("MS/TP destination network (optional)", { exact: true })
-    .fill("");
-  await page
-    .getByRole("button", { name: "Open interface", exact: true })
-    .click();
-  await expect(
-    page.getByText("BACnet interface open", { exact: true }),
-  ).toBeVisible();
+async function chooseFileController(page: Page, address: string) {
+  await selectKnownMonitoringController(page, address, "device,4190150");
+  await chooseWorkspaceTask(page, "Changes");
+  await chooseWorkspaceTool(page, "Controller changes");
+  const tools = page.getByRole("navigation", {
+    name: "Controller task tools",
+    exact: true,
+  });
+  const select = tools.getByRole("combobox");
+  if (await select.isVisible())
+    await select.selectOption({ label: "File captures" });
+  else
+    await tools
+      .getByRole("button", { name: "File captures", exact: true })
+      .click();
   const panel = page.getByRole("region", {
     name: "BACnet configuration files",
     exact: true,
   });
-  await panel.getByLabel("File device address", { exact: true }).fill(address);
-  await panel
-    .getByLabel("File Device object", { exact: true })
-    .fill("device,4190150");
+  await expect(
+    panel.getByRole("button", {
+      name: "Inspect advertised files",
+      exact: true,
+    }),
+  ).toBeEnabled();
+  await expect(
+    panel.getByLabel("File device address", { exact: true }),
+  ).toHaveCount(0);
   return panel;
+}
+
+async function openInterface(page: Page, address: string) {
+  await openMonitoringInterface(page);
+  return chooseFileController(page, address);
+}
+
+async function openSavedFiles(page: Page) {
+  await chooseWorkspaceSurface(page, "History");
+  const nav = page.getByRole("navigation", {
+    name: "history tools",
+    exact: true,
+  });
+  await expect(nav).toBeVisible();
+  const select = nav.getByRole("combobox");
+  if (await select.isVisible())
+    await select.selectOption({ label: "Native backups" });
+  else
+    await nav
+      .getByRole("button", { name: "Native backups", exact: true })
+      .click();
+  await page.getByText("Saved BACnet file captures", { exact: true }).click();
+  const saved = page.getByRole("region", {
+    name: "Local BACnet file archive",
+    exact: true,
+  });
+  await expect(saved).toBeVisible();
+  await expect(
+    saved.getByRole("button", {
+      name: "Inspect advertised files",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  return saved;
 }
 
 test("configuration files use actual UDP reads and preserve exact stream bytes, empty records and offline receipts", async ({
@@ -205,17 +242,24 @@ test("configuration files use actual UDP reads and preserve exact stream bytes, 
     const recordsReceipt = JSON.parse(
       readFileSync((await (await downloading).path())!, "utf8"),
     );
-    await page
-      .getByRole("button", { name: "Close BACnet interface", exact: true })
-      .click();
-    await expect(
-      panel.getByRole("button", {
-        name: "Inspect advertised files",
-        exact: true,
-      }),
-    ).toBeDisabled();
+    await disconnectTestInterface(request);
+    await page.reload();
+    const bacnetPosts: string[] = [];
+    const catalogResponses: Promise<unknown>[] = [];
+    const catalogPath =
+      "/api/bacnet/controller/native-application/backup-library/list";
+    page.on("request", (request) => {
+      const path = new URL(request.url()).pathname;
+      if (request.method() === "POST" && path.startsWith("/api/bacnet/"))
+        bacnetPosts.push(path);
+    });
+    page.on("response", (response) => {
+      if (new URL(response.url()).pathname === catalogPath)
+        catalogResponses.push(response.json());
+    });
+    const saved = await openSavedFiles(page);
     downloading = page.waitForEvent("download");
-    await panel
+    await saved
       .getByRole("button", {
         name: "Export opaque capture " + recordsReceipt.id,
         exact: true,
@@ -243,14 +287,38 @@ test("configuration files use actual UDP reads and preserve exact stream bytes, 
     ]);
     expect(parsed.receipt).toEqual(recordsReceipt);
     await page.reload();
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
-    await panel
+    const reopened = await openSavedFiles(page);
+    await reopened
       .getByRole("button", {
         name: "Open file receipt " + streamReceipt.id,
         exact: true,
       })
       .click();
-    await expect(receipt).toContainText(streamReceipt.sha256);
+    await expect(
+      reopened.getByRole("region", { name: "BACnet file capture receipt" }),
+    ).toContainText(streamReceipt.sha256);
+    const sourceLabel = reopened
+      .getByText("Source", { exact: true })
+      .filter({ visible: true })
+      .last();
+    await sourceLabel.scrollIntoViewIfNeeded();
+    const labelPosition = await sourceLabel.boundingBox();
+    expect(labelPosition!.x).toBeGreaterThanOrEqual(0);
+    await expect(
+      reopened.getByRole("region", { name: "BACnet file capture receipt" }),
+    ).toContainText("Independent file peer");
+    expect(bacnetPosts).toEqual([catalogPath, catalogPath]);
+    expect(await Promise.all(catalogResponses)).toEqual(
+      [1, 2].map(() =>
+        expect.objectContaining({
+          controller_queries: false,
+          field_actions: false,
+        }),
+      ),
+    );
+    expect(
+      (await (await request.get("/api/bacnet/status")).json()).connected,
+    ).toBe(false);
     expect(reads).toBe(2);
     await page.screenshot({
       path: "test-results/studio-bacnet-files.png",
@@ -334,6 +402,7 @@ test("a parent target edit invalidates a delayed real file inspection", async ({
   request,
 }) => {
   const peer = await filePeer();
+  const next = await filePeer();
   const headers = {
     "X-Studio-Token": (await (await request.get("/api/session")).json()).token,
   };
@@ -359,17 +428,18 @@ test("a parent target edit invalidates a delayed real file inspection", async ({
       .click();
     await waiting;
     await page
-      .getByLabel("Unicast target", { exact: true })
-      .fill("127.0.0.1:49999");
+      .getByLabel("Working context")
+      .getByRole("button", { name: "Change controller", exact: true })
+      .click();
+    await chooseFileController(page, next.address);
+    const completed = page.waitForResponse((r) =>
+      r.url().endsWith("/api/bacnet/files/inspect"),
+    );
     release();
-    await expect(
-      panel.getByText("Working on the requested file operation…", {
-        exact: true,
-      }),
-    ).toHaveCount(0);
-    await expect(
-      panel.getByLabel("File device address", { exact: true }),
-    ).toHaveValue("127.0.0.1:49999");
+    await completed;
+    await expect(page.getByLabel("Working context")).toContainText(
+      next.address,
+    );
     await expect(
       panel.getByRole("region", {
         name: "Inspected configuration files",
@@ -383,11 +453,12 @@ test("a parent target edit invalidates a delayed real file inspection", async ({
     release?.();
     await request.post("/api/bacnet/disconnect", { headers, data: {} });
     const evidence = await peer.close();
+    expect((await next.close()).file_reads).toBe(0);
     expect(evidence.file_reads).toBe(0);
   }
 });
 
-test("a delayed saved export never downloads after leaving Connections", async ({
+test("a delayed saved export never downloads after leaving the local file archive", async ({
   page,
   request,
 }) => {
@@ -434,7 +505,7 @@ test("a delayed saved export never downloads after leaving Connections", async (
     downloads.push(download.suggestedFilename()),
   );
   await page.goto("/");
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
+  await openSavedFiles(page);
   await page.route("**/api/bacnet/files/captures/*/export", async (route) => {
     const response = await route.fetch();
     arrived();
@@ -449,7 +520,7 @@ test("a delayed saved export never downloads after leaving Connections", async (
       })
       .click();
     await waiting;
-    await page.getByRole("button", { name: "Program", exact: true }).click();
+    await chooseWorkspaceSurface(page, "Library");
     const completed = page.waitForResponse((response) =>
       response.url().endsWith("/" + capture.id + "/export"),
     );
@@ -457,7 +528,7 @@ test("a delayed saved export never downloads after leaving Connections", async (
     await completed;
     await expect(
       page.getByRole("region", {
-        name: "BACnet configuration files",
+        name: "Local BACnet file archive",
         exact: true,
       }),
     ).toHaveCount(0);

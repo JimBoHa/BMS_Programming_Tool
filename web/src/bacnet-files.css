@@ -1,5 +1,6 @@
 .bacnet-files .card-body {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
 }
 .bacnet-files .card-body > p {
@@ -30,6 +31,7 @@
   overflow-wrap: anywhere;
 }
 .bacnet-file-table {
+  max-width: 100%;
   overflow-x: auto;
 }
 .bacnet-file-table table {
@@ -52,4 +54,11 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-size: 11px;
+}
+
+@media (max-width: 600px) {
+  .bacnet-file-evidence {
+    grid-template-columns: minmax(70px, 28%) minmax(0, 1fr);
+    gap: 8px;
+  }
 }

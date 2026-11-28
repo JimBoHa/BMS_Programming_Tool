@@ -65,15 +65,26 @@ type Profile = {
   };
 };
 
+type FilePanelProps =
+  | {
+      savedOnly: true;
+      connected?: never;
+      defaultAddress?: never;
+      defaultDevice?: never;
+    }
+  | {
+      savedOnly?: false;
+      connected: boolean;
+      defaultAddress: string;
+      defaultDevice: string;
+    };
+
 export function BacnetFilesPanel({
-  connected,
-  defaultAddress,
-  defaultDevice,
-}: {
-  connected: boolean;
-  defaultAddress: string;
-  defaultDevice: string;
-}) {
+  savedOnly = false,
+  connected = false,
+  defaultAddress = "",
+  defaultDevice = "",
+}: FilePanelProps) {
   const [address, setAddress] = useState(defaultAddress);
   const [device, setDevice] = useState(defaultDevice);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -247,11 +258,14 @@ export function BacnetFilesPanel({
   return (
     <section
       className="card bacnet-files"
-      aria-label="BACnet configuration files"
+      aria-label={
+        savedOnly ? "Local BACnet file archive" : "BACnet configuration files"
+      }
     >
       <div className="card-header">
         <h3>
-          <Database size={18} /> Advertised controller files
+          <Database size={18} />{" "}
+          {savedOnly ? "Saved controller files" : "Advertised controller files"}
         </h3>
         <button
           className="button"
@@ -262,62 +276,76 @@ export function BacnetFilesPanel({
         </button>
       </div>
       <div className="card-body">
-        <p>
-          Read existing File objects advertised by Device configuration-files,
-          or its Object List when configuration-files is empty. Copies are
-          opaque bytes, not CAF files or proof of a coherent application backup.
-          This tool does not issue STARTBACKUP or any device write.
-        </p>
-        <div className="form-grid">
-          <TargetFields>
-            <label>
-              File device address
-              <input
-                aria-label="File device address"
-                disabled={busy}
-                value={address}
-                placeholder="2105:79 or 192.168.1.10:47808"
-                onChange={(event) => edit(() => setAddress(event.target.value))}
-              />
-            </label>
-          </TargetFields>
-          <TargetFields>
-            <label>
-              File Device object
-              <input
-                aria-label="File Device object"
-                disabled={busy}
-                value={device}
-                placeholder="device,132079"
-                onChange={(event) => edit(() => setDevice(event.target.value))}
-              />
-            </label>
-          </TargetFields>
-          <div className="bacnet-file-action">
-            <button
-              className="button primary"
-              disabled={busy || !connected}
-              onClick={() => void inspect()}
-            >
-              <FileSearch size={16} /> Inspect advertised files
-            </button>
-          </div>
-        </div>
-        {!connected && (
-          <p className="muted">
-            Open a BACnet interface before inspecting or reading controller
-            files. Saved captures remain available offline.
+        {savedOnly ? (
+          <p>
+            Open a saved receipt or export its original stream bytes or records
+            from local storage.
           </p>
-        )}
-        {profile && (
-          <p className="muted">
-            Bounded profile: {profile.limits.configuration_files} advertised
-            files, {profile.limits.file_bytes.toLocaleString()} bytes per file,{" "}
-            {profile.limits.records} records, {profile.limits.operation_seconds}
-            s operation deadline, at least {profile.limits.request_gap_seconds}s
-            between requests. Up to {profile.limits.captures} local captures; no
-            automatic reads.
-          </p>
+        ) : (
+          <>
+            <p>
+              Read existing File objects advertised by Device
+              configuration-files, or its Object List when configuration-files
+              is empty. Copies are opaque bytes, not CAF files or proof of a
+              coherent application backup. This tool does not issue STARTBACKUP
+              or any device write.
+            </p>
+            <div className="form-grid">
+              <TargetFields>
+                <label>
+                  File device address
+                  <input
+                    aria-label="File device address"
+                    disabled={busy}
+                    value={address}
+                    placeholder="2105:79 or 192.168.1.10:47808"
+                    onChange={(event) =>
+                      edit(() => setAddress(event.target.value))
+                    }
+                  />
+                </label>
+              </TargetFields>
+              <TargetFields>
+                <label>
+                  File Device object
+                  <input
+                    aria-label="File Device object"
+                    disabled={busy}
+                    value={device}
+                    placeholder="device,132079"
+                    onChange={(event) =>
+                      edit(() => setDevice(event.target.value))
+                    }
+                  />
+                </label>
+              </TargetFields>
+              <div className="bacnet-file-action">
+                <button
+                  className="button primary"
+                  disabled={busy || !connected}
+                  onClick={() => void inspect()}
+                >
+                  <FileSearch size={16} /> Inspect advertised files
+                </button>
+              </div>
+            </div>
+            {!connected && (
+              <p className="muted">
+                Open a BACnet interface before inspecting or reading controller
+                files. Saved captures remain available offline.
+              </p>
+            )}
+            {profile && (
+              <p className="muted">
+                Bounded profile: {profile.limits.configuration_files} advertised
+                files, {profile.limits.file_bytes.toLocaleString()} bytes per
+                file, {profile.limits.records} records,{" "}
+                {profile.limits.operation_seconds}s operation deadline, at least{" "}
+                {profile.limits.request_gap_seconds}s between requests. Up to{" "}
+                {profile.limits.captures} local captures; no automatic reads.
+              </p>
+            )}
+          </>
         )}
         {profile?.storage && (
           <p className="muted" aria-label="File capture storage durability">
@@ -522,11 +550,31 @@ export function BacnetFilesPanel({
               <dd>
                 <code>{receipt.id}</code>
               </dd>
+              <dt>Controller</dt>
+              <dd>{receipt.device_identity["object-name"]}</dd>
+              <dt>Model / firmware</dt>
+              <dd>
+                {receipt.device_identity["model-name"]} /{" "}
+                {receipt.device_identity["firmware-revision"]}
+              </dd>
               <dt>Source</dt>
               <dd>
                 {receipt.target.device} · {receipt.target.address} ·{" "}
                 {receipt.target.object_id}
               </dd>
+              {typeof receipt.connector_config.router === "string" &&
+                typeof receipt.connector_config.dnet === "number" &&
+                receipt.target.address.startsWith(
+                  `${receipt.connector_config.dnet}:`,
+                ) && (
+                  <>
+                    <dt>Route at capture</dt>
+                    <dd>
+                      {receipt.connector_config.router} · Network{" "}
+                      {receipt.connector_config.dnet}
+                    </dd>
+                  </>
+                )}
               <dt>File discovery</dt>
               <dd>
                 {receipt.discovery_source ??
