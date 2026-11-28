@@ -216,6 +216,7 @@ def compile_monitor(
     allow_floating=False,
     sample_register=False,
     activity_input=False,
+    register_source="countdown",
 ):
     if type(first_instance) is not int or not 1 <= first_instance <= LIMIT:
         raise ValueError("Select a valid first native object instance.")
@@ -223,6 +224,10 @@ def compile_monitor(
         raise ValueError("Select a Boolean sampling register option.")
     if type(activity_input) is not bool or (activity_input and not sample_register):
         raise ValueError("The activity input requires an enabled sample register.")
+    if register_source not in ("countdown", "supply-airflow"):
+        raise ValueError("Select the countdown or the verified supply airflow.")
+    if register_source == "supply-airflow" and not sample_register:
+        raise ValueError("An airflow source requires an enabled sample register.")
     effective, merge = ParameterApplication(files[3], files[11], files[12]).compile()
     qualification = qualify_parameter_additions(effective, merge)
     app = MoiIdentity(effective)
@@ -381,7 +386,23 @@ def compile_monitor(
             activity = append_clock_activity(ref, add)
             added_wires.append((*clock_source, activity_index, 7000))
             clock_source = (activity_index, 8000)
-        links, register = append_clock_register(app, ref, add, n + len(members), clock_source)
+        airflow_source = None
+        if register_source == "supply-airflow":
+            flow_ref = read(physical["calculation"], 32527)
+            flow_index = next(b["index"] for b in g["blocks"] if b["ref"] == flow_ref)
+            flow_port = read(physical["flow"], 3365)
+            airflow_source = (flow_index, flow_port)
+        links, register = append_clock_register(
+            app, ref, add, n + len(members), clock_source, airflow_source=airflow_source
+        )
+        if airflow_source is not None:
+            register["airflow_source"] = {
+                "object": read(physical["flow"], 75),
+                "reference": read(physical["flow"], 32527),
+                "parent": flow_ref,
+                "port": flow_port,
+                "units": read(physical["flow"], 117),
+            }
         added_wires.extend(links)
     if n + len(members) > 512 or len(g["connections"]) + len(added_wires) > 4096:
         raise ValueError("Insufficient graph capacity for the timing monitor.")

@@ -92,7 +92,7 @@ def verify_clock_activity(app, expected):
         raise ValueError("The serialized timing activity does not connect its input to its output.")
 
 
-def append_clock_register(app, root, add, first, clock_source):
+def append_clock_register(app, root, add, first, clock_source, *, airflow_source=None):
     children = defaultdict(list)
     read = app.reader.scalar
     for item in app.records:
@@ -131,17 +131,18 @@ def append_clock_register(app, root, add, first, clock_source):
             _, created[number] = add(port["class_id"], typ, parent, fields)
         return created[85]
 
-    # The independent timer is the changing test signal. During the high half
-    # of its countdown the register tracks it. In the low half it retains a sample.
+    # The timer gates the register independently of the sampled signal.
     gate = primitive("ge", "Register high half of countdown", {50084: 30.0})
-    previous = primitive("prevF", "Previous gated countdown", {})
-    output = primitive("select", "Gated countdown sample", {})
+    signal = "airflow" if airflow_source is not None else "countdown"
+    previous = primitive("prevF", f"Previous gated {signal}", {})
+    output = primitive("select", f"Gated {signal} sample", {})
+    sample_source = clock_source if airflow_source is None else airflow_source
     compare, memory, switch = range(first, first + 3)
     wires = [
         (*clock_source, compare, 50083),
         (compare, 85, switch, 961),
         (memory, 85, switch, 7000),
-        (*clock_source, switch, 7001),
+        (*sample_source, switch, 7001),
         (switch, 85, memory, 513),
     ]
     return wires, {
