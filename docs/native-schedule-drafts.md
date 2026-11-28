@@ -67,4 +67,4 @@ These tests use local loopback and temporary storage. They establish no physical
 
 BMS Studio can review a local weekly-day edit when a controller uses a Null schedule default. The BMS Tool reads the captured present value, all seven days and the exception entries. At least one weekly transition must contain a value. Every captured non-Null value must have the same numeric or Boolean BACnet type as the present value. An Unsigned value and an Enumerated value remain distinct even if both display the same number.
 
-The editor shows the observed type, retains the original Null default and records the exact encoded day in the exported review. The field writer accepts the separately qualified deployment profiles. This local review carries its own profile and cannot issue a controller write.
+The editor shows the observed type, retains the original Null default and records the exact encoded day in the exported review. An operator can open a separate [field review](native-weekly-day-write.md#schedules-with-a-null-default) when the connected service advertises support. Saving, importing or reopening a draft stays local.

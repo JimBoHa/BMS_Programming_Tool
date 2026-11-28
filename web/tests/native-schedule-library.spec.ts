@@ -34,7 +34,7 @@ async function disconnect(request: APIRequestContext) {
   ).toBe(false);
 }
 test.afterEach(async ({ request }) => disconnect(request));
-async function peer(routed: boolean, nullDefault = false) {
+async function peer(routed: boolean, nullDefault = false, writable = false) {
   const child = spawn(
     path.join(root, ".venv/bin/python"),
     [
@@ -43,7 +43,8 @@ async function peer(routed: boolean, nullDefault = false) {
       `
 import asyncio,json,sys,traceback
 from tests.test_schedule_inventory import SchedulePeer,text,unsigned,oid
-class Peer(SchedulePeer):
+from tests.test_native_schedule_write import WeeklyPeer
+class Peer(WeeklyPeer if sys.argv[3]=='write' else SchedulePeer):
  async def reply(self,data,source):
   before=len(self.errors)
   await super().reply(data,source)
@@ -69,11 +70,12 @@ async def main():
  print(json.dumps({'port':int(p.endpoint.split(':')[-1])}),flush=True)
  try: await asyncio.to_thread(sys.stdin.readline)
  finally:
-  p.close();print(json.dumps({'requests':len(p.requests),'errors':[str(e) for e in p.errors]}),flush=True)
+  p.close();print(json.dumps({'requests':len(p.requests),'errors':[str(e) for e in p.errors],'writes':[(n,d.hex()) for n,d in getattr(p,'writes',[])]}),flush=True)
 asyncio.run(main())
 `,
       routed ? "1" : "0",
       nullDefault ? "1" : "0",
+      writable ? "write" : "read",
     ],
     {
       cwd: root,
@@ -149,8 +151,9 @@ async function capture(
   routed: boolean,
   save = true,
   nullDefault = false,
+  writable = false,
 ) {
-  const server = await peer(routed, nullDefault);
+  const server = await peer(routed, nullDefault, writable);
   const panel = await openScheduleController(
     page,
     request,
@@ -868,6 +871,186 @@ test("a Null default with matching captured transitions opens a local weekly dra
       }),
     ).toHaveCount(0);
     expect(server.reads()).toBe(reads);
+  } finally {
+    await server.close();
+  }
+});
+
+test("review and apply one weekly day with a verified Null default, then reopen the exact receipt", async ({
+  page,
+  request,
+}) => {
+  const { server, local } = await capture(
+    page,
+    request,
+    false,
+    true,
+    true,
+    true,
+  );
+  try {
+    await local
+      .getByLabel("Transition 1 exact value text", { exact: true })
+      .fill("2.5");
+    await local
+      .getByRole("button", { name: "Review native weekly draft", exact: true })
+      .click();
+    const panel = local.getByRole("region", {
+      name: "Native weekly-day deployment",
+      exact: true,
+    });
+    await panel
+      .getByRole("button", {
+        name: "Open native deployment and local history",
+        exact: true,
+      })
+      .click();
+    await expect(
+      panel.getByText(/Field review verifies its observed Real type/),
+    ).toBeVisible();
+    await panel
+      .getByLabel("Declared native write operator", { exact: true })
+      .fill("Test operator");
+    await panel
+      .getByLabel("Native write rationale", { exact: true })
+      .fill("Exercise the reviewed day");
+    await panel
+      .getByRole("button", {
+        name: "Preview fresh native weekly-day write",
+        exact: true,
+      })
+      .click();
+    await panel
+      .getByRole("button", {
+        name: "Apply one native weekly-day request",
+        exact: true,
+      })
+      .click();
+    const receipt = panel.getByLabel("Native write receipt", { exact: true });
+    await expect(receipt).toContainText("accepted");
+    await expect(receipt).toContainText("match");
+    const bytes = await download(
+      page,
+      receipt.getByRole("button", {
+        name: "Export exact native write receipt",
+        exact: true,
+      }),
+    );
+    const body = JSON.parse(bytes.toString());
+    expect(body.profile).toBe(
+      "native-schedule-reviewed-null-default-weekly-day-write/1",
+    );
+    expect(body.review.native_draft.source.schedule_default_type).toBe("Null");
+    expect(body.readback.other_static_context_matches).toBe(true);
+    await receipt
+      .getByRole("button", {
+        name: "Read-only reconcile selected receipt",
+        exact: true,
+      })
+      .click();
+    await expect(
+      panel.getByLabel("Native write reconciliation", {
+        exact: true,
+      }),
+    ).toContainText("Readback: match");
+    await disconnect(request);
+    expect(
+      await (
+        await request.get("/api/bacnet/schedules/writes/receipts/" + body.id)
+      ).body(),
+    ).toEqual(bytes);
+    await page.reload();
+    await page
+      .getByRole("button", { name: "New application", exact: true })
+      .click();
+    await chooseWorkspaceTask(page, "Schedules");
+    await panel
+      .getByRole("button", {
+        name: "Open native deployment and local history",
+        exact: true,
+      })
+      .click();
+    await panel
+      .getByRole("button", {
+        name: `Open native receipt ${body.id.slice(0, 12)}`,
+        exact: true,
+      })
+      .click();
+    await expect(
+      receipt.getByRole("button", {
+        name: "Read-only reconcile selected receipt",
+        exact: true,
+      }),
+    ).toBeDisabled();
+    expect(
+      await download(
+        page,
+        receipt.getByRole("button", {
+          name: "Export exact native write receipt",
+          exact: true,
+        }),
+      ),
+    ).toEqual(bytes);
+    expect((await server.close()).writes).toEqual([
+      [1, "0eb40800000044402000000f"],
+    ]);
+  } finally {
+    await server.close();
+  }
+});
+
+test("a service without Null-default write support keeps the day available for local review", async ({
+  page,
+  request,
+}) => {
+  await page.route("**/api/bacnet/schedules/writes/profile", async (route) => {
+    const response = await route.fetch();
+    const profile = await response.json();
+    delete profile.observed_default_profile;
+    await route.fulfill({ response, json: profile });
+  });
+  const { server, local } = await capture(page, request, false, true, true);
+  try {
+    await local
+      .getByLabel("Transition 1 exact value text", { exact: true })
+      .fill("2.5");
+    await local
+      .getByRole("button", { name: "Review native weekly draft", exact: true })
+      .click();
+    const panel = local.getByRole("region", {
+      name: "Native weekly-day deployment",
+      exact: true,
+    });
+    await panel
+      .getByRole("button", {
+        name: "Open native deployment and local history",
+        exact: true,
+      })
+      .click();
+    await expect(
+      panel.getByText(
+        "This service supports local review only for this Null-default schedule.",
+      ),
+    ).toBeVisible();
+    await panel
+      .getByLabel("Declared native write operator", { exact: true })
+      .fill("Test operator");
+    await panel
+      .getByLabel("Native write rationale", { exact: true })
+      .fill("Verify local review availability");
+    await expect(
+      panel.getByRole("button", {
+        name: "Preview fresh native weekly-day write",
+        exact: true,
+      }),
+    ).toBeDisabled();
+    await expect(
+      local.getByRole("button", {
+        name: "Export exact reviewed weekly draft",
+        exact: true,
+      }),
+    ).toBeEnabled();
+    expect((await server.close()).writes).toEqual([]);
   } finally {
     await server.close();
   }

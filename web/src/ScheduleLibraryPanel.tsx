@@ -2,6 +2,12 @@ import { sha256Digest } from "./browserCrypto";
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { api, apiJsonDocument, saveBlob } from "./api";
 import { NativeScheduleWritePanel } from "./NativeScheduleWritePanel";
+import {
+  OBSERVED_DRAFT,
+  OBSERVED_RULES,
+  observedDefaultDraft,
+  observedTypes,
+} from "./nativeScheduleObservedDefault";
 import { NativeCalendarEditor } from "./NativeCalendarEditor";
 import { exceptionWork, type ExceptionWork } from "./nativeScheduleExceptions";
 import { calendarWork, type CalendarWork } from "./nativeCalendar";
@@ -42,19 +48,8 @@ const NativeExceptionEditor = lazy(() =>
 const BASE = "/bacnet/schedules/library";
 const CAPTURE = "native-calendar-schedule-capture/1";
 const DRAFT = "native-schedule-weekly-day-draft/1";
-const OBSERVED_DRAFT = "native-schedule-null-default-weekly-day-draft/1";
-const OBSERVED_RULES =
-  "cdee8d2b48534ed4d6e34b7a7e0f7dbf65bc8ddd20934205457ad588e2904a90";
 const ID = /^[a-f0-9]{64}$/;
-const TYPES = [
-  "Null",
-  "Boolean",
-  "Unsigned",
-  "Integer",
-  "Enumerated",
-  "Real",
-  "Double",
-];
+const TYPES = ["Null", ...observedTypes];
 type Transition = {
   time: number[];
   native_type: string;
@@ -260,11 +255,7 @@ function reviewResult(value: any) {
     value.profile !== expected ||
     value.format !== expected ||
     (observed
-      ? value.rules_sha256 !== OBSERVED_RULES ||
-        value.request?.draft_profile !== OBSERVED_DRAFT ||
-        value.source?.schedule_default_type !== "Null" ||
-        value.source?.observed_native_type === "Null" ||
-        !TYPES.includes(value.source?.observed_native_type)
+      ? !observedDefaultDraft(value)
       : strings
         ? !stringDraftReview(value)
         : value.request?.draft_profile !== undefined) ||
@@ -1424,7 +1415,7 @@ export function ScheduleLibraryPanel({
       )}
       <NativeScheduleWritePanel
         selectedTarget={selectedTarget}
-        draft={review?.profile === OBSERVED_DRAFT ? null : review}
+        draft={review}
         connected={connected}
         connectionKey={connectionKey}
       />

@@ -891,3 +891,147 @@ def test_explicit_receipt_json_profile_cannot_remove_reader_bounds(max_values):
 
     with pytest.raises(ValueError, match="bound"):
         strict_json(b"{}", 1024, max_values=max_values)
+
+
+async def recapture_observed_day(parts, transitions, day=6):
+    from bms_tool.native_schedule_library import OBSERVED_DRAFT_PROFILE
+
+    peer, _, inventory, library, _, _ = parts
+    report = await inventory.read(**options(peer, object_ids=["schedule,1"]))
+    capture = library.save(report["id"])
+    return library.review(
+        capture_id=capture["id"],
+        object_id="schedule,1",
+        day=day,
+        transitions=transitions,
+        draft_profile=OBSERVED_DRAFT_PROFILE,
+    )
+
+
+def observed_preview_options(review):
+    return dict(
+        draft_id=review["id"],
+        observed_defaults=True,
+        operation_id="observed_" + str(time.monotonic_ns()),
+        operator_name="Test operator",
+        rationale="Review the selected weekly day",
+    )
+
+
+@pytest.mark.parametrize("routed", [False, True])
+async def test_null_default_explicit_weekly_change_reconcile_and_restore(tmp_path, routed):
+    from bms_tool.native_schedule_write import OBSERVED_PROFILE, OBSERVED_WRITE_RULES_SHA256
+
+    parts = await link(tmp_path, routed=routed, primitive=bytes.fromhex("2102"))
+    peer, client, inventory, library, service, _ = parts
+    peer.overrides["schedule,1", "schedule-default", None] = b"\x00"
+    original = list(peer.days)
+    try:
+        proposed = [{"time": [10, 5, 0, 0], "native_type": "Unsigned", "value_text": "1"}]
+        review = await recapture_observed_day(parts, proposed)
+        opts = observed_preview_options(review)
+        with pytest.raises(ValueError, match="authority"):
+            await service.preview(**{k: v for k, v in opts.items() if k != "observed_defaults"})
+        assert not peer.writes
+        plan = await service.preview(**opts)
+        assert plan["can_apply"] and plan["profile"] == OBSERVED_PROFILE
+        result = json.loads(await service.apply(**apply_options(plan)))
+        assert result["protocol_status"] == "accepted" and result["readback"]["status"] == "match"
+        assert result["rules_sha256"] == OBSERVED_WRITE_RULES_SHA256
+        assert peer.writes == [(6, bytes.fromhex("0eb40a05000021010f"))]
+        assert service.journal.receipt(result["id"]) == encoded(result)
+        restarted = NativeWeeklyDayWrites(
+            client,
+            client.store,
+            NativeScheduleLibrary(tmp_path),
+            timeout=0.1,
+            operation_timeout=5,
+            request_gap=0,
+        )
+        try:
+            check = json.loads(
+                await restarted.reconcile(operation_id="reopen_observed", receipt_id=result["id"])
+            )
+            assert (
+                check["profile"] == OBSERVED_PROFILE
+                and check["rules_sha256"] == OBSERVED_WRITE_RULES_SHA256
+            )
+            assert check["writes_sent"] == 0 and check["readback"]["status"] == "match"
+        finally:
+            await restarted.close()
+        restore = await recapture_observed_day(
+            parts, [{"time": [8, 0, 0, 0], "native_type": "Unsigned", "value_text": "2"}]
+        )
+        restored_plan = await service.preview(**observed_preview_options(restore))
+        assert restored_plan["can_apply"]
+        final = json.loads(await service.apply(**apply_options(restored_plan)))
+        assert final["readback"]["status"] == "match" and len(peer.writes) == 2
+        assert (
+            peer.days == original and peer.value("schedule,1", "schedule-default", None) == b"\x00"
+        )
+    finally:
+        await service.close()
+        await inventory.close()
+        client.close()
+        peer.close()
+
+
+@pytest.mark.parametrize("changed", ["default", "present", "other_day", "protocol_rejection"])
+async def test_observed_default_revalidates_live_source_before_send(connected, changed):
+    peer, _, _, _, service, _ = connected
+    peer.overrides["schedule,1", "schedule-default", None] = b"\x00"
+    review = await recapture_observed_day(
+        connected, [{"time": [6, 15, 0, 0], "native_type": "Real", "value_text": "20"}]
+    )
+    plan = await service.preview(**observed_preview_options(review))
+    assert plan["can_apply"]
+    if changed == "default":
+        peer.overrides["schedule,1", "schedule-default", None] = bytes.fromhex("4440000000")
+    elif changed == "present":
+        peer.overrides["schedule,1", "present-value", None] = bytes.fromhex("2102")
+    elif changed == "other_day":
+        peer.days[0] = bytes.fromhex("0eb40800000021020f")
+    else:
+        peer.mode = "reject"
+    result = json.loads(await service.apply(**apply_options(plan)))
+    if changed == "protocol_rejection":
+        assert result["protocol_status"] == "rejected" and result["may_have_applied"]
+        assert result["readback"]["status"] == "mismatch" and len(peer.writes) == 1
+    else:
+        assert not result["dispatch_started"] and not peer.writes
+        assert result["errors"]
+
+
+async def test_last_typed_weekly_transition_remains_available_for_recovery(connected):
+    peer, _, _, _, service, _ = connected
+    peer.overrides["schedule,1", "schedule-default", None] = b"\x00"
+    peer.days[:5] = [bytes.fromhex("0e0f")] * 5
+    peer.days[6] = bytes.fromhex("0e0f")
+    review = await recapture_observed_day(connected, [])
+    result = await service.preview(**observed_preview_options(review))
+    assert not result["can_apply"] and any("last typed weekly" in r for r in result["reasons"])
+    assert not peer.writes
+
+
+async def test_observed_write_opt_in_does_not_authorize_normal_typed_draft(connected):
+    peer, _, _, library, service, capture = connected
+    typed = draft(library, capture)
+    with pytest.raises(ValueError, match="Null-default write authority"):
+        await service.preview(**observed_preview_options(typed))
+    assert not peer.writes
+
+
+async def test_null_default_lost_reply_retains_uncertainty_with_matching_tags(connected):
+    peer, _, _, _, service, _ = connected
+    peer.overrides["schedule,1", "schedule-default", None] = b"\x00"
+    review = await recapture_observed_day(
+        connected, [{"time": [10, 5, 0, 0], "native_type": "Real", "value_text": "2.5"}]
+    )
+    plan = await service.preview(**observed_preview_options(review))
+    assert plan["can_apply"]
+    peer.mode = "drop"
+    result = json.loads(await service.apply(**apply_options(plan)))
+    assert result["protocol_status"] == "unknown" and result["may_have_applied"]
+    assert result["readback"]["status"] == "match" and len(peer.writes) == 1
+    with pytest.raises(ValueError, match="already used"):
+        await service.apply(**apply_options(plan))
