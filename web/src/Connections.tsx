@@ -39,6 +39,10 @@ import {
   AccumulatorPrescalePanel,
   pulseDraft,
 } from "./AccumulatorPrescalePanel";
+import {
+  networkPortId,
+  NetworkPortDiagnostics,
+} from "./NetworkPortDiagnostics";
 import { BacnetCovPanel } from "./BacnetCovPanel";
 import { BacnetEventsPanel } from "./BacnetEventsPanel";
 import { EventReceptionPanel } from "./EventReceptionPanel";
@@ -1243,6 +1247,23 @@ export function Connections({
                         Read object list
                       </button>
                     </div>
+                    {controller &&
+                      pointReady &&
+                      !status.config?.bbmd_address &&
+                      status.config?.transport !== "mstp" &&
+                      networkPortId(object) && (
+                        <NetworkPortDiagnostics
+                          key={JSON.stringify([
+                            controllerKey(controller),
+                            controller.interfaceKey,
+                            interfaceEpoch,
+                            networkPortId(object),
+                          ])}
+                          target={controller}
+                          port={networkPortId(object)!}
+                          config={status.config}
+                        />
+                      )}
                     {!selectedRouteReady && (
                       <p className="help-text full" role="status">
                         Selected routed target requires router{" "}
@@ -1340,7 +1361,24 @@ export function Connections({
                               {objectPage.objects.map((item: any) => (
                                 <tr key={item.index}>
                                   <td>{item.index}</td>
-                                  <td>{item.object}</td>
+                                  <td>
+                                    {networkPortId(item.object) ? (
+                                      <button
+                                        type="button"
+                                        disabled={busy || !pointReady}
+                                        aria-label={`Select port ${item.object}`}
+                                        onClick={() => {
+                                          setObject(item.object);
+                                          setValue(null);
+                                          setPlan(null);
+                                        }}
+                                      >
+                                        {item.object}
+                                      </button>
+                                    ) : (
+                                      item.object
+                                    )}
+                                  </td>
                                 </tr>
                               ))}
                             </tbody>
