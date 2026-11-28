@@ -195,7 +195,15 @@ export function Connections({
     [target, setTarget] = useState("127.0.0.1:47808"),
     [object, setObject] = useState("analog-value,1"),
     [property, setProperty] = useState("present-value"),
-    [devices, setDevices] = useState<any[]>([]),
+    [discoveryReply, setDiscoveryReply] = useState<{
+      context: string;
+      devices: {
+        address: string;
+        device: string;
+        vendor: number;
+        max_apdu: number;
+      }[];
+    } | null>(null),
     [routedResult, setRoutedResult] = useState<RoutedScanResult | null>(null),
     [scanNames, setScanNames] = useState<NamedScanTarget[]>([]),
     [interfaceEpoch, setInterfaceEpoch] = useState(0),
@@ -258,6 +266,15 @@ export function Connections({
     config: status.config,
     epoch: interfaceEpoch,
   });
+  const discoveryContext = JSON.stringify([
+    interfaceIdentity,
+    controllerEpoch.current,
+    target,
+  ]);
+  const devices =
+    discoveryReply?.context === discoveryContext
+      ? discoveryReply.devices
+      : null;
   const routerKey = (address?: string) =>
     address?.trim()
       ? address.trim().includes(":")
@@ -1195,12 +1212,15 @@ export function Connections({
                               throw new Error(
                                 "BBMD discovery requires an ordered instance range from 0 to 4194302.",
                               );
-                            setDevices(
-                              await api("/bacnet/discover-foreign", {
-                                low,
-                                high,
-                              }),
+                            setDiscoveryReply(null);
+                            const replies = await api(
+                              "/bacnet/discover-foreign",
+                              { low, high },
                             );
+                            setDiscoveryReply({
+                              context: discoveryContext,
+                              devices: replies,
+                            });
                           })
                         }
                       >
@@ -1209,13 +1229,16 @@ export function Connections({
                       <button
                         disabled={busy || !pointReady}
                         onClick={() =>
-                          action(async () =>
-                            setDevices(
-                              await api("/bacnet/discover", {
-                                address: target,
-                              }),
-                            ),
-                          )
+                          action(async () => {
+                            setDiscoveryReply(null);
+                            const replies = await api("/bacnet/discover", {
+                              address: target,
+                            });
+                            setDiscoveryReply({
+                              context: discoveryContext,
+                              devices: replies,
+                            });
+                          })
                         }
                       >
                         Who-Is target
@@ -1727,48 +1750,62 @@ export function Connections({
             </TaskMount>
             <TaskMount
               active={
-                visible &&
-                view === "setup" &&
-                setupStep === "known" &&
-                status.config?.transport === "mstp"
+                showTool("property") ||
+                (visible &&
+                  view === "setup" &&
+                  setupStep === "known" &&
+                  status.config?.transport === "mstp")
               }
               preserve={false}
             >
-              {!!devices.length && (
-                <section className="card">
+              {devices && (
+                <section className="card" aria-label="Discovery replies">
                   <div className="card-header">
                     <h3>Discovered devices</h3>
                   </div>
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Address</th>
-                        <th>Device</th>
-                        <th>Vendor</th>
-                        <th>Max APDU</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {devices.map((d, i) => (
-                        <tr
-                          key={i}
-                          aria-disabled={busy}
-                          onClick={() => {
-                            if (busy) return;
-                            void openController({
-                              address: d.address,
-                              device: d.device,
-                            });
-                          }}
-                        >
-                          <td>{d.address}</td>
-                          <td>{d.device}</td>
-                          <td>{d.vendor}</td>
-                          <td>{d.max_apdu}</td>
+                  {devices.length === 0 ? (
+                    <p role="status">No device replied during this request.</p>
+                  ) : (
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Address</th>
+                          <th>Device</th>
+                          <th>Vendor</th>
+                          <th>Max APDU</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {devices.map((d) => (
+                          <tr
+                            key={JSON.stringify([d.address, d.device])}
+                            aria-disabled={busy}
+                            onClick={() => {
+                              if (busy) return;
+                              void openController({
+                                address: d.address,
+                                device: d.device,
+                              });
+                            }}
+                          >
+                            <td>
+                              <button
+                                type="button"
+                                tabIndex={0}
+                                disabled={busy}
+                                aria-label={`Open controller ${d.device} at ${d.address}`}
+                              >
+                                {d.address}
+                              </button>
+                            </td>
+                            <td>{d.device}</td>
+                            <td>{d.vendor}</td>
+                            <td>{d.max_apdu}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
                 </section>
               )}
             </TaskMount>
@@ -2182,7 +2219,7 @@ export function Connections({
                             await api("/bacnet/connect-mstp", mstp);
                             setSetupStep("known");
                             setTarget(mstp.mac === 5 ? "6" : "5");
-                            setDevices([]);
+                            setDiscoveryReply(null);
                             clearPointResults(true);
                           })
                         }
