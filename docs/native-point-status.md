@@ -12,6 +12,12 @@ Native values retain their actual datatype and encoded evidence: analog Real, Bi
 
 Every property/index retains its own outcome and native evidence. Native unknown-property is labeled unsupported_property while preserving Error class/code; other native rejections, unknown outcomes/timeouts, malformed/decode errors, and a property outside the selected standard datatype profile stay distinct. Missing optional Reliability or a rejected priority array does not imply bad health. Proprietary JCI Enabled, Offline and Status attributes are distinct from standard Out_Of_Service; they are not guessed from it or queried using unverified datatype mappings.
 
+## Compare command slots
+
+Inspect the same commandable point twice with **Read optional priority slots and relinquish defaults** selected. In the later report, open **Compare command slots**, select the point and the earlier report, then choose **Compare retained readings**. The comparison also works after disconnecting the field interface. Each report must cover the same interface, route, Device identifier, point identifier and point name, with all 16 slots read individually.
+
+The table shows each priority that was filled, cleared or changed, with its earlier and later native values. This can reveal a lost scheduled command even when another priority or the relinquish default kept the present value steady. Slots are read sequentially. To confirm who controls a scheduled point, check the source schedule, its target reference and its write priority independently. Reports stay available until eviction or application restart.
+
 ## Bounds and export
 
 The [owned shared-socket receive profile](ipv4-receive-provenance.md) handles the pinned Windows stack's broadcast destination metadata without rewriting it. Raw BVLC Original-Unicast, actual socket and peer stay validated; the physical IP destination remains unavailable.

@@ -9,6 +9,7 @@ import {
   type JsonDocument,
 } from "./api";
 import { AccumulatorPrescalePanel } from "./AccumulatorPrescalePanel";
+import { CommandSlotComparison } from "./CommandSlotComparison";
 type Diagnostic = {
   envelope: Blob | null;
   core: Blob;
@@ -535,6 +536,10 @@ export function PointStatusPanel({
           {!!report.errors.length && (
             <pre>{JSON.stringify(report.errors, null, 2)}</pre>
           )}
+          <CommandSlotComparison
+            key={report.id + defaultsKey + formKey}
+            report={report}
+          />
           <table>
             <thead>
               <tr>
