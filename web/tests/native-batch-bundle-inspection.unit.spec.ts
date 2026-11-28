@@ -1,10 +1,10 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { checkedBatchBundle } from "../src/nativeBatchBundleInspectionContract";
 import { connectionSeal } from "../src/nativeConnectionContract";
 import { seedBundleInspection } from "./native-batch-bundle-inspection-fixture";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
 const fixtures: Record<string, any> = {};
 const kinds = [
   "valid",
@@ -18,7 +18,7 @@ const kinds = [
 test.beforeAll(() => {
   for (const kind of kinds)
     fixtures[kind] = seedBundleInspection(
-      mkdtempSync(join(tmpdir(), "bms-bundle-inspection-")),
+      fixtureDirectory("bms-bundle-inspection-"),
       kind,
     );
 });

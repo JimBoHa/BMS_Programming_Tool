@@ -1,18 +1,17 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { matchingConnectionSeed } from "./native-matching-connection-fixture";
 import { recordedConnection } from "../src/nativeConnectionLedger";
 import {
   connectionCapabilityEvidence,
   matchingConnectionTransferCapability,
 } from "../src/nativeConnectionCapabilityContract";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
 
+const fixtureDirectory = suiteFixtureDirectories();
 let fixture: any;
 function data() {
   fixture ??= matchingConnectionSeed(
-    mkdtempSync(path.join(tmpdir(), "bms-matching-metadata-")),
+    fixtureDirectory("bms-matching-metadata-"),
   );
   return structuredClone(fixture.verified);
 }

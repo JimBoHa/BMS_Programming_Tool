@@ -1,7 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
 import { sha256 } from "@noble/hashes/sha2.js";
 import {
   batchEvidenceDocument,
@@ -11,6 +9,9 @@ import {
   alteredBatchEvidence,
   seedBatchEvidence,
 } from "./native-default-batch-evidence-fixture";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
 type Data = Record<string, any>;
 const fixtures: Data = {};
 test.beforeAll(() => {
@@ -24,7 +25,7 @@ test.beforeAll(() => {
     "reencoded",
   ])
     fixtures[kind] = seedBatchEvidence(
-      mkdtempSync(join(tmpdir(), "native-batch-evidence-")),
+      fixtureDirectory("native-batch-evidence-"),
       kind,
     );
 });

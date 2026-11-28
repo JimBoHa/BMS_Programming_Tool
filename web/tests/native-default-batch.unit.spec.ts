@@ -1,18 +1,16 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { seedDefaultBatch } from "./native-default-batch-fixture";
 import {
   defaultBatchSource,
   defaultBatchReview,
   defaultBatchRequest,
 } from "../src/nativeDefaultBatchContract";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
 let data: any;
 test.beforeAll(() => {
-  data = seedDefaultBatch(
-    mkdtempSync(path.join(tmpdir(), "bms-native-default-batch-")),
-  );
+  data = seedDefaultBatch(fixtureDirectory("bms-native-default-batch-"));
 });
 test("actual mixed source and both composition chains qualify without field authority", () => {
   expect(defaultBatchSource(data.source, data.signal)).toBe(true);

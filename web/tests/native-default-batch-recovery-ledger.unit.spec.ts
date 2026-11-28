@@ -1,6 +1,4 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { batchRecoveryOriginJSON } from "../src/nativeDefaultBatchRecoveryContract";
@@ -9,11 +7,14 @@ import {
   recordedBatchValue,
 } from "../src/nativeDefaultBatchRecoveryLedger";
 import { seedBatchRecoveryLedger } from "./native-default-batch-recovery-ledger-fixture";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
 type Data = Record<string, any>;
 let data: Data;
 test.beforeAll(() => {
   data = seedBatchRecoveryLedger(
-    mkdtempSync(join(tmpdir(), "batch-recovery-ledger-contract-")),
+    fixtureDirectory("batch-recovery-ledger-contract-"),
   );
 });
 test("actual recorded recovery binds its child, typed defaults and sealed original lineage", () => {

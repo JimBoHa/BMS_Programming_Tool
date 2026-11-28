@@ -1,12 +1,12 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { seed } from "./native-terminal-recovery-ledger-fixture";
 import { recordedTerminalRecovery } from "../src/nativeTerminalRecoveryLedger";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
 let fixture: any;
 const data = () =>
-  (fixture ??= seed(mkdtempSync(path.join(tmpdir(), "bms-terminal-lineage-"))));
+  (fixture ??= seed(fixtureDirectory("bms-terminal-lineage-")));
 test("actual parent-bound inverse has closed independently admitted recorded metadata", () => {
   const f = data();
   expect(

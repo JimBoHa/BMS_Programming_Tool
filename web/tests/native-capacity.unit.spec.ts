@@ -1,18 +1,16 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { seedCapacity } from "./native-capacity-fixture";
 import {
   capacitySource,
   capacityObservation,
 } from "../src/nativeCapacityContract";
 import { connectionSeal } from "../src/nativeConnectionContract";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
 let fixture: any;
 function data(kind = "direct") {
-  fixture ??= seedCapacity(
-    mkdtempSync(path.join(tmpdir(), "bms-capacity-contract-")),
-  );
+  fixture ??= seedCapacity(fixtureDirectory("bms-capacity-contract-"));
   return structuredClone(fixture[kind]);
 }
 for (const kind of ["direct", "routed", "over"])

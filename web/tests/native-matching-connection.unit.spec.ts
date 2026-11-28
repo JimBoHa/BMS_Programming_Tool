@@ -1,17 +1,16 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { matchingConnectionSeed } from "./native-matching-connection-fixture";
 import {
   matchingConnectionReview,
   matchingConnectionReceipt,
 } from "../src/nativeMatchingConnectionContract";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
 
+const fixtureDirectory = suiteFixtureDirectories();
 let fixture: any;
 function data(kind = "verified") {
   fixture ??= matchingConnectionSeed(
-    mkdtempSync(path.join(tmpdir(), "bms-matching-connection-contract-")),
+    fixtureDirectory("bms-matching-connection-contract-"),
   );
   return structuredClone(fixture[kind]);
 }

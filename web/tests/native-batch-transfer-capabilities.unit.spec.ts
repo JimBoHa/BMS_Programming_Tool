@@ -1,7 +1,4 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { seedBatchTransferCapabilities } from "./native-batch-transfer-capability-fixture";
 import { batchTransferCapabilityEvidence } from "../src/nativeBatchTransferCapabilityContract";
 import { batchCapabilityEvidence } from "../src/nativeBatchCapabilityContract";
@@ -11,10 +8,13 @@ import {
   defaultBatchTransferProposal,
 } from "../src/nativeDefaultBatchTransferContract";
 import { defaultBatchRequest } from "../src/nativeDefaultBatchContract";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
 let data: any;
 test.beforeAll(() => {
   data = seedBatchTransferCapabilities(
-    mkdtempSync(path.join(tmpdir(), "bms-batch-transfer-capability-")),
+    fixtureDirectory("bms-batch-transfer-capability-"),
   );
 });
 for (const kind of [

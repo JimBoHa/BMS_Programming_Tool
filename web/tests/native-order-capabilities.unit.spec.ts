@@ -1,15 +1,13 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { seedOrderCapabilities } from "./native-order-capability-fixture";
 import { orderCapabilityEvidence } from "../src/nativeOrderCapabilityContract";
 import { removalCapabilityEvidence } from "../src/nativeRemovalCapabilityContract";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
 let fixture: any;
 function data(kind = "valid") {
-  fixture ??= seedOrderCapabilities(
-    mkdtempSync(path.join(tmpdir(), "bms-order-capability-")),
-  );
+  fixture ??= seedOrderCapabilities(fixtureDirectory("bms-order-capability-"));
   return structuredClone(fixture.cases[kind]);
 }
 for (const kind of [

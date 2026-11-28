@@ -1,7 +1,4 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { seed } from "./native-encoded-analog-recovery-fixture";
 import {
   encodedAnalogRecoveryDraft,
@@ -9,9 +6,11 @@ import {
   encodedAnalogRecoveryReceipt,
   sameEncodedAnalogRecoveryLineage,
 } from "../src/nativeEncodedAnalogRecoveryContract";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
 let fixture: any;
-const data = () =>
-  (fixture ??= seed(mkdtempSync(path.join(tmpdir(), "bms-analog-recovery-"))));
+const data = () => (fixture ??= seed(fixtureDirectory("bms-analog-recovery-")));
 test("actual typed analog recovery document admits its current source and verified parent", async () => {
   const f = data();
   expect(
@@ -24,6 +23,7 @@ test("actual typed analog recovery document admits its current source and verifi
 });
 
 import { python } from "./native-connection-fixture";
+
 function resealed(v: any) {
   const text = python(
     `import json,sys\nfrom bms_tool.moi_identity import seal\nr=json.loads(sys.argv[1]);c=r.get('inverse_compilation');p=c.get('terminal_compilation') if c else None\nif p:p['compilation_sha256']=seal({k:v for k,v in p.items() if k!='compilation_sha256'})\nr['origin_sha256']=seal(r['origin']);r['evidence_sha256']=seal({k:v for k,v in r.items() if k!='evidence_sha256'})\nprint(json.dumps(r,ensure_ascii=False))`,

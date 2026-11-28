@@ -1,15 +1,15 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
 import { seedOrderRecoveryProposal } from "./native-order-recovery-proposal-fixture";
 import { orderRecoveryProposalEvidence } from "../src/nativeOrderRecoveryProposalContract";
 import { connectionSeal } from "../src/nativeConnectionContract";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
 const fixtures: Record<string, any> = {};
 test.beforeAll(() => {
   for (const kind of ["match", "historical", "reencoded"])
     fixtures[kind] = seedOrderRecoveryProposal(
-      mkdtempSync(join(tmpdir(), "bms-order-previous-")),
+      fixtureDirectory("bms-order-previous-"),
       kind,
     );
 });

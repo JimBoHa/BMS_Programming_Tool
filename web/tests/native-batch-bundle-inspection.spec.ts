@@ -1,14 +1,7 @@
 import { test, expect } from "./nativeScheduleWriteFixture";
 import type { Page } from "@playwright/test";
-import {
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  writeFileSync,
-  unlinkSync,
-} from "node:fs";
+import { existsSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { seedBundleInspection } from "./native-batch-bundle-inspection-fixture";
 import {
@@ -18,7 +11,9 @@ import {
 import { connectionSeal } from "../src/nativeConnectionContract";
 import { nativeDefaultPeer } from "./native-default-peer";
 import { freePort } from "./workflow-peer";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
 
+const fixtureDirectory = suiteFixtureDirectories();
 test.use({ observeBundleInspection: true });
 const panel = (page: Page) =>
   page.getByLabel("Portable comparison evidence inspection", { exact: true });
@@ -28,10 +23,7 @@ const result = (page: Page) =>
     exact: true,
   });
 const sample = (kind = "valid") =>
-  seedBundleInspection(
-    mkdtempSync(join(tmpdir(), "bms-external-bundle-")),
-    kind,
-  );
+  seedBundleInspection(fixtureDirectory("bms-external-bundle-"), kind);
 async function enter(page: Page, f: any, caf = false, openDisclosure = true) {
   await page.goto("/");
   if (caf) {

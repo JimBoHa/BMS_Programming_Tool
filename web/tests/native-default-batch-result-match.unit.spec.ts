@@ -1,12 +1,12 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { seedBatchResultMatch } from "./native-default-batch-result-match-fixture";
 import {
   batchResultMatchEvidence,
   batchResultMatchParent,
 } from "../src/nativeDefaultBatchResultMatchContract";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
 type Data = Record<string, any>;
 const fixtures: Data = {};
 test.beforeAll(() => {
@@ -20,7 +20,7 @@ test.beforeAll(() => {
     "routed",
   ])
     fixtures[kind] = seedBatchResultMatch(
-      mkdtempSync(join(tmpdir(), "batch-result-match-contract-")),
+      fixtureDirectory("batch-result-match-contract-"),
       kind,
     );
 });

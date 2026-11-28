@@ -1,23 +1,26 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { seedBatchRecoveryTransfer } from "./native-default-batch-recovery-transfer-fixture";
 import {
   batchRecoveryTransferReview,
   batchRecoveryTransferReceipt,
 } from "../src/nativeDefaultBatchRecoveryTransferContract";
 import { defaultBatchTransferReceipt } from "../src/nativeDefaultBatchTransferContract";
-const fixtures = Object.fromEntries(
-  ["valid", "fresh", "uncertain", "historical", "later-unknown"].map((kind) => [
-    kind,
-    seedBatchRecoveryTransfer(
-      mkdtempSync(join(tmpdir(), "bms-previous-transfer-")),
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
+const kinds = ["valid", "fresh", "uncertain", "historical", "later-unknown"];
+const fixtures: Record<
+  string,
+  ReturnType<typeof seedBatchRecoveryTransfer>
+> = {};
+test.beforeAll(() => {
+  for (const kind of kinds)
+    fixtures[kind] = seedBatchRecoveryTransfer(
+      fixtureDirectory("bms-previous-transfer-"),
       kind,
-    ),
-  ]),
-);
-for (const kind of Object.keys(fixtures))
+    );
+});
+for (const kind of kinds)
   test(`actual ${kind} previous batch review and recorded receipt qualify separately`, async () => {
     const f = fixtures[kind],
       context = {

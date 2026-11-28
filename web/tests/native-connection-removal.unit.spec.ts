@@ -1,7 +1,4 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { seed } from "./native-connection-removal-fixture";
 import {
   removalSource,
@@ -15,10 +12,12 @@ import {
   connectionDraftKey,
 } from "../src/nativeConnectionContract";
 import { rememberWireDraft } from "../src/nativeWireDrafts";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
 
+const fixtureDirectory = suiteFixtureDirectories();
 let fixture: any;
 function data(basis: RemovalBasis) {
-  fixture ??= seed(mkdtempSync(path.join(tmpdir(), "bms-removal-contract-")));
+  fixture ??= seed(fixtureDirectory("bms-removal-contract-"));
   return structuredClone(fixture[basis]);
 }
 for (const basis of ["archive", "effective"] as const) {

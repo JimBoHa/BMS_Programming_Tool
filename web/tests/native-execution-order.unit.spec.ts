@@ -1,7 +1,4 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
 import { orderFixture } from "./native-execution-order-fixture";
 import { connectionSeal } from "../src/nativeConnectionContract";
 import {
@@ -15,11 +12,12 @@ import {
   nativeOrderAllowed,
 } from "../src/nativeExecutionOrderContract";
 import type { WireCopyDrafts } from "../src/nativeWireDrafts";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
 let original: any;
 test.beforeAll(() => {
-  original = orderFixture(
-    mkdtempSync(join(tmpdir(), "native-order-contract-")),
-  );
+  original = orderFixture(fixtureDirectory("native-order-contract-"));
 });
 async function seal(x: any, key: string) {
   const { [key]: _, ...body } = x;
@@ -35,10 +33,7 @@ for (const kind of [
   "noop",
 ])
   test(`actual ${kind} saved order proof binds source/review/download`, async () => {
-    const f = orderFixture(
-      mkdtempSync(join(tmpdir(), "native-order-contract-")),
-      kind,
-    );
+    const f = orderFixture(fixtureDirectory("native-order-contract-"), kind);
     expect(await nativeOrderSource(f.source, f.archive, f.record)).toBe(true);
     expect(
       nativeOrderRequest(

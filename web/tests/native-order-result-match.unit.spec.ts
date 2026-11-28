@@ -1,19 +1,19 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
 import { seedOrderResultMatch } from "./native-order-result-match-fixture";
 import {
   orderMatchParent,
   orderResultMatchEvidence,
 } from "../src/nativeOrderResultMatchContract";
 import { connectionSeal } from "../src/nativeConnectionContract";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
 const fixtures: Record<string, any> = {};
 const kinds = ["match", "historical", "saved", "order", "routed", "reencoded"];
 test.beforeAll(() => {
   for (const kind of kinds)
     fixtures[kind] = seedOrderResultMatch(
-      mkdtempSync(join(tmpdir(), "bms-order-result-match-")),
+      fixtureDirectory("bms-order-result-match-"),
       kind,
     );
 });

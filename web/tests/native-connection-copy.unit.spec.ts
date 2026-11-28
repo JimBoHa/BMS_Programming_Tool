@@ -1,17 +1,16 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import {
   connectionSource,
   connectionReview,
   connectionExport,
 } from "../src/nativeConnectionContract";
 import { seed } from "./native-connection-fixture";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
 
+const fixtureDirectory = suiteFixtureDirectories();
 let fixture: any;
 function data() {
-  fixture ??= seed(mkdtempSync(path.join(tmpdir(), "bms-connection-unit-")));
+  fixture ??= seed(fixtureDirectory("bms-connection-unit-"));
   return structuredClone(fixture);
 }
 test("actual native continuation and appended connection proof pass independent client admission", async () => {

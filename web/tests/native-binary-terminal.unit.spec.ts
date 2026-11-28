@@ -1,7 +1,4 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { seedBinary, binaryDocuments } from "./native-binary-terminal-fixture";
 import {
   binaryTerminalEdit,
@@ -10,16 +7,17 @@ import {
   binaryTerminalReceipt,
   binaryTerminalVerified,
 } from "../src/nativeBinaryTerminalContract";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
 let fixture: any;
 let fieldFixture: any;
 const fieldData = () =>
   (fieldFixture ??= binaryDocuments(
-    mkdtempSync(path.join(tmpdir(), "bms-binary-field-contract-")),
+    fixtureDirectory("bms-binary-field-contract-"),
   ));
 const data = () =>
-  (fixture ??= seedBinary(
-    mkdtempSync(path.join(tmpdir(), "bms-binary-contract-")),
-  ));
+  (fixture ??= seedBinary(fixtureDirectory("bms-binary-contract-")));
 test("observed source without redundant Device field and exact local proof pass", async () => {
   const f = data();
   expect(binaryTerminalSource(f.source, f.parent)).toBe(true);

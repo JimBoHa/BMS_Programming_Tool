@@ -1,7 +1,4 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import {
   seedEncodedAnalog,
   encodedAnalogDocuments,
@@ -13,15 +10,14 @@ import {
   encodedAnalogTerminalReceipt,
   encodedAnalogTerminalVerified,
 } from "../src/nativeEncodedAnalogTerminalContract";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
 let local: any, field: any;
 const data = () =>
-  (local ??= seedEncodedAnalog(
-    mkdtempSync(path.join(tmpdir(), "encoded-analog-local-")),
-  ));
+  (local ??= seedEncodedAnalog(fixtureDirectory("encoded-analog-local-")));
 const live = () =>
-  (field ??= encodedAnalogDocuments(
-    mkdtempSync(path.join(tmpdir(), "encoded-analog-field-")),
-  ));
+  (field ??= encodedAnalogDocuments(fixtureDirectory("encoded-analog-field-")));
 test("actual local source and exact document retain paired absent output endpoints", async () => {
   const f = data();
   expect(encodedAnalogTerminalSource(f.source, f.parent)).toBe(true);

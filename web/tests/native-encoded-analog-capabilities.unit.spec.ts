@@ -1,14 +1,14 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { seedEncodedAnalogCapabilities } from "./native-encoded-analog-capability-fixture";
 import { terminalCapabilityEvidence } from "../src/nativeEncodedAnalogCapabilityContract";
 import { terminalCapabilityEvidence as legacyEvidence } from "../src/nativeBinaryTerminalCapabilityContract";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
 let fixture: any;
 const data = () =>
   (fixture ??= seedEncodedAnalogCapabilities(
-    mkdtempSync(path.join(tmpdir(), "bms-typed-analog-capability-")),
+    fixtureDirectory("bms-typed-analog-capability-"),
   ));
 for (const kind of [
   "ucs2",

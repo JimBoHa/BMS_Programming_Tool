@@ -1,17 +1,15 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { seedPointRecovery } from "./nativePointNameRecoveryFixture";
 import {
   activePointNameRecovery,
   previousPointNameMatches,
   pointNameRecoveryTransferMatches,
 } from "../src/nativePointNameRecovery";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
 const fixture = () =>
-  seedPointRecovery(
-    mkdtempSync(path.join(tmpdir(), "point-recovery-contract-")),
-  );
+  seedPointRecovery(fixtureDirectory("point-recovery-contract-"));
 
 test("exact previous point-name evidence binds historical proof and current captured source", () => {
   const f = fixture();
