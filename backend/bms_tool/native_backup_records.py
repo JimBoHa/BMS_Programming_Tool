@@ -114,7 +114,12 @@ class NativeBackupRecords:
 
     def source(self, request):
         snapshot, files, application = self.load(request)
-        return {**self.envelope(snapshot, files), "application": application.summary()}
+        from . import native_inline_draft
+
+        report = {**self.envelope(snapshot, files), "application": application.summary()}
+        if native_inline_draft.offered(snapshot, files[3]):
+            report["inline_draft_profile"] = native_inline_draft.PROFILE
+        return report
 
     def capabilities(self, request):
         options = BackupCapabilitiesRequest.model_validate(request)

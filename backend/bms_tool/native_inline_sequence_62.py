@@ -11,6 +11,25 @@ class LegacyInlineSequenceCompiler(CompactInlineSequenceCompiler):
     separate_root_layout = True
     allow_floating = True
 
+    def export(self, *, shadow, grouped=False):
+        payload, details = super().export(shadow=shadow)
+        if not grouped:
+            return payload, details
+        from .moi_identity import sha
+        from .native_inline_activity_drawing import ActivityDrawing
+
+        payload, hierarchy = ActivityDrawing(self.application, payload, details).encode()
+        new_objects = hierarchy["added_objects"]
+        return payload, {
+            **details,
+            "control_edges_coordinate_system": "flat draft before Activity grouping",
+            "activity_layout": hierarchy,
+            "added_objects": [*details["added_objects"], *new_objects],
+            "added_records": details["added_records"] + len(new_objects),
+            "root_members": hierarchy["root_members"],
+            "candidate_sha256": sha(payload),
+        }
+
     def __init__(self, files, donor, first):
         super().__init__(files, donor, first)
         self.reductions = {"add": {}, "or": {}}

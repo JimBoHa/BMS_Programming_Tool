@@ -135,3 +135,23 @@ of the original application. Object count and compressed archive size alone
 cannot establish that an application will execute. Johnson Controls describes
 separate BACnet and controller object limits and recommends simulation above
 85% of system capacity. [System Capacity Indicator](https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Controller-Tool-Help/16.0.1/User-Interface/User-Interface-Concepts/Status-Bar/System-Capacity-Indicator)
+
+### Reviewing a grouped inline reheat program
+
+In **Program → Native backup defaults**, select the retained controller backup and choose **Inspect retained native backup**. Supported inline valve programs show **Draft an inline reheat program**. Select the archive that supplies the logic blocks. Both captures must have verified identities and the same model, firmware and vendor.
+
+Choose **Observe existing controls** to keep the captured valve connections, or **Control the heating valve** to connect the protected valve command in the local copy. The exposed settings start at 30 CFM for the 30-second airflow window and 125 °F for the discharge limit. The compiler preserves the captured valve output type and its physical bindings.
+
+**Grouped Activities** keeps the two adjustable settings on the root drawing and puts the calculation and sample registers in subdrawings. Review shows the root size, record count and number of signal connections traced through the typed ports. **Single root drawing** uses the existing flat layout. Changing the source, purpose, layout or first instance requires a new review.
+
+Choose **Review local program**, then **Save reviewed program file** to save a native MOI. This workflow needs no network connection. The local comparison covers graph connectivity, order, port assignments and original records. Controller startup, I/O behavior and interlock response require separate field qualification.
+
+The command line accepts a native application, its static and dynamic parameter files and the matching logic-block archive.
+
+```sh
+bms-tool inline-reheat-draft --application program.bin --static static.bin \
+  --dynamic saved.bin --prototype library.bin --first-instance 3000000 \
+  --purpose control --layout activities
+```
+
+Repeat the command with the returned `--review-sha256` and a new `--output` filename to save the exact reviewed copy. The command checks the native model and format in the supplied files. The capture-based interface additionally verifies the recorded firmware and vendor.

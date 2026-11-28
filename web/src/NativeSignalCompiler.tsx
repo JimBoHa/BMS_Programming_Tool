@@ -807,6 +807,7 @@ export function NativeSignalCompiler({
             visible={visible && !batchTask.expanded}
           />
           <NativeBackupInspection
+            sources={sources}
             selection={
               sources.some((row) => row.id === choice)
                 ? {

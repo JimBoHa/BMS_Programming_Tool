@@ -4,6 +4,7 @@ import { api } from "./api";
 import { NativeRecords, type NativeArchiveSource } from "./NativeRecords";
 import { NativeBackupCapabilities } from "./NativeBackupCapabilities";
 import { NativeCapacityEvidence } from "./NativeCapacityEvidence";
+import { NativeInlineDraft } from "./NativeInlineDraft";
 import { NativeSnapshotRestore } from "./NativeSnapshotRestore";
 import type { SnapshotRestoreArchive } from "./nativeSnapshotRestoreContract";
 import type { BooleanCopyDrafts } from "./NativeBooleanDefaultCopy";
@@ -19,11 +20,13 @@ type Data = Record<string, any>;
 const profile = "native-backup-record-inspection/1";
 export function NativeBackupInspection({
   selection,
+  sources = [],
   controller,
   visible,
   booleanDrafts,
   wireDrafts,
 }: {
+  sources?: Data[];
   selection: {
     id: string;
     snapshot_sha256: string;
@@ -177,6 +180,14 @@ export function NativeBackupInspection({
               {source.source_identity_error ||
                 "Keep its original source evidence; no compilation or transfer is qualified by inspection."}
             </p>
+          )}
+          {source.inline_draft_profile ===
+            "native-inline-local-program-draft/1" && (
+            <NativeInlineDraft
+              key={owner + source.snapshot_sha256 + "/inline"}
+              source={source as SnapshotRestoreArchive}
+              sources={sources}
+            />
           )}
           <NativeBackupCapabilities
             key={owner + source.snapshot_sha256}
