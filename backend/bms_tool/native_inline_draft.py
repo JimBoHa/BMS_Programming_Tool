@@ -10,7 +10,7 @@ from .moi_application import MAX_SOURCE
 from .moi_identity import MoiIdentity, seal, sha
 from .native_inline_monitor import MODELS, sources
 from .native_inline_monitor_transfer import MonitorReview
-from .native_inline_sequence_62 import LegacyInlineSequenceCompiler
+from .native_inline_sequence_62 import EdgeTimedInlineSequenceCompiler, LegacyInlineSequenceCompiler
 from .native_parameter_qualification import qualify_parameter_additions
 from .native_snapshot_restore import Hash, Identifier, require_restore_source
 
@@ -41,10 +41,16 @@ def _bounded(path, limit):
     return content
 
 
-def compile_draft(files, prototype, first_instance, purpose, layout):
+def compile_draft(files, prototype, first_instance, purpose, layout, sampling="paired"):
     if purpose not in ("observe", "control") or layout not in ("activities", "flat"):
         raise ValueError("Unknown inline reheat draft purpose or layout.")
-    compiler = LegacyInlineSequenceCompiler(files, prototype, first_instance)
+    compilers = {
+        "paired": LegacyInlineSequenceCompiler,
+        "clock-edge": EdgeTimedInlineSequenceCompiler,
+    }
+    if sampling not in compilers:
+        raise ValueError("Unknown inline sampling method.")
+    compiler = compilers[sampling](files, prototype, first_instance)
     qualification = qualify_parameter_additions(compiler.application.source, compiler.merge)
     compiler.body()
     candidate, details = compiler.export(
@@ -61,6 +67,9 @@ def compile_draft(files, prototype, first_instance, purpose, layout):
         "controller_queries": False,
         "production_transfer_qualified": False,
     }
+    # Preserve the exact bytes and review digest for existing paired-clock drafts.
+    if sampling == "clock-edge":
+        review["sampling"] = sampling
     return candidate, review
 
 
@@ -69,6 +78,7 @@ class RetainedDraft(MonitorReview):
     prototype_sha256: Hash
     purpose: Literal["observe", "control"] = "observe"
     layout: Literal["activities", "flat"] = "activities"
+    sampling: Literal["paired", "clock-edge"] = "paired"
 
 
 class RetainedExport(RetainedDraft):
@@ -98,7 +108,7 @@ def from_captures(native, options):
     )
     require_restore_source(recovery)
     candidate, compiled = compile_draft(
-        files, library[3], options.first_instance, options.purpose, options.layout
+        files, library[3], options.first_instance, options.purpose, options.layout, options.sampling
     )
     report = {
         **compiled,
@@ -130,13 +140,20 @@ def local_draft(options):
     }
     prototype = _bounded(options.prototype, MAX_SOURCE)
     candidate, review = compile_draft(
-        files, prototype, options.first_instance, options.purpose, options.layout
+        files,
+        prototype,
+        options.first_instance,
+        options.purpose,
+        options.layout,
+        getattr(options, "sampling", "paired"),
     )
     fingerprint = seal(review)
     if options.output is not None:
         if options.review_sha256 != fingerprint:
             raise ValueError("Review the current files, layout and valve wiring before saving.")
-        writer = NamedTemporaryFile(dir=options.output.parent, prefix=".inline-draft-", delete=False)
+        writer = NamedTemporaryFile(
+            dir=options.output.parent, prefix=".inline-draft-", delete=False
+        )
         try:
             with writer:
                 writer.write(candidate)

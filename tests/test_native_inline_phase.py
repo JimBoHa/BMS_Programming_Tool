@@ -2,6 +2,7 @@
 
 from collections import deque
 from functools import reduce
+from math import floor
 from operator import add, and_, eq, ge, gt, or_, sub, xor
 from random import Random
 
@@ -12,17 +13,22 @@ from bms_tool.native_inline_sequence import (
     CompactInlineSequenceCompiler,
     InlineSequenceCompiler,
 )
-from bms_tool.native_inline_sequence_62 import LegacyInlineSequenceCompiler
+from bms_tool.native_inline_sequence_62 import (
+    EdgeTimedInlineSequenceCompiler,
+    LegacyInlineSequenceCompiler,
+)
 
 from .test_native_inline_sequence import authored_source
 
 
 class PhasePeer:
-    def __init__(self, *, compact=False, legacy=False, model="FX-PCV1630-0"):
+    def __init__(self, *, compact=False, legacy=False, edge=False, model="FX-PCV1630-0"):
         source = authored_source(model=model)
         library = authored_source(catalog=True, model=model, wide=legacy)[3]
         compiler = (
-            LegacyInlineSequenceCompiler(source, library, 200)
+            EdgeTimedInlineSequenceCompiler(source, library, 200)
+            if edge
+            else LegacyInlineSequenceCompiler(source, library, 200)
             if legacy
             else CompactInlineSequenceCompiler(source, library, 200)
             if compact
@@ -36,6 +42,10 @@ class PhasePeer:
         by_ref = {block["ref"]: block["index"] for block in diagram["blocks"]}
         self.inputs = {
             (by_ref[e["target_ref"]], e["target_port"]): by_ref[e["source_ref"]]
+            for e in diagram["connections"]
+        }
+        self.output_ports = {
+            (by_ref[e["target_ref"]], e["target_port"]): e["source_port"]
             for e in diagram["connections"]
         }
         children = {}
@@ -60,7 +70,7 @@ class PhasePeer:
     def run(self, sec, flow, *, healthy=True, demand=100, phase=None):
         labels = self.points
         boundary = {
-            "Inline normalized second": (60 - sec % 60) % 60 if phase is None else phase,
+            "Inline normalized second": (60 - floor(sec) % 60) % 60 if phase is None else phase,
             "Inline countdown is reliable": True,
             "Inline supply flow valid": healthy,
             "Inline valid flow or zero": flow if healthy else 0,
@@ -115,9 +125,13 @@ class PhasePeer:
 
                 def get(port, index=i, defaults=default, observed=values):
                     source = self.inputs.get((index, port))
-                    return defaults[port] if source is None else observed[source]
+                    if source is None:
+                        return defaults[port]
+                    if self.output_ports[index, port] == 1081:
+                        return observed[source, 1081]
+                    return observed[source]
 
-                if kind == "prevF":
+                if kind in ("prevF", "prevB"):
                     values[i] = self.memory.get(i, 0)
                     pending[i] = self.inputs[i, 513]
                 elif kind == "timer":
@@ -125,15 +139,24 @@ class PhasePeer:
                     mode = get(518)
                     length = get(1080)
                     prev, edge = self.timers.get(i, (False, None))
-                    if on != prev:
+                    if mode == 1:
+                        if on and not prev:
+                            edge = sec
+                        age = sec - edge if edge is not None else length
+                        values[i] = age < length
+                        values[i, 1081] = max(0, length - floor(age))
+                    elif on != prev:
                         edge = sec
                     if mode == 2:
                         values[i] = on and edge is not None and sec - edge >= length
                     elif mode == 4:
                         values[i] = on or edge is not None and sec - edge < length
-                    else:
+                    elif mode != 1:
                         raise AssertionError(mode)
                     self.timers[i] = on, edge
+                elif kind == "reliable":
+                    get(513)
+                    values[i] = True
                 elif kind == "select":
                     values[i] = get(7001 if get(961) else 7000)
                 else:
@@ -235,3 +258,47 @@ def test_compact_window_rejects_a_gap_aliasing_either_sampling_clock(legacy):
             assert peer.run(sec, 80)[2] == 0
         sec += 1
         assert peer.run(sec, 80) == (80, True, 5)
+
+
+@pytest.mark.parametrize("model", ["FX-PCV1630-0", "MS-VMA1630-0"])
+def test_edge_sampling_keeps_one_measurement_across_independent_input_events(model):
+    peer = PhasePeer(legacy=True, edge=True, model=model)
+    samples = deque(maxlen=30)
+    for second in range(100):
+        value = 40 + (7 * second) % 83
+        phase = (60 - second % 60) % 60
+        previous = (phase + 1) % 60
+        if second:
+            peer.run(second, 173, phase=previous)
+        mean, ready, valve = peer.run(second + 0.125, value, phase=phase)
+        # A change of the flow input alone must not overwrite this second's sample.
+        assert peer.run(second + 0.375, 173, phase=phase) == (mean, ready, valve)
+        samples.append(value)
+        assert ready == (second >= 31)
+        assert mean == pytest.approx(sum(samples) / 30 if ready else 0)
+        assert (valve > 0) == ready
+
+
+def test_edge_sampling_withdraws_heat_on_gaps_stalls_and_bad_measurements():
+    peer = PhasePeer(legacy=True, edge=True)
+    sec = 60
+    for tick in range(sec + 1):
+        peer.run(tick, 80)
+    for gap in (2, 3, 59, 60, 61, 121, 3599, 3601, 3602, 7203, 86401):
+        sec += gap
+        assert peer.run(sec, 80) == (0, False, 0)
+        # Returning to exactly the same countdown value produces no clock
+        # edge. The first new sample is on the following second.
+        first_sample_delay = int(gap % 60 == 0)
+        for _ in range(30 + first_sample_delay):
+            sec += 1
+            assert peer.run(sec, 80)[2] == 0
+        sec += 1
+        assert peer.run(sec, 80) == (80, True, 5)
+    frozen = (60 - sec % 60) % 60
+    peer.run(sec + 1, 80, phase=frozen)
+    assert peer.run(sec + 2, 80, phase=frozen) == (0, False, 0)
+    for tick in range(sec + 3, sec + 45):
+        peer.run(tick, 80)
+    assert peer.run(sec + 45, 80)[1]
+    assert peer.run(sec + 45.25, 80, healthy=False) == (0, False, 0)

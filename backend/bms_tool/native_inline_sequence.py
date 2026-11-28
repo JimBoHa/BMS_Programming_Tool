@@ -239,7 +239,8 @@ class InlineSequenceCompiler:
         meta = {2390: encoded(CharacterString(label)), **(fields or {})}
         if clock:
             required(
-                kind == "timer" and vals.get(518) == 5 and vals.get(1080) in (60, 3601),
+                kind == "timer"
+                and (vals.get(518), vals.get(1080)) in ((5, 60), (5, 3601), (1, 5)),
                 "Unsupported sampling clock",
             )
             meta[1184] = encoded(Unsigned(1))

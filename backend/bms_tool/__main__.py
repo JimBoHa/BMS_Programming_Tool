@@ -38,6 +38,7 @@ def main():
     inline.add_argument("--first-instance", type=int, required=True)
     inline.add_argument("--purpose", choices=("observe", "control"), default="observe")
     inline.add_argument("--layout", choices=("flat", "activities"), default="activities")
+    inline.add_argument("--sampling", choices=("paired", "clock-edge"), default="paired")
     inline.add_argument("--output", type=Path)
     inline.add_argument("--review-sha256")
     for name in ("validate", "simulate", "export", "caf"):

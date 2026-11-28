@@ -184,6 +184,7 @@ async def test_retained_draft_http_rechecks_target_source_and_seal_with_interfac
     selector = {"capture_id": cap["id"], "snapshot_sha256": cap["snapshot_evidence_sha256"]}
     archive = NativeBackupRecords(service.storage).source(selector)
     assert archive["inline_draft_profile"] == "native-inline-local-program-draft/1"
+    assert archive["inline_edge_sampling"] is True
     options = {
         **target,
         **selector,
@@ -214,6 +215,7 @@ async def test_retained_draft_http_rechecks_target_source_and_seal_with_interfac
         )
         export = {**options, "review_sha256": report["review_sha256"]}
         for change in (
+            {"sampling": "clock-edge"},
             {"layout": "flat"},
             {"purpose": "observe"},
             {"first_instance": 30000},
@@ -233,6 +235,17 @@ async def test_retained_draft_http_rechecks_target_source_and_seal_with_interfac
             and copied.headers["content-type"] == "application/octet-stream"
         )
         assert sha(copied.content) == report["compilation"]["candidate_sha256"]
+        edge_options = {**options, "sampling": "clock-edge"}
+        edge = (await client.post(base + "/review", json=edge_options)).raise_for_status().json()
+        assert edge["sampling"] == "clock-edge" and edge["review_sha256"] != report["review_sha256"]
+        edge_file = await client.post(
+            base + "/export", json={**edge_options, "review_sha256": edge["review_sha256"]}
+        )
+        assert edge_file.status_code == 200
+        assert (
+            sha(edge_file.content) == edge["compilation"]["candidate_sha256"] != sha(copied.content)
+        )
+        assert edge["compilation"]["new_avs"] == report["compilation"]["new_avs"]
         assert (
             await client.post(base + "/review", json={**options, "purpose": "unknown"})
         ).status_code == 422
