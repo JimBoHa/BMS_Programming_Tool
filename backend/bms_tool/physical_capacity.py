@@ -25,6 +25,10 @@ SCOPE = (
     "firmware acceptance, field queries or controller writes."
 )
 BASE = "https://docs.johnsoncontrols.com/bas/r/"
+M4_BULLETIN = (
+    BASE
+    + "Metasys/en-US/Metasys-CG-CV-Equipment-Controllers-and-XPM-Expansion-Modules-Product-Bulletin/14.0"
+)
 SOURCES = {
     "fx-2024": {
         "document": "LIT-12011657",
@@ -40,11 +44,25 @@ SOURCES = {
         "document": "LIT-12011042",
         "revision": "13.0",
         "date": "2023-09-06",
-        "sections": "PDF 11–12 Table 5; 18–19 Table 13",
+        "sections": "FEC series model information and ordering information; PDF 11–12 Table 5; 18–19 Table 13",
         "artifact": "publisher PDF bytes",
         "sha256": "3a65a6ffe84c8e453d814af07470638fd7a1b12965df52e859580a276d2386a3",
         "url": BASE
         + "Metasys/en-US/Metasys-System-Field-Equipment-Controllers-and-Related-Products-Product-Bulletin/13.0",
+    },
+    "metasys-m4-14": {
+        "document": "LIT-12013105",
+        "revision": "14.0",
+        "date": "2024-07-30",
+        "sections": "CG series, CV series and XPM series model information",
+        "artifact": "Three published HTML model tables. SHA-256 of compact UTF-8 JSON of cell rows in CG, CV, XPM order, with whitespace runs collapsed and ends trimmed.",
+        "sha256": "bf42ca723ab6cbc1276c137316fee0478cbded023cc7b121831b8626b58a3d70",
+        "url": M4_BULLETIN,
+        "supporting_urls": [
+            M4_BULLETIN + "/CG-and-CV-Series-Controllers/CG-series-model-information",
+            M4_BULLETIN + "/CG-and-CV-Series-Controllers/CV-series-model-information",
+            M4_BULLETIN + "/XPM-Expansion-Modules/XPM-series-model-information",
+        ],
     },
     "pcv-h": {
         "document": "24-10143-357",
@@ -131,7 +149,7 @@ def digest(value):
     return hashlib.sha256(canonical(value)).hexdigest()
 
 
-def _profile(model, counts, source, pages, *, vav=False, conflicts=(), notes=()):
+def _profile(model, counts, source, pages, *, role, vav=False, conflicts=(), notes=()):
     pools = []
     for kind, count in counts.items():
         modes = list(POOL_MODES[kind])
@@ -149,7 +167,7 @@ def _profile(model, counts, source, pages, *, vav=False, conflicts=(), notes=())
         )
     return {
         "model": model,
-        "kind": "controller" if "PCG" in model or vav else "expansion",
+        "kind": role,
         "pools": pools,
         "external_point_count": sum(counts.values()),
         "source_ids": [source]
@@ -246,6 +264,7 @@ def _models():
                         "PDF 10–11 Table 5; 15 Tables 9/10"
                         if brand == "FX"
                         else "PDF 11–12 Table 5; 18–19 Table 13",
+                        role="expansion",
                         conflicts=conflicts,
                         notes=notes,
                     )
@@ -256,7 +275,9 @@ def _models():
             if "16" in model
             else {"UI": 6, "BI": 2, "AO": 2, "BO": 3, "CO": 4}
         )
-        rows.append(_profile(model, counts, "fx-2024", "PDF 8 Table 2; 14 Table 7"))
+        rows.append(
+            _profile(model, counts, "fx-2024", "PDF 8 Table 2; 14 Table 7", role="controller")
+        )
     for prefix, family, source in [("FX", "PCV", "pcv-h"), ("MS", "VMA", "vma-k")]:
         for number in ["1615", "1630"]:
             counts = {"UI": 3, "BO": 2} if number == "1615" else {"UI": 3, "BO": 3, "CO": 2}
@@ -266,6 +287,7 @@ def _models():
                     counts,
                     source,
                     "Family -x technical table; selected legacy -0 applicability only",
+                    role="controller",
                     vav=True,
                     notes=[
                         "Family technical table supplies counts. Only selected legacy -0 profiles are included; other suffixes require separate review.",
@@ -273,6 +295,42 @@ def _models():
                     ],
                 )
             )
+    rows.append(
+        _profile(
+            "MS-FEC2611-0",
+            {"UI": 6, "BI": 2, "BO": 3, "CO": 4, "AO": 2},
+            "metasys-13",
+            "FEC series model information, FEC26 column; FEC series ordering information",
+            role="controller",
+            notes=["Check the installed input jumper before selecting a 4–20 mA input."],
+        )
+    )
+    for model, role, section in (
+        ("M4-CGM09090-0", "controller", "CG series model information"),
+        ("M4-XPM09090-0", "expansion", "XPM series model information"),
+    ):
+        rows.append(
+            _profile(
+                model,
+                {"UI": 7, "BI": 2, "BO": 3, "CO": 4, "AO": 2},
+                "metasys-m4-14",
+                section,
+                role=role,
+            )
+        )
+    rows.append(
+        _profile(
+            "M4-CVM03050-0",
+            {"UI": 3, "BO": 3, "CO": 2},
+            "metasys-m4-14",
+            "CV series model information, CVM03050-0 column",
+            role="controller",
+            vav=True,
+            notes=[
+                "This suffix uses an integrated actuator without a position feedback potentiometer."
+            ],
+        )
+    )
     return sorted(rows, key=lambda row: row["model"])
 
 

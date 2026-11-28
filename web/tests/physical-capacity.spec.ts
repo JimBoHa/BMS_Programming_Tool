@@ -139,6 +139,39 @@ test("offline exact model matrix refuses analog demand on BI and exports sealed 
   expect(forbidden).toEqual([]);
 });
 
+test("FEC and M4 exact model selection shows documented channels and current-input fit", async ({
+  page,
+}) => {
+  const panel = await open(page);
+  for (const [model, total, currentInputs] of [
+    ["MS-FEC2611-0", 17, 6],
+    ["M4-CGM09090-0", 18, 7],
+    ["M4-XPM09090-0", 18, 7],
+    ["M4-CVM03050-0", 8, 0],
+  ] as const) {
+    await panel.getByLabel("Documented capacity model").selectOption(model);
+    await expect(
+      panel.getByRole("heading", {
+        name: model + ": " + total + " external physical channels",
+      }),
+    ).toBeVisible();
+    await panel
+      .getByLabel("Capacity signal family 1", { exact: true })
+      .selectOption("input-current");
+    await panel
+      .getByLabel("Capacity quantity 1", { exact: true })
+      .fill(String(currentInputs + 1));
+    const result = await review(panel);
+    await expect(result).toContainText("count-mode-shortfall");
+    await expect(result).toContainText(
+      currentInputs + " / " + (currentInputs + 1),
+    );
+  }
+  await expect(panel).toContainText(
+    "without a position feedback potentiometer",
+  );
+});
+
 test("shared UO modes compete; relay conflicts and unknown suffixes stay visible", async ({
   page,
 }) => {
