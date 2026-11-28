@@ -3,7 +3,7 @@
 import struct
 
 import pytest
-from bacpypes3.primitivedata import CharacterString, ObjectIdentifier, Unsigned
+from bacpypes3.primitivedata import CharacterString, Enumerated, ObjectIdentifier, Real, Unsigned
 from bms_tool.moi_identity import MoiIdentity
 from bms_tool.moi_parameters import ParameterApplication
 from bms_tool.mstp import header_crc
@@ -26,6 +26,7 @@ def expansion_files(
     model="Example module",
     reference="controller/expansion",
     explicit=False,
+    explicit_type=Unsigned,
     marker=0,
     storage_type=2,
 ):
@@ -50,7 +51,7 @@ def expansion_files(
         (3676, encoded(CharacterString(model))),
     ]
     if explicit:
-        fields.append((3590, encoded(Unsigned(value))))
+        fields.append((3590, encoded(explicit_type(value))))
     module = native_record(cid, instance, fields)
     archive = struct.pack("<6sHHI", b"\x02\x00MOI\x00", 194, 1, 2) + b"".join(
         struct.pack("<H", len(row) + 2) + row for row in (root, module)
@@ -111,6 +112,14 @@ def test_matching_settings_accept_explicit_or_omitted_current_value():
     for explicit in (True, False):
         current = expansion_files(explicit=explicit, marker=1)
         verify_expansion_bindings(old[3], compiled(old), current[3], compiled(current))
+
+
+@pytest.mark.parametrize("datatype", [Real, Enumerated])
+def test_matching_numeric_values_with_different_application_types_are_rejected(datatype):
+    old = expansion_files()
+    current = expansion_files(explicit=True, explicit_type=datatype)
+    with pytest.raises(ValueError, match="expansion module"):
+        verify_expansion_bindings(old[3], compiled(old), current[3], MoiIdentity(current[3]))
 
 
 async def test_authored_peer_review_qualifies_the_original_and_refuses_a_changed_module(

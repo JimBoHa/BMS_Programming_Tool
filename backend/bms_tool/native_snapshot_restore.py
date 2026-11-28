@@ -394,7 +394,8 @@ def _expansion_bindings(original, effective):
             omitted.add(oid)
         # Reference, declared object, bus address, vendor, model and Startup ID.
         bindings[oid] = tuple(
-            effective.reader.scalar(record, pid) for pid in (32527, 75, 2858, 3675, 3676, 3590)
+            record["properties"].get(pid, {}).get("scalar")
+            for pid in (32527, 75, 2858, 3675, 3676, 3590)
         )
     return bindings, omitted
 
