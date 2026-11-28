@@ -1,3 +1,9 @@
+import {
+  openCurrentGraph,
+  importGraphFile,
+  graphSimulation,
+} from "./graph-workspace";
+import { chooseWorkspaceTool } from "./workspace-navigation";
 import { test, expect, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -18,8 +24,8 @@ async function loadMidpoint(page: Page) {
     ],
     { cwd: root },
   );
-  await page.goto("/");
-  await page.locator('input[type=file][accept*=".st"]').setInputFiles({
+  await openCurrentGraph(page);
+  await importGraphFile(page, {
     name: "literal-midpoint.json",
     mimeType: "application/json",
     buffer: program,
@@ -94,7 +100,8 @@ test("owned native compiler and simulator show actual literal provenance", async
 }) => {
   test.setTimeout(60000);
   await loadMidpoint(page);
-  await page.getByRole("button", { name: "IEC native", exact: true }).click();
+  await graphSimulation(page);
+  await chooseWorkspaceTool(page, "IEC verification");
   await page
     .getByText("Compiler provenance and scope", { exact: true })
     .click();
@@ -102,7 +109,7 @@ test("owned native compiler and simulator show actual literal provenance", async
     page.getByText("Literal profile:", { exact: false }),
   ).toContainText(profile);
   await expect(page.locator("details[open]")).toContainText(rules);
-  await page.getByRole("button", { name: "Native sim", exact: true }).click();
+  await chooseWorkspaceTool(page, "Sedona");
   try {
     await page
       .getByRole("button", { name: "Compile and start", exact: true })

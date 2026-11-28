@@ -1,4 +1,12 @@
 import {
+  openCurrentGraph,
+  importGraphFile,
+  closeBlockProperties,
+  showBlockProperties,
+  graphSimulation,
+  openBlockLibrary,
+} from "./graph-workspace";
+import {
   chooseWorkspaceSurface,
   chooseWorkspaceTask,
   chooseWorkspaceTool,
@@ -15,70 +23,6 @@ import {
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
-
-async function openCurrentGraph(page: Page) {
-  await page.goto("/");
-  await page
-    .getByRole("region", { name: "Continue local work" })
-    .getByRole("button", { name: "Program", exact: true })
-    .click();
-}
-
-async function importGraph(
-  page: Page,
-  file: {
-    name: string;
-    mimeType: string;
-    buffer: Buffer;
-  },
-) {
-  const choosing = page.waitForEvent("filechooser");
-  await page.getByRole("button", { name: "Import", exact: true }).click();
-  const receipt = page.waitForResponse(
-    (r) =>
-      new URL(r.url()).pathname === "/api/import" &&
-      r.request().method() === "POST",
-  );
-  await (await choosing).setFiles(file);
-  expect((await receipt).status()).toBe(200);
-}
-
-async function closeBlockProperties(page: Page) {
-  const close = page.getByRole("button", {
-    name: "Close block properties",
-    exact: true,
-  });
-  if (await close.isVisible()) await close.click();
-}
-
-async function showBlockProperties(page: Page) {
-  const open = page.getByRole("button", {
-    name: "Open block properties",
-    exact: true,
-  });
-  if (
-    (await open.isVisible()) &&
-    !(await page
-      .getByRole("dialog", { name: "Block properties", exact: true })
-      .isVisible())
-  )
-    await open.click();
-}
-
-async function graphSimulation(page: Page) {
-  await closeBlockProperties(page);
-  const mode = page.getByRole("button", { name: "Simulate", exact: true });
-  await mode.click();
-  await expect(mode).toHaveAttribute("aria-pressed", "true");
-}
-
-async function openBlockLibrary(page: Page) {
-  const open = page.getByRole("button", {
-    name: "Open block library",
-    exact: true,
-  });
-  if (await open.isVisible()) await open.click();
-}
 
 async function sandboxRuntime(page: Page) {
   await chooseWorkspaceSurface(page, "Settings");
@@ -98,7 +42,7 @@ test("copy a connected nested macro graph into a new project with its libraries"
     ],
     { cwd: root },
   );
-  await importGraph(page, {
+  await importGraphFile(page, {
     name: "nested.bms.json",
     mimeType: "application/json",
     buffer,
@@ -225,7 +169,7 @@ test("persist simulation trends and acknowledge returned alarms across reloads",
     return receipt;
   };
   try {
-    await importGraph(page, {
+    await importGraphFile(page, {
       name: "alarm.bms.json",
       mimeType: "application/json",
       buffer,
@@ -367,7 +311,7 @@ test("configure date exceptions and run an explicit UTC calendar scan", async ({
     ],
     { cwd: root },
   );
-  await importGraph(page, {
+  await importGraphFile(page, {
     name: "calendar.bms.json",
     mimeType: "application/json",
     buffer,
@@ -410,7 +354,7 @@ test("select, duplicate and delete connected groups as one undoable edit", async
     ],
     { cwd: root },
   );
-  await importGraph(page, {
+  await importGraphFile(page, {
     name: "selection.bms.json",
     mimeType: "application/json",
     buffer,
@@ -468,7 +412,7 @@ test("force and release internal values, retain fault state and export force evi
     ],
     { cwd: root },
   );
-  await importGraph(page, {
+  await importGraphFile(page, {
     name: "force-example.bms.json",
     mimeType: "application/json",
     buffer,
@@ -620,7 +564,7 @@ test("convert foreign native SAX and review its execution differences", async ({
     ],
     { cwd: root },
   );
-  await importGraph(page, {
+  await importGraphFile(page, {
     name: "foreign.sax",
     mimeType: "application/xml",
     buffer,
@@ -654,7 +598,7 @@ test("export and reimport a real native Sedona application bundle", async ({
   const bundle = await event;
   expect(bundle.suggestedFilename()).toMatch(/\.sedona.zip$/);
   const saved = await bundle.path();
-  await importGraph(page, {
+  await importGraphFile(page, {
     name: "native.sedona.zip",
     mimeType: "application/zip",
     buffer: await readFile(saved!),
@@ -898,7 +842,7 @@ test("save, export and import a graph through the GUI", async ({ page }) => {
   await expect(file.suggestedFilename()).toMatch(/\.xml$/);
   const saved = await file.path();
   expect(saved).toBeTruthy();
-  await importGraph(page, {
+  await importGraphFile(page, {
     name: "program.xml",
     mimeType: "application/xml",
     buffer: await readFile(saved!),

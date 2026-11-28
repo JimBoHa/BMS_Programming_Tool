@@ -1,12 +1,23 @@
+import {
+  openCurrentGraph,
+  importGraphFile,
+  closeBlockProperties,
+  showBlockProperties,
+  graphSimulation,
+  openBlockLibrary,
+} from "./graph-workspace";
 import { test, expect, type Page, type Locator } from "./simulationFixture";
 import { readFileSync } from "node:fs";
 
 async function add(page: Page, title: string) {
+  await closeBlockProperties(page);
+  await openBlockLibrary(page);
   await page
     .getByRole("button", {
       name: new RegExp(`^[A-Z] ${title} (source|[0-9]+ inputs)$`),
     })
     .click();
+  await showBlockProperties(page);
   return page
     .locator(".inspector")
     .getByLabel("Identifier", { exact: true })
@@ -42,7 +53,8 @@ function parameter(inspector: Locator, key: string) {
 test("palette creates explicit quantities with units/help, wires a difference and exports executable formats", async ({
   page,
 }) => {
-  await page.goto("/");
+  await openCurrentGraph(page);
+  await closeBlockProperties(page);
   await page.getByRole("button", { name: "New program", exact: true }).click();
   const inspector = page.locator(".inspector");
   await add(page, "Temperature difference conversion");
@@ -62,6 +74,7 @@ test("palette creates explicit quantities with units/help, wires a difference an
   await expect(inspector).toContainText(
     "difference is scaled without an absolute offset",
   );
+  await closeBlockProperties(page);
   await page.getByRole("button", { name: "New program", exact: true }).click();
   const supply = await add(page, "Constant");
   await inspector.getByLabel("Engineering units", { exact: true }).fill("degF");
@@ -81,6 +94,7 @@ test("palette creates explicit quantities with units/help, wires a difference an
   await inspector
     .getByLabel("Label", { exact: true })
     .fill("Temperature change");
+  await closeBlockProperties(page);
   await page.getByTitle("Fit view", { exact: true }).click();
   await page.waitForTimeout(300);
   await wire(page, supply, difference, "a");
@@ -89,6 +103,7 @@ test("palette creates explicit quantities with units/help, wires a difference an
   await expect(page.locator(".validation-bar")).toContainText(
     "Graph checks passed",
   );
+  await graphSimulation(page);
   await page
     .getByRole("button", { name: "Step simulation", exact: true })
     .click();
@@ -195,8 +210,8 @@ test("authored quantity chain simulates negative changes, retains quality faults
       { id: "change", source: "delta", target: "change" },
     ],
   };
-  await page.goto("/");
-  await page.locator('input[type=file][accept*=".st"]').setInputFiles({
+  await openCurrentGraph(page);
+  await importGraphFile(page, {
     name: "temperature.bms.json",
     mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify(program)),
@@ -204,6 +219,7 @@ test("authored quantity chain simulates negative changes, retains quality faults
   await expect(page.locator(".validation-bar")).toContainText(
     "Graph checks passed",
   );
+  await graphSimulation(page);
   await page
     .getByRole("button", { name: "Step simulation", exact: true })
     .click();
@@ -229,8 +245,9 @@ test("authored quantity chain simulates negative changes, retains quality faults
   await page.getByRole("button", { name: "Export", exact: true }).click();
   const file = await pending;
   const bytes = readFileSync((await file.path())!);
+  await closeBlockProperties(page);
   await page.getByRole("button", { name: "New program", exact: true }).click();
-  await page.locator('input[type=file][accept*=".st"]').setInputFiles({
+  await importGraphFile(page, {
     name: "temperature.st",
     mimeType: "text/plain",
     buffer: bytes,
@@ -239,6 +256,7 @@ test("authored quantity chain simulates negative changes, retains quality faults
   await expect(
     page.locator('.react-flow__node[data-id="delta"]'),
   ).toContainText("delta-degC");
+  await graphSimulation(page);
   await page.getByLabel("Simulate a", { exact: true }).fill("86");
   await page
     .getByRole("button", { name: "Step simulation", exact: true })
