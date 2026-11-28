@@ -290,3 +290,55 @@ async def test_unknown_vendor_primitive_and_noncanonical_quality_remain_distinct
         client.close()
         peer.close()
         await asyncio.sleep(0.03)
+
+
+@pytest.mark.parametrize(
+    "vendor,object_id,prop,payload,typed",
+    [
+        (5, "device,42", "4961", b"", True),
+        (999, "device,42", "4961", b"", False),
+        (5, "analog-input,1", "4961", b"", False),
+        (5, "device,42", "4962", b"", False),
+        (5, "device,42", "4961", bytes.fromhex("9101210a"), False),
+        (5, "device,42", "4961", bytes.fromhex("2e2f"), False),
+        (5, "device,42", "4961", bytes.fromhex("2e"), False),
+    ],
+)
+async def test_startup_phase_empty_list_requires_exact_device_and_wire(
+    tmp_path, vendor, object_id, prop, payload, typed
+):
+    peer = await make_point_peer(routed=True)
+    original = peer.value
+
+    def values(obj, name, index):
+        if name == "vendor-identifier":
+            return unsigned(vendor)
+        if name == prop:
+            return payload
+        return original(obj, name, index)
+
+    peer.value = values
+    client = Bacnet(Store(tmp_path))
+    await client.connect(f"127.0.0.1:{free_udp()}")
+    try:
+        report = await ControllerWorkspace(client, client.store).properties(
+            address="3001:7",
+            device="device,42",
+            router=peer.endpoint,
+            dnet=3001,
+            object_ids=[object_id],
+            properties=[prop],
+        )
+        assert report["identity_verified"] and report["read_only"]
+        row = report["objects"][0]["properties"][prop]
+        if typed:
+            assert row["status"] == "ok" and row["value"] == []
+            assert row["datatype"] == "ListOfStartupPhaseDiagnostic"
+            assert row["encoded_value"]["hex"] == "3e3f" and row["encoded_value"]["complete"]
+        else:
+            assert row["status"] != "ok" and "value" not in row
+        assert not client.app._requests and not client.app.asap.clientTransactions
+    finally:
+        client.close()
+        peer.close()
+        await asyncio.sleep(0.03)

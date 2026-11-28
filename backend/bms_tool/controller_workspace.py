@@ -241,34 +241,53 @@ class ControllerWorkspace:
             and 0 <= native <= 65535
         ):
             session["vendor_identifier"] = int(native)
+            session["vendor_source_object"] = obj
         if row.get("error", "").startswith("No standard native datatype") and row.get(
             "encoded_value", {}
         ).get("complete"):
             try:
-                tags = list(TagList.decode(PDU(bytes.fromhex(row["encoded_value"]["hex"]))))
+                encoded = bytes.fromhex(row["encoded_value"]["hex"])
+                tags = list(TagList.decode(PDU(encoded)))
                 if (
-                    len(tags) == 3
-                    and tags[0].tag_class == TagClass.opening
-                    and tags[-1].tag_class == TagClass.closing
+                    encoded == b"\x3e\x3f"
+                    and index is None
+                    and prop == "4961"
+                    and session.get("vendor_identifier") == 5
+                    and session.get("vendor_source_object") == obj
+                    and int(ObjectIdentifier(obj)[0]) == 8
                 ):
-                    tags = tags[1:-1]
-                if len(tags) == 1 and tags[0].tag_class == TagClass.application:
-                    value = tags[0].app_to_object()
-                    candidate = {
-                        **row,
-                        "status": "ok",
-                        "value": native_value(value, []),
-                        "datatype": type(value).__name__,
-                        "decoding": "primitive wire tag; property semantics unavailable",
-                    }
-                    candidate.pop("error", None)
-                    growth = max(0, len(_encoded(candidate)) - len(_encoded(row)))
+                    # The JCI Device schema declares Startup Phase Diagnostic as a list.
+                    value, datatype = [], "ListOfStartupPhaseDiagnostic"
+                    decoded_value = value
+                    decoding = "JCI Device Startup Phase Diagnostic returned an empty list"
+                else:
                     if (
-                        len(_encoded(candidate)) <= 64 * 1024
-                        and budget.retained_bytes + growth <= budget.max_bytes
+                        len(tags) == 3
+                        and tags[0].tag_class == TagClass.opening
+                        and tags[-1].tag_class == TagClass.closing
                     ):
-                        budget.retained_bytes += growth
-                        native, row = value, candidate
+                        tags = tags[1:-1]
+                    if len(tags) != 1 or tags[0].tag_class != TagClass.application:
+                        return native, row
+                    value = tags[0].app_to_object()
+                    datatype = type(value).__name__
+                    decoded_value = native_value(value, [])
+                    decoding = "primitive wire tag; property semantics unavailable"
+                candidate = {
+                    **row,
+                    "status": "ok",
+                    "value": decoded_value,
+                    "datatype": datatype,
+                    "decoding": decoding,
+                }
+                candidate.pop("error", None)
+                growth = max(0, len(_encoded(candidate)) - len(_encoded(row)))
+                if (
+                    len(_encoded(candidate)) <= 64 * 1024
+                    and budget.retained_bytes + growth <= budget.max_bytes
+                ):
+                    budget.retained_bytes += growth
+                    native, row = value, candidate
             except (ValueError, TypeError, AttributeError):
                 pass
         return native, row
