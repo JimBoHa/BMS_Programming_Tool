@@ -3,6 +3,8 @@ import { spawn, execFileSync, type ChildProcess } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { createSocket } from "node:dgram";
 import path from "node:path";
+import { openTemcoProgram } from "./temco-workflow";
+import { expectWorkspaceNavigationLocked } from "./workspace-navigation";
 
 const root = path.resolve("..");
 async function freePort(): Promise<number> {
@@ -92,21 +94,22 @@ test("native Temco UI replaces and restores an actual loopback BACnet program im
       ],
       { cwd: root },
     );
-    await page.goto("/");
-    await page.locator('input[type=file][accept*=".st"]').setInputFiles({
-      name: "temco-transfer.bms.json",
-      mimeType: "application/json",
-      buffer: program,
-    });
-    await page
-      .getByRole("button", { name: "Temco native", exact: true })
-      .click();
+    await openTemcoProgram(page, "temco-transfer.bms.json", program);
     await page
       .getByRole("button", { name: "Compile Control Basic", exact: true })
       .click();
     await expect(
       page.getByLabel("Compiled Control Basic source"),
     ).toBeVisible();
+    const compiledSource = await page
+      .getByLabel("Compiled Control Basic source")
+      .inputValue();
+    await page
+      .getByRole("button", { name: "Review controller transfer", exact: true })
+      .click();
+    await expect(page.getByLabel("Compiled Control Basic source")).toHaveValue(
+      compiledSource,
+    );
     await page
       .getByLabel("Temco device address", { exact: true })
       .fill(`127.0.0.1:${server.port}`);
@@ -193,6 +196,7 @@ test("native Temco UI replaces and restores an actual loopback BACnet program im
       })
       .click();
     await applied;
+    await expectWorkspaceNavigationLocked(page);
     // Editing authoring bindings while a committed field reply is in flight
     // must invalidate compilation without discarding that operation's result.
     await page.getByLabel("Temco point for a", { exact: true }).fill("VAR4");
