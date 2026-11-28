@@ -14,6 +14,24 @@ from .moi_identity import MoiIdentity, sha
 from .moi_parameters import ParameterApplication
 
 
+class SavedParameterMismatch(ValueError):
+    """Return bounded field selectors from two decoded captures when preservation fails."""
+
+    def __init__(self, total, fields):
+        self.evidence = {
+            "profile": "native-saved-parameter-differences/1",
+            "total": total,
+            "fields": fields,
+        }
+        first = fields[0]
+        super().__init__(
+            "A current saved parameter differs beyond documented runtime outputs. "
+            f"Found {total}. First difference is {first['property_name']} "
+            f"(class {first['class']}, instance {first['instance']}, property {first['property']}). "
+            "Retain the snapshots and review before another write."
+        )
+
+
 @lru_cache(maxsize=1)
 def _property_names():
     directory = Path(__file__).with_name("data")
@@ -33,6 +51,20 @@ def _records(editor):
 def _value(editor, record, property_id):
     prop = record["properties"][property_id]
     return editor.data[prop["value_start_offset"] : prop["value_end_offset"]]
+
+
+def _difference_field(parameter, label, actual_records, current_records):
+    field = {key: parameter[key] for key in ("class", "instance", "property")}
+    field["property_name"] = label
+    if (field["class"], field["property"]) == (598, 3590):
+        oid = (598 << 22) | field["instance"]
+        previous, actual = [
+            record["properties"].get(3590, {}).get("scalar") or {}
+            for record in (actual_records[oid], current_records[oid])
+        ]
+        if previous.get("datatype") == actual.get("datatype") == "Unsigned":
+            field.update(application_value=previous["value"], current_saved_value=actual["value"])
+    return field
 
 
 def verify_preservation(before, after, *, old_instance, new_instance, old_name=None, new_name=None):
@@ -132,6 +164,7 @@ def runtime_parameter_changes(observed, post):
     actual_records = _records(observed)
     by_class, names = _property_names()
     counters, calculated = [], []
+    differences, total = [], 0
     for parameter in current["changed_parameters"]:
         cid, pid = str(parameter["class"]), str(parameter["property"])
         label = by_class.get(cid, {}).get(pid, names.get(pid, "Unknown"))
@@ -191,10 +224,12 @@ def runtime_parameter_changes(observed, post):
             (15, "COS Count"),
             (33, "Elapsed Active Time"),
         ):
-            raise ValueError(
-                "A current saved parameter differs beyond documented runtime outputs; "
-                "retain the snapshots and review before another write."
-            )
+            total += 1
+            if len(differences) < 32:
+                differences.append(
+                    _difference_field(parameter, label, actual_records, current_records)
+                )
+            continue
         oid = (parameter["class"] << 22) | parameter["instance"]
         counters.append(
             {
@@ -208,4 +243,6 @@ def runtime_parameter_changes(observed, post):
                 ),
             }
         )
+    if differences:
+        raise SavedParameterMismatch(total, differences)
     return current, counters, calculated

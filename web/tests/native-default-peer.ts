@@ -125,6 +125,9 @@ async def main():
    from tests.test_native_snapshot_restore import files
    app.files=files(modules=4);real_slot(app.files,4,struct.pack('>f',22.5))
   elif line=='snapshot-setting-changed':real_slot(app.files,4,struct.pack('>f',23))
+  elif line=='snapshot-post-start-setting':
+   from tests.test_native_snapshot_restore import consume_historical_storage
+   consume_historical_storage(app,retained_files,corrupt=True)
   elif line=='selected43':real_slot(app.files,-10,struct.pack('>f',43))
   elif line=='restore42':
    import types

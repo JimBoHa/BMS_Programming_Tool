@@ -23,6 +23,36 @@ const verified = (panel: any) =>
     exact: true,
   });
 
+snapshotFixture()(
+  "a saved setting mismatch identifies the field and stays pending after explicit readback",
+  async ({ page, snapshot }) => {
+    const { peer, seeded } = snapshot;
+    const { panel } = await openSnapshot(page, seeded);
+    const { apply } = await reviewSnapshot(page, panel);
+    await peer.command("snapshot-post-start-setting");
+    await apply.click();
+    const receipt = verified(panel);
+    const detail = receipt.getByText("Inspect saved setting differences (1)", {
+      exact: true,
+    });
+    await expect(detail).toBeVisible({ timeout: 30000 });
+    await detail.focus();
+    await page.keyboard.press("Enter");
+    await expect(receipt.getByRole("listitem")).toContainText("property 900");
+    await expect(receipt).toContainText("Restore outcome requires attention");
+    const readback = receipt.getByRole("button", {
+      name: "Read back original retained-application restore",
+    });
+    const next = page.waitForResponse(
+      (r) => r.url().endsWith("/readback") && r.request().method() === "POST",
+    );
+    await readback.click();
+    expect((await next).ok()).toBe(true);
+    await expect(detail).toBeVisible();
+    expect(restores((await peer.command("stats")).events)).toHaveLength(1);
+  },
+);
+
 snapshotFixture(
   true,
   false,
