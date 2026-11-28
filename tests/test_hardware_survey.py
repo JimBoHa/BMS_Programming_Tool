@@ -176,6 +176,47 @@ def test_validation_blocks_duplicate_physical_slots_and_unbacked_hidden_inputs()
         validate_report(report)
 
 
+def test_report_keeps_internal_slot_and_unresolved_terminal_without_claiming_a_spare():
+    report = valid_report()
+    reported = {
+        "object": "binary-input,91",
+        "device_type": "BI IN4",
+        "slot": None,
+        "terminal_type": None,
+        "sa_mac": 4,
+        "host": {"kind": "sa", "sa_mac": 4},
+        "properties": [
+            {"property_id": 31, "index": None, "value": "BI IN4"},
+            {"property_id": 519, "index": None, "value": 15},
+        ],
+    }
+    report["inputs"].append(reported)
+    inventory = report["inventory"]
+    inventory["objects"].append(reported["object"])
+    inventory["read"] = inventory["total"] = len(inventory["objects"])
+    saved = validate_report(report)
+    row = saved["inputs"][-1]
+    assert row["reported_slot"] == 15 and row["device_type"] == "BI IN4"
+    assert row["slot"] is None and row["terminal_type"] is None
+    assert row["properties"] == reported["properties"]
+    assert all(c["status"] == "unverified" for c in saved["candidates"])
+    assert relocation_plan(saved, reported["object"], 7, 12)["status"] == "blocked"
+    assert validate_report(saved) == saved
+    assert "reported_slot" not in reported
+
+    reported["slot"] = 4
+    with pytest.raises(ValueError, match="retained slot"):
+        validate_report(report)
+    reported["slot"] = None
+    reported["properties"].append({"property_id": 519, "value": 4})
+    with pytest.raises(ValueError, match="contradictory readings"):
+        validate_report(report)
+    for invalid in (-1, 2**32):
+        reported["properties"] = [{"property_id": 519, "value": invalid}]
+        with pytest.raises(ValueError, match="Unsigned range"):
+            validate_report(report)
+
+
 def test_relocation_can_use_documented_local_binary_input():
     report = valid_report()
     plan = relocation_plan(report, "binary-input,55", None, 8)

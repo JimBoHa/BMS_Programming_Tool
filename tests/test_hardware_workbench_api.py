@@ -2,7 +2,9 @@
 
 import asyncio
 import copy
+import csv
 import gzip
+import io
 
 import httpx
 import pytest
@@ -42,6 +44,37 @@ async def wait_job(client, key):
             return job
         await asyncio.sleep(0.02)
     raise AssertionError("Hardware test job did not finish")
+
+
+async def test_import_and_csv_preserve_separate_input_slot_numbering(tmp_path):
+    source = offline_report()
+    input_row = source["inputs"][0]
+    input_row.update(
+        device_type="BI IN4",
+        slot=None,
+        terminal_type=None,
+        properties=[{"property_id": 519, "index": None, "value": 14}],
+    )
+    app = create_app(tmp_path)
+    async with app.router.lifespan_context(app), httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://testserver"
+    ) as client:
+        base = "/api/bacnet/hardware"
+        saved = await client.post(
+            base + "/import-report",
+            files={"file": ("inputs.json", canonical(source))},
+            headers=await session(client),
+        )
+        assert saved.status_code == 200, saved.text
+        report = saved.json()
+        url = base + f"/reports/{report['id']}/export"
+        assert (await client.get(url)).json() == report
+        content = (await client.get(url + "?format=csv")).raise_for_status().content
+        rows = csv.DictReader(io.StringIO(content.decode("utf-8-sig")))
+        exported = next(row for row in rows if row["object"] == input_row["object"])
+        assert (exported["device_type"], exported["reported_slot"]) == ("BI IN4", "14")
+        assert (exported["terminal_type"], exported["slot"]) == ("", "")
+        assert not app.state.bacnet.commands
 
 
 async def test_offline_import_archive_correlation_plans_exports_and_restart(tmp_path):

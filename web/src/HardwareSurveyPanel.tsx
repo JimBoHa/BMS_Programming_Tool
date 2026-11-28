@@ -26,6 +26,7 @@ type SurveyInput = {
   description?: string;
   device_type?: string;
   slot?: number | null;
+  reported_slot?: number;
   sa_mac?: number | null;
   host?: unknown;
   setup_raw?: unknown;
@@ -1645,6 +1646,13 @@ export function HardwareSurveyPanel({
                               <code>{input.object}</code>
                               <br />
                               Slot {text(input.slot)} · SA {text(input.sa_mac)}
+                              {input.slot == null &&
+                                input.reported_slot != null && (
+                                  <p className="help-text">
+                                    Controller slot {input.reported_slot} ·
+                                    physical terminal mapping unverified
+                                  </p>
+                                )}
                             </td>
                             <td>
                               <strong>{text(input.name)}</strong>
