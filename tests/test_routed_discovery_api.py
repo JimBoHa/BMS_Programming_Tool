@@ -173,3 +173,40 @@ async def test_http_probe_strict_bounds_and_exact_opened_route_required(rig, tmp
                 )
                 assert response.status_code == 422 and "Open the selected router" in response.text
             assert not peer.frames
+
+
+async def test_silent_controller_probe_reports_its_read_timeout_and_allows_another_mac(
+    rig, tmp_path
+):
+    _, _, peer, _ = rig
+    app = create_app(tmp_path / "unanswered-probe")
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://testserver"
+        ) as client:
+            headers = {"X-Studio-Token": (await client.get("/api/session")).json()["token"]}
+            route = {"router": peer.endpoint, "dnet": 2105}
+            opened = await client.post(
+                "/api/bacnet/connect",
+                json={"local_address": f"127.0.0.1:{free_port()}", **route},
+                headers=headers,
+            )
+            assert opened.status_code == 200
+            silent = await client.post(
+                "/api/bacnet/probe-controller", json={**route, "mac": 8}, headers=headers
+            )
+            assert silent.status_code == 504
+            assert silent.json()["detail"] == (
+                "No controller identity reply arrived for network 2105, MAC 8. "
+                "Check the selected trunk, address and controller power."
+            )
+            assert peer.frames
+            for packet in peer.frames:
+                npdu = packet[4:]
+                assert npdu[:7] == bytes.fromhex("012408390108ff")
+                assert npdu[10:] == bytes.fromhex("0c0c023fffff194b")
+            live = await client.post(
+                "/api/bacnet/probe-controller", json={**route, "mac": 7}, headers=headers
+            )
+            assert live.status_code == 200
+            assert live.json()["live_verified"] and live.json()["device"] == "device,132007"
