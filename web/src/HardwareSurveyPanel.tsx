@@ -38,7 +38,7 @@ type SurveyInput = {
   [key: string]: any;
 };
 type SurveyReport = {
-  id: string;
+  id?: string;
   profile?: string;
   imported?: boolean;
   started_at?: string;
@@ -201,6 +201,8 @@ export function HardwareSurveyPanel({
   const [status, setStatus] = useState<HardwareStatus>({});
   const [job, setJob] = useState<Job | null>(null);
   const [report, setReport] = useState<SurveyReport | null>(null);
+  const snapshotJob =
+    report && !report.id && job?.report === report ? job : null;
   const [archiveId, setArchiveId] = useState("");
   const [archiveEvidence, setArchiveEvidence] = useState<RecordValue | null>(
     null,
@@ -369,7 +371,7 @@ export function HardwareSurveyPanel({
   function showReport(next: SurveyReport) {
     setReport(next);
     setArchiveFileObject("");
-    setReportId(next.id);
+    setReportId(next.id || "");
     setPlan(null);
     setSensorPlan(null);
     setUseRelocation(false);
@@ -390,13 +392,13 @@ export function HardwareSurveyPanel({
     if (terminalStatuses.has(next.status)) {
       running.current = null;
       if (next.archive_id) setArchiveId(next.archive_id);
-      if (next.report) showReport(next.report);
+      if (next.report?.id) showReport(next.report);
       else if (next.report_id) {
         const saved = await api(
           `${base}/reports/${encodeURIComponent(next.report_id)}`,
         );
         if (current(generation)) showReport(saved);
-      }
+      } else if (next.report) showReport(next.report);
       if (current(generation)) {
         if (next.error) setError(next.error);
         setOutcome(
@@ -522,7 +524,7 @@ export function HardwareSurveyPanel({
     }
   }
   async function readArchive() {
-    if (!report || !connected || busy || polling) return;
+    if (!report?.id || !connected || busy || polling) return;
     const generation = ++epoch.current;
     setBusy(true);
     setError("");
@@ -627,6 +629,7 @@ export function HardwareSurveyPanel({
       if (kind === "jobs") {
         setJobId("");
         if (job?.id === id) setJob(null);
+        if (snapshotJob?.id === id) setReport(null);
       }
       setOutcome(
         `Removed the saved ${kind === "reports" ? "survey report" : kind === "archives" ? "archive evidence" : "finished job"} locally. Controllers were not changed.`,
@@ -635,7 +638,7 @@ export function HardwareSurveyPanel({
     });
   }
   async function enrich() {
-    if (!report || !archiveId) return;
+    if (!report?.id || !archiveId) return;
     await action(async (generation) => {
       const next = await api(`${base}/enrich`, {
         report_id: report.id,
@@ -652,9 +655,12 @@ export function HardwareSurveyPanel({
   async function exportReport(format: "json" | "csv") {
     if (!report) return;
     const selected = report;
+    const id = selected.id || snapshotJob?.id;
+    if (!id) return;
+    const resource = selected.id ? "reports" : "jobs";
     await action(async (generation) => {
       const response = await fetch(
-        `/api${base}/reports/${encodeURIComponent(selected.id)}/export?format=${format}`,
+        `/api${base}/${resource}/${encodeURIComponent(id)}/export?format=${format}`,
       );
       if (!response.ok) {
         const body = await response.json();
@@ -666,7 +672,8 @@ export function HardwareSurveyPanel({
       }
       const blob = await response.blob();
       if (!current(generation)) return;
-      saveBlob(blob, `hardware-inputs-${selected.id}.${format}`);
+      const filename = selected.id ? `hardware-inputs-${id}` : `hardware-job-${id}-snapshot`;
+      saveBlob(blob, `${filename}.${format}`);
       setOutcome(
         `Downloaded ${format.toUpperCase()} for ${sourceLabel(selected.target)}.`,
       );
@@ -755,7 +762,7 @@ export function HardwareSurveyPanel({
     });
   }
   async function relocate() {
-    if (!report || !sourceObject) return;
+    if (!report?.id || !sourceObject) return;
     await action(async (generation) => {
       const slot = Number(destinationSlot),
         sa = Number(destinationSa);
@@ -782,7 +789,7 @@ export function HardwareSurveyPanel({
     });
   }
   async function reviewSensors() {
-    if (!report) return;
+    if (!report?.id) return;
     await action(async (generation) => {
       const numeric = (value: string, label: string) => {
         const parsed = Number(value);
@@ -833,7 +840,7 @@ export function HardwareSurveyPanel({
       if (current(generation)) setSensorPlan(next);
     });
   }
-  const candidates = Array.isArray(report?.candidates) ? report.candidates : [];
+  const candidates = report?.id && Array.isArray(report.candidates) ? report.candidates : [];
   const candidateHosts = new Set(candidates.map(hostLabel));
   const hosts = [...new Set((report?.inputs || []).map(hostLabel))].sort();
   const inputs = useMemo(
@@ -1246,7 +1253,7 @@ export function HardwareSurveyPanel({
               ))}
             </select>
           </label>
-          <button disabled={!report || !archiveId || disabled} onClick={enrich}>
+          <button disabled={!report?.id || !archiveId || disabled} onClick={enrich}>
             Correlate archive with input survey
           </button>
         </div>
@@ -1339,13 +1346,13 @@ export function HardwareSurveyPanel({
               </h4>
               <div className="button-row">
                 <button
-                  disabled={disabled}
+                  disabled={disabled || (!report.id && !snapshotJob)}
                   onClick={() => void exportReport("csv")}
                 >
                   <Download size={14} /> Download hardware CSV
                 </button>
                 <button
-                  disabled={disabled}
+                  disabled={disabled || (!report.id && !snapshotJob)}
                   onClick={() => void exportReport("json")}
                 >
                   <Download size={14} /> Download hardware JSON
@@ -1357,7 +1364,9 @@ export function HardwareSurveyPanel({
               {sourceLabel(report.target, report.connector_config)}
             </p>
             <p aria-label="Hardware report provenance">
-              {report.imported === true
+              {snapshotJob
+                ? `Unvalidated readings from survey job ${snapshotJob.id}. JSON includes the job outcome. CSV identifies the job on each input row. A saved survey is required for archive comparison and terminal planning.`
+                : report.imported === true
                 ? "Imported report — user-supplied historical evidence. Its values have not been freshly verified against the controller."
                 : "Captured survey readings — a saved snapshot. Values do not update live."}
             </p>
@@ -1397,7 +1406,7 @@ export function HardwareSurveyPanel({
                 />
               </label>
               <button
-                disabled={!connected || disabled || !archiveInterfaceReady}
+                disabled={!report.id || !connected || disabled || !archiveInterfaceReady}
                 onClick={readArchive}
               >
                 Read controller archive
@@ -1775,7 +1784,7 @@ export function HardwareSurveyPanel({
                 </label>
               </div>
               <button
-                disabled={!sourceObject || !destinationSlot || disabled}
+                disabled={!report.id || !sourceObject || !destinationSlot || disabled}
                 onClick={relocate}
               >
                 Review input relocation
@@ -1911,7 +1920,7 @@ export function HardwareSurveyPanel({
                 Include the reviewed binary relocation as a condition for
                 freeing its universal input
               </label>
-              <button disabled={disabled} onClick={reviewSensors}>
+              <button disabled={!report.id || disabled} onClick={reviewSensors}>
                 Review voltage sensor assignments
               </button>
               {sensorPlan && (
@@ -1944,7 +1953,7 @@ export function HardwareSurveyPanel({
         )}
         <PhysicalCapacityPanel
           survey={
-            report?.content_sha256
+            report?.id && report.content_sha256
               ? {
                   id: report.id,
                   content_sha256: report.content_sha256,
@@ -1978,7 +1987,7 @@ export function HardwareSurveyPanel({
           <summary>Sensor power supply budget</summary>
           <SensorSupplyPanel
             reference={
-              report?.content_sha256
+              report?.id && report.content_sha256
                 ? { id: report.id, content_sha256: report.content_sha256 }
                 : null
             }

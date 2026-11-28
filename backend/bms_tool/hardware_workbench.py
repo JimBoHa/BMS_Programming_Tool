@@ -871,7 +871,7 @@ class HardwareWorkbench:
         }
 
 
-def report_csv(report):
+def report_csv(report, *, unsaved_job=None):
     stream = io.StringIO(newline="")
     keys = [
         "object",
@@ -890,9 +890,13 @@ def report_csv(report):
         "errors",
     ]
     writer = csv.writer(stream)
+    job_fields = (
+        ("unvalidated_job_id", "job_status", "job_error", "storage_error") if unsaved_job else ()
+    )
     writer.writerow(
         ["controller", "device", "address", "router", "dnet", "transport", "connector_config"]
         + keys
+        + list(job_fields)
     )
 
     def value(item):
@@ -903,10 +907,20 @@ def report_csv(report):
         return item
 
     target = report["target"]
+    job_values = (
+        [
+            unsaved_job["id"],
+            unsaved_job["status"],
+            value(unsaved_job.get("error")),
+            value(unsaved_job.get("storage_error")),
+        ]
+        if unsaved_job
+        else []
+    )
     for row in report["inputs"]:
         writer.writerow(
             [
-                value(report["identity"].get("name")),
+                value((report.get("identity") or {}).get("name")),
                 target.get("device"),
                 target.get("address"),
                 target.get("router"),
@@ -915,6 +929,7 @@ def report_csv(report):
                 value(report.get("connector_config")),
             ]
             + [value(row.get(key)) for key in keys]
+            + job_values
         )
     return stream.getvalue().encode("utf-8-sig")
 
@@ -948,9 +963,28 @@ def hardware_router(workbench):
         return workbench.job(key)
 
     @router.get("/jobs/{key}/export")
-    async def export_job(key: str):
+    async def export_job(key: str, format: str = "json"):
+        job = workbench.job(key)
+        if format == "csv":
+            snapshot = job.get("report")
+            if (
+                job.get("kind") != "survey"
+                or job["status"] not in {"error", "cancelled", "interrupted"}
+                or job.get("report_id")
+                or not isinstance(snapshot, dict)
+            ):
+                raise ValueError("CSV job snapshots require a finished survey with unsaved readings.")
+            return Response(
+                report_csv(snapshot, unsaved_job=job),
+                media_type="text/csv",
+                headers={
+                    "Content-Disposition": f'attachment; filename="hardware-job-{key}-inputs.csv"'
+                },
+            )
+        if format != "json":
+            raise ValueError("Choose JSON or CSV hardware job export.")
         return Response(
-            canonical(workbench.job(key)),
+            canonical(job),
             media_type="application/json",
             headers={
                 "Content-Disposition": f'attachment; filename="hardware-job-{identifier(key)}.json"'
