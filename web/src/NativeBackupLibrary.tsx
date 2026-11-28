@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, apiBlobDocument, saveBlob } from "./api";
+import { BacnetFilesPanel } from "./BacnetFilesPanel";
 import { NativeBackupIntegrity } from "./NativeBackupIntegrity";
 import {
   checkedNativeImport,
@@ -56,6 +57,7 @@ export function NativeBackupLibrary() {
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
     [storageOpen, setStorageOpen] = useState(false),
+    [filesOpen, setFilesOpen] = useState(false),
     [busy, setBusy] = useState(false);
   const key = JSON.stringify([state, query, offset]);
   const alive = useRef(false),
@@ -512,6 +514,10 @@ export function NativeBackupLibrary() {
           </details>
         </section>
       )}
+      <details onToggle={(event) => setFilesOpen(event.currentTarget.open)}>
+        <summary>Saved BACnet file captures</summary>
+        {filesOpen && <BacnetFilesPanel savedOnly />}
+      </details>
     </section>
   );
 }
