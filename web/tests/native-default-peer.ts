@@ -178,6 +178,7 @@ async def main():
    if sys.argv[2]=='boolean':boolean_slot(app.files,FIRST,False)
    elif sys.argv[2]=='enum':enum_slot(app.files,65535)
    else:real_slot(app.files,-10,bytes.fromhex('3dcccccd'))
+  elif line=='object-usage':app.metadata.update({'1291':2048,'1292':720})
   elif line.startswith('mode '):app.mode=line[5:]
   elif line!='stats':raise AssertionError('Unknown authored command')
   enum_evidence={}

@@ -9,6 +9,9 @@ import { matchingConnectionTarget as targetMatches } from "./nativeMatchingConne
 type Data = Record<string, any>;
 export const capacitySourceProfile = "native-file3-size-evidence/1";
 export const capacityProfile = "native-file3-capacity-evidence/1";
+const objectUsageProfile = "native-file3-and-device-oid-evidence/1";
+const objectUsageScope =
+  "Retained File3 size compared with observed file capacity, plus the controller's reported BACnet object identifier table usage. Program execution and the object requirements of a proposed image require separate verification.";
 export const capacityBase = "/bacnet/controller/native-application/resources";
 export const capacityScope =
   "Historical retained archive bytes compared with one controller-reported File3 capacity observation. This is not current-program, merged-payload, free-memory, RAM/flash/scan/resource allocation, release/runtime/CCT or physical acceptance. No backup-state, restore, write, credentials change, review or transfer is prepared.";
@@ -192,7 +195,8 @@ function nativeCapacity(encoded: string) {
     tag.context ||
     tag.kind !== "value" ||
     tag.number !== 2 ||
-    tag.data.length < 1
+    tag.data.length < 1 ||
+    tag.data.length > 4
   )
     throw Error("Not one native Unsigned");
   return number(tag.data);
@@ -274,6 +278,30 @@ function capacityWire(w: Data, value: number, target: Data) {
     offset === apdu.length
   );
 }
+function usageCount(row: Data, property: number) {
+  if (!row || row.property !== property || !date(row.at)) return false;
+  if (row.status === "unavailable")
+    return (
+      closed(row, ["property", "at", "status", "reason"]) &&
+      typeof row.reason === "string" &&
+      row.reason.length > 0 &&
+      row.reason.length <= 300
+    );
+  if (
+    !closed(row, ["property", "at", "status", "value", "encoded_hex"]) ||
+    row.status !== "read" ||
+    !uint(row.value) ||
+    !hex(row.encoded_hex, 7)
+  )
+    return false;
+  const bytes = row.encoded_hex;
+  return (
+    bytes.startsWith("3e") &&
+    bytes.endsWith("3f") &&
+    nativeCapacity(bytes.slice(2, -2)) === row.value
+  );
+}
+
 export async function capacityObservation(
   value: Data,
   source: NativeArchiveSource,
@@ -303,9 +331,15 @@ export async function capacityObservation(
         "restore_payload_prepared",
         "can_apply",
         "observation_sha256",
+        ...(value?.profile === objectUsageProfile
+          ? ["object_identifier_usage"]
+          : []),
       ]) ||
-      value.profile !== capacityProfile ||
-      value.scope !== capacityScope ||
+      ![capacityProfile, objectUsageProfile].includes(value.profile) ||
+      value.scope !==
+        (value.profile === objectUsageProfile
+          ? objectUsageScope
+          : capacityScope) ||
       !(await capacitySource(value.source, source)) ||
       value.source.source_identity_matches !== true ||
       !targetMatches(value.target, controller) ||
@@ -333,6 +367,15 @@ export async function capacityObservation(
       ].some((k) => value[k] !== false)
     )
       return false;
+    if (value.profile === objectUsageProfile) {
+      const usage = value.object_identifier_usage;
+      if (
+        !closed(usage, ["allocated", "used"]) ||
+        !usageCount(usage.allocated, 1291) ||
+        !usageCount(usage.used, 1292)
+      )
+        return false;
+    }
     const c = value.capacity,
       p = value.comparison;
     if (

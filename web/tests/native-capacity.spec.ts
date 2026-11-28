@@ -36,6 +36,7 @@ for (const routed of [false, true])
     page,
   }) => {
     const peer = await nativeDefaultPeer("consume", "execution-order");
+    await peer.command("object-usage");
     let release = () => {};
     const gate = new Promise<void>((resolve) => (release = resolve));
     let received!: () => void;
@@ -44,7 +45,7 @@ for (const routed of [false, true])
       const p = await connected(page, peer, routed),
         before = await peer.command("stats");
       let bytes: Buffer | undefined;
-      await page.route("**/resources/read", async (route) => {
+      await page.route("**/resources/read*", async (route) => {
         const response = await route.fetch({ maxRetries: 0 });
         bytes = await response.body();
         received();
@@ -67,6 +68,13 @@ for (const routed of [false, true])
       await expect(observation).toContainText(
         "Controller capacity observed: 131072 bytes.",
       );
+      await expect(observation).toContainText("BACnet object identifiers");
+      await expect(
+        observation.getByText("Table entries allocated").locator(".."),
+      ).toContainText("2,048");
+      await expect(
+        observation.getByText("Table entries used").locator(".."),
+      ).toContainText("720");
       await expect(observation).toContainText(
         "The current program was not read",
       );
@@ -95,6 +103,32 @@ for (const routed of [false, true])
       peer.close();
     }
   });
+
+test("missing Device counters leave the verified File3 capacity available", async ({
+  page,
+}) => {
+  const peer = await nativeDefaultPeer("consume", "execution-order");
+  try {
+    const p = await connected(page, peer);
+    await p
+      .getByRole("button", { name: "Read controller application capacity" })
+      .click();
+    const observation = p.getByRole("region", {
+      name: "Observed controller application capacity",
+    });
+    await expect(observation).toContainText("131072 bytes");
+    for (const label of ["Table entries allocated", "Table entries used"]) {
+      await expect(observation.getByText(label).locator("..")).toContainText(
+        "Unavailable",
+      );
+    }
+    await expect(
+      observation.getByRole("button", { name: "Save exact capacity evidence" }),
+    ).toBeEnabled();
+  } finally {
+    peer.close();
+  }
+});
 
 test("offline archive size inspection does not open the field network", async ({
   page,
@@ -144,7 +178,7 @@ for (const field of ["capacity", "source", "wire", "authority"])
     const peer = await nativeDefaultPeer("consume", "execution-order");
     try {
       const p = await connected(page, peer);
-      await page.route("**/resources/read", async (route) => {
+      await page.route("**/resources/read*", async (route) => {
         const response = await route.fetch({ maxRetries: 0 }),
           data = await response.json();
         if (field === "capacity") data.capacity.bytes++;
@@ -221,7 +255,7 @@ test("canceling a held read retires its result and a fresh query remains usable"
   try {
     const p = await connected(page, peer);
     await page.route(
-      "**/resources/read",
+      "**/resources/read*",
       async (route) => {
         const response = await route.fetch({ maxRetries: 0 });
         held = true;

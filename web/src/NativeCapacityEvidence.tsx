@@ -171,7 +171,8 @@ export function NativeCapacityEvidence({
         snapshot_sha256: source.snapshot_sha256,
       };
       const response = await apiJsonDocument(
-        capacityBase + (kind === "source" ? "/source" : "/read"),
+        capacityBase +
+          (kind === "source" ? "/source" : "/read?include_object_counts=true"),
         kind === "source"
           ? query
           : {
@@ -345,6 +346,43 @@ export function NativeCapacityEvidence({
             These measurements do not estimate free memory, RAM, flash or scan
             time.
           </p>
+          {shown.document.data.object_identifier_usage && (
+            <div>
+              <h5>BACnet object identifiers</h5>
+              <dl>
+                {(["allocated", "used"] as const).map((key) => {
+                  const entry =
+                    shown.document.data.object_identifier_usage[key];
+                  return (
+                    <div key={key}>
+                      <dt>
+                        {key === "allocated"
+                          ? "Table entries allocated"
+                          : "Table entries used"}
+                      </dt>
+                      <dd>
+                        {entry.status === "read"
+                          ? entry.value.toLocaleString()
+                          : "Unavailable · " + entry.reason}
+                      </dd>
+                    </div>
+                  );
+                })}
+              </dl>
+              {shown.document.data.object_identifier_usage.used.status ===
+                "read" &&
+                shown.document.data.object_identifier_usage.allocated.status ===
+                  "read" &&
+                shown.document.data.object_identifier_usage.used.value >
+                  shown.document.data.object_identifier_usage.allocated
+                    .value && (
+                  <p role="status">
+                    The reported used count exceeds the allocated count. Read
+                    the controller again before using these figures.
+                  </p>
+                )}
+            </div>
+          )}
           <button
             className="primary"
             disabled={!usable}
