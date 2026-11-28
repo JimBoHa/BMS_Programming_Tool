@@ -121,9 +121,9 @@ another edit/recovery family or authorize a replay.
 
 ## Reproducible software qualification and remaining scope
 
-`scripts/qualify_native_order.py` declares 544 backend cases for each of the
-source and installed builds. Each of the four browser jobs declares 542 browser
-and contract cases plus six connection cases, for 3,280 executions overall.
+`scripts/qualify_native_order.py` declares 570 backend cases for each of the
+source and installed builds. Each of the four browser jobs declares 543 browser
+and contract cases plus six connection cases, for 3,336 executions overall.
 The backend suite also exercises matching-program restore verification.
 
 The original 417 backend, 480 browser and six connection cases are retained.
