@@ -1,4 +1,8 @@
 import {
+  openEquipmentWizard,
+  reopenWizardProject,
+} from "./equipment-wizard-navigation";
+import {
   test,
   expect,
   simulationServerResponseJSON,
@@ -16,10 +20,7 @@ const root = path.resolve(".."),
   python = path.join(root, ".venv/bin/python"),
   title = "Authored zone schedule browser";
 async function open(page: Page) {
-  await page.goto("/");
-  await page
-    .getByRole("button", { name: "Equipment wizard", exact: true })
-    .click();
+  await openEquipmentWizard(page);
   await page
     .getByRole("button", { name: "Zone-group schedule wizard", exact: true })
     .click();
@@ -172,9 +173,13 @@ test("two group graph preserves occupied ends, composes original AHU occupancy, 
       reviewFile,
       header,
     ],
-    { cwd: root },
+    {
+      cwd: root,
+      env: { ...process.env, PYTHONPATH: path.join(root, "backend") },
+    },
   );
   await create(page, dialog);
+  await page.getByRole("button", { name: "Simulate", exact: true }).click();
   await page
     .getByLabel("Next scan UTC clock", { exact: true })
     .fill("2026-01-05T05:00");
@@ -189,9 +194,7 @@ test("two group graph preserves occupied ends, composes original AHU occupancy, 
   ).outputs;
   expect(outputs.zg1_pre_only).toBe(true);
   expect(outputs.ahu_occupied).toBe(false);
-  await page
-    .getByRole("button", { name: "Save revision", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Save project", exact: true }).click();
   await expect(
     page.getByLabel("Last saved revision", { exact: true }),
   ).toContainText("r1");
@@ -211,11 +214,15 @@ test("two group graph preserves occupied ends, composes original AHU occupancy, 
         file,
         download.suggestedFilename(),
       ],
-      { cwd: root, encoding: "utf8" },
+      {
+        cwd: root,
+        encoding: "utf8",
+        env: { ...process.env, PYTHONPATH: path.join(root, "backend") },
+      },
     ).trim();
     expect(digest).toBe(report.program_sha256);
   }
-  await page.reload();
+  await reopenWizardProject(page, report.program.id);
   await expect(page.getByLabel("Program name", { exact: true })).toHaveValue(
     title,
   );
@@ -537,10 +544,7 @@ for (const malformed of ["profile", "group-windows"])
 test("source-independent catalog can finish after editor changes during its initial load", async ({
   page,
 }) => {
-  await page.goto("/");
-  await page
-    .getByRole("button", { name: "Equipment wizard", exact: true })
-    .click();
+  await openEquipmentWizard(page);
   let seen!: () => void, release!: () => void, done!: () => void;
   const requested = new Promise<void>((r) => (seen = r)),
     gate = new Promise<void>((r) => (release = r)),
