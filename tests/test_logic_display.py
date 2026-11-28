@@ -124,6 +124,15 @@ def test_native_pid_port_names_and_defaults_come_from_source_and_dictionary():
     assert graph["port_labels"]["252"]["695"] == "Process Variable"
     assert graph["port_labels"]["252"]["108"] == "Setpoint"
     assert graph["blocks"][2]["pin_labels"] == {"108": "Loop setpoint"}
+    assert graph["blocks"][2]["pin_points"] == [
+        {
+            "port": 108,
+            "name": "Loop setpoint",
+            "object": "analog-value,99",
+            "ref": f"{REF}.252_20.2_99",
+        }
+    ]
+    assert "pin_points" not in canonical["blocks"][2]
     assert graph["blocks"][0]["stored_value"] == {"text": "72.0", "datatype": "Real"}
     assert "stored_value" not in graph["blocks"][2]
     assert app.summary()["sha256"] == hashlib.sha256(source).hexdigest()
@@ -169,7 +178,30 @@ def test_conflicting_native_child_pin_names_do_not_replace_the_dictionary():
     source = gzip.compress(gzip.decompress(pid_native()) + child, mtime=0)
     diagram = MoiApplication(source).display_diagram(REF)
     assert "108" not in diagram["blocks"][2]["pin_labels"]
+    assert diagram["blocks"][2]["pin_points"] == []
     assert diagram["port_labels"]["252"]["108"] == "Setpoint"
+
+
+def test_duplicate_public_identity_in_another_scope_is_not_a_live_pin():
+    child = native_record(
+        526,
+        99,
+        [
+            (32527, encoded(CharacterString(f"{REF}.2_10.2_99"))),
+            (75, encoded(ObjectIdentifier((2, 99)))),
+        ],
+    )
+    graph = MoiApplication(gzip.decompress(pid_native()) + child).display_diagram(REF)
+    assert graph["blocks"][2]["pin_points"] == []
+    assert graph["blocks"][2]["pin_labels"]["108"] == "Loop setpoint"
+
+
+def test_live_pin_requires_matching_native_header_and_public_identity():
+    image = gzip.decompress(pid_native())
+    original = (526 << 22 | 99).to_bytes(4, "big")
+    assert image.count(original) == 1
+    changed = image.replace(original, (526 << 22 | 98).to_bytes(4, "big"))
+    assert MoiApplication(changed).display_diagram(REF)["blocks"][2]["pin_points"] == []
 
 
 def test_conflicting_caf_child_pin_names_do_not_replace_the_dictionary():

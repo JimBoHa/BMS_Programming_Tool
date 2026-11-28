@@ -55,6 +55,10 @@ export function ControllerApplicationPanel({
   } | null>(null);
   const [ref, setRef] = useState(""),
     [selected, setSelected] = useState("");
+  const [selectedPin, setSelectedPin] = useState<{
+    owner: string;
+    ref: string;
+  } | null>(null);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const [selectedWire, setSelectedWire] = useState<{
@@ -131,8 +135,6 @@ export function ControllerApplicationPanel({
   const diagramKey = JSON.stringify([archiveKey, ref]);
   const diagram =
     storedDiagram?.owner === diagramKey ? storedDiagram.value : null;
-  const valueKey = JSON.stringify([diagramKey, selected]);
-  const values = storedValues?.owner === valueKey ? storedValues.value : null;
   useEffect(() => {
     const epoch = ++graphGeneration.current;
     setDiagram(null);
@@ -166,6 +168,17 @@ export function ControllerApplicationPanel({
   const block = diagram?.blocks.find(
     (entry: RecordValue) => entry.ref === selected,
   );
+  const blockKey = JSON.stringify([diagramKey, selected]);
+  const pin =
+    selectedPin?.owner === blockKey
+      ? block?.pin_points?.find(
+          (point: RecordValue) => point.ref === selectedPin.ref,
+        )
+      : undefined;
+  const readObject = pin?.object ?? block?.object;
+  const pinRef = pin?.ref;
+  const valueKey = JSON.stringify([blockKey, readObject, pinRef]);
+  const values = storedValues?.owner === valueKey ? storedValues.value : null;
   const defaultProperty = block?.properties.find(
     (prop: RecordValue) => prop.id === 3113 && prop.scalar?.datatype === "Real",
   );
@@ -174,18 +187,19 @@ export function ControllerApplicationPanel({
     let timer: number | undefined;
     setValues(null);
     setLiveError("");
-    if (!connected || !block?.object) return;
+    if (!connected || !readObject) return;
     const read = async () => {
       try {
         const result = await api("/bacnet/controller/properties", {
           ...target(controller),
-          object_ids: [block.object],
+          object_ids: [readObject],
           properties: [
             "present-value",
             "units",
             "status-flags",
             "reliability",
             "out-of-service",
+            ...(pinRef ? ["32527"] : []),
           ],
         });
         if (epoch !== valueGeneration.current) return;
@@ -193,12 +207,21 @@ export function ControllerApplicationPanel({
         if (
           !result.identity_verified ||
           !result.objects[0]?.identity_verified ||
-          result.objects[0]?.object !== block.object
+          result.objects[0]?.object !== readObject
         )
           throw new Error(
             result.errors.join(" ") ||
               "This native block does not expose a verified BACnet object at its recorded identifier.",
           );
+        if (pinRef) {
+          const reference = result.objects[0].properties?.["32527"];
+          if (reference?.status !== "ok" || reference.value !== pinRef) {
+            setValues(null);
+            throw new Error(
+              "The controller could not verify this pin's native reference.",
+            );
+          }
+        }
         setValues({ owner: valueKey, value: result });
         setLiveError("");
         verified.current?.(result.finished_at);
@@ -214,7 +237,7 @@ export function ControllerApplicationPanel({
       valueGeneration.current++;
       window.clearTimeout(timer);
     };
-  }, [source, connected, selected, capture]);
+  }, [source, connected, valueKey]);
   const display = useMemo(
     () => (diagram ? controllerLogicDiagram(diagram) : null),
     [diagram],
@@ -235,7 +258,7 @@ export function ControllerApplicationPanel({
       ? {
           source: archiveKey,
           ref: block.ref,
-          text: text(pv.value),
+          text: pin ? `${pin.name} · ${text(pv.value)}` : text(pv.value),
           at: values!.finished_at,
           error: liveError || undefined,
         }
@@ -472,6 +495,28 @@ export function ControllerApplicationPanel({
                               />
                             )}
                           <h4>Live BACnet value</h4>
+                          {block.pin_points?.length > 0 && (
+                            <label>
+                              Live value source
+                              <select
+                                value={pinRef ?? ""}
+                                onChange={(event) =>
+                                  setSelectedPin({
+                                    owner: blockKey,
+                                    ref: event.target.value,
+                                  })
+                                }
+                              >
+                                <option value="">Block · {block.name}</option>
+                                {block.pin_points.map((point: RecordValue) => (
+                                  <option key={point.ref} value={point.ref}>
+                                    {point.name} · port {point.port} ·{" "}
+                                    {point.object}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          )}
                           <p>
                             Read from the selected controller when this block
                             exposes a readable BACnet object. Archive defaults

@@ -11,6 +11,7 @@ import hashlib
 import math
 import re
 import zlib
+from collections import Counter
 
 from bacpypes3.errors import InvalidTag
 from bacpypes3.pdu import PDUData
@@ -524,17 +525,20 @@ class MoiApplication:
                     block["operator"] = symbol
         # A unique child Attribute ID may name its parent's actual pin.
         named = {}
+        children_by_port = {}
+        identities = Counter()
         for child in self.records.values():
+            identity = self.scalar(child, 75)
+            if isinstance(identity, str):
+                identities[identity] += 1
             parent = child["ref"].rpartition(".")[0]
             if parent not in by_ref:
                 continue
             pid, name = self.scalar(child, 3365), self.scalar(child, 2390)
-            if (
-                isinstance(pid, int)
-                and not isinstance(pid, bool)
-                and isinstance(name, str)
-                and name.strip()
-            ):
+            if not isinstance(pid, int) or isinstance(pid, bool):
+                continue
+            children_by_port.setdefault(parent, {}).setdefault(pid, []).append(child)
+            if isinstance(name, str) and name.strip():
                 named.setdefault(parent, {}).setdefault(str(pid), set()).add(name)
         for block in blocks:
             block["pin_labels"] = {
@@ -542,8 +546,43 @@ class MoiApplication:
                 for pid, names in named.get(block["ref"], {}).items()
                 if len(names) == 1
             }
+            block["pin_points"] = []
+            for port, children in children_by_port.get(block["ref"], {}).items():
+                if len(children) != 1 or self.errors:
+                    continue
+                child = children[0]
+                identity = self.scalar(child, 75)
+                if not isinstance(identity, str) or identities[identity] != 1:
+                    continue
+                point = self._signal_pin_point(child, port)
+                if point:
+                    block["pin_points"].append(point)
         graph["port_labels"] = pin_labels(blocks, graph["connections"])
         return graph
+
+    def _signal_pin_point(self, record, port):
+        kind = SIGNAL_OBJECT_TYPES.get(record["class_id"])
+        prop = record["properties"].get(75, {}).get("scalar") or {}
+        name = self.scalar(record, 2390)
+        if (
+            kind is None
+            or prop.get("datatype") != "ObjectIdentifier"
+            or not isinstance(name, str)
+            or not name.strip()
+        ):
+            return None
+        start = record["offset"] + 6
+        header = int.from_bytes(self.data[start : start + 4], "big")
+        instance = header & 0x3FFFFF
+        leaf = record["ref"].rpartition(".")[2]
+        if (
+            header >> 22 != record["class_id"]
+            or instance == 0x3FFFFF
+            or leaf != f"{kind}_{instance}"
+            or prop["value"] != str(ObjectIdentifier((kind, instance)))
+        ):
+            return None
+        return {"port": port, "name": name, "ref": record["ref"], "object": prop["value"]}
 
     def summary(self):
         diagrams, errors = [], list(self.errors)
