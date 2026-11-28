@@ -13,6 +13,54 @@ import {
 const root = fileURLToPath(new URL("../..", import.meta.url));
 test.afterEach(async ({ request }) => disconnectPointInterface(request));
 
+test("a slow connection inspection uses its selected time limits for this reading", async ({
+  page,
+}) => {
+  const server = await startPointPeer(true);
+  try {
+    const panel = await openPointInspection(page, server, true);
+    const slow = panel.getByLabel(
+      "Allow up to 60 seconds for a slow connection",
+    );
+    await expect(slow).not.toBeChecked();
+    await slow.check();
+    await panel
+      .getByLabel("Read optional priority slots and relinquish defaults")
+      .check();
+    const extended = page.waitForResponse((r) =>
+      r.url().endsWith("/point-status/read"),
+    );
+    await readPointStatus(panel);
+    const report = await (await extended).json();
+    expect(report.timing).toEqual({
+      profile: "extended",
+      operation_seconds: 60,
+      request_seconds: 2,
+    });
+    const slots = report.objects[1].properties["priority-array"].elements;
+    expect(slots).toHaveLength(16);
+    expect(
+      slots.every(
+        (r: { request_diagnostics: { request_timeout_seconds: number } }) =>
+          r.request_diagnostics.request_timeout_seconds === 2,
+      ),
+    ).toBe(true);
+    await slow.uncheck();
+    const normal = page.waitForResponse((r) =>
+      r.url().endsWith("/point-status/read"),
+    );
+    await readPointStatus(panel);
+    const restored = await (await normal).json();
+    expect(restored.timing).toBeUndefined();
+    expect(
+      restored.objects[1].properties["priority-array"].elements[15]
+        .request_diagnostics.request_timeout_seconds,
+    ).toBe(1);
+  } finally {
+    await server.stop();
+  }
+});
+
 test("native point quality and command evidence remain distinct and exact on export", async ({
   page,
 }) => {

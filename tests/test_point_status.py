@@ -99,6 +99,46 @@ async def link(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_extended_deadline_completes_slow_array_once_and_keeps_the_default(link):
+    peer, client, _ = link
+    service = PointStatus(client, client.store, timeout=0.15, operation_timeout=0.6, request_gap=0)
+    reply = peer.reply
+
+    async def slow_reply(data, source):
+        await asyncio.sleep(0.035)
+        await reply(data, source)
+
+    peer.reply = slow_reply
+    settings = options(peer, object_ids=["analog-output,2"], include_commandable=True)
+    try:
+        normal = await service.read(**settings)
+        assert normal["status"] == "timeout" and "timing" not in normal
+        first = normal["objects"][0]["properties"]["priority-array"]
+        assert not first["complete"] and len(first["elements"]) < 16
+        await asyncio.sleep(0.08)
+        peer.requests.clear()
+        longer = await service.read(
+            **(settings | {"extended_timing": True, "operation_id": "slower_priority_read"})
+        )
+        assert longer["complete"] and longer["timing"] == {
+            "profile": "extended",
+            "operation_seconds": 2.4,
+            "request_seconds": 0.3,
+        }
+        slots = longer["objects"][0]["properties"]["priority-array"]["elements"]
+        assert [r["array_index"] for r in slots] == list(range(1, 17))
+        assert all(r["request_diagnostics"]["request_timeout_seconds"] == 0.3 for r in slots)
+        assert len(peer.requests) == len(set(peer.requests))
+        limits = service.status()["limits"]
+        assert limits["operation_seconds"] == 0.6 and limits["extended_operation_seconds"] == 2.4
+        assert limits["request_seconds"] == 0.15 and limits["extended_request_seconds"] == 0.3
+        verify_hash(normal)
+        verify_hash(longer)
+    finally:
+        await service.close()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("routed", [False, True])
 async def test_native_values_units_quality_and_priority_are_separate_raw_evidence(link, routed):
     old, client, service = link
