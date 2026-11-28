@@ -144,6 +144,10 @@ Choose **Observe existing controls** to keep the captured valve connections, or 
 
 **Grouped Activities** keeps the two adjustable settings on the root drawing and puts the calculation and sample registers in subdrawings. Review shows the root size, record count and number of signal connections traced through the typed ports. **Single root drawing** uses the existing flat layout. Changing the source, purpose, layout or first instance requires a new review.
 
+For a controller capture that offers **Airflow sampling**, **One sample per clock change** records the measured flow when the one-second countdown changes. Other input updates during the same second retain that sample. Two alternating retriggerable timers track how recently the clock moved. An expired timer, an out-of-order clock or a bad airflow measurement restarts the 30-second proof period. If a long interruption ends at the same countdown value, the first fresh sample arrives on the following clock change. The discharge limit and the low-flow threshold remain adjustable in both drawings. [Johnson Controls timer behavior](https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Controller-Tool-Help/13.1/Logic/Timing/Timer)
+
+Choose **Existing paired-clock drawing** to reproduce a previously reviewed file. Changing the sampling method requires a new review. The CLI selects the single-clock method with `--sampling clock-edge` and uses the previous method when the option is omitted.
+
 Choose **Review local program**, then **Save reviewed program file** to save a native MOI. This workflow needs no network connection. The local comparison covers graph connectivity, order, port assignments and original records. Controller startup, I/O behavior and interlock response require separate field qualification.
 
 The command line accepts a native application, its static and dynamic parameter files and the matching logic-block archive.

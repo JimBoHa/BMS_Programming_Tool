@@ -87,6 +87,7 @@ test("review and save a grouped native control draft with the field connection c
   const response = await review;
   expect(response.status()).toBe(200);
   const r = await response.json();
+  expect(r.sampling).toBe("clock-edge");
   expect(r.production_transfer_qualified).toBe(false);
   expect(r.controller_queries).toBe(false);
   await expect(
@@ -114,6 +115,34 @@ test("review and save a grouped native control draft with the field connection c
   await expect(
     panel.getByText("Saved the reviewed local program file.", { exact: true }),
   ).toBeVisible();
+  await panel
+    .getByLabel("Airflow sampling", { exact: true })
+    .selectOption("paired");
+  await expect(
+    panel.getByRole("button", {
+      name: "Save reviewed program file",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  const priorReview = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/inline-sequence/draft/review") &&
+      response.request().method() === "POST",
+  );
+  await panel
+    .getByRole("button", { name: "Review local program", exact: true })
+    .click();
+  const prior = await (await priorReview).json();
+  expect(prior.sampling).toBeUndefined();
+  expect(prior.compilation.candidate_sha256).not.toBe(
+    r.compilation.candidate_sha256,
+  );
+  await expect(
+    panel.getByRole("button", {
+      name: "Save reviewed program file",
+      exact: true,
+    }),
+  ).toBeEnabled();
   await panel
     .getByLabel("Drawing layout", { exact: true })
     .selectOption("flat");

@@ -126,3 +126,105 @@ class LegacyInlineSequenceCompiler(CompactInlineSequenceCompiler):
                 offset += width
             nodes = reduced
         return nodes[0]
+
+
+class EdgeTimedInlineSequenceCompiler(LegacyInlineSequenceCompiler):
+    """Sample on changes of a single native countdown and supervise its actual age."""
+
+    def phase_window(self, phase, clock_ok, data_ok, flow):
+        q = self.arithmetic
+        previous = (self.nodes["Inline previous clock second"], 85)
+        changed = q(
+            "or",
+            "Inline countdown changed",
+            q("gt", "Inline countdown decreased", previous, phase),
+            q("gt", "Inline countdown increased", phase, previous),
+        )
+        previous_health = self.block("prevB", "Inline previous clock health", (513, clock_ok))
+        starting = self.block(
+            "xor", "Inline first reliable clock", (7000, previous_health), defaults={7001: True}
+        )
+        update = q("or", "Inline sample clock event", changed, starting)
+        sample = self.held("Inline airflow at clock edge", update, flow)
+        sectors = self.phase_sectors(phase)
+        values = [
+            self.held(f"Inline airflow second {index:02d}", active, sample)
+            for index, active in enumerate(sectors)
+        ]
+        even = self.combine(sectors[::2], "or", "Inline even clock sector")
+        odd = self.block("xor", "Inline odd clock sector", (7000, even), defaults={7001: True})
+        previous_even = self.held("Inline previous even second", even, phase)
+        previous_odd = self.held("Inline previous odd second", odd, phase)
+        prior = self.select("Inline preceding clock sector", even, previous_odd, previous_even)
+        difference = q("sub", "Inline countdown difference", prior, phase)
+        elapsed = self.select(
+            "Inline elapsed clock seconds",
+            q("ge", "Inline countdown stayed in minute", difference, 0),
+            difference,
+            q("add", "Inline countdown crossed minute", difference, 60),
+        )
+        consecutive = q(
+            "and",
+            "Inline one clock second",
+            q("ge", "Inline clock advanced", elapsed, 1),
+            q("ge", "Inline clock step bounded", 1, elapsed),
+        )
+
+        # A falling edge never extends a retriggerable pulse. After a long gap
+        # at most one parity can restart; its opposite must already be alive.
+        pulses = [
+            self.block(
+                "timer",
+                name,
+                (513, q("and", name + " rising edge", gate, update)),
+                defaults={518: 1, 1080: 5.0},
+                clock=True,
+            )
+            for name, gate in (
+                ("Inline even freshness timer", even),
+                ("Inline odd freshness timer", odd),
+            )
+        ]
+        ages = [(index, 1081) for index, _ in pulses]
+        qualities = [
+            self.block("reliable", name, (513, age))
+            for name, age in zip(
+                ("Inline even timer reliable", "Inline odd timer reliable"), ages, strict=True
+            )
+        ]
+        fresh = q(
+            "and",
+            "Inline recent clock edge",
+            q("and", "Inline alternate edges present", *pulses),
+            q(
+                "ge",
+                "Inline recent rising edge",
+                q("max", "Inline newest pulse remaining", *ages),
+                4,
+            ),
+        )
+        timing_ok = q(
+            "and",
+            "Inline continuous time",
+            q(
+                "and",
+                "Inline clock and edges reliable",
+                clock_ok,
+                q("and", "Inline pulse clocks reliable", *qualities),
+            ),
+            q("and", "Inline witnessed clock step", consecutive, fresh),
+        )
+        warm = self.block(
+            "timer",
+            "Inline complete timed history",
+            (513, q("and", "Inline uninterrupted observation", timing_ok, data_ok)),
+            defaults={518: 2, 1080: 30.0},
+        )
+        count = self.select("Inline confirmed samples in complete window", warm, 30.0)
+        total = self.combine(values, "add", "Inline measured CFM sum")
+        mean = self.select(
+            "Inline complete 30-second mean",
+            warm,
+            q("div", "Inline airflow 30-second mean", total, 30.0),
+        )
+        return even, odd, count, warm, mean

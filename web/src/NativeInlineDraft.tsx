@@ -11,9 +11,11 @@ const base = "/bacnet/controller/native-application/inline-sequence/draft";
 export function NativeInlineDraft({
   source,
   sources,
+  edgeSampling,
 }: {
   source: SnapshotRestoreArchive;
   sources: Row[];
+  edgeSampling?: boolean;
 }) {
   const candidates = sources.filter(
     (row) =>
@@ -26,6 +28,9 @@ export function NativeInlineDraft({
   const [donorId, setDonor] = useState(source.capture_id);
   const [purpose, setPurpose] = useState("observe");
   const [layout, setLayout] = useState("activities");
+  const [sampling, setSampling] = useState(
+    edgeSampling ? "clock-edge" : "paired",
+  );
   const [first, setFirst] = useState("3000000");
   const [review, setReview] = useState<Row | null>(null);
   const [pendingSelection, setPendingSelection] = useState<string | null>(null);
@@ -44,6 +49,7 @@ export function NativeInlineDraft({
     controllerKey(source.target),
     purpose,
     layout,
+    sampling,
     first,
   ]);
   if (current.current !== selection) {
@@ -90,6 +96,7 @@ export function NativeInlineDraft({
       first_instance: Number(first),
       purpose,
       layout,
+      ...(sampling === "clock-edge" ? { sampling } : {}),
     };
     pendingRef.current = selection;
     setPendingSelection(selection);
@@ -118,6 +125,7 @@ export function NativeInlineDraft({
           controllerKey(r.target) !== controllerKey(source.target) ||
           r.purpose !== purpose ||
           r.layout !== layout ||
+          (r.sampling ?? "paired") !== sampling ||
           r.controller_queries !== false ||
           r.production_transfer_qualified !== false ||
           !/^[0-9a-f]{64}$/.test(r.review_sha256) ||
@@ -158,6 +166,19 @@ export function NativeInlineDraft({
       )}
       <fieldset>
         <legend>Draft settings</legend>
+        {edgeSampling && (
+          <label>
+            Airflow sampling
+            <select
+              aria-label="Airflow sampling"
+              value={sampling}
+              onChange={(e) => reset(() => setSampling(e.target.value))}
+            >
+              <option value="clock-edge">One sample per clock change</option>
+              <option value="paired">Existing paired-clock drawing</option>
+            </select>
+          </label>
+        )}
         <label>
           Logic block source
           <select

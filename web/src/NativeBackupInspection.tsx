@@ -187,6 +187,7 @@ export function NativeBackupInspection({
               key={owner + source.snapshot_sha256 + "/inline"}
               source={source as SnapshotRestoreArchive}
               sources={sources}
+              edgeSampling={source.inline_edge_sampling === true}
             />
           )}
           <NativeBackupCapabilities
