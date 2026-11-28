@@ -1,6 +1,11 @@
 import { test, expect, type Page } from "@playwright/test";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import {
+  chooseWorkspaceSurface,
+  chooseWorkspaceTask,
+  chooseWorkspaceTool,
+} from "./workspace-navigation";
 
 function stable(value: any): string {
   if (Array.isArray(value)) return "[" + value.map(stable).join(",") + "]";
@@ -32,7 +37,15 @@ async function releaseReply(page: Page, suffix: string, release: () => void) {
 }
 async function open(page: Page) {
   await page.goto("/");
-  await page.getByRole("button", { name: "Truth tables", exact: true }).click();
+  await expect(
+    page.getByRole("navigation", {
+      name: "Main navigation",
+      includeHidden: true,
+    }),
+  ).toBeAttached();
+  await chooseWorkspaceSurface(page, "Workspace");
+  await chooseWorkspaceTask(page, "Program");
+  await chooseWorkspaceTool(page, "Truth tables");
   await expect(
     page.getByRole("textbox", { name: "Truth-table name", exact: true }),
   ).toHaveValue("Mode and override example");
@@ -80,7 +93,7 @@ test("actual finite review downloads sealed source/full coverage and round-trips
   });
   await open(page);
   await expect(
-    page.getByRole("button", { name: "Save revision", exact: true }),
+    page.getByRole("button", { name: "Save project", exact: true }),
   ).toBeDisabled();
   await expect(
     page.getByRole("textbox", { name: "Program name", exact: true }),
@@ -166,6 +179,10 @@ test("actual finite review downloads sealed source/full coverage and round-trips
   );
   expect(fieldWrites).toEqual([]);
   expect(projectWrites).toEqual([]);
+  await chooseWorkspaceTool(page, "Graph editor");
+  await expect(
+    page.getByRole("textbox", { name: "Program name", exact: true }),
+  ).toBeEditable();
 });
 
 test("same-output copies are ambiguous and explicit row priority retains shadowed identities", async ({
@@ -373,7 +390,7 @@ test("leaving the workspace suppresses an in-flight authoritative download", asy
     .getByRole("button", { name: "Export full review", exact: true })
     .click();
   await requested;
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceTool(page, "Graph editor");
   await releaseReply(page, "/truth-tables/export/review", release);
   await expect(
     page.getByRole("heading", { name: "Truth tables", exact: true }),
