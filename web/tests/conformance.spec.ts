@@ -3,29 +3,46 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { projectedSourceFixture } from "./sourceTransportFixtures";
+import {
+  chooseWorkspaceSurface,
+  chooseWorkspaceTask,
+  chooseWorkspaceTool,
+} from "./workspace-navigation";
 const root = path.resolve(".."),
   python = path.join(root, ".venv/bin/python");
+async function validateGraph(page: Page) {
+  await chooseWorkspaceTask(page, "Changes");
+  await chooseWorkspaceTool(page, "Validate graph");
+}
 async function open(
   page: Page,
   code = "from tests.test_conformance import program; print(program().model_dump_json())",
 ) {
   await page.goto("/");
-  const buffer = execFileSync(python, ["-c", code], { cwd: root });
-  await page
-    .locator(
-      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"]',
-    )
-    .setInputFiles({
-      name: "delay.bms.json",
-      mimeType: "application/json",
-      buffer,
-    });
+  await expect(
+    page.getByRole("navigation", {
+      name: "Main navigation",
+      includeHidden: true,
+    }),
+  ).toBeAttached();
+  await chooseWorkspaceSurface(page, "Workspace");
+  await chooseWorkspaceTask(page, "Program");
+  const buffer = execFileSync(python, ["-c", code], {
+    cwd: root,
+    env: { ...process.env, PYTHONPATH: path.join(root, "backend") },
+  });
+  await page.locator('input[type=file][accept*=".st"]').setInputFiles({
+    name: "delay.bms.json",
+    mimeType: "application/json",
+    buffer,
+  });
+  await expect(page.locator(".toast")).toContainText(
+    "Imported as a new local project",
+  );
   const pending = page.waitForResponse((r) =>
     r.url().endsWith("/api/conformance/catalog"),
   );
-  await page
-    .getByRole("button", { name: "Conformance tests", exact: true })
-    .click();
+  await validateGraph(page);
   const response = await pending;
   await expect(
     page.getByLabel("Conformance suite name", { exact: true }),
@@ -123,9 +140,14 @@ test("author criteria, run, persist, reopen after reload and download original s
     (await download(page, "Export conformance suite JSON"))!,
   );
   await page.reload();
-  await page
-    .getByRole("button", { name: "Conformance tests", exact: true })
-    .click();
+  await expect(
+    page.getByRole("navigation", {
+      name: "Main navigation",
+      includeHidden: true,
+    }),
+  ).toBeAttached();
+  await chooseWorkspaceSurface(page, "Workspace");
+  await validateGraph(page);
   await page
     .getByLabel("Saved conformance suites", { exact: true })
     .selectOption({ label: "Browser delay criteria · revision 1" });
