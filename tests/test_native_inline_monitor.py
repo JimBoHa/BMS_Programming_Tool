@@ -283,7 +283,7 @@ def test_readback_requires_original_lineage_and_verifies_effective_settings():
         reconstruct(native, {**intent, "first_instance": 700})
 
 
-def observation_peer(peer, fault, *, floating=None):
+def observation_peer(peer, fault, *, floating=None, first_instance=100, allocated_count=26):
     import time
     from types import MethodType
 
@@ -337,7 +337,7 @@ def observation_peer(peer, fault, *, floating=None):
                 value = PriorityArray(slots)
             else:
                 raise ExecutionError(errorClass="property", errorCode="unknown-property")
-        elif 100 <= key[1] < 126 and pid in (85, 103):
+        elif first_instance <= key[1] < first_instance + allocated_count and pid in (85, 103):
             installed = MoiIdentity(self.files[3])
             rd = installed.reader
             clock_output = {
@@ -357,15 +357,17 @@ def observation_peer(peer, fault, *, floating=None):
                 if pid == 103
                 else Real(37 if fault == "clock-stalled" else (2 - elapsed) % 60)
             )
-        elif 100 <= key[1] < 126 and pid == 75:
+        elif first_instance <= key[1] < first_instance + allocated_count and pid == 75:
             peer.clearance_reads.append(key)
-            if key[1] == 100 and (
+            if key[1] == first_instance and (
                 fault == "silent"
                 or fault in ("lost-first", "collision-after-loss")
                 and peer.clearance_reads.count(key) == 1
             ):
                 return
-            if fault == "collision" or (fault == "collision-after-loss" and key[1] == 100):
+            if fault == "collision" or (
+                fault == "collision-after-loss" and key[1] == first_instance
+            ):
                 value = obj
             else:
                 raise ExecutionError(errorClass="object", errorCode="unknown-object")

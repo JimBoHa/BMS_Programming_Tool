@@ -208,9 +208,13 @@ def sources(app, graph, *, allow_floating=False):
     )
 
 
-def compile_monitor(files, first_instance, *, preserve_root_layout=True, allow_floating=False):
+def compile_monitor(
+    files, first_instance, *, preserve_root_layout=True, allow_floating=False, sample_register=False
+):
     if type(first_instance) is not int or not 1 <= first_instance <= LIMIT:
         raise ValueError("Select a valid first native object instance.")
+    if type(sample_register) is not bool:
+        raise ValueError("Select a Boolean sampling register option.")
     effective, merge = ParameterApplication(files[3], files[11], files[12]).compile()
     qualification = qualify_parameter_additions(effective, merge)
     app = MoiIdentity(effective)
@@ -352,9 +356,16 @@ def compile_monitor(files, first_instance, *, preserve_root_layout=True, allow_f
     clock_output = port(witness, 527, 2, 85, Real(0))
     port(witness, 526, 2, 513, Real(0))
     n = len(g["blocks"])
-    if n + len(members) > 512 or len(g["connections"]) + 1 > 4096:
+    added_wires = [(n + 5, 1081, n + 6, 513)]
+    register = None
+    if sample_register:
+        from .native_inline_register import append_clock_register
+
+        links, register = append_clock_register(app, ref, add, n + len(members), n + 5)
+        added_wires.extend(links)
+    if n + len(members) > 512 or len(g["connections"]) + len(added_wires) > 4096:
         raise ValueError("Insufficient graph capacity for the timing monitor.")
-    new_wire = b"\x3e" + atoms(Unsigned, [n + 5, 1081, n + 6, 513]) + b"\x3f"
+    new_wire = b"".join(b"\x3e" + atoms(Unsigned, link) + b"\x3f" for link in added_wires)
     root_bytes = replace_properties(
         app,
         root,
@@ -369,7 +380,9 @@ def compile_monitor(files, first_instance, *, preserve_root_layout=True, allow_f
     ]
     ordered, added_at, footer = originals + additions, len(originals), None
     if preserve_root_layout:
-        ordered, added_at, footer = assemble_root(app, root, originals, additions, g, members, 1)
+        ordered, added_at, footer = assemble_root(
+            app, root, originals, additions, g, members, len(added_wires)
+        )
     output = archive(app, ordered)
     actual = MoiIdentity(output)
     parsed = actual.reader.diagram(ref, retained_activity_refs=True)
@@ -386,15 +399,18 @@ def compile_monitor(files, first_instance, *, preserve_root_layout=True, allow_f
         )
         or [b["ref"] for b in parsed["blocks"][:n]] != [b["ref"] for b in g["blocks"]]
         or parsed["execution_order"] != g["execution_order"] + list(range(n, n + len(members)))
-        or parsed["connections"][:-1] != g["connections"]
-        or parsed["connections"][-1]
-        != {
-            "index": len(g["connections"]),
-            "source_ref": clock,
-            "source_port": 1081,
-            "target_ref": witness,
-            "target_port": 513,
-        }
+        or parsed["connections"]
+        != g["connections"]
+        + [
+            {
+                "index": len(g["connections"]) + i,
+                "source_ref": parsed["blocks"][start]["ref"],
+                "source_port": source_port,
+                "target_ref": parsed["blocks"][end]["ref"],
+                "target_port": target_port,
+            }
+            for i, (start, source_port, end, target_port) in enumerate(added_wires)
+        ]
         or any(
             actual.reader.scalar(r, 3807) is True
             for r in actual.records[added_at : added_at + len(additions)]
@@ -417,6 +433,7 @@ def compile_monitor(files, first_instance, *, preserve_root_layout=True, allow_f
         "original_wires": len(g["connections"]),
         "observations": observations,
         "clock_witness": clock_output,
+        **({"sampling_register": register} if register is not None else {}),
         "added_objects": identifiers,
         "points": {k: read(v, 75) for k, v in physical.items()},
         **({"floating_valve": floating} if floating is not None else {}),
