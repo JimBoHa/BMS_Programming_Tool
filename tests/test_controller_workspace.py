@@ -296,6 +296,11 @@ async def test_unknown_vendor_primitive_and_noncanonical_quality_remain_distinct
     "vendor,object_id,prop,payload,typed",
     [
         (5, "device,42", "4961", b"", True),
+        (5, "device,42", "4961", bytes.fromhex("4e91022201004f4e91fe24010203044f"), True),
+        (5, "device,42", "4961", bytes.fromhex("4e210191024f"), False),
+        (5, "device,42", "4961", bytes.fromhex("4e92010221004f"), False),
+        (5, "device,42", "4961", bytes.fromhex("4e9102250501000000004f"), False),
+        (5, "device,42", "4961", bytes.fromhex("5e9102210a5f"), False),
         (999, "device,42", "4961", b"", False),
         (5, "analog-input,1", "4961", b"", False),
         (5, "device,42", "4962", b"", False),
@@ -304,7 +309,7 @@ async def test_unknown_vendor_primitive_and_noncanonical_quality_remain_distinct
         (5, "device,42", "4961", bytes.fromhex("2e"), False),
     ],
 )
-async def test_startup_phase_empty_list_requires_exact_device_and_wire(
+async def test_startup_phase_timings_require_exact_device_and_wire(
     tmp_path, vendor, object_id, prop, payload, typed
 ):
     peer = await make_point_peer(routed=True)
@@ -332,9 +337,18 @@ async def test_startup_phase_empty_list_requires_exact_device_and_wire(
         assert report["identity_verified"] and report["read_only"]
         row = report["objects"][0]["properties"][prop]
         if typed:
-            assert row["status"] == "ok" and row["value"] == []
+            assert row["status"] == "ok"
+            assert row["value"] == (
+                [
+                    {"phase": 2, "duration_ms": 256, "name": "Startup"},
+                    {"phase": 254, "duration_ms": 16909060},
+                ]
+                if payload
+                else []
+            )
             assert row["datatype"] == "ListOfStartupPhaseDiagnostic"
-            assert row["encoded_value"]["hex"] == "3e3f" and row["encoded_value"]["complete"]
+            assert row["encoded_value"]["hex"] == "3e" + payload.hex() + "3f"
+            assert row["encoded_value"]["complete"]
         else:
             assert row["status"] != "ok" and "value" not in row
         assert not client.app._requests and not client.app.asap.clientTransactions

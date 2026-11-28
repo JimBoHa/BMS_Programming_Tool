@@ -19,6 +19,7 @@ from pydantic import Field, field_validator
 
 from .device_details import DeviceDetails, DeviceDetailsRequest
 from .hardware_survey import read_fields
+from .jci_startup_phases import startup_phase_timings
 from .property_evidence import PropertyEvidence, ReadBudget, _encoded, _utc, native_value
 
 
@@ -249,17 +250,16 @@ class ControllerWorkspace:
                 encoded = bytes.fromhex(row["encoded_value"]["hex"])
                 tags = list(TagList.decode(PDU(encoded)))
                 if (
-                    encoded == b"\x3e\x3f"
-                    and index is None
+                    index is None
                     and prop == "4961"
                     and session.get("vendor_identifier") == 5
                     and session.get("vendor_source_object") == obj
                     and int(ObjectIdentifier(obj)[0]) == 8
+                    and (timings := startup_phase_timings(tags)) is not None
                 ):
-                    # The JCI Device schema declares Startup Phase Diagnostic as a list.
-                    value, datatype = [], "ListOfStartupPhaseDiagnostic"
+                    value, datatype = timings, "ListOfStartupPhaseDiagnostic"
                     decoded_value = value
-                    decoding = "JCI Device Startup Phase Diagnostic returned an empty list"
+                    decoding = "JCI Device Startup Phase Diagnostic entries in reported order"
                 else:
                     if (
                         len(tags) == 3

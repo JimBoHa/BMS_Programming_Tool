@@ -10,6 +10,7 @@ import { readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import { createHash } from "node:crypto";
 import { freePort } from "./workflow-peer";
+import { chooseWorkspaceTask } from "./workspace-navigation";
 
 const root = path.resolve("..");
 async function controller(
@@ -1235,5 +1236,68 @@ test("late native properties cannot return after selecting another controller wi
     release();
     first.close();
     second.close();
+  }
+});
+
+test("read controller startup phases with an empty or populated result", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(60000);
+  const peer = await controller("Commissioning test controller", 0);
+  await session(request);
+  try {
+    await interfaceSetup(page);
+    await openController(page, peer.endpoint, "Commissioning test controller");
+    await chooseWorkspaceTask(page, "Points & I/O");
+    const points = page.getByRole("region", {
+      name: "Connected controller points",
+    });
+    await points
+      .getByRole("checkbox", { name: "Show all BACnet objects" })
+      .check();
+    await points
+      .getByRole("row")
+      .filter({ hasText: "device,4190090" })
+      .getByRole("button", { name: "Configuration", exact: true })
+      .click();
+    const entries: { phase: number; name?: string; duration_ms: number }[] = [];
+    await page.route("**/api/bacnet/controller/properties", async (route) => {
+      const args = route.request().postDataJSON();
+      if (!args?.properties?.includes("4961")) return route.continue();
+      const response = await route.fetch();
+      const report = await response.json();
+      expect(report.identity_verified).toBe(true);
+      expect(report.objects[0].object).toBe("device,4190090");
+      report.objects[0].properties["4961"] = {
+        status: "ok",
+        datatype: "ListOfStartupPhaseDiagnostic",
+        value: [...entries],
+      };
+      await route.fulfill({ response, json: report });
+    });
+    await points.getByLabel("Controller configuration property").fill("4961");
+    const read = points.getByRole("button", {
+      name: "Read controller property",
+    });
+    await read.click();
+    await expect(
+      points.getByText("No startup phases reported", { exact: true }),
+    ).toBeVisible();
+    entries.push(
+      { phase: 2, name: "Startup", duration_ms: 256 },
+      { phase: 254, duration_ms: 19 },
+    );
+    await read.focus();
+    await read.press("Enter");
+    const table = points.getByRole("table", { name: "Startup phase timings" });
+    await expect(
+      table.getByRole("row", { name: "Startup (2) 256 ms" }),
+    ).toBeVisible();
+    await expect(
+      table.getByRole("row", { name: "Phase 254 19 ms" }),
+    ).toBeVisible();
+  } finally {
+    peer.close();
   }
 });

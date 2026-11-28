@@ -33,6 +33,48 @@ export function nativeText(value: any): string {
   }
   return String(value);
 }
+function propertyReading(row: RecordValue) {
+  if (
+    row.status !== "ok" ||
+    row.datatype !== "ListOfStartupPhaseDiagnostic" ||
+    !Array.isArray(row.value) ||
+    !row.value.every(
+      (item: any) =>
+        item &&
+        Number.isInteger(item.phase) &&
+        item.phase >= 0 &&
+        item.phase <= 255 &&
+        Number.isInteger(item.duration_ms) &&
+        item.duration_ms >= 0 &&
+        item.duration_ms <= 4294967295,
+    )
+  )
+    return nativeText(row.value);
+  if (!row.value.length) return "No startup phases reported";
+  return (
+    <table aria-label="Startup phase timings">
+      <thead>
+        <tr>
+          <th scope="col">Phase</th>
+          <th scope="col">Duration</th>
+        </tr>
+      </thead>
+      <tbody>
+        {row.value.map((item: RecordValue, index: number) => (
+          <tr key={index}>
+            <th scope="row">
+              {typeof item.name === "string"
+                ? item.name + " (" + item.phase + ")"
+                : "Phase " + item.phase}
+            </th>
+            <td>{item.duration_ms} ms</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 const field = (properties: RecordValue | undefined, name: string) => {
   const row = properties?.[name];
   return row?.status === "ok"
@@ -728,7 +770,7 @@ export function LiveControllerPoints({
                   {Object.entries(detail.properties).map(([prop, evidence]) => (
                     <tr key={prop}>
                       <td>{prop}</td>
-                      <td>{nativeText((evidence as any).value)}</td>
+                      <td>{propertyReading(evidence as RecordValue)}</td>
                       <td>
                         {(evidence as any).status}
                         <details>
