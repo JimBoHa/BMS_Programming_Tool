@@ -9,7 +9,8 @@ from bacpypes3.object import AnalogInputObject, StructuredViewObject
 from bacpypes3.primitivedata import ObjectIdentifier
 from bms_tool.bacnet_read import close_application
 from bms_tool.connections import Bacnet
-from bms_tool.controller_workspace import ControllerWorkspace
+from bms_tool.controller_workspace import ControllerWorkspace, _label_actuator_units
+from bms_tool.property_evidence import ReadBudget
 from bms_tool.storage import Store
 
 from .test_connections import free_udp
@@ -105,6 +106,47 @@ async def test_capability_inventory_and_live_properties_do_not_depend_on_model(
         client.close()
         close_application(server)
         await asyncio.sleep(0.02)
+
+
+@pytest.mark.parametrize(
+    "vendor,unit,expected",
+    [(5, 264, "% open"), (5, 265, "% closed"), (5, 98, None), (5, 40001, None), (999, 264, None)],
+)
+async def test_actuator_unit_labels_preserve_the_received_enum(tmp_path, vendor, unit, expected):
+    port = free_udp()
+    server = workspace_device(port, vendor=vendor, modules=0)
+    server.get_object_id(ObjectIdentifier(("analog-input", 1))).units = unit
+    client = Bacnet(Store(tmp_path))
+    try:
+        await client.connect(f"127.0.0.1:{free_udp()}")
+        workspace = ControllerWorkspace(client, client.store, timeout=0.5)
+        for properties in (["units", "description"], ["units", "65000"]):
+            report = await workspace.properties(
+                address=f"127.0.0.1:{port}",
+                device="device,4190090",
+                object_ids=["analog-input,1"],
+                properties=properties,
+            )
+            assert report["identity_verified"]
+            row = report["objects"][0]["properties"]["units"]
+            assert row["status"] == "ok" and row["value"]["value"] == unit
+            assert row["value"]["native_datatype"] == "EngineeringUnits"
+            assert row["value"]["known"] == (unit == 98)
+            assert row.get("display_label") == expected
+    finally:
+        client.close()
+        close_application(server)
+        await asyncio.sleep(0.02)
+
+
+def test_unit_annotation_respects_the_remaining_evidence_budget():
+    units = {
+        "status": "ok",
+        "value": {"native_datatype": "EngineeringUnits", "known": False, "value": 264},
+    }
+    budget = ReadBudget(max_bytes=20, retained_bytes=19)
+    _label_actuator_units({"units": units}, budget)
+    assert "display_label" not in units and budget.retained_bytes == 19
 
 
 @pytest.mark.parametrize("operation", ["profile", "inventory", "properties"])

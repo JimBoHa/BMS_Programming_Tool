@@ -22,6 +22,24 @@ from .hardware_survey import read_fields
 from .property_evidence import PropertyEvidence, ReadBudget, _encoded, _utc, native_value
 
 
+def _label_actuator_units(properties, budget):
+    units = properties.get("units", {})
+    value = units.get("value")
+    if (
+        units.get("status") != "ok"
+        or not isinstance(value, dict)
+        or value.get("native_datatype") != "EngineeringUnits"
+        or value.get("known") is not False
+    ):
+        return
+    label = {264: "% open", 265: "% closed"}.get(value["value"])
+    if label:
+        growth = len(_encoded({"display_label": label})) - 1
+        if budget.retained_bytes + growth <= budget.max_bytes:
+            units["display_label"] = label
+            budget.retained_bytes += growth
+
+
 class ControllerInventoryRequest(DeviceDetailsRequest):
     offset: int = Field(default=0, ge=0, le=100000, strict=True)
     limit: int = Field(default=64, ge=1, le=128, strict=True)
@@ -456,7 +474,9 @@ class ControllerWorkspace:
                 async with self.path._path(options) as session:
                     self.reader.pin(session, options.router)
                     await self._identity(session, budget, options, report, "before")
-                    await self._read(session, budget, options.device, "vendor-identifier")
+                    vendor, vendor_row = await self._read(
+                        session, budget, options.device, "vendor-identifier"
+                    )
                     for obj in options.object_ids:
                         if time.monotonic() > deadline:
                             break
@@ -476,6 +496,9 @@ class ControllerWorkspace:
                         )
                     await self._identity(session, budget, options, report, "after")
                     report["identity_verified"] = True
+                    if vendor_row["status"] == "ok" and vendor == 5:
+                        for item in report["objects"]:
+                            _label_actuator_units(item["properties"], budget)
                     report["complete"] = len(report["objects"]) == len(options.object_ids) and all(
                         item["identity_verified"]
                         and all(prop in item["properties"] for prop in options.properties)

@@ -6,6 +6,10 @@ reference material. Opening the start screen does not open a field interface.
 
 ## Connect and commission
 
+In **Points & I/O**, Johnson Controls actuator units 264 and 265 display as
+**% open** and **% closed** after the controller identity and vendor are read.
+The property report retains the numeric engineering unit and its wire evidence.
+
 1. Choose the connection transport and open the interface. Advanced BACnet/IP
    parameters are available under Advanced connection settings.
 2. Under Discover & select, choose Router & trunk. Find local routers, select a

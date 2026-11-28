@@ -36,7 +36,7 @@ export function nativeText(value: any): string {
 const field = (properties: RecordValue | undefined, name: string) => {
   const row = properties?.[name];
   return row?.status === "ok"
-    ? nativeText(row.value)
+    ? (row.display_label ?? nativeText(row.value))
     : row
       ? `Unavailable (${row.status})`
       : "Reading…";
