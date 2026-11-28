@@ -2,6 +2,11 @@ import { test, expect, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import {
+  chooseWorkspaceTask,
+  openHardwareSurveyTask,
+  openLocalHardwareSurvey,
+} from "./workspace-navigation";
 
 const python = path.resolve("../.venv/bin/python");
 const fixture = () =>
@@ -17,8 +22,7 @@ const fixture = () =>
     },
   );
 async function open(page: Page) {
-  await page.goto("/");
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
+  await openLocalHardwareSurvey(page);
   const panel = page.getByRole("region", {
     name: "Physical capacity matrix",
     exact: true,
@@ -63,10 +67,24 @@ test("offline exact model matrix refuses analog demand on BI and exports sealed 
     if (r.url().includes("/api/bacnet/") && r.method() !== "GET")
       forbidden.push(r.url());
   });
+  const catalogResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/hardware-capacity/catalog" &&
+      response.ok(),
+  );
   const panel = await open(page);
-  await expect(
-    panel.getByLabel("Documented capacity model").locator("option"),
-  ).toHaveCount(33);
+  const catalog = await (await catalogResponse).json();
+  const models = catalog.models.map((row: { model: string }) => row.model);
+  expect(models.length).toBeGreaterThanOrEqual(32);
+  const options = panel
+    .getByLabel("Documented capacity model")
+    .locator("option");
+  await expect(options).toHaveCount(1 + models.length);
+  expect(
+    await options.evaluateAll((rows) =>
+      rows.map((row) => (row as HTMLOptionElement).value),
+    ),
+  ).toEqual(["", ...models]);
   const pools = panel.getByRole("table", { name: "Physical resource pools" });
   await expect(pools).toContainText("BI");
   await expect(pools).toContainText("16");
@@ -301,11 +319,11 @@ test("held review cannot adopt or export after demand/source edits or navigation
     .getByRole("button", { name: "Review physical count fit", exact: true })
     .click();
   await ready;
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceTask(page, "Program");
   release();
   await done;
   await page.unroute("**/api/hardware-capacity/review");
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
+  await openHardwareSurveyTask(page);
   await expect(
     page.getByRole("region", { name: "Capacity count review", exact: true }),
   ).toHaveCount(0);
@@ -317,8 +335,7 @@ test("malformed catalog/review retain draft and never become downloadable eviden
   await page.route("**/api/hardware-capacity/catalog", (route) =>
     route.fulfill({ json: { profile: "jci-physical-counts/1", captures: {} } }),
   );
-  await page.goto("/");
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
+  await openLocalHardwareSurvey(page);
   const panel = page.getByRole("region", {
     name: "Physical capacity matrix",
     exact: true,

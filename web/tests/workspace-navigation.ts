@@ -38,6 +38,25 @@ export async function openNativeCompiler(page: Page) {
   await chooseWorkspaceTool(page, "Native backup defaults");
 }
 
+export async function openHardwareSurveyTask(page: Page) {
+  await chooseWorkspaceTask(page, "Points & I/O");
+  await expect(
+    page.getByRole("navigation", {
+      name: "Controller task tools",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await chooseWorkspaceTool(page, "Hardware survey", "Controller task tools");
+}
+
+export async function openLocalHardwareSurvey(page: Page) {
+  await page.goto("/");
+  await page
+    .getByRole("button", { name: "New application", exact: true })
+    .click();
+  await openHardwareSurveyTask(page);
+}
+
 export async function expectWorkspaceNavigationLocked(page: Page) {
   await expect(
     page
