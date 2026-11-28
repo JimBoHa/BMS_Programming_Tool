@@ -1,4 +1,11 @@
 import { sha256Digest, randomUUID } from "./browserCrypto";
+import {
+  OBSERVED_DRAFT,
+  OBSERVED_WRITE,
+  OBSERVED_WRITE_RULES,
+  observedDefaultDraft,
+  observedWriteCapability,
+} from "./nativeScheduleObservedDefault";
 import { useEffect, useRef, useState } from "react";
 import {
   api,
@@ -71,6 +78,11 @@ const strings = (value: any, maximum = 64) =>
 type Domain = { profile: string; rules: string };
 function writeDomain(binding: Binding | null, profile: any): Domain | null {
   if (!binding || !profile) return null;
+  if (binding.profile === OBSERVED_DRAFT)
+    return observedWriteCapability(profile.observed_default_profile) &&
+      observedDefaultDraft(binding)
+      ? { profile: OBSERVED_WRITE, rules: OBSERVED_WRITE_RULES }
+      : null;
   if (binding.source.observed_native_type === "CharacterString")
     return stringWriteCapability(profile.string_profile) &&
       stringDraftReview(binding)
@@ -78,6 +90,14 @@ function writeDomain(binding: Binding | null, profile: any): Domain | null {
       : null;
   if (binding.profile === STRING_DRAFT) return null;
   return { profile: PROFILE, rules: profile.rules_sha256 };
+}
+function matchesWriteDomain(profile: string, draft: any) {
+  if (profile === OBSERVED_WRITE) return observedDefaultDraft(draft);
+  if (profile === STRING_WRITE) return stringDraftReview(draft);
+  return (
+    draft?.profile !== OBSERVED_DRAFT &&
+    draft?.source?.observed_native_type !== "CharacterString"
+  );
 }
 function profileResult(value: any) {
   if (
@@ -135,15 +155,18 @@ function previewResult(
     !strings(value.reasons) ||
     value.native_draft?.id !== binding.id ||
     value.native_draft?.source?.capture_id !== binding.source.capture_id ||
-    (isString
-      ? !stringDraftReview(value.native_draft)
-      : value.native_draft?.source?.observed_native_type ===
-        "CharacterString") ||
+    !matchesWriteDomain(domain.profile, value.native_draft) ||
+    (domain.profile === OBSERVED_WRITE &&
+      value.native_draft.source.observed_native_type !==
+        binding.source.observed_native_type) ||
     !Array.isArray(value.native_draft?.new?.transitions) ||
     value.native_draft.new.transitions.length > 32 ||
     value.native_draft.new.transitions.some(
       (row: any) =>
         !Array.isArray(row?.time) ||
+        (domain.profile === OBSERVED_WRITE &&
+          row.native_type !== "Null" &&
+          row.native_type !== binding.source.observed_native_type) ||
         row.time.length !== 4 ||
         row.time.some(
           (part: any, index: number) =>
@@ -202,12 +225,11 @@ function receiptResult(value: any, id?: string) {
   const unresolved = value?.journal_state === "intent_only";
   const isString = value?.profile === STRING_WRITE;
   if (
-    ![PROFILE, STRING_WRITE].includes(value?.profile) ||
-    (isString
-      ? value.rules_sha256 !== STRING_WRITE_RULES ||
-        !stringDraftReview(value.review?.native_draft)
-      : value.review?.native_draft?.source?.observed_native_type ===
-        "CharacterString") ||
+    ![PROFILE, STRING_WRITE, OBSERVED_WRITE].includes(value?.profile) ||
+    (isString && value.rules_sha256 !== STRING_WRITE_RULES) ||
+    (value.profile === OBSERVED_WRITE &&
+      value.rules_sha256 !== OBSERVED_WRITE_RULES) ||
+    !matchesWriteDomain(value.profile, value.review?.native_draft) ||
     !hex(value.id, 32) ||
     (id && value.id !== id) ||
     !hex(value.evidence_sha256, 64) ||
@@ -307,6 +329,7 @@ export function NativeScheduleWritePanel({
     rationale,
     profile?.rules_sha256 ?? null,
     profile?.string_profile?.rules_sha256 ?? null,
+    profile?.observed_default_profile?.rules_sha256 ?? null,
   ]);
   const boundaryRevision = useRef({ value: boundary, revision: 0 });
   if (boundaryRevision.current.value !== boundary) {
@@ -465,7 +488,14 @@ export function NativeScheduleWritePanel({
     }
     await run(
       "preview",
-      { draft_id: binding.id, operator_name: name, rationale: why },
+      {
+        draft_id: binding.id,
+        operator_name: name,
+        rationale: why,
+        ...(domain.profile === OBSERVED_WRITE
+          ? { observed_defaults: true }
+          : {}),
+      },
       (result, operation) => {
         previewResult(result.data, binding, operation.id, name, why, domain);
         if (result.data.can_apply) readyOperation.current = operation.id;
@@ -567,6 +597,8 @@ export function NativeScheduleWritePanel({
         value?.profile !== selected.data.profile ||
         (selected.data.profile === STRING_WRITE &&
           value.rules_sha256 !== STRING_WRITE_RULES) ||
+        (selected.data.profile === OBSERVED_WRITE &&
+          value.rules_sha256 !== OBSERVED_WRITE_RULES) ||
         value.operation_id !== operation.id ||
         value.receipt_id !== id ||
         value.receipt_sha256 !== digest ||
@@ -684,6 +716,13 @@ export function NativeScheduleWritePanel({
                 day {draft.source.day}
               </p>
               <p className="mono">Draft {draft.id}</p>
+              {draft.profile === OBSERVED_DRAFT && (
+                <p>
+                  {domain
+                    ? `This schedule has a Null default. Field review verifies its observed ${draft.source.observed_native_type} type again before applying the weekly day.`
+                    : "This service supports local review only for this Null-default schedule."}
+                </p>
+              )}
               {profile &&
                 draft.source.observed_native_type === "CharacterString" &&
                 !domain && (

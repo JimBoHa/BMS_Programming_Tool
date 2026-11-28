@@ -6,6 +6,16 @@ An already-open plain BACnet/IPv4 interface is required. Direct unicast and an e
 
 ## Preview and fresh conflict checks
 
+### Schedules with a Null default
+
+The weekly-day writer can use a captured Boolean or numeric type when the Schedule's default is Null. The deployment panel shows the observed type. The API caller selects this profile explicitly with `observed_defaults: true` in its preview request.
+
+Fresh reads check that the default is still Null, the present value has the reviewed type, and every non-Null weekly and exception entry agrees. At least one weekly transition must retain that type after the edit so a new capture can support recovery. Type changes between preview and Apply stop the operation before dispatch. Readback, saved receipts and read-only reconciliation carry the same write profile. Restoring a day uses a fresh capture and review against the retained original transitions.
+
+A matched weekly array proves that the Schedule stored the replacement. To establish operation, independently observe the Schedule's present value and each affected item's command priority and effective value when the event is due.
+
+### Shared checks
+
 Select a retained, strict weekly-day draft. Preview regenerates its native proof from the immutable source capture, verifies its exact identifier/bytes and requires a visible user-declared operator name and rationale. These declarations are not authenticated identities.
 
 Preview performs owned, single-attempt ReadProperty calls for the exact Device and Schedule identities, remote Max_APDU_Length_Accepted, all seven weekly days, the complete bounded exception array, native Schedule_Default, Effective_Period, references, Priority_For_Writing, Out_Of_Service, flags/reliability and Present_Value. Array counts are re-read. Native context and all value types must satisfy the strict draft profile. Device date/time/offset/DST fields are retained as dated observations; unsupported clock reads remain visible.

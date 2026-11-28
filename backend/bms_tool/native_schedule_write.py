@@ -31,6 +31,9 @@ from .device_details import DeviceDetails, DeviceDetailsRequest
 from .models import StrictModel
 from .native_schedule_library import (
     CONTEXT,
+    OBSERVED_DRAFT_PROFILE,
+    OBSERVED_RULES_SHA256,
+    PRIMITIVES,
     STRING_DRAFT_PROFILE,
     STRING_RULES_SHA256,
     NativeScheduleLibrary,
@@ -51,6 +54,7 @@ from .schedule_inventory import CLOCK
 
 PROFILE = "native-schedule-reviewed-weekly-day-write/1"
 STRING_PROFILE = "native-schedule-reviewed-utf8-weekly-day-write/1"
+OBSERVED_PROFILE = "native-schedule-reviewed-null-default-weekly-day-write/1"
 SCOPE = (
     "One existing Schedule weekly-schedule index1..7 over an already-open plain IPv4 "
     "interface or explicitly pinned router/DNET:MAC. Fresh sequential native-tag checks, "
@@ -91,9 +95,31 @@ STRING_RULES = {
 }
 STRING_WRITE_RULES_SHA256 = digest(STRING_RULES)
 
+OBSERVED_RULES = {
+    **RULES,
+    "profile": OBSERVED_PROFILE,
+    "draft_rules_sha256": OBSERVED_RULES_SHA256,
+    "source": "Explicit observed-default write review. The default must remain Null and present, weekly and exception values must agree with the originally observed non-Null type on every fresh check.",
+    "recovery": "At least one weekly transition must still establish the same type after replacement.",
+}
+OBSERVED_WRITE_RULES_SHA256 = digest(OBSERVED_RULES)
 
-def authority(review):
+
+def authority(review, *, observed_defaults=False):
     """Select active authority by observed domain and its explicit sealed rules."""
+    if observed_defaults:
+        source = review.get("source", {})
+        domain = source.get("observed_native_type")
+        if (
+            review.get("profile") != OBSERVED_DRAFT_PROFILE
+            or review.get("rules_sha256") != OBSERVED_RULES_SHA256
+            or review.get("request", {}).get("draft_profile") != OBSERVED_DRAFT_PROFILE
+            or source.get("schedule_default_type") != "Null"
+            or domain not in PRIMITIVES
+            or domain == "Null"
+        ):
+            raise ValueError("Null-default write authority differs from the reviewed source.")
+        return OBSERVED_PROFILE, OBSERVED_WRITE_RULES_SHA256
     if review.get("source", {}).get("observed_native_type") == "CharacterString":
         if (
             review.get("profile") != STRING_DRAFT_PROFILE
@@ -124,6 +150,7 @@ class WeeklyWritePreview(StrictModel):
     draft_id: str = Field(pattern=r"^[0-9a-f]{64}$")
     operator_name: str = Field(min_length=1, max_length=48)
     rationale: str = Field(min_length=1, max_length=240)
+    observed_defaults: bool = Field(default=False, strict=True)
 
     @field_validator("operator_name", "rationale")
     @classmethod
@@ -237,7 +264,7 @@ class WeeklyWriteJournal:
         if (
             type(body) is not dict
             or body.get("id") != id
-            or body.get("profile") not in (PROFILE, STRING_PROFILE)
+            or body.get("profile") not in (PROFILE, STRING_PROFILE, OBSERVED_PROFILE)
             or body.get("evidence_sha256")
             != digest({k: v for k, v in body.items() if k != "evidence_sha256"})
         ):
@@ -250,6 +277,18 @@ class WeeklyWriteJournal:
         )
         if (body.get("profile") == STRING_PROFILE) != observed_string:
             raise ValueError("Weekly-write receipt profile conflicts with its captured datatype.")
+        observed = (
+            isinstance(native_draft, dict) and native_draft.get("profile") == OBSERVED_DRAFT_PROFILE
+        )
+        if (body["profile"] == OBSERVED_PROFILE) != observed:
+            raise ValueError("Weekly-write receipt differs from its captured default type.")
+        if observed and (
+            authority(native_draft, observed_defaults=True)
+            != (body["profile"], body.get("rules_sha256"))
+            or review.get("profile") != body["profile"]
+            or review.get("rules_sha256") != body["rules_sha256"]
+        ):
+            raise ValueError("Weekly-write receipt differs from its Null-default review.")
         return body
 
     def receipt(self, id):
@@ -370,6 +409,13 @@ class NativeWeeklyDayWrites:
                 "draft_profile": STRING_DRAFT_PROFILE,
                 "draft_rules_sha256": STRING_RULES_SHA256,
             },
+            "observed_default_profile": {
+                "profile": OBSERVED_PROFILE,
+                "rules_sha256": OBSERVED_WRITE_RULES_SHA256,
+                "rules": OBSERVED_RULES,
+                "draft_profile": OBSERVED_DRAFT_PROFILE,
+                "draft_rules_sha256": OBSERVED_RULES_SHA256,
+            },
             "active_operation": self.active["id"] if self.active else None,
             "automatic_retries": False,
             "limits": {
@@ -473,8 +519,28 @@ class NativeWeeklyDayWrites:
         )
 
     @staticmethod
-    def _static(report, object_id):
-        props, _, _ = NativeScheduleLibrary._weekly_context(report, object_id)
+    def _static(report, object_id, *, observed_review=None):
+        props, days, domain = NativeScheduleLibrary._weekly_context(
+            report, object_id, observed_defaults=observed_review is not None
+        )
+        if observed_review is not None:
+            if (
+                props["schedule-default"]["value"]["native_datatype"] != "Null"
+                or domain != observed_review["source"]["observed_native_type"]
+            ):
+                raise ValueError("Fresh Schedule default or observed value type changed.")
+            replacement = observed_review["request"]
+            if not any(
+                row["native_type"] == domain for row in replacement["transitions"]
+            ) and not any(
+                type(entry.value.get_value()).__name__ == domain
+                for index, day in enumerate(days, 1)
+                if index != replacement["day"]
+                for entry in day.daySchedule
+            ):
+                raise ValueError(
+                    "The replacement removes the last typed weekly transition needed for recovery."
+                )
 
         def raw(row, prop, index=None):
             return decoded_row(row, object_id, prop, index)[1].hex()
@@ -487,7 +553,7 @@ class NativeWeeklyDayWrites:
             }
         return result
 
-    async def _fresh(self, session, target, object_id, *, report=None):
+    async def _fresh(self, session, target, object_id, *, report=None, observed_review=None):
         budget = ReadBudget(max_requests=MAX_REQUESTS, max_bytes=MAX_EVIDENCE_BYTES)
         props = {}
         report = {} if report is None else report
@@ -581,7 +647,7 @@ class NativeWeeklyDayWrites:
                     "elements": elements,
                 }
             )
-        NativeScheduleLibrary._weekly_context(report, object_id)
+        static = self._static(report, object_id, observed_review=observed_review)
         # These clocks/PV are observations only. Unsupported clock properties
         # stay visible and do not become invented UTC/timezone equality guards.
         for prop in CLOCK:
@@ -590,7 +656,7 @@ class NativeWeeklyDayWrites:
         report["budget"] = budget.snapshot()
         report["finished_at"] = utc()
         report["complete"] = True
-        return report, self._static(report, object_id), int(maximum)
+        return report, static, int(maximum)
 
     @staticmethod
     def _request(review, destination):
@@ -615,7 +681,8 @@ class NativeWeeklyDayWrites:
     async def preview(self, **arguments):
         options = WeeklyWritePreview(**arguments)
         review, captured, target = self._reference(options.draft_id)
-        profile, rules = authority(review)
+        profile, rules = authority(review, observed_defaults=options.observed_defaults)
+        observed = review if profile == OBSERVED_PROFILE else None
         body = {
             "id": secrets.token_hex(16),
             "profile": profile,
@@ -650,10 +717,12 @@ class NativeWeeklyDayWrites:
                     pin, config = self._pin(session), copy.deepcopy(session["config"])
                     fresh = body["fresh"] = {}
                     _, static, maximum = await self._fresh(
-                        session, target, body["object_id"], report=fresh
+                        session, target, body["object_id"], report=fresh, observed_review=observed
                     )
                     body["fresh"] = fresh
-                    if static != self._static(captured, body["object_id"]):
+                    if static != self._static(
+                        captured, body["object_id"], observed_review=observed
+                    ):
                         raise ValueError(
                             "Captured native configuration changed; capture and draft again."
                         )
@@ -718,7 +787,11 @@ class NativeWeeklyDayWrites:
         )
         try:
             fresh, static, _ = await self._fresh(
-                session, target, review["source"]["object"], report=result["evidence"]
+                session,
+                target,
+                review["source"]["object"],
+                report=result["evidence"],
+                observed_review=review if review["profile"] == OBSERVED_DRAFT_PROFILE else None,
             )
             desired = copy.deepcopy(before)
             desired["weekly-schedule"]["elements"][review["source"]["day"] - 1] = (
@@ -761,7 +834,9 @@ class NativeWeeklyDayWrites:
         review, _, target = self._reference(body["draft_id"])
         if review != body["native_draft"]:
             raise ValueError("Reviewed draft changed; no write sent.")
-        profile, rules = authority(review)
+        profile, rules = authority(
+            review, observed_defaults=body.get("profile") == OBSERVED_PROFILE
+        )
         if (body.get("profile"), body.get("rules_sha256")) != (profile, rules):
             raise ValueError("Weekly-write plan profile changed; preview again.")
         receipt = {
@@ -802,7 +877,11 @@ class NativeWeeklyDayWrites:
                         )
                     fresh = receipt["fresh"] = {}
                     _, static, maximum = await self._fresh(
-                        session, target, body["object_id"], report=fresh
+                        session,
+                        target,
+                        body["object_id"],
+                        report=fresh,
+                        observed_review=review if profile == OBSERVED_PROFILE else None,
                     )
                     receipt["fresh"] = fresh
                     if (
@@ -954,14 +1033,16 @@ class NativeWeeklyDayWrites:
             or receipt.get("day") != review["source"]["day"]
         ):
             raise ValueError("Receipt target/day differs from its reviewed source.")
-        profile, rules = authority(review)
+        profile, rules = authority(
+            review, observed_defaults=receipt.get("profile") == OBSERVED_PROFILE
+        )
         if (receipt.get("profile"), receipt.get("rules_sha256")) != (profile, rules):
             raise ValueError(
                 "Receipt active profile differs from its reviewed draft; passive evidence remains unchanged."
             )
         body = {
             "profile": profile,
-            **({"rules_sha256": rules} if profile == STRING_PROFILE else {}),
+            **({"rules_sha256": rules} if profile in (STRING_PROFILE, OBSERVED_PROFILE) else {}),
             "scope": SCOPE,
             "operation_id": options.operation_id,
             "receipt_id": options.receipt_id,
@@ -977,6 +1058,7 @@ class NativeWeeklyDayWrites:
                 before = self._static(
                     source_report(self.library.source(review["source"]["capture_id"])),
                     review["source"]["object"],
+                    observed_review=review if profile == OBSERVED_PROFILE else None,
                 )
                 body["readback"] = await self._readback(session, target, review, before)
         return encoded(seal(body))
