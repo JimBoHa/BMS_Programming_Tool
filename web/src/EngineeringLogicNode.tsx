@@ -27,8 +27,15 @@ export const EngineeringLogicNode = memo(function EngineeringLogicNode({
   const { block, ports } = data,
     view = functionView(block, ports),
     size = logicSize(block, ports);
+  const condition = data.live?.conditions?.[0];
   const value = data.live
-    ? `${data.live.error ? "Last read" : "Live"} ${data.live.text}`
+    ? [
+        data.live.error ? "Last read" : "",
+        condition || (data.live.error ? "" : "Live"),
+        data.live.text,
+      ]
+        .filter(Boolean)
+        .join(" ")
     : block.stored_value
       ? `Stored ${block.stored_value.text}`
       : "";
@@ -81,10 +88,17 @@ export const EngineeringLogicNode = memo(function EngineeringLogicNode({
         {view.title}
       </strong>
       <div
-        className={`logic-value ${data.live ? (data.live.error ? "last-read" : "live") : "stored"}`}
+        className={`logic-value ${data.live ? (data.live.error ? "last-read" : condition ? "flagged" : "live") : "stored"}`}
         title={
           data.live
-            ? `Read ${data.live.at}${data.live.error ? ` · ${data.live.error}` : ""}`
+            ? [
+                data.live.text,
+                `Read ${data.live.at}`,
+                ...(data.live.conditions || []),
+                data.live.error,
+              ]
+                .filter(Boolean)
+                .join(" · ")
             : block.stored_value
               ? `Stored ${block.stored_value.datatype}; not a live measurement`
               : "No value read"

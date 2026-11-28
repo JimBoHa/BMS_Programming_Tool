@@ -76,7 +76,9 @@
   color: #075e48;
   font-weight: 600;
 }
-.engineering-node .logic-value.last-read {
+.engineering-node .logic-value.last-read,
+.engineering-node .logic-value.flagged,
+.logic-reading-quality {
   color: #845513;
 }
 .engineering-node .caf-logic-port {

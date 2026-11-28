@@ -8,6 +8,10 @@ import { spawn, execFileSync } from "node:child_process";
 import path from "node:path";
 import { freePort } from "./workflow-peer";
 import { chooseWorkspaceTask } from "./workspace-navigation";
+import {
+  logicReadingConditions,
+  logicReadingUnit,
+} from "../src/logicPointReading";
 const root = path.resolve(".."),
   python = path.join(root, ".venv/bin/python"),
   ref = "authored/575_1";
@@ -37,7 +41,8 @@ async def main():
  for method in ('do_AtomicReadFileRequest','do_AtomicWriteFileRequest','do_ReinitializeDeviceRequest','do_WritePropertyRequest'):
   setattr(app,method,types.MethodType(getattr(FilePeer,method),app))
  for n,v in [(10,21),(11,77),(12,0)]:
-  app.add_object(AnalogValueObject(objectIdentifier=('analog-value',n),objectName=f'Actual point {n}',presentValue=v,units='degrees-fahrenheit',statusFlags=[0,0,0,0],reliability='no-fault-detected',outOfService=False))
+  flags=[0,0,1,0] if n==11 else [0,0,0,0]
+  app.add_object(AnalogValueObject(objectIdentifier=('analog-value',n),objectName=f'Actual point {n}',presentValue=v,units='degrees-fahrenheit',statusFlags=flags,reliability='no-fault-detected',outOfService=False))
  print('READY',flush=True)
  try:await asyncio.Event().wait()
  finally:app.close()
@@ -72,6 +77,11 @@ async function headers(request: APIRequestContext) {
     "X-Studio-Token": (await (await request.get("/api/session")).json()).token,
   };
 }
+async function closeCompactInspector(page: Page) {
+  const close = page.getByRole("button", { name: /^Close (controller|CAF) logic inspector$/i });
+  if (await close.isVisible()) await close.click();
+}
+
 async function openController(page: Page, endpoint: string) {
   await page.goto("/");
   await page.getByRole("button", { name: /^Connect to a controller/ }).click();
@@ -151,11 +161,20 @@ test("connected native program uses engineering symbols and exact pin handles, w
     await graph.getByRole("button", { name: /^Zone temperature/ }).click();
     await expect(
       graph.locator(`.react-flow__node[data-id="${ref}.2_10"] .logic-value`),
-    ).toHaveText("Live 21");
-    let reached!: () => void,
-      once = false;
-    const reachedPromise = new Promise<void>((r) => (reached = r)),
-      gate = new Promise<void>((r) => (release = r));
+    ).toHaveText("Live 21 °F");
+    await closeCompactInspector(page);
+    await graph.getByRole("button", { name: /^Cooling setpoint/ }).click();
+    await expect(
+      graph.locator(`.react-flow__node[data-id="${ref}.2_11"] .logic-value`),
+    ).toHaveText("Overridden 77 °F");
+    await expect(page.getByText("Overridden", { exact: true })).toBeVisible();
+    await closeCompactInspector(page);
+    await graph.getByRole("button", { name: /^Zone temperature/ }).click();
+    await expect(
+      graph.locator(`.react-flow__node[data-id="${ref}.2_10"] .logic-value`),
+    ).toHaveText("Live 21 °F");
+    let once = false;
+    const gate = new Promise<void>((r) => (release = r));
     await page.route("**/api/bacnet/controller/properties", async (route) => {
       const response = await route.fetch();
       if (
@@ -163,17 +182,22 @@ test("connected native program uses engineering symbols and exact pin handles, w
         route.request().postDataJSON().object_ids[0] === "analog-value,11"
       ) {
         once = true;
-        reached();
         await gate;
       }
       await route.fulfill({ response });
     });
+    await closeCompactInspector(page);
     await graph.getByRole("button", { name: /^Cooling setpoint/ }).click();
-    await reachedPromise;
+    await expect
+      .poll(() => once, {
+        message: "The selected setpoint read reached the held response",
+      })
+      .toBe(true);
+    await closeCompactInspector(page);
     await graph.getByRole("button", { name: /^Zone temperature/ }).click();
     await expect(
       graph.locator(`.react-flow__node[data-id="${ref}.2_10"] .logic-value`),
-    ).toHaveText("Live 21");
+    ).toHaveText("Live 21 °F");
     const delivered = page.waitForResponse(
       (r) =>
         r.url().endsWith("/controller/properties") &&
@@ -186,7 +210,8 @@ test("connected native program uses engineering symbols and exact pin handles, w
     ).toHaveText("Stored 74.0");
     await expect(
       graph.locator(`.react-flow__node[data-id="${ref}.2_10"] .logic-value`),
-    ).toHaveText("Live 21");
+    ).toHaveText("Live 21 °F");
+    await closeCompactInspector(page);
     await graph
       .getByRole("button", { name: "Fit diagram", exact: true })
       .click();
@@ -202,11 +227,14 @@ test("connected native program uses engineering symbols and exact pin handles, w
     ).toEqual([]);
   } finally {
     release?.();
-    await request.post("/api/bacnet/disconnect", {
-      headers: await headers(request),
-      data: {},
-    });
-    device.close();
+    try {
+      await request.post("/api/bacnet/disconnect", {
+        headers: await headers(request),
+        data: {},
+      });
+    } finally {
+      device.close();
+    }
   }
 });
 
@@ -239,10 +267,19 @@ test("local CAF uses the same PID presentation, stored values and keyboard-safe 
       mimeType: "application/octet-stream",
       buffer,
     });
-  await page
-    .getByRole("navigation", { name: "CAF application tasks", exact: true })
-    .getByRole("button", { name: "Logic", exact: true })
-    .click();
+  const cafTools = page.getByRole("navigation", {
+    name: "CAF application tasks",
+    exact: true,
+  });
+  await expect(cafTools).toBeVisible();
+  const compactTools = cafTools.getByRole("combobox", {
+    name: "CAF application tasks",
+    exact: true,
+  });
+  if (await compactTools.isVisible())
+    await compactTools.selectOption({ label: "Logic" });
+  else
+    await cafTools.getByRole("button", { name: "Logic", exact: true }).click();
   const graph = page.getByLabel("CAF graphical logic workspace", {
     exact: true,
   });
@@ -254,6 +291,7 @@ test("local CAF uses the same PID presentation, stored values and keyboard-safe 
     .getByRole("button", { name: "Expand logic view", exact: true })
     .click();
   await graph.getByRole("button", { name: /^Cooling loop/ }).click();
+  await closeCompactInspector(page);
   await graph.getByRole("button", { name: "Fit diagram", exact: true }).click();
   await expect(graph).toContainText(
     "authored-cooling-template.caf · local CAF",
@@ -273,4 +311,53 @@ test("local CAF uses the same PID presentation, stored values and keyboard-safe 
   expect(
     (await (await request.get("/api/session")).json()).field_network_open,
   ).toBe(false);
+});
+
+test("verified units and quality preserve unknown and unavailable property evidence", () => {
+  const row = (value: unknown) => ({ status: "ok", value });
+  const unit = {
+    native_datatype: "EngineeringUnits",
+    value: 84,
+    known: true,
+    name: "cubic-feet-per-minute",
+  };
+  expect(logicReadingUnit({ units: row(unit) })).toBe("CFM");
+  expect(
+    logicReadingUnit({ units: row({ ...unit, known: false, value: 60001 }) }),
+  ).toBe("unit 60001");
+  expect(
+    logicReadingUnit({
+      units: {
+        ...row({ ...unit, known: false, value: 264 }),
+        display_label: "% open",
+      },
+    }),
+  ).toBe("% open");
+  expect(logicReadingUnit({ units: { status: "timeout", value: unit } })).toBe(
+    "",
+  );
+  expect(logicReadingUnit({ units: row({ ...unit, name: "no-units" }) })).toBe(
+    "",
+  );
+  expect(
+    logicReadingConditions({
+      "status-flags": row([1, 1, 1, 1]),
+      "out-of-service": row(true),
+      reliability: row(3),
+    }),
+  ).toEqual(["Out of service", "Fault", "Overridden", "In alarm"]);
+  expect(
+    logicReadingConditions({
+      "status-flags": row([0, 0, 0, 0]),
+      reliability: row({ native_datatype: "Reliability", value: 3 }),
+    }),
+  ).toEqual(["Fault"]);
+  expect(
+    logicReadingConditions({ "status-flags": row(["0", 0, 0, 0]) }),
+  ).toEqual(["Status flags unavailable"]);
+  expect(
+    logicReadingConditions({
+      "status-flags": { status: "timeout", value: [0, 0, 0, 0] },
+    }),
+  ).toEqual(["Status flags unavailable"]);
 });
