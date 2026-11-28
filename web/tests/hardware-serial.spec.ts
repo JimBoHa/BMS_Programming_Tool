@@ -1,5 +1,9 @@
 import { test, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import {
+  openHardwareSurveyTask,
+  openLocalHardwareSurvey,
+} from "./workspace-navigation";
 
 const config = {
   transport: "mstp",
@@ -63,11 +67,12 @@ const completed = {
   report_id: report.id,
 };
 
-async function setup(page: Page) {
+async function setup(page: Page, invalidAddresses: string[] = []) {
   const mock = {
     healthy: true,
     connectionConfig: { ...config },
     running: false,
+    identityReads: [] as string[],
     surveys: [] as any[],
     archives: [] as any[],
     unexpected: [] as string[],
@@ -83,6 +88,8 @@ async function setup(page: Page) {
     const request = route.request(),
       path = new URL(request.url()).pathname;
     const respond = (value: unknown) => route.fulfill({ json: value });
+    if (path === "/api/bacnet/interfaces" && request.method() === "GET")
+      return respond({ interfaces: [] });
     if (path === "/api/bacnet/status")
       return respond({
         connected: mock.healthy,
@@ -93,6 +100,73 @@ async function setup(page: Page) {
           fault: mock.healthy ? null : "Authored worker stopped",
         },
       });
+    if (path === "/api/bacnet/read") {
+      const body = request.postDataJSON();
+      if (invalidAddresses.includes(body.address))
+        return route.fulfill({
+          status: 422,
+          json: {
+            detail:
+              "Select a remote decimal MS/TP MAC on the open serial interface.",
+          },
+        });
+      const properties: Record<string, string> = {
+        "object-identifier": target.device,
+        "object-name": report.identity.name,
+        "model-name": report.identity.model,
+        "firmware-revision": "1.0",
+      };
+      if (
+        body.address === target.address &&
+        body.object_id === target.device &&
+        Object.hasOwn(properties, body.property_id)
+      ) {
+        mock.identityReads.push(body.property_id);
+        return respond({
+          address: target.address,
+          object: target.device,
+          property: body.property_id,
+          value: properties[body.property_id],
+        });
+      }
+    }
+    if (
+      path === "/api/bacnet/controller/inventory" ||
+      path === "/api/bacnet/controller/properties"
+    ) {
+      const body = request.postDataJSON();
+      expect(body.address).toEqual(target.address);
+      expect(body.device).toEqual(target.device);
+      const source = {
+        target,
+        identity_verified: true,
+        connector_config: config,
+        errors: [],
+      };
+      if (path.endsWith("/inventory"))
+        return respond({
+          ...source,
+          offset: 0,
+          next_offset: null,
+          total: 1,
+          objects: [
+            { object: target.device, object_type: 8, has_present_value: false },
+          ],
+        });
+      expect(body.object_ids).toEqual([target.device]);
+      return respond({
+        ...source,
+        objects: [
+          {
+            object: target.device,
+            identity_verified: true,
+            properties: {
+              "object-name": { status: "ok", value: report.identity.name },
+            },
+          },
+        ],
+      });
+    }
     if (path === "/api/bacnet/hardware/status")
       return respond({
         reports: [report],
@@ -170,20 +244,52 @@ async function setup(page: Page) {
     });
   });
   await page.goto("/");
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
+  await page.getByRole("button", { name: /^Connect to a controller/ }).click();
+  await page
+    .getByRole("button", { name: "Known controller address", exact: true })
+    .click();
+  const known = page.getByRole("region", {
+    name: "Known controller connection",
+  });
+  await known
+    .getByLabel("Known Device object", { exact: true })
+    .fill(target.device);
+  for (const wrong of invalidAddresses) {
+    await known
+      .getByLabel("Known controller address", { exact: true })
+      .fill(wrong);
+    await known
+      .getByRole("button", { name: "Open controller", exact: true })
+      .click();
+    await expect(page.getByRole("alert")).toContainText(
+      "remote decimal MS/TP MAC",
+    );
+  }
+  expect(mock.surveys).toEqual([]);
+  expect(mock.identityReads).toEqual([]);
+  await known
+    .getByLabel("Known controller address", { exact: true })
+    .fill(target.address);
+  await known
+    .getByRole("button", { name: "Open controller", exact: true })
+    .click();
+  await expect(
+    page.getByRole("region", { name: "Controller overview" }),
+  ).toContainText(target.device);
+  expect(mock.identityReads).toEqual([
+    "object-identifier",
+    "object-name",
+    "model-name",
+    "firmware-revision",
+  ]);
+  await openHardwareSurveyTask(page);
   const panel = page.getByRole("region", {
     name: "Controller hardware and input survey",
     exact: true,
   });
-  await expect(panel.getByLabel("Hardware transport")).toHaveValue(
-    "direct-mstp",
-  );
-  await panel
-    .getByLabel("Hardware controller address", { exact: true })
-    .fill("1");
-  await panel
-    .getByLabel("Hardware Device object", { exact: true })
-    .fill("device,123");
+  await expect(
+    panel.getByLabel("Hardware controller address", { exact: true }),
+  ).toHaveCount(0);
   return { panel, mock };
 }
 
@@ -194,10 +300,10 @@ test("serial hardware survey selects explicit local transport and preserves bus 
   await expect(panel.getByLabel("Hardware serial interface")).toContainText(
     config.port,
   );
-  await expect(panel.getByLabel("Hardware router (optional)")).toBeDisabled();
+  await expect(panel.getByLabel("Hardware router (optional)")).toHaveCount(0);
   await expect(
     panel.getByLabel("Hardware destination network (optional)"),
-  ).toBeDisabled();
+  ).toHaveCount(0);
   await panel
     .getByRole("button", { name: "Survey controller inputs", exact: true })
     .click();
@@ -235,8 +341,7 @@ test("serial hardware survey selects explicit local transport and preserves bus 
   );
   expect(mock.archives).toEqual([{ report_id: report.id }]);
   expect(mock.unexpected).toEqual([]);
-  await page.reload();
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
+  await openLocalHardwareSurvey(page);
   panel = page.getByRole("region", {
     name: "Controller hardware and input survey",
     exact: true,
@@ -260,25 +365,10 @@ test("serial hardware survey selects explicit local transport and preserves bus 
   );
 });
 
-test("serial hardware UI rejects own/broadcast MACs, cancels jobs and disables fresh reads after link failure", async ({
+test("serial hardware UI retains rejected station reads, cancels jobs and disables fresh reads after link failure", async ({
   page,
 }) => {
-  const { panel, mock } = await setup(page);
-  for (const wrong of ["0", "255", "3101:1"]) {
-    await panel
-      .getByLabel("Hardware controller address", { exact: true })
-      .fill(wrong);
-    await panel
-      .getByRole("button", { name: "Survey controller inputs", exact: true })
-      .click();
-    await expect(panel.getByRole("alert")).toContainText(
-      "remote decimal MS/TP MAC",
-    );
-  }
-  expect(mock.surveys).toEqual([]);
-  await panel
-    .getByLabel("Hardware controller address", { exact: true })
-    .fill("1");
+  const { panel, mock } = await setup(page, ["0", "255", "3101:1"]);
   mock.running = true;
   await panel
     .getByRole("button", { name: "Survey controller inputs", exact: true })

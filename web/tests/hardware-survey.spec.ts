@@ -1,9 +1,6 @@
 import { test, expect, type Page, type Route } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import {
-  chooseWorkspaceTask,
-  chooseWorkspaceTool,
-} from "./workspace-navigation";
+import { openHardwareSurveyTask } from "./workspace-navigation";
 
 // Public, authored evidence only. Every hardware request is intercepted; these
 // tests never open a BACnet interface or send packets to a site network.
@@ -150,16 +147,6 @@ const completed = {
   target,
 };
 type RequestRecord = { path: string; method: string; body: any };
-async function openSurveyTask(page: Page) {
-  await chooseWorkspaceTask(page, "Points & I/O");
-  await expect(
-    page.getByRole("navigation", {
-      name: "Controller task tools",
-      exact: true,
-    }),
-  ).toBeVisible();
-  await chooseWorkspaceTool(page, "Hardware survey", "Controller task tools");
-}
 async function selectController(page: Page, station: typeof target) {
   await page
     .getByRole("button", { name: "Known controller address", exact: true })
@@ -188,7 +175,7 @@ async function selectController(page: Page, station: typeof target) {
   await expect(
     page.getByRole("region", { name: "Controller overview" }),
   ).toContainText(station.device);
-  await openSurveyTask(page);
+  await openHardwareSurveyTask(page);
 }
 type RequestHandler = (route: Route, record: RequestRecord) => Promise<boolean>;
 function setupLocal(page: Page, handle: RequestHandler) {
@@ -332,7 +319,7 @@ async function setup(
     await page
       .getByRole("button", { name: "New application", exact: true })
       .click();
-    await openSurveyTask(page);
+    await openHardwareSurveyTask(page);
   } else {
     await page
       .getByRole("button", { name: /^Connect to a controller/ })

@@ -2,10 +2,10 @@ import { test, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
+import { openLocalHardwareSurvey } from "./workspace-navigation";
 
 async function open(page: Page) {
-  await page.goto("/");
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
+  await openLocalHardwareSurvey(page);
   await page.getByText("Sensor power supply budget", { exact: true }).click();
   const panel = page.getByRole("region", {
     name: "Sensor supply budgeting",
