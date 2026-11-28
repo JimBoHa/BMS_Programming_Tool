@@ -305,8 +305,8 @@ export function BacnetFilesPanel({
         </div>
         {!connected && (
           <p className="muted">
-            Open a controller on its BACnet interface to inspect or read its
-            files. You can review saved captures offline.
+            Open a BACnet interface before inspecting or reading controller
+            files. Saved captures remain available offline.
           </p>
         )}
         {profile && (

@@ -181,7 +181,7 @@ export function Connections({
       (view === "overview" && tool === "instance") ||
       (view === "points" &&
         ["live-points", "hardware", "pulse"].includes(tool)) ||
-      (view === "changes" && ["commands", "files"].includes(tool)));
+      (view === "changes" && tool === "commands"));
   const discoverActive =
     visible && view === "setup" && setupStep === "discovery";
   const [config, setConfig] = useState({
