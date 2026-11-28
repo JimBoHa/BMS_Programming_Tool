@@ -888,6 +888,7 @@ def report_csv(report):
         "status_flags",
         "out_of_service",
         "errors",
+        "reported_slot",
     ]
     writer = csv.writer(stream)
     writer.writerow(

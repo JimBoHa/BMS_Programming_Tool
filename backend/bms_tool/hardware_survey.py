@@ -226,6 +226,25 @@ def _host_key(point):
     return None
 
 
+def _reported_slot(point):
+    # Property 519 is the internal slot. The number printed in Device_Type
+    # may instead be relative to the bank of binary or universal inputs.
+    values = {
+        row["value"]
+        for row in point.get("properties", [])
+        if row.get("property_id") == 519
+        and row.get("index") is None
+        and "error" not in row
+        and type(row.get("value")) is int
+    }
+    if len(values) > 1:
+        raise ValueError("Hardware report contains contradictory readings of the input slot.")
+    slot = next(iter(values), None)
+    if slot is not None and not 0 <= slot <= 0xFFFFFFFF:
+        raise ValueError("The retained input slot is outside the BACnet Unsigned range.")
+    return slot
+
+
 def occupancy(report):
     """Return known hardware capacities and conservative candidate spare inputs."""
     modules = copy.deepcopy(report.get("modules", []))
@@ -807,6 +826,7 @@ def validate_report(report):
     if not isinstance(modules, list) or len(modules) > 256:
         raise ValueError("Hardware module count exceeds its bounded profile.")
     seen, assignments, module_hosts = set(), set(), set()
+    terminals = {}
     for module in modules:
         if not isinstance(module, dict) or module.get("host") not in {"local", "sa"}:
             raise ValueError("Hardware module requires an explicit local or SA host.")
@@ -856,7 +876,13 @@ def validate_report(report):
         slot = point.get("slot")
         if slot is not None and (type(slot) is not int or not 1 <= slot <= 255):
             raise ValueError("Hardware input slot is invalid.")
-        kind, derived_slot = _terminal(point.get("device_type"), slot)
+        reported = _reported_slot(point)
+        if slot is not None and reported is not None and slot != reported:
+            raise ValueError("Hardware slot conflicts with the retained slot property.")
+        kind, derived_slot = _terminal(
+            point.get("device_type"), reported if reported is not None else slot
+        )
+        terminals[obj] = (reported, kind, derived_slot)
         if (
             slot is not None
             and re.match(r"\s*(?:UI|BI|CI)\s+IN", point.get("device_type") or "", re.I)
@@ -916,9 +942,11 @@ def validate_report(report):
     result = copy.deepcopy(report)
     result["target"] = options.model_dump()
     for point in result["inputs"]:
-        point["terminal_type"], point["slot"] = _terminal(
-            point.get("device_type"), point.get("slot")
-        )
+        reported, point["terminal_type"], point["slot"] = terminals[point["object"]]
+        if reported is None:
+            point.pop("reported_slot", None)
+        else:
+            point["reported_slot"] = reported
     result["read_only"], result["controller_writes"] = True, False
     result["boundary"] = BOUNDARY
     # Archive-only inputs are valid occupied assignments even if not BACnet-exposed.

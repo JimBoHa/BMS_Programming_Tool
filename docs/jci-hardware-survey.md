@@ -66,6 +66,13 @@ keeps potential spares unverified until corroborated; a plausible name or object
 instance alone does not identify a physical terminal. Native-only input
 assignments still occupy their terminals after successful archive correlation.
 
+A controller can use different numbering for its internal slot and its printed
+input label. The survey retains both readings in JSON and CSV. When the numbers
+disagree, the input table shows the reported controller slot and marks the
+physical mapping unverified. The unresolved assignment keeps potential spares
+unverified. A second claim to the same established physical terminal on the
+same host still fails validation.
+
 Each VAV capacity and candidate includes the exact installation document number,
 revision/date, PDF pages, original document SHA-256 and manufacturer URL. The UI
 shows the reference and distinguishes physical universal inputs from dedicated
