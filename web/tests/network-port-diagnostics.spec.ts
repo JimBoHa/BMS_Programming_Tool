@@ -183,6 +183,27 @@ test("MS/TP port readings keep verified counter changes with the selected port a
       resumed();
     }
     await page.unroute("**/api/bacnet/controller/properties");
+    const object = page.getByLabel("Object identifier", { exact: true });
+    await object.fill("device,42");
+    await page
+      .getByRole("button", { name: "Read object list", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Select port 195,11", exact: true })
+      .click();
+    await firstRead.click();
+    await expect(region).toContainText("Example legacy field bus");
+    await expect(region).toContainText("Network 123");
+    await expect(region).toContainText("Active baud rate code 3");
+    await expect(region).toContainText("Maximum manager address 127");
+    await expect(sent.getByRole("cell").first()).toHaveText("13");
+    await again.click();
+    await expect(sent.getByRole("cell").first()).toHaveText("26");
+    await expect(sent.getByRole("cell").last()).toHaveText("13");
+    await object.fill("195,12");
+    await firstRead.click();
+    await expect(region.getByRole("alert")).toContainText("active baud code");
+    await expect(region.getByRole("table")).toHaveCount(0);
     await select(page, peers.endpoints[1]);
     await page
       .getByLabel("Object identifier", { exact: true })
@@ -190,7 +211,21 @@ test("MS/TP port readings keep verified counter changes with the selected port a
     await firstRead.click();
     await expect(region).toContainText("Test field port");
     await expect(region.getByRole("table")).toHaveCount(0);
+    const otherVendorReads: string[][] = [];
+    page.on("request", (r) => {
+      if (r.url().endsWith("/api/bacnet/controller/properties")) {
+        otherVendorReads.push(r.postDataJSON().properties);
+      }
+    });
+    await object.fill("195,11");
+    await firstRead.click();
+    await expect(region.getByRole("alert")).toContainText(
+      "verified Johnson Controls",
+    );
+    expect(otherVendorReads).toEqual([["vendor-identifier"]]);
     expect(counters).toEqual([
+      peers.endpoints[0],
+      peers.endpoints[0],
       peers.endpoints[0],
       peers.endpoints[0],
       peers.endpoints[0],

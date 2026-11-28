@@ -11,8 +11,9 @@ class PortPeer(SchedulePeer):
     def __init__(self, vendor):
         super().__init__()
         self.vendor = vendor
-        self.object_list = [(8, 42), (56, 7), (56, 8)]
+        self.object_list = [(8, 42), (56, 7), (56, 8), (195, 11), (195, 12)]
         self.rounds = 0
+        self.legacy_rounds = 0
 
     def value(self, obj, prop, index):
         if int(obj[0]) == 8:
@@ -36,6 +37,25 @@ class PortPeer(SchedulePeer):
                 return bytes.fromhex("9103")
             if prop == "system-status":
                 return bytes.fromhex("9100")
+        if int(obj[0]) == 195:
+            if prop == "object-name":
+                return text("Example legacy field bus")
+            if prop == "object-type":
+                return bytes((0x91, 195))
+            if prop == "max-master":
+                return unsigned(127)
+            if prop == "max-info-frames":
+                return unsigned(2)
+            if prop == "875":
+                return unsigned(123)
+            if prop == "2861":
+                return bytes((0x91, 3)) if obj[1] == 11 else text("Unqualified")
+            if prop.isdecimal():
+                assert self.vendor == 5 and obj[1] == 11, "Unqualified legacy counter request"
+                if prop == "2867":
+                    self.legacy_rounds += 1
+                    return unsigned(13 * self.legacy_rounds)
+                return unsigned(0)
         if int(obj[0]) == 56:
             if prop == "object-name":
                 return text("Test field port" if obj[1] == 7 else "Test IP port")
