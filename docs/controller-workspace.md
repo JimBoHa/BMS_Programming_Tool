@@ -48,6 +48,20 @@ reference material. Opening the start screen does not open a field interface.
    Reading a diagram does not qualify arbitrary native logic generation or a
    complete CAF application transfer.
 
+To inspect a field bus, open its supervisory controller and choose
+**Points & I/O → Read properties → Read object list**. Select a Network Port and
+choose **Read port diagnostics**. You can also enter a known Network Port object
+identifier. The panel shows the port name, network number, link speed, reliability
+and service state. Johnson Controls MS/TP ports can also report token traffic,
+polls and replies, timeouts, framing errors and CRC errors.
+
+Choose **Read port diagnostics again** to compare two readings from the same
+port. Polls increasing with no replies or tokens show what the supervisor
+observed during that interval. A field inspection can distinguish power,
+wiring and station configuration issues. A decreasing counter is marked
+explicitly because a device can restart or a counter can wrap.
+[Johnson Controls MS/TP diagnostic attributes](https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Metasys-UI-Objects-Attributes-and-Commands-Reference-Guide/15.0/Integration-objects/MS/TP-Field-Bus-integration-object/MS/TP-Field-Bus-integration-object-Diagnostic-tab-attributes)
+
 To change an instance number, open **Overview → Edit instance number**, enter the
 new allocated number and choose **Review instance change**. Review the exact
 physical target, identity, old/new values and collision-query limitations. Confirm
