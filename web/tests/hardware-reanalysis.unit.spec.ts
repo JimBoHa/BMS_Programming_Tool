@@ -1,14 +1,12 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { seedReanalysis } from "./hardware-reanalysis-fixture";
 import { admittedHardwareReanalysis } from "../src/hardwareReanalysis";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
 let fixture: any;
 const data = () =>
-  (fixture ??= seedReanalysis(
-    mkdtempSync(path.join(tmpdir(), "hardware-reanalysis-")),
-  ));
+  (fixture ??= seedReanalysis(fixtureDirectory("hardware-reanalysis-")));
 test("actual reanalysis binds separate ID and unchanged source without current controller authority", () => {
   const f = data();
   expect(admittedHardwareReanalysis(f.child, f.parent)).toBe(true);

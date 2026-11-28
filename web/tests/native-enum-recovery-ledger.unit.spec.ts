@@ -1,9 +1,9 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { python } from "./native-effective-enum-fixture";
 import { recordedEnumRecovery } from "../src/nativeEnumRecoveryLedger";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
 let data: any[];
 test.beforeAll(() => {
   data = JSON.parse(
@@ -22,7 +22,7 @@ for cid,previous,after in ((528,0,65535),(529,513,0)):
   result.append(dict(row=row,value=enum_recovery_lineage(body,dict(object=row['object']))))
 print(json.dumps(result))
 `,
-      mkdtempSync(path.join(tmpdir(), "bms-recorded-enum-contract-")),
+      fixtureDirectory("bms-recorded-enum-contract-"),
     ),
   );
 });

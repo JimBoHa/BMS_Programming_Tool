@@ -1,19 +1,16 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { orderTransferSeed } from "./native-order-transfer-fixture";
 import {
   orderTransferReview,
   orderTransferReceipt,
 } from "../src/nativeOrderTransferContract";
 import { connectionSeal } from "../src/nativeConnectionContract";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
 
+const fixtureDirectory = suiteFixtureDirectories();
 let fixture: any;
 function data(kind = "verified") {
-  fixture ??= orderTransferSeed(
-    mkdtempSync(path.join(tmpdir(), "bms-order-contract-")),
-  );
+  fixture ??= orderTransferSeed(fixtureDirectory("bms-order-contract-"));
   return structuredClone(fixture[kind]);
 }
 const review = (f: any) =>

@@ -1,7 +1,4 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { seedTerminals } from "./native-terminal-fixture";
 import {
   terminalSource,
@@ -16,12 +13,12 @@ import {
   discardTerminalDraft,
   blankTerminalDraft,
 } from "../src/nativeTerminalDrafts";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
 
+const fixtureDirectory = suiteFixtureDirectories();
 let fixture: any;
 const data = (basis: TerminalBasis) => {
-  fixture ??= seedTerminals(
-    mkdtempSync(path.join(tmpdir(), "bms-terminal-contract-")),
-  );
+  fixture ??= seedTerminals(fixtureDirectory("bms-terminal-contract-"));
   return structuredClone(fixture[basis]);
 };
 for (const basis of ["archive", "effective"] as const) {

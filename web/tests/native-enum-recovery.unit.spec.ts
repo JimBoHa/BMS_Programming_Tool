@@ -1,7 +1,4 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { python } from "./native-effective-enum-fixture";
 import {
   previousEnumDefaultMatches,
@@ -12,7 +9,9 @@ import {
   enumTransferReviewMatches,
   enumTransferReceiptMatches,
 } from "../src/nativeEnumTransferContract";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
 
+const fixtureDirectory = suiteFixtureDirectories();
 let data: any;
 test.beforeAll(() => {
   data = JSON.parse(
@@ -37,7 +36,7 @@ async def main():
  finally:await generator.aclose();patch.undo()
 asyncio.run(main())
 `,
-      mkdtempSync(path.join(tmpdir(), "bms-enum-recovery-contract-")),
+      fixtureDirectory("bms-enum-recovery-contract-"),
     ),
   );
 });

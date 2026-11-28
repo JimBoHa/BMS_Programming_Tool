@@ -1,14 +1,14 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { seedLabelCapabilities } from "./native-terminal-label-capability-fixture";
 import { terminalCapabilityEvidence } from "../src/nativeEncodedTerminalCapabilityContract";
 import { terminalCapabilityEvidence as legacyEvidence } from "../src/nativeTerminalCapabilityContract";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
 let fixture: any;
 const data = () =>
   (fixture ??= seedLabelCapabilities(
-    mkdtempSync(path.join(tmpdir(), "bms-label-capability-")),
+    fixtureDirectory("bms-label-capability-"),
   ));
 for (const kind of [
   "ucs2",

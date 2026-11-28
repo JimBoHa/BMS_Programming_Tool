@@ -1,18 +1,16 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { seed } from "./native-terminal-recovery-fixture";
 import {
   terminalRecoveryDraft,
   terminalRecoveryReview,
   sameTerminalRecoveryLineage,
 } from "../src/nativeTerminalRecoveryContract";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
 let fixture: any;
 const data = () =>
-  (fixture ??= seed(
-    mkdtempSync(path.join(tmpdir(), "bms-terminal-recovery-")),
-  ));
+  (fixture ??= seed(fixtureDirectory("bms-terminal-recovery-")));
 test("actual sealed local recovery report binds captured source and verified parent", async () => {
   const f = data();
   expect(

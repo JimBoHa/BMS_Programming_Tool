@@ -22,9 +22,10 @@ from bms_tool.storage import Store
 from bms_tool.application_store import ApplicationStore
 from tests.test_native_signal_compiler import retained
 from tests.test_caf_native_correlation import caf_source
-s=ApplicationStore(Store(tempfile.mkdtemp(prefix='bms-original-export-')))
-m=retained(s,target={'address':'3001:7','router':'127.0.0.1:49000','dnet':3001})
-print(json.dumps({'manifest':m,'zip':base64.b64encode(s.export(m['id'])).decode(),'caf':base64.b64encode(caf_source().original).decode()}))
+with tempfile.TemporaryDirectory(prefix='bms-original-export-') as directory:
+    s=ApplicationStore(Store(directory))
+    m=retained(s,target={'address':'3001:7','router':'127.0.0.1:49000','dnet':3001})
+    print(json.dumps({'manifest':m,'zip':base64.b64encode(s.export(m['id'])).decode(),'caf':base64.b64encode(caf_source().original).decode()}))
 `),
   );
 }

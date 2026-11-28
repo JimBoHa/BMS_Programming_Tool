@@ -1,7 +1,4 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { orderRecoveryTransferSeed } from "./native-order-recovery-transfer-fixture";
 import {
   orderTransferReview,
@@ -13,10 +10,13 @@ import {
 } from "../src/nativeOrderRecoveryTransferContract";
 import { recordedOrderRecovery } from "../src/nativeOrderRecoveryLedger";
 import { connectionSeal } from "../src/nativeConnectionContract";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
 let fixture: any;
 const data = (kind = "verified") => {
   fixture ??= orderRecoveryTransferSeed(
-    mkdtempSync(path.join(tmpdir(), "bms-previous-order-contract-")),
+    fixtureDirectory("bms-previous-order-contract-"),
   );
   return structuredClone(fixture[kind]);
 };

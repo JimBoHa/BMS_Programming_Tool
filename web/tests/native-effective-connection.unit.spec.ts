@@ -1,7 +1,4 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { seed } from "./native-effective-connection-fixture";
 import {
   effectiveConnectionSource,
@@ -11,12 +8,12 @@ import {
   connectionSource,
   connectionReview,
 } from "../src/nativeConnectionContract";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
 
+const fixtureDirectory = suiteFixtureDirectories();
 let fixture: any;
 function data() {
-  fixture ??= seed(
-    mkdtempSync(path.join(tmpdir(), "bms-effective-connection-unit-")),
-  );
+  fixture ??= seed(fixtureDirectory("bms-effective-connection-unit-"));
   return structuredClone(fixture);
 }
 test("saved-effective merge and nested connection proofs pass only the explicit effective contract", async () => {

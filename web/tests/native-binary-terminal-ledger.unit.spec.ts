@@ -1,16 +1,14 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { seedBinaryLedger } from "./native-binary-terminal-ledger-fixture";
 import { recordedBinaryTerminal } from "../src/nativeBinaryTerminalLedger";
 import { recordedTerminal } from "../src/nativeTerminalLedger";
 import { recordedInput } from "../src/nativeInputLedger";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
 let fixture: any;
 const value = () => {
-  fixture ??= seedBinaryLedger(
-    mkdtempSync(path.join(tmpdir(), "bms-binary-ledger-")),
-  );
+  fixture ??= seedBinaryLedger(fixtureDirectory("bms-binary-ledger-"));
   return structuredClone(fixture.metadata);
 };
 test("actual binary receipt remains distinct from analog recorded profiles", () => {

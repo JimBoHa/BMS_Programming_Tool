@@ -1,18 +1,15 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { python } from "./native-effective-enum-fixture";
 import {
   enumTransferReviewMatches,
   enumTransferReceiptMatches,
 } from "../src/nativeEnumTransferContract";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
 
+const fixtureDirectory = suiteFixtureDirectories();
 let data: any;
 test.beforeAll(() => {
-  const directory = mkdtempSync(
-    path.join(tmpdir(), "bms-enum-transfer-contract-"),
-  );
+  const directory = fixtureDirectory("bms-enum-transfer-contract-");
   data = JSON.parse(
     python(
       `

@@ -1,15 +1,12 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { seed } from "./native-connection-capability-fixture";
 import { connectionCapabilityEvidence } from "../src/nativeConnectionCapabilityContract";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
 
+const fixtureDirectory = suiteFixtureDirectories();
 let fixture: any;
 function data() {
-  fixture ??= seed(
-    mkdtempSync(path.join(tmpdir(), "bms-connection-capability-unit-")),
-  );
+  fixture ??= seed(fixtureDirectory("bms-connection-capability-unit-"));
   return structuredClone(fixture);
 }
 test("actual archive and effective connection witnesses match their distinct captured source hashes", () => {

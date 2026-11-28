@@ -1,14 +1,13 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { seed } from "./native-removal-capability-fixture";
 import { removalCapabilityEvidence } from "../src/nativeRemovalCapabilityContract";
 import { matchingConnectionTransferCapability } from "../src/nativeConnectionCapabilityContract";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
 
+const fixtureDirectory = suiteFixtureDirectories();
 let fixture: any;
 function data() {
-  fixture ??= seed(mkdtempSync(path.join(tmpdir(), "bms-removal-capability-")));
+  fixture ??= seed(fixtureDirectory("bms-removal-capability-"));
   return structuredClone(fixture);
 }
 test("actual original and saved-effective removal witnesses match only explicit14", () => {

@@ -1,16 +1,13 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { seedTerminalLedger } from "./native-terminal-ledger-fixture";
 import { recordedTerminal } from "../src/nativeTerminalLedger";
 import { recordedInput } from "../src/nativeInputLedger";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
 
+const fixtureDirectory = suiteFixtureDirectories();
 let fixture: any;
 const value = () => {
-  fixture ??= seedTerminalLedger(
-    mkdtempSync(path.join(tmpdir(), "bms-terminal-ledger-")),
-  );
+  fixture ??= seedTerminalLedger(fixtureDirectory("bms-terminal-ledger-"));
   return structuredClone(fixture.metadata);
 };
 test("actual receipt terminal metadata stays distinct from the legacy input profile", () => {

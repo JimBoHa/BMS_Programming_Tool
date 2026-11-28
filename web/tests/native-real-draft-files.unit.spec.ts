@@ -1,18 +1,16 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { seedRealDrafts, first, second } from "./native-real-draft-fixture";
 import {
   nativeRealDraftDocument,
   parseNativeRealDraft,
   nativeRealDraftBytes,
 } from "../src/nativeRealDraftFile";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
 let data: any, source: any, field: any, original: string;
 test.beforeAll(async () => {
-  data = seedRealDrafts(
-    mkdtempSync(path.join(tmpdir(), "bms-native-real-draft-")),
-  );
+  data = seedRealDrafts(fixtureDirectory("bms-native-real-draft-"));
   source = data.a.source;
   field = source.fields.find((f: any) => f.ref === first);
   original = await nativeRealDraftDocument(source, field, "12.").text();

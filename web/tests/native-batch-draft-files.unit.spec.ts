@@ -1,14 +1,13 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { seedDefaultBatch } from "./native-default-batch-fixture";
 import {
   nativeBatchDraftBytes,
   nativeBatchDraftDocument,
   parseNativeBatchDraft,
 } from "../src/nativeBatchDraftFile";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
 
+const fixtureDirectory = suiteFixtureDirectories();
 let data: any, large: any, raw: string;
 const entries: Record<string, string> = {
   "controller/575_1.2_12": "",
@@ -18,13 +17,8 @@ const entries: Record<string, string> = {
   "controller/saved-enum": "  invalid Ω  ",
 };
 test.beforeAll(async () => {
-  data = seedDefaultBatch(
-    mkdtempSync(path.join(tmpdir(), "bms-batch-draft-contract-")),
-  );
-  large = seedDefaultBatch(
-    mkdtempSync(path.join(tmpdir(), "bms-batch-draft-limit-")),
-    12,
-  );
+  data = seedDefaultBatch(fixtureDirectory("bms-batch-draft-contract-"));
+  large = seedDefaultBatch(fixtureDirectory("bms-batch-draft-limit-"), 12);
   raw = await nativeBatchDraftDocument(
     data.signal,
     data.source,

@@ -1,7 +1,4 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { seedTerminalLabels } from "./native-terminal-label-fixture";
 import {
   terminalBase,
@@ -10,13 +7,15 @@ import {
 } from "../src/nativeEncodedTerminalContract";
 import { terminalSource as legacySource } from "../src/nativeTerminalCopyContract";
 import { connectionSeal } from "../src/nativeConnectionContract";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
 
+const fixtureDirectory = suiteFixtureDirectories();
 let fixture: any;
 const data = (basis: "archive" | "effective") =>
   structuredClone(
-    (fixture ??= seedTerminalLabels(
-      mkdtempSync(path.join(tmpdir(), "bms-terminal-labels-")),
-    ))[basis],
+    (fixture ??= seedTerminalLabels(fixtureDirectory("bms-terminal-labels-")))[
+      basis
+    ],
   );
 for (const basis of ["archive", "effective"] as const) {
   for (const fault of ["truncated", "duplicate", "array"] as const)

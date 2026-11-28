@@ -1,18 +1,15 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { seed } from "./native-effective-enum-fixture";
 import {
   effectiveEnumSource,
   checkEffectiveEnumReview,
 } from "../src/nativeEnumEffective";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
 
+const fixtureDirectory = suiteFixtureDirectories();
 let fixture: any;
 function data() {
-  fixture ??= seed(
-    mkdtempSync(path.join(tmpdir(), "bms-effective-enum-unit-")),
-  );
+  fixture ??= seed(fixtureDirectory("bms-effective-enum-unit-"));
   const f = structuredClone(fixture),
     s = f.source,
     field = s.fields[0];

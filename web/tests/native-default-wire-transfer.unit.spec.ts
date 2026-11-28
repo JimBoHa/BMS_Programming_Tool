@@ -1,18 +1,16 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { python } from "./caf-native-fixture";
 import {
   defaultWireTransferReviewMatches,
   defaultWireTransferReceiptMatches,
 } from "../src/nativeDefaultWireTransferContract";
 import { recordedDefaultWire } from "../src/NativeDefaultWireLedgerView";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
 let data: any;
 test.beforeAll(() => {
-  const directory = mkdtempSync(
-    path.join(tmpdir(), "bms-combined-transfer-contract-"),
-  );
+  const directory = fixtureDirectory("bms-combined-transfer-contract-");
   data = JSON.parse(
     python(
       `

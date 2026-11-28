@@ -1,15 +1,15 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { seedEncodedAnalogLedger } from "./native-encoded-analog-ledger-fixture";
 import { recordedEncodedAnalogTerminal } from "../src/nativeEncodedAnalogLedger";
 import { recordedTerminal } from "../src/nativeTerminalLedger";
 import { recordedInput } from "../src/nativeInputLedger";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
 let fixture: any;
 const value = () => {
   fixture ??= seedEncodedAnalogLedger(
-    mkdtempSync(path.join(tmpdir(), "bms-encoded-analog-ledger-")),
+    fixtureDirectory("bms-encoded-analog-ledger-"),
   );
   return structuredClone(fixture.metadata);
 };

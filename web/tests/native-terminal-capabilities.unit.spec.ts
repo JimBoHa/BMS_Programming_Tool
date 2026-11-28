@@ -1,15 +1,12 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { seed } from "./native-terminal-capability-fixture";
 import { terminalCapabilityEvidence } from "../src/nativeTerminalCapabilityContract";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
 
+const fixtureDirectory = suiteFixtureDirectories();
 let fixture: any;
 const data = () =>
-  (fixture ??= seed(
-    mkdtempSync(path.join(tmpdir(), "bms-terminal-capability-")),
-  ));
+  (fixture ??= seed(fixtureDirectory("bms-terminal-capability-")));
 for (const kind of [
   "analog",
   "binary",

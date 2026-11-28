@@ -1,19 +1,16 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { fieldDocuments } from "./native-terminal-field-fixture";
 import {
   terminalDocumentSeal,
   terminalTransferReview,
   inputTransferProfile,
 } from "../src/nativeTerminalTransferContract";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
 
+const fixtureDirectory = suiteFixtureDirectories();
 let fixture: any;
 const data = () => {
-  fixture ??= fieldDocuments(
-    mkdtempSync(path.join(tmpdir(), "bms-terminal-field-contract-")),
-  );
+  fixture ??= fieldDocuments(fixtureDirectory("bms-terminal-field-contract-"));
   return fixture;
 };
 for (const field of [false, true]) {

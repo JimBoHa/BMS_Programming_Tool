@@ -1,31 +1,31 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { seedBatchRecovery } from "./native-default-batch-recovery-fixture";
 import {
   defaultBatchRecoveryEvidence,
   defaultBatchRecoveryParent,
 } from "../src/nativeDefaultBatchRecoveryContract";
 import { defaultBatchTransferReceipt } from "../src/nativeDefaultBatchTransferContract";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
 type Data = Record<string, any>;
-const fixtures = Object.fromEntries(
-  [
-    "valid",
-    "partial",
-    "already",
-    "recompressed",
-    "historical",
-    "later-unknown",
-  ].map((kind) => [
-    kind,
-    seedBatchRecovery(
-      mkdtempSync(join(tmpdir(), "bms-batch-recovery-contract-")),
+const kinds = [
+  "valid",
+  "partial",
+  "already",
+  "recompressed",
+  "historical",
+  "later-unknown",
+];
+const fixtures: Record<string, ReturnType<typeof seedBatchRecovery>> = {};
+test.beforeAll(() => {
+  for (const kind of kinds)
+    fixtures[kind] = seedBatchRecovery(
+      fixtureDirectory("bms-batch-recovery-contract-"),
       kind,
-    ),
-  ]),
-);
-for (const kind of Object.keys(fixtures))
+    );
+});
+for (const kind of kinds)
   test(`actual ${kind} retained batch recovery evidence qualifies without authority`, async () => {
     const f = fixtures[kind];
     expect(

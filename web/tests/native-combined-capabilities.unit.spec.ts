@@ -1,7 +1,4 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { seedCombinedCapabilities } from "./native-combined-capability-fixture";
 import { combinedCapabilityEvidence } from "../src/nativeCombinedCapabilityContract";
 import { terminalCapabilityEvidence } from "../src/nativeEncodedAnalogCapabilityContract";
@@ -9,10 +6,13 @@ import {
   defaultWireCompilation,
   defaultWireReview,
 } from "../src/nativeDefaultWireContract";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
 let data: any;
 test.beforeAll(() => {
   data = seedCombinedCapabilities(
-    mkdtempSync(path.join(tmpdir(), "bms-combined-capabilities-contract-")),
+    fixtureDirectory("bms-combined-capabilities-contract-"),
   );
 });
 for (const kind of ["valid", "unknown", "serial"])

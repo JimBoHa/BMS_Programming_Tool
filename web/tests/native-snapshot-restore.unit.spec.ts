@@ -1,7 +1,4 @@
 import { test, expect } from "@playwright/test";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { snapshotRestoreFixture } from "./native-snapshot-restore-fixture";
 import {
   snapshotRestoreSource,
@@ -12,10 +9,13 @@ import {
 } from "../src/nativeSnapshotRestoreContract";
 import { connectionSeal } from "../src/nativeConnectionContract";
 import { recordedSnapshotRestore } from "../src/NativeSnapshotRestoreLedgerView";
+import { suiteFixtureDirectories } from "./suiteFixtureDirectories";
+
+const fixtureDirectory = suiteFixtureDirectories();
 let fixture: any;
 function data(kind = "verified") {
   fixture ??= snapshotRestoreFixture(
-    mkdtempSync(path.join(tmpdir(), "bms-retained-restore-contract-")),
+    fixtureDirectory("bms-retained-restore-contract-"),
   );
   return structuredClone(fixture[kind]);
 }
