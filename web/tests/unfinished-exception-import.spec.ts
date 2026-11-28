@@ -249,11 +249,9 @@ for (const caf of [false, true])
           buffer,
         });
     } else {
-      const create = page.getByRole("button", {
-        name: "New application",
-        exact: true,
-      });
-      if (await create.isVisible()) await create.click();
+      await page
+        .getByRole("button", { name: "New application", exact: true })
+        .click();
     }
     await chooseWorkspaceSurface(page, "Workspace");
     await chooseWorkspaceTask(page, "Schedules");

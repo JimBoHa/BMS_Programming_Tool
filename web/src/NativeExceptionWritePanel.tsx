@@ -11,6 +11,7 @@ import { controllerKey, type ControllerTarget } from "./workflow";
 import {
   EXCEPTION_WRITE_BASE as base,
   exceptionWriteProfile,
+  supportsExceptionDraft,
   exceptionWritePreview,
   exceptionAppliedReceipt,
   exceptionWriteReceipt,
@@ -199,6 +200,7 @@ export function NativeExceptionWritePanel({
       !review ||
       !matches ||
       !profile ||
+      !supportsExceptionDraft(profile, review) ||
       !connected ||
       !operator.trim() ||
       !rationale.trim()
@@ -427,6 +429,7 @@ export function NativeExceptionWritePanel({
             }
             disabled={
               !profile ||
+              !supportsExceptionDraft(profile, review) ||
               !review ||
               !connected ||
               !matches ||
@@ -501,6 +504,9 @@ export function NativeExceptionWritePanel({
           )}
           {profile && (
             <table aria-label="Exception transfer journal">
+              {profile.journal.records.length === 0 && (
+                <caption>No exception transfers recorded</caption>
+              )}
               <thead>
                 <tr>
                   <th>Receipt</th>

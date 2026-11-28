@@ -120,7 +120,7 @@ class NativeExceptionText:
     def __init__(self, library):
         self.drafts = NativeScheduleExceptions(library)
 
-    def import_document(self, raw):
+    def import_document(self, raw, *, observed_default=False):
         document = strict_json(raw, MAX_DOCUMENT)
         keys(document, ("profile", "field_authority", "source", "buffer"))
         if document["profile"] != DOCUMENT_PROFILE or document["field_authority"] is not False:
@@ -132,7 +132,9 @@ class NativeExceptionText:
             )
         capture_id, object_id = identifier(source[0]), text(source[1], 80, nonempty=True)
         ExceptionDraft.schedule(object_id)
-        _, _, _, observed, _ = self.drafts.context(capture_id, object_id)
+        _, _, _, observed, _ = self.drafts.context(
+            capture_id, object_id, observed_default=observed_default
+        )
         return {
             "profile": IMPORT_PROFILE,
             "document_profile": DOCUMENT_PROFILE,
@@ -153,8 +155,12 @@ def exception_text_router(library):
     router = APIRouter(prefix="/api/bacnet/schedules/library/exceptions/unfinished")
 
     @router.post("/import")
-    async def import_text(file: UploadFile):
-        result = await asyncio.to_thread(service.import_document, await file.read(MAX_DOCUMENT + 1))
+    async def import_text(file: UploadFile, observed_defaults: bool = False):
+        result = await asyncio.to_thread(
+            service.import_document,
+            await file.read(MAX_DOCUMENT + 1),
+            observed_default=observed_defaults,
+        )
         return Response(
             json.dumps(result, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode(),
             media_type="application/json",

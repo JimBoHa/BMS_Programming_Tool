@@ -15,6 +15,7 @@ import {
 } from "./NativeCalendarEditor";
 import {
   EXCEPTION_BASE as base,
+  OBSERVED_EXCEPTION_PROFILE,
   EXCEPTION_DOCUMENT_BYTES,
   exceptionWork,
   exceptionKey,
@@ -116,7 +117,7 @@ export function NativeExceptionEditor({
     setReviewRecord(null);
     setPending("");
   }
-  async function load() {
+  async function load(checkNullDefault = false) {
     retire();
     const ticket = ++sourceEpoch.current,
       wanted = ownerNow.current;
@@ -125,7 +126,12 @@ export function NativeExceptionEditor({
     setSourceRecord(null);
     try {
       const data = exceptionSource(
-        await api(base + "/source", { id: captureId }),
+        await api(
+          base +
+            "/source" +
+            (checkNullDefault ? "?observed_defaults=true" : ""),
+          { id: captureId },
+        ),
         captureId,
       );
       if (
@@ -247,7 +253,11 @@ export function NativeExceptionEditor({
         const form = new FormData();
         form.append("file", file);
         const document = await apiJsonDocument(
-          base + "/unfinished/import",
+          base +
+            "/unfinished/import" +
+            (selected.draft_profile === OBSERVED_EXCEPTION_PROFILE
+              ? "?observed_defaults=true"
+              : ""),
           form,
         );
         if (document.blob.size > UNFINISHED_EXCEPTION_BYTES + 65536)
@@ -293,7 +303,12 @@ export function NativeExceptionEditor({
           });
         }
       } else {
-        const request = exceptionRequest(captureId, selectedObject, rows);
+        const request = exceptionRequest(
+          captureId,
+          selectedObject,
+          rows,
+          selected.draft_profile === OBSERVED_EXCEPTION_PROFILE,
+        );
         if (kind === "review") {
           const data = await exceptionReview(
             await api(base + "/review", request),
@@ -348,6 +363,13 @@ export function NativeExceptionEditor({
       <button disabled={loading} onClick={() => void load()}>
         Refresh captured exception sources
       </button>
+      {source?.schedules.some(
+        (item: any) => item.can_check_null_default === true,
+      ) && (
+        <button disabled={loading} onClick={() => void load(true)}>
+          Check value types for Null defaults
+        </button>
+      )}
       {loading && <p role="status">Reading local exception evidence…</p>}
       {error && <p role="alert">{error}</p>}
       <details>
@@ -480,9 +502,12 @@ export function NativeExceptionEditor({
                 </select>
               </label>
               <p>
-                Values use captured {selected?.native_type}; Null is an explicit
-                release. Event priority is independent of the Schedule’s writing
-                priority. Event order and duplicates stay intact.
+                {selected?.draft_profile === OBSERVED_EXCEPTION_PROFILE
+                  ? `The captured default is Null. The present value and weekly events establish the ${selected.native_type} data type.`
+                  : `Values use captured ${selected?.native_type}.`}{" "}
+                Null releases the event value. Event priority is independent of
+                the Schedule’s writing priority. Event order and duplicates stay
+                intact.
               </p>
               {retained?.imported && !retained.rawImported && (
                 <>

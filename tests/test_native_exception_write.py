@@ -9,7 +9,9 @@ import pytest
 from bms_tool import native_exception_write as module
 from bms_tool.app import create_app
 from bms_tool.connections import Bacnet
+from bms_tool.native_exception_write import OBSERVED_PROFILE as OBSERVED_WRITE
 from bms_tool.native_exception_write import ExceptionWriteJournal, NativeExceptionWrites
+from bms_tool.native_schedule_exceptions import OBSERVED_PROFILE as OBSERVED_DRAFT
 from bms_tool.native_schedule_exceptions import NativeScheduleExceptions
 from bms_tool.native_schedule_library import NativeScheduleLibrary
 from bms_tool.schedule_inventory import ScheduleInventory
@@ -126,8 +128,11 @@ class ExceptionPeer(SchedulePeer):
             self.errors.append(error)
 
 
-async def link(tmp_path, *, routed=False, events=None, old=OLD):
+async def link(tmp_path, *, routed=False, events=None, old=OLD, null_default=False, overrides=None):
     peer = ExceptionPeer(routed=routed)
+    peer.overrides.update(overrides or {})
+    if null_default:
+        peer.overrides["schedule,1", "schedule-default", None] = b"\x00"
     peer.events = split_events(bytes.fromhex(old))
     await asyncio.get_running_loop().create_datagram_endpoint(
         lambda: peer, local_addr=("127.0.0.1", 0)
@@ -146,6 +151,7 @@ async def link(tmp_path, *, routed=False, events=None, old=OLD):
             "capture_id": saved["id"],
             "object_id": "schedule,1",
             "events": copy.deepcopy(EVENTS if events is None else events),
+            **({"draft_profile": OBSERVED_DRAFT} if null_default else {}),
         }
         local = NativeScheduleExceptions(library).review(draft)
         service = NativeExceptionWrites(
@@ -184,6 +190,136 @@ async def apply(service, review):
             review_sha256=review["review_sha256"],
         )
     )
+
+
+@pytest.mark.parametrize("routed", [False, True], ids=["direct", "routed"])
+async def test_observed_exception_round_trip_preserves_weekly_witness(tmp_path, routed):
+    peer, client, inventory, library, service, request = await link(
+        tmp_path, routed=routed, null_default=True
+    )
+    try:
+        drafts = NativeScheduleExceptions(library)
+        capture_id = request["draft"]["capture_id"]
+        assert not drafts.source(capture_id)["schedules"][0]["eligible"]
+        source = drafts.source(capture_id, observed_defaults=True)["schedules"][0]
+        assert source["draft_profile"] == OBSERVED_DRAFT and source["native_type"] == "Real"
+        local = drafts.review(request["draft"])
+        export = drafts.export({"draft": request["draft"], "expected_review_id": local["id"]})
+        assert drafts.import_review(export) == local
+        preview = await service.preview(**request)
+        assert preview["can_apply"] and preview["profile"] == OBSERVED_WRITE
+        receipt = await apply(service, preview)
+        assert receipt["protocol_accepted"] and receipt["readback"]["status"] == "match"
+        assert peer.writes == [bytes.fromhex(NEW)]
+        assert json.loads(service.journal.receipt(receipt["id"])) == receipt
+        verified = json.loads(
+            await service.reconcile(operation_id="recheck_null_default", receipt_id=receipt["id"])
+        )
+        assert verified["profile"] == OBSERVED_WRITE and verified["readback"]["status"] == "match"
+
+        fresh = await inventory.read(**options(peer, object_ids=["schedule,1"]))
+        captured = library.save(fresh["id"])
+        original = {**request["draft"], "capture_id": captured["id"], "events": source["events"]}
+        undo = await service.preview(
+            **{
+                **request,
+                "operation_id": "review_original_exceptions",
+                "draft": original,
+                "expected_review_id": drafts.review(original)["id"],
+            }
+        )
+        assert undo["can_apply"]
+        result = json.loads(
+            await service.apply(
+                operation_id="restore_original_events",
+                token=undo["token"],
+                review_sha256=undo["review_sha256"],
+            )
+        )
+        assert result["protocol_accepted"] and result["readback"]["status"] == "match"
+        assert peer.writes == [bytes.fromhex(NEW), bytes.fromhex(OLD)]
+    finally:
+        await close(peer, client, inventory, service)
+
+
+async def test_one_date_enumerated_event_preserves_other_dates_and_releases_to_weekly(tmp_path):
+    months = (1, 4, 8, 12)
+    original = "".join(f"0e0cff{month:02x}01ff0f2eb40000000091002f3908" for month in months)
+    existing = [
+        {
+            "period": {"kind": "date", "date": [255, month, 1, 255]},
+            "priority": 8,
+            "transitions": [{"time": [0, 0, 0, 0], "native_type": "Enumerated", "value_text": "0"}],
+        }
+        for month in months
+    ]
+    event = {
+        "period": {"kind": "date", "date": [130, 4, 9, 2]},
+        "priority": 16,
+        "transitions": [
+            {"time": [10, 0, 0, 0], "native_type": "Enumerated", "value_text": "1"},
+            {"time": [11, 0, 0, 0], "native_type": "Null", "value_text": "null"},
+        ],
+    }
+    encoded_event = "0e0c820409020f2eb40a0000009101b40b000000002f3910"
+    overrides = {("schedule,1", "present-value", None): bytes.fromhex("9100")}
+    for index in range(1, 8):
+        overrides["schedule,1", "weekly-schedule", index] = bytes.fromhex("0eb40000000091000f")
+    peer, client, inventory, library, service, request = await link(
+        tmp_path, old=original, null_default=True, overrides=overrides, events=[*existing, event]
+    )
+    try:
+        preview = await service.preview(**request)
+        assert preview["can_apply"] and preview["profile"] == OBSERVED_WRITE
+        receipt = await apply(service, preview)
+        assert receipt["protocol_accepted"] and receipt["readback"]["status"] == "match"
+        assert peer.writes == [bytes.fromhex(original + encoded_event)]
+        capture = library.save(
+            (await inventory.read(**options(peer, object_ids=["schedule,1"])))["id"]
+        )
+        drafts = NativeScheduleExceptions(library)
+        (source,) = drafts.source(capture["id"], observed_defaults=True)["schedules"]
+        assert source["events"] == [*existing, event] and source["native_type"] == "Enumerated"
+        restore = {**request["draft"], "capture_id": capture["id"], "events": existing}
+        preview = await service.preview(
+            **{
+                **request,
+                "operation_id": "review_original_dates",
+                "draft": restore,
+                "expected_review_id": drafts.review(restore)["id"],
+            }
+        )
+        receipt = json.loads(
+            await service.apply(
+                operation_id="restore_original_dates",
+                token=preview["token"],
+                review_sha256=preview["review_sha256"],
+            )
+        )
+        assert receipt["protocol_accepted"] and receipt["readback"]["status"] == "match"
+        assert peer.writes == [bytes.fromhex(original + encoded_event), bytes.fromhex(original)]
+        assert peer.overrides["schedule,1", "schedule-default", None] == b"\x00"
+    finally:
+        await close(peer, client, inventory, service)
+
+
+@pytest.mark.parametrize("change", ["default", "present", "weekly"])
+async def test_observed_exception_rechecks_datatype_before_dispatch(tmp_path, change):
+    peer, client, inventory, _, service, request = await link(tmp_path, null_default=True)
+    try:
+        preview = await service.preview(**request)
+        assert preview["can_apply"]
+        if change == "default":
+            peer.overrides["schedule,1", "schedule-default", None] = b"\x44\x00\x00\x00\x00"
+        elif change == "present":
+            peer.overrides["schedule,1", "present-value", None] = b"\x91\x01"
+        else:
+            for index in range(1, 8):
+                peer.overrides["schedule,1", "weekly-schedule", index] = b"\x0e\x0f"
+        result = await apply(service, preview)
+        assert not result["dispatch_started"] and not peer.writes
+    finally:
+        await close(peer, client, inventory, service)
 
 
 @pytest.mark.parametrize("routed", [False, True], ids=["direct", "routed"])

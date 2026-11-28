@@ -53,8 +53,13 @@ async function select(page: Page, target: any, initial = true) {
   ).toContainText("Native " + target.device);
   await chooseWorkspaceTask(page, "Schedules");
 }
-async function setup(page: Page, request: APIRequestContext, routed = false) {
-  const peer = await exceptionControllerPeer(routed),
+async function setup(
+  page: Page,
+  request: APIRequestContext,
+  routed = false,
+  nullDefault = false,
+) {
+  const peer = await exceptionControllerPeer(routed, nullDefault),
     headers = await auth(request);
   try {
     expect(
@@ -103,6 +108,17 @@ async function setup(page: Page, request: APIRequestContext, routed = false) {
       name: "Captured Schedule exception editor",
       exact: true,
     });
+    if (nullDefault) {
+      await editor
+        .getByRole("button", {
+          name: "Check value types for Null defaults",
+          exact: true,
+        })
+        .click();
+      await expect(editor).toContainText(
+        "The present value and weekly events establish the Real data type.",
+      );
+    }
     await expect(
       editor.getByLabel("Captured Schedule for exceptions", { exact: true }),
     ).toHaveValue("schedule,1");
@@ -166,6 +182,55 @@ async function preview(panel: ReturnType<Page["getByRole"]>) {
     }),
   ).toBeEnabled();
 }
+test("a schedule with a Null default uses its observed type for a reviewed exception write", async ({
+  page,
+  request,
+}) => {
+  const { peer, panel } = await setup(page, request, false, true);
+  try {
+    await preview(panel);
+    const dispatch = page.waitForResponse(
+      (r) =>
+        new URL(r.url()).pathname ===
+          "/api/bacnet/schedule-exceptions/writes/apply" &&
+        r.request().method() === "POST",
+    );
+    await panel
+      .getByRole("button", { name: "Apply Schedule exceptions", exact: true })
+      .click();
+    const response = await dispatch;
+    expect(response.ok()).toBe(true);
+    const receipt = panel.getByRole("region", {
+      name: "Exception transfer receipt",
+      exact: true,
+    });
+    await expect(receipt).toContainText(
+      "Reviewed exceptions and other static Schedule fields matched at readback",
+    );
+    const match = (await receipt.textContent())?.match(
+      /Receipt ([a-f0-9]{32})/,
+    );
+    expect(match).toBeTruthy();
+    const retained = await request.get(base + "/receipts/" + match![1]);
+    expect(retained.ok()).toBe(true);
+    const body = await retained.json();
+    expect(body.profile).toBe(
+      "native-schedule-reviewed-observed-default-exception-write/1",
+    );
+    expect(body.protocol_accepted).toBe(true);
+    expect(body.readback.status).toBe("match");
+    await expect(
+      panel.getByRole("region", {
+        name: "Exception transfer receipt",
+        exact: true,
+      }),
+    ).toBeVisible();
+    expect((await peer.stats()).writes).toBe(1);
+  } finally {
+    await peer.close();
+  }
+});
+
 for (const routed of [false, true])
   test(`${routed ? "routed" : "direct"} Exception replacement sends exact dates once and keeps immutable receipts`, async ({
     page,
@@ -335,7 +400,9 @@ for (const changed of ["operation", "rules", "target", "request"])
           exact: true,
         })
         .click();
-      await expect(panel.getByRole("alert")).toContainText("Schedule exception review");
+      await expect(panel.getByRole("alert")).toContainText(
+        "Schedule exception review",
+      );
       await expect(
         panel.getByRole("button", {
           name: "Apply Schedule exceptions",

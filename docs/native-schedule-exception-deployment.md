@@ -14,7 +14,7 @@ weekly/String writes and Calendar writes retain their independent authorities.
 
 ## Field admission and request
 
-Only one existing standard Schedule's whole Exception_Schedule is replaced.
+The change replaces the complete Exception_Schedule of one existing standard Schedule.
 Before review and again before dispatch, the tool reads the exact Device and
 Schedule native identities, actual maximum APDU and protocol revision, names,
 description, effective period, default, write priority, destination references,
@@ -23,9 +23,30 @@ Array counts are checked again after their indexed reads. Sequential observation
 cannot exclude every concurrent external change and are not compare-and-swap.
 
 Present_Value, StatusFlags, Reliability and available device clock fields remain
-typed observations. Their changing values do not become static configuration
-locks or an evaluation of the new schedule. The default's observed native datatype
-continues to constrain all proposed values, including explicit Null release.
+typed observations. For a typed Schedule_Default, its native datatype constrains
+all proposed values. A transition may also use an explicit Null release.
+
+### Working with a Null Schedule_Default
+
+Select **Check value types for Null defaults** in the exception editor. The tool
+reads the saved Present_Value and all seven weekly days. A non-Null present value
+and at least one weekly value must establish the same native type. Every other
+non-Null weekly value must agree. Mixed types, a Null present value or missing
+evidence leave the Schedule ineligible. The local editor and export record the
+observed type under a separate profile.
+
+Review the full list of existing exceptions, the destination references and the
+Schedule's priority for writing. A Schedule can serve several points. For a
+single-date window, choose the calendar date, enter its start transition and
+add a Null transition at the end to release this event. Inspect the other
+exceptions and the weekly entry for that day to determine what can take over.
+
+Controller review, apply and receipt readback each check the type evidence and
+the complete weekly configuration again. The field request changes only
+Exception_Schedule. After applying, read the destination to verify the effective
+value and command priority. To restore an earlier configuration, capture the
+current Schedule, compare it with the retained original, edit the affected
+exception and review the complete array before applying the restoration.
 
 Each distinct proposed Calendar reference requires a fresh matching
 Object_Identifier read at the same selected Device and route. These targeted reads

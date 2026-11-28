@@ -1,4 +1,8 @@
-import { EXCEPTION_PROFILE, EXCEPTION_RULES } from "./nativeScheduleExceptions";
+import {
+  exceptionDraftDomain,
+  OBSERVED_EXCEPTION_PROFILE,
+  OBSERVED_EXCEPTION_RULES,
+} from "./nativeScheduleExceptions";
 import { ordered } from "./nativeCalendar";
 export {
   calendarDocumentSha,
@@ -12,6 +16,10 @@ export const EXCEPTION_WRITE_PROFILE =
   "native-schedule-reviewed-exception-write/1";
 export const EXCEPTION_WRITE_RULES =
   "3f17f31c560b241cd248414915a3fe519462e653ee8e1dbb02eb2d16ea9bc381";
+const OBSERVED_WRITE_PROFILE =
+  "native-schedule-reviewed-observed-default-exception-write/1";
+const OBSERVED_WRITE_RULES =
+  "5e54174c5e2e3bba8b5c684891d9b4b2d6c7f932c6b01c83fb350496dff48ed8";
 const hex = (v: any, size: number) =>
   typeof v === "string" && new RegExp(`^[a-f0-9]{${size}}$`).test(v);
 const text = (v: any, size = 4096) => typeof v === "string" && v.length <= size;
@@ -23,9 +31,15 @@ const schedule = (v: any) =>
   typeof v === "string" &&
   /^schedule,(0|[1-9][0-9]{0,6})$/.test(v) &&
   Number(v.split(",")[1]) <= 4194302;
-const domain = (v: any) =>
-  v?.profile === EXCEPTION_WRITE_PROFILE &&
-  v.rules_sha256 === EXCEPTION_WRITE_RULES;
+const domain = (v: any, observed = false) =>
+  v?.profile ===
+    (observed ? OBSERVED_WRITE_PROFILE : EXCEPTION_WRITE_PROFILE) &&
+  v.rules_sha256 === (observed ? OBSERVED_WRITE_RULES : EXCEPTION_WRITE_RULES);
+export const supportsExceptionDraft = (profile: any, draft: any) =>
+  draft?.request?.draft_profile !== OBSERVED_EXCEPTION_PROFILE ||
+  (domain(profile?.observed_default_profile, true) &&
+    profile.observed_default_profile.draft_rules_sha256 ===
+      OBSERVED_EXCEPTION_RULES);
 function coherentReadback(v: any) {
   return (
     v?.status !== "match" ||
@@ -35,8 +49,12 @@ function coherentReadback(v: any) {
 }
 function localReview(v: any) {
   return (
-    v?.profile === EXCEPTION_PROFILE &&
-    v.rules_sha256 === EXCEPTION_RULES &&
+    exceptionDraftDomain(
+      v,
+      v?.request?.draft_profile === OBSERVED_EXCEPTION_PROFILE,
+    ) &&
+    (v.request?.draft_profile === undefined ||
+      v.request.draft_profile === OBSERVED_EXCEPTION_PROFILE) &&
     hex(v.id, 64) &&
     hex(v.source?.capture_id, 64) &&
     v.source.source_sha256 === v.source.capture_id &&
@@ -63,6 +81,7 @@ function localReview(v: any) {
 }
 const sameSource = (v: any, draft: any) =>
   localReview(draft) &&
+  domain(v, draft.profile === OBSERVED_EXCEPTION_PROFILE) &&
   v.draft_id === draft.id &&
   v.source_sha256 === draft.source.source_sha256 &&
   v.object_id === draft.source.object &&
@@ -117,7 +136,7 @@ export function exceptionWritePreview(
   rationale: string,
 ) {
   if (
-    !domain(v) ||
+    !domain(v, draft?.profile === OBSERVED_EXCEPTION_PROFILE) ||
     !hex(v.id, 32) ||
     v.operation_id !== id ||
     !sameSource(v, draft) ||
@@ -184,14 +203,14 @@ export function exceptionWriteReceipt(v: any, id?: string) {
   const intent = v?.journal_state === "intent_only",
     draft = v?.review?.native_draft;
   if (
-    !domain(v) ||
+    !domain(v, draft?.profile === OBSERVED_EXCEPTION_PROFILE) ||
     !hex(v.id, 32) ||
     (id != null && v.id !== id) ||
     !operation(v.operation_id) ||
     !hex(v.evidence_sha256, 64) ||
     !hex(v.review_sha256, 64) ||
     !sameSource(v, draft) ||
-    !domain(v.review) ||
+    !domain(v.review, draft?.profile === OBSERVED_EXCEPTION_PROFILE) ||
     v.review.can_apply !== true ||
     v.review.review_sha256 !== v.review_sha256 ||
     !sameSource(v.review, draft) ||
@@ -277,7 +296,11 @@ export function exceptionReconciliation(
   id: string,
 ) {
   if (
-    !domain(v) ||
+    !domain(
+      v,
+      receipt?.review?.native_draft?.profile === OBSERVED_EXCEPTION_PROFILE,
+    ) ||
+    v.profile !== receipt.profile ||
     v.operation_id !== id ||
     v.receipt_id !== receipt.id ||
     v.receipt_sha256 !== sha ||
