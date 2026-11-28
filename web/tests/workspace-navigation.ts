@@ -15,13 +15,18 @@ export async function chooseWorkspaceTask(page: Page, label: string) {
     await navigation.getByRole("button", { name: label, exact: true }).click();
 }
 
-export async function chooseWorkspaceTool(page: Page, label: string) {
+export async function chooseWorkspaceTool(
+  page: Page,
+  label: string,
+  region = "Current task tools",
+) {
   const navigation = page.getByRole("navigation", {
-    name: "Current task tools",
+    name: region,
     exact: true,
   });
+  await expect(navigation).toBeVisible();
   const select = navigation.getByRole("combobox", {
-    name: "Current task tools",
+    name: region,
     exact: true,
   });
   if (await select.isVisible()) await select.selectOption({ label });
@@ -65,6 +70,11 @@ export async function chooseWorkspaceSurface(page: Page, label: string) {
     name: "Open navigation",
     exact: true,
   });
+  const railButton = page
+    .getByRole("navigation", { name: "Main navigation", exact: true })
+    .getByRole("button", { name: label, exact: true });
+  // A new page can still be loading its shell when this helper is first called.
+  await expect(opener.or(railButton).first()).toBeVisible();
   if (await opener.isVisible()) {
     await opener.click();
     await page
@@ -72,9 +82,6 @@ export async function chooseWorkspaceSurface(page: Page, label: string) {
       .getByRole("button", { name: label, exact: true })
       .click();
   } else {
-    await page
-      .getByRole("navigation", { name: "Main navigation", exact: true })
-      .getByRole("button", { name: label, exact: true })
-      .click();
+    await railButton.click();
   }
 }

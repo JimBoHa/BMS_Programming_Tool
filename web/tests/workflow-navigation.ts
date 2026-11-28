@@ -1,17 +1,14 @@
-import { expect, type Page } from "@playwright/test";
+import { type Page } from "@playwright/test";
+import {
+  chooseWorkspaceSurface,
+  chooseWorkspaceTool,
+} from "./workspace-navigation";
 
 /** Exercise the current workspace navigation rather than historical feature tiles. */
 export async function openCommunicationTool(page: Page, name: string) {
-  await page
-    .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("button", { name: "Settings", exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: "Communications & network", exact: true })
-    .click();
-  const tools = page.getByRole("navigation", { name: "Controller task tools" });
-  await expect(tools).toBeVisible();
-  await tools.getByRole("button", { name, exact: true }).click();
+  await chooseWorkspaceSurface(page, "Settings");
+  await chooseWorkspaceTool(page, "Communications & network", "settings tools");
+  await chooseWorkspaceTool(page, name, "Controller task tools");
 }
 
 export async function openConnectionDetails(page: Page) {
@@ -22,4 +19,3 @@ export async function openConnectionDetails(page: Page) {
   if ((await summary.locator("..").getAttribute("open")) === null)
     await summary.click();
 }
-

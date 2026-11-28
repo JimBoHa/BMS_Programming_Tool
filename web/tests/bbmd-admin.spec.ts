@@ -1,3 +1,4 @@
+import { openCommunicationTool } from "./workflow-navigation";
 import { test, expect } from "@playwright/test";
 import { spawn } from "node:child_process";
 import { createSocket } from "node:dgram";
@@ -90,7 +91,7 @@ test("BBMD receipt keeps late native NACK visible after generic Result retention
       data: { local_address: `127.0.0.1:${await freePort()}` },
     });
     await page.goto("/");
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
+    await openCommunicationTool(page, "BBMD administration");
     const panel = page.getByRole("region", {
       name: "Reviewed BBMD administration",
       exact: true,
@@ -161,7 +162,7 @@ test("BBMD changes require fresh review, send one exact write, export observatio
       data: { local_address: `127.0.0.1:${await freePort()}` },
     });
     await page.goto("/");
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
+    await openCommunicationTool(page, "BBMD administration");
     const panel = page.getByRole("region", {
       name: "Reviewed BBMD administration",
       exact: true,
@@ -235,7 +236,7 @@ test("BBMD changes require fresh review, send one exact write, export observatio
       port: 47809,
     });
     await page.reload();
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
+    await openCommunicationTool(page, "BBMD administration");
     await panel
       .getByRole("button", { name: "Load BBMD change history", exact: true })
       .click();
@@ -275,7 +276,7 @@ test("FDT UI targets an exact native lease and cancellation after dispatch stays
       data: { local_address: `127.0.0.1:${await freePort()}` },
     });
     await page.goto("/");
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
+    await openCommunicationTool(page, "BBMD administration");
     const panel = page.getByRole("region", {
       name: "Reviewed BBMD administration",
       exact: true,

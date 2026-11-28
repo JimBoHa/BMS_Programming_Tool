@@ -1,3 +1,4 @@
+import { openCommunicationTool } from "./workflow-navigation";
 import { test, expect } from "@playwright/test";
 import { spawn } from "node:child_process";
 import { createSocket } from "node:dgram";
@@ -73,7 +74,7 @@ test("BBMD tables UI explicitly reads native tables and exports immutable endpoi
   try {
     await request.post("/api/bacnet/disconnect", { headers, data: {} });
     await page.goto("/");
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
+    await openCommunicationTool(page, "BBMD inspection");
     const panel = page.getByRole("region", {
       name: "BBMD table inspection",
       exact: true,
@@ -89,7 +90,7 @@ test("BBMD tables UI explicitly reads native tables and exports immutable endpoi
       data: { local_address: `127.0.0.1:${await freePort()}` },
     });
     await page.reload();
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
+    await openCommunicationTool(page, "BBMD inspection");
     await panel
       .getByLabel("BBMD inspection endpoint", { exact: true })
       .fill(peer.endpoint);
@@ -126,7 +127,7 @@ test("BBMD tables UI explicitly reads native tables and exports immutable endpoi
     expect(evidence.tables.bdt.response.raw_hex).toMatch(/^8103/);
     expect(evidence.scope).toContain("late replies");
     await page.reload();
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
+    await openCommunicationTool(page, "BBMD inspection");
     await panel
       .getByRole("button", { name: "Load table inspections", exact: true })
       .click();
@@ -152,7 +153,7 @@ test("BBMD UI cancels an actual waiting read and retains its unknown outcome", a
       data: { local_address: `127.0.0.1:${await freePort()}` },
     });
     await page.goto("/");
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
+    await openCommunicationTool(page, "BBMD inspection");
     const panel = page.getByRole("region", {
       name: "BBMD table inspection",
       exact: true,
