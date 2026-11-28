@@ -38,11 +38,29 @@ tables by one row per added block or wire. It checks both counts again after
 serialization. An inconsistent original drawing stops the new graph edit at
 review. Receipts from the previous encoder still reproduce their original bytes.
 
-The new diagnostic receipt also reports whether its downstream clock advanced,
+The diagnostic receipt also reports whether its downstream clock advanced,
 stayed stationary, or could not be confirmed. Six reads check elapsed time,
 countdown direction and rollover, signal reliability and controller identity.
 The program and saved-setting verification remains available if the clock stalls,
 so the operator can still select and restore the original application.
+
+### Observing a retriggerable timer
+
+Select `sample_register: true` and `pulse_witness: true` in the existing
+clock-monitor review to include a five-second retriggerable timer. The
+sixty-second countdown supplies rising edges at 48 and 46 seconds remaining.
+Under `compilation.sampling_register.retriggerable_timer`, the review lists the
+two downstream BACnet objects. Read `active` and `remaining` alongside the
+existing `clock_witness` to observe their change through a cycle.
+
+Before the first trigger the pulse should be inactive. At the second rising
+edge its remaining time should return to five seconds and the pulse should
+stay active beyond the first trigger's expiry. After the second interval it
+should become inactive with zero remaining. Record the request and reply
+times and the quality of all three observations. The ordinary six-read
+receipt checks only the original free-running clock. A reviewer can recover
+the original program independently of these observations.
+[Johnson Controls timer reference](https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Controller-Tool-Help/15.0/Logic/Timing/Timer)
 
 Read the witness across a complete timer cycle without polling the timer.
 Compare each internal sensor observation with its corresponding physical

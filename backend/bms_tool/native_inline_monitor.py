@@ -208,6 +208,28 @@ def sources(app, graph, *, allow_floating=False):
     )
 
 
+def append_monitor_timer(add, port, root, name, mode, duration):
+    timer, _ = add(
+        558,
+        558,
+        root,
+        {
+            2390: encoded(CharacterString(name)),
+            3184: atoms(Enumerated, [513, 1080, 85, 1081]),
+            3670: encoded(Enumerated(62)),
+            1184: encoded(Unsigned(1)),
+        },
+        member=True,
+    )
+    port(timer, 531, 5, 85, Boolean(False))
+    port(timer, 530, 5, 513, Boolean(False))
+    port(timer, 530, 5, 1082, Boolean(False))
+    port(timer, 528, 19, 518, Enumerated(mode), p74=Unsigned(9), p931=Enumerated(21))
+    port(timer, 526, 2, 1080, Real(duration), p117=Enumerated(73), p661=Enumerated(6))
+    port(timer, 528, 19, 1083, Enumerated(0), p74=Unsigned(2), p931=Enumerated(22))
+    port(timer, 527, 2, 1081, Real(0), p117=Enumerated(73), p661=Enumerated(6))
+
+
 def compile_monitor(
     files,
     first_instance,
@@ -217,6 +239,7 @@ def compile_monitor(
     sample_register=False,
     activity_input=False,
     register_source="countdown",
+    pulse_witness=False,
 ):
     if type(first_instance) is not int or not 1 <= first_instance <= LIMIT:
         raise ValueError("Select a valid first native object instance.")
@@ -224,6 +247,8 @@ def compile_monitor(
         raise ValueError("Select a Boolean sampling register option.")
     if type(activity_input) is not bool or (activity_input and not sample_register):
         raise ValueError("The activity input requires an enabled sample register.")
+    if type(pulse_witness) is not bool or (pulse_witness and not sample_register):
+        raise ValueError("The retriggerable timer observation requires an enabled sample register.")
     if register_source not in ("countdown", "supply-airflow"):
         raise ValueError("Select the countdown or the verified supply airflow.")
     if register_source == "supply-airflow" and not sample_register:
@@ -341,25 +366,7 @@ def compile_monitor(
             "boolean": boolean,
         }
 
-    clock, _ = add(
-        558,
-        558,
-        ref,
-        {
-            2390: encoded(CharacterString(CLOCK)),
-            3184: atoms(Enumerated, [513, 1080, 85, 1081]),
-            3670: encoded(Enumerated(62)),
-            1184: encoded(Unsigned(1)),
-        },
-        member=True,
-    )
-    port(clock, 531, 5, 85, Boolean(False))
-    port(clock, 530, 5, 513, Boolean(False))
-    port(clock, 530, 5, 1082, Boolean(False))
-    port(clock, 528, 19, 518, Enumerated(5), p74=Unsigned(9), p931=Enumerated(21))
-    port(clock, 526, 2, 1080, Real(60), p117=Enumerated(73), p661=Enumerated(6))
-    port(clock, 528, 19, 1083, Enumerated(0), p74=Unsigned(2), p931=Enumerated(22))
-    port(clock, 527, 2, 1081, Real(0), p117=Enumerated(73), p661=Enumerated(6))
+    append_monitor_timer(add, port, ref, CLOCK, 5, 60)
     witness, _ = add(
         538,
         538,
@@ -392,8 +399,18 @@ def compile_monitor(
             flow_index = next(b["index"] for b in g["blocks"] if b["ref"] == flow_ref)
             flow_port = read(physical["flow"], 3365)
             airflow_source = (flow_index, flow_port)
+
+        def append_pulse_timer(duration):
+            append_monitor_timer(add, port, ref, "Retriggerable pulse", 1, duration)
+
         links, register = append_clock_register(
-            app, ref, add, n + len(members), clock_source, airflow_source=airflow_source
+            app,
+            ref,
+            add,
+            n + len(members),
+            clock_source,
+            airflow_source=airflow_source,
+            pulse_timer=append_pulse_timer if pulse_witness else None,
         )
         if airflow_source is not None:
             register["airflow_source"] = {
