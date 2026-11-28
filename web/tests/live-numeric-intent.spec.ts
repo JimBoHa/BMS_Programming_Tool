@@ -52,15 +52,36 @@ if type(e) is float and e==0: assert math.copysign(1,v)==math.copysign(1,e)
     { cwd: root, input: raw },
   );
 }
+async function openInputForce(page: Page) {
+  await page.locator('.react-flow__node[data-id="a"]').click();
+  const force = page.getByLabel("Simulation force value", { exact: true });
+  const open = page.getByRole("button", {
+    name: "Open block properties",
+    exact: true,
+  });
+  if ((await open.isVisible()) && !(await force.isVisible()))
+    await open.click();
+  await expect(force).toBeVisible();
+  return force;
+}
+
 async function step(page: Page) {
+  const close = page.getByRole("button", {
+    name: "Close block properties",
+    exact: true,
+  });
+  if (await close.isVisible()) await close.click();
   const response = page.waitForResponse(
     (r) =>
       r.url().endsWith("/api/simulation/step") &&
       r.request().method() === "POST",
   );
-  await page.getByTitle("Step simulation", { exact: true }).click();
+  const stepButton = page.getByTitle("Step simulation", { exact: true });
+  await stepButton.click();
   const result = await response;
   expect(result.ok()).toBe(true);
+  await result.finished();
+  await expect(stepButton).toBeEnabled();
   return result.request().postData()!;
 }
 test("portable inputs and held force preserve live numeric lexical types through Python HTTP", async ({
@@ -68,11 +89,12 @@ test("portable inputs and held force preserve live numeric lexical types through
 }) => {
   await load(page);
   for (const token of ["1e30", "1.0", "-0.0", "-0", "1152921504606846976"]) {
-    await page.getByLabel("Simulate a", { exact: true }).fill(token);
+    const input = page.getByLabel("Simulate a", { exact: true });
+    await input.fill(token);
+    await expect(input).toHaveValue(token);
     check(await step(page), '["inputs","a"]', token);
   }
-  await page.locator('.react-flow__node[data-id="a"]').click();
-  await page.getByLabel("Simulation force value").fill("1e30");
+  await (await openInputForce(page)).fill("1e30");
   await page
     .getByRole("button", { name: "Hold simulation value", exact: true })
     .click();
@@ -213,7 +235,7 @@ test("shared group inputs survive exact large integer and float reopen without l
       '["inputs","producer","value","value"]',
       token,
     );
-    await page.getByRole("button", { name: "Program", exact: true }).click();
+    await chooseWorkspaceTool(page, "Graph simulation");
     await openSystemSimulation(page);
     await expect(
       page.getByLabel("Group input producer.value", { exact: true }),
@@ -265,10 +287,7 @@ for (const token of ["1.0", "1152921504606846976"])
       await load(page);
       await page.getByLabel("Simulate a", { exact: true }).fill(token);
       await step(page);
-      await page.locator('.react-flow__node[data-id="a"]').click();
-      await expect(page.getByLabel("Simulation force value")).toHaveValue(
-        token,
-      );
+      await expect(await openInputForce(page)).toHaveValue(token);
       await page
         .getByRole("button", { name: "Hold simulation value", exact: true })
         .click();
@@ -391,7 +410,7 @@ test("shared initial numeric token survives authoring, workspace export and reop
     "import json,sys;v=json.load(open(sys.argv[1]));assert type(v['links'][0]['initial']) is float and v['links'][0]['initial']==1.0",
     (await file.path())!,
   ]);
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceTool(page, "Graph simulation");
   await openSystemSimulation(page);
   await expect(page.locator(".group-elapsed")).toHaveText("0.0 s");
   const restarted = page.waitForResponse((r) =>
