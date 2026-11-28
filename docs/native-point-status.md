@@ -20,6 +20,8 @@ The table shows each priority that was filled, cleared or changed, with its earl
 
 ## Bounds and export
 
+On a slower route, the standard 15-second inspection can end before the last priority slots arrive. Select **Allow up to 60 seconds for a slow connection** before starting an inspection. This gives each property up to two seconds on the normal server. Cancel remains available throughout. Each extended report records its deadlines. Both modes keep the same request, object and evidence limits and make one attempt per property.
+
 The [owned shared-socket receive profile](ipv4-receive-provenance.md) handles the pinned Windows stack's broadcast destination metadata without rewriting it. Raw BVLC Original-Unicast, actual socket and peer stay validated; the physical IP destination remains unavailable.
 
 This profile uses the shared source-pinned `PropertyEvidence` reader extracted from the tested Calendar/Schedule inventory. It sends only owned, unsegmented, single-attempt ReadProperty requests. Direct/routed receive validation pins the original IPv4 peer, local interface/socket identity and NPDU source rather than trusting a mutable route cache. Other native services/observers remain independent. No point writes, priority commands, relinquishing, out-of-service changes, polling, reconnect or retries are added.

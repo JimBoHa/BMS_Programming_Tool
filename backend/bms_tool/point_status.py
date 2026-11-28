@@ -73,6 +73,7 @@ class PointStatusRequest(DeviceDetailsRequest):
     include_accumulator_metadata: bool = Field(default=False, strict=True)
     include_commandable: bool = Field(default=False, strict=True)
     include_enum_metadata: bool = Field(default=False, strict=True)
+    extended_timing: bool = Field(default=False, strict=True)
     state_text_limit: int = Field(default=32, ge=1, le=256, strict=True)
 
     @field_validator("object_ids")
@@ -132,6 +133,8 @@ class PointStatus:
             operation_timeout=operation_timeout,
             request_gap=request_gap,
         )
+        self.extended_operation_timeout = operation_timeout * 4
+        self.extended_request_timeout = min(2 * timeout, 2.0)
         self.reader = PropertyEvidence(self.path)
         self.reports, self.cancelled = OrderedDict(), OrderedDict()
         self.active = None
@@ -160,6 +163,8 @@ class PointStatus:
                 "native_items": 4096,
                 "operation_seconds": self.operation_timeout,
                 "request_seconds": self.timeout,
+                "extended_operation_seconds": self.extended_operation_timeout,
+                "extended_request_seconds": self.extended_request_timeout,
             },
             "reports": [
                 {
@@ -225,7 +230,7 @@ class PointStatus:
             prop,
             cls,
             index,
-            timeout=self.timeout,
+            timeout=session.get("point_request_timeout", self.timeout),
             request_gap=self.request_gap,
         )
         if row["status"] == "ok" and prop in ("status-flags", "out-of-service"):
@@ -319,11 +324,22 @@ class PointStatus:
             "consistency": "Sequential property and priority-slot observations, not atomic state or command-ownership proof.",
         }
         active = {"id": options.operation_id, "task": asyncio.current_task(), "cancelled": False}
+        operation_seconds = self.operation_timeout
+        request_seconds = self.timeout
+        if options.extended_timing:
+            operation_seconds = self.extended_operation_timeout
+            request_seconds = self.extended_request_timeout
+            report["timing"] = {
+                "profile": "extended",
+                "operation_seconds": operation_seconds,
+                "request_seconds": request_seconds,
+            }
         self.active = active
         session = None
         try:
-            async with asyncio.timeout(self.operation_timeout):
+            async with asyncio.timeout(operation_seconds):
                 async with self.path._path(options) as session:
+                    session["point_request_timeout"] = request_seconds
                     if session["app"] is not app or session["config"] != config:
                         raise _InterfaceChanged(
                             "Point-status interface changed before acquisition."

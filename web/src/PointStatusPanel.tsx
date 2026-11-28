@@ -114,6 +114,7 @@ export function PointStatusPanel({
       pointPattern.test(defaultObject) ? defaultObject : "",
     );
   const [commandable, setCommandable] = useState(false),
+    [extendedTiming, setExtendedTiming] = useState(false),
     [enumMetadata, setEnumMetadata] = useState(false),
     [accumulatorMetadata, setAccumulatorMetadata] = useState(false),
     [stateTextLimit, setStateTextLimit] = useState("32"),
@@ -151,6 +152,7 @@ export function PointStatusPanel({
       dnet,
       objects,
       commandable,
+      extendedTiming,
       enumMetadata,
       accumulatorMetadata,
       stateTextLimit,
@@ -222,6 +224,7 @@ export function PointStatusPanel({
           .map((v) => v.trim())
           .filter(Boolean),
         include_commandable: commandable,
+        ...(extendedTiming ? { extended_timing: true } : {}),
         include_enum_metadata: enumMetadata,
         include_accumulator_metadata: accumulatorMetadata,
         state_text_limit: Number(stateTextLimit),
@@ -390,6 +393,15 @@ export function PointStatusPanel({
             onChange={(e) => setCommandable(e.target.checked)}
           />
           Read optional priority slots and relinquish defaults
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={extendedTiming}
+            disabled={busy}
+            onChange={(e) => setExtendedTiming(e.target.checked)}
+          />
+          Allow up to 60 seconds for a slow connection
         </label>
         <label>
           <input
