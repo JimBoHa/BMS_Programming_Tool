@@ -34,6 +34,7 @@ class ClockMonitorReview(MonitorReview):
     sample_register: StrictBool = False
     activity_input: StrictBool = False
     register_source: Literal["countdown", "supply-airflow"] = "countdown"
+    pulse_witness: StrictBool = False
 
 
 def reviewed_register_source(compilation):
@@ -42,6 +43,10 @@ def reviewed_register_source(compilation):
         if "airflow_source" in compilation.get("sampling_register", {})
         else "countdown"
     )
+
+
+def reviewed_pulse(compilation):
+    return "retriggerable_timer" in compilation.get("sampling_register", {})
 
 
 class MonitorApply(StrictModel):
@@ -170,6 +175,7 @@ async def review(native, options):
         with_register = isinstance(options, ClockMonitorReview) and options.sample_register
         activity_input = isinstance(options, ClockMonitorReview) and options.activity_input
         register_source = getattr(options, "register_source", "countdown")
+        pulse_witness = getattr(options, "pulse_witness", False)
         out, compilation = compile_monitor(
             files,
             options.first_instance,
@@ -177,6 +183,7 @@ async def review(native, options):
             sample_register=with_register,
             activity_input=activity_input,
             register_source=register_source,
+            pulse_witness=pulse_witness,
         )
         config, app = copy.deepcopy(native.bacnet.config), native.bacnet.require()
         async with native.path._path(options) as session:
@@ -213,6 +220,7 @@ async def review(native, options):
                 "Install internal sensor and timer observations"
                 + (" and a gated timing register" if with_register else "")
                 + (" with a Float activity input" if activity_input else "")
+                + (" and independent retriggerable timer observations" if pulse_witness else "")
                 + (
                     " sampling the captured supply airflow in CFM"
                     if register_source == "supply-airflow"
@@ -241,6 +249,7 @@ def validate_review(plan):
         != getattr(plan["options"], "activity_input", False)
         or reviewed_register_source(body["compilation"])
         != getattr(plan["options"], "register_source", "countdown")
+        or reviewed_pulse(body["compilation"]) != getattr(plan["options"], "pulse_witness", False)
     ):
         raise ValueError("The exact monitor review has changed. Review again.")
 
@@ -257,6 +266,7 @@ def fresh_compile(native, body, files):
         sample_register="sampling_register" in body["compilation"],
         activity_input="register_input_activity" in body["compilation"],
         register_source=reviewed_register_source(body["compilation"]),
+        pulse_witness=reviewed_pulse(body["compilation"]),
     )
 
 
@@ -272,6 +282,7 @@ def reconstruct(native, intent):
         sample_register="sampling_register" in intent["compilation"],
         activity_input="register_input_activity" in intent["compilation"],
         register_source=reviewed_register_source(intent["compilation"]),
+        pulse_witness=reviewed_pulse(intent["compilation"]),
     )
     if (
         report != intent["compilation"]

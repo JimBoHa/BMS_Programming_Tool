@@ -92,7 +92,9 @@ def verify_clock_activity(app, expected):
         raise ValueError("The serialized timing activity does not connect its input to its output.")
 
 
-def append_clock_register(app, root, add, first, clock_source, *, airflow_source=None):
+def append_clock_register(
+    app, root, add, first, clock_source, *, airflow_source=None, pulse_timer=None
+):
     children = defaultdict(list)
     read = app.reader.scalar
     for item in app.records:
@@ -109,7 +111,7 @@ def append_clock_register(app, root, add, first, clock_source, *, airflow_source
         return fields
 
     def primitive(kind, label, defaults):
-        _, record, ports = released_prototype(kind, [(app, children)])
+        _, record, ports = released_prototype("ge" if kind == "equal" else kind, [(app, children)])
         cid = record["class_id"]
         if 3184 not in record["properties"]:
             raise ValueError("The sampling register requires a declared connection port list.")
@@ -118,6 +120,10 @@ def append_clock_register(app, root, add, first, clock_source, *, airflow_source
             raise ValueError("The sampled register needs the source primitive's connection ports.")
         fields = original_properties(record)
         fields[2390] = encoded(CharacterString(label))
+        if kind == "equal":
+            # Both comparisons use the same release-62 block class and typed pins.
+            fields[3670] = encoded(Enumerated(30))
+            fields[518] = encoded(Enumerated(5))
         parent, _ = add(cid, cid, root, fields, member=True)
         created = {}
         for number, port in ports.items():
@@ -145,10 +151,45 @@ def append_clock_register(app, root, add, first, clock_source, *, airflow_source
         (*sample_source, switch, 7001),
         (switch, 85, memory, 513),
     ]
-    return wires, {
+    register = {
         "gate": gate,
         "memory": previous,
         "output": output,
         "threshold_seconds": 30.0,
         "period_seconds": 60,
+    }
+    if pulse_timer is not None:
+        pulse_wires, pulse = append_pulse_observation(
+            primitive, pulse_timer, first + 3, clock_source
+        )
+        wires.extend(pulse_wires)
+        register["retriggerable_timer"] = pulse
+    return wires, register
+
+
+def append_pulse_observation(primitive, pulse_timer, first, clock_source):
+    """Exercise two rising edges before expiry and expose the downstream results."""
+    trigger_seconds = (48, 46)
+    duration = 5
+    for second in trigger_seconds:
+        primitive("equal", f"Countdown equals {second}", {50084: float(second), 637: 0.0})
+    primitive("or", "Either countdown trigger", {})
+    pulse_timer(duration)
+    active = primitive("prevB", "Observed pulse state", {})
+    remaining = primitive("prevF", "Observed pulse time remaining", {})
+    first_edge, second_edge, either, timer, state, time_left = range(first, first + 6)
+    return [
+        (*clock_source, first_edge, 50083),
+        (*clock_source, second_edge, 50083),
+        (first_edge, 85, either, 7000),
+        (second_edge, 85, either, 7001),
+        (either, 85, timer, 513),
+        (timer, 85, state, 513),
+        (timer, 1081, time_left, 513),
+    ], {
+        "active": active,
+        "remaining": remaining,
+        "trigger_countdowns": list(trigger_seconds),
+        "duration_seconds": duration,
+        "update_seconds": 1,
     }
