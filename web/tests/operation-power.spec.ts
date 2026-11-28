@@ -1,6 +1,7 @@
 import { test, expect, type Page, type Locator } from "./operationPowerFixture";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { chooseWorkspaceSurface } from "./workspace-navigation";
 
 const endpoint = "/api/operation-power";
 const digest = (bytes: Buffer) =>
@@ -24,9 +25,26 @@ test.afterEach(async ({ page, powerIdentity }) => {
     contentType: "application/json",
   });
 });
+async function selectSettingsTool(page: Page, name: string) {
+  const tools = page.getByRole("navigation", {
+    name: "Controller task tools",
+    exact: true,
+  });
+  const select = tools.getByRole("combobox", {
+    name: "Controller task tools",
+    exact: true,
+  });
+  await expect(tools).toBeVisible();
+  if (await select.isVisible()) await select.selectOption({ label: name });
+  else await tools.getByRole("button", { name, exact: true }).click();
+}
 async function open(page: Page) {
   await page.goto("/");
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: /^Connect to a controller/ }),
+  ).toBeVisible();
+  await chooseWorkspaceSurface(page, "Settings");
+  await selectSettingsTool(page, "Operation power");
   const panel = page.getByRole("region", {
     name: "Operation power status",
     exact: true,
@@ -103,7 +121,7 @@ async function held(page: Page) {
   return { incoming, release, finished };
 }
 
-test("explicit read only: idle Connect never polls or acquires, and one refresh shows exact lifecycle identities", async ({
+test("opening Operation power never polls or acquires, and one refresh shows exact lifecycle identities", async ({
   page,
 }) => {
   const calls: string[] = [];
@@ -265,7 +283,7 @@ test("failed refresh retires old snapshot and export, reports error and never re
   expect(attempts).toBe(1);
 });
 
-test("unmount retires held read without downloads or restoring a report after returning to Connect", async ({
+test("leaving Operation power retires its read and reopening starts with an empty report", async ({
   page,
 }) => {
   const panel = await open(page),
@@ -280,10 +298,11 @@ test("unmount retires held read without downloads or restoring a report after re
       })
       .click();
     await pending.incoming;
-    await page.getByRole("button", { name: "Program", exact: true }).click();
+    await selectSettingsTool(page, "BACnet/IP connection");
+    await expect(panel).toHaveCount(0);
     pending.release();
     await pending.finished;
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
+    await selectSettingsTool(page, "Operation power");
     const fresh = page.getByRole("region", {
       name: "Operation power status",
       exact: true,
