@@ -1,6 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
-import { execFileSync, spawn } from "node:child_process";
-import { createSocket } from "node:dgram";
+import { execFileSync } from "node:child_process";
+import { openPointInspection, startPointPeer } from "./point-status-workspace";
+import {
+  chooseWorkspaceTask,
+  chooseWorkspaceTool,
+} from "./workspace-navigation";
 import path from "node:path";
 const root = path.resolve("..");
 test.afterEach(async ({ request }) => {
@@ -17,16 +21,20 @@ test.afterEach(async ({ request }) => {
     (await (await request.get("/api/bacnet/status")).json()).connected,
   ).toBe(false);
 });
-async function connectTab(page: Page) {
-  await page.goto("/");
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
+async function stateMapping(page: Page) {
+  await chooseWorkspaceTask(page, "Points & I/O");
+  await chooseWorkspaceTool(page, "State mapping", "Controller task tools");
   return page.getByRole("region", {
     name: "Operator enum mapping review",
     exact: true,
   });
 }
 async function example(page: Page) {
-  const panel = await connectTab(page);
+  await page.goto("/");
+  await page
+    .getByRole("button", { name: "New application", exact: true })
+    .click();
+  const panel = await stateMapping(page);
   await panel
     .getByRole("button", { name: "Load operator mapping example", exact: true })
     .click();
@@ -186,117 +194,24 @@ test("delayed enum export and review cannot survive edited declarations or navig
     .getByRole("button", { name: "Review enum mapping", exact: true })
     .click();
   await waiting;
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceTask(page, "Program");
   finish();
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
+  await stateMapping(page);
   await expect(
     page.getByLabel("Enum mapping review result", { exact: true }),
   ).toHaveCount(0);
 });
 
-async function freePort(): Promise<number> {
-  const socket = createSocket("udp4");
-  return new Promise((resolve, reject) => {
-    socket.once("error", reject);
-    socket.bind(0, "127.0.0.1", () => {
-      const port = (socket.address() as any).port;
-      socket.close(() => resolve(port));
-    });
-  });
-}
-async function peer(routed: boolean, code = 1) {
-  const child = spawn(
-    path.join(root, ".venv/bin/python"),
-    [
-      "-u",
-      "-c",
-      `
-import asyncio,sys
-from tests.test_native_enum_domain import make_enum_peer
-async def main():
- peer=await make_enum_peer(routed=sys.argv[1]=='1',code=int(sys.argv[2]));print(peer.endpoint.split(':')[-1],flush=True)
- try:await asyncio.Event().wait()
- finally:peer.close()
-asyncio.run(main())
-`,
-      routed ? "1" : "0",
-      String(code),
-    ],
-    {
-      cwd: root,
-      env: { ...process.env, PYTHONPATH: path.join(root, "backend") },
-      stdio: ["ignore", "pipe", "pipe"],
-    },
-  );
-  const port = await new Promise<number>((resolve, reject) => {
-    let data = "",
-      error = "";
-    const timer = setTimeout(() => {
-      child.kill();
-      reject(new Error(error || "Enum peer startup timeout"));
-    }, 5000);
-    child.stdout!.on("data", (value) => {
-      data += String(value);
-      if (data.includes("\n")) {
-        clearTimeout(timer);
-        resolve(Number(data.split("\n")[0]));
-      }
-    });
-    child.stderr!.on("data", (value) => {
-      error += String(value);
-    });
-    child.once("error", reject);
-    child.once("exit", (code) => {
-      clearTimeout(timer);
-      reject(new Error(`Enum peer ${code}: ${error}`));
-    });
-  });
-  return { port, child };
-}
 for (const routed of [false, true])
   test(`native enum metadata ${routed ? "routed" : "direct"} is opt-in, preserves codes and exact evidence`, async ({
     page,
-    request,
   }) => {
-    const remote = await peer(routed, routed ? 4 : 1);
+    const remote = await startPointPeer(
+      routed,
+      routed ? "enum-out-of-range" : "enum-in-range",
+    );
     try {
-      const headers = {
-        "X-Studio-Token": (await (await request.get("/api/session")).json())
-          .token,
-      };
-      expect(
-        (
-          await request.post("/api/bacnet/connect", {
-            headers,
-            data: { local_address: `127.0.0.1:${await freePort()}` },
-          })
-        ).ok(),
-      ).toBe(true);
-      await connectTab(page);
-      const panel = page.getByRole("region", {
-        name: "Native point status inspection",
-        exact: true,
-      });
-      await expect(
-        panel.getByRole("button", {
-          name: "Inspect native point status",
-          exact: true,
-        }),
-      ).toBeEnabled();
-      await panel
-        .getByLabel("Point-status source address", { exact: true })
-        .fill(routed ? "3001:7" : `127.0.0.1:${remote.port}`);
-      await panel
-        .getByLabel("Point-status Device identifier", { exact: true })
-        .fill("device,42");
-      if (routed) {
-        await panel
-          .getByLabel("Point-status router endpoint", { exact: true })
-          .fill(`127.0.0.1:${remote.port}`);
-        await panel
-          .getByLabel("Point-status DNET", { exact: true })
-          .fill("3001");
-      }
+      const panel = await openPointInspection(page, remote, routed);
       await panel
         .getByLabel("Selected native points", { exact: true })
         .fill("binary-input,1; multi-state-value,2");
@@ -367,6 +282,6 @@ assert multi['enum_domain']['number_of_states']==3;print('verified')
         ).trim(),
       ).toBe("verified");
     } finally {
-      remote.child.kill();
+      await remote.stop();
     }
   });
