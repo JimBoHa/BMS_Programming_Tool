@@ -21,6 +21,11 @@ tool. `EngineeringLogicCanvas` now supplies both presentations;
   come from existing class/property dictionaries or a unique named child port
   whose recorded Attribute ID matches the parent pin. Ambiguous child names do
   not override the dictionary. A label grants no authoring capability.
+- In a connected diagram, select a block and use **Live value source** to read
+  an identified signal pin. The controller must return the child object's
+  identifier and full native item reference. The block badge names the selected
+  pin, and the inspector shows its read time. Selecting **Block** returns to
+  the block's own BACnet reading.
 - Use a readable signal-flow arrangement by default. Order sibling inputs by
   their destination pins to reduce crossed wires, while retaining original
   execution sequence. Recorded coordinates remain available. View moves never

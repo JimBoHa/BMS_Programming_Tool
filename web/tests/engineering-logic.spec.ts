@@ -27,7 +27,9 @@ from tests.test_bacnet_files import FilePeer
 from tests.test_logic_display import pid_native
 from bacpypes3.object import FileObject,AnalogValueObject
 from bacpypes3.basetypes import DateTime
-from bacpypes3.primitivedata import ObjectIdentifier
+from bacpypes3.primitivedata import CharacterString,ObjectIdentifier
+from bacpypes3.apdu import ReadPropertyACK
+from bacpypes3.constructeddata import Any
 async def main():
  app=workspace_device(int(sys.argv[1]),model='Authored PID controller',vendor=999,modules=1)
  app.payload=pid_native()
@@ -36,8 +38,14 @@ async def main():
  app.atomic_requests=[];app.all_requests=[];app.drop=False;app.mutation=None;app.callback=None
  for method in ('do_AtomicReadFileRequest','do_AtomicWriteFileRequest','do_ReinitializeDeviceRequest','do_WritePropertyRequest'):
   setattr(app,method,types.MethodType(getattr(FilePeer,method),app))
- for n,v in [(10,21),(11,77),(12,0)]:
+ for n,v in [(10,21),(11,77),(12,0),(99,71)]:
   app.add_object(AnalogValueObject(objectIdentifier=('analog-value',n),objectName=f'Actual point {n}',presentValue=v,units='degrees-fahrenheit',statusFlags=[0,0,0,0],reliability='no-fault-detected',outOfService=False))
+ original=app.do_ReadPropertyRequest
+ async def read(obj,req):
+  if req.objectIdentifier==ObjectIdentifier(('analog-value',99)) and int(req.propertyIdentifier)==32527:
+   return await obj.response(ReadPropertyACK(context=req,objectIdentifier=req.objectIdentifier,propertyIdentifier=req.propertyIdentifier,propertyValue=Any(CharacterString('authored/575_1.252_20.2_99'))))
+  return await original(req)
+ app.do_ReadPropertyRequest=types.MethodType(read,app)
  print('READY',flush=True)
  try:await asyncio.Event().wait()
  finally:app.close()
@@ -273,4 +281,62 @@ test("local CAF uses the same PID presentation, stored values and keyboard-safe 
   expect(
     (await (await request.get("/api/session")).json()).field_network_open,
   ).toBe(false);
+});
+
+test("native pin readings require the selected child's live object and item reference", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(60000);
+  const device = await peer();
+  try {
+    await request.post("/api/bacnet/disconnect", {
+      headers: await headers(request),
+      data: {},
+    });
+    const graph = await openController(page, device.endpoint);
+    await graph.getByRole("button", { name: /^Cooling loop/ }).click();
+    const source = page.getByRole("combobox", { name: "Live value source" });
+    const inspector = graph.getByRole("button", {
+      name: "Open Controller logic inspector",
+      exact: true,
+    });
+    if ((await inspector.isVisible()) && !(await source.isVisible()))
+      await inspector.click();
+    await expect(source).toBeVisible();
+    const pin = ref + ".252_20.2_99";
+    const badge = graph.locator(
+      `.react-flow__node[data-id="${ref}.252_20"] .logic-value`,
+    );
+    await source.selectOption(pin);
+    await expect(badge).toHaveText("Live Loop setpoint · 71");
+    await source.selectOption("");
+    await expect(badge).not.toContainText("Loop setpoint");
+    await page.route("**/api/bacnet/controller/properties", async (route) => {
+      if (route.request().postDataJSON().object_ids[0] !== "analog-value,99")
+        return route.continue();
+      const response = await route.fetch();
+      const json = await response.json();
+      expect(json.objects[0].properties["32527"]).toMatchObject({
+        status: "ok",
+        value: pin,
+      });
+      json.objects[0].properties["32527"].value = ref + ".2_99";
+      await route.fulfill({ response, json });
+    });
+    await source.selectOption(pin);
+    await expect(page.getByRole("alert")).toContainText(
+      "could not verify this pin's native reference",
+    );
+    await expect(badge).not.toContainText("71");
+  } finally {
+    try {
+      await request.post("/api/bacnet/disconnect", {
+        headers: await headers(request),
+        data: {},
+      });
+    } finally {
+      device.close();
+    }
+  }
 });
