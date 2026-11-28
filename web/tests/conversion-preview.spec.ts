@@ -1,3 +1,9 @@
+import {
+  openCurrentGraph,
+  importGraphFile,
+  showBlockProperties,
+  closeBlockProperties,
+} from "./graph-workspace";
 import { test, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 
@@ -52,8 +58,8 @@ const program = {
 };
 
 async function load(page: Page) {
-  await page.goto("/");
-  await page.locator('input[type="file"][accept*=".graphml"]').setInputFiles({
+  await openCurrentGraph(page);
+  await importGraphFile(page, {
     name: "conversion-browser.json",
     mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify(program)),
@@ -65,10 +71,12 @@ async function load(page: Page) {
 
 async function editSource(page: Page, label: string) {
   await page.locator('.react-flow__node[data-id="sensor"]').click();
+  await showBlockProperties(page);
   await page
     .locator(".inspector")
     .getByLabel("Label", { exact: true })
     .fill(label);
+  await closeBlockProperties(page);
 }
 
 test("conversion review uses actual encoders, exports evidence and invalidates after edits", async ({

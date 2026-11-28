@@ -1,3 +1,9 @@
+import {
+  openCurrentGraph,
+  importGraphFile,
+  closeBlockProperties,
+  showBlockProperties,
+} from "./graph-workspace";
 import { test, expect, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -52,15 +58,11 @@ async function importGraph(
       `from bms_tool.models import Program,Node;from bms_tool.blocks import BLOCKS;assert ${JSON.stringify(kind)} in BLOCKS;p=Program(id='layout-source',name=${JSON.stringify(name)},nodes=[Node(id='reused',kind=${JSON.stringify(kind)},label='Measured node',params={'value':1.0} if ${JSON.stringify(kind)}=='Constant' else {},x=200,y=100)]);print(p.model_dump_json())`,
     ),
   );
-  await page
-    .locator(
-      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"]',
-    )
-    .setInputFiles({
-      name: "layout.bms.json",
-      mimeType: "application/json",
-      buffer,
-    });
+  await importGraphFile(page, {
+    name: "layout.bms.json",
+    mimeType: "application/json",
+    buffer,
+  });
   await expect(page.getByLabel("Program name", { exact: true })).toHaveValue(
     name,
   );
@@ -92,7 +94,7 @@ test("delivered measurement survives parent renders and undo/redo without anothe
   page,
 }) => {
   await holdNativeMeasurements(page);
-  await page.goto("/");
+  await openCurrentGraph(page);
   await importGraph(page, "Constant", "Measured graph", false);
   await expect
     .poll(() =>
@@ -111,16 +113,22 @@ test("delivered measurement survives parent renders and undo/redo without anothe
   const before = await exported(page),
     size = await geometry(page);
   await page.locator('.react-flow__node[data-id="reused"]').click();
+  await showBlockProperties(page);
   const value = page.getByLabel("value", { exact: true });
   await value.fill("2.0");
+  await closeBlockProperties(page);
   await page.getByRole("button", { name: "Undo", exact: true }).click();
   await expect(
     page.locator('.react-flow__node[data-id="reused"]'),
   ).toBeVisible();
   await page.locator('.react-flow__node[data-id="reused"]').click();
+  await showBlockProperties(page);
   await expect(value).toHaveValue("1.0");
+  await closeBlockProperties(page);
   await page.getByRole("button", { name: "Redo", exact: true }).click();
+  await showBlockProperties(page);
   await expect(value).toHaveValue("2.0");
+  await closeBlockProperties(page);
   await expect(
     page.locator('.react-flow__node[data-id="reused"]'),
   ).toBeVisible();
@@ -149,10 +157,12 @@ test("removed/readded nodes and replacement with reused ID use current DOM port 
   page,
 }) => {
   await holdNativeMeasurements(page);
-  await page.goto("/");
+  await openCurrentGraph(page);
   await importGraph(page);
   await page.locator('.react-flow__node[data-id="reused"]').click();
+  await showBlockProperties(page);
   await page.getByRole("button", { name: "Delete", exact: true }).click();
+  await closeBlockProperties(page);
   await expect(page.locator('.react-flow__node[data-id="reused"]')).toHaveCount(
     0,
   );
