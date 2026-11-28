@@ -16,7 +16,13 @@ async function controller(
   name: string,
   modules: number,
   value = 21,
-  native: boolean | "signal-default" | "identity" | "moz" | "records" = false,
+  native:
+    | boolean
+    | "signal-default"
+    | "identity"
+    | "moz"
+    | "records"
+    | "damper-units" = false,
 ) {
   const port = await freePort();
   const child = spawn(
@@ -30,10 +36,13 @@ from tests.test_controller_workspace import workspace_device
 from bms_tool.bacnet_read import close_application
 from bacpypes3.primitivedata import ObjectIdentifier
 async def main():
- app=workspace_device(int(sys.argv[1]),model=sys.argv[2],modules=int(sys.argv[3]),vendor=5 if sys.argv[5]=='identity' else 999)
+ app=workspace_device(int(sys.argv[1]),model=sys.argv[2],modules=int(sys.argv[3]),vendor=5 if sys.argv[5] in ('identity','damper-units') else 999)
  app.device_object.objectName=sys.argv[2]
  point=app.get_object_id(ObjectIdentifier(('analog-input',1)))
  point.presentValue=float(sys.argv[4])
+ if sys.argv[5]=='damper-units':
+  point.units=264
+  app.get_object_id(ObjectIdentifier(('analog-input',2))).units=265
  if sys.argv[5] in ('true','signal-default','identity','moz','records'):
   import types
   from tests.test_bacnet_files import FilePeer
@@ -170,6 +179,38 @@ async function openController(page: Page, endpoint: string, name: string) {
 }
 const tasks = (page: Page) =>
   page.getByRole("navigation", { name: "Workspace tasks" });
+
+test("Points & I/O distinguishes percent open and percent closed from the selected controller", async ({
+  page,
+  request,
+}) => {
+  const peer = await controller("Actuator feedback", 1, 37, "damper-units");
+  try {
+    await session(request);
+    await interfaceSetup(page);
+    await openController(page, peer.endpoint, "Actuator feedback");
+    await tasks(page)
+      .getByRole("button", { name: "Points & I/O", exact: true })
+      .click();
+    const points = page.getByRole("region", {
+      name: "Connected controller points",
+    });
+    await expect(
+      points
+        .getByRole("row")
+        .filter({ hasText: "analog-input,1" })
+        .getByRole("cell", { name: "% open", exact: true }),
+    ).toBeVisible();
+    await expect(
+      points
+        .getByRole("row")
+        .filter({ hasText: "analog-input,2" })
+        .getByRole("cell", { name: "% closed", exact: true }),
+    ).toBeVisible();
+  } finally {
+    peer.close();
+  }
+});
 
 test("a connected controller supplies actual program information, discovered points and changing live values", async ({
   page,
