@@ -42,8 +42,7 @@ async def link(tmp_path):
         await asyncio.sleep(0.03)
 
 
-async def make_enum_peer(*, routed=False, **changes):
-    peer = PointPeer(routed=routed)
+def configure_enum_points(peer, **changes):
     original = peer.value
     peer.states = 3
     peer.text_count = 3
@@ -77,6 +76,11 @@ async def make_enum_peer(*, routed=False, **changes):
         return original(obj, prop, index)
 
     peer.value = value
+    return peer
+
+
+async def make_enum_peer(*, routed=False, **changes):
+    peer = configure_enum_points(PointPeer(routed=routed), **changes)
     await asyncio.get_running_loop().create_datagram_endpoint(
         lambda: peer, local_addr=("127.0.0.1", 0)
     )

@@ -2,8 +2,8 @@
 
 This focused profile addresses part of **MF-3fc6a30927**, binary/multistate enum
 mapping validation. It adds explicit native BACnet state metadata to the
-[point status inspector](native-point-status.md) and a separate offline
-operator mapping editor in Connect. Neither workflow changes a controller or
+[point status inspector](native-point-status.md) and an offline
+operator mapping editor in **Points & I/O**. Neither workflow changes a controller or
 converts/deploys a CAF/CCT program.
 
 ## Read native metadata
@@ -53,7 +53,9 @@ binding.
 
 ## Review an operator mapping
 
-The **Enum mapping review** panel works offline. Enter a source and target
+Open a local application or choose **New application**, then open
+**Points & I/O → State mapping**. The editor works with a field connection
+closed. Enter a source and target
 namespace/domain ID, unique state IDs, strict integer codes and known or unknown
 labels. A declared integer domain accepts codes -2,147,483,648..4,294,967,295;
 the optional BACnet numeric rules additionally require exactly 0/1 or the

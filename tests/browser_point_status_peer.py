@@ -4,6 +4,7 @@ import asyncio
 import sys
 
 from .browser_schedule_trace_peer import BrowserSchedulePeer
+from .test_native_enum_domain import configure_enum_points
 from .test_point_status import PointPeer
 
 
@@ -26,6 +27,9 @@ class BrowserPointPeer(BrowserSchedulePeer):
 async def main():
     routed, behavior = sys.argv[1:]
     peer = BrowserPointPeer(routed=routed == "1")
+    if behavior in ("enum-in-range", "enum-out-of-range"):
+        configure_enum_points(peer.points, code=1 if behavior == "enum-in-range" else 4)
+        peer.object_list = [(8, 42), (3, 1), (19, 2)]
     if behavior == "unsupported":
         peer.behavior = "native_error"
         peer.corrupt_property = "reliability"

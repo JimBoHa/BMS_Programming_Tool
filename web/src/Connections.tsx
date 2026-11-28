@@ -172,6 +172,8 @@ export function Connections({
     // This is navigation only. The existing panel owns all target/review checks.
     setToolChoice({ view, tool: requestedTool.tool });
   }, [visible, view, requestedTool]);
+  const offlinePointTool =
+    view === "points" && ["hardware", "pulse", "enum"].includes(currentTool);
   const showTool = (tool: string) =>
     visible &&
     currentTool === tool &&
@@ -179,8 +181,8 @@ export function Connections({
       view === "settings" ||
       !!controller ||
       (view === "overview" && tool === "instance") ||
-      (view === "points" &&
-        ["live-points", "hardware", "pulse"].includes(tool)) ||
+      (view === "points" && tool === "live-points") ||
+      offlinePointTool ||
       (view === "changes" && tool === "commands"));
   const discoverActive =
     visible && view === "setup" && setupStep === "discovery";
@@ -895,9 +897,7 @@ export function Connections({
             view !== "settings" &&
             view !== "overview" &&
             view !== "schedules" &&
-            !(
-              view === "points" && ["hardware", "pulse"].includes(currentTool)
-            ) &&
+            !offlinePointTool &&
             view !== "changes" && (
               <ControllerOverview
                 controller={null}
