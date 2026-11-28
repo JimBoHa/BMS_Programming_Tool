@@ -2595,6 +2595,12 @@ admission still captures/compiles and rechecks capacity before dispatch.
 RAM/flash/scan accounting, native allocation, general compiler/resource/package/
 runtime and CCT/physical acceptance remain incomplete.
 
+The capacity view also reports the selected Device’s allocated and used BACnet
+object identifier counts. Each read carries its own status and timestamp.
+Callers can request these counters through the capacity endpoint’s optional
+`include_object_counts` query parameter. The original File3 measurement and
+export format are available to existing callers.
+
 
 ## 2026-11-07 JCI-10/PORT-03 delivery: inspect portable comparison evidence
 

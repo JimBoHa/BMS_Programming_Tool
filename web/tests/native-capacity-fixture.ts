@@ -17,11 +17,13 @@ async def one(name,routed,capacity):
    if routed:
     host,port=target['address'].rsplit(':',1);transport,router=await asyncio.get_running_loop().create_datagram_endpoint(lambda:NativeRouter((host,int(port))),local_addr=('127.0.0.1',0));target={'address':'3001:7','device':'device,5136','router':router.endpoint,'dnet':3001}
    try:
-    service,query=await prepare(link,target=target);peer.application_capacity=capacity;report=await service.read(query);source=report['source'];controller={**report['target'],'name':report['identity']['object-name'],'model':report['identity']['model-name'],'interfaceKey':json.dumps(report['connector_config'],separators=(',',':')),'interfaceOpen':True,'ownedCommands':0,'verifiedAt':'2026-01-02T00:00:00Z'}
+    service,query=await prepare(link,target=target);peer.application_capacity=capacity
+    if name=='counts':peer.metadata.update({'1291':2048,'1292':0})
+    report=await service.read(query,include_object_counts=name=='counts');source=report['source'];controller={**report['target'],'name':report['identity']['object-name'],'model':report['identity']['model-name'],'interfaceKey':json.dumps(report['connector_config'],separators=(',',':')),'interfaceOpen':True,'ownedCommands':0,'verifiedAt':'2026-01-02T00:00:00Z'}
     return {'report':report,'source':source,'query':query,'archive':{k:source[k] for k in ['capture_id','snapshot_sha256','sha256','files','target']},'controller':controller}
    finally:
     if transport:transport.close()
-async def main():print(json.dumps({'direct':await one('direct',False,131072),'routed':await one('routed',True,131072),'over':await one('over',False,1)}))
+async def main():print(json.dumps({'direct':await one('direct',False,131072),'routed':await one('routed',True,131072),'over':await one('over',False,1),'counts':await one('counts',True,131072)}))
 asyncio.run(main())
 `,
       directory,

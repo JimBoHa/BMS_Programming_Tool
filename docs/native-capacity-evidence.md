@@ -13,6 +13,21 @@ shows the controller-reported File3 capacity, observation time and the headroom
 for the **original retained archive**. A retained archive exceeding the reported
 capacity is displayed as such. That comparison is advisory.
 
+The same action reads **Table entries allocated** and **Table entries used**
+from the selected controller’s BACnet Device object. Each count has its own
+observation time and a native Unsigned value. A controller that rejects a
+property or times out shows **Unavailable** for that counter with the reason.
+Zero is a valid count. If the reported usage exceeds the allocation, repeat
+the read before relying on the figures. The controller can update between
+these two reads.
+
+These counters measure the controller’s BACnet object identifier table. The
+tool keeps the File3 storage measurement in bytes and the table measurements
+in entries. A proposed program also needs execution and recovery testing.
+Johnson Controls describes BACnet OIDs and internal Object OIDs as separate
+resources. [Device Diagnostic Object Dictionary](https://docs.johnsoncontrols.com/bas/api/khub/documents/8QJHg4E2mJvzSFjW16aEXQ/content)
+and [System Capacity Indicator](https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Controller-Tool-Help/16.0.1/User-Interface/User-Interface-Concepts/Status-Bar/System-Capacity-Indicator).
+
 This implements `COMM-NATIVE-CAPACITY-001`, source profile
 `native-file3-size-evidence/1` and observation profile
 `native-file3-capacity-evidence/1`, under JCI-06/RES-001/UI-003. It extends the
@@ -69,6 +84,7 @@ observation, not an imported review or current-program assertion.
 | --- | --- |
 | `POST /api/bacnet/controller/native-application/resources/source` | Inspect actual retained source sizes; no interface required. |
 | `POST /api/bacnet/controller/native-application/resources/read` | Explicit selected-controller identity/capacity query, with the exact capture/snapshot and operation ID. |
+| `POST /api/bacnet/controller/native-application/resources/read?include_object_counts=true` | Adds Device properties 1291 (allocated) and 1292 (used) and repeats the identity check. Returns profile `native-file3-and-device-oid-evidence/1` with each counter’s status and time. A successful count also includes its property-tag encoding. |
 | Existing native cancel route | Cancel only the owned query ID; no replay or write. |
 
 Qualification uses authored localhost direct and routed BACnet peers, malformed

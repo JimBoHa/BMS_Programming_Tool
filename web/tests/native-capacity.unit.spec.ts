@@ -15,7 +15,7 @@ function data(kind = "direct") {
   );
   return structuredClone(fixture[kind]);
 }
-for (const kind of ["direct", "routed", "over"])
+for (const kind of ["direct", "routed", "over", "counts"])
   test(`actual ${kind} capacity evidence retains historical source and fresh read`, async () => {
     const f = data(kind);
     expect(await capacitySource(f.source, f.archive)).toBe(true);
@@ -122,3 +122,29 @@ test("a valid nonminimal native property tag preserves the observed value", asyn
     ),
   ).toBe(true);
 });
+
+for (const [label, replace] of Object.entries({
+  "different count": { value: 7 },
+  "unnested value": { encoded_hex: "2100" },
+  "oversized native integer": { encoded_hex: "3e250500000000003f" },
+  "wrong property": { property: 1291 },
+  "unsupported with numeric value": {
+    status: "unavailable",
+    reason: "Unknown property",
+  },
+})) {
+  test(`resealing an object counter with ${label} fails validation`, async () => {
+    const f = data("counts");
+    Object.assign(f.report.object_identifier_usage.used, replace);
+    const { observation_sha256: _, ...body } = f.report;
+    f.report.observation_sha256 = await connectionSeal(body);
+    expect(
+      await capacityObservation(
+        f.report,
+        f.archive,
+        f.controller,
+        f.query.operation_id,
+      ),
+    ).toBe(false);
+  });
+}

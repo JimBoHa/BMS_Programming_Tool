@@ -4,7 +4,7 @@ import copy
 from collections import Counter
 
 from bacpypes3.apdu import ReadPropertyACK, ReadPropertyRequest
-from bacpypes3.primitivedata import TagClass, TagList
+from bacpypes3.primitivedata import TagClass, TagList, Unsigned
 from fastapi import APIRouter
 from pydantic import Field
 
@@ -12,10 +12,16 @@ from .application_store import utc
 from .device_details import DeviceDetailsRequest
 from .moi_identity import MoiIdentity, seal, sha
 from .native_backup_records import BackupInspectionSource
-from .property_evidence import PropertyEvidence
+from .property_evidence import PropertyEvidence, ReadBudget
 
 SOURCE_PROFILE = "native-file3-size-evidence/1"
 PROFILE = "native-file3-capacity-evidence/1"
+OBJECT_USAGE_PROFILE = "native-file3-and-device-oid-evidence/1"
+OBJECT_USAGE_SCOPE = (
+    "Retained File3 size compared with observed file capacity, plus the controller's "
+    "reported BACnet object identifier table usage. Program execution and the object "
+    "requirements of a proposed image require separate verification."
+)
 SCOPE = (
     "Historical retained archive bytes compared with one controller-reported File3 "
     "capacity observation. This is not current-program, merged-payload, free-memory, "
@@ -26,6 +32,14 @@ SCOPE = (
 
 class CapacityRead(BackupInspectionSource, DeviceDetailsRequest):
     operation_id: str = Field(pattern=r"^[A-Za-z0-9_-]{8,80}$")
+
+
+class DeviceObjectIdentifierCounts:
+    """The two Unsigned properties declared by the JCI Device Diagnostic class."""
+
+    @staticmethod
+    def get_property_type(prop):
+        return Unsigned if int(prop) in (1291, 1292) else None
 
 
 def capacity_value(reply, request):
@@ -88,7 +102,38 @@ class NativeCapacityEvidence:
         }
         return {**body, "source_report_sha256": seal(body)}
 
-    async def read(self, request):
+    async def object_usage(self, session, device):
+        reader = PropertyEvidence(self.native.path)
+        budget = ReadBudget(max_requests=2, max_bytes=16 * 1024)
+        usage = {}
+        for key, prop in (("allocated", 1291), ("used", 1292)):
+            _, row = await reader.read(
+                session, budget, device, str(prop), DeviceObjectIdentifierCounts
+            )
+            result = {"property": prop, "at": row.get("received_at") or row["requested_at"]}
+            if (
+                row["status"] == "ok"
+                and row.get("datatype") == "Unsigned"
+                and type(row.get("value")) is int
+                and 0 <= row["value"] <= 0xFFFFFFFF
+                # PropertyEvidence checks the context pair and single native tag.
+                # The typed value between them must carry one to four bytes.
+                and 4 <= row["encoded_value"]["bytes"] <= 7
+            ):
+                result.update(
+                    status="read", value=row["value"], encoded_hex=row["encoded_value"]["hex"]
+                )
+            else:
+                result.update(
+                    status="unavailable",
+                    reason=(
+                        row.get("error") or "The reply did not contain one BACnet Unsigned value."
+                    )[:300],
+                )
+            usage[key] = result
+        return usage
+
+    async def read(self, request, *, include_object_counts=False):
         options = CapacityRead.model_validate(request)
         native = self.native
         async with native.operation(options.operation_id, "read-file3-capacity"):
@@ -121,10 +166,17 @@ class NativeCapacityEvidence:
                 request = ReadPropertyRequest(objectIdentifier=(10, 3), propertyIdentifier=3380)
                 reply = await native.files.exchange(session, request, ReadPropertyACK)
                 capacity, encoded = capacity_value(reply, request)
+                wire = copy.deepcopy(session["last_application_wire"])
+                if include_object_counts:
+                    native.phase("reading Device object identifier usage")
+                    usage = await self.object_usage(session, options.device)
+                    if await native.instances._identity(session, options.device) != actual:
+                        raise ValueError(
+                            "The controller identity changed during the object-count read."
+                        )
                 PropertyEvidence(native.path).guard(session)
                 if native.bacnet.require() is not app or native.bacnet.config != config:
                     raise ValueError("The native interface changed during capacity inspection.")
-                wire = copy.deepcopy(session["last_application_wire"])
             size = source["archive_bytes"]
             body = {
                 "profile": PROFILE,
@@ -160,6 +212,12 @@ class NativeCapacityEvidence:
                 "restore_payload_prepared": False,
                 "can_apply": False,
             }
+            if include_object_counts:
+                body.update(
+                    profile=OBJECT_USAGE_PROFILE,
+                    scope=OBJECT_USAGE_SCOPE,
+                    object_identifier_usage=usage,
+                )
             return {**body, "observation_sha256": seal(body)}
 
 
@@ -172,7 +230,7 @@ def capacity_evidence_router(native, records):
         return service.source(body.model_dump())
 
     @router.post("/read")
-    async def read(body: CapacityRead):
-        return await service.read(body.model_dump())
+    async def read(body: CapacityRead, include_object_counts: bool = False):
+        return await service.read(body.model_dump(), include_object_counts=include_object_counts)
 
     return router

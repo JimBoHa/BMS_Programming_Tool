@@ -86,6 +86,37 @@ def test_source_sizes_are_literal_without_a_field_interface(tmp_path, compressed
     assert not storage.receipts()
 
 
+@pytest.mark.parametrize("used", [0, 720, 2300, None, "unavailable"])
+async def test_optional_live_oid_counts_keep_file_capacity_and_attribute_partial_reads(
+    native_link, used
+):
+    peer, _, _, _, _ = native_link
+    service, request = await prepare(native_link)
+    peer.metadata["1291"] = 2048
+    if used is not None:
+        peer.metadata["1292"] = used
+    peer.events.clear()
+    legacy = await service.read(request)
+    assert legacy["profile"] == "native-file3-capacity-evidence/1"
+    assert "object_identifier_usage" not in legacy
+    result = await service.read(request, include_object_counts=True)
+    assert result["profile"] == "native-file3-and-device-oid-evidence/1"
+    assert result["capacity"]["bytes"] == legacy["capacity"]["bytes"]
+    rows = result["object_identifier_usage"]
+    assert rows["allocated"]["property"] == 1291 and rows["allocated"]["value"] == 2048
+    assert rows["used"]["property"] == 1292
+    if type(used) is int:
+        assert rows["used"]["status"] == "read" and rows["used"]["value"] == used
+        assert rows["used"]["encoded_hex"] and rows["used"]["at"]
+    else:
+        assert rows["used"]["status"] == "unavailable" and rows["used"]["reason"]
+        assert "value" not in rows["used"]
+    assert result["observation_sha256"] == seal(
+        {k: v for k, v in result.items() if k != "observation_sha256"}
+    )
+    assert not [event for event in peer.events if event[0] in ("state", "write")]
+
+
 @pytest.mark.parametrize("capacity", [1, 502, 10000, 0xFFFFFFFF])
 async def test_direct_capacity_is_advisory_and_never_captures_restores_or_writes(
     native_link, capacity, monkeypatch
