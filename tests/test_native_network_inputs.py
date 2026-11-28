@@ -8,9 +8,11 @@ import struct
 import httpx
 import pytest
 from bacpypes3.apdu import ReadPropertyACK
-from bacpypes3.basetypes import PriorityArray, PriorityValue, Reliability, StatusFlags
+from bacpypes3.app import Application
+from bacpypes3.basetypes import DateTime, PriorityArray, PriorityValue, Reliability, StatusFlags
 from bacpypes3.constructeddata import Any
-from bacpypes3.primitivedata import Boolean, CharacterString, Null, ObjectIdentifier, Real
+from bacpypes3.object import FileObject
+from bacpypes3.primitivedata import Boolean, CharacterString, Null, ObjectIdentifier, Real, Unsigned
 from bms_tool.app import create_app
 from bms_tool.native_network_inputs import compare_points, observe_point, root_network_inputs
 
@@ -119,13 +121,50 @@ def test_bad_quality_or_malformed_data_never_confirms_commands(key, bad):
 
 
 @pytest.mark.parametrize("routed", [False, True])
-async def test_live_read_and_persistent_comparison(native_link, tmp_path, monkeypatch, routed):
+@pytest.mark.parametrize("source_kind", ["native-backup", "controller-file"])
+async def test_live_read_and_persistent_comparison(
+    native_link, tmp_path, monkeypatch, routed, source_kind
+):
     peer = native_link[0]
     original_read = peer.do_ReadPropertyRequest
     command = [Real(0)]
     field_props = []
+    payload = image(input_record())
+    if source_kind == "controller-file":
+        peer.files[3] = payload
+        peer.add_object(
+            FileObject(
+                objectIdentifier=("file", 3),
+                objectName="Application archive",
+                description="Authored program",
+                fileType=".moi",
+                fileSize=len(payload),
+                modificationDate=DateTime("2026-01-05 12:00:00"),
+                archive=False,
+                readOnly=True,
+                fileAccessMethod="stream-access",
+            )
+        )
 
     async def point_read(request):
+        if source_kind == "controller-file" and str(request.objectIdentifier) == "file,3":
+            return await Application.do_ReadPropertyRequest(peer, request)
+        if (
+            source_kind == "controller-file"
+            and str(request.propertyIdentifier) == "configuration-files"
+        ):
+            response = (
+                Unsigned(1) if request.propertyArrayIndex == 0 else ObjectIdentifier(("file", 3))
+            )
+            return await peer.response(
+                ReadPropertyACK(
+                    context=request,
+                    objectIdentifier=request.objectIdentifier,
+                    propertyIdentifier=request.propertyIdentifier,
+                    propertyArrayIndex=request.propertyArrayIndex,
+                    propertyValue=Any(response),
+                )
+            )
         if str(request.objectIdentifier) != "analog-value,7":
             return await original_read(request)
         prop = str(request.propertyIdentifier)
@@ -176,25 +215,39 @@ async def test_live_read_and_persistent_comparison(native_link, tmp_path, monkey
             "device": target["device"],
             **{k: v for k, v in peer.metadata.items() if k != "system-status"},
         }
-        capture = native.storage.save(
-            {
-                "target": {k: v for k, v in target.items() if k != "device"},
-                "device": target["device"],
-                "identity": identity,
-                "source_identity_matches": True,
-            },
-            {3: image(input_record()), 11: b"saved", 12: b"configuration"},
-        )
+        if source_kind == "controller-file":
+            program = await client.post("/api/bacnet/controller/application/read", json=target)
+            assert program.status_code == 200, program.text
+            opened = program.json()
+            assert opened["status"] == "read" and opened["identity_verified"]
+            capture = opened["receipt"]
+            assert peer.events and all(e[:2] == ("read", 3) for e in peer.events)
+            peer.events.clear()
+            digest = capture["sha256"]
+        else:
+            capture = native.storage.save(
+                {
+                    "target": {k: v for k, v in target.items() if k != "device"},
+                    "device": target["device"],
+                    "identity": identity,
+                    "source_identity_matches": True,
+                },
+                {3: payload, 11: b"saved", 12: b"configuration"},
+            )
+            digest = capture["evidence_sha256"]
         base = "/api/bacnet/controller/native-application/network-inputs"
         options = {
             **target,
             "capture_id": capture["id"],
-            "snapshot_sha256": capture["evidence_sha256"],
+            "snapshot_sha256": digest,
             "operation_id": "read-network-baseline",
         }
+        if source_kind == "controller-file":
+            options["source_kind"] = source_kind
         first = await client.post(base + "/read", json=options)
         assert first.status_code == 200, first.text
         before = first.json()
+        assert before["selection"].get("source_kind", "native-backup") == source_kind
         assert before["points"][0]["verified"], before["points"][0]["unavailable"]
         assert before["points"][0]["values"]["priority-array"][7] == {"type": "real", "value": 0.0}
         command[0] = None
@@ -230,8 +283,44 @@ async def test_live_read_and_persistent_comparison(native_link, tmp_path, monkey
         ]
         for update in ({"limit": 1}, {"snapshot_sha256": "0" * 64}, {"device": "device,99"}):
             assert (await client.post(base + "/read", json=options | update)).status_code == 422
+        if source_kind == "controller-file":
+            peer.metadata["application-software-version"] = "changed since baseline"
+            rejected = await client.post(base + "/read", json=options)
+            assert rejected.status_code == 422 and "since the baseline" in rejected.text
+            peer.metadata["application-software-version"] = identity["application-software-version"]
+            peer.metadata["object-name"] = "Different controller name"
+            opened = (
+                await client.post("/api/bacnet/controller/application/read", json=target)
+            ).json()
+            assert (
+                opened["identity_verified"]
+                and not opened["operation_capabilities"]["native_identity_matches_capture"]
+            )
+            mismatched = options | {
+                "capture_id": opened["receipt"]["id"],
+                "snapshot_sha256": opened["receipt"]["sha256"],
+                "baseline_id": None,
+            }
+            rejected = await client.post(base + "/read", json=mismatched)
+            assert rejected.status_code == 422 and "File identity differs" in rejected.text
+            peer.metadata["object-name"] = identity["object-name"]
         peer.metadata["firmware-revision"] = "another-release"
         assert (await client.post(base + "/read", json=options)).status_code == 422
+        if source_kind == "controller-file":
+            peer.metadata["firmware-revision"] = identity["firmware-revision"]
+            await client.post("/api/bacnet/disconnect", json={})
+            changed_interface = await client.post(
+                "/api/bacnet/connect",
+                json={
+                    "local_address": f"127.0.0.1:{port()}",
+                    "instance": 23465,
+                    "router": target["router"],
+                    "dnet": target["dnet"],
+                },
+            )
+            assert changed_interface.status_code == 200
+            rejected = await client.post(base + "/read", json=options | {"baseline_id": None})
+            assert rejected.status_code == 422 and "interface that read" in rejected.text
         assert len(field_props) == requests
         with native.store.connect() as db:
             altered = copy.deepcopy(after)

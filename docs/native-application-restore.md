@@ -9,6 +9,13 @@ backup.
 
 ## Operator workflow
 
+For a command check during ordinary operation, open the controller’s **Program**,
+choose **Read controller application**, then open **Inspect network input commands**.
+The tool identifies the inputs from the captured application File and reads their
+priorities from the same controller. The file read keeps the controller in service.
+Save an initial reading and use **Compare with baseline** to check subsequent
+values on the same capture, interface and page.
+
 Under **Restore a retained application**, open **Check network inputs before and after restart**.
 With the original controller selected, choose **Read network inputs** before a transfer.
 After the controller returns to service, keep the same capture, interface and input page,

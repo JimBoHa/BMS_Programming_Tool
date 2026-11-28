@@ -520,6 +520,7 @@ export function NativeSnapshotRestore({
             {source && visible && (
               <NativeNetworkInputCommands
                 key={owner}
+                sourceKind="native-backup"
                 source={source}
                 connected={
                   !!controller &&

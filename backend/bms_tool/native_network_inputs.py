@@ -4,6 +4,7 @@ import copy
 import json
 import math
 import secrets
+from typing import Literal
 
 from bacpypes3.primitivedata import ObjectIdentifier
 from pydantic import Field
@@ -35,6 +36,7 @@ IDENTITY_FIELDS = (
 
 
 class NetworkInputRead(DeviceDetailsRequest):
+    source_kind: Literal["native-backup", "controller-file"] = "native-backup"
     operation_id: str = Field(pattern=r"^[A-Za-z0-9_-]{8,80}$")
     capture_id: str = Field(pattern=r"^[a-f0-9]{32}$")
     snapshot_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
@@ -44,7 +46,10 @@ class NetworkInputRead(DeviceDetailsRequest):
 
 
 def root_network_inputs(image):
-    app = MoiIdentity(image)
+    return _application_inputs(MoiIdentity(image))
+
+
+def _application_inputs(app):
     scalar = app.reader.scalar
     roots = [r for r in app.records if r["class_id"] == 575]
     if len(roots) > 1:
@@ -232,8 +237,8 @@ def compare_points(before, after):
 
 
 class NetworkInputReports:
-    def __init__(self, native, workspace):
-        self.native, self.workspace = native, workspace
+    def __init__(self, native, workspace, file_captures):
+        self.native, self.workspace, self.file_captures = native, workspace, file_captures
         with native.store.connect() as db:
             db.execute(
                 "CREATE TABLE IF NOT EXISTS native_network_input_reports (id TEXT PRIMARY KEY, capture TEXT NOT NULL, body BLOB NOT NULL)"
@@ -284,18 +289,62 @@ class NetworkInputReports:
             )
         return result
 
-    async def read(self, options):
-        native = self.native
-        snapshot, files = native.storage.load(options.capture_id)
-        target = options.model_dump(include={"router", "dnet", "address", "device"})
+    def _source(self, options, target):
+        if options.source_kind == "controller-file":
+            receipt, data = self.file_captures.capture_data(options.capture_id)
+            route = receipt["connector_config"]
+            file_target = receipt["target"]
+            identity = dict(receipt["device_identity"])
+            identity["device"] = identity.pop("object-identifier", None)
+            if (
+                receipt["sha256"] != options.snapshot_sha256
+                or file_target
+                != {"address": target["address"], "device": target["device"], "object_id": "file,3"}
+                or any(route.get(key) != target[key] for key in ("router", "dnet"))
+                or identity["device"] != target["device"]
+                or identity.get("vendor-identifier") != 5
+                or any(
+                    not isinstance(identity.get(key), str) or not identity[key]
+                    for key in ("object-name", "model-name", "firmware-revision")
+                )
+            ):
+                raise ValueError(
+                    "Select the original controller route and its verified application File."
+                )
+            app = MoiIdentity(data)
+            source = app.summary()
+            if (
+                app.instance != int(ObjectIdentifier(target["device"])[1])
+                or source["model"] != identity.get("model-name")
+                or source["name"] != identity.get("object-name")
+            ):
+                raise ValueError(
+                    "The application File identity differs from the controller that supplied it."
+                )
+            # An ordinary File receipt records the firmware, but not application-software-version.
+            expected = {
+                k: identity[k] for k in IDENTITY_FIELDS if k != "application-software-version"
+            }
+            return app, expected, receipt["sha256"], route
+        snapshot, files = self.native.storage.load(options.capture_id)
         if (
             snapshot.get("evidence_sha256") != options.snapshot_sha256
             or not snapshot.get("source_identity_matches")
             or {**snapshot["target"], "device": snapshot["device"]} != target
         ):
             raise ValueError("Select the original controller route and its verified capture.")
-        identity = {k: snapshot["identity"][k] for k in IDENTITY_FIELDS}
-        inputs, unresolved = root_network_inputs(files[3])
+        return (
+            MoiIdentity(files[3]),
+            {k: snapshot["identity"][k] for k in IDENTITY_FIELDS},
+            snapshot["files"]["3"]["sha256"],
+            None,
+        )
+
+    async def read(self, options):
+        native = self.native
+        target = options.model_dump(include={"router", "dnet", "address", "device"})
+        application, identity, source_sha, source_route = self._source(options, target)
+        inputs, unresolved = _application_inputs(application)
         if options.offset and options.offset >= len(inputs):
             raise ValueError("That network input page lies beyond the retained application.")
         page = inputs[options.offset : options.offset + options.limit]
@@ -308,12 +357,16 @@ class NetworkInputReports:
             "offset": options.offset,
             "limit": options.limit,
         }
+        if options.source_kind == "controller-file":
+            selection["source_kind"] = options.source_kind
         before = self.get(options.baseline_id) if options.baseline_id else None
         if before and before["selection"] != selection:
             raise ValueError("Select a baseline for the same capture, controller and input page.")
         async with native.operation(options.operation_id, "read-network-input-commands"):
             app = native.bacnet.require()
             config = copy.deepcopy(native.bacnet.config)
+            if source_route is not None and config != source_route:
+                raise ValueError("Reconnect the field interface that read this controller File.")
             if before and before["connector_config"] != config:
                 raise ValueError("Reconnect the field interface used for the baseline reading.")
 
@@ -331,6 +384,10 @@ class NetworkInputReports:
 
             started = utc()
             opening = await verify_device()
+            if before and before["closing_identity"] != opening:
+                raise ValueError(
+                    "The controller application identity changed since the baseline reading."
+                )
             points = []
             for p in page:
                 if native.bacnet.require() is not app or native.bacnet.config != config:
@@ -357,7 +414,7 @@ class NetworkInputReports:
                     "connector_config": config,
                     "opening_identity": opening,
                     "closing_identity": closing,
-                    "source_sha256": snapshot["files"]["3"]["sha256"],
+                    "source_sha256": source_sha,
                     "input_count": len(inputs),
                     "unclassified_root_inputs": unresolved,
                     "points": points,

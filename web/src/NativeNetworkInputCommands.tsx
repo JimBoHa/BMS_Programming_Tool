@@ -17,6 +17,11 @@ import {
 } from "./nativeSnapshotRestoreContract";
 
 type Slot = { type: string; value: unknown };
+type SourceKind = "native-backup" | "controller-file";
+type CommandSource = Pick<
+  SnapshotRestoreArchive,
+  "capture_id" | "snapshot_sha256" | "sha256" | "target"
+>;
 type Input = {
   object: string;
   name: string;
@@ -35,6 +40,7 @@ type Report = {
   profile: string;
   read_only: boolean;
   selection: {
+    source_kind?: SourceKind;
     capture_id: string;
     snapshot_sha256: string;
     target: SnapshotRestoreArchive["target"];
@@ -165,10 +171,12 @@ function validRows(r: Report) {
 
 export function NativeNetworkInputCommands({
   source,
+  sourceKind,
   connected,
   locked,
 }: {
-  source: SnapshotRestoreArchive;
+  source: CommandSource;
+  sourceKind: SourceKind;
   connected: boolean;
   locked: boolean;
 }) {
@@ -265,6 +273,9 @@ export function NativeNetworkInputCommands({
         field
           ? {
               ...source.target,
+              ...(sourceKind === "controller-file" && {
+                source_kind: sourceKind,
+              }),
               capture_id: source.capture_id,
               snapshot_sha256: source.snapshot_sha256,
               operation_id: work.ticket,
@@ -286,6 +297,7 @@ export function NativeNetworkInputCommands({
         !restoreHash(r.evidence_sha256) ||
         r.source_sha256 !== source.sha256 ||
         r.selection?.scope !== "root-exposed-commandable-file-3" ||
+        (r.selection.source_kind ?? "native-backup") !== sourceKind ||
         r.selection.capture_id !== source.capture_id ||
         r.selection.snapshot_sha256 !== source.snapshot_sha256 ||
         !snapshotRestoreTarget(r.selection.target, source.target) ||
@@ -339,16 +351,20 @@ export function NativeNetworkInputCommands({
         }
       }}
     >
-      <summary>Check network inputs before and after restart</summary>
+      <summary>
+        {sourceKind === "controller-file"
+          ? "Inspect network input commands"
+          : "Check network inputs before and after restart"}
+      </summary>
       <section aria-label="Network input command readings">
         <p>
-          Read the controller’s command priorities before a transfer. Compare
-          them with a second reading after restart to see which inputs gained,
-          lost or changed a command.
+          {sourceKind === "controller-file"
+            ? "The captured program identifies the inputs. Read their current command priorities from the controller, or compare them with an earlier reading."
+            : "Read the controller’s command priorities before a transfer. Compare them with a second reading after restart to see which inputs gained, lost or changed a command."}
         </p>
         {!connected && (
           <p>
-            Open the controller recorded in this backup to read live values.
+            Open the controller recorded in this capture to read live values.
             Saved readings are available offline.
           </p>
         )}
@@ -416,8 +432,8 @@ export function NativeNetworkInputCommands({
             )}
             {r.input_count === 0 ? (
               <p>
-                The backup contains no identified root-level commandable network
-                inputs.
+                The captured application contains no identified root-level
+                commandable network inputs.
               </p>
             ) : (
               <div
