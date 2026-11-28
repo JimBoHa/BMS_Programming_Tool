@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 
@@ -15,20 +15,56 @@ function fixture(unsupported = false) {
   );
 }
 
-test("native CAF terminal review exports real guarded binding changes without opening field access", async ({
-  page,
-}) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: "CAF files", exact: true }).click();
-  await page.locator('input[type=file][accept=".caf"]').setInputFiles({
-    name: "authored.caf",
+async function pickCaf(button: Locator, name: string, unsupported = false) {
+  const chooser = button.page().waitForEvent("filechooser");
+  await button.click();
+  const picker = await chooser;
+  await picker.setFiles({
+    name,
     mimeType: "application/octet-stream",
-    buffer: fixture(),
+    buffer: fixture(unsupported),
   });
-  const panel = page.getByRole("region", {
+}
+
+async function hardwareMapping(page: Page) {
+  const tasks = page.getByRole("navigation", {
+    name: "CAF application tasks",
+    exact: true,
+  });
+  await expect(tasks).toBeVisible();
+  const compact = tasks.getByRole("combobox", {
+    name: "CAF application tasks",
+    exact: true,
+  });
+  if (await compact.isVisible())
+    await compact.selectOption({ label: "Hardware mapping" });
+  else
+    await tasks
+      .getByRole("button", { name: "Hardware mapping", exact: true })
+      .click();
+  return page.getByRole("region", {
     name: "Offline CAF hardware bindings",
     exact: true,
   });
+}
+
+async function openHardware(page: Page, name: string, unsupported = false) {
+  await page.goto("/");
+  await pickCaf(
+    page.getByRole("button", { name: /^Open a CAF file/ }),
+    name,
+    unsupported,
+  );
+  await expect(
+    page.getByLabel("Current CAF archive", { exact: true }),
+  ).toHaveText(name);
+  return hardwareMapping(page);
+}
+
+test("native CAF terminal review exports real guarded binding changes without opening field access", async ({
+  page,
+}) => {
+  const panel = await openHardware(page, "authored.caf");
   await expect(panel).toContainText("Internal DPT — fixed");
   await panel
     .getByLabel("CAF input to move", { exact: true })
@@ -74,17 +110,7 @@ test("native CAF terminal review exports real guarded binding changes without op
 test("unknown controller hardware remains visibly unsupported", async ({
   page,
 }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: "CAF files", exact: true }).click();
-  await page.locator('input[type=file][accept=".caf"]').setInputFiles({
-    name: "unsupported.caf",
-    mimeType: "application/octet-stream",
-    buffer: fixture(true),
-  });
-  const panel = page.getByRole("region", {
-    name: "Offline CAF hardware bindings",
-    exact: true,
-  });
+  const panel = await openHardware(page, "unsupported.caf", true);
   await expect(panel).toContainText("Terminal editing unavailable");
   await expect(
     panel.getByRole("button", {
@@ -111,18 +137,7 @@ test("late terminal preview cannot replace another CAF archive", async ({
     await held;
     await route.fulfill({ response });
   });
-  await page.goto("/");
-  await page.getByRole("button", { name: "CAF files", exact: true }).click();
-  const picker = page.locator('input[type=file][accept=".caf"]');
-  await picker.setInputFiles({
-    name: "first.caf",
-    mimeType: "application/octet-stream",
-    buffer: fixture(),
-  });
-  const panel = page.getByRole("region", {
-    name: "Offline CAF hardware bindings",
-    exact: true,
-  });
+  const panel = await openHardware(page, "first.caf");
   await panel
     .getByLabel("CAF input to move", { exact: true })
     .selectOption("8-1/0_10");
@@ -134,11 +149,14 @@ test("late terminal preview cannot replace another CAF archive", async ({
     .click();
   await ready;
   page.once("dialog", (dialog) => dialog.accept());
-  await picker.setInputFiles({
-    name: "second.caf",
-    mimeType: "application/octet-stream",
-    buffer: fixture(true),
-  });
+  await pickCaf(
+    page.getByRole("button", { name: "Open CAF", exact: true }),
+    "second.caf",
+    true,
+  );
+  await expect(page.getByLabel("Current CAF archive")).toHaveText("second.caf");
+  await expect(panel).toBeHidden();
+  await hardwareMapping(page);
   await expect(panel).toContainText("Terminal editing unavailable");
   release();
   await expect(
@@ -150,18 +168,7 @@ test("late terminal preview cannot replace another CAF archive", async ({
 test("terminal proposals invalidate earlier reviews and can cancel archive replacement", async ({
   page,
 }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: "CAF files", exact: true }).click();
-  const picker = page.locator('input[type=file][accept=".caf"]');
-  await picker.setInputFiles({
-    name: "keep-editing.caf",
-    mimeType: "application/octet-stream",
-    buffer: fixture(),
-  });
-  const panel = page.getByRole("region", {
-    name: "Offline CAF hardware bindings",
-    exact: true,
-  });
+  const panel = await openHardware(page, "keep-editing.caf");
   await panel
     .getByLabel("CAF input to move", { exact: true })
     .selectOption("8-1/0_10");
@@ -181,14 +188,15 @@ test("terminal proposals invalidate earlier reviews and can cancel archive repla
   ).toHaveCount(0);
   await destination.selectOption("3");
   page.once("dialog", (dialog) => dialog.dismiss());
-  await picker.setInputFiles({
-    name: "discarded.caf",
-    mimeType: "application/octet-stream",
-    buffer: fixture(true),
-  });
+  await pickCaf(
+    page.getByRole("button", { name: "Open CAF", exact: true }),
+    "discarded.caf",
+    true,
+  );
   await expect(page.getByLabel("Current CAF archive")).toHaveText(
     "keep-editing.caf",
   );
+  await expect(destination).toBeVisible();
   await expect(destination).toHaveValue("3");
   await expect(panel).toContainText(
     "Current terminal proposal has not been exported.",
