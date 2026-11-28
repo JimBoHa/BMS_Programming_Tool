@@ -15,6 +15,7 @@ from fastapi import APIRouter, Response
 from pydantic import Field, SecretStr, StrictBool, field_validator
 
 from . import native_inline_activation as inline_activation
+from . import native_inline_draft as inline_draft
 from . import native_inline_heat_transfer as inline_heat
 from . import native_inline_monitor_transfer as inline_monitor
 from . import native_inline_shadow as inline_shadow
@@ -2571,6 +2572,19 @@ def native_application_router(service):
     async def apply_inline_activation(body: inline_activation.ActivationApply):
         return await service.apply_reviewed(
             body, default_edit=False, inline_kind=inline_activation.KIND
+        )
+
+    @router.post("/inline-sequence/draft/review")
+    def review_local_inline_program(body: inline_draft.RetainedDraft):
+        return inline_draft.from_captures(service, body)[1]
+
+    @router.post("/inline-sequence/draft/export")
+    def export_local_inline_program(body: inline_draft.RetainedExport):
+        payload, _ = inline_draft.from_captures(service, body)
+        return Response(
+            payload,
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": 'attachment; filename="inline-reheat-draft.moi"'},
         )
 
     @router.post("/inline-sequence/observe/review")

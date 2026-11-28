@@ -30,6 +30,16 @@ def main():
     gate.add_argument("--first-instance", type=int, default=3_000_000)
     gate.add_argument("--output", type=Path)
     gate.add_argument("--review-sha256")
+    inline = sub.add_parser(
+        "inline-reheat-draft", help="Review and save an offline inline reheat program"
+    )
+    for name in ("application", "static", "dynamic", "prototype"):
+        inline.add_argument("--" + name, type=Path, required=True)
+    inline.add_argument("--first-instance", type=int, required=True)
+    inline.add_argument("--purpose", choices=("observe", "control"), default="observe")
+    inline.add_argument("--layout", choices=("flat", "activities"), default="activities")
+    inline.add_argument("--output", type=Path)
+    inline.add_argument("--review-sha256")
     for name in ("validate", "simulate", "export", "caf"):
         p = sub.add_parser(name)
         p.add_argument("file", type=Path)
@@ -68,6 +78,10 @@ def main():
         from .native_inline_heat import local_copy
 
         print(json.dumps(local_copy(args), indent=2))
+    elif args.command == "inline-reheat-draft":
+        from .native_inline_draft import local_draft
+
+        print(json.dumps(local_draft(args), indent=2))
     elif args.command == "caf":
         print(json.dumps(CafArchive(args.file.read_bytes()).summary(), indent=2))
     else:
