@@ -68,6 +68,17 @@ RULES = {
     },
 }
 RULES_SHA256 = digest(RULES)
+OBSERVED_PROFILE = "native-schedule-observed-default-exception-draft/1"
+OBSERVED_RULES = {
+    **RULES,
+    "profile": OBSERVED_PROFILE,
+    "datatype": (
+        "The captured default is native Null. The present value and at least one "
+        "unchanged weekly transition must establish the same non-Null datatype. "
+        "Every weekly and exception transition must match that type or be Null."
+    ),
+}
+OBSERVED_RULES_SHA256 = digest(OBSERVED_RULES)
 
 
 class CalendarReference(StrictModel):
@@ -105,6 +116,10 @@ class ExceptionDraft(StrictModel):
     capture_id: str = Field(pattern=r"^[0-9a-f]{64}$", strict=True)
     object_id: str = Field(min_length=1, max_length=80, strict=True)
     events: list[ExceptionEvent] = Field(max_length=MAX_EVENTS)
+    draft_profile: Literal["native-schedule-observed-default-exception-draft/1"] | None = None
+
+    def canonical(self):
+        return self.model_dump(exclude={"draft_profile"} if self.draft_profile is None else set())
 
     @field_validator("object_id")
     @classmethod
@@ -120,10 +135,10 @@ class ExceptionExport(StrictModel):
     expected_review_id: str = Field(pattern=r"^[0-9a-f]{64}$", strict=True)
 
 
-def envelope():
+def envelope(observed_default=False):
     return {
-        "profile": PROFILE,
-        "rules_sha256": RULES_SHA256,
+        "profile": OBSERVED_PROFILE if observed_default else PROFILE,
+        "rules_sha256": OBSERVED_RULES_SHA256 if observed_default else RULES_SHA256,
         "scope": SCOPE,
         "field_writes": False,
         "controller_queries": False,
@@ -166,13 +181,17 @@ class NativeScheduleExceptions:
         self.library = library
 
     @staticmethod
-    def _context(report, object_id):
+    def _context(report, object_id, *, observed_default=False):
         # Reuse strict observed-default/UTF8/context evidence. Only this new
         # exception domain opts into separately qualified modern week patterns.
         ExceptionDraft.schedule(object_id)
         props, _, observed = NativeScheduleLibrary._weekly_context(
-            report, object_id, exception_week_limit=9
+            report, object_id, exception_week_limit=9, observed_defaults=observed_default
         )
+        if observed_default:
+            default, _ = decoded_row(props["schedule-default"], object_id, "schedule-default")
+            if type(default.get_value()).__name__ != "Null":
+                raise ValueError("Observed-type exception drafts require a native Null default.")
         rows = props["exception-schedule"]["elements"]
         events, raw_parts = [], []
         for index, row in enumerate(rows, 1):
@@ -187,11 +206,11 @@ class NativeScheduleExceptions:
             raise ValueError("Captured exception array does not retain its exact native entries.")
         return props, events, observed, original
 
-    def context(self, capture_id, object_id):
+    def context(self, capture_id, object_id, *, observed_default=False):
         report = source_report(self.library.source(capture_id))
-        return report, *self._context(report, object_id)
+        return report, *self._context(report, object_id, observed_default=observed_default)
 
-    def source(self, capture_id):
+    def source(self, capture_id, *, observed_defaults=False):
         capture_id = CaptureAction(id=capture_id).id
         report = source_report(self.library.source(capture_id))
         schedules, seen = [], set()
@@ -204,12 +223,20 @@ class NativeScheduleExceptions:
             except (ValueError, TypeError):
                 continue
             seen.add(object_id)
+            raw_default = item.get("properties", {}).get("schedule-default", {}).get("value")
+            null_default = (
+                isinstance(raw_default, dict) and raw_default.get("native_datatype") == "Null"
+            )
             try:
-                _, events, observed, original = self._context(report, object_id)
+                inferred = observed_defaults and null_default
+                _, events, observed, original = self._context(
+                    report, object_id, observed_default=inferred
+                )
                 schedules.append(
                     {
                         "object": object_id,
                         "eligible": True,
+                        **({"draft_profile": OBSERVED_PROFILE} if inferred else {}),
                         "issues": [],
                         "native_type": observed,
                         "events": [seed_event(event) for event in events],
@@ -226,6 +253,11 @@ class NativeScheduleExceptions:
                     {
                         "object": object_id,
                         "eligible": False,
+                        **(
+                            {"can_check_null_default": True}
+                            if null_default and not observed_defaults
+                            else {}
+                        ),
                         "issues": [str(error)[:400] or type(error).__name__],
                     }
                 )
@@ -243,7 +275,9 @@ class NativeScheduleExceptions:
     def review(self, request):
         draft = ExceptionDraft.model_validate(request)
         report, props, old_events, observed, original = self.context(
-            draft.capture_id, draft.object_id
+            draft.capture_id,
+            draft.object_id,
+            observed_default=draft.draft_profile == OBSERVED_PROFILE,
         )
         events = []
         for event in draft.events:
@@ -280,9 +314,9 @@ class NativeScheduleExceptions:
         ]:
             raise ValueError("Exception native period choices changed during encoding.")
         body = {
-            **envelope(),
-            "format": PROFILE,
-            "request": draft.model_dump(),
+            **envelope(draft.draft_profile == OBSERVED_PROFILE),
+            "format": draft.draft_profile or PROFILE,
+            "request": draft.canonical(),
             "source": {
                 "capture_id": draft.capture_id,
                 "source_sha256": draft.capture_id,
@@ -337,9 +371,9 @@ class NativeScheduleExceptions:
         body = strict_json(raw, MAX_DOCUMENT, max_values=100000)
         if (
             type(body) is not dict
-            or body.get("profile") != PROFILE
-            or body.get("format") != PROFILE
-            or body.get("rules_sha256") != RULES_SHA256
+            or (body.get("profile"), body.get("rules_sha256"))
+            not in ((PROFILE, RULES_SHA256), (OBSERVED_PROFILE, OBSERVED_RULES_SHA256))
+            or body.get("format") != body.get("profile")
             or body.get("id") != digest({key: value for key, value in body.items() if key != "id"})
         ):
             raise ValueError("Exception draft profile or source proof is unknown or changed.")
@@ -354,8 +388,8 @@ def exception_draft_router(library):
     router = APIRouter(prefix="/api/bacnet/schedules/library/exceptions")
 
     @router.post("/source")
-    def source(body: CaptureAction):
-        return service.source(body.id)
+    def source(body: CaptureAction, observed_defaults: bool = False):
+        return service.source(body.id, observed_defaults=observed_defaults)
 
     @router.post("/review")
     def review(body: ExceptionDraft):

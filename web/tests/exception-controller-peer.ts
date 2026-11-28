@@ -3,7 +3,10 @@ import { createInterface } from "node:readline";
 import path from "node:path";
 
 /** Actual authored UDP identity, Schedule reads and whole Exception_Schedule writes. No site data. */
-export async function exceptionControllerPeer(routed = false) {
+export async function exceptionControllerPeer(
+  routed = false,
+  nullDefault = false,
+) {
   const root = path.resolve("..");
   const child = spawn(
     path.join(root, ".venv/bin/python"),
@@ -24,6 +27,7 @@ class Peer(ExceptionPeer):
   return super().value(obj,prop,index)
 async def main():
  p=Peer(routed=sys.argv[1]=='routed')
+ if sys.argv[2]=='null':p.overrides['schedule,1','schedule-default',None]=bytes([0])
  await asyncio.get_running_loop().create_datagram_endpoint(lambda:p,local_addr=('127.0.0.1',0))
  print(json.dumps({'target':{k:v for k,v in options(p).items() if k in ('address','device','router','dnet')},'local':f'127.0.0.1:{free_udp()}'}),flush=True)
  try:
@@ -41,6 +45,7 @@ async def main():
 asyncio.run(main())
 `,
       routed ? "routed" : "direct",
+      nullDefault ? "null" : "typed",
     ],
     {
       cwd: root,

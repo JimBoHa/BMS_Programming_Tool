@@ -13,6 +13,10 @@ import { nativeString, parseStringEditor } from "./nativeScheduleStrings";
 
 export const EXCEPTION_BASE = "/bacnet/schedules/library/exceptions";
 export const EXCEPTION_PROFILE = "native-schedule-exception-draft/1";
+export const OBSERVED_EXCEPTION_PROFILE =
+  "native-schedule-observed-default-exception-draft/1";
+export const OBSERVED_EXCEPTION_RULES =
+  "7d63109cd457f76fce85151c647e224d857ddd8caf730db11b296dd1df086424";
 export const EXCEPTION_RULES =
   "a8c23c4eae7e65d1d81371aa4d004d54353ae3e896abfbf6515b0362ccb46232";
 export const EXCEPTION_DOCUMENT_BYTES = 512 * 1024;
@@ -163,10 +167,12 @@ export function exceptionRequest(
   capture: string,
   object: string,
   rows: ExceptionRow[],
+  observedDefault = false,
 ) {
   return {
     capture_id: capture,
     object_id: object,
+    ...(observedDefault ? { draft_profile: OBSERVED_EXCEPTION_PROFILE } : {}),
     events: rows.map((row) => ({
       period:
         row.kind === "calendarReference"
@@ -223,9 +229,11 @@ function event(v: any) {
     )
   );
 }
-const envelope = (v: any) =>
-  v?.profile === EXCEPTION_PROFILE &&
-  v.rules_sha256 === EXCEPTION_RULES &&
+export const exceptionDraftDomain = (v: any, observed = false) =>
+  v?.profile === (observed ? OBSERVED_EXCEPTION_PROFILE : EXCEPTION_PROFILE) &&
+  v.rules_sha256 === (observed ? OBSERVED_EXCEPTION_RULES : EXCEPTION_RULES);
+const envelope = (v: any, observed = false) =>
+  exceptionDraftDomain(v, observed) &&
   v.field_writes === false &&
   v.controller_queries === false &&
   v.capture_mutations === false;
@@ -243,6 +251,8 @@ export function exceptionSource(v: any, capture: string) {
     v.schedules.some(
       (row: any) =>
         !objectId(row?.object, "schedule") ||
+        (row.draft_profile !== undefined &&
+          row.draft_profile !== OBSERVED_EXCEPTION_PROFILE) ||
         typeof row.eligible !== "boolean" ||
         !Array.isArray(row.issues) ||
         row.issues.some((issue: any) => typeof issue !== "string") ||
@@ -270,8 +280,9 @@ export async function exceptionReview(
   request?: any,
 ) {
   if (
-    !envelope(v) ||
-    v.format !== EXCEPTION_PROFILE ||
+    !envelope(v, selected.draft_profile === OBSERVED_EXCEPTION_PROFILE) ||
+    v.format !== v.profile ||
+    v.request?.draft_profile !== selected.draft_profile ||
     !hash(v.id) ||
     v.source?.capture_id !== source.capture_id ||
     v.source.source_sha256 !== source.capture_id ||

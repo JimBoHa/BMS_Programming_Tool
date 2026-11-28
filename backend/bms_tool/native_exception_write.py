@@ -27,6 +27,9 @@ from .bacnet_exchange import confirmed_exchange
 from .device_details import DeviceDetails, DeviceDetailsRequest
 from .models import StrictModel
 from .native_schedule_exceptions import EXCEPTION_ARRAY, ExceptionExport, NativeScheduleExceptions
+from .native_schedule_exceptions import OBSERVED_PROFILE as OBSERVED_DRAFT_PROFILE
+from .native_schedule_exceptions import OBSERVED_RULES_SHA256 as OBSERVED_DRAFT_RULES_SHA256
+from .native_schedule_exceptions import PROFILE as DRAFT_PROFILE
 from .native_schedule_exceptions import RULES_SHA256 as DRAFT_RULES_SHA256
 from .native_schedule_library import CONTEXT, decoded_row, digest, encoded, strict_json
 from .native_schedule_wire import ScheduleWriteWire, apdu_bytes
@@ -68,6 +71,34 @@ RULES = {
     "stack": "bacpypes3/0.0.110",
 }
 RULES_SHA256 = digest(RULES)
+OBSERVED_PROFILE = "native-schedule-reviewed-observed-default-exception-write/1"
+OBSERVED_RULES = {
+    **RULES,
+    "profile": OBSERVED_PROFILE,
+    "draft_rules_sha256": OBSERVED_DRAFT_RULES_SHA256,
+    "source": (
+        "An observed-type exception draft binds a native Null default and its "
+        "unchanged weekly datatype witness. Verify this evidence at review, "
+        "dispatch and readback and compare it with the reviewed source."
+    ),
+}
+OBSERVED_RULES_SHA256 = digest(OBSERVED_RULES)
+
+
+def authority(review):
+    if (
+        review.get("profile") == OBSERVED_DRAFT_PROFILE
+        and review.get("rules_sha256") == OBSERVED_DRAFT_RULES_SHA256
+        and review["request"].get("draft_profile") == OBSERVED_DRAFT_PROFILE
+    ):
+        return OBSERVED_PROFILE, OBSERVED_RULES_SHA256
+    if (
+        review.get("profile") == DRAFT_PROFILE
+        and review.get("rules_sha256") == DRAFT_RULES_SHA256
+        and review["request"].get("draft_profile") is None
+    ):
+        return PROFILE, RULES_SHA256
+    raise ValueError("This exception draft has an unknown datatype qualification.")
 
 
 def utc():
@@ -227,7 +258,7 @@ class ExceptionWriteJournal:
         if (
             type(body) is not dict
             or body.get("id") != id
-            or body.get("profile") != PROFILE
+            or body.get("profile") not in (PROFILE, OBSERVED_PROFILE)
             or body.get("evidence_sha256")
             != digest({k: v for k, v in body.items() if k != "evidence_sha256"})
         ):
@@ -350,6 +381,11 @@ class NativeExceptionWrites:
     def status(self):
         return {
             "profile": PROFILE,
+            "observed_default_profile": {
+                "profile": OBSERVED_PROFILE,
+                "rules_sha256": OBSERVED_RULES_SHA256,
+                "draft_rules_sha256": OBSERVED_DRAFT_RULES_SHA256,
+            },
             "rules": RULES,
             "rules_sha256": RULES_SHA256,
             "scope": SCOPE,
@@ -440,10 +476,12 @@ class NativeExceptionWrites:
         review = self.drafts.review(draft)
         if review["id"] != expected_review_id:
             raise ValueError("Schedule exception local draft or source changed; review it again.")
-        captured = self.drafts.context(review["source"]["capture_id"], review["source"]["object"])[
-            0
-        ]
-        self._static(captured, review["source"]["object"])
+        captured = self.drafts.context(
+            review["source"]["capture_id"],
+            review["source"]["object"],
+            observed_default=review["profile"] == OBSERVED_DRAFT_PROFILE,
+        )[0]
+        self._static(captured, review["source"]["object"], review)
         config = self.bacnet.config or {}
         if config.get("transport") == "mstp" or config.get("bbmd_address"):
             raise ValueError(
@@ -452,8 +490,12 @@ class NativeExceptionWrites:
         self.bacnet.require()
         return review, captured, DeviceDetailsRequest(**captured["target"])
 
-    def _static(self, report, object_id):
-        props, _, _, original = self.drafts._context(report, object_id)
+    def _static(self, report, object_id, review):
+        props, _, native_type, original = self.drafts._context(
+            report, object_id, observed_default=review["profile"] == OBSERVED_DRAFT_PROFILE
+        )
+        if native_type != review["source"]["native_type"]:
+            raise ValueError("The current schedule value type differs from the reviewed source.")
         if set(props) != {
             *STATIC,
             "present-value",
@@ -572,7 +614,7 @@ class NativeExceptionWrites:
             if checked != count:
                 raise ValueError("Native array count changed during sequential reads.")
             array.update(status="ok", complete=True, count_after=end)
-        static = self._static(report, object_id)
+        static = self._static(report, object_id, review)
         references = sorted(
             {
                 event["period"]["object_id"]
@@ -622,10 +664,11 @@ class NativeExceptionWrites:
         review, captured, target = self._reference(
             options.draft.model_dump(), options.expected_review_id
         )
+        profile, rules_sha = authority(review)
         body = {
             "id": secrets.token_hex(16),
-            "profile": PROFILE,
-            "rules_sha256": RULES_SHA256,
+            "profile": profile,
+            "rules_sha256": rules_sha,
             "scope": SCOPE,
             "operation_id": options.operation_id,
             "draft_id": review["id"],
@@ -655,7 +698,7 @@ class NativeExceptionWrites:
                     static, capabilities = await self._fresh(
                         session, target, body["object_id"], review, fresh
                     )
-                    if static != self._static(captured, body["object_id"]):
+                    if static != self._static(captured, body["object_id"], review):
                         raise ValueError(
                             "Captured Schedule exception configuration changed; capture and draft again."
                         )
@@ -765,18 +808,19 @@ class NativeExceptionWrites:
             raise ValueError("Schedule exception review expired; preview again.")
         body = plan["body"]
         review, _, target = self._reference(body["native_draft"]["request"], body["draft_id"])
+        profile, rules_sha = authority(review)
         if (
             review != body["native_draft"]
-            or body["profile"] != PROFILE
-            or body["rules_sha256"] != RULES_SHA256
+            or body["profile"] != profile
+            or body["rules_sha256"] != rules_sha
         ):
             raise ValueError(
                 "Schedule exception source or active write authority changed; no write was sent."
             )
         receipt = {
             "id": secrets.token_hex(16),
-            "profile": PROFILE,
-            "rules_sha256": RULES_SHA256,
+            "profile": profile,
+            "rules_sha256": rules_sha,
             "scope": SCOPE,
             "operation_id": options.operation_id,
             "target": target.model_dump(),
@@ -969,13 +1013,14 @@ class NativeExceptionWrites:
             raise ValueError(
                 "Schedule exception receipt differs from its exact original source and property."
             )
-        if receipt.get("profile") != PROFILE or receipt.get("rules_sha256") != RULES_SHA256:
+        profile, rules_sha = authority(review)
+        if receipt.get("profile") != profile or receipt.get("rules_sha256") != rules_sha:
             raise ValueError(
                 "Schedule exception receipt active authority is unknown; passive evidence remains retained."
             )
         body = {
-            "profile": PROFILE,
-            "rules_sha256": RULES_SHA256,
+            "profile": profile,
+            "rules_sha256": rules_sha,
             "scope": SCOPE,
             "operation_id": options.operation_id,
             "receipt_id": options.receipt_id,
@@ -998,7 +1043,7 @@ class NativeExceptionWrites:
                         session,
                         target,
                         review,
-                        self._static(captured, review["source"]["object"]),
+                        self._static(captured, review["source"]["object"], review),
                         body["readback"],
                     )
         except asyncio.CancelledError:
