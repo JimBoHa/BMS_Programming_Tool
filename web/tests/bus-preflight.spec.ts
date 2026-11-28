@@ -2,10 +2,14 @@ import { test, expect, type Page, type Locator } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
+import {
+  chooseWorkspaceSurface,
+  chooseWorkspaceTool,
+} from "./workspace-navigation";
 const root = path.resolve("..");
-async function open(page: Page) {
-  await page.goto("/");
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
+async function selectBusPlan(page: Page) {
+  await chooseWorkspaceSurface(page, "Settings");
+  await chooseWorkspaceTool(page, "Bus planning", "Controller task tools");
   await page
     .getByText("JCI bus address and topology plan", { exact: true })
     .click();
@@ -17,6 +21,13 @@ async function open(page: Page) {
     panel.getByLabel("Bus plan name", { exact: true }),
   ).toBeVisible();
   return panel;
+}
+async function open(page: Page) {
+  await page.goto("/");
+  await expect(
+    page.getByRole("button", { name: /^Connect to a controller/ }),
+  ).toBeVisible();
+  return selectBusPlan(page);
 }
 async function bus(panel: Locator) {
   await panel
@@ -238,11 +249,10 @@ test("authors a real local bus plan, reopens portable JSON and exports independe
   expect(portable.devices).toHaveLength(2);
   expect(portable.links).toHaveLength(1);
   await page.reload();
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
-  await page
-    .getByText("JCI bus address and topology plan", { exact: true })
-    .click();
-  panel = page.getByRole("region", { name: "JCI bus preflight", exact: true });
+  await expect(
+    page.getByRole("button", { name: /^Connect to a controller/ }),
+  ).toBeVisible();
+  panel = await selectBusPlan(page);
   await expect(
     panel.getByRole("heading", { name: "Physical buses (0/32)", exact: true }),
   ).toBeVisible();
@@ -530,13 +540,9 @@ test("closed or unmounted panels suppress delayed review exports", async ({
     .getByRole("button", { name: "Export bus review JSON", exact: true })
     .click();
   await held.seen;
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Workspace");
   await held.cleanup();
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
-  await page
-    .getByText("JCI bus address and topology plan", { exact: true })
-    .click();
-  panel = page.getByRole("region", { name: "JCI bus preflight", exact: true });
+  panel = await selectBusPlan(page);
   await expect(
     panel.getByRole("heading", { name: "Physical buses (0/32)", exact: true }),
   ).toBeVisible();

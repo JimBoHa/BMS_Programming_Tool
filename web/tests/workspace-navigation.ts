@@ -24,6 +24,7 @@ export async function chooseWorkspaceTool(
     name: region,
     exact: true,
   });
+  await expect(navigation).toBeVisible();
   const select = navigation.getByRole("combobox", {
     name: region,
     exact: true,
