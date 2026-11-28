@@ -1,3 +1,8 @@
+import {
+  openCurrentGraph,
+  graphSimulation,
+  importGraphFile,
+} from "./graph-workspace";
 import { test, expect } from "./simulationFixture";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -38,9 +43,8 @@ test("Clamp, Scale and Convert export genuine native BOG and preserve reviewed f
   page,
   request,
 }) => {
-  await page.goto("/");
-  const fileInput = page.locator('input[type=file][accept*=".st"]');
-  await fileInput.setInputFiles({
+  await openCurrentGraph(page);
+  await importGraphFile(page, {
     name: "extended.bms.json",
     mimeType: "application/json",
     buffer: sourceProgram(),
@@ -96,12 +100,13 @@ print(json.dumps({'types':types,'foreign':re.sub(rb'<!-- BMS_STUDIO_BOG_V1 [A-Za
 
   await page.getByRole("button", { name: "New program", exact: true }).click();
   await expect(page.locator(".react-flow__node")).toHaveCount(0);
-  await fileInput.setInputFiles({
+  await importGraphFile(page, {
     name: "original.bog",
     mimeType: "application/zip",
     buffer: content,
   });
   await expect(page.locator(".react-flow__node")).toHaveCount(7);
+  await graphSimulation(page);
   await page
     .getByRole("button", { name: "Step simulation", exact: true })
     .click();
@@ -111,17 +116,12 @@ print(json.dumps({'types':types,'foreign':re.sub(rb'<!-- BMS_STUDIO_BOG_V1 [A-Za
   );
 
   // Removing checked Studio source exercises actual native semantic conversion.
-  const importing = page.waitForResponse(
-    (response) =>
-      response.url().endsWith("/api/import") &&
-      response.request().method() === "POST",
-  );
-  await fileInput.setInputFiles({
+  const importing = await importGraphFile(page, {
     name: "foreign-native.bog",
     mimeType: "application/xml",
     buffer: Buffer.from(inspected.foreign),
   });
-  const foreign = projectedSourceFixture(await (await importing).json());
+  const foreign = projectedSourceFixture(await importing.json());
   expect(foreign.metadata.conversion.review_required).toBe(true);
   expect(
     foreign.nodes.filter((node: any) => node.kind === "Convert"),
@@ -138,6 +138,7 @@ print(json.dumps({'types':types,'foreign':re.sub(rb'<!-- BMS_STUDIO_BOG_V1 [A-Za
   await page
     .getByRole("button", { name: "Close settings", exact: true })
     .click();
+  await graphSimulation(page);
   await page
     .getByRole("button", { name: "Step simulation", exact: true })
     .click();
@@ -163,11 +164,15 @@ print(json.dumps({'types':types,'foreign':re.sub(rb'<!-- BMS_STUDIO_BOG_V1 [A-Za
     ],
     { cwd: root },
   );
-  await fileInput.setInputFiles({
-    name: "incompatible-units.bog",
-    mimeType: "application/xml",
-    buffer: invalid,
-  });
+  await importGraphFile(
+    page,
+    {
+      name: "incompatible-units.bog",
+      mimeType: "application/xml",
+      buffer: invalid,
+    },
+    422,
+  );
   await expect(
     page.getByText("requires explicit supported temperature units", {
       exact: false,

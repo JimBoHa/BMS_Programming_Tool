@@ -1,3 +1,5 @@
+import { openCurrentGraph } from "./graph-workspace";
+import { chooseWorkspaceTool } from "./workspace-navigation";
 import { test, expect } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
@@ -14,8 +16,8 @@ test("inspect unknown protected BOG resources and export every original byte", a
     ],
     { cwd: root },
   );
-  await page.goto("/");
-  await page.getByRole("button", { name: "BOG files", exact: true }).click();
+  await openCurrentGraph(page);
+  await chooseWorkspaceTool(page, "Niagara application");
   const panel = page.getByRole("region", {
     name: "Niagara BOG archive inspector",
     exact: true,
@@ -82,8 +84,8 @@ test("inspect an unresolved native XML link without opening a station connection
   const original = Buffer.from(
     '<bajaObjectGraph version="4.0"><p h="1" n="ExternalResult" m="b=baja" t="control:NumericWritable"><p n="Link" t="b:Link"><p n="sourceOrd" v="foxs://192.0.2.1/slot:/RemotePoint"/><p n="sourceSlotName" v="out"/><p n="targetSlotName" v="in16"/></p></p></bajaObjectGraph>',
   );
-  await page.goto("/");
-  await page.getByRole("button", { name: "BOG files", exact: true }).click();
+  await openCurrentGraph(page);
+  await chooseWorkspaceTool(page, "Niagara application");
   const panel = page.getByRole("region", {
     name: "Niagara BOG archive inspector",
     exact: true,
