@@ -1,3 +1,9 @@
+import {
+  chooseWorkspaceSurface,
+  chooseWorkspaceTask,
+  chooseWorkspaceTool,
+  openSystemSimulation,
+} from "./workspace-navigation";
 import { fetchSimulationResponse } from "./simulationFixture";
 import { test, expect, type Page } from "./simulationFixture";
 import { execFileSync } from "node:child_process";
@@ -14,6 +20,8 @@ async function load(page: Page, defaults = "{'a':1.0,'b':0}") {
     { cwd: root },
   );
   await page.goto("/");
+  await chooseWorkspaceSurface(page, "Workspace");
+  await chooseWorkspaceTask(page, "Program");
   await page.locator('input[type=file][accept*=".st"]').setInputFiles({
     name: "live-values.bms.json",
     mimeType: "application/json",
@@ -22,6 +30,8 @@ async function load(page: Page, defaults = "{'a':1.0,'b':0}") {
   await expect(page.locator(".toast")).toContainText(
     "Imported as a new local project",
   );
+  await page.getByRole("button", { name: "Simulate", exact: true }).click();
+  await chooseWorkspaceTool(page, "Graph simulation");
 }
 function check(raw: string, selector: string, token: string) {
   execFileSync(
@@ -100,7 +110,7 @@ test("IEC defaults, edits and timed stimuli preserve float intent before genuine
   page,
 }) => {
   await load(page, "{'a':1e30,'b':0}");
-  await page.getByRole("button", { name: "IEC native", exact: true }).click();
+  await chooseWorkspaceTool(page, "IEC verification");
   await expect(
     page.getByText("MatIEC compiler available", { exact: true }),
   ).toBeVisible();
@@ -132,7 +142,7 @@ test("Temco and Sedona scan editors use exact live token transport", async ({
   page,
 }) => {
   await load(page);
-  await page.getByRole("button", { name: "Temco native", exact: true }).click();
+  await chooseWorkspaceTool(page, "Temco");
   await expect(
     page.getByText("Native compiler available", { exact: true }),
   ).toBeVisible();
@@ -146,7 +156,7 @@ test("Temco and Sedona scan editors use exact live token transport", async ({
   const t = await temco;
   expect(t.ok()).toBe(true);
   check(t.request().postData()!, '["inputs","a","value"]', "1.0");
-  await page.getByRole("button", { name: "Native sim", exact: true }).click();
+  await chooseWorkspaceTool(page, "Sedona");
   await page
     .getByRole("button", { name: "Compile and start", exact: true })
     .click();
@@ -171,7 +181,7 @@ test("shared group inputs survive exact large integer and float reopen without l
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "System sim", exact: true }).click();
+  await openSystemSimulation(page);
   const buffer = execFileSync(
     python,
     [
@@ -204,7 +214,7 @@ test("shared group inputs survive exact large integer and float reopen without l
       token,
     );
     await page.getByRole("button", { name: "Program", exact: true }).click();
-    await page.getByRole("button", { name: "System sim", exact: true }).click();
+    await openSystemSimulation(page);
     await expect(
       page.getByLabel("Group input producer.value", { exact: true }),
     ).toBeVisible();
@@ -232,7 +242,8 @@ test("runtime preview receives the same typed live input and unsafe integer edit
     "Error: This integer is not exactly representable by the execution numeric profile",
   );
   await input.fill("1e30");
-  await page.getByRole("button", { name: "Runtime", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Settings");
+  await chooseWorkspaceTool(page, "Local runtime", "settings tools");
   const pending = page.waitForResponse((r) =>
     r.url().endsWith("/api/runtime/plan"),
   );
@@ -341,7 +352,7 @@ test("shared initial numeric token survives authoring, workspace export and reop
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "System sim", exact: true }).click();
+  await openSystemSimulation(page);
   await page
     .getByRole("button", { name: "Load shared-signal demo", exact: true })
     .click();
@@ -381,7 +392,7 @@ test("shared initial numeric token survives authoring, workspace export and reop
     (await file.path())!,
   ]);
   await page.getByRole("button", { name: "Program", exact: true }).click();
-  await page.getByRole("button", { name: "System sim", exact: true }).click();
+  await openSystemSimulation(page);
   await expect(page.locator(".group-elapsed")).toHaveText("0.0 s");
   const restarted = page.waitForResponse((r) =>
     r.url().endsWith("/api/groups/start"),
