@@ -1885,7 +1885,6 @@ export function App() {
           event.target.value = "";
           if (file) {
             setIncomingCaf({ id: randomUUID(), file });
-            setCafView("objects");
             setTab("caf");
           }
         }}

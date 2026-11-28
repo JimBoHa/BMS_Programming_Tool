@@ -158,7 +158,13 @@ export function NativeCaf({
     if (!visible || !incomingFile || handledFile.current === incomingFile.id)
       return;
     handledFile.current = incomingFile.id;
-    void upload(incomingFile.file);
+    let current = true;
+    void upload(incomingFile.file).then((opened) => {
+      if (opened && current) changeView("objects");
+    });
+    return () => {
+      current = false;
+    };
   }, [visible, incomingFile]);
   useEffect(() => {
     if (!visible || !saveRequest || !caf || handledSave.current === saveRequest)
