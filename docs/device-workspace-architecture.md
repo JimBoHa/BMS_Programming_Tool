@@ -13,6 +13,12 @@ The same path supports new model names and different I/O counts without adding a
 model registration. Standard and installed vendor object schemas select property
 decoders by protocol object type and the controller's observed vendor ID.
 
+On a Johnson Controls Device, Startup Phase Diagnostic (property 4961) shows the
+reported startup phases in controller order, with each phase code and duration in
+milliseconds. Known codes also include a name. An empty reply list appears as
+`[]`. The report retains the encoded reply for all reads, including unfamiliar
+record layouts.
+
 Points & I/O loads the actual inventory and reads visible points automatically.
 The default live refresh waits ten seconds after each read cycle; reads are
 sequential, bounded and never overlap within the view. Values arrive one object
