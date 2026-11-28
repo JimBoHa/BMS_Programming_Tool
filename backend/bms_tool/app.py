@@ -205,6 +205,7 @@ from .read_phase_trace import freeze as freeze_read_trace
 from .read_phase_trace import unavailable as unavailable_read_trace
 from .resources import public_document, state_directory, web_directory
 from .routed_discovery import (
+    ControllerIdentityTimeout,
     ProbeTrunkRequest,
     RoutedDiscovery,
     RoutedScanRequest,
@@ -1015,6 +1016,10 @@ def create_app(state_dir=None, *, operation_power=None):
     @app.exception_handler(ValueError)
     async def value_error(request, exc):
         return JSONResponse({"detail": str(exc)}, 409 if isinstance(exc, Conflict) else 422)
+
+    @app.exception_handler(ControllerIdentityTimeout)
+    async def controller_probe_timeout(request, exc):
+        return JSONResponse({"detail": str(exc)}, 504)
 
     @app.exception_handler(asyncio.TimeoutError)
     async def timeout_error(request, exc):

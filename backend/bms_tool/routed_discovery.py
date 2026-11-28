@@ -128,6 +128,10 @@ class RouterProbeRequest(StrictModel):
         return str(_router(value))
 
 
+class ControllerIdentityTimeout(TimeoutError):
+    """The selected station did not answer the probe's initial Device read."""
+
+
 class ProbeTrunkRequest(StrictModel):
     router: str = Field(min_length=1, max_length=64)
     dnet: int = Field(ge=1, le=65534, strict=True)
@@ -411,9 +415,15 @@ class RoutedDiscovery:
             started_at = _utc()
             deadline = asyncio.get_running_loop().time() + 20
             self._check(app, config)
-            identifier = await asyncio.wait_for(
-                read_property(app, target, "device,4194303", "object-identifier"), 6.0
-            )
+            try:
+                identifier = await asyncio.wait_for(
+                    read_property(app, target, "device,4194303", "object-identifier"), 6.0
+                )
+            except TimeoutError as exc:
+                raise ControllerIdentityTimeout(
+                    f"No controller identity reply arrived for network {options.dnet}, MAC "
+                    f"{options.mac}. Check the selected trunk, address and controller power."
+                ) from exc
             self._check(app, config)
             kind, instance = identifier
             if int(kind) != 8 or not 0 <= instance <= 4194302:

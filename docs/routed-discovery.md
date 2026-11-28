@@ -116,6 +116,8 @@ trunk scans, metadata, instance writes and readback use actual HTTP/UDP services
 
    The existing connection must already select that exact router and network.
    The first request reads `object-identifier` from Device wildcard `4194303`.
+   If that identity read times out, the probe reports HTTP 504 with the selected
+   network and MAC. Check the selected trunk, station address and controller power.
    A responding device supplies its actual Device identifier in both the ACK
    and property value; these must agree. The service then reads its actual
    Device object's name, vendor identifier, model, firmware revision and
