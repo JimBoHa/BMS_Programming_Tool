@@ -1,22 +1,16 @@
 import { test, expect } from "@playwright/test";
 import { spawn } from "node:child_process";
-import { createSocket } from "node:dgram";
+import {
+  openMonitoringInterface,
+  selectKnownMonitoringController,
+  showControllerMonitor,
+} from "./event-workspace";
+import { chooseWorkspaceSurface } from "./workspace-navigation";
+import { openMonitoring } from "./monitoring-navigation";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
 const root = path.resolve("..");
-async function freePort(): Promise<number> {
-  const socket = createSocket("udp4");
-  return new Promise((resolve, reject) => {
-    socket.once("error", reject);
-    socket.bind(0, "127.0.0.1", () => {
-      const address = socket.address();
-      socket.close(() =>
-        resolve(typeof address === "string" ? 0 : address.port),
-      );
-    });
-  });
-}
 async function controller() {
   const child = spawn(
     path.join(root, ".venv/bin/python"),
@@ -71,12 +65,13 @@ test("Explicit real UDP COV recording survives UI reopen with native evidence ex
   const headers = { "X-Studio-Token": token };
   try {
     await request.post("/api/bacnet/disconnect", { headers, data: {} });
-    await request.post("/api/bacnet/connect", {
-      headers,
-      data: { local_address: `127.0.0.1:${await freePort()}` },
-    });
-    await page.goto("/");
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
+    await openMonitoringInterface(page);
+    await selectKnownMonitoringController(
+      page,
+      `127.0.0.1:${peer.port}`,
+      "device,4190010",
+    );
+    await showControllerMonitor(page, "Live COV monitor");
     const panel = page.getByRole("region", {
       name: "BACnet COV monitoring",
       exact: true,
@@ -85,12 +80,12 @@ test("Explicit real UDP COV recording survives UI reopen with native evidence ex
       name: "Record COV receipts and eligible trends locally",
     });
     await expect(checkbox).not.toBeChecked();
-    await panel
-      .getByLabel("COV device IP / port", { exact: true })
-      .fill(`127.0.0.1:${peer.port}`);
-    await panel
-      .getByLabel("Expected COV Device", { exact: true })
-      .fill("device,4190010");
+    await expect(
+      panel.getByLabel("COV device IP / port", { exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      panel.getByLabel("Expected COV Device", { exact: true }),
+    ).toHaveCount(0);
     await panel
       .getByLabel("COV monitored object", { exact: true })
       .fill("analog-value,1");
@@ -109,6 +104,8 @@ test("Explicit real UDP COV recording survives UI reopen with native evidence ex
     await expect(panel).toContainText(/Local recording: active.*Saved: [1-9]/);
     const status = await (await request.get("/api/bacnet/cov/status")).json();
     const job = status.jobs.find((item: any) => item.active && item.recording);
+    expect(job.config.address).toBe(`127.0.0.1:${peer.port}`);
+    expect(job.config.device).toBe("device,4190010");
     const monitor = panel.getByRole("region", {
       name: `COV monitor ${job.id}`,
       exact: true,
@@ -117,14 +114,29 @@ test("Explicit real UDP COV recording survives UI reopen with native evidence ex
       .getByRole("button", { name: "Stop COV monitor", exact: true })
       .click();
     await expect(monitor).toContainText("Local recording: stopped");
-    await page.reload();
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
+    await showControllerMonitor(page, "Controller events");
+    await showControllerMonitor(page, "Live COV monitor");
     await expect(
       panel.getByRole("checkbox", {
         name: "Record COV receipts and eligible trends locally",
       }),
     ).not.toBeChecked();
-    const saved = panel.getByRole("region", {
+    expect(
+      (
+        await request.post("/api/bacnet/disconnect", { headers, data: {} })
+      ).ok(),
+    ).toBe(true);
+    await page.reload();
+    const fieldRequests: string[] = [];
+    page.on("request", (r) => {
+      if (r.method() === "POST" && r.url().includes("/api/bacnet/"))
+        fieldRequests.push(r.url());
+    });
+    await chooseWorkspaceSurface(page, "History");
+    await page
+      .getByText("Change-of-value (COV) recordings", { exact: true })
+      .click();
+    const saved = page.getByRole("region", {
       name: "Saved COV observations",
       exact: true,
     });
@@ -149,9 +161,7 @@ test("Explicit real UDP COV recording survives UI reopen with native evidence ex
     expect(notification.evidence.values[0].value).toBe(12.5);
     expect(notification.source_clock).toBeNull();
     expect(evidence.recording.metadata.acquisition_kind).toBe("bacnet-cov");
-    await page
-      .getByRole("button", { name: "Field trends", exact: true })
-      .click();
+    await openMonitoring(page, "Field recording");
     await page
       .getByLabel("Field trend source", { exact: true })
       .selectOption(job.recording.source);
@@ -172,9 +182,19 @@ test("Explicit real UDP COV recording survives UI reopen with native evidence ex
       '"acquisition_kind","clock_basis","source_clock","receipt_at","provenance"',
     );
     expect(csv).toContain('"bacnet-cov","receipt"');
+    expect(fieldRequests).toEqual([]);
+    expect(
+      (await (await request.get("/api/bacnet/status")).json()).connected,
+    ).toBe(false);
     expect(errors).toEqual([]);
   } finally {
-    await request.post("/api/bacnet/disconnect", { headers, data: {} });
     peer.process.kill();
+    if (!page.isClosed()) {
+      expect(
+        (
+          await request.post("/api/bacnet/disconnect", { headers, data: {} })
+        ).ok(),
+      ).toBe(true);
+    }
   }
 });

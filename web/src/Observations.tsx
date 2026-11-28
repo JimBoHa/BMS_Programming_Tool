@@ -3,8 +3,10 @@ import { Bell, Download, RefreshCw } from "lucide-react";
 import { api, saveBlob } from "./api";
 import { showValue } from "./types";
 import { requireHistoryId } from "./browserHistoryIds";
+import { BacnetCovRecordings } from "./BacnetCovRecordings";
 
 export function Observations() {
+  const [showCovRecordings, setShowCovRecordings] = useState(false);
   const [status, setStatus] = useState<any>(null),
     [sources, setSources] = useState<any[]>([]),
     [source, setSource] = useState(""),
@@ -379,6 +381,13 @@ export function Observations() {
           Next samples
         </button>
       </div>
+      <details
+        className="observation-retention"
+        onToggle={(event) => setShowCovRecordings(event.currentTarget.open)}
+      >
+        <summary>Change-of-value (COV) recordings</summary>
+        {showCovRecordings && <BacnetCovRecordings />}
+      </details>
       <details className="observation-retention">
         <summary>Retention and source retirement</summary>
         <p>

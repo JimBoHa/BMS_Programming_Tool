@@ -1,40 +1,43 @@
 import { test, expect } from "@playwright/test";
 import { spawn } from "node:child_process";
-import { createSocket } from "node:dgram";
+import {
+  openMonitoringInterface,
+  selectKnownMonitoringController,
+  showControllerMonitor,
+} from "./event-workspace";
+import { disconnectTestInterface, freePort } from "./workflow-peer";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
 const root = path.resolve("..");
-async function freePort(): Promise<number> {
-  const socket = createSocket("udp4");
-  return new Promise((resolve, reject) => {
-    socket.once("error", reject);
-    socket.bind(0, "127.0.0.1", () => {
-      const address = socket.address();
-      socket.close(() =>
-        resolve(typeof address === "string" ? 0 : address.port),
-      );
-    });
-  });
-}
-async function controller() {
+async function controller(foreign = false) {
   const child = spawn(
     path.join(root, ".venv/bin/python"),
     [
       "-u",
       "-c",
       `
-import asyncio
+import asyncio,json,sys
 from tests.test_connections import application, free_udp, point
+from tests.test_foreign_bacnet import RawBBMD, RawPoint
 async def main():
     port=free_udp(); server=application(port,4190010)
     value=point(); value.covIncrement=0.1; server.add_object(value)
     await asyncio.sleep(0.05)
-    print(port,flush=True)
+    transports=[];bbmd_port=None
+    if sys.argv[1]=="foreign":
+        loop=asyncio.get_running_loop()
+        pt,raw=await loop.create_datagram_endpoint(RawPoint,local_addr=("127.0.0.1",0))
+        bt,bbmd=await loop.create_datagram_endpoint(lambda:RawBBMD(raw),local_addr=("127.0.0.1",0))
+        transports=[pt,bt];bbmd_port=bbmd.address[1]
+    print(json.dumps({"port":port,"bbmd":bbmd_port}),flush=True)
     try: await asyncio.Event().wait()
-    finally: server.close()
+    finally:
+        for transport in transports: transport.close()
+        server.close()
 asyncio.run(main())
 `,
+      foreign ? "foreign" : "direct",
     ],
     {
       cwd: root,
@@ -42,22 +45,24 @@ asyncio.run(main())
       env: { ...process.env, PYTHONPATH: path.join(root, "backend") },
     },
   );
-  const port = await new Promise<number>((resolve, reject) => {
-    let output = "";
-    const timer = setTimeout(() => {
-      child.kill();
-      reject(new Error("Loopback controller did not start"));
-    }, 5000);
-    child.once("error", reject);
-    child.stdout!.on("data", (data) => {
-      output += data.toString();
-      if (output.includes("\n")) {
-        clearTimeout(timer);
-        resolve(Number(output.split("\n")[0]));
-      }
-    });
-  });
-  return { process: child, port };
+  const endpoints = await new Promise<{ port: number; bbmd: number | null }>(
+    (resolve, reject) => {
+      let output = "";
+      const timer = setTimeout(() => {
+        child.kill();
+        reject(new Error("Loopback controller did not start"));
+      }, 5000);
+      child.once("error", reject);
+      child.stdout!.on("data", (data) => {
+        output += data.toString();
+        if (output.includes("\n")) {
+          clearTimeout(timer);
+          resolve(JSON.parse(output.split("\n")[0]));
+        }
+      });
+    },
+  );
+  return { process: child, ...endpoints };
 }
 
 test("Connect COV UI performs real verified subscription, renewal, evidence export and cancellation", async ({
@@ -68,39 +73,22 @@ test("Connect COV UI performs real verified subscription, renewal, evidence expo
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(String(error)));
   try {
-    const token = (await (await request.get("/api/session")).json()).token;
-    await request.post("/api/bacnet/disconnect", {
-      headers: { "X-Studio-Token": token },
-      data: {},
-    });
-    await page.goto("/");
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
+    await disconnectTestInterface(request);
+    await openMonitoringInterface(page);
+    await expect(
+      page.getByRole("button", { name: "Start verified COV monitor" }),
+    ).toHaveCount(0);
+    await selectKnownMonitoringController(
+      page,
+      `127.0.0.1:${server.port}`,
+      "device,4190010",
+    );
+    await showControllerMonitor(page, "Live COV monitor");
     const panel = page.getByRole("region", {
       name: "BACnet COV monitoring",
       exact: true,
     });
-    await expect(
-      panel.getByRole("button", { name: "Start verified COV monitor" }),
-    ).toBeDisabled();
-    await page
-      .getByLabel("Local bind address / UDP port", { exact: true })
-      .fill(`127.0.0.1:${await freePort()}`);
-    await page.getByLabel("Router IP (optional)", { exact: true }).fill("");
-    await page
-      .getByLabel("MS/TP destination network (optional)", { exact: true })
-      .fill("");
-    await page
-      .getByLabel("BBMD address / UDP port (optional)", { exact: true })
-      .fill("");
-    await page
-      .getByRole("button", { name: "Open interface", exact: true })
-      .click();
-    await panel
-      .getByLabel("COV device IP / port", { exact: true })
-      .fill(`127.0.0.1:${server.port}`);
-    await panel
-      .getByLabel("Expected COV Device", { exact: true })
-      .fill("device,4190010");
+    await expect(panel.getByLabel("COV device IP / port")).toHaveCount(0);
     await panel
       .getByLabel("COV monitored object", { exact: true })
       .fill("analog-value,1");
@@ -122,6 +110,7 @@ test("Connect COV UI performs real verified subscription, renewal, evidence expo
     );
     expect(evidence.events[0].values[0].value).toBe(12.5);
     expect(evidence.config.confirmed).toBe(true);
+    expect(evidence.config.address).toBe(`127.0.0.1:${server.port}`);
     expect(evidence.events[0].device).toBe("device,4190010");
     await monitor.getByRole("button", { name: "Stop COV monitor" }).click();
     await expect(panel).toContainText("Cancellation acknowledged.");
@@ -133,38 +122,98 @@ test("Connect COV UI performs real verified subscription, renewal, evidence expo
       .getByRole("button", { name: "Start verified COV monitor" })
       .click();
     await expect(panel).toContainText("1 active monitors");
+    const job = (
+      await (await request.get("/api/bacnet/cov/status")).json()
+    ).jobs.find((v: { active: boolean }) => v.active);
+    expect(job.config.confirmed).toBe(false);
+    await page
+      .getByRole("button", { name: "Change controller", exact: true })
+      .click();
     await page
       .getByRole("button", { name: "Close BACnet interface", exact: true })
       .click();
-    await expect(panel).toContainText("interface_changed");
-    await expect(panel).toContainText("0 active monitors");
+    await expect
+      .poll(
+        async () =>
+          (await (await request.get(`/api/bacnet/cov/jobs/${job.id}`)).json())
+            .state,
+      )
+      .toBe("interface_changed");
+    expect(
+      (await (await request.get("/api/bacnet/cov/status")).json()).jobs.filter(
+        (v: { active: boolean }) => v.active,
+      ),
+    ).toHaveLength(0);
     expect(errors).toEqual([]);
   } finally {
     server.process.kill();
   }
 });
 
-test("COV monitor does not imply BBMD transport support", async ({ page }) => {
-  await page.route("**/api/bacnet/status", (route) =>
-    route.fulfill({
-      json: {
-        connected: true,
-        commands: [],
-        config: {
-          local_address: "127.0.0.1:47809",
-          bbmd_address: "127.0.0.1:47808",
-        },
+test("COV monitor does not imply BBMD transport support", async ({
+  page,
+  request,
+}) => {
+  const server = await controller(true);
+  try {
+    await disconnectTestInterface(request);
+    const headers = {
+      "X-Studio-Token": (await (await request.get("/api/session")).json())
+        .token,
+    };
+    const address = `127.0.0.1:${server.port}`;
+    expect(
+      (
+        await request.post("/api/bacnet/connect", {
+          headers,
+          data: {
+            local_address: `127.0.0.1:${await freePort()}`,
+            bbmd_address: `127.0.0.1:${server.bbmd}`,
+            foreign_ttl: 60,
+          },
+        })
+      ).ok(),
+    ).toBe(true);
+    await expect
+      .poll(
+        async () =>
+          (await (await request.get("/api/bacnet/status")).json())
+            .foreign_device?.registered,
+      )
+      .toBe(true);
+    await page.goto("/");
+    await page
+      .getByRole("button", { name: /^Connect to a controller/ })
+      .click();
+    await selectKnownMonitoringController(page, address, "device,4190010");
+    await showControllerMonitor(page, "Live COV monitor");
+    const panel = page.getByRole("region", {
+      name: "BACnet COV monitoring",
+      exact: true,
+    });
+    await expect(
+      panel.getByRole("button", { name: "Start verified COV monitor" }),
+    ).toBeDisabled();
+    await expect(panel).toContainText("without BBMD or direct serial");
+    const refused = await request.post("/api/bacnet/cov/start", {
+      headers,
+      data: {
+        address,
+        device: "device,4190010",
+        object_id: "analog-value,1",
+        lifetime: 60,
+        confirmed: false,
       },
-    }),
-  );
-  await page.goto("/");
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
-  const panel = page.getByRole("region", {
-    name: "BACnet COV monitoring",
-    exact: true,
-  });
-  await expect(
-    panel.getByRole("button", { name: "Start verified COV monitor" }),
-  ).toBeDisabled();
-  await expect(panel).toContainText("without BBMD or direct serial");
+    });
+    expect(refused.ok()).toBe(false);
+    expect((await refused.json()).detail).toMatch(/BBMD/i);
+    expect(
+      (await (await request.get("/api/bacnet/cov/status")).json()).jobs.filter(
+        (v: { active: boolean }) => v.active,
+      ),
+    ).toHaveLength(0);
+  } finally {
+    if (!page.isClosed()) await disconnectTestInterface(request);
+    server.process.kill();
+  }
 });

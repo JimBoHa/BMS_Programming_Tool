@@ -5,20 +5,16 @@ import {
   type APIRequestContext,
 } from "@playwright/test";
 import { spawn, execFileSync } from "node:child_process";
-import { createSocket } from "node:dgram";
+import {
+  openMonitoringInterface,
+  selectKnownMonitoringController,
+  showControllerMonitor,
+} from "./event-workspace";
+import { chooseWorkspaceTool } from "./workspace-navigation";
+import { disconnectTestInterface } from "./workflow-peer";
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 const root = path.resolve("..");
-async function freePort(): Promise<number> {
-  const socket = createSocket("udp4");
-  return new Promise((resolve, reject) => {
-    socket.once("error", reject);
-    socket.bind(0, "127.0.0.1", () => {
-      const port = (socket.address() as { port: number }).port;
-      socket.close(() => resolve(port));
-    });
-  });
-}
 async function peer() {
   const child = spawn(
     path.join(root, ".venv/bin/python"),
@@ -105,67 +101,72 @@ asyncio.run(main())
 }
 async function setup(page: Page, request: APIRequestContext) {
   const server = await peer();
-  const headers = {
-    "X-Studio-Token": (await (await request.get("/api/session")).json()).token,
-  };
-  expect(
-    (
-      await request.post("/api/bacnet/connect", {
-        headers,
-        data: { local_address: `127.0.0.1:${await freePort()}` },
-      })
-    ).ok(),
-  ).toBe(true);
-  const created = await request.post("/api/bacnet/cov/start", {
-    headers,
-    data: {
-      address: `127.0.0.1:${server.port}`,
-      device: "device,4190010",
-      object_id: "analog-value,1",
-      lifetime: 600,
-      confirmed: false,
-      record_observations: true,
-    },
-  });
-  expect(created.ok()).toBe(true);
-  const job = await created.json();
-  await expect
-    .poll(
-      async () =>
-        (await (await request.get(`/api/bacnet/cov/jobs/${job.id}`)).json())
-          .received,
-    )
-    .toBeGreaterThan(0);
-  await server.send("numbers");
-  await expect
-    .poll(
-      async () =>
-        (await (await request.get(`/api/bacnet/cov/jobs/${job.id}`)).json())
-          .recording.recorded,
-    )
-    .toBeGreaterThanOrEqual(4);
-  await page.goto("/");
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
-  const panel = page.getByRole("region", {
-    name: "BACnet COV monitoring",
-    exact: true,
-  });
-  const monitor = panel.getByRole("region", {
-    name: `COV monitor ${job.id}`,
-    exact: true,
-  });
-  await expect(monitor).toBeVisible();
-  return {
-    server,
-    headers,
-    job,
-    panel,
-    monitor,
-    close: async () => {
-      await request.post("/api/bacnet/disconnect", { headers, data: {} });
-      server.child.kill();
-    },
-  };
+  try {
+    await disconnectTestInterface(request);
+    await openMonitoringInterface(page);
+    await selectKnownMonitoringController(
+      page,
+      `127.0.0.1:${server.port}`,
+      "device,4190010",
+    );
+    const headers = {
+      "X-Studio-Token": (await (await request.get("/api/session")).json())
+        .token,
+    };
+    const created = await request.post("/api/bacnet/cov/start", {
+      headers,
+      data: {
+        address: `127.0.0.1:${server.port}`,
+        device: "device,4190010",
+        object_id: "analog-value,1",
+        lifetime: 600,
+        confirmed: false,
+        record_observations: true,
+      },
+    });
+    expect(created.ok()).toBe(true);
+    const job = await created.json();
+    await expect
+      .poll(
+        async () =>
+          (await (await request.get(`/api/bacnet/cov/jobs/${job.id}`)).json())
+            .received,
+      )
+      .toBeGreaterThan(0);
+    await server.send("numbers");
+    await expect
+      .poll(
+        async () =>
+          (await (await request.get(`/api/bacnet/cov/jobs/${job.id}`)).json())
+            .recording.recorded,
+      )
+      .toBeGreaterThanOrEqual(4);
+    await showControllerMonitor(page, "Live COV monitor");
+    const panel = page.getByRole("region", {
+      name: "BACnet COV monitoring",
+      exact: true,
+    });
+    const monitor = panel.getByRole("region", {
+      name: `COV monitor ${job.id}`,
+      exact: true,
+    });
+    await expect(monitor).toBeVisible();
+    return {
+      server,
+      headers,
+      job,
+      panel,
+      monitor,
+      close: async () => {
+        await request.post("/api/bacnet/disconnect", { headers, data: {} });
+        server.child.kill();
+      },
+    };
+  } catch (error) {
+    server.child.kill();
+    await disconnectTestInterface(request);
+    throw error;
+  }
 }
 async function saved(page: Page, id: string) {
   const region = page.getByRole("region", {
@@ -400,13 +401,11 @@ for (const kind of ["page", "job"] as const)
           .getByRole("button", { name: "Export COV evidence", exact: true })
           .click();
       await received;
-      await page
-        .getByRole("button", { name: "Device history", exact: true })
-        .click();
+      await chooseWorkspaceTool(page, "Controller history");
       release();
       await completed;
       await page.unroute(url);
-      await page.getByRole("button", { name: "Connect", exact: true }).click();
+      await showControllerMonitor(page, "Live COV monitor");
       await expect(
         page.getByRole("button", {
           name: "Load saved COV observations",
@@ -471,6 +470,7 @@ test("changing the selected controller suppresses a delayed original-source job 
   request,
 }) => {
   const state = await setup(page, request);
+  const second = await peer();
   let release = () => {};
   try {
     const downloads: string[] = [];
@@ -499,9 +499,18 @@ test("changing the selected controller suppresses a delayed original-source job 
       .getByRole("button", { name: "Export COV evidence", exact: true })
       .click();
     await received;
-    await page.getByLabel("Unicast target", { exact: true }).fill("127.0.0.2");
+    await page
+      .getByRole("button", { name: "Change controller", exact: true })
+      .click();
+    await selectKnownMonitoringController(
+      page,
+      `127.0.0.1:${second.port}`,
+      "device,4190010",
+    );
     release();
     await completed;
+    await page.unroute(`**/api/bacnet/cov/jobs/${state.job.id}`);
+    await showControllerMonitor(page, "Live COV monitor");
     await expect(
       state.monitor.getByRole("button", {
         name: "Export COV evidence",
@@ -515,6 +524,7 @@ test("changing the selected controller suppresses a delayed original-source job 
     ).toBe(`127.0.0.1:${state.server.port}`);
   } finally {
     release();
+    second.child.kill();
     await state.close();
   }
 });

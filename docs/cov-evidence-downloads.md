@@ -1,5 +1,11 @@
 # Original COV evidence downloads
 
+Open **History** and expand **Change-of-value (COV) recordings** under
+**Recorded trends & alarms**. Choose **Load saved COV observations**, select a
+recording, then download its receipt page. The history uses the local database
+and works with the field interface closed. To subscribe to new values, select a
+controller and open **Trends & Alarms → Controller monitoring → Live COV monitor**.
+
 Live COV job exports and saved receipt-page JSON preserve the original HTTP
 response bytes. Parsing and rebuilding a response with JavaScript changes
 `2.0` to `2`, `-0.0` to `0`, and some exponent/large-number spellings. These

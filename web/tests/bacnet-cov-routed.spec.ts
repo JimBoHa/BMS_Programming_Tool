@@ -1,20 +1,15 @@
 import { test, expect } from "@playwright/test";
 import { spawn } from "node:child_process";
-import { createSocket } from "node:dgram";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import {
+  openMonitoringInterface,
+  selectKnownMonitoringController,
+  showControllerMonitor,
+} from "./event-workspace";
+import { disconnectTestInterface } from "./workflow-peer";
 
 const root = path.resolve("..");
-async function freePort(): Promise<number> {
-  const socket = createSocket("udp4");
-  return new Promise((resolve, reject) => {
-    socket.once("error", reject);
-    socket.bind(0, "127.0.0.1", () => {
-      const a = socket.address();
-      socket.close(() => resolve(typeof a === "string" ? 0 : a.port));
-    });
-  });
-}
 async function routedPeer() {
   const child = spawn(
     path.join(root, ".venv/bin/python"),
@@ -23,13 +18,24 @@ async function routedPeer() {
       "-c",
       `
 import asyncio,json
-from tests.test_bacnet_cov_routed import routed_pair
+from bacpypes3.app import Application
+from bacpypes3.local.device import DeviceObject
+from bacpypes3.local.networkport import NetworkPortObject
+from tests.test_bacnet_cov_routed import close_routed_pair, routed_pair
+from tests.test_connections import point
 async def main():
-    router,field,analog,config,frames=routed_pair()
-    await asyncio.sleep(.05)
+    router,field,analog,config,frames=await routed_pair()
+    value=point(); value.presentValue=28.0
+    second=Application.from_object_list([
+        DeviceObject(objectIdentifier=("device",4190013),objectName="Second virtual terminal"),
+        NetworkPortObject(objectIdentifier=("network-port",1),objectName="Second field link",
+            macAddress=bytes([5]),networkType="virtual",networkInterfaceName=router._routed_cov_network.name,
+            protocolLevel="bacnet-application"),
+        value,
+    ])
     print(json.dumps(config),flush=True)
     try: await asyncio.Event().wait()
-    finally: field.close(); router.close()
+    finally: second.close(); close_routed_pair(router,field)
 asyncio.run(main())
 `,
     ],
@@ -39,7 +45,12 @@ asyncio.run(main())
       env: { ...process.env, PYTHONPATH: path.join(root, "backend") },
     },
   );
-  const config = await new Promise<any>((resolve, reject) => {
+  const config = await new Promise<{
+    router: string;
+    address: string;
+    device: string;
+    dnet: number;
+  }>((resolve, reject) => {
     let out = "";
     const timer = setTimeout(() => {
       child.kill();
@@ -62,86 +73,97 @@ test("routed COV UI defaults selected route, keeps pending source identity, expo
   request,
 }) => {
   const peer = await routedPeer();
-  const token = (await (await request.get("/api/session")).json()).token;
-  const headers = { "X-Studio-Token": token };
+  const starts: string[] = [];
+  let jobId = "";
   let release!: () => void;
   let started!: () => void;
+  let delivered!: () => void;
   const held = new Promise<void>((resolve) => {
     release = resolve;
   });
   const ready = new Promise<void>((resolve) => {
     started = resolve;
   });
+  const completed = new Promise<void>((resolve) => {
+    delivered = resolve;
+  });
   try {
-    await request.post("/api/bacnet/disconnect", { headers, data: {} });
-    await page.goto("/");
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
-    await page
-      .getByLabel("Local bind address / UDP port", { exact: true })
-      .fill(`127.0.0.1:${await freePort()}`);
-    await page
-      .getByLabel("Router IP (optional)", { exact: true })
-      .fill(peer.config.router);
-    await page
-      .getByLabel("MS/TP destination network (optional)", { exact: true })
-      .fill("2001");
-    await page
-      .getByRole("button", { name: "Open interface", exact: true })
-      .click();
-    await page.getByLabel("Unicast target", { exact: true }).fill("2001:4");
-    await page
-      .getByLabel("Object identifier", { exact: true })
-      .fill("device,4190012");
+    await disconnectTestInterface(request);
+    await openMonitoringInterface(page);
+    await selectKnownMonitoringController(
+      page,
+      peer.config.address,
+      peer.config.device,
+      peer.config.router,
+      String(peer.config.dnet),
+    );
+    await showControllerMonitor(page, "Live COV monitor");
     const panel = page.getByRole("region", {
       name: "BACnet COV monitoring",
       exact: true,
     });
-    await expect(
-      panel.getByLabel("COV source path", { exact: true }),
-    ).toHaveValue("routed");
-    await expect(
-      panel.getByLabel("COV router IP / port", { exact: true }),
-    ).toHaveValue(peer.config.router);
-    await expect(
-      panel.getByLabel("COV destination network", { exact: true }),
-    ).toHaveValue("2001");
-    await expect(
-      panel.getByLabel("COV controller MAC", { exact: true }),
-    ).toHaveValue("4");
+    for (const label of [
+      "COV source path",
+      "COV router IP / port",
+      "COV destination network",
+      "COV controller MAC",
+    ]) {
+      await expect(panel.getByLabel(label, { exact: true })).toHaveCount(0);
+    }
     await panel
       .getByLabel("COV monitored object", { exact: true })
       .fill("analog-value,1");
     await page.route("**/api/bacnet/cov/start", async (route) => {
+      starts.push(route.request().postDataJSON().address);
       const response = await route.fetch();
+      jobId = (await response.json()).id;
       started();
       await held;
       await route.fulfill({ response });
+      delivered();
     });
     await panel
       .getByRole("button", { name: "Start verified COV monitor" })
       .click();
     await ready;
-    await page.getByLabel("Unicast target", { exact: true }).fill("2001:5");
-    release();
-    await expect(panel).toContainText(
-      "Monitor started for the earlier selection",
+    await page
+      .getByRole("button", { name: "Change controller", exact: true })
+      .click();
+    await selectKnownMonitoringController(
+      page,
+      "2001:5",
+      "device,4190013",
+      peer.config.router,
+      "2001",
     );
+    release();
+    await completed;
+    await showControllerMonitor(page, "Live COV monitor");
     await expect(
-      panel.getByLabel("COV controller MAC", { exact: true }),
-    ).toHaveValue("5");
-    await expect(
-      panel.getByLabel("Expected COV Device", { exact: true }),
+      panel.getByLabel("COV monitored object", { exact: true }),
     ).toHaveValue("");
-    await expect(panel).toContainText("2001:4 via");
-    const current = panel
-      .getByRole("region", { name: /^COV monitor cov-/ })
-      .first();
+    await expect(
+      panel.getByRole("button", { name: "Start verified COV monitor" }),
+    ).toBeDisabled();
+    expect(jobId).toMatch(/^cov-/);
+    const current = panel.getByRole("region", {
+      name: `COV monitor ${jobId}`,
+      exact: true,
+    });
+    await expect(current).toContainText(`2001:4 via ${peer.config.router}`);
     await expect(current.getByText(/^Notification 1 ·/)).toBeVisible();
     const download = page.waitForEvent("download");
     await current.getByRole("button", { name: "Export COV evidence" }).click();
     const file = await download;
     const evidence = JSON.parse(readFileSync((await file.path())!, "utf8"));
-    expect(evidence.config.address).toBe("2001:4");
+    expect(evidence.id).toBe(jobId);
+    expect(evidence.config).toMatchObject({
+      address: "2001:4",
+      router: peer.config.router,
+      dnet: 2001,
+      device: "device,4190012",
+      object_id: "analog-value,1",
+    });
     expect(evidence.events[0].route.next_hop).toBe(peer.config.router);
     expect(evidence.events[0].route.source).toBe("2001:4");
     expect(evidence.events[0].values[0].value).toBe(12.5);
@@ -149,18 +171,29 @@ test("routed COV UI defaults selected route, keeps pending source identity, expo
     await expect(panel).toContainText("Explicit renewal acknowledged.");
     await current.getByRole("button", { name: "Stop COV monitor" }).click();
     await expect(panel).toContainText("Cancellation acknowledged.");
-    await panel
-      .getByLabel("COV source path", { exact: true })
-      .selectOption("direct");
-    await expect(
-      panel.getByLabel("Expected COV Device", { exact: true }),
-    ).toHaveValue("");
+    await page
+      .getByRole("button", { name: "Change controller", exact: true })
+      .click();
+    await selectKnownMonitoringController(
+      page,
+      peer.config.router,
+      "device,4190011",
+    );
+    await showControllerMonitor(page, "Live COV monitor");
     await expect(
       panel.getByLabel("COV monitored object", { exact: true }),
     ).toHaveValue("");
+    await expect(
+      panel.getByRole("button", { name: "Start verified COV monitor" }),
+    ).toBeDisabled();
+    await expect(current).toContainText("Cancellation acknowledged.");
+    expect(starts).toEqual(["2001:4"]);
   } finally {
     release?.();
-    await request.post("/api/bacnet/disconnect", { headers, data: {} });
-    peer.child.kill();
+    try {
+      await disconnectTestInterface(request);
+    } finally {
+      peer.child.kill();
+    }
   }
 });
