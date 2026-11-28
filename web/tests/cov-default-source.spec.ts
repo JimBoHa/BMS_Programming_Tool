@@ -1,126 +1,150 @@
 import { test, expect } from "@playwright/test";
-import { createSocket } from "node:dgram";
-
-async function freePort(): Promise<number> {
-  const socket = createSocket("udp4");
-  return new Promise((resolve, reject) => {
-    socket.once("error", reject);
-    socket.bind(0, "127.0.0.1", () => {
-      const address = socket.address();
-      socket.close(() =>
-        resolve(typeof address === "string" ? 0 : address.port),
-      );
-    });
-  });
-}
+import { scheduleControllerPeer } from "./schedule-controller-peer";
+import { freePort } from "./workflow-peer";
+import {
+  openConnectionDetails,
+  selectKnownController,
+} from "./workflow-navigation";
+import {
+  chooseWorkspaceTask,
+  chooseWorkspaceTool,
+} from "./workspace-navigation";
 
 test("a delayed interface-open response preserves COV drafts for an unchanged empty optional DNET", async ({
   page,
   request,
 }) => {
+  const first = await scheduleControllerPeer();
+  const other = await scheduleControllerPeer();
   const token = (await (await request.get("/api/session")).json()).token;
   const headers = { "X-Studio-Token": token };
-  await request.post("/api/bacnet/disconnect", { headers, data: {} });
-  let initialized!: () => void;
-  const initial = new Promise<void>((resolve) => {
-    initialized = resolve;
+  let unlock!: () => void;
+  const hold = new Promise<void>((resolve) => {
+    unlock = resolve;
   });
-  let first = true;
+  let startCalls = 0;
+  page.on("request", (req) => {
+    if (req.url().endsWith("/api/bacnet/cov/start")) startCalls++;
+  });
+  let legacyStatus = true;
   await page.route("**/api/bacnet/status", async (route) => {
-    if (first) {
-      first = false;
-      await route.fulfill({ json: { connected: false, commands: [] } });
-      initialized();
-    } else await route.continue();
-  });
-  let entered!: () => void;
-  let release!: () => void;
-  const opening = new Promise<void>((resolve) => {
-    entered = resolve;
-  });
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  await page.route("**/api/bacnet/connect", async (route) => {
     const response = await route.fetch();
-    entered();
-    await gate;
-    await route.fulfill({ response });
+    const status = await response.json();
+    if (legacyStatus && status.config && status.config.dnet == null)
+      delete status.config.dnet;
+    await route.fulfill({ response, json: status });
   });
+  const cov = page.getByRole("region", {
+    name: "BACnet COV monitoring",
+    exact: true,
+  });
+  const point = cov.getByLabel("COV monitored object", { exact: true });
+  const lifetime = cov.getByLabel("COV lease seconds", { exact: true });
+  const mode = cov.getByLabel("COV notification mode", { exact: true });
+  const recording = cov.getByLabel(
+    "Record COV receipts and eligible trends locally",
+    { exact: true },
+  );
+  const show = async (target: { address: string; device: string }) => {
+    await selectKnownController(page, target.address, target.device);
+    await chooseWorkspaceTask(page, "Trends & Alarms");
+    await chooseWorkspaceTool(
+      page,
+      "Live COV monitor",
+      "Controller task tools",
+    );
+    await expect(cov).toBeVisible();
+  };
   try {
+    await request.post("/api/bacnet/disconnect", { headers, data: {} });
+    const jobIds = async () => {
+      const status = await (await request.get("/api/bacnet/cov/status")).json();
+      return status.jobs.map((job: { id: string }) => job.id);
+    };
+    const originalJobs = await jobIds();
     await page.goto("/");
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
-    await initial;
+    await openConnectionDetails(page);
+    await page
+      .getByLabel("BBMD address / UDP port (optional)", { exact: true })
+      .fill("");
+    await page.getByLabel("Router IP (optional)", { exact: true }).fill("");
+    await page
+      .getByLabel("MS/TP destination network (optional)", { exact: true })
+      .fill("");
+    const bind = "127.0.0.1:" + (await freePort());
     await page
       .getByLabel("Local bind address / UDP port", { exact: true })
-      .fill(`127.0.0.1:${await freePort()}`);
+      .fill(bind);
     await page
       .getByRole("button", { name: "Open interface", exact: true })
       .click();
-    await opening;
-    const panel = page.getByRole("region", {
-      name: "BACnet COV monitoring",
-      exact: true,
+    await show(first.target);
+    await point.fill("analog-input,5");
+    await lifetime.fill("120");
+    await mode.selectOption("unconfirmed");
+    await recording.check();
+    await page
+      .getByRole("button", { name: "Close BACnet interface", exact: true })
+      .click();
+    await expect(
+      cov.getByRole("button", { name: "Start verified COV monitor" }),
+    ).toBeDisabled();
+    await expect(point).toHaveValue("analog-input,5");
+    await expect(recording).toBeChecked();
+    await expect(lifetime).toHaveValue("120");
+    await expect(mode).toHaveValue("unconfirmed");
+    await openConnectionDetails(page);
+    await expect(
+      page.getByLabel("Local bind address / UDP port", { exact: true }),
+    ).toHaveValue(bind);
+    let sawOpen!: () => void;
+    const opened = new Promise<void>((resolve) => {
+      sawOpen = resolve;
     });
-    await panel
-      .getByLabel("COV device IP / port", { exact: true })
-      .fill("192.0.2.7:47809");
-    await panel
-      .getByLabel("Expected COV Device", { exact: true })
-      .fill("device,42");
-    await panel
-      .getByLabel("COV monitored object", { exact: true })
-      .fill("analog-input,9");
-    await panel
-      .getByLabel("Record COV receipts and eligible trends locally", {
-        exact: true,
-      })
-      .check();
-    release();
+    await page.route("**/api/bacnet/connect", async (route) => {
+      const response = await route.fetch();
+      expect(response.ok()).toBe(true);
+      sawOpen();
+      await hold;
+      await route.fulfill({ response });
+    });
+    await page
+      .getByRole("button", { name: "Open interface", exact: true })
+      .click();
+    await opened;
+    const actual = await (await request.get("/api/bacnet/status")).json();
+    expect(actual.connected).toBe(true);
+    expect(actual.config.dnet).toBeNull();
+    legacyStatus = false;
+    unlock();
     await expect(
       page.getByRole("button", { name: "Close BACnet interface", exact: true }),
     ).toBeVisible();
+    await page.unroute("**/api/bacnet/connect");
+    await show(first.target);
+    await expect(point).toHaveValue("analog-input,5");
+    await expect(recording).toBeChecked();
+    await expect(lifetime).toHaveValue("120");
+    await expect(mode).toHaveValue("unconfirmed");
     await expect(
-      panel.getByLabel("Expected COV Device", { exact: true }),
-    ).toHaveValue("device,42");
-    await expect(
-      panel.getByLabel("COV device IP / port", { exact: true }),
-    ).toHaveValue("192.0.2.7:47809");
-    await expect(
-      panel.getByLabel("COV monitored object", { exact: true }),
-    ).toHaveValue("analog-input,9");
-    await expect(
-      panel.getByLabel("Record COV receipts and eligible trends locally", {
-        exact: true,
-      }),
-    ).toBeChecked();
-    await expect(
-      panel.getByRole("button", {
-        name: "Start verified COV monitor",
-        exact: true,
-      }),
+      cov.getByRole("button", { name: "Start verified COV monitor" }),
     ).toBeEnabled();
-    // A genuinely different selected source still invalidates stale Device,
-    // point and recording declarations. These are drafts; no field query occurs.
-    await page
-      .getByLabel("Unicast target", { exact: true })
-      .fill("192.0.2.8:47809");
-    await expect(
-      panel.getByLabel("COV device IP / port", { exact: true }),
-    ).toHaveValue("192.0.2.8:47809");
-    await expect(
-      panel.getByLabel("Expected COV Device", { exact: true }),
-    ).toHaveValue("");
-    await expect(
-      panel.getByLabel("COV monitored object", { exact: true }),
-    ).toHaveValue("analog-value,1");
-    await expect(
-      panel.getByLabel("Record COV receipts and eligible trends locally", {
-        exact: true,
-      }),
-    ).not.toBeChecked();
+    await show(other.target);
+    await expect(point).toHaveValue("");
+    await expect(recording).not.toBeChecked();
+    await show(first.target);
+    await expect(point).toHaveValue("");
+    await expect(recording).not.toBeChecked();
+    expect(startCalls).toBe(0);
+    for (const peer of [first, other]) {
+      const stats = await peer.stats();
+      expect(stats.reads).toBeGreaterThan(0);
+      expect(stats.writes).toBe(0);
+    }
+    expect(await jobIds()).toEqual(originalJobs);
   } finally {
-    release();
+    unlock();
+    await Promise.all([first.close(), other.close()]);
     await request.post("/api/bacnet/disconnect", { headers, data: {} });
   }
 });

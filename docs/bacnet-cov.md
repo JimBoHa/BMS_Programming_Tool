@@ -120,7 +120,14 @@ IDs come from the actual received confirmed request. Hooks preserve prior
 transport/user data and handlers, and retire on the final monitor's stop,
 expiry, interface change or shutdown.
 
-The Connect form defaults to the selected router/network. Changing its source
+Open **Trends & Alarms → Live COV monitor** on the selected controller. When you
+reopen the same interface and select the same controller and point, the form
+recalls its monitored object, lifetime, notification mode and recording choice.
+Selecting another controller or editing its source address clears the saved
+draft. Reopening the form requires an explicit **Start verified COV monitor**
+to create a subscription.
+
+The form defaults to the selected router/network. Changing its source
 clears stale identities; changing the parent selection while a start is pending
 does not relabel that monitor. The completed action identifies its original
 source, and each monitor/export retains its own immutable route configuration.

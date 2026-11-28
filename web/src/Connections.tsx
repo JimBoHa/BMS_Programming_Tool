@@ -39,7 +39,7 @@ import {
   AccumulatorPrescalePanel,
   pulseDraft,
 } from "./AccumulatorPrescalePanel";
-import { BacnetCovPanel } from "./BacnetCovPanel";
+import { BacnetCovPanel, type CovFormDraft } from "./BacnetCovPanel";
 import { BacnetEventsPanel } from "./BacnetEventsPanel";
 import { EventReceptionPanel } from "./EventReceptionPanel";
 import { NetworkNumberPlanPanel } from "./NetworkNumberPlanPanel";
@@ -104,6 +104,7 @@ export function Connections({
   // Draft text belongs to the workspace, not the lifetime of a task panel.
   // Reviews, confirmations and field operations remain owned by each panel.
   const instanceDrafts = useRef(new Map<string, string>());
+  const covDraft = useRef<CovFormDraft | null>(null);
   const enumWork = useRef<EnumMappingWork | null>(null);
   const pulseWork = useRef(pulseDraft());
   const calendarWorkspace = useRef(calendarWork());
@@ -289,6 +290,25 @@ export function Connections({
   const statusKey = JSON.stringify(status.config ?? null);
   const controllerReady =
     !!controller && status.connected && controller.interfaceKey === statusKey;
+  const covLink = controller?.interfaceKey
+    ? JSON.parse(controller.interfaceKey)
+    : null;
+  const covOwner =
+    controller && covLink
+      ? JSON.stringify([
+          controllerKey(controller),
+          controller.model,
+          controller.firmware,
+          object,
+          Object.entries({ ...covLink, dnet: covLink.dnet ?? null }).sort(
+            ([left], [right]) => left.localeCompare(right),
+          ),
+        ])
+      : "";
+  useEffect(() => {
+    if (covOwner && covDraft.current && covDraft.current.owner !== covOwner)
+      covDraft.current = null;
+  }, [covOwner]);
   const deviceObject =
     controller?.address === target
       ? controller.device
@@ -1540,6 +1560,8 @@ export function Connections({
             </TaskMount>
             <TaskMount active={showTool("cov")} preserve={false}>
               <BacnetCovPanel
+                draft={covDraft}
+                owner={covOwner}
                 connected={
                   visible &&
                   controllerReady &&

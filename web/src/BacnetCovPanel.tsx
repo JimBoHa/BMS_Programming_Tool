@@ -4,6 +4,14 @@ import { api, saveBlob } from "./api";
 import { BacnetCovRecordings } from "./BacnetCovRecordings";
 import { covJob, covJobKey, covVisible } from "./covEvidence";
 
+export type CovFormDraft = {
+  owner: string;
+  object: string;
+  record: boolean;
+  lifetime: string;
+  confirmed: boolean;
+};
+
 export function BacnetCovPanel({
   connected,
   defaultAddress,
@@ -11,6 +19,8 @@ export function BacnetCovPanel({
   defaultObject,
   defaultRouter = "",
   defaultDnet: suppliedDefaultDnet,
+  draft,
+  owner = "",
 }: {
   connected: boolean;
   defaultAddress: string;
@@ -18,6 +28,8 @@ export function BacnetCovPanel({
   defaultObject: string;
   defaultRouter?: string;
   defaultDnet?: number;
+  draft?: { current: CovFormDraft | null };
+  owner?: string;
 }) {
   const defaultDnet = suppliedDefaultDnet ?? undefined;
   const [address, setAddress] = useState(defaultAddress);
@@ -36,6 +48,23 @@ export function BacnetCovPanel({
   const [lifetime, setLifetime] = useState("60");
   const [confirmed, setConfirmed] = useState(true);
   const [record, setRecord] = useState(false);
+  const defaultMac = /^([0-9]+):([0-9]+)$/.exec(defaultAddress)?.[2] ?? "";
+  const selectedSource =
+    device === defaultDevice &&
+    (defaultRouter
+      ? mode === "routed" &&
+        router === defaultRouter &&
+        dnet === String(defaultDnet || "") &&
+        mac === defaultMac
+      : mode === "direct" && address === defaultAddress);
+  function forgetSource() {
+    if (draft) draft.current = null;
+    setRecord(false);
+  }
+  function remember(edit: Partial<Omit<CovFormDraft, "owner">>) {
+    if (draft && owner && selectedSource)
+      draft.current = { owner, object, record, lifetime, confirmed, ...edit };
+  }
   const [status, setStatus] = useState<any>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -77,21 +106,32 @@ export function BacnetCovPanel({
         : defaultDevice,
     );
     previousSource.current = { path, device: defaultDevice };
-    setObject(defaultObject.startsWith("device,") ? "" : defaultObject);
+    const saved =
+      owner && draft?.current?.owner === owner ? draft.current : null;
+    setObject(
+      saved?.object ??
+        (defaultObject.startsWith("device,") ? "" : defaultObject),
+    );
+    if (saved) {
+      setLifetime(saved.lifetime);
+      setConfirmed(saved.confirmed);
+    }
     setMode(defaultRouter ? "routed" : "direct");
     setRouter(defaultRouter);
     setDnet(String(defaultDnet || ""));
-    const match = /^([0-9]+):([0-9]+)$/.exec(defaultAddress);
-    setMac(match ? match[2] : "");
+    setMac(defaultMac);
     setError("");
     setNotice("");
-    setRecord(false);
+    setRecord(saved?.record ?? false);
   }, [
     defaultAddress,
     defaultDevice,
     defaultObject,
     defaultRouter,
     defaultDnet,
+    defaultMac,
+    draft,
+    owner,
   ]);
   useEffect(() => {
     mounted.current = true;
@@ -215,7 +255,7 @@ export function BacnetCovPanel({
                 onChange={(e) => {
                   selection.current++;
                   setMode(e.target.value);
-                  setRecord(false);
+                  forgetSource();
                   setDevice("");
                   setObject("");
                   setNotice("");
@@ -236,7 +276,7 @@ export function BacnetCovPanel({
                     value={router}
                     onChange={(e) => {
                       setRouter(e.target.value);
-                      setRecord(false);
+                      forgetSource();
                     }}
                     disabled={busy}
                   />
@@ -253,7 +293,7 @@ export function BacnetCovPanel({
                     value={dnet}
                     onChange={(e) => {
                       setDnet(e.target.value);
-                      setRecord(false);
+                      forgetSource();
                     }}
                     disabled={busy}
                   />
@@ -270,7 +310,7 @@ export function BacnetCovPanel({
                     value={mac}
                     onChange={(e) => {
                       setMac(e.target.value);
-                      setRecord(false);
+                      forgetSource();
                     }}
                     disabled={busy}
                   />
@@ -287,7 +327,7 @@ export function BacnetCovPanel({
                   value={address}
                   onChange={(e) => {
                     setAddress(e.target.value);
-                    setRecord(false);
+                    forgetSource();
                   }}
                   disabled={busy}
                 />
@@ -303,7 +343,7 @@ export function BacnetCovPanel({
                 value={device}
                 onChange={(e) => {
                   setDevice(e.target.value);
-                  setRecord(false);
+                  forgetSource();
                 }}
                 disabled={busy}
               />
@@ -317,6 +357,7 @@ export function BacnetCovPanel({
               onChange={(e) => {
                 setObject(e.target.value);
                 setRecord(false);
+                remember({ object: e.target.value, record: false });
               }}
               disabled={busy}
             />
@@ -330,7 +371,10 @@ export function BacnetCovPanel({
               max={3600}
               step={1}
               value={lifetime}
-              onChange={(e) => setLifetime(e.target.value)}
+              onChange={(e) => {
+                setLifetime(e.target.value);
+                remember({ lifetime: e.target.value });
+              }}
               disabled={busy}
             />
           </label>
@@ -339,7 +383,11 @@ export function BacnetCovPanel({
             <select
               aria-label="COV notification mode"
               value={confirmed ? "confirmed" : "unconfirmed"}
-              onChange={(e) => setConfirmed(e.target.value === "confirmed")}
+              onChange={(e) => {
+                const next = e.target.value === "confirmed";
+                setConfirmed(next);
+                remember({ confirmed: next });
+              }}
               disabled={busy}
             >
               <option value="confirmed">Confirmed notifications</option>
@@ -353,7 +401,10 @@ export function BacnetCovPanel({
             checked={record}
             disabled={busy}
             aria-label="Record COV receipts and eligible trends locally"
-            onChange={(e) => setRecord(e.target.checked)}
+            onChange={(e) => {
+              setRecord(e.target.checked);
+              remember({ record: e.target.checked });
+            }}
           />{" "}
           Record COV receipts and eligible trends locally
         </label>
