@@ -44,6 +44,10 @@ even when not exposed through the BACnet Object_List.
 
 ## Scope and model coverage
 
+In **Points & I/O → Hardware survey**, open a report whose inventory contains network sensor objects. With the report’s BACnet/IP controller connected, expand **Room sensor temperature**, select a sensor and choose **Read linked room temperature**. The reading includes the linked analog input, temperature, engineering units, quality and read time.
+
+For the supported Johnson Controls network sensor reference, the app checks the selected controller, sensor and input object identifiers, matches the input’s own item reference and rereads the sensor link. An offline sensor, input fault, override or out-of-service flag is shown as a quality warning. Historical survey values remain available separately. Johnson Controls describes zone temperature as an analog input associated with the sensor on the SA bus. [Controller Tool Help, Input and Output Objects](https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Controller-Tool-Help/15.0/Input-and-Output-Objects)
+
 Exact documented capacity profiles cover FX-PCG2611-0, FX-PCX3711-0 and
 FX-PCX3721-0, including the supported PCX model spelling without the `-0` suffix.
 They also cover these four VAV models:

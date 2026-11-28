@@ -6,6 +6,7 @@ import { api, saveBlob } from "./api";
 import "./hardware-survey.css";
 import { SensorSupplyPanel } from "./SensorSupplyPanel";
 import { PhysicalCapacityPanel } from "./PhysicalCapacityPanel";
+import { NetworkSensorReading } from "./NetworkSensorReading";
 import {
   ModelTransportJobEvidence,
   ModelTransportPanel,
@@ -46,6 +47,7 @@ type SurveyReport = {
   target: Target;
   identity?: RecordValue;
   inventory?: {
+    objects?: string[];
     complete?: boolean;
     total?: number;
     read?: number;
@@ -1377,6 +1379,42 @@ export function HardwareSurveyPanel({
                 "Capture time unavailable."
               )}
             </p>
+            {report.inventory?.objects?.some((o) => /^627,\d+$/.test(o)) && (
+              <NetworkSensorReading
+                key={JSON.stringify([
+                  report.id,
+                  connected,
+                  transport,
+                  address,
+                  device,
+                  router,
+                  dnet,
+                  interfaceConfig,
+                ])}
+                objects={report.inventory.objects.filter((o) =>
+                  /^627,\d+$/.test(o),
+                )}
+                target={{
+                  address: report.target.address,
+                  device: report.target.device,
+                  router: report.target.router || null,
+                  dnet: report.target.dnet ?? null,
+                }}
+                ready={
+                  connected &&
+                  !busy &&
+                  !polling &&
+                  transport === "bacnet-ip" &&
+                  (report.target.transport ?? "bacnet-ip") === "bacnet-ip" &&
+                  address.trim() === report.target.address &&
+                  device.trim() === report.target.device &&
+                  (router.trim() || null) === (report.target.router || null) &&
+                  (dnet.trim() ? Number(dnet) : null) ===
+                    (report.target.dnet ?? null)
+                }
+                config={interfaceConfig}
+              />
+            )}
             <p className="help-text">
               Model:{" "}
               {text(report.identity?.model || report.identity?.["model-name"])}{" "}
