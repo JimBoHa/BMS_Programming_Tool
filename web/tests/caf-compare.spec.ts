@@ -1,3 +1,8 @@
+import {
+  chooseWorkspaceSurface,
+  chooseWorkspaceTask,
+  chooseWorkspaceTool,
+} from "./workspace-navigation";
 import { test, expect } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -28,7 +33,9 @@ test("native CAF comparison separates simulation/application values and exports 
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "CAF compare", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Workspace");
+  await chooseWorkspaceTask(page, "Changes");
+  await chooseWorkspaceTool(page, "Compare applications");
   await page.getByLabel("Original CAF file", { exact: true }).setInputFiles({
     name: "original.caf",
     mimeType: "application/octet-stream",
@@ -115,7 +122,9 @@ sys.stdout.buffer.write(make_caf(xml.encode()))
       { cwd: root },
     );
   await page.goto("/");
-  await page.getByRole("button", { name: "CAF compare", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Workspace");
+  await chooseWorkspaceTask(page, "Changes");
+  await chooseWorkspaceTool(page, "Compare applications");
   for (const [label, delta] of [
     ["Original", 0],
     ["Candidate", 1],

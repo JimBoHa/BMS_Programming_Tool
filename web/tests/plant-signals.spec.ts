@@ -1,4 +1,9 @@
 import {
+  chooseWorkspaceSurface,
+  chooseWorkspaceTask,
+  openSystemSimulation,
+} from "./workspace-navigation";
+import {
   test,
   expect,
   type APIRequestContext,
@@ -72,7 +77,7 @@ async function seed(request: APIRequestContext) {
 }
 async function open(page: Page) {
   await page.goto("/");
-  await page.getByRole("button", { name: "System sim", exact: true }).click();
+  await openSystemSimulation(page);
   const panel = page.getByRole("region", {
     name: "Plant I/O and network engineering schedule",
     exact: true,
@@ -320,7 +325,7 @@ test("authors exact source-bound plant declarations, exports sealed original sch
   );
   expect(exported.bytes.equals(json.bytes)).toBe(true);
   await page.reload();
-  await page.getByRole("button", { name: "System sim", exact: true }).click();
+  await openSystemSimulation(page);
   const restored = page.getByRole("region", {
     name: "Plant I/O and network engineering schedule",
     exact: true,
@@ -348,6 +353,8 @@ test("current and selected saved revisions preserve opaque numeric source tokens
   const f = fixture(),
     raw = f.programs[0];
   await page.goto("/");
+  await chooseWorkspaceSurface(page, "Workspace");
+  await chooseWorkspaceTask(page, "Program");
   await page.locator('input[type=file][accept*=".st"]').setInputFiles({
     name: "exact-plant.bms.json",
     mimeType: "application/json",
@@ -359,12 +366,10 @@ test("current and selected saved revisions preserve opaque numeric source tokens
   const saving = page.waitForResponse(
     (r) => r.url().endsWith("/api/projects") && r.request().method() === "POST",
   );
-  await page
-    .getByRole("button", { name: "Save revision", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Save project", exact: true }).click();
   expect((await saving).ok()).toBe(true);
   await expect(page.locator(".validation-bar")).toContainText("r1");
-  await page.getByRole("button", { name: "System sim", exact: true }).click();
+  await openSystemSimulation(page);
   const panel = page.getByRole("region", {
     name: "Plant I/O and network engineering schedule",
     exact: true,
@@ -576,7 +581,7 @@ test("delayed original-byte exports are discarded after a declaration edit or wo
     await page.getByRole("button", { name: "Program", exact: true }).click();
     leaving.release();
     await leaving.finished;
-    await page.getByRole("button", { name: "System sim", exact: true }).click();
+    await openSystemSimulation(page);
     await expect(
       page.getByRole("button", {
         name: "Open offline plant engineering schedule",

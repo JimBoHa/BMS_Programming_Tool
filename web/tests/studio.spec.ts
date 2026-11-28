@@ -1,3 +1,7 @@
+import {
+  chooseWorkspaceTool,
+  openSystemSimulation,
+} from "./workspace-navigation";
 import { simulationServerResponseJSON } from "./simulationFixture";
 import { test, expect } from "./simulationFixture";
 import { execFileSync } from "node:child_process";
@@ -454,7 +458,7 @@ test("shared-signal simulation preserves cycle boundaries, faults and workspace 
 }) => {
   await page.goto("/");
   const projects = await (await request.get("/api/projects")).json();
-  await page.getByRole("button", { name: "System sim", exact: true }).click();
+  await openSystemSimulation(page);
   await page
     .getByRole("button", { name: "Load shared-signal demo", exact: true })
     .click();
@@ -490,8 +494,9 @@ test("shared-signal simulation preserves cycle boundaries, faults and workspace 
     .getByRole("button", { name: "Run 10 group cycles", exact: true })
     .click();
   await expect(page.locator(".group-elapsed")).toHaveText("14.0 s");
-  await page.getByRole("button", { name: "Program", exact: true }).click();
-  await page.getByRole("button", { name: "System sim", exact: true }).click();
+  await chooseWorkspaceTool(page, "Graph simulation");
+  await expect(page.locator(".group-elapsed")).toBeHidden();
+  await openSystemSimulation(page);
   await expect(page.locator(".group-elapsed")).toHaveText("14.0 s");
   await expect(
     page.getByLabel("Group input producer.value", { exact: true }),

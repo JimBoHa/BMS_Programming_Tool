@@ -15,18 +15,29 @@ export async function chooseWorkspaceTask(page: Page, label: string) {
     await navigation.getByRole("button", { name: label, exact: true }).click();
 }
 
-export async function chooseWorkspaceTool(page: Page, label: string) {
+export async function chooseWorkspaceTool(
+  page: Page,
+  label: string,
+  group = "Current task tools",
+) {
   const navigation = page.getByRole("navigation", {
-    name: "Current task tools",
+    name: group,
     exact: true,
   });
   const select = navigation.getByRole("combobox", {
-    name: "Current task tools",
+    name: group,
     exact: true,
   });
   if (await select.isVisible()) await select.selectOption({ label });
   else
     await navigation.getByRole("button", { name: label, exact: true }).click();
+}
+
+export async function openSystemSimulation(page: Page) {
+  await chooseWorkspaceSurface(page, "Workspace");
+  await chooseWorkspaceTask(page, "Program");
+  await page.getByRole("button", { name: "Simulate", exact: true }).click();
+  await chooseWorkspaceTool(page, "System simulation");
 }
 
 export async function openNativeCompiler(page: Page) {
@@ -65,15 +76,16 @@ export async function chooseWorkspaceSurface(page: Page, label: string) {
     name: "Open navigation",
     exact: true,
   });
-  if (await opener.isVisible()) {
+  const destination = page
+    .getByRole("navigation", { name: "Main navigation", exact: true })
+    .getByRole("button", { name: label, exact: true });
+  await expect(opener.or(destination).first()).toBeVisible();
+  if (await destination.isVisible()) {
+    await destination.click();
+  } else {
     await opener.click();
     await page
       .getByRole("dialog", { name: "Navigation", exact: true })
-      .getByRole("button", { name: label, exact: true })
-      .click();
-  } else {
-    await page
-      .getByRole("navigation", { name: "Main navigation", exact: true })
       .getByRole("button", { name: label, exact: true })
       .click();
   }

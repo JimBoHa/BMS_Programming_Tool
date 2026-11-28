@@ -1,3 +1,4 @@
+import { openSystemSimulation } from "./workspace-navigation";
 import {
   expect,
   test,
@@ -85,7 +86,7 @@ async function seed(request: APIRequestContext, f = fixture()) {
 }
 async function open(page: Page, f: any) {
   await page.goto("/");
-  await page.getByRole("button", { name: "System sim", exact: true }).click();
+  await openSystemSimulation(page);
   const parent = page.getByRole("region", {
     name: "Plant I/O and network engineering schedule",
     exact: true,
@@ -636,9 +637,7 @@ for (const corruption of [
       });
     if (corruption === "profile") {
       await page.goto("/");
-      await page
-        .getByRole("button", { name: "System sim", exact: true })
-        .click();
+      await openSystemSimulation(page);
       const parent = page.getByRole("region", {
         name: "Plant I/O and network engineering schedule",
         exact: true,
