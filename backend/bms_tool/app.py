@@ -64,6 +64,7 @@ from .caf_wiring_drafts import CafWiringDrafts, wiring_draft_router
 from .cancelable_pulse_template import cancelable_pulse_template_router
 from .change_ledger import ChangeLedger, LedgerQuery
 from .co2_minimum_flow_template import co2_minimum_flow_template_router
+from .command_slot_comparison import CommandSlotComparison, compare_command_slots
 from .conformance import ConformancePlans, conformance_router
 from .connections import Bacnet, modbus_read, ports
 from .controller_application import (
@@ -2205,6 +2206,14 @@ def create_app(state_dir=None, *, operation_power=None):
     @app.get("/api/bacnet/point-status/reports/{id}")
     async def bacnet_point_status_detail(id: str):
         return point_status.detail(id)
+
+    @app.post("/api/bacnet/point-status/compare-command-slots")
+    async def bacnet_compare_command_slots(body: CommandSlotComparison):
+        return compare_command_slots(
+            point_status.detail(body.baseline_id),
+            point_status.detail(body.current_id),
+            body.object_id,
+        )
 
     @app.post("/api/bacnet/point-status/read")
     async def bacnet_point_status_read(body: PointStatusRequest):

@@ -167,11 +167,20 @@ class PointStatus:
                     for k in (
                         "id",
                         "target",
+                        "connector_config",
                         "started_at",
                         "finished_at",
                         "status",
                         "evidence_sha256",
                     )
+                }
+                | {
+                    "command_slot_objects": [
+                        item["object"]
+                        for item in r["objects"]
+                        if item.get("identity_verified")
+                        and item["properties"].get("priority-array", {}).get("complete") is True
+                    ]
                 }
                 for r in self.reports.values()
             ],
