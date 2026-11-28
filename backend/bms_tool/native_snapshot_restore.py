@@ -30,6 +30,13 @@ FACTORY_SOURCE_SCOPE = (
 )
 COMPILATION_PROFILE = "native-retained-application-restore-compilation/1"
 REINSTALL_PROFILE = "native-matching-application-reinstall-compilation/1"
+COUNTER_REINSTALL_PROFILE = "native-matching-application-current-counters/1"
+COUNTER_SCOPE = (
+    "Reinstall the same controller program with its latest qualified runtime counters. "
+    "Match the complete application, parameter directory and other saved settings from "
+    "selection through pre-write capture. Verify the transmitted image and effective values."
+)
+REINSTALL_PROFILES = (REINSTALL_PROFILE, COUNTER_REINSTALL_PROFILE)
 GUARD_PROFILE = "native-restore-current-configuration/1"
 DIFFERENCE_SCOPE = "Complete native record-byte comparison, including opaque records; not runtime behavior or physical I/O compatibility."
 SCOPE = (
@@ -428,7 +435,15 @@ def require_restore_source(report):
         raise ValueError(FACTORY_SOURCE_SCOPE)
 
 
-def compile_restore(storage, desired_request, current_request, fresh_files, *, reinstall=False):
+def compile_restore(
+    storage,
+    desired_request,
+    current_request,
+    fresh_files,
+    *,
+    reinstall=False,
+    preserve_counters=False,
+):
     """Reconstruct desired bytes and independently guard the reviewed current state."""
     output, desired = source(storage, desired_request)
     require_restore_source(desired)
@@ -453,20 +468,42 @@ def compile_restore(storage, desired_request, current_request, fresh_files, *, r
         desired["compilation"]["compiled_native_sha256"]
         == current["compilation"]["compiled_native_sha256"]
     )
+    if preserve_counters and not reinstall:
+        raise ValueError("Preserving current counters requires a matching-program reinstall.")
     if matches and not reinstall:
         raise ValueError("The reviewed current application already matches this retained image.")
-    if reinstall and not matches:
+    if reinstall and not preserve_counters and not matches:
         raise ValueError(
             "Reinstallation requires the same complete current program and saved application values."
         )
     reviewed_guard, prewrite_guard = fresh_current(reviewed_files, fresh_files)
-    if reinstall and reviewed_guard != prewrite_guard:
+    if reinstall and not preserve_counters and reviewed_guard != prewrite_guard:
         raise ValueError(
             "Saved settings or counters changed before reinstallation. Capture and review again."
         )
+    profile = REINSTALL_PROFILE if reinstall else COMPILATION_PROFILE
+    counter_evidence = {}
+    if preserve_counters:
+        _, retained_files = NativeBackupRecords(storage).load_files(
+            {
+                "capture_id": desired_request["restore_capture_id"],
+                "snapshot_sha256": desired_request["restore_snapshot_sha256"],
+            }
+        )
+        retained_guard, _ = fresh_current(retained_files, reviewed_files)
+        counter_evidence = {
+            "retained_guard": retained_guard,
+            "reviewed_payload_sha256": sha(current_output),
+            "reviewed_native_sha256": sha(MoiIdentity(current_output).data),
+        }
+        # Only qualified counters may have advanced twice, first since selection
+        # and then since review. Reconstruct with the last captured values.
+        output = current_output if fresh_files == reviewed_files else merged(fresh_files)[0]
+        current_output = output
+        profile = COUNTER_REINSTALL_PROFILE
     report = {
-        "profile": REINSTALL_PROFILE if reinstall else COMPILATION_PROFILE,
-        "scope": SCOPE,
+        "profile": profile,
+        "scope": COUNTER_SCOPE if preserve_counters else SCOPE,
         "restore_source_evidence_sha256": desired["evidence_sha256"],
         "reviewed_current": current_request,
         "reviewed_current_guard": reviewed_guard,
@@ -474,8 +511,9 @@ def compile_restore(storage, desired_request, current_request, fresh_files, *, r
         "difference": difference(MoiIdentity(current_output), MoiIdentity(output)),
         "compiled_sha256": sha(output),
         "compiled_native_sha256": sha(MoiIdentity(output).data),
-        "historical_saved_settings_restored": True,
+        "historical_saved_settings_restored": not preserve_counters,
         "non_application_runtime_restored": False,
+        **counter_evidence,
     }
     return output, desired, {**report, "compilation_sha256": seal(report)}
 
@@ -485,20 +523,31 @@ def _validate_evidence(body):
     desired = body["restore_source"]
     recorded_source(desired)
     c = body["compilation"]
-    if not isinstance(c, dict) or set(c) != {
-        "profile",
-        "scope",
-        "restore_source_evidence_sha256",
-        "reviewed_current",
-        "reviewed_current_guard",
-        "prewrite_guard",
-        "difference",
-        "compiled_sha256",
-        "compiled_native_sha256",
-        "historical_saved_settings_restored",
-        "non_application_runtime_restored",
-        "compilation_sha256",
-    }:
+    preserve_counters = isinstance(c, dict) and c.get("profile") == COUNTER_REINSTALL_PROFILE
+    extra = (
+        {"retained_guard", "reviewed_payload_sha256", "reviewed_native_sha256"}
+        if preserve_counters
+        else set()
+    )
+    if (
+        not isinstance(c, dict)
+        or set(c)
+        != {
+            "profile",
+            "scope",
+            "restore_source_evidence_sha256",
+            "reviewed_current",
+            "reviewed_current_guard",
+            "prewrite_guard",
+            "difference",
+            "compiled_sha256",
+            "compiled_native_sha256",
+            "historical_saved_settings_restored",
+            "non_application_runtime_restored",
+            "compilation_sha256",
+        }
+        | extra
+    ):
         raise ValueError("The recorded restore review compilation has an unknown shape.")
     BackupInspectionSource.model_validate(c["reviewed_current"])
     for value in (
@@ -530,7 +579,44 @@ def _validate_evidence(body):
         or d["scope"] != DIFFERENCE_SCOPE
     ):
         raise ValueError("Unknown recorded native record comparison.")
-    reinstall = c["profile"] == REINSTALL_PROFILE
+    reinstall = c["profile"] in REINSTALL_PROFILES
+    if preserve_counters:
+        for key in ("reviewed_payload_sha256", "reviewed_native_sha256"):
+            TypeAdapter(Hash).validate_python(c[key])
+        retained = CurrentGuard.model_validate(c["retained_guard"]).model_dump()
+        reviewed = c["reviewed_current_guard"]
+        prewrite = c["prewrite_guard"]
+        if (
+            any(
+                retained[k] != reviewed[k] or reviewed[k] != prewrite[k]
+                for k in retained
+                if k != "counter_values_sha256"
+            )
+            or retained["application_sha256"] != desired["compilation"]["files"]["3"]["sha256"]
+            or retained["static_parameters_sha256"]
+            != desired["compilation"]["files"]["11"]["sha256"]
+            or d["restored_records"] != desired["compilation"]["native_record_count"]
+            or d["restored_native_sha256"] != c["compiled_native_sha256"]
+            or ("id" not in body and reviewed != prewrite)
+            or (
+                reviewed == prewrite
+                and (
+                    c["reviewed_payload_sha256"] != c["compiled_sha256"]
+                    or c["reviewed_native_sha256"] != c["compiled_native_sha256"]
+                )
+            )
+            or (
+                retained == reviewed
+                and (
+                    c["reviewed_payload_sha256"] != desired["compilation"]["compiled_sha256"]
+                    or c["reviewed_native_sha256"]
+                    != desired["compilation"]["compiled_native_sha256"]
+                )
+            )
+        ):
+            raise ValueError(
+                "Counter-preserving reinstall lacks its retained, reviewed or pre-write binding."
+            )
     if reinstall != (d["before_native_sha256"] == d["restored_native_sha256"]) or (
         reinstall
         and (
@@ -538,7 +624,7 @@ def _validate_evidence(body):
             or any(
                 d[k] != 0 for k in ("added_records", "removed_records", "changed_existing_records")
             )
-            or c["reviewed_current_guard"] != c["prewrite_guard"]
+            or (not preserve_counters and c["reviewed_current_guard"] != c["prewrite_guard"])
         )
     ):
         raise ValueError(
@@ -548,9 +634,13 @@ def _validate_evidence(body):
         body.get("profile") != APPLICATION_PROFILE
         or body.get("change_kind") != "application-restore"
         or body.get("operation_profile") != PROFILE
-        or c.get("profile") not in (COMPILATION_PROFILE, REINSTALL_PROFILE)
+        or c.get("profile") not in (COMPILATION_PROFILE, *REINSTALL_PROFILES)
         or ("id" in body and body.get("reinstall_matching_image_confirmed", False) is not reinstall)
-        or c.get("scope") != SCOPE
+        or (
+            "id" in body
+            and body.get("preserve_live_counters_confirmed", False) is not preserve_counters
+        )
+        or c.get("scope") != (COUNTER_SCOPE if preserve_counters else SCOPE)
         or desired.get("profile") != SOURCE_PROFILE
         or desired.get("scope") != SOURCE_SCOPE
         or desired.get("read_only") is not True
@@ -570,8 +660,14 @@ def _validate_evidence(body):
         or c.get("compilation_sha256")
         != seal({k: v for k, v in c.items() if k != "compilation_sha256"})
         or c["restore_source_evidence_sha256"] != desired["evidence_sha256"]
-        or c["compiled_sha256"] != desired["compilation"]["compiled_sha256"]
-        or c["compiled_native_sha256"] != desired["compilation"]["compiled_native_sha256"]
+        or (
+            not preserve_counters
+            and c["compiled_sha256"] != desired["compilation"]["compiled_sha256"]
+        )
+        or (
+            not preserve_counters
+            and c["compiled_native_sha256"] != desired["compilation"]["compiled_native_sha256"]
+        )
         or body.get("payload_sha256") != c["compiled_sha256"]
         or body.get("native_payload_sha256", c["compiled_native_sha256"])
         != c["compiled_native_sha256"]
@@ -589,7 +685,7 @@ def _validate_evidence(body):
         or c["reviewed_current"]["capture_id"] == desired["request"]["restore_capture_id"]
         or body.get("snapshot_sha256", body.get("review_snapshot_sha256"))
         != c["reviewed_current"]["snapshot_sha256"]
-        or c.get("historical_saved_settings_restored") is not True
+        or c.get("historical_saved_settings_restored") is not (not preserve_counters)
         or c.get("non_application_runtime_restored") is not False
         or any(k.startswith("recovery_") for k in body)
         or any(
@@ -620,18 +716,33 @@ def validate_evidence(body):
 
 def reconstruct(storage, body, fresh_files):
     validate_evidence(body)
+    recorded = body["compilation"]
+    preserve = recorded["profile"] == COUNTER_REINSTALL_PROFILE
     output, desired, compilation = compile_restore(
         storage,
         body["restore_source"]["request"],
         body["compilation"]["reviewed_current"],
         fresh_files,
-        reinstall=body["compilation"]["profile"] == REINSTALL_PROFILE,
+        reinstall=recorded["profile"] in REINSTALL_PROFILES,
+        preserve_counters=preserve,
     )
     if (
         desired != body["restore_source"]
         or compilation["reviewed_current_guard"] != body["compilation"]["reviewed_current_guard"]
-        or compilation["difference"] != body["compilation"]["difference"]
-        or compilation["compiled_sha256"] != body["payload_sha256"]
+        or (
+            preserve
+            and any(
+                compilation[k] != recorded[k]
+                for k in ("retained_guard", "reviewed_payload_sha256", "reviewed_native_sha256")
+            )
+        )
+        or (
+            (not preserve or "id" in body)
+            and (
+                compilation["difference"] != recorded["difference"]
+                or compilation["compiled_sha256"] != body["payload_sha256"]
+            )
+        )
     ):
         raise ValueError("Retained restore source or reviewed current evidence changed.")
     return output, compilation
@@ -679,9 +790,10 @@ def verify_restore(storage, intent, after):
         observed, ParameterApplication(after[3], after[11], after[12])
     )
     qualify_restore_counters(after, counters)
-    return {
+    preservation = {
         "profile": "native-retained-application-restore-preservation/1",
-        "restored_application_matches_retained_source": True,
+        "restored_application_matches_retained_source": sha(expected.data)
+        == intent["restore_source"]["compilation"]["compiled_native_sha256"],
         "effective_saved_application_values_verified": True,
         "identity_unchanged": True,
         "restore_source_capture_id": intent["restore_source"]["request"]["restore_capture_id"],
@@ -697,3 +809,6 @@ def verify_restore(storage, intent, after):
         "non_application_runtime_restored": False,
         "controller_writes": False,
     }
+    if intent["compilation"]["profile"] == COUNTER_REINSTALL_PROFILE:
+        preservation["prewrite_application_and_counters_verified"] = True
+    return preservation

@@ -172,13 +172,14 @@ from .native_point_names import (
     verify_point_name_preservation,
 )
 from .native_runtime_calibration import read_runtime_calibration
-from .native_snapshot_restore import PROFILE as SNAPSHOT_RESTORE_PROFILE
 from .native_snapshot_restore import (
-    REINSTALL_PROFILE,
+    COUNTER_REINSTALL_PROFILE,
+    REINSTALL_PROFILES,
     RestoreExport,
     RestoreSource,
     qualify_restore_counters,
 )
+from .native_snapshot_restore import PROFILE as SNAPSHOT_RESTORE_PROFILE
 from .native_snapshot_restore import SCOPE as SNAPSHOT_RESTORE_SCOPE
 from .native_snapshot_restore import reconstruct as reconstruct_snapshot_restore
 from .native_snapshot_restore import reconstruct_intent as reconstruct_snapshot_restore_intent
@@ -1565,7 +1566,7 @@ class NativeApplications(
                 expected_native_sha256=intent["native_payload_sha256"],
             )
             _, original_files = self.storage.load(intent["backup_id"])
-            if snapshot_restore and intent["compilation"]["profile"] == REINSTALL_PROFILE:
+            if snapshot_restore and intent["compilation"]["profile"] in REINSTALL_PROFILES:
                 stages = {e["stage"] for e in self.storage.receipt(intent["id"])["events"]}
                 if not {"application-file-acknowledged", "ack-end-restore"} <= stages:
                     result["error"] = (
@@ -1951,7 +1952,12 @@ class NativeApplications(
             or (
                 snapshot_restore
                 and request.reinstall_matching_image_confirmed
-                != (plan["body"]["compilation"]["profile"] == REINSTALL_PROFILE)
+                != (plan["body"]["compilation"]["profile"] in REINSTALL_PROFILES)
+            )
+            or (
+                snapshot_restore
+                and request.preserve_live_counters_confirmed
+                != (plan["body"]["compilation"]["profile"] == COUNTER_REINSTALL_PROFILE)
             )
             or (wire_edit and not request.wire_change_confirmed)
             or (order_edit and not request.order_change_confirmed)
@@ -2191,7 +2197,7 @@ class NativeApplications(
                     restore_marker = {}
                     if (
                         snapshot_restore
-                        and compilation["profile"] == REINSTALL_PROFILE
+                        and compilation["profile"] in REINSTALL_PROFILES
                         and restore_witness.applies(actual)
                     ):
                         stamp = await restore_witness.read_marker(self, session, options.device)
@@ -2230,6 +2236,11 @@ class NativeApplications(
                                     **(
                                         {"reinstall_matching_image_confirmed": True}
                                         if request.reinstall_matching_image_confirmed
+                                        else {}
+                                    ),
+                                    **(
+                                        {"preserve_live_counters_confirmed": True}
+                                        if request.preserve_live_counters_confirmed
                                         else {}
                                     ),
                                 }

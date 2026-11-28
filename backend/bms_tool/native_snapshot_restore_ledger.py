@@ -5,7 +5,7 @@ import copy
 from pydantic import TypeAdapter
 
 from .native_backup_records import BackupInspectionSource
-from .native_snapshot_restore import Identifier, validate_evidence
+from .native_snapshot_restore import REINSTALL_PROFILES, Identifier, validate_evidence
 
 PROFILE = "native-retained-application-restore-recorded/1"
 SCOPE = (
@@ -62,6 +62,11 @@ def restore_reference(body):
                 "prewrite_backup_id": body["backup_id"],
                 "compiled_native_sha256": body["native_payload_sha256"],
                 "difference": copy.deepcopy(d),
+                **(
+                    {"compilation_profile": c["profile"]}
+                    if c["profile"] in REINSTALL_PROFILES
+                    else {}
+                ),
                 "field_authority": False,
                 "source_revalidated": False,
                 "current_device_verified": False,

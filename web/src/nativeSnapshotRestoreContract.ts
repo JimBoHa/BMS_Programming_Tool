@@ -28,6 +28,13 @@ export const snapshotRestoreCompilationProfile =
   "native-retained-application-restore-compilation/1";
 export const reinstallCompilationProfile =
   "native-matching-application-reinstall-compilation/1";
+export const counterReinstallProfile =
+  "native-matching-application-current-counters/1";
+export const isMatchingReinstall = (profile: unknown) =>
+  profile === reinstallCompilationProfile ||
+  profile === counterReinstallProfile;
+const currentCounterScope =
+  "Reinstall the same controller program with its latest qualified runtime counters. Match the complete application, parameter directory and other saved settings from selection through pre-write capture. Verify the transmitted image and effective values.";
 export const snapshotRestoreScope =
   "Restore one retained native application and its supported historical saved application settings to the matching recorded route and complete Device/model/firmware identity. Read a separate current application for review and retain a fresh pre-write backup. Refuse changed current non-runtime settings; permit only qualified monotonic counters. One newly confirmed restore and complete native/effective readback are required. No automatic replay, new identity allocation, cross-controller/release migration, general logic compiler, whole-controller/runtime backup or CCT/physical acceptance.";
 export const snapshotRestoreSourceScope =
@@ -222,6 +229,7 @@ export async function snapshotRestoreSource(
 }
 export async function snapshotRestoreCompilation(c: any, source: Data) {
   try {
+    const preserve = c?.profile === counterReinstallProfile;
     if (
       !exact(c, [
         "profile",
@@ -236,12 +244,20 @@ export async function snapshotRestoreCompilation(c: any, source: Data) {
         "historical_saved_settings_restored",
         "non_application_runtime_restored",
         "compilation_sha256",
+        ...(preserve
+          ? [
+              "retained_guard",
+              "reviewed_payload_sha256",
+              "reviewed_native_sha256",
+            ]
+          : []),
       ]) ||
       ![
         snapshotRestoreCompilationProfile,
         reinstallCompilationProfile,
+        counterReinstallProfile,
       ].includes(c.profile) ||
-      c.scope !== snapshotRestoreScope ||
+      c.scope !== (preserve ? currentCounterScope : snapshotRestoreScope) ||
       c.restore_source_evidence_sha256 !== source.evidence_sha256 ||
       !exact(c.reviewed_current, ["capture_id", "snapshot_sha256"]) ||
       !restoreID(c.reviewed_current.capture_id) ||
@@ -249,9 +265,13 @@ export async function snapshotRestoreCompilation(c: any, source: Data) {
       c.reviewed_current.capture_id === source.request.restore_capture_id ||
       !guard(c.reviewed_current_guard) ||
       !guard(c.prewrite_guard) ||
-      c.compiled_sha256 !== source.compilation.compiled_sha256 ||
-      c.compiled_native_sha256 !== source.compilation.compiled_native_sha256 ||
-      c.historical_saved_settings_restored !== true ||
+      !restoreHash(c.compiled_sha256) ||
+      !restoreHash(c.compiled_native_sha256) ||
+      (!preserve &&
+        (c.compiled_sha256 !== source.compilation.compiled_sha256 ||
+          c.compiled_native_sha256 !==
+            source.compilation.compiled_native_sha256)) ||
+      c.historical_saved_settings_restored !== !preserve ||
       c.non_application_runtime_restored !== false ||
       !(await restoreSealed(c, "compilation_sha256"))
     )
@@ -264,7 +284,30 @@ export async function snapshotRestoreCompilation(c: any, source: Data) {
         "saved_configuration_sha256",
         "saved_parameter_count",
         "counter_count",
-      ].some((k) => !same(c.reviewed_current_guard[k], c.prewrite_guard[k]))
+      ].some(
+        (k) =>
+          !same(c.reviewed_current_guard[k], c.prewrite_guard[k]) ||
+          (preserve &&
+            !same(c.reviewed_current_guard[k], c.retained_guard?.[k])),
+      )
+    )
+      return false;
+    if (
+      preserve &&
+      (!guard(c.retained_guard) ||
+        c.retained_guard.application_sha256 !==
+          source.compilation.files["3"].sha256 ||
+        c.retained_guard.static_parameters_sha256 !==
+          source.compilation.files["11"].sha256 ||
+        !restoreHash(c.reviewed_payload_sha256) ||
+        !restoreHash(c.reviewed_native_sha256) ||
+        (same(c.reviewed_current_guard, c.prewrite_guard) &&
+          (c.compiled_sha256 !== c.reviewed_payload_sha256 ||
+            c.compiled_native_sha256 !== c.reviewed_native_sha256)) ||
+        (same(c.reviewed_current_guard, c.retained_guard) &&
+          (source.compilation.compiled_sha256 !== c.reviewed_payload_sha256 ||
+            source.compilation.compiled_native_sha256 !==
+              c.reviewed_native_sha256)))
     )
       return false;
     const d = c.difference;
@@ -292,12 +335,12 @@ export async function snapshotRestoreCompilation(c: any, source: Data) {
         d.restored_records &&
       d.changed_existing_records <= d.before_records - d.removed_records &&
       restoreHash(d.before_native_sha256) &&
-      (c.profile === reinstallCompilationProfile
+      (isMatchingReinstall(c.profile)
         ? d.before_native_sha256 === d.restored_native_sha256 &&
           d.added_records === 0 &&
           d.removed_records === 0 &&
           d.changed_existing_records === 0 &&
-          same(c.reviewed_current_guard, c.prewrite_guard)
+          (preserve || same(c.reviewed_current_guard, c.prewrite_guard))
         : d.before_native_sha256 !== d.restored_native_sha256) &&
       d.restored_native_sha256 === c.compiled_native_sha256 &&
       d.scope ===
@@ -322,7 +365,7 @@ export async function snapshotRestoreReview(
       v.profile === "native-application-transfer/1" &&
       v.operation_profile === snapshotRestoreProfile &&
       v.change_kind === "application-restore" &&
-      v.scope === snapshotRestoreScope &&
+      v.scope === v.compilation.scope &&
       v.can_apply === true &&
       v.vendor_runtime_required === false &&
       snapshotRestoreTarget(
@@ -344,7 +387,7 @@ export async function snapshotRestoreReview(
         v.compilation.reviewed_current_guard,
         v.compilation.prewrite_guard,
       ) &&
-      v.payload_sha256 === inspected.compilation.compiled_sha256 &&
+      v.payload_sha256 === v.compilation.compiled_sha256 &&
       v.old_instance === Number(controller.device.split(",")[1]) &&
       v.new_instance === v.old_instance &&
       v.old_name === inspected.identity["object-name"] &&
@@ -407,7 +450,9 @@ export async function snapshotRestoreReceipt(
       i.new_name !== i.old_name ||
       i.historical_application_confirmed !== true ||
       (i.reinstall_matching_image_confirmed ?? false) !==
-        (c.profile === reinstallCompilationProfile) ||
+        isMatchingReinstall(c.profile) ||
+      (i.preserve_live_counters_confirmed ?? false) !==
+        (c.profile === counterReinstallProfile) ||
       i.application_transfer_confirmed !== true ||
       !restoreHash(i.review_sha256) ||
       !object(i.connector_config) ||
@@ -441,7 +486,15 @@ export async function snapshotRestoreReceipt(
           c.reviewed_current_guard,
           reference.compilation.reviewed_current_guard,
         ) ||
-        !same(c.difference, reference.compilation.difference))
+        c.profile !== reference.compilation.profile ||
+        (c.profile === counterReinstallProfile
+          ? !same(c.retained_guard, reference.compilation.retained_guard) ||
+            c.reviewed_payload_sha256 !==
+              reference.compilation.reviewed_payload_sha256 ||
+            c.reviewed_native_sha256 !==
+              reference.compilation.reviewed_native_sha256 ||
+            (reference.id !== undefined && !same(c, reference.compilation))
+          : !same(c.difference, reference.compilation.difference)))
     )
       return false;
     const observed = data.latest_readback || data.result;
@@ -525,7 +578,12 @@ export async function snapshotRestoreReceipt(
     return (
       observed.native_sha256 === i.native_payload_sha256 &&
       p.profile === "native-retained-application-restore-preservation/1" &&
-      p.restored_application_matches_retained_source === true &&
+      (c.profile === counterReinstallProfile
+        ? p.prewrite_application_and_counters_verified === true &&
+          p.restored_application_matches_retained_source ===
+            (i.native_payload_sha256 ===
+              i.restore_source.compilation.compiled_native_sha256)
+        : p.restored_application_matches_retained_source === true) &&
       p.effective_saved_application_values_verified === true &&
       p.identity_unchanged === true &&
       p.restore_source_capture_id ===

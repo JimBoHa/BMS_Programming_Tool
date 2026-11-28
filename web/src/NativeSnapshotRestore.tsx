@@ -17,6 +17,8 @@ import {
   snapshotRestoreProfile,
   snapshotRestoreSourceProfile,
   reinstallCompilationProfile,
+  counterReinstallProfile,
+  isMatchingReinstall,
   snapshotRestoreSource,
   snapshotRestoreReview,
   snapshotRestoreReceipt,
@@ -75,6 +77,7 @@ export function NativeSnapshotRestore({
     [uncertainty, setUncertainty] = useState("");
   const [confirmed, setConfirmed] = useState(false),
     [reinstall, setReinstall] = useState(false),
+    [preserveCounters, setPreserveCounters] = useState(false),
     [interruption, setInterruption] = useState(false),
     [now, setNow] = useState(Date.now());
   const [backup, setBackup] = useState(""),
@@ -217,6 +220,7 @@ export function NativeSnapshotRestore({
   useEffect(() => {
     cancelOwned();
     setReinstall(false);
+    setPreserveCounters(false);
     setPlan(null);
     setConfirmed(false);
     setInterruption(false);
@@ -367,13 +371,17 @@ export function NativeSnapshotRestore({
         const doc = await apiJsonDocument(base + "/preview", {
           ...targetOf(controller!),
           ...(reinstall ? { reinstall_matching_image: true } : {}),
+          ...(reinstall && preserveCounters
+            ? { preserve_live_counters: true }
+            : {}),
           restore_capture_id: selected!.capture_id,
           restore_snapshot_sha256: selected!.snapshot_sha256,
           operation_id: operation.id,
         });
         if (
-          (doc.data.compilation?.profile === reinstallCompilationProfile) !==
-            reinstall ||
+          isMatchingReinstall(doc.data.compilation?.profile) !== reinstall ||
+          (doc.data.compilation?.profile === counterReinstallProfile) !==
+            (reinstall && preserveCounters) ||
           !(await snapshotRestoreReview(
             doc.data,
             selected!,
@@ -407,9 +415,11 @@ export function NativeSnapshotRestore({
                 review_sha256: review!.data.review_sha256,
                 historical_application_confirmed: true,
                 application_transfer_confirmed: true,
-                ...(review!.data.compilation.profile ===
-                reinstallCompilationProfile
+                ...(isMatchingReinstall(review!.data.compilation.profile)
                   ? { reinstall_matching_image_confirmed: true }
+                  : {}),
+                ...(review!.data.compilation.profile === counterReinstallProfile
+                  ? { preserve_live_counters_confirmed: true }
                   : {}),
               }
             : {
@@ -654,10 +664,12 @@ export function NativeSnapshotRestore({
                     disabled={locked || !fresh || !visible}
                     onChange={(e) => setConfirmed(e.target.checked)}
                   />
-                  {shown.data.compilation.profile ===
-                  reinstallCompilationProfile
-                    ? "I confirm reinstallation of the identical program and saved settings on this controller."
-                    : "I confirm this historical application and its saved values are correct for the selected controller and connected I/O."}
+                  {shown.data.compilation.profile === counterReinstallProfile
+                    ? "I confirm reinstallation of the matching program with the latest qualified runtime counters from the pre-write backup."
+                    : shown.data.compilation.profile ===
+                        reinstallCompilationProfile
+                      ? "I confirm reinstallation of the identical program and saved settings on this controller."
+                      : "I confirm this historical application and its saved values are correct for the selected controller and connected I/O."}
                 </label>
                 <label className="restore-confirmation">
                   <input
@@ -690,16 +702,33 @@ export function NativeSnapshotRestore({
               </section>
             )}
             {!shown && canReview && (
-              <label className="restore-confirmation">
-                <input
-                  type="checkbox"
-                  checked={reinstall}
-                  disabled={locked}
-                  onChange={(e) => setReinstall(e.target.checked)}
-                />
-                Reinstall only if the complete program and saved settings
-                already match.
-              </label>
+              <>
+                <label className="restore-confirmation">
+                  <input
+                    type="checkbox"
+                    checked={reinstall}
+                    disabled={locked}
+                    onChange={(e) => {
+                      setReinstall(e.target.checked);
+                      setPreserveCounters(false);
+                    }}
+                  />
+                  Reinstall only if the complete program and saved settings
+                  already match.
+                </label>
+                {reinstall && (
+                  <label className="restore-confirmation">
+                    <input
+                      type="checkbox"
+                      checked={preserveCounters}
+                      disabled={locked}
+                      onChange={(e) => setPreserveCounters(e.target.checked)}
+                    />
+                    Keep advancing runtime counters from the latest controller
+                    read. The program and all other saved settings must match.
+                  </label>
+                )}
+              </>
             )}
             {shown ? (
               <button
@@ -746,7 +775,9 @@ export function NativeSnapshotRestore({
                     </p>
                     <p role="status">
                       {observed?.status === "verified"
-                        ? "Retained application and saved values verified"
+                        ? intent.compilation.profile === counterReinstallProfile
+                          ? "Matching program, saved settings and pre-write counters verified"
+                          : "Retained application and saved values verified"
                         : observed?.status === "recovered_original"
                           ? "Original pre-write application recovered; retained restore not verified"
                           : observed?.status === "not_sent"

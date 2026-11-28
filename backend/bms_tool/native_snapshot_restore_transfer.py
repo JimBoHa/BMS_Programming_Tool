@@ -12,9 +12,9 @@ from .device_details import DeviceDetailsRequest
 from .models import StrictModel
 from .moi_identity import sha
 from .native_snapshot_restore import (
+    COUNTER_REINSTALL_PROFILE,
     PROFILE,
-    REINSTALL_PROFILE,
-    SCOPE,
+    REINSTALL_PROFILES,
     Hash,
     RestoreSource,
     compile_restore,
@@ -28,6 +28,7 @@ from .property_evidence import PropertyEvidence
 class RestorePreview(RestoreSource, DeviceDetailsRequest):
     operation_id: str = Field(pattern=r"^[A-Za-z0-9_-]{8,80}$")
     reinstall_matching_image: StrictBool = False
+    preserve_live_counters: StrictBool = False
 
 
 class RestoreApply(StrictModel):
@@ -37,6 +38,7 @@ class RestoreApply(StrictModel):
     historical_application_confirmed: StrictBool
     application_transfer_confirmed: StrictBool
     reinstall_matching_image_confirmed: StrictBool = False
+    preserve_live_counters_confirmed: StrictBool = False
 
 
 class NativeSnapshotRestoreOperations:
@@ -56,6 +58,8 @@ class NativeSnapshotRestoreOperations:
         from .native_applications import PLAN_SECONDS, backup_effects
 
         options = RestorePreview(**arguments)
+        if options.preserve_live_counters and not options.reinstall_matching_image:
+            raise ValueError("Preserving current counters requires a matching-program reinstall.")
         request = options.model_dump(include=set(RestoreSource.model_fields))
         _, desired = self.restore_source(request)
         require_restore_source(desired)
@@ -79,6 +83,7 @@ class NativeSnapshotRestoreOperations:
                 {"capture_id": current["id"], "snapshot_sha256": current["evidence_sha256"]},
                 files,
                 reinstall=options.reinstall_matching_image,
+                preserve_counters=options.preserve_live_counters,
             )
             if reloaded != desired:
                 raise ValueError("The retained restore source changed during current capture.")
@@ -100,9 +105,13 @@ class NativeSnapshotRestoreOperations:
                 "compilation": compilation,
                 "payload_sha256": sha(output),
                 "collision_check": self.restore_scope(),
-                "parameter_policy": "Restore the selected historical saved application values. Fresh current configuration must still match this review, except qualified advancing counters. Non-application runtime slots are not restored.",
+                "parameter_policy": (
+                    "Reinstall the matching application and carry its latest qualified counters from the pre-write backup. The program and every other saved setting must match."
+                    if options.preserve_live_counters
+                    else "Restore the selected historical saved application values. Fresh current configuration must still match this review, except qualified advancing counters. Non-application runtime slots are not restored."
+                ),
                 "backup_effects": backup_effects(),
-                "scope": SCOPE,
+                "scope": compilation["scope"],
                 "vendor_runtime_required": False,
                 "can_apply": True,
                 "connector_config": config,
@@ -115,9 +124,10 @@ class NativeSnapshotRestoreOperations:
     @staticmethod
     def validate_restore_plan(body, options):
         validate_evidence(body)
-        if (
-            body["compilation"]["profile"] == REINSTALL_PROFILE
-        ) != options.reinstall_matching_image:
+        profile = body["compilation"]["profile"]
+        if (profile in REINSTALL_PROFILES) != options.reinstall_matching_image or (
+            profile == COUNTER_REINSTALL_PROFILE
+        ) != options.preserve_live_counters:
             raise ValueError("The selected restore operation differs from its reviewed program.")
         if body["restore_source"]["request"] != options.model_dump(
             include=set(RestoreSource.model_fields)
