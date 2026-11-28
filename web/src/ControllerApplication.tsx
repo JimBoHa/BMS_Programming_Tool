@@ -364,8 +364,8 @@ export function ControllerApplicationPanel({
                 key={archiveKey}
                 connected={connected}
                 locked={busy}
+                sourceKind="controller-file"
                 source={{
-                  source_kind: "controller-file",
                   capture_id: report.receipt.id,
                   sha256: report.receipt.sha256,
                   snapshot_sha256: report.receipt.sha256,

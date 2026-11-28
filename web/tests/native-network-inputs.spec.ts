@@ -29,6 +29,7 @@ test("inspect, compare and reopen network input priorities in the restore workfl
     let raw: string;
     if (url.endsWith("/read")) {
       const request = route.request().postDataJSON();
+      expect(request).not.toHaveProperty("source_kind");
       expect(request).toMatchObject({
         ...seeded.target,
         capture_id: capture.id,
