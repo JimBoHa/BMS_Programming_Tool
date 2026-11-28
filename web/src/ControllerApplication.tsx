@@ -4,6 +4,7 @@ import { NativeSignalDefaultCopy } from "./NativeSignalDefaultCopy";
 import { controllerKey, type ControllerContext } from "./workflow";
 import "./controller-application.css";
 import { NativeRecords } from "./NativeRecords";
+import { NativeNetworkInputCommands } from "./NativeNetworkInputCommands";
 import { EngineeringLogicCanvas } from "./EngineeringLogicCanvas";
 import { controllerLogicDiagram } from "./engineeringLogic";
 
@@ -355,6 +356,23 @@ export function ControllerApplicationPanel({
             </details>
           )}
 
+          {report.operation_capabilities?.native_identity_matches_capture ===
+            true &&
+            report.receipt.target?.object_id === "file,3" &&
+            report.receipt.device_identity?.["vendor-identifier"] === 5 && (
+              <NativeNetworkInputCommands
+                key={archiveKey}
+                connected={connected}
+                locked={busy}
+                source={{
+                  source_kind: "controller-file",
+                  capture_id: report.receipt.id,
+                  sha256: report.receipt.sha256,
+                  snapshot_sha256: report.receipt.sha256,
+                  target: target(controller),
+                }}
+              />
+            )}
           {connected &&
             controllerKey(report.target) === controllerKey(controller) &&
             report.application.capabilities?.record_inspection && (

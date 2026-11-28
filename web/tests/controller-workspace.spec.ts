@@ -10,13 +10,20 @@ import { readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import { createHash } from "node:crypto";
 import { freePort } from "./workflow-peer";
+import { chooseWorkspaceTask } from "./workspace-navigation";
 
 const root = path.resolve("..");
 async function controller(
   name: string,
   modules: number,
   value = 21,
-  native: boolean | "signal-default" | "identity" | "moz" | "records" = false,
+  native:
+    | boolean
+    | "signal-default"
+    | "identity"
+    | "moz"
+    | "records"
+    | "network-inputs" = false,
 ) {
   const port = await freePort();
   const child = spawn(
@@ -30,11 +37,11 @@ from tests.test_controller_workspace import workspace_device
 from bms_tool.bacnet_read import close_application
 from bacpypes3.primitivedata import ObjectIdentifier
 async def main():
- app=workspace_device(int(sys.argv[1]),model=sys.argv[2],modules=int(sys.argv[3]),vendor=5 if sys.argv[5]=='identity' else 999)
+ app=workspace_device(int(sys.argv[1]),model=sys.argv[2],modules=int(sys.argv[3]),vendor=5 if sys.argv[5] in ('identity','network-inputs') else 999)
  app.device_object.objectName=sys.argv[2]
  point=app.get_object_id(ObjectIdentifier(('analog-input',1)))
  point.presentValue=float(sys.argv[4])
- if sys.argv[5] in ('true','signal-default','identity','moz','records'):
+ if sys.argv[5] in ('true','signal-default','identity','moz','records','network-inputs'):
   import types
   from tests.test_bacnet_files import FilePeer
   from tests.test_controller_application import authored_application
@@ -44,19 +51,28 @@ async def main():
   if sys.argv[5]=='signal-default':
    from tests.test_moi_signal_defaults import source
    app.payload=source(compressed=True)
-  elif sys.argv[5]=='identity':
+  elif sys.argv[5] in ('identity','network-inputs'):
    import struct
    from tests.test_controller_application import native_record,encoded
    from bacpypes3.primitivedata import CharacterString,Unsigned
    record=native_record(194,4190090,[(32527,encoded(CharacterString('controller'))),(75,encoded(ObjectIdentifier(('device',4190090)))),(2390,encoded(CharacterString(sys.argv[2]))),(70,encoded(CharacterString(sys.argv[2]))),(4128,encoded(Unsigned(62))),(4129,encoded(Unsigned(62)))])
-   app.payload=struct.pack('<6sHHI',bytes.fromhex('02004d4f4900'),194,1,1)+struct.pack('<H',len(record)+2)+record
+   records=[record]
+   if sys.argv[5]=='network-inputs':
+    from tests.test_native_network_inputs import input_record
+    from bacpypes3.basetypes import PriorityArray,PriorityValue
+    from bacpypes3.primitivedata import Null
+    records.extend([native_record(575,1,[(32527,encoded(CharacterString('controller/575_1')))]), input_record()])
+    slots=PriorityArray([PriorityValue(null=Null(())) for _ in range(16)])
+    app.add_object(AnalogValueObject(objectIdentifier=('analog-value',7),objectName='Air target',presentValue=5.0,relinquishDefault=5.0,priorityArray=slots,units='no-units',reliability='no-fault-detected',statusFlags=[0,0,0,0],outOfService=False))
+   app.payload=struct.pack('<6sHHI',bytes.fromhex('02004d4f4900'),194,1,len(records))+b''.join(struct.pack('<H',len(r)+2)+r for r in records)
   elif sys.argv[5]=='records':
    import struct
    from tests.test_controller_application import native_record,encoded
    from bacpypes3.primitivedata import CharacterString,OctetString,Real
    records=[native_record(194,4190090,[(32527,encoded(CharacterString('controller'))),(75,encoded(ObjectIdentifier(('device',4190090)))),(2390,encoded(CharacterString(sys.argv[2]))),(70,encoded(CharacterString(sys.argv[2]))),(3113,encoded(Real(23.5))),(65002,bytes.fromhex('32fed4')),(65003,bytes.fromhex('3480000000')),(65004,bytes.fromhex('347fffffff'))]),native_record(127,1,[(65001,encoded(OctetString(b'retained metadata')))])]
    app.payload=struct.pack('<6sHHI',bytes.fromhex('02004d4f4900'),194,1,len(records))+b''.join(struct.pack('<H',len(record)+2)+record for record in records)
-  app.stream=FileObject(objectIdentifier=('file',31),objectName='Controller/Archive',description='Authored application file',fileType='.MoZ' if sys.argv[5]=='moz' else '.moi',fileSize=len(app.payload),modificationDate=DateTime('2026-01-05 12:00:00'),archive=False,readOnly=True,fileAccessMethod='stream-access')
+  file_instance=3 if sys.argv[5]=='network-inputs' else 31
+  app.stream=FileObject(objectIdentifier=('file',file_instance),objectName='Controller/Archive',description='Authored application file',fileType='.MoZ' if sys.argv[5]=='moz' else '.moi',fileSize=len(app.payload),modificationDate=DateTime('2026-01-05 12:00:00'),archive=False,readOnly=True,fileAccessMethod='stream-access')
   app.add_object(app.stream)
   app.device_object.configurationFiles=[app.stream.objectIdentifier]
   app.atomic_requests=[];app.all_requests=[];app.drop=False;app.mutation=None;app.callback=None
@@ -170,6 +186,59 @@ async function openController(page: Page, endpoint: string, name: string) {
 }
 const tasks = (page: Page) =>
   page.getByRole("navigation", { name: "Workspace tasks" });
+
+test("a controller application File supplies network input command readings without a backup", async ({
+  page,
+  request,
+}) => {
+  await session(request);
+  const device = await controller(
+    "Authored input controller",
+    0,
+    21,
+    "network-inputs",
+  );
+  try {
+    const token = (await (await request.get("/api/session")).json()).token;
+    const connection = await request.post("/api/bacnet/connect", {
+      headers: { "X-Studio-Token": token },
+      data: { local_address: `127.0.0.1:${await freePort()}` },
+    });
+    expect(connection.ok()).toBe(true);
+    await page.goto("/");
+    await page
+      .getByRole("button", { name: /^Connect to a controller/ })
+      .click();
+    await openController(page, device.endpoint, "Authored input controller");
+    await chooseWorkspaceTask(page, "Program");
+    const program = page.getByRole("region", {
+      name: "Native controller application",
+    });
+    await program
+      .getByRole("button", { name: "Read controller application", exact: true })
+      .click();
+    const tool = program.getByText("Inspect network input commands", {
+      exact: true,
+    });
+    await tool.focus();
+    await page.keyboard.press("Enter");
+    const panel = program.getByRole("region", {
+      name: "Network input command readings",
+    });
+    await panel.getByRole("button", { name: "Read network inputs" }).click();
+    const table = panel.getByRole("table");
+    await expect(table).toContainText("Air target");
+    await expect(table).toContainText("All released");
+    await panel.getByRole("button", { name: "Compare with baseline" }).click();
+    await expect(table).toContainText("Priorities unchanged");
+    await expect(panel.getByRole("status")).toContainText(
+      "1 of 1 inputs verified",
+    );
+  } finally {
+    await session(request);
+    device.close();
+  }
+});
 
 test("a connected controller supplies actual program information, discovered points and changing live values", async ({
   page,

@@ -630,7 +630,7 @@ def create_app(state_dir=None, *, operation_power=None):
 
     device_instances = DeviceInstances(bacnet, store, activity_guard=instance_activity_guard)
     native_applications = NativeApplications(bacnet, store, device_instances)
-    network_input_reports = NetworkInputReports(native_applications, controller_workspace)
+    network_input_reports = NetworkInputReports(native_applications, controller_workspace, files)
     signal_compiler = SignalCompilerService(native_applications.storage)
     backup_records = NativeBackupRecords(native_applications.storage)
     backup_comparison = NativeBackupComparison(backup_records)
