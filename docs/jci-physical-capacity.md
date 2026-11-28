@@ -5,13 +5,25 @@ catalog only when requested. Select a reviewed exact product or enter an unknown
 model explicitly. Declare signal families and integer quantities, then review
 whole-device physical count fit. This does not connect to a controller.
 
-The first profile contains 32 explicitly selected products: all 24 ordinary
-PCX/CH-PCX/IOM ordering variants in the reviewed expansion tables, four PCG
-controllers and four existing legacy PCV/VMA profiles. It is not every JCI
-product or generation. Prefixes, missing suffixes, regional substitutions,
+The catalog covers 36 exact products. It includes 24 PCX/CH-PCX/IOM expansion
+variants, four PCG controllers, four legacy PCV/VMA models and the four products
+below. Whole-device counts describe each physical resource once. Prefixes, missing suffixes, regional substitutions,
 smoke-control suffixes and other variants do not inherit a profile. Matching
 normalizes only outer whitespace and case; original supplied model text remains
 in the review.
+
+| Exact model | Role | Universal inputs | Binary inputs | Binary outputs | Configurable outputs | Analog outputs |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| MS-FEC2611-0 | Controller | 6 | 2 | 3 | 4 | 2 |
+| M4-CGM09090-0 | Controller | 7 | 2 | 3 | 4 | 2 |
+| M4-CVM03050-0 | VAV controller | 3 | 0 | 3 | 2 | 0 |
+| M4-XPM09090-0 | Expansion module | 7 | 2 | 3 | 4 | 2 |
+
+The FEC26 uses a hardware setting for 4–20 mA inputs. The CVM03050-0
+supports voltage, resistance and dry contact on its universal inputs. Its
+integrated actuator has no position feedback potentiometer. See the
+[FEC count and signal table](https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Metasys-System-Field-Equipment-Controllers-and-Related-Products-Product-Bulletin/13.0/Field-Equipment-Controller-FEC/FEC-Series-model-information-Including-Point-Type-Counts)
+and the [CV signal table](https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Metasys-CG-CV-Equipment-Controllers-and-XPM-Expansion-Modules-Product-Bulletin/14.0/CG-and-CV-Series-Controllers/CV-series-model-information).
 
 ## Physical pools and scope
 
@@ -100,6 +112,7 @@ and publisher extracts remain outside the repository.
 
 | Source | Revision/date and reviewed sections | Reviewed artifact SHA-256 |
 | --- | --- | --- |
+| [Metasys CG, CV and XPM bulletin, LIT-12013105](https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Metasys-CG-CV-Equipment-Controllers-and-XPM-Expansion-Modules-Product-Bulletin/14.0) | 14.0, 2024-07-30. Three model-information HTML tables in CG, CV, XPM order. Each table contains rows of cell text with whitespace runs collapsed and ends trimmed. The digest covers the compact UTF-8 JSON array of those tables. | `bf42ca723ab6cbc1276c137316fee0478cbded023cc7b121831b8626b58a3d70` |
 | [FX product bulletin, LIT-12011657](https://docs.johnsoncontrols.com/bas/r/Facility-Explorer/en-US/FX-PC-Series-Programmable-Controllers-and-Related-Products-Product-Bulletin) | 2024-03-07; PDF 8 Table 2, 10–11 Table 5, 14–15 Tables 7/9/10, 24 Table 15 | `733063dc209b19212100a4957e3e7c05e00484b31b4886f8aeb5d4b65e2fa8af` |
 | [Metasys product bulletin, LIT-12011042](https://docs.johnsoncontrols.com/bas/r/Metasys/en-US/Metasys-System-Field-Equipment-Controllers-and-Related-Products-Product-Bulletin/13.0) | 13.0, 2023-09-06; PDF 11–12 Table 5, 18–19 Table 13 | `3a65a6ffe84c8e453d814af07470638fd7a1b12965df52e859580a276d2386a3` |
 | [FX VAV installation, 24-10143-357](https://docs.johnsoncontrols.com/bas/r/Facility-Explorer/en-US/FX-PCV1615/1626/1628/1630-Programmable-VAV-Box-Controllers-Installation-Instructions/H) | H, 2019-03-22; PDF 6 terminal functions, 27 Table 10; family -x counts, selected existing legacy -0 applicability only | `0247275ca05080ab30ff5ee10e046f3d4877e2629ca0079262e9e0f610addd36` |

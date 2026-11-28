@@ -44,6 +44,10 @@ EXPECTED = {
     "FX-PCV1630-0": {"UI": 3, "BO": 3, "CO": 2},
     "MS-VMA1615-0": {"UI": 3, "BO": 2},
     "MS-VMA1630-0": {"UI": 3, "BO": 3, "CO": 2},
+    "MS-FEC2611-0": {"UI": 6, "BI": 2, "BO": 3, "CO": 4, "AO": 2},
+    "M4-CGM09090-0": {"UI": 7, "BI": 2, "BO": 3, "CO": 4, "AO": 2},
+    "M4-CVM03050-0": {"UI": 3, "BO": 3, "CO": 2},
+    "M4-XPM09090-0": {"UI": 7, "BI": 2, "BO": 3, "CO": 4, "AO": 2},
 }
 
 
@@ -71,7 +75,7 @@ def test_exact_physical_count_matrix_from_primary_manual_tables(model, counts):
 
 
 def test_catalog_seal_copy_and_exact_scope_does_not_grow_from_prefix_suffix_or_other_brand():
-    assert len(CATALOG["models"]) == len(EXPECTED) == 32
+    assert len(CATALOG["models"]) == len(EXPECTED) == 36
     assert (
         digest({k: v for k, v in CATALOG.items() if k != "catalog_sha256"})
         == CATALOG["catalog_sha256"]
@@ -88,6 +92,10 @@ def test_catalog_seal_copy_and_exact_scope_does_not_grow_from_prefix_suffix_or_o
         "FX-PCG1611-0",
         "MS-VMA1630-1",
         "VMA1630",
+        "MS-FEC2611-0ET",
+        "M4-CVM03050-0P",
+        "M4-CGM09090-0H",
+        "M4-XPM09090",
     ]:
         report = evaluate(request(model, ("input-contact", 1)))
         assert report["status"] == "unknown-model" and report["model_profile"] is None
@@ -100,7 +108,7 @@ def test_dedicated_binary_does_not_become_analog_and_vav_ui_has_no_current_mode(
     assert binary["status"] == "count-mode-shortfall"
     assert [row["matched"] for row in binary["demands"]] == [0, 2]
     assert binary["demands"][0]["unmatched_basis"] == "no-reviewed-pool-for-mode"
-    for model in ["FX-PCV1615-0", "FX-PCV1630-0", "MS-VMA1615-0", "MS-VMA1630-0"]:
+    for model in ["FX-PCV1615-0", "FX-PCV1630-0", "MS-VMA1615-0", "MS-VMA1630-0", "M4-CVM03050-0"]:
         report = evaluate(request(model, ("input-current", 1), ("input-voltage", 3)))
         assert report["matched_channels"] == 3
         assert report["model_profile"]["onboard_features"] == [
@@ -108,6 +116,35 @@ def test_dedicated_binary_does_not_become_analog_and_vav_ui_has_no_current_mode(
             "integrated actuator",
         ]
         assert report["model_profile"]["external_point_count"] in (5, 8)
+
+
+@pytest.mark.parametrize(
+    "model,role,ui",
+    [
+        ("MS-FEC2611-0", "controller", 6),
+        ("M4-CGM09090-0", "controller", 7),
+        ("M4-XPM09090-0", "expansion", 7),
+    ],
+)
+def test_general_controller_and_expansion_shared_capacity(model, role, ui):
+    inputs = evaluate(request(model, ("input-current", ui), ("input-contact", 3)))
+    assert inputs["model_profile"]["kind"] == role
+    assert inputs["matched_channels"] == ui + 2
+    outputs = evaluate(
+        request(model, ("output-triac", 7), ("output-current", 2), ("output-voltage", 1))
+    )
+    assert outputs["matched_channels"] == 9
+    assert not outputs["terminal_assignment_verified"]
+
+
+def test_cvm_count_modes_and_actuator_feedback_are_specific_to_exact_suffix():
+    profile = evaluate(request("M4-CVM03050-0", ("output-triac", 5), ("output-voltage", 1)))
+    assert profile["matched_channels"] == 5
+    assert profile["model_profile"]["kind"] == "controller"
+    assert any(
+        "without a position feedback potentiometer" in note
+        for note in profile["model_profile"]["notes"]
+    )
 
 
 def test_uo_co_and_ui_alternative_modes_consume_one_shared_physical_channel():

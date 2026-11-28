@@ -387,7 +387,7 @@
   {
     "feature": "Exact JCI physical capacity matrix",
     "status": "implemented",
-    "scope": "32 exact scoped products; bounded integral pool-count matching, explicit original-survey/hash/host binding, offline Connect matrix and authoritative sealed exports. Unknown suffixes and conflicting ratings remain unresolved. No field/power/wiring approval, spare-terminal claim, CAF allocation or expansion of existing native profiles."
+    "scope": "36 exact products covering PCX, IOM, PCG, PCV, VMA, FEC, CGM, CVM and XPM models with bounded integral pool-count matching, explicit original-survey/hash/host binding, offline Connect matrix and authoritative sealed exports. Unknown suffixes and conflicting ratings remain unresolved. No field/power/wiring approval, spare-terminal claim, CAF allocation or expansion of existing native profiles."
   },
   {
     "feature": "Portable fan-coil wizard foundation",
