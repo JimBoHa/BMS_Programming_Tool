@@ -196,7 +196,9 @@ export function App() {
   const [controller, setController] = useState<ControllerContext | null>(null);
   const [connectionBusy, setConnectionBusy] = useState(false);
   const [nativeCompilerBusy, setNativeCompilerBusy] = useState(false);
-  const workflowBusy = connectionBusy || nativeCompilerBusy;
+  const [temcoTransferBusy, setTemcoTransferBusy] = useState(false);
+  const workflowBusy =
+    connectionBusy || nativeCompilerBusy || temcoTransferBusy;
   const [requestedConnectionTool, setRequestedConnectionTool] = useState<{
     view:
       | "overview"
@@ -216,6 +218,7 @@ export function App() {
     "none",
   );
   const [connectionsVisited, setConnectionsVisited] = useState(false);
+  const [temcoVisited, setTemcoVisited] = useState(false);
   const [nativeCompilerVisited, setNativeCompilerVisited] = useState(false);
   const [connectionSetup, setConnectionSetup] = useState(false);
   const cafPicker = useRef<HTMLInputElement>(null);
@@ -1547,6 +1550,7 @@ export function App() {
       return;
     }
     setTabState(view);
+    if (view === "temco" || view === "temco-transfer") setTemcoVisited(true);
     if (view === "start") {
       setSurface("start");
       return;
@@ -2066,6 +2070,26 @@ export function App() {
                 </Suspense>
               </div>
             )}
+            {temcoVisited && (
+              <div
+                className="workflow-persistent-view"
+                hidden={tab !== "temco" && tab !== "temco-transfer"}
+              >
+                <Suspense
+                  fallback={
+                    <div className="loading">Opening Temco program…</div>
+                  }
+                >
+                  <TemcoSimulator
+                    program={program}
+                    transfer={tab === "temco-transfer"}
+                    controller={controller}
+                    onOpenTransfer={() => setTab("temco-transfer")}
+                    onTransferBusy={setTemcoTransferBusy}
+                  />
+                </Suspense>
+              </div>
+            )}
             {nativeCompilerVisited && (
               <div
                 className="workflow-persistent-view"
@@ -2112,6 +2136,8 @@ export function App() {
                   }}
                 />
               ) : tab === "connections" ||
+                tab === "temco" ||
+                tab === "temco-transfer" ||
                 tab === "caf" ||
                 tab === "native-compiler" ||
                 tab === "caf-simulation" ? null : tab === "editor" ? (
@@ -2613,12 +2639,6 @@ export function App() {
                     );
                     refreshProjects().catch((e) => setMessage(String(e)));
                   }}
-                />
-              ) : tab === "temco" || tab === "temco-transfer" ? (
-                <TemcoSimulator
-                  program={program}
-                  transfer={tab === "temco-transfer"}
-                  controller={controller}
                 />
               ) : tab === "iec" ? (
                 <IECVerifier program={program} />

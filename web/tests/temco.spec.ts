@@ -2,6 +2,11 @@ import { test, expect, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { openTemcoProgram } from "./temco-workflow";
+import {
+  chooseWorkspaceTask,
+  chooseWorkspaceTool,
+} from "./workspace-navigation";
 
 const root = path.resolve("..");
 function program(kind = "Add", values = "{'a':40,'b':2}") {
@@ -15,14 +20,7 @@ function program(kind = "Add", values = "{'a':40,'b':2}") {
   );
 }
 async function openNative(page: Page, kind = "Add", values?: string) {
-  await page.goto("/");
-  await page.locator('input[type=file][accept*=".st"]').setInputFiles({
-    name: "temco-example.bms.json",
-    mimeType: "application/json",
-    buffer: program(kind, values),
-  });
-  await expect(page.getByLabel("Program name")).toHaveValue("Untitled program");
-  await page.getByRole("button", { name: "Temco native", exact: true }).click();
+  await openTemcoProgram(page, "temco-example.bms.json", program(kind, values));
   await expect(
     page.getByText("Native compiler available", { exact: true }),
   ).toBeVisible();
@@ -36,7 +34,7 @@ test("compile genuine Control Basic, download bytecode and execute the native in
     page.getByRole("region", { name: "Temco target profile" }),
   ).toContainText("27 block types with retained state");
   await expect(page.locator(".temco-scope").first()).toContainText(
-    "separate controller transfer panel",
+    "review controller transfer in Changes",
   );
   await page.getByLabel("Temco point for a", { exact: true }).fill("VAR4");
   await page
@@ -87,10 +85,57 @@ test("compile genuine Control Basic, download bytecode and execute the native in
     .getByRole("button", { name: "Run native verification", exact: true })
     .click();
   await expect(report.locator("tbody tr").first()).toContainText("52");
+  await chooseWorkspaceTask(page, "Changes");
+  await chooseWorkspaceTool(page, "Temco application transfer");
+  await expect(page.getByLabel("Compiled Control Basic source")).toContainText(
+    "VAR256 = T4",
+  );
+  await expect(
+    page.getByLabel("Temco point for a", { exact: true }),
+  ).toHaveValue("VAR4");
+  await expect(
+    page.getByRole("region", { name: "Reviewed Temco transfer plan" }),
+  ).toHaveCount(0);
   await page.screenshot({
     path: "test-results/studio-temco-native.png",
     fullPage: true,
   });
+});
+
+test("editing bindings or replacing the local program clears the previous compiled transfer source", async ({
+  page,
+}) => {
+  await openNative(page);
+  const compile = page.getByRole("button", {
+    name: "Compile Control Basic",
+    exact: true,
+  });
+  const review = page.getByRole("button", {
+    name: "Review controller transfer",
+    exact: true,
+  });
+  await compile.click();
+  await expect(review).toBeVisible();
+  await page.getByLabel("Temco point for a", { exact: true }).fill("VAR5");
+  await expect(review).toHaveCount(0);
+  await compile.click();
+  await expect(page.getByLabel("Compiled Control Basic source")).toContainText(
+    "T1 = VAR5",
+  );
+  await chooseWorkspaceTask(page, "Program");
+  await page.getByRole("button", { name: "New program", exact: true }).click();
+  await chooseWorkspaceTask(page, "Changes");
+  await chooseWorkspaceTool(page, "Temco application transfer");
+  await expect(page.getByLabel("Compiled Control Basic source")).toHaveCount(0);
+  await expect(
+    page.getByRole("region", { name: "Reviewed Temco transfer plan" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", {
+      name: "Plan compiled program transfer",
+      exact: true,
+    }),
+  ).toBeDisabled();
 });
 
 test("native verification rejects invalid points and quality without retaining stale success", async ({
@@ -178,15 +223,13 @@ test("native schedule consumes explicit UTC host calendar flags", async ({
 test("foreign native extensions are visibly rejected instead of omitted", async ({
   page,
 }) => {
-  await page.goto("/");
   const data = JSON.parse(program().toString());
   data.metadata.native_sedona = { version: 1, components: [], links: [] };
-  await page.locator('input[type=file][accept*=".st"]').setInputFiles({
-    name: "native-extension.bms.json",
-    mimeType: "application/json",
-    buffer: Buffer.from(JSON.stringify(data)),
-  });
-  await page.getByRole("button", { name: "Temco native", exact: true }).click();
+  await openTemcoProgram(
+    page,
+    "native-extension.bms.json",
+    Buffer.from(JSON.stringify(data)),
+  );
   await expect(page.getByRole("alert")).toContainText(
     "native Sedona extensions",
   );

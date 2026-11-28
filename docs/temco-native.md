@@ -13,6 +13,12 @@ and compensating restore. Its narrower physical firmware profile has a
 128-VAR limit and refuses unprovisioned calendars. Local UDP/routed emulator
 tests do not establish physical execution, flash persistence or scan cadence.
 
+In **Program → Simulate → Temco**, compile the graph with its point bindings,
+then select **Review controller transfer**. The compiled source and bindings
+also remain available when opening **Changes → Temco application transfer**.
+An edit to the graph or bindings requires a fresh compilation. Reopening the
+transfer panel requires a fresh target inspection and change review.
+
 ## Manufacturer source and reproducible build
 
 The reference comes from the manufacturer-published MIT repository

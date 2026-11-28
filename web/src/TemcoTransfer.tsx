@@ -29,9 +29,11 @@ type Plan = {
 export function TemcoTransfer({
   source,
   controller,
+  onBusyChange,
 }: {
   source: string | null;
   controller?: ControllerContext | null;
+  onBusyChange: (busy: boolean) => void;
 }) {
   const [target, setTarget] = useState<Target>({
     address: "",
@@ -66,8 +68,9 @@ export function TemcoTransfer({
     return () => {
       mounted.current = false;
       generation.current++;
+      onBusyChange(false);
     };
-  }, []);
+  }, [onBusyChange]);
   useEffect(() => {
     generation.current++;
     setPlan(null);
@@ -149,6 +152,7 @@ export function TemcoTransfer({
     if (busy) return;
     const requestGeneration = generation.current;
     setBusy(true);
+    if (kind === "apply") onBusyChange(true);
     setError("");
     try {
       if (
@@ -237,6 +241,7 @@ export function TemcoTransfer({
       }
     } finally {
       if (mounted.current) setBusy(false);
+      if (kind === "apply" && mounted.current) onBusyChange(false);
     }
   }
 

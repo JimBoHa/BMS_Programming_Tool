@@ -48,10 +48,14 @@ export function TemcoSimulator({
   program,
   transfer = false,
   controller,
+  onOpenTransfer,
+  onTransferBusy,
 }: {
   program: Program;
   transfer?: boolean;
   controller?: ControllerContext | null;
+  onOpenTransfer: () => void;
+  onTransferBusy: (busy: boolean) => void;
 }) {
   const [status, setStatus] = useState<any>(null);
   const [bindings, setBindings] = useState<Record<string, string>>({});
@@ -233,9 +237,10 @@ export function TemcoSimulator({
         </span>
       </div>
       <p className="temco-scope">
-        Local simulation uses memory-only points. The separate controller
-        transfer panel below requires an explicit BACnet target and reviewed
-        stop, replacement and readback plan.
+        Local simulation uses memory-only points.{" "}
+        {transfer
+          ? "Select the BACnet target and review the stop, replacement and readback plan."
+          : "Compile the program to review controller transfer in Changes."}
       </p>
       {error && (
         <div className="temco-error" role="alert">
@@ -561,6 +566,7 @@ export function TemcoSimulator({
         <TemcoTransfer
           source={compiled?.source ?? null}
           controller={controller}
+          onBusyChange={onTransferBusy}
         />
       )}
       {compiled && (
@@ -570,6 +576,11 @@ export function TemcoSimulator({
         >
           <h2>Compiled source and bytecode</h2>
           <div className="button-row">
+            {!transfer && (
+              <button onClick={onOpenTransfer} disabled={busy}>
+                Review controller transfer
+              </button>
+            )}
             <button onClick={downloadSource}>
               <Download size={15} /> Download BASIC source
             </button>
