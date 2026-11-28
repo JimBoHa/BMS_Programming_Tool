@@ -15,11 +15,12 @@ from bacpypes3.object import Object
 from bacpypes3.pdu import PDU
 from bacpypes3.primitivedata import ObjectIdentifier, PropertyIdentifier, TagClass, TagList
 from bacpypes3.vendor import get_vendor_info
-from pydantic import Field, field_validator
+from pydantic import Field, StrictBool, field_validator, model_validator
 
 from .box_flow_results import flow_samples
 from .device_details import DeviceDetails, DeviceDetailsRequest
 from .hardware_survey import read_fields
+from .network_sensor_reference import read_temperature, temperature_reference
 from .property_evidence import PropertyEvidence, ReadBudget, _encoded, _utc, native_value
 
 
@@ -29,6 +30,7 @@ class ControllerInventoryRequest(DeviceDetailsRequest):
 
 
 class ControllerPropertiesRequest(DeviceDetailsRequest):
+    read_linked_zone_temperature: StrictBool = False
     object_ids: list[Annotated[str, Field(min_length=1, max_length=80)]] = Field(
         min_length=1, max_length=16
     )
@@ -63,6 +65,16 @@ class ControllerPropertiesRequest(DeviceDetailsRequest):
         if len(set(result)) != len(result):
             raise ValueError("Duplicate property selection.")
         return result
+
+    @model_validator(mode="after")
+    def sensor_source(self):
+        if self.read_linked_zone_temperature and not (
+            len(self.object_ids) == 1
+            and int(ObjectIdentifier(self.object_ids[0])[0]) == 627
+            and "941" in self.properties
+        ):
+            raise ValueError("Select one network sensor and its zone temperature reference.")
+        return self
 
 
 class NativeApplicationReader(Protocol):
@@ -248,6 +260,16 @@ class ControllerWorkspace:
             try:
                 tags = list(TagList.decode(PDU(bytes.fromhex(row["encoded_value"]["hex"]))))
                 if (
+                    session.get("vendor_identifier") == 5
+                    and int(ObjectIdentifier(obj)[0]) == 627
+                    and prop == "941"
+                    and index is None
+                    and len(tags) > 3
+                ):
+                    value = decoded = temperature_reference(tags, obj)
+                    datatype = "NetworkSensorInputReference"
+                    decoding = "Native network sensor zone temperature input reference."
+                elif (
                     session.get("vendor_identifier") == 5
                     and int(ObjectIdentifier(obj)[0]) == 612
                     and prop == "3669"
@@ -497,8 +519,19 @@ class ControllerWorkspace:
                         item["properties"].update(
                             await self._fields(session, budget, options, obj, options.properties)
                         )
+                    linked = None
+                    if (
+                        options.read_linked_zone_temperature
+                        and report["objects"]
+                        and report["objects"][0]["identity_verified"]
+                    ):
+                        linked = await read_temperature(
+                            self, session, budget, options, report["objects"][0]
+                        )
                     await self._identity(session, budget, options, report, "after")
                     report["identity_verified"] = True
+                    if linked is not None:
+                        report["linked_zone_temperature"] = linked
                     report["complete"] = len(report["objects"]) == len(options.object_ids) and all(
                         item["identity_verified"]
                         and all(prop in item["properties"] for prop in options.properties)
