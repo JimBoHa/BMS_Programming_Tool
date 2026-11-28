@@ -31,6 +31,7 @@ class MonitorReview(DeviceDetailsRequest):
 
 class ClockMonitorReview(MonitorReview):
     sample_register: StrictBool = False
+    activity_input: StrictBool = False
 
 
 class MonitorApply(StrictModel):
@@ -157,8 +158,13 @@ async def review(native, options):
 
         require_restore_source(recovery)
         with_register = isinstance(options, ClockMonitorReview) and options.sample_register
+        activity_input = isinstance(options, ClockMonitorReview) and options.activity_input
         out, compilation = compile_monitor(
-            files, options.first_instance, allow_floating=True, sample_register=with_register
+            files,
+            options.first_instance,
+            allow_floating=True,
+            sample_register=with_register,
+            activity_input=activity_input,
         )
         config, app = copy.deepcopy(native.bacnet.config), native.bacnet.require()
         async with native.path._path(options) as session:
@@ -194,6 +200,7 @@ async def review(native, options):
             scope=(
                 "Install internal sensor and timer observations"
                 + (" and a gated timing register" if with_register else "")
+                + (" with a Float activity input" if activity_input else "")
                 + ". Existing control connections are preserved. Application transfer temporarily interrupts control."
             ),
             connector_config=config,
@@ -213,6 +220,8 @@ def validate_review(plan):
         or not isinstance(body.get("compilation"), dict)
         or ("sampling_register" in body["compilation"])
         != getattr(plan["options"], "sample_register", False)
+        or ("register_input_activity" in body["compilation"])
+        != getattr(plan["options"], "activity_input", False)
     ):
         raise ValueError("The exact monitor review has changed. Review again.")
 
@@ -227,6 +236,7 @@ def fresh_compile(native, body, files):
         body["first_instance"],
         allow_floating="floating_valve" in body["compilation"],
         sample_register="sampling_register" in body["compilation"],
+        activity_input="register_input_activity" in body["compilation"],
     )
 
 
@@ -240,6 +250,7 @@ def reconstruct(native, intent):
         preserve_root_layout=intent["compilation"].get("root_layout_version") == 2,
         allow_floating="floating_valve" in intent["compilation"],
         sample_register="sampling_register" in intent["compilation"],
+        activity_input="register_input_activity" in intent["compilation"],
     )
     if (
         report != intent["compilation"]
