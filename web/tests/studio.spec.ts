@@ -1,17 +1,94 @@
 import {
+  chooseWorkspaceSurface,
+  chooseWorkspaceTask,
   chooseWorkspaceTool,
   openSystemSimulation,
 } from "./workspace-navigation";
 import { simulationServerResponseJSON } from "./simulationFixture";
-import { test, expect } from "./simulationFixture";
+import { test, expect, type Page } from "./simulationFixture";
+import { readFile } from "node:fs/promises";
+import {
+  openDraftCaf,
+  editScalar,
+  cafChanges,
+} from "./caf-scalar-draft-recovery-fixture";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 
+async function openCurrentGraph(page: Page) {
+  await page.goto("/");
+  await page
+    .getByRole("region", { name: "Continue local work" })
+    .getByRole("button", { name: "Program", exact: true })
+    .click();
+}
+
+async function importGraph(
+  page: Page,
+  file: {
+    name: string;
+    mimeType: string;
+    buffer: Buffer;
+  },
+) {
+  const choosing = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Import", exact: true }).click();
+  const receipt = page.waitForResponse(
+    (r) =>
+      new URL(r.url()).pathname === "/api/import" &&
+      r.request().method() === "POST",
+  );
+  await (await choosing).setFiles(file);
+  expect((await receipt).status()).toBe(200);
+}
+
+async function closeBlockProperties(page: Page) {
+  const close = page.getByRole("button", {
+    name: "Close block properties",
+    exact: true,
+  });
+  if (await close.isVisible()) await close.click();
+}
+
+async function showBlockProperties(page: Page) {
+  const open = page.getByRole("button", {
+    name: "Open block properties",
+    exact: true,
+  });
+  if (
+    (await open.isVisible()) &&
+    !(await page
+      .getByRole("dialog", { name: "Block properties", exact: true })
+      .isVisible())
+  )
+    await open.click();
+}
+
+async function graphSimulation(page: Page) {
+  await closeBlockProperties(page);
+  const mode = page.getByRole("button", { name: "Simulate", exact: true });
+  await mode.click();
+  await expect(mode).toHaveAttribute("aria-pressed", "true");
+}
+
+async function openBlockLibrary(page: Page) {
+  const open = page.getByRole("button", {
+    name: "Open block library",
+    exact: true,
+  });
+  if (await open.isVisible()) await open.click();
+}
+
+async function sandboxRuntime(page: Page) {
+  await chooseWorkspaceSurface(page, "Settings");
+  await chooseWorkspaceTool(page, "Local runtime", "settings tools");
+}
+
 test("copy a connected nested macro graph into a new project with its libraries", async ({
   page,
 }) => {
-  await page.goto("/");
+  await openCurrentGraph(page);
   const root = path.resolve("..");
   const buffer = execFileSync(
     path.join(root, ".venv/bin/python"),
@@ -21,16 +98,13 @@ test("copy a connected nested macro graph into a new project with its libraries"
     ],
     { cwd: root },
   );
-  await page
-    .locator(
-      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"]',
-    )
-    .setInputFiles({
-      name: "nested.bms.json",
-      mimeType: "application/json",
-      buffer,
-    });
+  await importGraph(page, {
+    name: "nested.bms.json",
+    mimeType: "application/json",
+    buffer,
+  });
   await page.locator('.react-flow__node[data-id="first"]').click();
+  await closeBlockProperties(page);
   await page.keyboard.press("Control+a");
   await expect(page.locator(".selection-panel")).toContainText(
     "6 blocks selected",
@@ -39,6 +113,7 @@ test("copy a connected nested macro graph into a new project with its libraries"
   await page.getByRole("button", { name: "New program", exact: true }).click();
   await page.keyboard.press("Control+v");
   await expect(page.locator(".react-flow__node")).toHaveCount(6);
+  await graphSimulation(page);
   await page
     .getByRole("button", { name: "Step simulation", exact: true })
     .click();
@@ -58,7 +133,7 @@ test("persist simulation trends and acknowledge returned alarms across reloads",
   page,
   request,
 }) => {
-  await page.goto("/");
+  await openCurrentGraph(page);
   const root = path.resolve("..");
   const buffer = execFileSync(
     path.join(root, ".venv/bin/python"),
@@ -118,9 +193,12 @@ test("persist simulation trends and acknowledge returned alarms across reloads",
       }),
     });
   const showSource = async (source: string) => {
-    await page
-      .getByRole("button", { name: "Trends & alarms", exact: true })
-      .click();
+    await chooseWorkspaceSurface(page, "History");
+    await chooseWorkspaceTool(
+      page,
+      "Recorded trends & alarms",
+      "history tools",
+    );
     await page
       .getByLabel("Observation source", { exact: true })
       .selectOption(source);
@@ -147,18 +225,15 @@ test("persist simulation trends and acknowledge returned alarms across reloads",
     return receipt;
   };
   try {
-    await page
-      .locator(
-        'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"]',
-      )
-      .setInputFiles({
-        name: "alarm.bms.json",
-        mimeType: "application/json",
-        buffer,
-      });
+    await importGraph(page, {
+      name: "alarm.bms.json",
+      mimeType: "application/json",
+      buffer,
+    });
     await expect(page.locator(".toast")).toContainText(
       "Imported as a new local project",
     );
+    await graphSimulation(page);
     await page.getByLabel("Persist history", { exact: true }).check();
     const first = await step();
     expect(first.session).not.toBe(unrelated.session);
@@ -187,7 +262,9 @@ test("persist simulation trends and acknowledge returned alarms across reloads",
       .click();
     await expect(firstRow).toContainText("active · acknowledged");
     expect(await retainedEvidence()).toEqual(before);
-    await page.getByRole("button", { name: "Program", exact: true }).click();
+    await chooseWorkspaceSurface(page, "Workspace");
+    await chooseWorkspaceTask(page, "Program");
+    await graphSimulation(page);
     await page.getByLabel("Simulate sensor", { exact: true }).fill("50");
     expect((await step()).session).toBe(first.session);
     await showSource(first.recording_source);
@@ -215,7 +292,9 @@ test("persist simulation trends and acknowledge returned alarms across reloads",
     expect(csv).toContain('"good","degF"');
     expect(csv).toContain(first.recording_source);
     expect(csv).not.toContain(unrelated.recording_source);
-    await page.getByRole("button", { name: "Program", exact: true }).click();
+    await chooseWorkspaceSurface(page, "Workspace");
+    await chooseWorkspaceTask(page, "Program");
+    await graphSimulation(page);
     await page.getByLabel("Persist history", { exact: true }).check();
     const restarted = await step();
     expect(restarted.session).not.toBe(first.session);
@@ -278,7 +357,7 @@ test("persist simulation trends and acknowledge returned alarms across reloads",
 test("configure date exceptions and run an explicit UTC calendar scan", async ({
   page,
 }) => {
-  await page.goto("/");
+  await openCurrentGraph(page);
   const root = path.resolve("..");
   const buffer = execFileSync(
     path.join(root, ".venv/bin/python"),
@@ -288,22 +367,20 @@ test("configure date exceptions and run an explicit UTC calendar scan", async ({
     ],
     { cwd: root },
   );
-  await page
-    .locator(
-      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"]',
-    )
-    .setInputFiles({
-      name: "calendar.bms.json",
-      mimeType: "application/json",
-      buffer,
-    });
+  await importGraph(page, {
+    name: "calendar.bms.json",
+    mimeType: "application/json",
+    buffer,
+  });
   await page.locator('.react-flow__node[data-id="occupied"]').click();
+  await showBlockProperties(page);
   await page
     .getByLabel("Calendar exception JSON", { exact: true })
     .fill('[{"date":"2026-01-07","enabled":false}]');
   await page
     .getByRole("button", { name: "Apply calendar exceptions", exact: true })
     .click();
+  await graphSimulation(page);
   await page
     .getByLabel("Next scan UTC clock", { exact: true })
     .fill("2026-01-07T17:00");
@@ -323,7 +400,7 @@ test("configure date exceptions and run an explicit UTC calendar scan", async ({
 test("select, duplicate and delete connected groups as one undoable edit", async ({
   page,
 }) => {
-  await page.goto("/");
+  await openCurrentGraph(page);
   const root = path.resolve("..");
   const buffer = execFileSync(
     path.join(root, ".venv/bin/python"),
@@ -333,19 +410,17 @@ test("select, duplicate and delete connected groups as one undoable edit", async
     ],
     { cwd: root },
   );
-  await page
-    .locator(
-      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"]',
-    )
-    .setInputFiles({
-      name: "selection.bms.json",
-      mimeType: "application/json",
-      buffer,
-    });
+  await importGraph(page, {
+    name: "selection.bms.json",
+    mimeType: "application/json",
+    buffer,
+  });
   const rate = page.locator('.react-flow__node[data-id="rate"]');
   const out = page.locator('.react-flow__node[data-id="out"]');
   await rate.click();
+  await closeBlockProperties(page);
   await out.click({ modifiers: ["Shift"] });
+  await showBlockProperties(page);
   await expect(page.locator(".selection-panel")).toContainText(
     "2 blocks selected",
   );
@@ -355,6 +430,7 @@ test("select, duplicate and delete connected groups as one undoable edit", async
   await expect(page.locator(".react-flow__node")).toHaveCount(5);
   await expect(page.locator(".react-flow__edge")).toHaveCount(3);
   await expect(page.locator(".react-flow__node.selected")).toHaveCount(2);
+  await closeBlockProperties(page);
   const event = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export", exact: true }).click();
   const file = await event;
@@ -369,10 +445,12 @@ test("select, duplicate and delete connected groups as one undoable edit", async
       (e: any) => copyIds.includes(e.source) && copyIds.includes(e.target),
     ),
   ).toHaveLength(1);
+  await showBlockProperties(page);
   await page
     .getByRole("button", { name: "Delete selection", exact: true })
     .click();
   await expect(page.locator(".react-flow__node")).toHaveCount(3);
+  await closeBlockProperties(page);
   await page.getByTitle("Undo", { exact: true }).click();
   await expect(page.locator(".react-flow__node")).toHaveCount(5);
 });
@@ -380,7 +458,7 @@ test("select, duplicate and delete connected groups as one undoable edit", async
 test("force and release internal values, retain fault state and export force evidence", async ({
   page,
 }) => {
-  await page.goto("/");
+  await openCurrentGraph(page);
   const root = path.resolve("..");
   const buffer = execFileSync(
     path.join(root, ".venv/bin/python"),
@@ -390,23 +468,20 @@ test("force and release internal values, retain fault state and export force evi
     ],
     { cwd: root },
   );
-  await page
-    .locator(
-      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"]',
-    )
-    .setInputFiles({
-      name: "force-example.bms.json",
-      mimeType: "application/json",
-      buffer,
-    });
-  await page
-    .locator(".react-flow__node")
-    .filter({ hasText: "Rate limiter" })
-    .click();
+  await importGraph(page, {
+    name: "force-example.bms.json",
+    mimeType: "application/json",
+    buffer,
+  });
+  await graphSimulation(page);
+  const rate = page.locator('.react-flow__node[data-id="rate"]');
+  await rate.click();
+  await showBlockProperties(page);
   await page.getByLabel("Simulation force value", { exact: true }).fill("50");
   await page
     .getByRole("button", { name: "Hold simulation value", exact: true })
     .click();
+  await closeBlockProperties(page);
   await page
     .getByRole("button", { name: "Step simulation", exact: true })
     .click();
@@ -422,12 +497,14 @@ test("force and release internal values, retain fault state and export force evi
     "open-circuit",
   );
   await expect(page.locator(".elapsed")).toHaveText("1.0 s");
+  await showBlockProperties(page);
   await page
     .getByRole("button", { name: "Release simulation force", exact: true })
     .click();
   await expect(page.locator(".force-status")).toContainText(
     "Next scan: automatic. Last completed scan: 50",
   );
+  await closeBlockProperties(page);
   await page.getByLabel("Quality input", { exact: true }).selectOption("good");
   await page
     .getByRole("button", { name: "Step simulation", exact: true })
@@ -533,7 +610,7 @@ test("convert foreign native SAX and review its execution differences", async ({
 }) => {
   const support = await (await request.get("/api/native/status")).json();
   test.skip(!support.available, "Optional Sedona SDK is not installed");
-  await page.goto("/");
+  await openCurrentGraph(page);
   const root = path.resolve("..");
   const buffer = execFileSync(
     path.join(root, ".venv/bin/python"),
@@ -543,19 +620,16 @@ test("convert foreign native SAX and review its execution differences", async ({
     ],
     { cwd: root },
   );
-  await page
-    .locator(
-      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"]',
-    )
-    .setInputFiles({
-      name: "foreign.sax",
-      mimeType: "application/xml",
-      buffer,
-    });
+  await importGraph(page, {
+    name: "foreign.sax",
+    mimeType: "application/xml",
+    buffer,
+  });
   await expect(page.locator(".conversion-report")).toContainText(
     "strict scan faults",
   );
   await page.getByRole("button", { name: "Close settings" }).click();
+  await page.getByRole("button", { name: "Simulate", exact: true }).click();
   await page.getByRole("button", { name: "Step simulation" }).click();
   await expect(page.locator(".trend-legend")).toContainText("42");
   await expect(page.getByLabel("Program name")).toHaveValue(
@@ -570,7 +644,7 @@ test("export and reimport a real native Sedona application bundle", async ({
   test.setTimeout(60000);
   const support = await (await request.get("/api/native/status")).json();
   test.skip(!support.available, "Optional Sedona SDK is not installed");
-  await page.goto("/");
+  await openCurrentGraph(page);
   await page
     .getByLabel("Choose VAV template")
     .selectOption("universal-runtime-parallel-fan-reheat");
@@ -580,15 +654,11 @@ test("export and reimport a real native Sedona application bundle", async ({
   const bundle = await event;
   expect(bundle.suggestedFilename()).toMatch(/\.sedona.zip$/);
   const saved = await bundle.path();
-  await page
-    .locator(
-      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"]',
-    )
-    .setInputFiles({
-      name: "native.sedona.zip",
-      mimeType: "application/zip",
-      buffer: execFileSync("/bin/cat", [saved!]),
-    });
+  await importGraph(page, {
+    name: "native.sedona.zip",
+    mimeType: "application/zip",
+    buffer: await readFile(saved!),
+  });
   await expect(page.locator(".toast")).toContainText(
     "Imported as a new local project",
   );
@@ -605,11 +675,12 @@ test("native controller compiles, scans, adds an unconnected input and rolls bac
     !support.available,
     "Optional native Sedona compiler/SVM is not installed",
   );
-  await page.goto("/");
+  await openCurrentGraph(page);
   await page
     .getByLabel("Choose VAV template")
     .selectOption("universal-runtime-inline-reheat");
-  await page.getByRole("button", { name: "Native sim", exact: true }).click();
+  await graphSimulation(page);
+  await chooseWorkspaceTool(page, "Sedona");
   await page
     .getByRole("button", { name: "Compile and start", exact: true })
     .click();
@@ -700,7 +771,8 @@ test("native controller compiles, scans, adds an unconnected input and rolls bac
 test("simulation runs real blocks and refuses open-circuit inputs", async ({
   page,
 }) => {
-  await page.goto("/");
+  await openCurrentGraph(page);
+  await page.getByRole("button", { name: "Simulate", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Step simulation" }),
   ).toBeVisible();
@@ -726,27 +798,52 @@ test("simulation runs real blocks and refuses open-circuit inputs", async ({
 
 test("drag blocks, wire pins, edit values and undo", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "New program", exact: true }).click();
+  await page
+    .getByRole("button", { name: "New application", exact: true })
+    .click();
   const before = await page.locator(".react-flow__node").count();
+  const compact = await page
+    .getByRole("button", { name: "Open block library", exact: true })
+    .isVisible();
+  await openBlockLibrary(page);
   const constant = page
     .locator(".palette-block")
     .filter({ hasText: "Constant" });
-  await constant.dragTo(page.locator(".canvas"), {
-    targetPosition: { x: 220, y: 180 },
-  });
+  if (compact) {
+    await constant.click();
+    await closeBlockProperties(page);
+    const node = page.locator(".react-flow__node").first();
+    const initial = await node.evaluate(
+      (el) => (el as HTMLElement).style.transform,
+    );
+    const box = await node.boundingBox();
+    expect(box).toBeTruthy();
+    await page.mouse.move(box!.x + 18, box!.y + 10);
+    await page.mouse.down();
+    await page.mouse.move(box!.x + 75, box!.y + 52, { steps: 10 });
+    await page.mouse.up();
+    await expect
+      .poll(() => node.evaluate((el) => (el as HTMLElement).style.transform))
+      .not.toBe(initial);
+    await closeBlockProperties(page);
+  } else {
+    await constant.dragTo(page.locator(".canvas"), {
+      targetPosition: { x: 220, y: 180 },
+    });
+  }
   await expect(page.locator(".react-flow__node")).toHaveCount(before + 1);
+  await openBlockLibrary(page);
   await page.locator(".palette-block").filter({ hasText: "Output" }).click();
   await expect(page.locator(".react-flow__node")).toHaveCount(2);
+  await closeBlockProperties(page);
   await page.getByTitle("Fit view", { exact: true }).click();
   await page
     .locator(".react-flow__node")
     .filter({ hasText: "Constant" })
     .click();
-  await page
-    .locator(".inspector label")
-    .filter({ hasText: /^value$/ })
-    .locator("input")
-    .fill("37.5");
+  await showBlockProperties(page);
+  await page.getByLabel("value", { exact: true }).fill("37.5");
+  await closeBlockProperties(page);
   const source = page
     .locator(".react-flow__node")
     .filter({ hasText: "Constant" })
@@ -764,23 +861,27 @@ test("drag blocks, wire pins, edit values and undo", async ({ page }) => {
   });
   await page.mouse.up();
   await expect(page.locator(".react-flow__edge")).toHaveCount(1);
+  await graphSimulation(page);
   await page.getByRole("button", { name: "Step simulation" }).click();
   await expect(page.locator(".trend-legend")).not.toBeEmpty();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page
     .locator(".react-flow__node")
     .filter({ hasText: "Constant" })
     .click();
+  await showBlockProperties(page);
   await expect(page.locator(".dependency-view")).toContainText(
     "1 affected output",
   );
   await page.getByRole("button", { name: "Trace Output", exact: true }).click();
   await expect(page.locator(".inspector h3")).toHaveText("Output");
+  await closeBlockProperties(page);
   await page.getByRole("button", { name: "Undo", exact: true }).click();
   await expect(page.locator(".react-flow__edge")).toHaveCount(0);
 });
 
 test("save, export and import a graph through the GUI", async ({ page }) => {
-  await page.goto("/");
+  await openCurrentGraph(page);
   await expect(page.getByLabel("Program name")).toBeVisible();
   await page
     .getByLabel("Choose VAV template")
@@ -788,7 +889,7 @@ test("save, export and import a graph through the GUI", async ({ page }) => {
   await page
     .getByLabel("Program name")
     .fill("Browser acceptance " + Date.now());
-  await page.getByRole("button", { name: "Save revision" }).click();
+  await page.getByRole("button", { name: "Save project", exact: true }).click();
   await expect(page.locator(".toast")).toContainText("Saved revision 1");
   await page.getByLabel("Export format").selectOption("plcopen");
   const downloadEvent = page.waitForEvent("download");
@@ -797,15 +898,11 @@ test("save, export and import a graph through the GUI", async ({ page }) => {
   await expect(file.suggestedFilename()).toMatch(/\.xml$/);
   const saved = await file.path();
   expect(saved).toBeTruthy();
-  await page
-    .locator(
-      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"]',
-    )
-    .setInputFiles({
-      name: "program.xml",
-      mimeType: "application/xml",
-      buffer: execFileSync("/bin/cat", [saved!]),
-    });
+  await importGraph(page, {
+    name: "program.xml",
+    mimeType: "application/xml",
+    buffer: await readFile(saved!),
+  });
   await expect(page.locator(".toast")).toContainText(
     "Imported as a new local project",
   );
@@ -815,8 +912,6 @@ test("save, export and import a graph through the GUI", async ({ page }) => {
 test("inspect and patch a synthetic CAF without changing its model", async ({
   page,
 }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: "CAF files", exact: true }).click();
   const root = path.resolve("..");
   const buffer = execFileSync(
     path.join(root, ".venv/bin/python"),
@@ -826,19 +921,16 @@ test("inspect and patch a synthetic CAF without changing its model", async ({
     ],
     { cwd: root },
   );
-  await page.locator('input[type=file][accept=".caf"]').setInputFiles({
-    name: "synthetic.caf",
-    mimeType: "application/octet-stream",
-    buffer,
-  });
-  await expect(page.locator(".stat-grid")).toContainText("MS-VMA1630-0");
-  await page.getByRole("row").filter({ hasText: "Example" }).click();
-  await page.getByLabel("CAF property 3113", { exact: true }).fill("75");
-  await expect(page.locator(".export-strip")).toContainText(
-    "1 proposed scalar changes",
-  );
+  await openDraftCaf(page, buffer.toString("base64"), "synthetic.caf");
+  await expect(page.locator(".caf-statistics")).toContainText("MS-VMA1630-0");
+  await editScalar(page, "Example", "3113", "75");
+  await cafChanges(page);
+  const exportStrip = page.locator(".export-strip:visible");
+  await expect(exportStrip).toContainText("1 proposed scalar changes");
   const event = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export CAF copy" }).click();
+  await exportStrip
+    .getByRole("button", { name: "Save CAF copy", exact: true })
+    .click();
   const exported = await event;
   expect(exported.suggestedFilename()).toBe("synthetic-scalars.caf");
   execFileSync(
@@ -857,32 +949,60 @@ test("inspect and patch a synthetic CAF without changing its model", async ({
 });
 
 test("apply an online sandbox revision and roll back", async ({ page }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: "Runtime", exact: true }).click();
+  await openCurrentGraph(page);
+  await sandboxRuntime(page);
   await page
     .getByRole("button", { name: "Validate and preview deployment" })
     .click();
   await page.getByRole("button", { name: "Apply to sandbox runtime" }).click();
   await expect(page.locator(".stat-grid")).toContainText("Cooling Only");
-  await page.getByRole("button", { name: "Program", exact: true }).click();
-  await page.locator(".palette-block").filter({ hasText: /Input/ }).click();
+  const originalResponse = await page.request.get("/api/runtime");
+  expect(originalResponse.ok()).toBe(true);
+  const original = await originalResponse.json();
+  expect(original.program.nodes).toHaveLength(5);
+  await chooseWorkspaceSurface(page, "Workspace");
+  await chooseWorkspaceTask(page, "Program");
+  await openBlockLibrary(page);
+  await page
+    .locator(".palette-block")
+    .filter({ hasText: /^IInputsource/ })
+    .click();
+  await showBlockProperties(page);
   await page
     .locator(".inspector label")
     .filter({ hasText: /^Label$/ })
     .locator("input")
     .fill("Unused test input");
-  await page.getByRole("button", { name: "Runtime", exact: true }).click();
+  await closeBlockProperties(page);
+  await sandboxRuntime(page);
   await page
     .getByRole("button", { name: "Validate and preview deployment" })
     .click();
   await expect(page.locator(".diff-summary")).toContainText("+1 added");
   await page.getByRole("button", { name: "Apply to sandbox runtime" }).click();
-  await expect(
-    page.getByRole("button", { name: "Roll back" }).first(),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Roll back" }).last().click();
+  const originalBackup = page
+    .getByRole("row")
+    .filter({
+      has: page.getByRole("cell", {
+        name: String(original.generation),
+        exact: true,
+      }),
+    })
+    .filter({
+      has: page.getByRole("cell", { name: original.program.name, exact: true }),
+    });
+  const completed = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/runtime/rollback" &&
+      response.request().method() === "POST",
+  );
+  await originalBackup
+    .getByRole("button", { name: "Roll back", exact: true })
+    .click();
+  expect((await completed).status()).toBe(200);
   const state = await page.request.get("/api/runtime");
-  expect((await state.json()).program.nodes).toHaveLength(5);
+  expect(state.ok()).toBe(true);
+  expect((await state.json()).program).toEqual(original.program);
   await page.screenshot({
     path: "test-results/studio-runtime.png",
     fullPage: true,
@@ -890,8 +1010,8 @@ test("apply an online sandbox revision and roll back", async ({ page }) => {
 });
 
 test("capabilities disclose native and hardware gaps", async ({ page }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: "Reference", exact: true }).click();
+  await openCurrentGraph(page);
+  await chooseWorkspaceSurface(page, "Help");
   await expect(
     page.getByRole("row").filter({ hasText: "Native vendor formats" }),
   ).toContainText("partial");
@@ -904,5 +1024,6 @@ test("capabilities disclose native and hardware gaps", async ({ page }) => {
   await expect(page.locator(".connection-badge")).toContainText(
     "No BACnet interface open",
   );
+  await chooseWorkspaceTool(page, "Direct MS/TP", "Connection transport");
   await expect(page.getByText("SERIAL MASTER", { exact: true })).toBeVisible();
 });
