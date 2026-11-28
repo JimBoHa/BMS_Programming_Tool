@@ -11,6 +11,36 @@ export type SnapshotRestoreArchive = NativeArchiveSource & { identity: Data };
 export const snapshotRestoreBase =
   "/bacnet/controller/native-application/application-restore";
 export const snapshotRestoreProfile = "native-retained-application-restore/1";
+export const restoreFileComparisonProfile =
+  "native-retained-application-file-comparison/1";
+
+export function restoreFileComparison(
+  observation: Data,
+  intent: Data,
+  controller: ControllerContext,
+  operationID: string,
+) {
+  return (
+    observation?.profile === restoreFileComparisonProfile &&
+    observation.operation_id === operationID &&
+    observation.receipt_id === intent.id &&
+    observation.read_only === true &&
+    observation.file === "file,3" &&
+    snapshotRestoreTarget(observation.target, controller) &&
+    Number.isSafeInteger(observation.bytes) &&
+    observation.bytes > 0 &&
+    restoreHash(observation.file_sha256) &&
+    restoreHash(observation.observed_native_sha256) &&
+    restoreHash(intent.native_payload_sha256) &&
+    observation.expected_native_sha256 === intent.native_payload_sha256 &&
+    observation.status ===
+      (observation.observed_native_sha256 === intent.native_payload_sha256
+        ? "matched"
+        : "different") &&
+    Number.isFinite(Date.parse(observation.started_at)) &&
+    Date.parse(observation.checked_at) >= Date.parse(observation.started_at)
+  );
+}
 export const snapshotRestoreSourceProfile =
   "native-retained-application-restore-source/1";
 export const snapshotRestoreCompilationProfile =
