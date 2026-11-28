@@ -48,7 +48,10 @@ changing unrelated native records or weakening byte-preservation verification.
 Stored defaults originate in the opened archive. A native block's **Live** badge
 uses the selected controller's separate, identity-verified property read and its
 read timestamp. Previous readings are labelled **Last read** when acquisition
-fails. The captured graph, returned diagram and live response are retained with
+fails. A numeric live reading includes the engineering unit returned by that
+object. The block shows an override, alarm, fault, out-of-service condition or
+unavailable status flags when applicable. Its inspector lists all reported
+conditions and the original property evidence. The captured graph, returned diagram and live response are retained with
 their source, capture, diagram and selected-object identities, so a delayed reply
 cannot supply another block or controller's displayed value. The existing field
 read lifecycle and explicit change reviews remain in place.

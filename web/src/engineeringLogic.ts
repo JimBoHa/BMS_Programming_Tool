@@ -12,6 +12,7 @@ export type LiveLogicValue = {
   ref: string;
   text: string;
   at: string;
+  conditions?: string[];
   error?: string;
 };
 

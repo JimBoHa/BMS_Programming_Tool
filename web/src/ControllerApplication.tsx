@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
 import { NativeSignalDefaultCopy } from "./NativeSignalDefaultCopy";
+import { logicReadingConditions, logicReadingUnit } from "./logicPointReading";
 import { controllerKey, type ControllerContext } from "./workflow";
 import "./controller-application.css";
 import { NativeRecords } from "./NativeRecords";
@@ -229,13 +230,20 @@ export function ControllerApplicationPanel({
   const parentModule = report?.application?.diagrams
     .filter((row: RecordValue) => ref.startsWith(row.ref + "."))
     .sort((a: RecordValue, b: RecordValue) => b.ref.length - a.ref.length)[0];
-  const pv = values?.objects?.[0]?.properties?.["present-value"];
+  const properties = values?.objects?.[0]?.properties;
+  const pv = properties?.["present-value"];
   const liveValue =
     block && pv?.status === "ok"
       ? {
           source: archiveKey,
           ref: block.ref,
-          text: text(pv.value),
+          text: [
+            text(pv.value),
+            typeof pv.value === "number" ? logicReadingUnit(properties) : "",
+          ]
+            .filter(Boolean)
+            .join(" "),
+          conditions: logicReadingConditions(properties),
           at: values!.finished_at,
           error: liveError || undefined,
         }
@@ -486,6 +494,11 @@ export function ControllerApplicationPanel({
                           {values && (
                             <>
                               <p>Read at {values.finished_at}</p>
+                              {!!liveValue?.conditions.length && (
+                                <p className="logic-reading-quality">
+                                  {liveValue.conditions.join(" · ")}
+                                </p>
+                              )}
                               <dl>
                                 {Object.entries(values.objects[0].properties)
                                   .filter(
