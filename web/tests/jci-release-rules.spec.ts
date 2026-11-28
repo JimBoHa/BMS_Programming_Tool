@@ -3,22 +3,42 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 const root = path.resolve(".."),
   python = path.join(root, ".venv/bin/python");
+const env = { ...process.env, PYTHONPATH: path.join(root, "backend") };
+
+async function chooseCafTask(page: Page, label: string) {
+  const tabs = page.getByRole("navigation", {
+    name: "CAF application tasks",
+    exact: true,
+  });
+  await expect(tabs).toBeVisible();
+  const compact = tabs.getByRole("combobox", {
+    name: "CAF application tasks",
+    exact: true,
+  });
+  if (await compact.isVisible()) await compact.selectOption({ label });
+  else await tabs.getByRole("button", { name: label, exact: true }).click();
+}
+
 async function open(page: Page, product = "CCT", version = "18.0") {
   await page.goto("/");
-  await page.getByRole("button", { name: "CAF files", exact: true }).click();
   const buffer = execFileSync(
     python,
     [
       "-c",
       "from tests.test_jci_preflight import application;import sys;sys.stdout.buffer.write(application().original)",
     ],
-    { cwd: root },
+    { cwd: root, env },
   );
-  await page.locator('input[type=file][accept=".caf"]').setInputFiles({
+  const choosing = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: /^Open a CAF file/ }).click();
+  await (
+    await choosing
+  ).setFiles({
     name: "authored.caf",
     mimeType: "application/octet-stream",
     buffer,
   });
+  await chooseCafTask(page, "Compatibility");
   const panel = page.getByRole("region", {
     name: "JCI target readiness",
     exact: true,
@@ -36,7 +56,7 @@ async function open(page: Page, product = "CCT", version = "18.0") {
         "-c",
         "from tests.test_jci_preflight import inventory;import json;print(json.dumps(inventory()))",
       ],
-      { cwd: root, encoding: "utf8" },
+      { cwd: root, encoding: "utf8", env },
     ),
   );
   manifest.toolchain.product = product;
@@ -278,8 +298,8 @@ test("hidden CAF workspace retires delayed review and cannot revive it on return
     .getByRole("button", { name: "Run target preflight", exact: true })
     .click();
   await requested;
-  await page.getByRole("button", { name: "Program", exact: true }).click();
-  await page.getByRole("button", { name: "CAF files", exact: true }).click();
+  await chooseCafTask(page, "Objects & parameters");
+  await chooseCafTask(page, "Compatibility");
   release();
   await completed;
   await expect(
