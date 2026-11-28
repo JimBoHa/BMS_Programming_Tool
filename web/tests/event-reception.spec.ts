@@ -1,4 +1,9 @@
 import { test, expect } from "@playwright/test";
+import { selectKnownController } from "./workflow-navigation";
+import {
+  chooseWorkspaceTask,
+  chooseWorkspaceTool,
+} from "./workspace-navigation";
 import { execFileSync, spawn } from "node:child_process";
 import { createSocket } from "node:dgram";
 import { readFileSync } from "node:fs";
@@ -16,7 +21,7 @@ async function freePort(): Promise<number> {
     });
   });
 }
-async function peer(routed: boolean) {
+async function peer(routed: boolean, instance = 4190010) {
   const root = path.resolve("..");
   const child = spawn(
     path.join(root, ".venv/bin/python"),
@@ -25,10 +30,17 @@ async function peer(routed: boolean) {
       "-c",
       `
 import asyncio,json,sys
-from tests.test_event_reception import RawEvents,notification
+from tests.test_event_reception import RawEvents,bvlc,notification,npdu,split_npdu
+from tests.browser_device_identity import device_property_reply
 class Peer(RawEvents):
     def datagram_received(self,data,source):
-        super().datagram_received(data,source)
+        apdu, destination = split_npdu(data[4:])
+        body = device_property_reply(apdu,${instance})
+        if body is not None and apdu[9:] != bytes.fromhex("194b"):
+            assert destination == ((2001,bytes([4])) if self.routed else None)
+            self.transport.sendto(bvlc(10,npdu(body,source=(2001,4) if self.routed else None)),source)
+        else:
+            super().datagram_received(data,source)
         print(json.dumps({"acks":len(self.acks),"frames":len(self.frames),"errors":[str(e) for e in self.errors]}),flush=True)
 async def main():
     transport,peer=await asyncio.get_running_loop().create_datagram_endpoint(lambda:Peer(${routed ? "True" : "False"}),local_addr=("127.0.0.1",0))
@@ -80,6 +92,7 @@ for (const routed of [false, true]) {
     request,
   }) => {
     const server = await peer(routed);
+    const other = await peer(routed, 4190011);
     const token = (await (await request.get("/api/session")).json()).token;
     const headers = { "X-Studio-Token": token };
     const errors: string[] = [];
@@ -91,30 +104,45 @@ for (const routed of [false, true]) {
         data: { local_address: `127.0.0.1:${await freePort()}` },
       });
       await page.goto("/");
-      await page.getByRole("button", { name: "Connect", exact: true }).click();
+      const openSource = async (
+        endpoint = server.endpoint,
+        device = "device,4190010",
+      ) => {
+        await selectKnownController(
+          page,
+          routed ? "2001:4" : endpoint,
+          device,
+          routed ? { router: endpoint, dnet: 2001 } : undefined,
+        );
+      };
+      const openReceiver = async () => {
+        await chooseWorkspaceTask(page, "Trends & Alarms");
+        await chooseWorkspaceTool(
+          page,
+          "Event reception",
+          "Controller task tools",
+        );
+      };
+      await openSource();
+      const initialFrames = server.state.frames;
+      await openReceiver();
       const panel = page.getByRole("region", {
         name: "Finite BACnet event reception",
         exact: true,
       });
-      expect(server.state.frames).toBe(0);
-      await panel
-        .getByLabel("Event source address", { exact: true })
-        .fill(routed ? "2001:4" : server.endpoint);
-      await panel
-        .getByLabel("Event source Device", { exact: true })
-        .fill("device,4190010");
+      expect(server.state.frames).toBe(initialFrames);
+      await expect(
+        panel.getByLabel("Event source address", { exact: true }),
+      ).toHaveCount(0);
+      await expect(
+        panel.getByLabel("Event source Device", { exact: true }),
+      ).toHaveCount(0);
       await panel
         .getByLabel("Optional event object filter", { exact: true })
         .fill("analog-value,1");
       await panel
         .getByLabel("Listen duration in seconds", { exact: true })
         .fill("30");
-      if (routed) {
-        await panel
-          .getByLabel("Event router endpoint", { exact: true })
-          .fill(server.endpoint);
-        await panel.getByLabel("Event DNET", { exact: true }).fill("2001");
-      }
       await panel
         .getByRole("button", {
           name: "Verify identity and start finite listener",
@@ -131,13 +159,13 @@ for (const routed of [false, true]) {
           exact: true,
         }),
       ).toBeDisabled();
-      expect(server.state.frames).toBe(2);
+      expect(server.state.frames - initialFrames).toBe(2);
       server.child.stdin.write("emit\n");
       await expect(receipt).toContainText("Received: 3");
       await expect.poll(() => server.state.acks).toBe(2);
       await panel
-        .getByLabel("Event source address", { exact: true })
-        .fill("127.0.0.1:49998");
+        .getByLabel("Optional event object filter", { exact: true })
+        .fill("analog-value,2");
       await receipt
         .getByRole("button", { name: "Stop event listener", exact: true })
         .click();
@@ -180,6 +208,9 @@ print('native-floats-and-seal-verified')
       expect(verification.trim()).toBe("native-floats-and-seal-verified");
       expect(data.received).toBe(3);
       expect(data.config.address).toBe(routed ? "2001:4" : server.endpoint);
+      expect(data.config.router).toBe(routed ? server.endpoint : null);
+      expect(data.config.dnet).toBe(routed ? 2001 : null);
+      expect(data.config.object_id).toBe("analog-value,1");
       expect(data.events[2].event_values_decode_status).toBe("opaque");
       expect(data.events[0].operator_acknowledged).toBeNull();
       expect(data.events[0].source_clock_utc).toBeNull();
@@ -214,36 +245,42 @@ print('native-floats-and-seal-verified')
           .click();
         await requested;
         if (change === "source") {
-          await page
-            .getByLabel("Unicast target", { exact: true })
-            .fill("127.0.0.1:49996");
-          await expect(
-            panel.getByLabel("Event source address", { exact: true }),
-          ).toHaveValue("127.0.0.1:49996");
+          await openSource(other.endpoint, "device,4190011");
         } else {
-          await page
-            .getByRole("button", { name: "Program", exact: true })
-            .click();
-          await expect(panel).toHaveCount(0);
+          await chooseWorkspaceTask(page, "Program");
         }
-        const refreshed = page.waitForResponse((response) =>
-          response.url().endsWith("/api/bacnet/event-reception/status"),
+        await expect(panel).toHaveCount(0);
+        const delivered = page.waitForResponse((response) =>
+          response.url().endsWith("/snapshots/" + data.id),
         );
         release();
-        await refreshed;
+        await (await delivered).finished();
         expect(unexpected).toEqual([]);
         page.off("download", downloaded);
         await page.unroute(routePath);
-        if (change === "source")
+        if (change === "source") {
+          await openReceiver();
+          await panel
+            .getByRole("button", {
+              name: "Load saved event receipts",
+              exact: true,
+            })
+            .click();
+          await panel
+            .getByRole("button", { name: new RegExp(`^${data.id} ·`) })
+            .click();
+          await expect(receipt).toContainText("device,4190010");
           await expect(
             receipt.getByRole("button", {
               name: "Export event reception receipt",
               exact: true,
             }),
           ).toBeEnabled();
+        }
       }
       await page.reload();
-      await page.getByRole("button", { name: "Connect", exact: true }).click();
+      await openSource();
+      await openReceiver();
       await panel
         .getByRole("button", { name: "Load saved event receipts", exact: true })
         .click();
@@ -257,6 +294,7 @@ print('native-floats-and-seal-verified')
       ).toContainText("Received: 3");
     } finally {
       server.child.kill();
+      other.child.kill();
       await request.post("/api/bacnet/disconnect", { headers, data: {} });
     }
   });

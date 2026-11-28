@@ -1,4 +1,12 @@
 import { test, expect } from "@playwright/test";
+import {
+  openConnectionDetails,
+  selectKnownController,
+} from "./workflow-navigation";
+import {
+  chooseWorkspaceTask,
+  chooseWorkspaceTool,
+} from "./workspace-navigation";
 import { spawn } from "node:child_process";
 import { createSocket } from "node:dgram";
 import { readFileSync } from "node:fs";
@@ -32,9 +40,10 @@ async def main():
         value=point();value.objectIdentifier=('analog-value',number);value.objectName='Loopback value '+str(number);app.add_object(value)
     original=app.do_ReadPropertyRequest
     delayed=False
+    armed=False
     async def read(request):
         nonlocal delayed
-        if str(request.propertyIdentifier)=='object-list' and request.propertyArrayIndex==4 and not delayed:
+        if armed and str(request.propertyIdentifier)=='object-list' and request.propertyArrayIndex==4 and not delayed:
             delayed=True
             await asyncio.sleep(1.25)
             return
@@ -42,7 +51,11 @@ async def main():
     app.do_ReadPropertyRequest=read
     await asyncio.sleep(.05)
     print(json.dumps({'port':port,'total':len(app.objectIdentifier)}),flush=True)
-    try: await asyncio.to_thread(sys.stdin.readline)
+    try:
+        while command:=await asyncio.to_thread(sys.stdin.readline):
+            if command.strip()!="arm": break
+            armed=True
+            print("armed",flush=True)
     finally: close_application(app);await asyncio.sleep(.05)
 asyncio.run(main())
 `,
@@ -81,6 +94,17 @@ asyncio.run(main())
   );
   return {
     ...data,
+    async armTimeout() {
+      const armed = new Promise<void>((resolve, reject) => {
+        child.stdout.once("data", (chunk) =>
+          String(chunk).trim() === "armed"
+            ? resolve()
+            : reject(new Error("Peer did not arm")),
+        );
+      });
+      child.stdin.write("arm\n");
+      await armed;
+    },
     async close() {
       const finished = new Promise<number | null>((resolve) =>
         child.once("exit", resolve),
@@ -106,7 +130,7 @@ test("object-list pages preserve actual UDP partial reads, explicit continuation
   try {
     await request.post("/api/bacnet/disconnect", { headers, data: {} });
     await page.goto("/");
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
+    await openConnectionDetails(page);
     await page
       .getByLabel("Local bind address / UDP port", { exact: true })
       .fill(`127.0.0.1:${await freePort()}`);
@@ -120,10 +144,16 @@ test("object-list pages preserve actual UDP partial reads, explicit continuation
     await page
       .getByRole("button", { name: "Open interface", exact: true })
       .click();
+    await selectKnownController(page, target, "device,4190032");
+    await chooseWorkspaceTask(page, "Points & I/O");
+    await chooseWorkspaceTool(page, "Read properties", "Controller task tools");
+    await peer.armTimeout();
     await expect(
       page.getByRole("button", { name: "Read object list", exact: true }),
     ).toBeEnabled();
-    await page.getByLabel("Unicast target", { exact: true }).fill(target);
+    const address = page.getByLabel("Controller address", { exact: true });
+    await expect(address).toHaveValue(target);
+    await expect(address).toHaveJSProperty("readOnly", true);
     await page
       .getByLabel("Object identifier", { exact: true })
       .fill("device,4190032");
@@ -145,9 +175,7 @@ test("object-list pages preserve actual UDP partial reads, explicit continuation
     await report
       .getByRole("button", { name: "Read next object-list page", exact: true })
       .click();
-    await expect(
-      page.getByLabel("Unicast target", { exact: true }),
-    ).toBeDisabled();
+    await expect(address).toBeDisabled();
     await expect(report).toContainText("Page request incomplete");
     await expect(report.getByRole("alert")).toContainText("timed out");
     await expect(report.locator("tbody tr")).toHaveCount(1);

@@ -1,4 +1,8 @@
 import { test, expect } from "./simulationFixture";
+import {
+  chooseWorkspaceSurface,
+  chooseWorkspaceTool,
+} from "./workspace-navigation";
 import { spawn, execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -90,9 +94,8 @@ for (const failed of [false, true]) {
       source = "";
     try {
       await page.goto("/");
-      await page
-        .getByRole("button", { name: "Alarm delivery", exact: true })
-        .click();
+      await chooseWorkspaceSurface(page, "Settings");
+      await chooseWorkspaceTool(page, "Alarm delivery", "settings tools");
       await expect(
         page.getByRole("region", {
           name: "Create alarm delivery route",
