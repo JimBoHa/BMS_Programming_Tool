@@ -28,6 +28,30 @@ snapshotFixture(
   false,
   true,
 )(
+  "the operator can keep advancing counters on a matching-program reinstall",
+  async ({ page, snapshot }) => {
+    const { panel } = await openSnapshot(page, snapshot.seeded);
+    await panel.getByLabel("Reinstall only if", { exact: false }).check();
+    await panel
+      .getByLabel("Keep advancing runtime counters", { exact: false })
+      .check();
+    const { reviewed, apply } = await reviewSnapshot(page, panel, true);
+    await expect(reviewed).toContainText("latest qualified runtime counters");
+    await apply.click();
+    await expect(verified(panel)).toContainText("pre-write counters verified", {
+      timeout: 30000,
+    });
+    expect(
+      restores((await snapshot.peer.command("stats")).events),
+    ).toHaveLength(1);
+  },
+);
+
+snapshotFixture(
+  true,
+  false,
+  true,
+)(
   "matching program reinstall binds explicit intent and verifies the full program",
   async ({ page, snapshot }, info) => {
     const { peer, seeded } = snapshot;

@@ -119,9 +119,9 @@ another edit/recovery family or authorize a replay.
 
 ## Reproducible software qualification and remaining scope
 
-`scripts/qualify_native_order.py` declares 536 backend cases for each of the
-source and installed builds. Each of the four browser jobs declares 540 browser
-and contract cases plus six connection cases, for 3,256 executions overall.
+`scripts/qualify_native_order.py` declares 544 backend cases for each of the
+source and installed builds. Each of the four browser jobs declares 542 browser
+and contract cases plus six connection cases, for 3,280 executions overall.
 The backend suite also exercises matching-program restore verification.
 
 The original 417 backend, 480 browser and six connection cases are retained.
@@ -156,3 +156,19 @@ can acquire its first specific value. An explicitly unsupported property or a
 time-only marker is recorded as such. Complete file and commit acknowledgements,
 native and saved-setting readback and operational identity are still required.
 A pending receipt can be read again without sending another download.
+
+### Keeping current counters
+
+Select **Reinstall only if the complete program and saved settings already match**.
+Select **Keep advancing runtime counters** to carry the latest saved readings
+into the reinstalled application. The tool checks the selected backup against a
+new controller capture, then checks again immediately before transfer. The
+application, parameter directory and all other saved configuration must match.
+Counter eligibility uses the native property type, its owning object and the
+applicable native release. A drop in a qualified counter requires a fresh review.
+
+The receipt records the reviewed image hash and the image actually sent. These
+can differ when elapsed time or another qualified counter advances. Verification
+requires the controller to return the transmitted application and independently
+confirms its effective saved values. The original backup and exact-image mode
+remain available.

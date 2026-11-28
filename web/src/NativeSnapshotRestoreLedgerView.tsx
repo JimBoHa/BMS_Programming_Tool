@@ -1,5 +1,9 @@
 import { saveBlob } from "./api";
-import { restoreID, restoreHash } from "./nativeSnapshotRestoreContract";
+import {
+  restoreID,
+  restoreHash,
+  isMatchingReinstall,
+} from "./nativeSnapshotRestoreContract";
 type Data = Record<string, any>;
 export const snapshotRestoreRecordedProfile =
   "native-retained-application-restore-recorded/1";
@@ -8,6 +12,7 @@ export const snapshotRestoreRecordedScope =
 export function recordedSnapshotRestore(row?: Data | null): Data | null {
   try {
     const v = row?.native_application_restore;
+    const reinstall = isMatchingReinstall(v?.compilation_profile);
     if (
       row?.source !== "native" ||
       row.native_change_kind !== "application-restore" ||
@@ -15,7 +20,7 @@ export function recordedSnapshotRestore(row?: Data | null): Data | null {
       v.state !== "recorded" ||
       v.profile !== snapshotRestoreRecordedProfile ||
       v.scope !== snapshotRestoreRecordedScope ||
-      Object.keys(v).length !== 15 ||
+      Object.keys(v).length !== (reinstall ? 16 : 15) ||
       v.child_receipt_id !== row.id ||
       ![
         v.child_receipt_id,
@@ -63,7 +68,12 @@ export function recordedSnapshotRestore(row?: Data | null): Data | null {
       d.changed_existing_records > d.before_records - d.removed_records ||
       !restoreHash(d.before_native_sha256) ||
       d.restored_native_sha256 !== v.compiled_native_sha256 ||
-      d.before_native_sha256 === d.restored_native_sha256
+      (d.before_native_sha256 === d.restored_native_sha256) !== reinstall ||
+      (reinstall &&
+        (d.before_records !== d.restored_records ||
+          d.added_records !== 0 ||
+          d.removed_records !== 0 ||
+          d.changed_existing_records !== 0))
     )
       return null;
     return v;

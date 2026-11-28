@@ -19,7 +19,7 @@ function data(kind = "verified") {
   );
   return structuredClone(fixture[kind]);
 }
-for (const kind of ["verified", "uncertain", "recovered-original"])
+for (const kind of ["verified", "uncertain", "recovered-original", "running"])
   test(`actual ${kind} retained image, review, receipt and recorded provenance satisfy contract`, async () => {
     const f = data(kind);
     expect(await snapshotRestoreSource(f.inspected, f.archive)).toBe(true);

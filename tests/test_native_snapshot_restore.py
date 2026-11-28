@@ -739,6 +739,100 @@ async def test_matching_reinstall_rejects_different_current_program(native_link)
     assert not native.plans and not mutations(peer)
 
 
+@pytest.mark.parametrize("mode", ["normal", "drop-end", "regressed-readback"])
+async def test_matching_reinstall_carries_prewrite_counter_and_records_its_bytes(native_link, mode):
+    peer, _, _, native, target = native_link
+    peer.files = with_counter(pid=33)
+    captured = await native.capture(**target, operation_id="capture-running-program")
+    retained, _ = native.storage.load(captured["id"])
+    real_slot(peer.files, -5, (8).to_bytes(4, "big"))
+    plan = await native.preview_snapshot_restore(
+        **target,
+        **saved_request(retained),
+        operation_id="review-running-program",
+        reinstall_matching_image=True,
+        preserve_live_counters=True,
+    )
+    real_slot(peer.files, -5, (10).to_bytes(4, "big"))
+    prewrite = copy.deepcopy(peer.files)
+    if mode == "regressed-readback":
+        post = copy.deepcopy(prewrite)
+        real_slot(post, -5, (9).to_bytes(4, "big"))
+        consume_historical_storage(peer, post)
+    else:
+        peer.mode = mode
+        consume_historical_storage(peer, prewrite)
+    receipt = await native.apply_snapshot_restore(
+        **apply_request(
+            plan,
+            reinstall_matching_image_confirmed=True,
+            preserve_live_counters_confirmed=True,
+        )
+    )
+    intent = receipt["intent"]
+    assert mutations(peer).count(("state", "start-restore")) == 1
+    assert intent["payload_sha256"] != plan["payload_sha256"]
+    assert intent["compilation"]["reviewed_payload_sha256"] == plan["payload_sha256"]
+    assert intent["compilation"]["difference"]["changed_existing_records"] == 0
+    assert sha(reconstruct_intent(native.storage, intent)) == intent["payload_sha256"]
+    if mode == "normal":
+        app = MoiIdentity(peer.files[3])
+        counter = next(r for r in app.records if r["class_id"] == 777)
+        assert app.reader.scalar(counter, 33) == 10
+        assert receipt["result"]["status"] == "verified"
+        proof = receipt["result"]["preservation"]
+        assert proof["prewrite_application_and_counters_verified"]
+        assert not proof["restored_application_matches_retained_source"]
+    else:
+        assert receipt["pending"] and receipt["result"]["status"] == "unknown"
+        reopened = await native.reconcile(
+            operation_id="read-running-receipt", receipt_id=intent["id"]
+        )
+        assert reopened["pending"] and reopened["latest_readback"]["status"] == "unknown"
+        assert mutations(peer).count(("state", "start-restore")) == 1
+
+
+@pytest.mark.parametrize(
+    "drift", ["retained-regresses", "fresh-regresses", "setting", "program", "confirmation"]
+)
+async def test_counter_reinstall_rejects_every_other_change_before_transfer(native_link, drift):
+    peer, _, _, native, target = native_link
+    peer.files = with_counter(pid=33)
+    captured = await native.capture(**target, operation_id="capture-counter-guard")
+    retained, _ = native.storage.load(captured["id"])
+    options = dict(
+        **target,
+        **saved_request(retained),
+        operation_id="review-counter-guard",
+        reinstall_matching_image=True,
+        preserve_live_counters=True,
+    )
+    real_slot(peer.files, -5, (6 if drift == "retained-regresses" else 9).to_bytes(4, "big"))
+    if drift == "retained-regresses":
+        with pytest.raises(ValueError, match="configuration changed"):
+            await native.preview_snapshot_restore(**options)
+    else:
+        plan = await native.preview_snapshot_restore(**options)
+        if drift == "fresh-regresses":
+            real_slot(peer.files, -5, (8).to_bytes(4, "big"))
+        elif drift == "setting":
+            real_slot(peer.files, 4, struct.pack(">f", 41.5))
+        elif drift == "program":
+            peer.files = files(modules=4)
+        apply = apply_request(
+            plan,
+            reinstall_matching_image_confirmed=True,
+            preserve_live_counters_confirmed=drift != "confirmation",
+        )
+        if drift == "confirmation":
+            with pytest.raises(ValueError, match="Confirm"):
+                await native.apply_snapshot_restore(**apply)
+        else:
+            result = await native.apply_snapshot_restore(**apply)
+            assert result["intent"] is None and result["result"]["status"] == "not_sent"
+    assert not mutations(peer)
+
+
 @pytest.mark.parametrize("wrong", ["address", "device", "router", "network"])
 async def test_foreign_route_is_rejected_before_current_controller_reads(native_link, wrong):
     peer, _, _, native, initial = native_link
