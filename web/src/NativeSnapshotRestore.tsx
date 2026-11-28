@@ -53,6 +53,44 @@ function configuration(key?: string) {
   }
 }
 
+function SavedParameterDifferences({ data }: { data?: Data }) {
+  if (
+    data?.profile !== "native-saved-parameter-differences/1" ||
+    !Number.isSafeInteger(data.total) ||
+    data.total < 1 ||
+    !Array.isArray(data.fields) ||
+    data.fields.length !== Math.min(data.total, 32) ||
+    !data.fields.every(
+      (f: Data) =>
+        f &&
+        typeof f.property_name === "string" &&
+        [f.class, f.instance, f.property].every(Number.isSafeInteger),
+    )
+  )
+    return null;
+  return (
+    <details>
+      <summary>Inspect saved setting differences ({data.total})</summary>
+      <ul>
+        {data.fields.map((f: Data) => (
+          <li key={[f.class, f.instance, f.property].join("/")}>
+            {f.property_name} · Class {f.class}, instance {f.instance}, property{" "}
+            {f.property}.
+            {f.class === 598 &&
+              f.property === 3590 &&
+              Number.isSafeInteger(f.application_value) &&
+              Number.isSafeInteger(f.current_saved_value) &&
+              ` Application value ${f.application_value}. Saved readback ${f.current_saved_value}.`}
+          </li>
+        ))}
+      </ul>
+      {data.total > data.fields.length && (
+        <p>The first {data.fields.length} differences are listed.</p>
+      )}
+    </details>
+  );
+}
+
 export function NativeSnapshotRestore({
   source,
   controller,
@@ -800,6 +838,11 @@ export function NativeSnapshotRestore({
                   <p key={index}>{text}</p>
                 ))}
                 {observed?.error && <p>{observed.error}</p>}
+                {observed?.status === "unknown" && (
+                  <SavedParameterDifferences
+                    data={observed.saved_parameter_differences}
+                  />
+                )}
                 <button
                   disabled={!visible}
                   onClick={() => {

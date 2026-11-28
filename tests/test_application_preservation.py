@@ -5,7 +5,7 @@ import struct
 
 import pytest
 from bacpypes3.primitivedata import CharacterString, Real, Unsigned
-from bms_tool.application_preservation import verify_preservation
+from bms_tool.application_preservation import SavedParameterMismatch, verify_preservation
 from bms_tool.moi_identity import MoiIdentity
 from bms_tool.moi_parameters import ParameterApplication
 from bms_tool.mstp import header_crc
@@ -282,3 +282,19 @@ def test_flow_calibration_nonfinite_saved_value_still_fails():
     add_saved_real(after, 570, 3506, float("nan"))
     with pytest.raises(ValueError, match="Nonfinite"):
         name_proof(before, after)
+
+
+def test_disclosure_is_bounded_and_does_not_expose_arbitrary_saved_values():
+    before, after = renamed_snapshots()
+    for offset in range(35):
+        add_saved_real(before, 800 + offset, 7000 + offset, 0.25)
+        add_saved_real(after, 800 + offset, 7000 + offset, -0.125)
+    with pytest.raises(SavedParameterMismatch) as failure:
+        name_proof(before, after)
+    differences = failure.value.evidence
+    assert differences["total"] == 35 and len(differences["fields"]) == 32
+    assert all(
+        set(field) == {"class", "instance", "property", "property_name"}
+        for field in differences["fields"]
+    )
+    assert "0.125" not in str(failure.value)

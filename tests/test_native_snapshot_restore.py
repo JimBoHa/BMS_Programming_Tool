@@ -15,6 +15,7 @@ from bacpypes3.primitivedata import (
     Unsigned,
 )
 from bms_tool.app import create_app
+from bms_tool.application_preservation import SavedParameterMismatch, runtime_parameter_changes
 from bms_tool.moi_identity import MoiIdentity, seal, sha
 from bms_tool.moi_parameters import ParameterApplication
 from bms_tool.mstp import header_crc
@@ -317,11 +318,24 @@ async def test_ack_without_complete_application_saved_values_and_operational_sta
             peer.do_ReinitializeDeviceRequest = types.MethodType(changed, peer)
     result = await native.apply_snapshot_restore(**apply_request(plan))
     assert result["pending"] and result["result"]["status"] == "unknown", result
+    if mode in ("changed-saved-setting", "bad-saved-value"):
+        readback = result["result"]
+        difference = readback["saved_parameter_differences"]
+        assert difference["total"] == 1 and len(difference["fields"]) == 1
+        field = difference["fields"][0]
+        assert field["property"] == (904 if mode == "changed-saved-setting" else 900)
+        assert set(field) == {"class", "instance", "property", "property_name"}
+        assert readback["native_sha256"] == readback["expected_native_sha256"]
+        reread = await native.reconcile(
+            operation_id="recheck-saved-drift", receipt_id=result["intent"]["id"]
+        )
+        assert reread["latest_readback"]["saved_parameter_differences"] == difference
+        assert reread["pending"] and reread["latest_readback"]["status"] == "unknown"
     assert mutations(peer).count(("state", "start-restore")) == 1
     assert mutations(peer).count(("state", "end-restore")) == 1
 
 
-def with_counter(*, object_type=3, pid=15, legacy=False, version=62):
+def with_counter(*, object_type=3, pid=15, legacy=False, version=62, native_class=777):
     data = files(modules=1)
     native = gzip.decompress(data[3])
     if version != 62:
@@ -332,7 +346,7 @@ def with_counter(*, object_type=3, pid=15, legacy=False, version=62):
             payload = bytes([version])
             dynamic[at : at + 2] = payload + bytes([header_crc(payload) ^ 255])
         data[12] = bytes(dynamic)
-    cid, instance, property_id = (251, 77, 978) if legacy else (777, 77, pid)
+    cid, instance, property_id = (251, 77, 978) if legacy else (native_class, 77, pid)
     row = native_record(
         cid,
         instance,
@@ -356,6 +370,24 @@ def with_counter(*, object_type=3, pid=15, legacy=False, version=62):
     payload = (7).to_bytes(4, "big")
     data[12] += payload + bytes([header_crc(payload) ^ 255])
     return data
+
+
+@pytest.mark.parametrize("cid", [598, 599])
+def test_only_a_typed_expansion_startup_difference_discloses_numeric_values(cid):
+    files = with_counter(object_type=cid, native_class=cid, pid=3590)
+    image, _ = ParameterApplication(files[3], files[11], files[12]).compile()
+    real_slot(files, -5, (8).to_bytes(4, "big"))
+    with pytest.raises(SavedParameterMismatch) as failure:
+        runtime_parameter_changes(
+            MoiIdentity(image), ParameterApplication(image, files[11], files[12])
+        )
+    (difference,) = failure.value.evidence["fields"]
+    assert difference["class"] == cid and difference["instance"] == 77
+    assert difference["property"] == 3590
+    if cid == 598:
+        assert difference["application_value"] == 7 and difference["current_saved_value"] == 8
+    else:
+        assert "application_value" not in difference and "current_saved_value" not in difference
 
 
 @pytest.mark.parametrize("kind", ["binary-COS", "binary-elapsed", "legacy60"])

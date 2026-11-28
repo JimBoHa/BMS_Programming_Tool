@@ -16,7 +16,7 @@ from pydantic import Field, SecretStr, StrictBool, field_validator
 
 from . import native_restore_witness as restore_witness
 from .application_files import ApplicationFiles
-from .application_preservation import verify_preservation
+from .application_preservation import SavedParameterMismatch, verify_preservation
 from .application_store import (
     PROFILE,
     ApplicationCredentials,
@@ -1737,6 +1737,8 @@ class NativeApplications(
                 )
         except (ValueError, TimeoutError, OSError) as exc:
             result["error"] = (str(exc) or "Application readback timed out.")[:512]
+            if isinstance(exc, SavedParameterMismatch):
+                result["saved_parameter_differences"] = exc.evidence
         return result
 
     async def apply(self, **arguments):

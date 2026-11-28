@@ -20,6 +20,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 BACKEND = [
+    "application_preservation",
     "native_snapshot_restore",
     "native_snapshot_restore_ledger",
     "native_order_recovery_transfer",
@@ -50,8 +51,8 @@ BROWSER = [
     "change-ledger",
 ]
 PREFILL = ["connections-prefill-queue", "connections-hydration"]
-BACKEND_CASES = 544
-BROWSER_CASES = 542
+BACKEND_CASES = 570
+BROWSER_CASES = 543
 PREFILL_CASES = 6
 
 

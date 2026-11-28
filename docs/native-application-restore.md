@@ -54,6 +54,8 @@ state; navigation remains locked while its field operation is active.
 
 ## Reconstruction and current-configuration guards
 
+After a transfer, a changed saved setting outside the accepted runtime outputs leaves the receipt pending. In the receipt, **Inspect saved setting differences** lists the native class, instance, property number and property name for up to 32 differences, along with the total count. An expansion module Startup ID shows both values when both captures store it as an Unsigned value. Use the captured application and saved-parameter files to investigate the other settings. Explicit readback checks the existing transfer again.
+
 The existing native parameter compiler merges the original Files11/12 values
 into their actual File3 application selectors. It preserves native object order,
 identities, graph and opaque records. Existing CRC, datatype, selector ambiguity,
@@ -119,9 +121,9 @@ another edit/recovery family or authorize a replay.
 
 ## Reproducible software qualification and remaining scope
 
-`scripts/qualify_native_order.py` declares 544 backend cases for each of the
-source and installed builds. Each of the four browser jobs declares 542 browser
-and contract cases plus six connection cases, for 3,280 executions overall.
+`scripts/qualify_native_order.py` declares 570 backend cases for each of the
+source and installed builds. Each of the four browser jobs declares 543 browser
+and contract cases plus six connection cases, for 3,336 executions overall.
 The backend suite also exercises matching-program restore verification.
 
 The original 417 backend, 480 browser and six connection cases are retained.
