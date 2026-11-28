@@ -26,6 +26,7 @@ ANALOG_DEFAULT_TYPES = {
     (240, 813): "unsigned-byte",  # AI calculation default, not an Enum or Boolean
     (240, 3164): 4,  # AI filter Time Constant (Real seconds)
 }
+EXPANSION_STARTUP_FORMAT = {"acs": 67, "dmcs": 65}
 
 
 def qualify_parameter_additions(application, parameter_merge):
@@ -45,6 +46,11 @@ def qualify_parameter_additions(application, parameter_merge):
             raise ValueError("An omitted saved field no longer has its original native object.")
         expected = ROOT_TYPES.get(pid) if record is app.root else MODULE_TYPES.get((cid, pid))
         versions = app.summary()["format_versions"]
+        if (cid, pid) == (598, 3590) and versions == EXPANSION_STARTUP_FORMAT:
+            # RIOM Dev Startup ID is an application UnsignedLong on this release.
+            if app.reader.scalar(record, 75) != str(ObjectIdentifier((cid, instance))):
+                raise ValueError("The expansion module's declared object differs from its header.")
+            expected = "unsigned-long"
         if (versions["acs"], versions["dmcs"]) in ANALOG_DEFAULT_FORMATS:
             expected = ANALOG_DEFAULT_TYPES.get((cid, pid), expected)
         if (cid, pid) == (251, 978) and app.summary()["format_versions"] == {"acs": 60, "dmcs": 60}:
@@ -65,6 +71,15 @@ def qualify_parameter_additions(application, parameter_merge):
         if raw[-1:] != b"\x2f":
             raise ValueError("Omitted application property has an unclosed value.")
         tags = list(TagList.decode(PDUData(raw[:-1])))
+        if expected == "unsigned-long":
+            if (
+                len(tags) != 1
+                or tags[0].tag_class != TagClass.application
+                or tags[0].tag_number != 2
+                or not 1 <= len(tags[0].tag_data) <= 4
+            ):
+                raise ValueError("The expansion startup identifier requires one UnsignedLong.")
+            continue
         valid = (
             (
                 len(tags) == 1

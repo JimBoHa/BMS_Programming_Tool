@@ -13,7 +13,7 @@ from .models import StrictModel
 from .moi_identity import MoiIdentity, seal, sha
 from .moi_parameters import ParameterApplication
 from .native_backup_records import BackupInspectionSource, NativeBackupRecords
-from .native_parameter_qualification import qualify_parameter_additions
+from .native_parameter_qualification import EXPANSION_STARTUP_FORMAT, qualify_parameter_additions
 
 PROFILE = "native-retained-application-restore/1"
 SOURCE_PROFILE = "native-retained-application-restore-source/1"
@@ -384,6 +384,29 @@ def difference(before, after):
     }
 
 
+def _expansion_bindings(original, effective):
+    originals = records(MoiIdentity(original))
+    bindings, omitted = {}, set()
+    for oid, record in records(effective).items():
+        if record["class_id"] != 598 or 3590 not in record["properties"]:
+            continue
+        if 3590 not in originals[oid]["properties"]:
+            omitted.add(oid)
+        # Reference, declared object, bus address, vendor, model and Startup ID.
+        bindings[oid] = tuple(
+            effective.reader.scalar(record, pid) for pid in (32527, 75, 2858, 3675, 3676, 3590)
+        )
+    return bindings, omitted
+
+
+def verify_expansion_bindings(desired_file, desired, current_file, current):
+    old, old_omitted = _expansion_bindings(desired_file, desired)
+    live, live_omitted = _expansion_bindings(current_file, current)
+    for oid in old_omitted | live_omitted:
+        if oid not in old or None in old[oid] or old[oid] != live.get(oid):
+            raise ValueError("The expansion module or its saved startup identifier changed.")
+
+
 def compile_restore(storage, desired_request, current_request, fresh_files):
     """Reconstruct desired bytes and independently guard the reviewed current state."""
     output, desired = source(storage, desired_request)
@@ -409,6 +432,19 @@ def compile_restore(storage, desired_request, current_request, fresh_files):
     ):
         raise ValueError("The reviewed current application already matches this retained image.")
     reviewed_guard, prewrite_guard = fresh_current(reviewed_files, fresh_files)
+    retained, present = MoiIdentity(output), MoiIdentity(current_output)
+    if desired["compilation"]["format_versions"] == EXPANSION_STARTUP_FORMAT and any(
+        r["class_id"] == 598 and 3590 in r["properties"]
+        for app in (retained, present)
+        for r in app.records
+    ):
+        _, desired_files = NativeBackupRecords(storage).load_files(
+            {
+                "capture_id": desired_request["restore_capture_id"],
+                "snapshot_sha256": desired_request["restore_snapshot_sha256"],
+            }
+        )
+        verify_expansion_bindings(desired_files[3], retained, reviewed_files[3], present)
     report = {
         "profile": COMPILATION_PROFILE,
         "scope": SCOPE,
@@ -416,7 +452,7 @@ def compile_restore(storage, desired_request, current_request, fresh_files):
         "reviewed_current": current_request,
         "reviewed_current_guard": reviewed_guard,
         "prewrite_guard": prewrite_guard,
-        "difference": difference(MoiIdentity(current_output), MoiIdentity(output)),
+        "difference": difference(present, retained),
         "compiled_sha256": sha(output),
         "compiled_native_sha256": sha(MoiIdentity(output).data),
         "historical_saved_settings_restored": True,

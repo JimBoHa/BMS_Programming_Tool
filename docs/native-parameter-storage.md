@@ -62,3 +62,14 @@ Binary change counts and elapsed times remain separately typed application field
 The review explains that a transfer does not restore historical runtime event
 times. Original PSS files remain intact in the private backup; retaining a value
 there does not claim the controller's current event timestamp stayed unchanged.
+
+## Expansion module Startup ID
+
+For application format 67 and data model 65, the RIOM Dev object (class 598)
+can store its Startup ID (3590) in the saved parameter files. The recovery
+export reconstructs this unsigned 32-bit application property on the module
+whose declared object identifier matches the native record. When either image
+obtains the value from saved storage, historical restore also compares the
+module reference, object identifier, bus address, vendor, model and Startup ID
+with the current configuration. A replacement module requires a fresh review
+of its configuration.
