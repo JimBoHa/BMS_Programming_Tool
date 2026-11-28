@@ -7,6 +7,15 @@ import {
 import { spawn } from "node:child_process";
 import { createSocket } from "node:dgram";
 import path from "node:path";
+import {
+  openConnectionDetails,
+  selectKnownController,
+} from "./workflow-navigation";
+import {
+  chooseWorkspaceSurface,
+  chooseWorkspaceTask,
+  chooseWorkspaceTool,
+} from "./workspace-navigation";
 
 const root = path.resolve("..");
 async function freePort(): Promise<number> {
@@ -29,10 +38,18 @@ async function peers() {
       "-c",
       `
 import asyncio,json,sys
-from tests.test_foreign_bacnet import RawPoint,RawBBMD
+from tests.test_foreign_bacnet import RawPoint,RawBBMD,bvlc
+from tests.browser_device_identity import device_property_reply
+class Station(RawPoint):
+    def datagram_received(self,data,address):
+        response=device_property_reply(data[6:],4190012)
+        if response is not None:
+            self.transport.sendto(bvlc(10,bytes([1,0])+response),address)
+        else:
+            super().datagram_received(data,address)
 async def main():
     loop=asyncio.get_running_loop()
-    pt,point=await loop.create_datagram_endpoint(RawPoint,local_addr=('127.0.0.1',0))
+    pt,point=await loop.create_datagram_endpoint(Station,local_addr=('127.0.0.1',0))
     bt,bbmd=await loop.create_datagram_endpoint(lambda:RawBBMD(point),local_addr=('127.0.0.1',0))
     print(json.dumps({'bbmd':bbmd.address[1],'point':point.address[1]}),flush=True)
     try:
@@ -88,7 +105,7 @@ async function session(request: APIRequestContext) {
 
 async function connect(page: Page, bbmd: number) {
   await page.goto("/");
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
+  await openConnectionDetails(page);
   await expect(
     page.getByLabel("Local bind address / UDP port", { exact: true }),
   ).toBeVisible();
@@ -118,18 +135,43 @@ test("BBMD UI registers, discovers forwarded devices, reads actual wire data and
   try {
     await request.post("/api/bacnet/disconnect", { headers, data: {} });
     await connect(page, server.bbmd);
+    await selectKnownController(
+      page,
+      `127.0.0.1:${server.point}`,
+      "device,4190012",
+    );
+    await chooseWorkspaceTask(page, "Points & I/O");
+    await chooseWorkspaceTool(page, "Read properties", "Controller task tools");
     await page
       .getByLabel("BBMD discovery minimum instance", { exact: true })
       .fill("4190012");
     await page
       .getByLabel("BBMD discovery maximum instance", { exact: true })
       .fill("4190012");
+    const scanning = page.waitForResponse((response) =>
+      response.url().endsWith("/api/bacnet/discover-foreign"),
+    );
     await page
       .getByRole("button", { name: "Discover through BBMD", exact: true })
       .click();
-    const row = page.getByRole("row").filter({ hasText: "4190012" });
+    const scan = await (await scanning).json();
+    expect(scan).toContainEqual(
+      expect.objectContaining({
+        device: "device,4190012",
+        address: `127.0.0.1:${server.point}`,
+      }),
+    );
+    const row = page
+      .getByRole("region", { name: "Discovery replies" })
+      .getByRole("row")
+      .filter({ hasText: "4190012" });
     await expect(row).toContainText(`127.0.0.1:${server.point}`);
-    await row.click();
+    await row.getByRole("button", { name: /^Open controller/ }).click();
+    await expect(
+      page.getByRole("region", { name: "Controller overview" }),
+    ).toContainText("device,4190012");
+    await chooseWorkspaceTask(page, "Points & I/O");
+    await chooseWorkspaceTool(page, "Read properties", "Controller task tools");
     await page
       .getByLabel("Object identifier", { exact: true })
       .fill("analog-input,1");
@@ -146,7 +188,7 @@ test("BBMD UI registers, discovers forwarded devices, reads actual wire data and
       )
       .toBeGreaterThanOrEqual(2);
     await page.reload();
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
+    await openConnectionDetails(page);
     await expect(
       page.getByLabel("BBMD address / UDP port (optional)", { exact: true }),
     ).toHaveValue(`127.0.0.1:${server.bbmd}`);
@@ -181,16 +223,31 @@ test("a rejected BBMD renewal disables point operations and still allows closing
   try {
     await request.post("/api/bacnet/disconnect", { headers, data: {} });
     await connect(page, server.bbmd);
+    await selectKnownController(
+      page,
+      `127.0.0.1:${server.point}`,
+      "device,4190012",
+    );
+    await chooseWorkspaceTask(page, "Points & I/O");
+    await chooseWorkspaceTool(page, "Read properties", "Controller task tools");
+    await expect(
+      page.getByRole("button", { name: "Read property", exact: true }),
+    ).toBeEnabled();
+    await openConnectionDetails(page);
     server.child.stdin.write("reject\n");
     await expect(
       page.getByLabel("BACnet foreign registration status"),
     ).toContainText("Foreign registration unavailable", { timeout: 10000 });
+    await chooseWorkspaceSurface(page, "Workspace");
+    await chooseWorkspaceTask(page, "Points & I/O");
+    await chooseWorkspaceTool(page, "Read properties", "Controller task tools");
     await expect(
       page.getByRole("button", { name: "Read property", exact: true }),
     ).toBeDisabled();
     await expect(
       page.getByRole("button", { name: "Discover through BBMD", exact: true }),
     ).toBeDisabled();
+    await openConnectionDetails(page);
     await page
       .getByRole("button", { name: "Close BACnet interface", exact: true })
       .click();
