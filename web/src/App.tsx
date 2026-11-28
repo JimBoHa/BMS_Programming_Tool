@@ -1916,7 +1916,11 @@ export function App() {
             (source === "caf" && !cafDocument)
           }
           programName={program.name}
-          onProgramName={(name) => change({ ...program, name })}
+          onProgramName={
+            tab === "truth-tables"
+              ? undefined
+              : (name) => change({ ...program, name })
+          }
           contextSource={source}
           busy={workflowBusy}
         />

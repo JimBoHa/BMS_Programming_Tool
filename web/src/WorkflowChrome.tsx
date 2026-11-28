@@ -86,7 +86,7 @@ export function WorkflowContext({
   saveLabel: string;
   saveDisabled: boolean;
   programName: string;
-  onProgramName: (name: string) => void;
+  onProgramName?: (name: string) => void;
   contextSource: "caf" | "graph" | "none";
   busy?: boolean;
 }) {
@@ -201,7 +201,8 @@ export function WorkflowContext({
             className="workflow-program-name"
             aria-label="Program name"
             value={programName}
-            onChange={(event) => onProgramName(event.target.value)}
+            disabled={!onProgramName}
+            onChange={(event) => onProgramName?.(event.target.value)}
           />
         )}
         {contextSource !== "none" && (
