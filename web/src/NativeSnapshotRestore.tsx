@@ -1,5 +1,6 @@
 import { useContext, useEffect, useRef, useState } from "react";
 import { NativeBooleanTransferContext } from "./NativeBooleanTransferContext";
+import { NativeNetworkInputCommands } from "./NativeNetworkInputCommands";
 import {
   api,
   apiBlobDocument,
@@ -515,6 +516,20 @@ export function NativeSnapshotRestore({
                   </button>
                 </div>
               </>
+            )}
+            {source && visible && (
+              <NativeNetworkInputCommands
+                key={owner}
+                source={source}
+                connected={
+                  !!controller &&
+                  controller.interfaceOpen === true &&
+                  !!config?.local_address &&
+                  config.transport !== "mstp" &&
+                  snapshotRestoreTarget(source.target, controller)
+                }
+                locked={locked}
+              />
             )}
             {!connected && (
               <p>

@@ -9,6 +9,22 @@ backup.
 
 ## Operator workflow
 
+Under **Restore a retained application**, open **Check network inputs before and after restart**.
+With the original controller selected, choose **Read network inputs** before a transfer.
+After the controller returns to service, keep the same capture, interface and input page,
+select the earlier reading and choose **Compare with baseline**. Larger lists are paged.
+The table shows the present value, relinquish default and all occupied BACnet priorities.
+Changes identify the priority, its old and new values, and whether it was released.
+A command with a numeric value of zero still occupies its slot. Review any incomplete
+read or failed quality check before interpreting the comparison.
+
+The input list comes from exposed, commandable root analog, binary and multistate
+network inputs in the native File3 application. Unclassified root inputs are listed
+separately. A priority array records a value and priority. Identifying the supervisor
+or schedule that owns a command requires separate source evidence. These reads send
+no commands. **List saved readings** and **Open saved reading** work locally.
+**Save exact reading** exports the original JSON and its evidence digest.
+
 1. Open a controller or a local CAF/graph. In **Program → Native backup defaults**,
    select and inspect a retained native backup. Expand **Restore a retained
    application** and **Inspect retained restore image**. The comparison identifies

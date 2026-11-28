@@ -2,6 +2,19 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
+.native-snapshot-restore .network-input-table {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.native-snapshot-restore .network-input-table th,
+.native-snapshot-restore .network-input-table small {
+  overflow-wrap: normal;
+}
+.native-snapshot-restore .network-input-table tbody th {
+  font-size: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+}
 .native-snapshot-restore .restore-confirmation {
   flex-direction: row;
   align-items: flex-start;

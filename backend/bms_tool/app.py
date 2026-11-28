@@ -154,6 +154,7 @@ from .native_exception_write import NativeExceptionWrites, exception_write_route
 from .native_execution_order import execution_order_router as native_execution_order_router
 from .native_historical_wire_copies import NativeHistoricalWireCopies, historical_wire_copy_router
 from .native_identity_text import identity_text_router
+from .native_network_inputs import NetworkInputRead, NetworkInputReports
 from .native_order_recovery_proposal import order_recovery_proposal_router
 from .native_order_result_match import order_result_match_router
 from .native_schedule_exceptions import exception_draft_router
@@ -629,6 +630,7 @@ def create_app(state_dir=None, *, operation_power=None):
 
     device_instances = DeviceInstances(bacnet, store, activity_guard=instance_activity_guard)
     native_applications = NativeApplications(bacnet, store, device_instances)
+    network_input_reports = NetworkInputReports(native_applications, controller_workspace)
     signal_compiler = SignalCompilerService(native_applications.storage)
     backup_records = NativeBackupRecords(native_applications.storage)
     backup_comparison = NativeBackupComparison(backup_records)
@@ -2124,6 +2126,26 @@ def create_app(state_dir=None, *, operation_power=None):
     @app.post("/api/bacnet/controller/properties")
     async def controller_properties(body: ControllerPropertiesRequest):
         return await controller_workspace.properties(**body.model_dump())
+
+    def network_input_document(report):
+        raw = json.dumps(report, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
+        return Response(
+            raw,
+            media_type="application/json",
+            headers={"X-Studio-Artifact-Sha256": hashlib.sha256(raw).hexdigest()},
+        )
+
+    @app.post("/api/bacnet/controller/native-application/network-inputs/read")
+    async def read_network_input_commands(body: NetworkInputRead):
+        return network_input_document(await network_input_reports.read(body))
+
+    @app.get("/api/bacnet/controller/native-application/network-inputs/reports/{report_id}")
+    def saved_network_input_commands(report_id: str):
+        return network_input_document(network_input_reports.get(report_id))
+
+    @app.get("/api/bacnet/controller/native-application/network-inputs/history/{capture_id}")
+    def network_input_history(capture_id: str):
+        return network_input_reports.history(capture_id)
 
     @app.post("/api/bacnet/controller/application/read")
     async def controller_application_read(body: ApplicationReadRequest):
