@@ -587,3 +587,69 @@ def test_parallel_native_reviews_keep_independent_seals_and_bounded_retention(
     for id in library.reviews:
         assert library.export_review(id) == originals[id]
     assert len({result["id"] for result in results}) == 32
+
+
+async def test_null_default_can_review_one_locally_typed_day_and_reopen(tmp_path):
+    from bms_tool.native_schedule_write import authority
+
+    baseline, _, _ = await acquire(
+        tmp_path / "valid", overrides={("schedule,1", "schedule-default", None): b"\x00"}
+    )
+    lib, basic = saved(tmp_path / "library", encoded(baseline))
+    assert not basic["objects"][0]["eligible"] and basic["objects"][0]["check_observed_values"]
+    expanded = lib.detail(basic["id"], observed_defaults=True)
+    schedule = expanded["objects"][0]
+    assert schedule["eligible"] and schedule["draft_profile"] == module.OBSERVED_DRAFT_PROFILE
+    assert schedule["native_type"] == "Real"
+    query = request(expanded, draft_profile=module.OBSERVED_DRAFT_PROFILE)
+    with pytest.raises(ValueError, match="non-Null"):
+        lib.review(**request(expanded))
+    review = lib.review(**query)
+    assert review["rules_sha256"] == module.OBSERVED_RULES_SHA256
+    assert review["source"]["schedule_default_type"] == "Null"
+    assert review["new"]["encoded_hex"] == "0eb40800000044402000000f"
+    assert review["diff"]["changed"] and not review["diff"]["other_days_changed"]
+    assert not review["field_writes"] and lib.source(basic["id"]) == encoded(baseline)
+    with pytest.raises(ValueError, match="authority"):
+        authority(review)
+    assert lib.import_review(lib.export_review(review["id"])) == review
+    wrong = request(
+        expanded,
+        draft_profile=module.OBSERVED_DRAFT_PROFILE,
+        transitions=[{"time": [1, 0, 0, 0], "native_type": "Unsigned", "value_text": "1"}],
+    )
+    with pytest.raises(ValueError, match="differs"):
+        lib.review(**wrong)
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {("schedule,1", "present-value", None): b"\x00"},
+        {("schedule,1", "present-value", None): b"\x21\x02"},
+        {("schedule,1", "weekly-schedule", 2): bytes.fromhex("0eb40800000021020f")},
+        {
+            ("schedule,1", "exception-schedule", 1): bytes.fromhex(
+                "0e0cff021dff0f2eb4091e0000112f3908"
+            )
+        },
+        {("schedule,1", "weekly-schedule", n): b"\x0e\x0f" for n in range(1, 8)},
+    ],
+)
+async def test_null_default_draft_refuses_ambiguous_and_absent_values(tmp_path, overrides):
+    report, _, _ = await acquire(
+        tmp_path / "peer",
+        overrides={("schedule,1", "schedule-default", None): b"\x00", **overrides},
+    )
+    lib, detail = saved(tmp_path / "library", encoded(report))
+    assert not lib.detail(detail["id"], observed_defaults=True)["objects"][0]["eligible"]
+    with pytest.raises(ValueError):
+        lib.review(**request(detail, draft_profile=module.OBSERVED_DRAFT_PROFILE))
+    assert not lib.reviews
+
+
+def test_observed_type_profile_rejects_an_ordinary_typed_default(tmp_path, source_bytes):
+    lib, detail = saved(tmp_path, source_bytes)
+    assert lib.detail(detail["id"], observed_defaults=True)["objects"] == detail["objects"]
+    with pytest.raises(ValueError, match="requires a captured Null"):
+        lib.review(**request(detail, draft_profile=module.OBSERVED_DRAFT_PROFILE))

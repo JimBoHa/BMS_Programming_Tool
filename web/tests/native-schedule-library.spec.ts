@@ -34,7 +34,7 @@ async function disconnect(request: APIRequestContext) {
   ).toBe(false);
 }
 test.afterEach(async ({ request }) => disconnect(request));
-async function peer(routed: boolean) {
+async function peer(routed: boolean, nullDefault = false) {
   const child = spawn(
     path.join(root, ".venv/bin/python"),
     [
@@ -50,6 +50,7 @@ class Peer(SchedulePeer):
   for error in self.errors[before:]:
    print('PROTOCOL_ERROR '+json.dumps({'packet':data.hex(),'error':''.join(traceback.format_exception(error))}),file=sys.stderr,flush=True)
  def value(self,obj,prop,index):
+  if sys.argv[2]=='1' and str(obj)=='schedule,1' and prop=='schedule-default':return bytes([0])
   if prop=='object-list' and index is None:return b''.join(b'\\xc4'+oid(*item) for item in self.object_list)
   if prop in ('model-name','firmware-revision','application-software-version','vendor-name','location'):return text('Authored')
   if prop=='protocol-revision':return unsigned(22)
@@ -72,6 +73,7 @@ async def main():
 asyncio.run(main())
 `,
       routed ? "1" : "0",
+      nullDefault ? "1" : "0",
     ],
     {
       cwd: root,
@@ -146,8 +148,9 @@ async function capture(
   request: APIRequestContext,
   routed: boolean,
   save = true,
+  nullDefault = false,
 ) {
-  const server = await peer(routed);
+  const server = await peer(routed, nullDefault);
   const panel = await openScheduleController(
     page,
     request,
@@ -821,5 +824,51 @@ test("late real reviews and downloads cannot replace edited rows or survive leav
     release?.();
     await server.close();
     throw failure;
+  }
+});
+
+test("a Null default with matching captured transitions opens a local weekly draft", async ({
+  page,
+  request,
+}) => {
+  const { server, local } = await capture(page, request, false, true, true);
+  try {
+    await disconnect(request);
+    const reads = server.reads();
+    await expect(
+      local.getByText(
+        "Local draft using the captured Real transitions. The schedule default is Null.",
+      ),
+    ).toBeVisible();
+    await local
+      .getByLabel("Transition 1 exact value text", { exact: true })
+      .fill("2.5");
+    await local
+      .getByRole("button", { name: "Review native weekly draft", exact: true })
+      .click();
+    await expect(
+      local.getByLabel("Native weekly draft review", { exact: true }),
+    ).toBeVisible();
+    const exported = await download(
+      page,
+      local.getByRole("button", {
+        name: "Export exact reviewed weekly draft",
+        exact: true,
+      }),
+    );
+    const review = JSON.parse(exported.toString());
+    expect(review.source.schedule_default_type).toBe("Null");
+    expect(review.new.encoded_hex).toBe("0eb40800000044402000000f");
+    expect(review.diff.other_days_changed).toBe(false);
+    expect(review.field_writes).toBe(false);
+    await expect(
+      local.getByRole("button", {
+        name: "Apply one native weekly-day request",
+        exact: true,
+      }),
+    ).toHaveCount(0);
+    expect(server.reads()).toBe(reads);
+  } finally {
+    await server.close();
   }
 });

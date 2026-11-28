@@ -42,6 +42,9 @@ const NativeExceptionEditor = lazy(() =>
 const BASE = "/bacnet/schedules/library";
 const CAPTURE = "native-calendar-schedule-capture/1";
 const DRAFT = "native-schedule-weekly-day-draft/1";
+const OBSERVED_DRAFT = "native-schedule-null-default-weekly-day-draft/1";
+const OBSERVED_RULES =
+  "cdee8d2b48534ed4d6e34b7a7e0f7dbf65bc8ddd20934205457ad588e2904a90";
 const ID = /^[a-f0-9]{64}$/;
 const TYPES = [
   "Null",
@@ -66,6 +69,7 @@ type Day = {
 type Schedule = {
   object: string;
   eligible: boolean;
+  check_observed_values?: boolean;
   native_type?: string;
   issues: string[];
   days?: Day[];
@@ -95,11 +99,18 @@ function text(value: unknown, maximum = 4096): value is string {
   return typeof value === "string" && value.length <= maximum;
 }
 function supportedSchedule(item: any, capability: any) {
+  if (item?.draft_profile === OBSERVED_DRAFT) {
+    return (
+      item.rules_sha256 === OBSERVED_RULES &&
+      item.native_type !== "Null" &&
+      TYPES.includes(item.native_type)
+    );
+  }
   return item?.native_type === "CharacterString"
     ? stringDraftCapability(capability) &&
         item.draft_profile === STRING_DRAFT &&
         item.rules_sha256 === STRING_DRAFT_RULES
-    : TYPES.includes(item?.native_type);
+    : item?.draft_profile === undefined && TYPES.includes(item?.native_type);
 }
 function optionalStringCapability(value: any) {
   return (
@@ -200,6 +211,15 @@ function captureResult(value: any, expected?: string): Capture {
   }
   return value;
 }
+async function weeklyCapture(value: any, expected?: string): Promise<Capture> {
+  const capture = captureResult(value, expected);
+  if (!capture.objects.some((item) => item.check_observed_values === true))
+    return capture;
+  return captureResult(
+    await api(BASE + "/captures/" + capture.id + "?observed_defaults=true"),
+    capture.id,
+  );
+}
 function validTransition(row: any, strings = false) {
   return (
     Array.isArray(row?.time) &&
@@ -233,14 +253,21 @@ function sameTransitions(a: Transition[], b: Transition[]) {
 }
 function reviewResult(value: any) {
   const strings = value?.source?.observed_native_type === "CharacterString";
-  const expected = strings ? STRING_DRAFT : DRAFT;
+  const observed = value?.profile === OBSERVED_DRAFT;
+  const expected = observed ? OBSERVED_DRAFT : strings ? STRING_DRAFT : DRAFT;
   if (
     !ID.test(value?.id || "") ||
     value.profile !== expected ||
     value.format !== expected ||
-    (strings
-      ? !stringDraftReview(value)
-      : value.request?.draft_profile !== undefined) ||
+    (observed
+      ? value.rules_sha256 !== OBSERVED_RULES ||
+        value.request?.draft_profile !== OBSERVED_DRAFT ||
+        value.source?.schedule_default_type !== "Null" ||
+        value.source?.observed_native_type === "Null" ||
+        !TYPES.includes(value.source?.observed_native_type)
+      : strings
+        ? !stringDraftReview(value)
+        : value.request?.draft_profile !== undefined) ||
     !ID.test(value.request?.capture_id || "") ||
     !Array.isArray(value.request?.transitions) ||
     value.request.transitions.length > 32 ||
@@ -488,7 +515,10 @@ export function ScheduleLibraryPanel({
     await action(
       "Opening local capture",
       async () => {
-        const result = captureResult(await api(BASE + "/captures/" + id), id);
+        const result = await weeklyCapture(
+          await api(BASE + "/captures/" + id),
+          id,
+        );
         if (current(ticket, source)) replaceSelection(result);
       },
       () => current(ticket, source),
@@ -510,7 +540,9 @@ export function ScheduleLibraryPanel({
     await action(
       "Saving captured evidence",
       async () => {
-        const result = captureResult(await api(BASE + "/save", { id: report }));
+        const result = await weeklyCapture(
+          await api(BASE + "/save", { id: report }),
+        );
         if (!alive.current || sourceNow.current !== report) return;
         if (result.source_report_id !== report)
           throw new Error(
@@ -541,7 +573,7 @@ export function ScheduleLibraryPanel({
         if (draft) {
           const accepted = reviewResult(result),
             request = accepted.request;
-          const detail = captureResult(
+          const detail = await weeklyCapture(
             await api(BASE + "/captures/" + request.capture_id),
             request.capture_id,
           );
@@ -558,7 +590,8 @@ export function ScheduleLibraryPanel({
             "Imported review regenerated against its exact local source capture.",
           );
         } else {
-          const detail = captureResult(result);
+          const detail = await weeklyCapture(result);
+          if (!current(ticket, source)) return;
           replaceSelection(detail);
           setNotice(`Imported capture ${detail.id.slice(0, 12)}.`);
         }
@@ -677,9 +710,11 @@ export function ScheduleLibraryPanel({
               )
             : row.value_text,
       })),
-      ...(selected.native_type === "CharacterString"
-        ? { draft_profile: STRING_DRAFT }
-        : {}),
+      ...(selected.draft_profile === OBSERVED_DRAFT
+        ? { draft_profile: OBSERVED_DRAFT }
+        : selected.native_type === "CharacterString"
+          ? { draft_profile: STRING_DRAFT }
+          : {}),
     };
   }
   async function prepare() {
@@ -1005,6 +1040,12 @@ export function ScheduleLibraryPanel({
           )}
           {!!capture.objects.some((item) => item.eligible) && (
             <div aria-label="Native weekly day editor">
+              {selected?.draft_profile === OBSERVED_DRAFT && (
+                <p>
+                  Local draft using the captured {selected.native_type}{" "}
+                  transitions. The schedule default is Null.
+                </p>
+              )}
               <div className="form-grid">
                 <label>
                   Captured Schedule
@@ -1383,7 +1424,7 @@ export function ScheduleLibraryPanel({
       )}
       <NativeScheduleWritePanel
         selectedTarget={selectedTarget}
-        draft={review}
+        draft={review?.profile === OBSERVED_DRAFT ? null : review}
         connected={connected}
         connectionKey={connectionKey}
       />
