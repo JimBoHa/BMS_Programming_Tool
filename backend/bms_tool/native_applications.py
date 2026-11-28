@@ -178,8 +178,10 @@ from .native_snapshot_restore import reconstruct as reconstruct_snapshot_restore
 from .native_snapshot_restore import reconstruct_intent as reconstruct_snapshot_restore_intent
 from .native_snapshot_restore import verify_restore as verify_snapshot_restore
 from .native_snapshot_restore_transfer import (
+    FILE_COMPARISON_PROFILE,
     NativeSnapshotRestoreOperations,
     RestoreApply,
+    RestoreFileComparison,
     RestorePreview,
 )
 from .native_terminal_recovery import NativeTerminalRecovery
@@ -345,6 +347,7 @@ class NativeApplications(
             "execution_order_transfer_scope": ORDER_SCOPE,
             "execution_order_recovery_transfer_profile": ORDER_RECOVERY_PROFILE,
             "retained_application_restore_profile": SNAPSHOT_RESTORE_PROFILE,
+            "retained_application_file_comparison_profile": FILE_COMPARISON_PROFILE,
             "retained_application_restore_scope": SNAPSHOT_RESTORE_SCOPE,
             "matching_connection_transfer_profile": CONNECTION_PROFILE,
             "matching_connection_transfer_scope": CONNECTION_SCOPE,
@@ -2455,6 +2458,10 @@ def native_application_router(service):
     @router.post("/preview")
     async def preview(body: NativePreview):
         return await service.preview(**body.model_dump())
+
+    @router.post("/application-restore/compare-file")
+    async def compare_restored_file(body: RestoreFileComparison):
+        return await service.compare_snapshot_file(body)
 
     @router.post("/application-restore/source")
     def inspect_restore_source(body: RestoreSource):

@@ -29,7 +29,14 @@ backup.
    possible control interruption. **Apply retained application to controller**
    keeps a fresh third pre-write backup and attempts the one newly reviewed
    transfer. A complete application and saved-value readback must verify it.
-5. An interrupted or unconfirmed operation retains its original durable receipt.
+5. From the recorded receipt, **Compare live application file** reads the controller's
+   advertised File 3 during normal operation. It checks station identity, firmware,
+   file type and file size at both ends of the read and compares the decompressed
+   application bytes with the reviewed restore image. **Save file comparison**
+   exports the time, route, byte count and both hashes. This observation leaves
+   the transfer receipt and its pending state intact. Saved settings, executing
+   logic and physical outputs require their respective checks.
+6. An interrupted or unconfirmed operation retains its original durable receipt.
    Select it under **Recorded application restores**, load it, and explicitly
    **Read back original retained-application restore**. Readback never replays the
    application. A proved original pre-write image is labelled recovered-original,

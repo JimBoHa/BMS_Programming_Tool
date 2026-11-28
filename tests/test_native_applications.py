@@ -111,6 +111,8 @@ class NativePeer(Application):
                     propertyValue=Any(
                         Unsigned(self.application_capacity)
                         if prop == "3380"
+                        else Unsigned(len(self.files[3]))
+                        if prop == "file-size"
                         else CharacterString(".moi")
                     ),
                 )

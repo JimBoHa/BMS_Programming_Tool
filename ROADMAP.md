@@ -2723,3 +2723,8 @@ Next, assess remaining controller-generated resources and package dependencies
 against actual native evidence before extending restoration or authoring scopes.
 The register now contains 211 criteria: 157 implemented, 46 partial and eight
 pending. See [retained application restoration](docs/native-application-restore.md).
+
+The retained-restore receipt also supports a direct read of the live application
+file during normal operation. Its separate comparison report binds the observed
+bytes to the original controller and reviewed image. Full restore reconciliation
+continues to check effective saved settings and operating state.

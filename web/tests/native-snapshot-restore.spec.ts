@@ -88,6 +88,30 @@ snapshotFixture()(
     ).toHaveCount(0);
     expect(dispatched).toBe(0);
     expect(restores((await peer.command("stats")).events)).toHaveLength(1);
+    const comparison = verified(panel).getByRole("button", {
+      name: "Compare live application file",
+    });
+    await comparison.focus();
+    await comparison.press("Enter");
+    // The peer was deliberately returned to its four-module image after the restore.
+    await expect(verified(panel)).toContainText(
+      "Application file differs from the restored image",
+    );
+    const download = page.waitForEvent("download");
+    await verified(panel)
+      .getByRole("button", { name: "Save file comparison" })
+      .click();
+    const evidence = JSON.parse(
+      await readFile((await (await download).path())!, "utf-8"),
+    );
+    expect(evidence.receipt_id).toBe(receipt.intent.id);
+    expect(evidence.expected_native_sha256).toBe(
+      receipt.intent.native_payload_sha256,
+    );
+    expect(evidence.observed_native_sha256).toBe(
+      (await peer.command("stats")).native_sha256,
+    );
+    expect(restores((await peer.command("stats")).events)).toHaveLength(1);
   },
 );
 
@@ -226,6 +250,12 @@ for (const routed of [false, true])
           );
           const after = await peer.command("stats");
           expect(after.native_sha256).toBe(after.expected_native_sha256);
+          await verified(panel)
+            .getByRole("button", { name: "Compare live application file" })
+            .click();
+          await expect(verified(panel)).toContainText(
+            "Application file matches the restored image",
+          );
           expect(after.native_record_count).toBe(3);
           expect(restores(after.events)).toHaveLength(1);
           expect(after.router_errors).toEqual([]);

@@ -15,6 +15,8 @@ import { controllerKey, type ControllerContext } from "./workflow";
 import {
   snapshotRestoreBase as base,
   snapshotRestoreProfile,
+  restoreFileComparison,
+  restoreFileComparisonProfile,
   snapshotRestoreSource,
   snapshotRestoreReview,
   snapshotRestoreReceipt,
@@ -30,6 +32,7 @@ type Kind =
   | "preview"
   | "apply"
   | "readback"
+  | "compare-file"
   | "credentials";
 type Operation = { id: string; kind: Kind; owner: string; epoch: number };
 const common = "/bacnet/controller/native-application";
@@ -68,6 +71,9 @@ export function NativeSnapshotRestore({
   >(null);
   const [receipt, setReceipt] = useState<Doc | null>(null),
     [status, setStatus] = useState<Data | null>(null);
+  const [fileObservation, setFileObservation] = useState<
+    (Doc & { owner: string; epoch: number }) | null
+  >(null);
   const [busy, setBusy] = useState(false),
     [failure, setFailure] = useState(""),
     [uncertainty, setUncertainty] = useState("");
@@ -162,7 +168,9 @@ export function NativeSnapshotRestore({
     for (const id of new Set([
       reviewID.current,
       active.current &&
-      ["preview", "apply", "readback"].includes(active.current.kind)
+      ["preview", "apply", "readback", "compare-file"].includes(
+        active.current.kind,
+      )
         ? active.current.id
         : null,
     ]))
@@ -174,6 +182,7 @@ export function NativeSnapshotRestore({
   }
   function retire() {
     epoch.current++;
+    setFileObservation(null);
     setPlan(null);
     setConfirmed(false);
     setInterruption(false);
@@ -220,6 +229,7 @@ export function NativeSnapshotRestore({
     return () => window.clearInterval(timer);
   }, [shown]);
   function retain(doc: Doc) {
+    setFileObservation(null);
     receiptNow.current = doc;
     setReceipt(doc);
     if (doc.data.pending === false) setUncertainty("");
@@ -289,6 +299,13 @@ export function NativeSnapshotRestore({
       return;
     if (kind === "readback" && (!receiptMatches || !receipt?.data.pending))
       return;
+    if (
+      kind === "compare-file" &&
+      (!receiptMatches ||
+        status?.retained_application_file_comparison_profile !==
+          restoreFileComparisonProfile)
+    )
+      return;
     if (kind === "credentials" && (!backup || !restore)) return;
     const selected = source,
       local = opened,
@@ -309,7 +326,34 @@ export function NativeSnapshotRestore({
       ? ++receiptTicket.current
       : null;
     try {
-      if (kind === "credentials") {
+      if (kind === "compare-file") {
+        setFileObservation(null);
+        const doc = await apiJsonDocument(base + "/compare-file", {
+          ...targetOf(controller!),
+          operation_id: operation.id,
+          receipt_id: record!.data.intent.id,
+        });
+        if (
+          !restoreFileComparison(
+            doc.data,
+            record!.data.intent,
+            controller!,
+            operation.id,
+          )
+        )
+          throw new Error(
+            "The file observation does not match the selected restore and controller.",
+          );
+        if (
+          current(operation.owner, operation.epoch) &&
+          receiptNow.current === record
+        )
+          setFileObservation({
+            ...doc,
+            owner: operation.owner,
+            epoch: operation.epoch,
+          });
+      } else if (kind === "credentials") {
         await api(common + "/credentials", { backup, restore });
         if (current(operation.owner, operation.epoch)) {
           setBackup("");
@@ -585,7 +629,9 @@ export function NativeSnapshotRestore({
                   ? "Applying retained application"
                   : active.current?.kind === "readback"
                     ? "Reading back the recorded restore"
-                    : "Preparing retained application operation"}
+                    : active.current?.kind === "compare-file"
+                      ? "Comparing the live application file"
+                      : "Preparing retained application operation"}
                 …
               </p>
             )}
@@ -774,6 +820,49 @@ export function NativeSnapshotRestore({
                     controller.
                   </p>
                 )}
+                {intent &&
+                  status?.retained_application_file_comparison_profile ===
+                    restoreFileComparisonProfile && (
+                    <>
+                      <button
+                        disabled={locked || !receiptMatches || !visible}
+                        onClick={() => void run("compare-file")}
+                      >
+                        Compare live application file
+                      </button>
+                      <p>
+                        Reads the application bytes during normal operation. Use
+                        the full restore readback to verify saved settings.
+                      </p>
+                    </>
+                  )}
+                {fileObservation &&
+                  fileObservation.data.receipt_id === intent?.id &&
+                  current(fileObservation.owner, fileObservation.epoch) && (
+                    <div role="status">
+                      <p>
+                        {fileObservation.data.status === "matched"
+                          ? "Application file matches the restored image"
+                          : "Application file differs from the restored image"}
+                        . Read {fileObservation.data.bytes.toLocaleString()}{" "}
+                        bytes at{" "}
+                        {new Date(
+                          fileObservation.data.checked_at,
+                        ).toLocaleString()}
+                        .
+                      </p>
+                      <button
+                        onClick={() =>
+                          saveBlob(
+                            fileObservation.blob,
+                            "application-file-comparison.json",
+                          )
+                        }
+                      >
+                        Save file comparison
+                      </button>
+                    </div>
+                  )}
               </section>
             )}
             <label>

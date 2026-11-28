@@ -27,6 +27,7 @@ from bms_tool.native_snapshot_restore import (
     source,
     validate_evidence,
 )
+from bms_tool.native_snapshot_restore_transfer import RestoreFileComparison
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
@@ -544,7 +545,63 @@ async def test_original_recovery_obeys_the_same_strict_restore_counter_policy(
     assert mutations(peer).count(("state", "start-restore")) == 1
 
 
-@pytest.mark.parametrize("route", ["source", "export", "preview", "apply"])
+@pytest.mark.parametrize("routed", [False, True])
+async def test_ordinary_live_file_compare_keeps_uncertain_receipt_and_only_reads_file_three(
+    native_link, routed
+):
+    peer, _, _, native, _ = native_link
+    async with selected_target(native_link, routed) as target:
+        _, _, plan = await prepared(native_link, target)
+        peer.mode = "drop-end"
+        receipt = await native.apply_snapshot_restore(**apply_request(plan))
+        assert receipt["pending"] and receipt["result"]["status"] == "unknown"
+        peer.mode = "normal"
+        request = RestoreFileComparison(
+            **target, operation_id="independent-ordinary-read", receipt_id=receipt["intent"]["id"]
+        )
+        start = len(peer.events)
+        for matches in (True, False):
+            raw = literal_saved_image(real=3.5 if matches else 11.0)
+            peer.files[3] = gzip.compress(raw, mtime=123456)
+            observation = await native.compare_snapshot_file(request)
+            assert observation["status"] == ("matched" if matches else "different")
+            assert (
+                observation["expected_native_sha256"] == receipt["intent"]["native_payload_sha256"]
+            )
+            assert observation["observed_native_sha256"] == sha(raw)
+            assert observation["file_sha256"] == sha(peer.files[3])
+            assert observation["bytes"] == len(peer.files[3])
+            assert native.storage.receipt(request.receipt_id) == receipt
+        assert peer.events[start:] and all(e[:2] == ("read", 3) for e in peer.events[start:])
+        with pytest.raises(ValueError, match="original controller and route"):
+            await native.compare_snapshot_file(request.model_copy(update={"device": "device,100"}))
+        peer.metadata["firmware-revision"] = "different release"
+        start = len(peer.events)
+        with pytest.raises(ValueError, match="identity or firmware"):
+            await native.compare_snapshot_file(request)
+        assert not peer.events[start:]
+
+
+async def test_ordinary_file_comparison_rejects_mid_read_identity_change(native_link):
+    peer, _, _, native, target = native_link
+    _, _, plan = await prepared(native_link)
+    receipt = await native.apply_snapshot_restore(**apply_request(plan))
+    original_read = peer.do_AtomicReadFileRequest
+
+    async def replace_identity(req):
+        await original_read(req)
+        peer.metadata["object-name"] = "Different controller"
+
+    peer.do_AtomicReadFileRequest = replace_identity
+    request = RestoreFileComparison(
+        **target, operation_id="changing-field-identity", receipt_id=receipt["intent"]["id"]
+    )
+    with pytest.raises(ValueError, match="identity or firmware"):
+        await native.compare_snapshot_file(request)
+    assert native.storage.receipt(request.receipt_id) == receipt
+
+
+@pytest.mark.parametrize("route", ["source", "export", "preview", "apply", "compare-file"])
 def test_all_restore_HTTP_actions_require_the_real_application_session(tmp_path, route):
     with TestClient(create_app(tmp_path)) as client:
         path = "/api/bacnet/controller/native-application/application-restore/" + route
