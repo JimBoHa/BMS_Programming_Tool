@@ -1,4 +1,13 @@
 import { test, expect } from "@playwright/test";
+import {
+  openConnectionDetails,
+  selectKnownController,
+} from "./workflow-navigation";
+import {
+  chooseWorkspaceTask,
+  chooseWorkspaceTool,
+  expectWorkspaceNavigationLocked,
+} from "./workspace-navigation";
 import { spawn } from "node:child_process";
 import { createSocket } from "node:dgram";
 import path from "node:path";
@@ -82,6 +91,7 @@ test("pending real BACnet preflight keeps point identity and transport drafts fi
   request,
 }) => {
   const peer = await commandablePeer();
+  const second = await commandablePeer();
   const target = `127.0.0.1:${peer.port}`;
   const headers = {
     "X-Studio-Token": (await (await request.get("/api/session")).json()).token,
@@ -110,7 +120,7 @@ test("pending real BACnet preflight keeps point identity and transport drafts fi
   try {
     await request.post("/api/bacnet/disconnect", { headers, data: {} });
     await page.goto("/");
-    await page.getByRole("button", { name: "Connect", exact: true }).click();
+    await openConnectionDetails(page);
     await page
       .getByLabel("Local bind address / UDP port", { exact: true })
       .fill(`127.0.0.1:${await freePort()}`);
@@ -147,12 +157,26 @@ test("pending real BACnet preflight keeps point identity and transport drafts fi
     await expect(
       page.getByText("BACnet interface open", { exact: true }),
     ).toBeVisible();
-    await page.getByLabel("Unicast target", { exact: true }).fill(target);
+    await selectKnownController(page, target, "device,4190010");
+    await chooseWorkspaceTask(page, "Points & I/O");
+    await chooseWorkspaceTool(page, "Read properties", "Controller task tools");
     await page
       .getByRole("button", { name: "Who-Is target", exact: true })
       .click();
     const discovered = page.getByRole("row").filter({ hasText: "4190010" });
     await expect(discovered).toContainText(target);
+    const openCommands = async () => {
+      await chooseWorkspaceTask(page, "Points & I/O");
+      await chooseWorkspaceTool(
+        page,
+        "Commands & overrides",
+        "Controller task tools",
+      );
+    };
+    await openCommands();
+    await page
+      .getByLabel("Command point object", { exact: true })
+      .fill("analog-value,1");
     await page.getByLabel("Command value", { exact: true }).fill("42.25");
     await page
       .getByRole("button", { name: "Preview command", exact: true })
@@ -161,32 +185,17 @@ test("pending real BACnet preflight keeps point identity and transport drafts fi
     // The request already made real priority/value/name BACnet reads. Only its
     // actual HTTP delivery is delayed; backend semantics are never fabricated.
     for (const label of [
-      "Unicast target",
-      "Object identifier",
-      "Property",
+      "Command point object",
       "Command value",
       "BACnet priority",
-      "Local bind address / UDP port",
-      "BBMD address / UDP port (optional)",
-      "MS/TP master MAC",
     ]) {
       await expect(page.getByLabel(label, { exact: true })).toBeDisabled();
     }
-    for (const name of ["MS/TP serial port", "MS/TP baud rate"]) {
-      await expect(
-        page.getByRole("combobox", { name, exact: true }),
-      ).toBeDisabled();
-    }
-    await discovered.click({ force: true });
+    await expectWorkspaceNavigationLocked(page);
+    await expect(page.locator(".workflow-target-row")).toContainText(target);
     await expect(
-      page.getByLabel("Unicast target", { exact: true }),
-    ).toHaveValue(target);
-    await expect(
-      page.getByLabel("Object identifier", { exact: true }),
+      page.getByLabel("Command point object", { exact: true }),
     ).toHaveValue("analog-value,1");
-    await expect(page.getByLabel("Property", { exact: true })).toHaveValue(
-      "present-value",
-    );
     const response = page.waitForResponse((response) =>
       response.url().endsWith("/api/bacnet/write-plan"),
     );
@@ -198,14 +207,22 @@ test("pending real BACnet preflight keeps point identity and transport drafts fi
     });
     await expect(apply).toBeEnabled();
     await expect(
-      page.getByLabel("Unicast target", { exact: true }),
+      page.getByLabel("Command point object", { exact: true }),
     ).toBeEnabled();
-    // Once editing resumes, a changed target invalidates the completed plan.
-    await page
-      .getByLabel("Unicast target", { exact: true })
-      .fill("127.0.0.1:1");
+    await selectKnownController(
+      page,
+      `127.0.0.1:${second.port}`,
+      "device,4190010",
+    );
+    await openCommands();
     await expect(apply).toHaveCount(0);
-    await page.getByLabel("Unicast target", { exact: true }).fill(target);
+    await selectKnownController(page, target, "device,4190010");
+    await openCommands();
+    await expect(apply).toHaveCount(0);
+    await page
+      .getByLabel("Command point object", { exact: true })
+      .fill("analog-value,1");
+    await page.getByLabel("Command value", { exact: true }).fill("42.25");
     await page
       .getByRole("button", { name: "Preview command", exact: true })
       .click();
@@ -219,7 +236,9 @@ test("pending real BACnet preflight keeps point identity and transport drafts fi
       data: { address: target, object_id: "analog-value,1" },
     });
     expect((await read.json()).value).toBe(42.25);
-    await page.getByRole("button", { name: "Relinquish", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Release override", exact: true })
+      .click();
     await expect(page.locator(".owned-command")).toHaveCount(0);
     const restored = await request.post("/api/bacnet/read", {
       headers,
@@ -238,5 +257,7 @@ test("pending real BACnet preflight keeps point identity and transport drafts fi
     await request.post("/api/bacnet/disconnect", { headers, data: {} });
     peer.child.stdin.end("close\n");
     peer.child.kill();
+    second.child.stdin.end("close\n");
+    second.child.kill();
   }
 });
