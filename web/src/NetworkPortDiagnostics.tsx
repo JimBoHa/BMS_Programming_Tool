@@ -16,10 +16,11 @@ const counters = [
 ] as const;
 
 export function networkPortId(input: string): string | null {
-  const match = /^(?:network-port|56),(\d+)$/.exec(input.trim());
-  const instance = match ? Number(match[1]) : NaN;
-  return Number.isInteger(instance) && instance <= 4194302
-    ? `network-port,${instance}`
+  const match = /^(network-port|56|195),(\d+)$/.exec(input.trim());
+  if (!match) return null;
+  const instance = Number(match[2]);
+  return Number.isSafeInteger(instance) && instance <= 4194302
+    ? `${match[1] === "195" ? "195" : "network-port"},${instance}`
     : null;
 }
 
@@ -79,6 +80,28 @@ function difference(previous: Fields | null, current: Fields, key: string) {
   return next >= old ? String(next - old) : "Counter decreased";
 }
 
+function legacyBusProperties(fields: Fields) {
+  const network = count(fields, "875");
+  const manager = count(fields, "max-master");
+  const frames = count(fields, "max-info-frames");
+  const baud = scalar(fields["2861"]);
+  return (
+    scalar(fields["object-type"]) === 195 &&
+    network !== null &&
+    network >= 1 &&
+    network <= 65534 &&
+    manager !== null &&
+    manager <= 127 &&
+    frames !== null &&
+    frames >= 1 &&
+    frames <= 255 &&
+    fields["2861"]?.datatype === "Enumerated" &&
+    typeof baud === "number" &&
+    Number.isSafeInteger(baud) &&
+    baud >= 0
+  );
+}
+
 export function NetworkPortDiagnostics({
   target,
   port,
@@ -94,6 +117,9 @@ export function NetworkPortDiagnostics({
   const [busy, setBusy] = useState(false);
   const mounted = useRef(true);
   const pending = useRef(false);
+  const legacy = port.startsWith("195,");
+  const networkProperty = legacy ? "875" : "network-number";
+  const typeProperty = legacy ? "object-type" : "network-type";
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -142,32 +168,57 @@ export function NetworkPortDiagnostics({
     try {
       const device = await properties(source.device, ["vendor-identifier"]);
       const vendor = scalar(device.fields["vendor-identifier"]);
-      const standard = await properties(port, [
-        "object-name",
-        "network-type",
-        "network-number",
-        "link-speed",
-        "reliability",
-        "out-of-service",
-      ]);
+      if (legacy && vendor !== 5) {
+        throw new Error(
+          "Reading this proprietary field-bus object requires a verified Johnson Controls controller.",
+        );
+      }
+      const standard = await properties(
+        port,
+        legacy
+          ? [
+              "object-name",
+              "object-type",
+              "875",
+              "2861",
+              "max-master",
+              "max-info-frames",
+            ]
+          : [
+              "object-name",
+              "network-type",
+              "network-number",
+              "link-speed",
+              "reliability",
+              "out-of-service",
+            ],
+      );
       const name = scalar(standard.fields["object-name"]);
       if (typeof name !== "string" || !name)
         throw new Error("The port did not return its name.");
+      if (legacy && !legacyBusProperties(standard.fields)) {
+        throw new Error(
+          "The controller did not confirm the legacy MS/TP object type, configured network, active baud code and token limits.",
+        );
+      }
       let counts: Fields | null = null,
         time = standard.time;
-      if (vendor === 5 && scalar(standard.fields["network-type"]) === 2) {
+      if (
+        vendor === 5 &&
+        (legacy || scalar(standard.fields["network-type"]) === 2)
+      ) {
         const more = await properties(port, [
           "object-name",
-          "network-number",
-          "network-type",
+          networkProperty,
+          typeProperty,
           ...counters.map(([k]) => k),
         ]);
         if (
           scalar(more.fields["object-name"]) !== name ||
-          scalar(more.fields["network-type"]) !== 2 ||
-          scalar(standard.fields["network-number"]) === null ||
-          scalar(more.fields["network-number"]) !==
-            scalar(standard.fields["network-number"])
+          scalar(more.fields[typeProperty]) !== (legacy ? 195 : 2) ||
+          scalar(standard.fields[networkProperty]) === null ||
+          scalar(more.fields[networkProperty]) !==
+            scalar(standard.fields[networkProperty])
         )
           throw new Error(
             "The port identity or network number changed during the read.",
@@ -186,10 +237,10 @@ export function NetworkPortDiagnostics({
         last &&
         last.name === name &&
         last.vendor === current.vendor &&
-        scalar(last.standard["network-type"]) ===
-          scalar(current.standard["network-type"]) &&
-        scalar(last.standard["network-number"]) ===
-          scalar(current.standard["network-number"]) &&
+        scalar(last.standard[typeProperty]) ===
+          scalar(current.standard[typeProperty]) &&
+        scalar(last.standard[networkProperty]) ===
+          scalar(current.standard[networkProperty]) &&
         Date.parse(last.time) < Date.parse(time);
       setPrevious(samePort ? last : null);
       setLast(current);
@@ -218,16 +269,35 @@ export function NetworkPortDiagnostics({
         <>
           <p role="status">
             <b>{last.name}</b> · {port} · Network{" "}
-            {display(last.standard["network-number"])} ·{" "}
-            {display(last.standard["network-type"])} · Link speed{" "}
-            {display(last.standard["link-speed"])}
-            {typeof scalar(last.standard["link-speed"]) === "number" &&
-              " bit/s"}
+            {display(last.standard[networkProperty])} ·{" "}
+            {legacy ? (
+              <>
+                MS/TP field bus · Active baud rate code{" "}
+                {display(last.standard["2861"])}
+              </>
+            ) : (
+              <>
+                {display(last.standard["network-type"])} · Link speed{" "}
+                {display(last.standard["link-speed"])}
+                {typeof scalar(last.standard["link-speed"]) === "number" &&
+                  " bit/s"}
+              </>
+            )}
           </p>
           <p>
             Last verified reading {new Date(last.time).toLocaleString()} ·
-            Reliability {display(last.standard.reliability)} · Out of service{" "}
-            {display(last.standard["out-of-service"])}
+            {legacy ? (
+              <>
+                Maximum manager address {display(last.standard["max-master"])} ·
+                Maximum information frames{" "}
+                {display(last.standard["max-info-frames"])}
+              </>
+            ) : (
+              <>
+                Reliability {display(last.standard.reliability)} · Out of
+                service {display(last.standard["out-of-service"])}
+              </>
+            )}
           </p>
           {last.counts ? (
             <>

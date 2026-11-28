@@ -55,6 +55,12 @@ identifier. The panel shows the port name, network number, link speed, reliabili
 and service state. Johnson Controls MS/TP ports can also report token traffic,
 polls and replies, timeouts, framing errors and CRC errors.
 
+Older Johnson Controls supervisors can expose the field bus as a proprietary
+object of type 195. Select that object in the same workflow. The app checks the
+vendor, object type, configured network number, active baud-rate code and
+MS/TP token limits before reading counters. For this representation the display
+shows the device’s baud-rate code and its configured token limits.
+
 Choose **Read port diagnostics again** to compare two readings from the same
 port. Polls increasing with no replies or tokens show what the supervisor
 observed during that interval. A field inspection can distinguish power,
