@@ -57,8 +57,20 @@ test("a delayed interface-open response preserves COV drafts for an unchanged em
   };
   try {
     await request.post("/api/bacnet/disconnect", { headers, data: {} });
+    const jobIds = async () => {
+      const status = await (await request.get("/api/bacnet/cov/status")).json();
+      return status.jobs.map((job: { id: string }) => job.id);
+    };
+    const originalJobs = await jobIds();
     await page.goto("/");
     await openConnectionDetails(page);
+    await page
+      .getByLabel("BBMD address / UDP port (optional)", { exact: true })
+      .fill("");
+    await page.getByLabel("Router IP (optional)", { exact: true }).fill("");
+    await page
+      .getByLabel("MS/TP destination network (optional)", { exact: true })
+      .fill("");
     const bind = "127.0.0.1:" + (await freePort());
     await page
       .getByLabel("Local bind address / UDP port", { exact: true })
@@ -129,9 +141,7 @@ test("a delayed interface-open response preserves COV drafts for an unchanged em
       expect(stats.reads).toBeGreaterThan(0);
       expect(stats.writes).toBe(0);
     }
-    expect(
-      (await (await request.get("/api/bacnet/cov/status")).json()).jobs,
-    ).toEqual([]);
+    expect(await jobIds()).toEqual(originalJobs);
   } finally {
     unlock();
     await Promise.all([first.close(), other.close()]);
