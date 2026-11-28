@@ -644,6 +644,53 @@ test("hardware survey keeps explicit routed source, binary-on-UI occupancy, erro
   ).toEqual(["/api/bacnet/hardware/survey"]);
 });
 
+test("unsaved survey exports the finished job and its input rows", async ({ page }) => {
+  const snapshot = { ...report, id: undefined };
+  const job = {
+    id: "unsaved-job",
+    kind: "survey",
+    status: "error",
+    error: "Authored survey validation error",
+    report: snapshot,
+    target,
+  };
+  const { panel, requests } = await setup(page, async (route, record) => {
+    if (record.path.endsWith("/hardware/survey")) {
+      await route.fulfill({ json: job });
+      return true;
+    }
+    if (record.path.endsWith(`/jobs/${job.id}/export`)) {
+      const csv = new URL(route.request().url()).searchParams.get("format") === "csv";
+      await route.fulfill({
+        contentType: csv ? "text/csv" : "application/json",
+        body: csv ? "object,unvalidated_job_id,job_status\nbinary-input-2,unsaved-job,error\n" : JSON.stringify(job),
+      });
+      return true;
+    }
+    return false;
+  });
+  await panel.getByRole("button", { name: "Survey controller inputs", exact: true }).click();
+  const results = panel.getByRole("region", { name: "Hardware survey results", exact: true });
+  await expect(results).toContainText("Unvalidated readings from survey job unsaved-job");
+  await expect(panel.getByRole("alert")).toContainText(job.error);
+  await expect(results).toContainText("Fixture temperature");
+  await expect(results.getByRole("button", { name: "Read controller archive" })).toBeDisabled();
+  for (const format of ["JSON", "CSV"]) {
+    const downloading = page.waitForEvent("download");
+    await results.getByRole("button", { name: `Download hardware ${format}`, exact: true }).click();
+    const download = await downloading;
+    expect(download.suggestedFilename()).toBe(`hardware-job-unsaved-job-snapshot.${format.toLowerCase()}`);
+    const bytes = readFileSync((await download.path())!, "utf8");
+    if (format === "JSON") expect(JSON.parse(bytes).error).toBe(job.error);
+    else expect(bytes).toContain("unsaved-job,error");
+  }
+  expect(requests.filter((r) => r.path.endsWith(`/jobs/${job.id}/export`))).toHaveLength(2);
+  expect(requests.some((r) => r.path.includes("undefined"))).toBe(false);
+  await openSaved(panel);
+  await expect(results).toContainText("Captured survey readings");
+  await expect(results.getByRole("button", { name: "Read controller archive" })).toBeEnabled();
+});
+
 test("hardware survey cancellation preserves partial evidence", async ({
   page,
 }) => {

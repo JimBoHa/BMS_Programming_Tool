@@ -2,7 +2,9 @@
 
 import asyncio
 import copy
+import csv
 import gzip
+import io
 
 import httpx
 import pytest
@@ -300,6 +302,63 @@ async def test_survey_job_cancel_retains_partial_and_retires_owned_requests(tmp_
                 row["status"] == "candidate" for row in job["report"].get("candidates", [])
             )
             assert not app.state.bacnet.commands
+
+
+async def test_unsaved_job_exports_observed_rows_and_failure_after_restart(tmp_path, monkeypatch):
+    app = create_app(tmp_path)
+    source = offline_report()
+    source["inputs"].append(copy.deepcopy(source["inputs"][0]))
+    entered, finish = asyncio.Event(), asyncio.Event()
+
+    async def read(body, progress, *, expected_config):
+        progress(source)
+        entered.set()
+        await finish.wait()
+        return source
+
+    monkeypatch.setattr(app.state.hardware_workbench.surveys, "survey", read)
+    base = "/api/bacnet/hardware"
+    async with app.router.lifespan_context(app), httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://testserver"
+    ) as client:
+        headers = await session(client)
+        connected = await client.post(
+            "/api/bacnet/connect", headers=headers, json={"local_address": f"127.0.0.1:{port()}"}
+        )
+        connected.raise_for_status()
+        started = await client.post(base + "/survey", json=source["target"], headers=headers)
+        key = started.raise_for_status().json()["id"]
+        url = base + f"/jobs/{key}/export"
+        await asyncio.wait_for(entered.wait(), 1)
+        try:
+            assert (await client.get(url + "?format=csv")).status_code == 422
+        finally:
+            finish.set()
+        job = await wait_job(client, key)
+        assert job["status"] == "error" and "duplicated" in job["error"]
+        assert job["report"]["inputs"] == source["inputs"] and "report_id" not in job
+        assert not app.state.bacnet.commands
+
+    reopened = create_app(tmp_path)
+    async with reopened.router.lifespan_context(reopened), httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=reopened), base_url="http://testserver"
+    ) as client:
+        assert (await client.get(url)).raise_for_status().json() == job
+        assert (await client.get(url + "?format=json")).json() == job
+        imported = await client.post(
+            base + "/import-report",
+            files={"file": ("job.json", canonical(job))},
+            headers=await session(client),
+        )
+        assert imported.status_code == 422
+        response = (await client.get(url + "?format=csv")).raise_for_status()
+        rows = list(csv.DictReader(io.StringIO(response.content.decode("utf-8-sig"))))
+        assert [r["object"] for r in rows] == [r["object"] for r in source["inputs"]]
+        assert all(r["unvalidated_job_id"] == key and r["job_status"] == "error" for r in rows)
+        assert all(r["job_error"] == job["error"] for r in rows)
+        assert (await client.get(url + "?format=other")).status_code == 422
+        assert (await client.get(base + "/status")).json()["reports"] == []
+        assert reopened.state.bacnet.app is None
 
 
 async def test_cancel_before_task_starts_is_terminal_and_durable(tmp_path):

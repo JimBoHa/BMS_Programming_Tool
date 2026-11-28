@@ -26,7 +26,11 @@ unknown; a binary object on a universal terminal still occupies that terminal.
 2. Choose object, input and operation-time limits. Start the survey, inspect
    progress, or cancel. Partial and cancelled evidence remains clearly labelled.
 3. Filter inputs by host, type or search text. Download the saved JSON report or
-   CSV input table. Saved evidence and jobs can be reopened or removed.
+   CSV input table. If saving fails, the finished job retains its readings.
+   The JSON download includes the full job and its error. The CSV identifies
+   the unvalidated job and its outcome alongside each input. Archive comparison
+   and terminal planning require a validated, saved survey. Saved evidence and
+   jobs can be reopened or removed.
 4. Optionally import a local native CAF/MOI archive, reuse a previously saved
    complete stream-access BACnet File capture, or explicitly read an existing
    advertised Archive .moi File object. Compare native configured modules and
