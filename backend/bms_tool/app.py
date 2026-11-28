@@ -2324,8 +2324,8 @@ def create_app(state_dir=None, *, operation_power=None):
         return schedule_library.status()
 
     @app.get("/api/bacnet/schedules/library/captures/{id}")
-    def bacnet_schedule_capture(id: str):
-        return schedule_library.detail(id)
+    def bacnet_schedule_capture(id: str, observed_defaults: bool = False):
+        return schedule_library.detail(id, observed_defaults=observed_defaults)
 
     @app.post("/api/bacnet/schedules/library/save")
     def bacnet_schedule_capture_save(body: ScheduleExport):

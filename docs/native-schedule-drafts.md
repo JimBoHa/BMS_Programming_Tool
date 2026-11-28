@@ -62,3 +62,9 @@ The `old/new.encoded_hex` fields describe a DailySchedule sequence, not a WriteP
 - `tests/test_native_schedule_library.py` and `tests/test_native_schedule_library_api.py`: independently encoded real direct/routed UDP source reads; literal native expected tags; primitive/default/context mismatch and range cases; signed zero and readable rounding; exact exports, restart/import with no field queries; tamper/unknown-profile/duplicate-key checks; bounded retention/capacity, actual cross-process ownership, nonregular files and failed publication. Browser coverage exercises the library/editor/import/export flow and stale ownership guards.
 
 These tests use local loopback and temporary storage. They establish no physical manufacturer/firmware, Bluetooth, native CCT/PCT compilation/download or unrestricted conversion acceptance.
+
+### Weekly schedules with a Null default
+
+BMS Studio can review a local weekly-day edit when a controller uses a Null schedule default. The BMS Tool reads the captured present value, all seven days and the exception entries. At least one weekly transition must contain a value. Every captured non-Null value must have the same numeric or Boolean BACnet type as the present value. An Unsigned value and an Enumerated value remain distinct even if both display the same number.
+
+The editor shows the observed type, retains the original Null default and records the exact encoded day in the exported review. The field writer accepts the separately qualified deployment profiles. This local review carries its own profile and cannot issue a controller write.

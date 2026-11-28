@@ -45,6 +45,7 @@ from .schedule_inventory import PROFILE as INVENTORY_PROFILE
 CAPTURE_PROFILE = "native-calendar-schedule-capture/1"
 DRAFT_PROFILE = "native-schedule-weekly-day-draft/1"
 STRING_DRAFT_PROFILE = "native-schedule-utf8-weekly-day-draft/1"
+OBSERVED_DRAFT_PROFILE = "native-schedule-null-default-weekly-day-draft/1"
 MAX_STRING_BYTES = 256
 MAX_ARCHIVE_BYTES = 4 * 1024 * 1024
 MAX_CAPTURES, MAX_STORAGE, MAX_REVIEWS = 32, 64 * 1024 * 1024, 16
@@ -106,6 +107,14 @@ RULES = {
     },
 }
 RULES_SHA256 = digest(RULES)
+OBSERVED_RULES_SHA256 = digest(
+    {
+        **RULES,
+        "id": OBSERVED_DRAFT_PROFILE,
+        "datatype": "A captured Null default, a non-Null numeric or Boolean present value and at least one weekly transition of that exact BACnet type. All other captured weekly and exception atoms must have that same type or be Null.",
+        "selection": "Offline review of one captured weekly day. Retain the original Null default, output references and six other days.",
+    }
+)
 
 # Existing numeric rules and their hashes remain unchanged. The new domain
 # carries separate authority rather than broadening old sealed reviews.
@@ -360,8 +369,12 @@ class NativeTransition(StrictModel):
         return value
 
 
+class NullScheduleDefault(ValueError):
+    """The retained capture may support explicit local observed-type review."""
+
+
 class WeeklyDayDraft(StrictModel):
-    draft_profile: Literal[STRING_DRAFT_PROFILE] | None = Field(
+    draft_profile: Literal[STRING_DRAFT_PROFILE, OBSERVED_DRAFT_PROFILE] | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
     capture_id: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -660,11 +673,16 @@ class NativeScheduleLibrary:
         return wrapper["source_json"].encode()
 
     @staticmethod
-    def _weekly_context(report, object_id, *, exception_week_limit=6):
+    def _weekly_context(report, object_id, *, exception_week_limit=6, observed_defaults=False):
         try:
             return NativeScheduleLibrary._decoded_weekly_context(
-                report, object_id, exception_week_limit=exception_week_limit
+                report,
+                object_id,
+                exception_week_limit=exception_week_limit,
+                observed_defaults=observed_defaults,
             )
+        except NullScheduleDefault:
+            raise
         except ValueError as exc:
             raise ValueError(str(exc)[:400] or "Invalid native schedule context.") from exc
         except Exception as exc:
@@ -673,7 +691,9 @@ class NativeScheduleLibrary:
             ) from exc
 
     @staticmethod
-    def _decoded_weekly_context(report, object_id, *, exception_week_limit=6):
+    def _decoded_weekly_context(
+        report, object_id, *, exception_week_limit=6, observed_defaults=False
+    ):
         if report.get("identity_verified") is not True:
             raise ValueError("Captured Device identity was not verified.")
         device = report["target"].get("device")
@@ -741,13 +761,24 @@ class NativeScheduleLibrary:
                 previous = tuple(clock)
         default = context["schedule-default"].get_value()
         observed = type(default).__name__
-        if observed not in ALL_PRIMITIVES or observed == "Null":
-            raise ValueError(
+        present = context["present-value"].get_value()
+        if observed == "Null" and observed_defaults:
+            observed = type(present).__name__
+            weekly_types = {
+                type(entry.value.get_value()).__name__ for day in days for entry in day.daySchedule
+            } - {"Null"}
+            if observed not in PRIMITIVES or observed == "Null" or weekly_types != {observed}:
+                raise ValueError(
+                    "A Null default needs matching non-Null present and weekly value types for local review."
+                )
+        elif observed not in ALL_PRIMITIVES or observed == "Null":
+            reason = NullScheduleDefault if observed == "Null" else ValueError
+            raise reason(
                 "A supported non-Null Schedule_Default is required; Null/default-release interpretation is deferred."
             )
         for value in [
             default,
-            context["present-value"].get_value(),
+            present,
             *(entry.value.get_value() for sequence in sequences for entry in sequence),
         ]:
             name = type(value).__name__
@@ -769,7 +800,7 @@ class NativeScheduleLibrary:
             raise ValueError("Captured schedule writing priority is outside1..16.")
         return props, days, observed
 
-    def detail(self, id):
+    def detail(self, id, *, observed_defaults=False):
         wrapper, report = self._archive(self.archive(id))
         objects = []
         for item in report["objects"]:
@@ -777,7 +808,17 @@ class NativeScheduleLibrary:
             try:
                 if int(ObjectIdentifier(name)[0]) != 17:
                     continue
-                props, days, observed = self._weekly_context(report, name)
+                props, days, observed = self._weekly_context(
+                    report, name, observed_defaults=observed_defaults
+                )
+                null_default = (
+                    type(
+                        decoded_row(props["schedule-default"], name, "schedule-default")[
+                            0
+                        ].get_value()
+                    ).__name__
+                    == "Null"
+                )
                 seeds = []
                 for index, day in enumerate(days, 1):
                     _, raw = decoded_row(
@@ -809,6 +850,14 @@ class NativeScheduleLibrary:
                         "native_type": observed,
                         **(
                             {
+                                "draft_profile": OBSERVED_DRAFT_PROFILE,
+                                "rules_sha256": OBSERVED_RULES_SHA256,
+                            }
+                            if null_default
+                            else {}
+                        ),
+                        **(
+                            {
                                 "draft_profile": STRING_DRAFT_PROFILE,
                                 "rules_sha256": STRING_RULES_SHA256,
                             }
@@ -824,6 +873,11 @@ class NativeScheduleLibrary:
                     {
                         "object": name,
                         "eligible": False,
+                        **(
+                            {"check_observed_values": True}
+                            if isinstance(exc, NullScheduleDefault)
+                            else {}
+                        ),
                         "issues": [str(exc)[:400] or type(exc).__name__],
                     }
                 )
@@ -905,16 +959,31 @@ class NativeScheduleLibrary:
 
     def _review(self, request, *, retain):
         report = source_report(self.source(request.capture_id))
-        props, days, observed = self._weekly_context(report, request.object_id)
+        null_default = request.draft_profile == OBSERVED_DRAFT_PROFILE
+        props, days, observed = self._weekly_context(
+            report, request.object_id, observed_defaults=null_default
+        )
+        if (
+            null_default
+            and type(
+                decoded_row(props["schedule-default"], request.object_id, "schedule-default")[
+                    0
+                ].get_value()
+            ).__name__
+            != "Null"
+        ):
+            raise ValueError("The observed-type draft requires a captured Null Schedule_Default.")
         is_string = observed == "CharacterString"
         if is_string and request.draft_profile != STRING_DRAFT_PROFILE:
             raise ValueError(
                 "String drafts require their explicit UTF8 profile marker; v1 numeric authority is not sufficient."
             )
-        if not is_string and request.draft_profile is not None:
+        if not is_string and request.draft_profile == STRING_DRAFT_PROFILE:
             raise ValueError("UTF8 String profile cannot authorize a non-String schedule.")
         profile = STRING_DRAFT_PROFILE if is_string else DRAFT_PROFILE
         rules = STRING_RULES_SHA256 if is_string else RULES_SHA256
+        if null_default:
+            profile, rules = OBSERVED_DRAFT_PROFILE, OBSERVED_RULES_SHA256
         previous = None
         transitions, projections = [], []
         for row in request.transitions:
@@ -1015,6 +1084,11 @@ class NativeScheduleLibrary:
             },
             "field_writes": False,
         }
+        if null_default:
+            review["interpretation"]["datatype_basis"] = (
+                "All non-Null weekly and exception transitions agree with the captured present value. The captured Schedule_Default stays Null."
+            )
+            review["source"]["schedule_default_type"] = "Null"
         review["id"] = digest(review)
         raw_review = encoded(review)
         if len(raw_review) > 256 * 1024:
@@ -1040,7 +1114,8 @@ class NativeScheduleLibrary:
         body = strict_json(raw, 256 * 1024)
         if (
             type(body) is not dict
-            or body.get("format") not in (DRAFT_PROFILE, STRING_DRAFT_PROFILE)
+            or body.get("format")
+            not in (DRAFT_PROFILE, STRING_DRAFT_PROFILE, OBSERVED_DRAFT_PROFILE)
             or body.get("profile") != body.get("format")
             or type(body.get("request")) is not dict
             or body.get("id") != digest({k: v for k, v in body.items() if k != "id"})
