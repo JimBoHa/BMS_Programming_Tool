@@ -1,10 +1,14 @@
 import { test, expect, type Page, type Locator } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
+import {
+  chooseWorkspaceSurface,
+  chooseWorkspaceTool,
+} from "./workspace-navigation";
 
-async function open(page: Page) {
-  await page.goto("/");
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
+async function openPlanner(page: Page) {
+  await chooseWorkspaceSurface(page, "Settings");
+  await chooseWorkspaceTool(page, "Network plan", "Controller task tools");
   await page
     .getByText("Network-number engineering plan", { exact: true })
     .click();
@@ -17,6 +21,19 @@ async function open(page: Page) {
   ).toBeVisible();
   return panel;
 }
+
+async function openFromStart(page: Page) {
+  await expect(
+    page.getByRole("button", { name: /^Connect to a controller/ }),
+  ).toBeVisible();
+  return openPlanner(page);
+}
+
+async function open(page: Page) {
+  await page.goto("/");
+  return openFromStart(page);
+}
+
 async function add(
   panel: Locator,
   label: string,
@@ -160,14 +177,7 @@ test("authors multi-router declarations, diagnoses a distinct bus, and reopens e
   expect(portable.assignments[0].domain_key).toBe("authored-domain");
   expect(portable.profile_sha256).toMatch(/^[a-f0-9]{64}$/);
   await page.reload();
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
-  await page
-    .getByText("Network-number engineering plan", { exact: true })
-    .click();
-  panel = page.getByRole("region", {
-    name: "BACnet network-number planning",
-    exact: true,
-  });
+  panel = await openFromStart(page);
   await expect(
     panel.getByText("No attachments declared.", { exact: true }),
   ).toBeVisible();
@@ -420,17 +430,11 @@ test("closing or unmounting the planner suppresses delayed review downloads", as
     .getByRole("button", { name: "Export network review JSON", exact: true })
     .click();
   await held.seen;
-  await page.getByRole("button", { name: "Program", exact: true }).click();
+  await chooseWorkspaceSurface(page, "Library");
+  await expect(panel).toHaveCount(0);
   held.release();
   await page.unroute("**/api/network-number-plan/review");
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
-  await page
-    .getByText("Network-number engineering plan", { exact: true })
-    .click();
-  panel = page.getByRole("region", {
-    name: "BACnet network-number planning",
-    exact: true,
-  });
+  panel = await openPlanner(page);
   await expect(
     panel.getByText("No attachments declared.", { exact: true }),
   ).toBeVisible();
