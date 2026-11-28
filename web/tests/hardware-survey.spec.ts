@@ -1,5 +1,9 @@
 import { test, expect, type Page, type Route } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import {
+  chooseWorkspaceTask,
+  chooseWorkspaceTool,
+} from "./workspace-navigation";
 
 // Public, authored evidence only. Every hardware request is intercepted; these
 // tests never open a BACnet interface or send packets to a site network.
@@ -8,6 +12,14 @@ const target = {
   device: "device,319009",
   router: "198.51.100.20",
   dnet: 3101,
+};
+const replacement = { ...target, address: "3101:10", device: "device,319010" };
+const interfaceConfig = {
+  transport: "ip",
+  local_address: "127.0.0.1:47899",
+  instance: 4190001,
+  router: target.router,
+  dnet: target.dnet,
 };
 const report = {
   profile: "bacnet-hardware-survey/1",
@@ -138,9 +150,54 @@ const completed = {
   target,
 };
 type RequestRecord = { path: string; method: string; body: any };
+async function openSurveyTask(page: Page) {
+  await chooseWorkspaceTask(page, "Points & I/O");
+  await expect(
+    page.getByRole("navigation", {
+      name: "Controller task tools",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await chooseWorkspaceTool(page, "Hardware survey", "Controller task tools");
+}
+async function selectController(page: Page, station: typeof target) {
+  await page
+    .getByRole("button", { name: "Known controller address", exact: true })
+    .click();
+  const form = page.getByRole("region", {
+    name: "Known controller connection",
+  });
+  for (const [label, value] of [
+    ["Known controller address", station.address],
+    ["Known Device object", station.device],
+    ["Known router", station.router],
+    ["Known network", String(station.dnet)],
+  ]) {
+    await form.getByLabel(label, { exact: true }).fill(value);
+  }
+  const response = page.waitForResponse(
+    (r) => new URL(r.url()).pathname === "/api/bacnet/device-details",
+  );
+  await form
+    .getByRole("button", { name: "Open controller", exact: true })
+    .click();
+  const verified = await response;
+  expect(verified.ok()).toBe(true);
+  expect(verified.request().postDataJSON()).toEqual(station);
+  expect((await verified.json()).identity_verified).toBe(true);
+  await expect(
+    page.getByRole("region", { name: "Controller overview" }),
+  ).toContainText(station.device);
+  await openSurveyTask(page);
+}
+type RequestHandler = (route: Route, record: RequestRecord) => Promise<boolean>;
+function setupLocal(page: Page, handle: RequestHandler) {
+  return setup(page, handle, "local");
+}
 async function setup(
   page: Page,
-  handle?: (route: Route, record: RequestRecord) => Promise<boolean>,
+  handle?: RequestHandler,
+  entry: "controller" | "local" = "controller",
 ) {
   const requests: RequestRecord[] = [];
   await page.route("**/api/**", async (route) => {
@@ -159,15 +216,74 @@ async function setup(
     if (path === "/api/bacnet/status")
       return respond({
         connected: true,
-        config: {
-          transport: "ip",
-          local_address: "127.0.0.1:47899",
-          instance: 4190001,
-          router: "",
-          dnet: null,
-        },
+        config: interfaceConfig,
         commands: [],
       });
+    if (
+      [
+        "/api/bacnet/device-details",
+        "/api/bacnet/controller/inventory",
+        "/api/bacnet/controller/properties",
+      ].includes(path)
+    ) {
+      const station = [target, replacement].find(
+        (t) =>
+          t.device === body.device &&
+          t.address === body.address &&
+          t.router === body.router &&
+          t.dnet === body.dnet,
+      );
+      if (!station)
+        return route.fulfill({
+          status: 409,
+          json: { detail: "Unexpected controller route or identity" },
+        });
+      if (path.endsWith("/device-details"))
+        return respond({
+          ...station,
+          identity_verified: true,
+          properties: {
+            "object-identifier": station.device,
+            "object-name":
+              station === target
+                ? report.identity.name
+                : "Authored second controller",
+            "model-name": report.identity.model,
+            "firmware-revision": "1.0",
+          },
+          finished_at: "2026-01-02T03:04:10Z",
+        });
+      if (path.endsWith("/inventory"))
+        return respond({
+          target: station,
+          identity_verified: true,
+          connector_config: interfaceConfig,
+          offset: 0,
+          next_offset: null,
+          total: 1,
+          objects: [
+            {
+              object: station.device,
+              object_type: 8,
+              has_present_value: false,
+            },
+          ],
+          errors: [],
+        });
+      return respond({
+        target: station,
+        identity_verified: true,
+        connector_config: interfaceConfig,
+        objects: body.object_ids.map((object: string) => ({
+          object,
+          identity_verified: true,
+          properties: {
+            "object-name": { status: "ok", value: report.identity.name },
+          },
+        })),
+        errors: [],
+      });
+    }
     if (path === "/api/bacnet/hardware/status")
       return respond({
         jobs: [],
@@ -212,12 +328,45 @@ async function setup(
     return route.continue();
   });
   await page.goto("/");
-  await page.getByRole("button", { name: "Connect", exact: true }).click();
+  if (entry === "local") {
+    await page
+      .getByRole("button", { name: "New application", exact: true })
+      .click();
+    await openSurveyTask(page);
+  } else {
+    await page
+      .getByRole("button", { name: /^Connect to a controller/ })
+      .click();
+    await selectController(page, target);
+  }
   const panel = page.getByRole("region", {
     name: "Controller hardware and input survey",
     exact: true,
   });
   await expect(panel).toBeVisible();
+  if (entry === "controller") {
+    await expect(
+      panel.getByLabel("Hardware controller address", { exact: true }),
+    ).toHaveCount(0);
+  }
+  // Requests after entering the tool belong to the operation under test.
+  const entryReads = requests
+    .splice(0)
+    .filter((r) => r.method !== "GET" && r.path.startsWith("/api/bacnet/"));
+  expect(
+    entryReads
+      .filter((r) => r.path.endsWith("/device-details"))
+      .map((r) => r.body),
+  ).toEqual(entry === "controller" ? [target] : []);
+  expect(
+    entryReads.every((r) =>
+      [
+        "/api/bacnet/device-details",
+        "/api/bacnet/controller/inventory",
+        "/api/bacnet/controller/properties",
+      ].includes(r.path),
+    ),
+  ).toBe(true);
   return { panel, requests };
 }
 async function selectTarget(panel: ReturnType<Page["getByRole"]>) {
@@ -254,24 +403,17 @@ for (const releaseAfter of ["address", "complete target"] as const) {
     const ready = new Promise<void>((resolve) => {
       release = resolve;
     });
-    const { panel, requests } = await setup(page, async (route, record) => {
-      if (record.path !== "/api/bacnet/status") return false;
-      await ready;
-      await route.fulfill({
-        json: {
-          connected: true,
-          config: {
-            transport: "ip",
-            local_address: "127.0.0.1:47899",
-            instance: 4190001,
-            router: "",
-            dnet: null,
-          },
-          commands: [],
-        },
-      });
-      return true;
-    });
+    const { panel, requests } = await setupLocal(
+      page,
+      async (route, record) => {
+        if (record.path !== "/api/bacnet/status") return false;
+        await ready;
+        await route.fulfill({
+          json: { connected: true, config: interfaceConfig, commands: [] },
+        });
+        return true;
+      },
+    );
     if (releaseAfter === "address") {
       await panel
         .getByLabel("Hardware controller address", { exact: true })
@@ -285,13 +427,17 @@ for (const releaseAfter of ["address", "complete target"] as const) {
         exact: true,
       }),
     ).toBeDisabled();
+    const received = page.waitForResponse(
+      (r) => new URL(r.url()).pathname === "/api/bacnet/status",
+    );
     release();
+    await received;
     await expect(
       panel.getByRole("button", {
         name: "Survey controller inputs",
         exact: true,
       }),
-    ).toBeEnabled();
+    ).toBeDisabled();
     await expect(
       panel.getByLabel("Hardware controller address", { exact: true }),
     ).toHaveValue(target.address);
@@ -317,6 +463,12 @@ for (const releaseAfter of ["address", "complete target"] as const) {
         exact: true,
       }),
     ).toHaveValue(String(target.dnet));
+    expect(requests.filter((r) => r.path.endsWith("/survey"))).toEqual([]);
+    await page.goto("/");
+    await page
+      .getByRole("button", { name: /^Connect to a controller/ })
+      .click();
+    await selectController(page, target);
     await panel
       .getByRole("button", { name: "Survey controller inputs", exact: true })
       .click();
@@ -353,13 +505,7 @@ test("interface closure retires pending hardware work without replacing the decl
       await route.fulfill({
         json: {
           connected: opened,
-          config: {
-            transport: "ip",
-            local_address: "127.0.0.1:47899",
-            instance: 4190001,
-            router: "",
-            dnet: null,
-          },
+          config: interfaceConfig,
           commands: [],
         },
       });
@@ -381,7 +527,6 @@ test("interface closure retires pending hardware work without replacing the decl
     }
     return false;
   });
-  await selectTarget(panel);
   await panel
     .getByRole("button", { name: "Survey controller inputs", exact: true })
     .click();
@@ -406,20 +551,13 @@ test("interface closure retires pending hardware work without replacing the decl
     }),
   ).toBeDisabled();
   release();
+  await expect(page.getByLabel("Working context")).toContainText(
+    target.address,
+  );
+  await expect(page.getByLabel("Working context")).toContainText(target.device);
   await expect(
     panel.getByLabel("Hardware controller address", { exact: true }),
-  ).toHaveValue(target.address);
-  await expect(
-    panel.getByLabel("Hardware Device object", { exact: true }),
-  ).toHaveValue(target.device);
-  await expect(
-    panel.getByLabel("Hardware router (optional)", { exact: true }),
-  ).toHaveValue(target.router);
-  await expect(
-    panel.getByLabel("Hardware destination network (optional)", {
-      exact: true,
-    }),
-  ).toHaveValue(String(target.dnet));
+  ).toHaveCount(0);
   await expect(
     panel.getByRole("region", { name: "Hardware survey results", exact: true }),
   ).toHaveCount(0);
@@ -443,7 +581,6 @@ test("hardware survey keeps explicit routed source, binary-on-UI occupancy, erro
     });
     return true;
   });
-  await selectTarget(panel);
   await panel
     .getByRole("button", { name: "Survey controller inputs", exact: true })
     .click();
@@ -530,7 +667,6 @@ test("hardware survey cancellation preserves partial evidence", async ({
     }
     return false;
   });
-  await selectTarget(panel);
   await panel
     .getByRole("button", { name: "Survey controller inputs", exact: true })
     .click();
@@ -568,16 +704,17 @@ test("changing controller ignores late survey results and cancels its old source
     }
     return false;
   });
-  await selectTarget(panel);
   await panel
     .getByRole("button", { name: "Survey controller inputs", exact: true })
     .click();
   await expect
     .poll(() => requests.some((request) => request.path.endsWith("/survey")))
     .toBe(true);
-  await panel
-    .getByLabel("Hardware controller address", { exact: true })
-    .fill("3101:10");
+  await page
+    .getByLabel("Working context")
+    .getByRole("button", { name: "Change controller", exact: true })
+    .click();
+  await selectController(page, replacement);
   release!();
   await expect
     .poll(() => requests.some((request) => request.path.endsWith("/cancel")))
@@ -585,9 +722,12 @@ test("changing controller ignores late survey results and cancels its old source
   await expect(
     panel.getByRole("region", { name: "Hardware survey results", exact: true }),
   ).toHaveCount(0);
-  await expect(
-    panel.getByLabel("Hardware controller address", { exact: true }),
-  ).toHaveValue("3101:10");
+  await expect(page.getByLabel("Working context")).toContainText(
+    replacement.address,
+  );
+  await expect(page.getByLabel("Working context")).toContainText(
+    replacement.device,
+  );
 });
 
 test("a temporary progress failure can be retried without another controller survey", async ({
@@ -605,7 +745,6 @@ test("a temporary progress failure can be retried without another controller sur
     }
     return false;
   });
-  await selectTarget(panel);
   await panel
     .getByRole("button", { name: "Survey controller inputs", exact: true })
     .click();
@@ -731,7 +870,7 @@ test("saved reports, local native imports, saved captures, correlation and expli
 test("relocation stays a review, blocks occupied destinations, and conditionally plans voltage scaling", async ({
   page,
 }) => {
-  const { panel, requests } = await setup(page, async (route, record) => {
+  const { panel, requests } = await setupLocal(page, async (route, record) => {
     if (record.path.endsWith("/relocation")) {
       await route.fulfill({
         json:
@@ -878,7 +1017,7 @@ test("saved jobs can resume after navigation, partial jobs stop polling, and loc
     removedArchive = false,
     removedReport = false;
   const retainedJob = { id: "retained-job", status: "running", target };
-  const { panel, requests } = await setup(page, async (route, record) => {
+  const { panel, requests } = await setupLocal(page, async (route, record) => {
     if (record.path === "/api/bacnet/hardware/status") {
       await route.fulfill({
         json: {
@@ -1080,12 +1219,15 @@ for (const model of ["FX-PCV1630-0", "MS-VMA1615-0"]) {
         reason: "Internal slot mapping is unverified",
       },
     ];
-    const { panel, requests } = await setup(page, async (route, request) => {
-      if (request.path !== `/api/bacnet/hardware/reports/${report.id}`)
-        return false;
-      await route.fulfill({ json: vav });
-      return true;
-    });
+    const { panel, requests } = await setupLocal(
+      page,
+      async (route, request) => {
+        if (request.path !== `/api/bacnet/hardware/reports/${report.id}`)
+          return false;
+        await route.fulfill({ json: vav });
+        return true;
+      },
+    );
     await openSaved(panel);
     const results = panel.getByRole("region", {
       name: "Hardware survey results",
