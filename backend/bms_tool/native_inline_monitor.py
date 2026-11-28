@@ -209,12 +209,20 @@ def sources(app, graph, *, allow_floating=False):
 
 
 def compile_monitor(
-    files, first_instance, *, preserve_root_layout=True, allow_floating=False, sample_register=False
+    files,
+    first_instance,
+    *,
+    preserve_root_layout=True,
+    allow_floating=False,
+    sample_register=False,
+    activity_input=False,
 ):
     if type(first_instance) is not int or not 1 <= first_instance <= LIMIT:
         raise ValueError("Select a valid first native object instance.")
     if type(sample_register) is not bool:
         raise ValueError("Select a Boolean sampling register option.")
+    if type(activity_input) is not bool or (activity_input and not sample_register):
+        raise ValueError("The activity input requires an enabled sample register.")
     effective, merge = ParameterApplication(files[3], files[11], files[12]).compile()
     qualification = qualify_parameter_additions(effective, merge)
     app = MoiIdentity(effective)
@@ -257,10 +265,15 @@ def compile_monitor(
             raise ValueError("Insufficient free identifiers for the monitor.")
         oid = ObjectIdentifier((typ, num))
         item = f"{parent}.{typ}_{num}"
-        additions.append(record(cid, num, typ, item, props))
         identifiers.append(str(oid))
         if member:
             members.append(oid)
+        # An activity declares its child identities in its own record. Reserve
+        # its place before allocating those children, retaining source order.
+        slot = len(additions)
+        additions.append(b"")
+        fields = props(item) if callable(props) else props
+        additions[slot] = record(cid, num, typ, item, fields)
         return item, str(oid)
 
     def port(parent, cid, typ, attribute, default=None, **metadata):
@@ -358,10 +371,17 @@ def compile_monitor(
     n = len(g["blocks"])
     added_wires = [(n + 5, 1081, n + 6, 513)]
     register = None
+    activity = None
     if sample_register:
-        from .native_inline_register import append_clock_register
+        from .native_inline_register import append_clock_activity, append_clock_register
 
-        links, register = append_clock_register(app, ref, add, n + len(members), n + 5)
+        clock_source = (n + 5, 1081)
+        if activity_input:
+            activity_index = n + len(members)
+            activity = append_clock_activity(ref, add)
+            added_wires.append((*clock_source, activity_index, 7000))
+            clock_source = (activity_index, 8000)
+        links, register = append_clock_register(app, ref, add, n + len(members), clock_source)
         added_wires.extend(links)
     if n + len(members) > 512 or len(g["connections"]) + len(added_wires) > 4096:
         raise ValueError("Insufficient graph capacity for the timing monitor.")
@@ -387,6 +407,10 @@ def compile_monitor(
     actual = MoiIdentity(output)
     parsed = actual.reader.diagram(ref, retained_activity_refs=True)
     verify_layout(app, actual, footer, parsed)
+    if activity is not None:
+        from .native_inline_register import verify_clock_activity
+
+        verify_clock_activity(actual, activity)
     retained = actual.records[:added_at] + actual.records[added_at + len(additions) :]
     if (
         actual.reader.errors
@@ -434,6 +458,7 @@ def compile_monitor(
         "observations": observations,
         "clock_witness": clock_output,
         **({"sampling_register": register} if register is not None else {}),
+        **({"register_input_activity": activity} if activity is not None else {}),
         "added_objects": identifiers,
         "points": {k: read(v, 75) for k, v in physical.items()},
         **({"floating_valve": floating} if floating is not None else {}),

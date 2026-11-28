@@ -63,6 +63,15 @@ the review to check at least one complete cycle. Record whether the selected
 value tracks the high half, holds through the low half and resumes tracking on
 rollover. The six clock reads in the transfer receipt verify timing only.
 
+With the gated register selected, set `activity_input` to `true` to route the
+countdown through a native Activity before it reaches the comparator and
+selector. The original clock witness still reads directly from the timer.
+The review lists the Activity and its Float input and output in
+`compilation.register_input_activity`. Compare the downstream register with the
+direct witness over both halves of the countdown to check signal propagation
+through the Activity. Readback also checks the nested drawing, declared port
+types and execution order. Existing receipts replay their recorded layout.
+
 ## Reviewing the inline reheat sequence offline
 
 The full reheat program is an engineering draft for matching 6.2 applications.

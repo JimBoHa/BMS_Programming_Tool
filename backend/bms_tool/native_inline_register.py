@@ -2,14 +2,97 @@
 
 from collections import defaultdict
 
-from bacpypes3.primitivedata import Boolean, CharacterString, Enumerated, ObjectIdentifier, Real
+from bacpypes3.primitivedata import (
+    Boolean,
+    CharacterString,
+    Enumerated,
+    ObjectIdentifier,
+    Real,
+    Unsigned,
+)
 
-from .moi_application import _list
-from .native_inline_sequence import released_prototype
+from .moi_application import _list, _structs
+from .native_inline_monitor import atoms
+from .native_inline_sequence import _wire, released_prototype
 from .native_inputs import encoded, raw_property
+from .native_root_layout import CONTINUATION, POSITION, _row
 
 
-def append_clock_register(app, root, add, first, timer_index):
+def append_clock_activity(root, add):
+    """Route an internal float between the two declared ports of a native activity."""
+    ports = {}
+
+    def contents(reference):
+        for name, cid, attribute, element in (
+            ("input", 526, 7000, 230),
+            ("output", 527, 8000, 233),
+        ):
+            _, ports[name] = add(
+                cid,
+                2,
+                reference,
+                {
+                    2390: encoded(CharacterString("Elapsed seconds")),
+                    3365: encoded(Enumerated(attribute)),
+                    3670: encoded(Enumerated(element)),
+                },
+            )
+        return {
+            2390: encoded(CharacterString("Register timing input")),
+            3117: atoms(Unsigned, [0, 1]),
+            3118: _wire(0, 663, 1, 513),
+            3184: atoms(Enumerated, [7000, 8000]),
+            3373: encoded(Boolean(True)),
+            3375: atoms(ObjectIdentifier, [ports["input"], ports["output"]]),
+            3383: _row(Real(0), Real(0), Unsigned(0)) + _row(Real(200), Real(0), Unsigned(0)),
+            3384: _row(Boolean(False), CharacterString("")),
+            3670: encoded(Enumerated(0)),
+        }
+
+    reference, object_id = add(536, 536, root, contents, member=True)
+    return {"reference": reference, "object": object_id, **ports}
+
+
+def verify_clock_activity(app, expected):
+    reader = app.reader
+    reference = expected["reference"]
+    item = reader.records[reference]
+    graph = reader.diagram(reference, retained_activity_refs=True)
+    blocks = graph["blocks"]
+    if (
+        item["class_id"] != 536
+        or reader.scalar(item, 75) != expected["object"]
+        or reader.scalar(item, 3670) != 0
+        or list(_list(item["properties"][3184]["tags"], Enumerated)) != [7000, 8000]
+        or [b["object"] for b in blocks] != [expected["input"], expected["output"]]
+        or graph["execution_order"] != [0, 1]
+        or len(_structs(item["properties"][3383]["tags"], POSITION)) != 2
+        or len(_structs(item["properties"][3384]["tags"], CONTINUATION)) != 1
+    ):
+        raise ValueError(
+            "The serialized timing activity differs from its declared members or order."
+        )
+    for block, (cid, aid, code) in zip(blocks, [(526, 7000, 230), (527, 8000, 233)], strict=True):
+        pin = reader.records[block["ref"]]
+        if (
+            pin["class_id"] != cid
+            or reader.scalar(pin, 3365) != aid
+            or reader.scalar(pin, 3670) != code
+        ):
+            raise ValueError("The serialized Float activity pin differs from its declared type.")
+    if graph["connections"] != [
+        {
+            "index": 0,
+            "source_ref": blocks[0]["ref"],
+            "source_port": 663,
+            "target_ref": blocks[1]["ref"],
+            "target_port": 513,
+        }
+    ]:
+        raise ValueError("The serialized timing activity does not connect its input to its output.")
+
+
+def append_clock_register(app, root, add, first, clock_source):
     children = defaultdict(list)
     read = app.reader.scalar
     for item in app.records:
@@ -55,10 +138,10 @@ def append_clock_register(app, root, add, first, timer_index):
     output = primitive("select", "Gated countdown sample", {})
     compare, memory, switch = range(first, first + 3)
     wires = [
-        (timer_index, 1081, compare, 50083),
+        (*clock_source, compare, 50083),
         (compare, 85, switch, 961),
         (memory, 85, switch, 7000),
-        (timer_index, 1081, switch, 7001),
+        (*clock_source, switch, 7001),
         (switch, 85, memory, 513),
     ]
     return wires, {
