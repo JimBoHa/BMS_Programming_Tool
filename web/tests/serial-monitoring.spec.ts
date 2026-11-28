@@ -7,6 +7,7 @@ import {
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { openMonitoring } from "./monitoring-navigation";
+import { chooseWorkspaceTask, chooseWorkspaceTool } from "./workspace-navigation";
 
 type Port = { device: string; description: string; audit: string };
 const fixture = () =>
@@ -58,10 +59,7 @@ async function connectSerial(page: Page, port: Port, first = false) {
       .getByRole("button", { name: "1 · Connection", exact: true })
       .click();
   }
-  await page
-    .getByRole("navigation", { name: "Connection transport" })
-    .getByRole("button", { name: "Direct MS/TP", exact: true })
-    .click();
+  await chooseWorkspaceTool(page, "Direct MS/TP", "Connection transport");
   await page
     .getByRole("combobox", { name: "MS/TP serial port", exact: true })
     .selectOption(port.device);
@@ -105,14 +103,8 @@ test("serial controller keeps IP-only native backup unavailable with credentials
   );
   expect(configured.status(), await configured.text()).toBe(200);
   await connectSerial(page, port, true);
-  await page
-    .getByRole("navigation", { name: "Workspace tasks", exact: true })
-    .getByRole("button", { name: "Program", exact: true })
-    .click();
-  await page
-    .getByRole("navigation", { name: "Current task tools", exact: true })
-    .getByRole("button", { name: "Native backup defaults", exact: true })
-    .click();
+  await chooseWorkspaceTask(page, "Program");
+  await chooseWorkspaceTool(page, "Native backup defaults");
   const panel = page.getByRole("region", {
     name: "Native default controller transfer",
     exact: true,
