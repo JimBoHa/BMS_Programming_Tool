@@ -2,6 +2,11 @@ import { test, expect, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import {
+  startGraphImport,
+  importGraphFile,
+  showIecVerification,
+} from "./iec-workflow";
 
 const root = path.resolve("..");
 async function openIEC(page: Page, kind = "Add", values = "{'a':40,'b':2}") {
@@ -13,13 +18,9 @@ async function openIEC(page: Page, kind = "Add", values = "{'a':40,'b':2}") {
     ],
     { cwd: root },
   );
-  await page.goto("/");
-  await page.locator('input[type=file][accept*=".st"]').setInputFiles({
-    name: "iec-example.bms.json",
-    mimeType: "application/json",
-    buffer: program,
-  });
-  await page.getByRole("button", { name: "IEC native", exact: true }).click();
+  await startGraphImport(page);
+  await importGraphFile(page, "iec-example.bms.json", program);
+  await showIecVerification(page);
   await expect(
     page.getByText("MatIEC compiler available", { exact: true }),
   ).toBeVisible();

@@ -1,6 +1,7 @@
 import { test, expect, type Page, type TestInfo } from "@playwright/test";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { startGraphImport, importGraphFile, showIecVerification } from "./iec-workflow";
 
 const profile = "studio-iec-symbols/1";
 const hash = (bytes: Buffer | string) =>
@@ -47,15 +48,8 @@ const graph = (id = "symbol-browser") => ({
   ].map(([source, target], index) => ({ id: "wire" + index, source, target })),
 });
 async function load(page: Page, id?: string) {
-  await page.goto("/");
-  await page.locator('input[type=file][accept*=".st"]').setInputFiles({
-    name: "symbols.json",
-    mimeType: "application/json",
-    buffer: Buffer.from(JSON.stringify(graph(id))),
-  });
-  await expect(page.locator(".toast")).toContainText(
-    "Imported as a new local project",
-  );
+  await startGraphImport(page);
+  await importGraphFile(page, "symbols.json", Buffer.from(JSON.stringify(graph(id))));
 }
 async function retain(info: TestInfo, name: string, bytes: Buffer) {
   await info.attach(name, { body: bytes, contentType: "application/json" });
@@ -123,7 +117,7 @@ test("colliding graph names compile and verify with original evidence and stale-
     return Buffer.from(observed.bytes);
   }
   await load(page);
-  await page.getByRole("button", { name: "IEC native", exact: true }).click();
+  await showIecVerification(page);
   await expect(
     page.getByText("MatIEC compiler available", { exact: true }),
   ).toBeVisible();
@@ -201,16 +195,9 @@ test("colliding graph names compile and verify with original evidence and stale-
   const traceDownload = readFileSync((await (await tracePending).path())!);
   expect(traceDownload.equals(verifiedRaw)).toBe(true);
   await retain(info, "original-verification-download", traceDownload);
-  await page.getByRole("button", { name: "Program", exact: true }).click();
-  await page
-    .locator('input[type=file][accept*=".st"]')
-    .setInputFiles({
-      name: "replacement.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(JSON.stringify(graph("replacement"))),
-    });
-  await expect(page.locator(".toast")).toContainText("Imported as a new local project");
-  await page.getByRole("button", { name: "IEC native", exact: true }).click();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await importGraphFile(page, "replacement.json", Buffer.from(JSON.stringify(graph("replacement"))));
+  await showIecVerification(page);
   await expect(mapping).toHaveCount(0);
   await expect(
     page.getByRole("region", { name: "Compiled IEC artifacts", exact: true }),
