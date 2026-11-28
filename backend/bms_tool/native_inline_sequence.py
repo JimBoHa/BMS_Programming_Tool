@@ -77,6 +77,43 @@ def one(sequence, message):
     return values[0]
 
 
+def released_prototype(name, choices):
+    """Select a complete typed primitive from the provided native sources."""
+    fn, cls, setup, expected = SPECS[name]
+    for doc, children in choices:
+        read = doc.reader.scalar
+        for r in doc.records:
+            if (r["class_id"], read(r, 3670), read(r, 518)) != (cls, fn, setup):
+                continue
+            if set(r["properties"]) - (
+                {75, 32527, 3670, 3184, 518} | ({2381, 3122} if name == "select" else set())
+            ):
+                continue
+            if name == "select" and (
+                2381 not in r["properties"]
+                or read(r, 3122) != 1
+                or [int(x) for x in _list(r["properties"][2381]["tags"], Unsigned)] != [0, 2]
+            ):
+                continue
+            kids = children[get_ref(doc, r)]
+            kmap = {read(k, 3365): k for k in kids}
+            if len(kmap) != len(kids) or {i: k["class_id"] for i, k in kmap.items()} != expected:
+                continue
+            if any(
+                set(k["properties"]) - {75, 32527, 3365, 3113, 3670, 74, 931, 117, 661}
+                for k in kids
+            ):
+                continue
+            if name == "timer" and (
+                read(kmap[518], 931) != 21
+                or read(kmap[1083], 931) != 22
+                or read(kmap[1080], 117) != 73
+            ):
+                continue
+            return doc, r, kmap
+    raise ValueError("No released typed source for " + name)
+
+
 class InlineSequenceCompiler:
     separate_root_layout = False  # Historic receipt images retain their exact encoding.
     allow_floating = False
@@ -155,42 +192,9 @@ class InlineSequenceCompiler:
             self.specs[name] = self.prototype(name)
 
     def prototype(self, name):
-        fn, cls, setup, expected = SPECS[name]
-        choices = [(self.application, self.children), (self.other, self.others)]
-        for doc, children in choices:
-            read = doc.reader.scalar
-            for r in doc.records:
-                if (r["class_id"], read(r, 3670), read(r, 518)) != (cls, fn, setup):
-                    continue
-                if set(r["properties"]) - (
-                    {75, 32527, 3670, 3184, 518} | ({2381, 3122} if name == "select" else set())
-                ):
-                    continue
-                if name == "select" and (
-                    read(r, 3122) != 1
-                    or [int(x) for x in _list(r["properties"][2381]["tags"], Unsigned)] != [0, 2]
-                ):
-                    continue
-                kids = children[get_ref(doc, r)]
-                kmap = {read(k, 3365): k for k in kids}
-                if (
-                    len(kmap) != len(kids)
-                    or {i: k["class_id"] for i, k in kmap.items()} != expected
-                ):
-                    continue
-                if any(
-                    set(k["properties"]) - {75, 32527, 3365, 3113, 3670, 74, 931, 117, 661}
-                    for k in kids
-                ):
-                    continue
-                if name == "timer" and (
-                    read(kmap[518], 931) != 21
-                    or read(kmap[1083], 931) != 22
-                    or read(kmap[1080], 117) != 73
-                ):
-                    continue
-                return doc, r, kmap
-        raise ValueError("No released typed source for " + name)
+        return released_prototype(
+            name, [(self.application, self.children), (self.other, self.others)]
+        )
 
     def alloc(self):
         while self.ptr in self.taken:

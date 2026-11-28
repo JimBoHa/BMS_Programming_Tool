@@ -51,6 +51,18 @@ advancing clock, valid sensor bindings and observed heating operation are
 separate results. This diagnostic preserves the existing control program and
 output wiring. It publishes no supervisory points.
 
+### Observing one gated sample
+
+Set `sample_register` to `true` in a clock-monitor review to add three
+internal blocks from the selected application's own primitive definitions.
+The comparator selects the countdown at 30 seconds and above. Below 30, the
+selector takes the previous sample. The review identifies the comparator,
+memory and selected output in `compilation.sampling_register`. The original
+seven-block monitor remains the default. Use the internal objects listed in
+the review to check at least one complete cycle. Record whether the selected
+value tracks the high half, holds through the low half and resumes tracking on
+rollover. The six clock reads in the transfer receipt verify timing only.
+
 ## Reviewing the inline reheat sequence offline
 
 The full reheat program is an engineering draft for matching 6.2 applications.

@@ -2584,7 +2584,7 @@ def native_application_router(service):
         )
 
     @router.post("/inline-monitor/review")
-    async def review_inline_monitor(body: inline_monitor.MonitorReview):
+    async def review_inline_monitor(body: inline_monitor.ClockMonitorReview):
         return await inline_monitor.review(service, body)
 
     @router.post("/inline-monitor/apply")

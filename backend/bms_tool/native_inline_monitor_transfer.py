@@ -29,6 +29,10 @@ class MonitorReview(DeviceDetailsRequest):
     first_instance: int = Field(strict=True, ge=1, le=4194302)
 
 
+class ClockMonitorReview(MonitorReview):
+    sample_register: StrictBool = False
+
+
 class MonitorApply(StrictModel):
     operation_id: str = Field(pattern=r"^[A-Za-z0-9_-]{8,80}$")
     token: str = Field(pattern=r"^[A-Za-z0-9_-]{32}$")
@@ -126,8 +130,12 @@ async def check_allocations(native, session, identity, compilation):
     readings = await operating_state(native, session, identity, compilation)
     floor = int(await native.input_atomic(session, identity["device"], 787, Unsigned))
     points = compilation["added_objects"]
-    if len(set(points)) != len(points) or min(int(ObjectIdentifier(p)[1]) for p in points) < floor:
-        raise ValueError("The proposed monitor overlaps the live allocation range.")
+    if len(set(points)) != len(points):
+        raise ValueError("The monitor includes a repeated object identifier.")
+    if min(int(ObjectIdentifier(p)[1]) for p in points) < floor:
+        raise ValueError(
+            f"The selected controller reserves lower instances. Choose a first instance of {floor} or higher."
+        )
     await confirm_individual_absence(native, session, points)
     return {"allocator": floor, "confirmed_absent": len(points), "values": readings}
 
@@ -148,7 +156,10 @@ async def review(native, options):
         from .native_snapshot_restore import require_restore_source
 
         require_restore_source(recovery)
-        out, compilation = compile_monitor(files, options.first_instance, allow_floating=True)
+        with_register = isinstance(options, ClockMonitorReview) and options.sample_register
+        out, compilation = compile_monitor(
+            files, options.first_instance, allow_floating=True, sample_register=with_register
+        )
         config, app = copy.deepcopy(native.bacnet.config), native.bacnet.require()
         async with native.path._path(options) as session:
             PropertyEvidence.pin(session, options.router)
@@ -180,7 +191,11 @@ async def review(native, options):
             recovery_source_sha256=recovery["evidence_sha256"],
             backup_effects=backup_effects(),
             can_apply=True,
-            scope="Install internal sensor and timer observations. Existing control connections are preserved. Application transfer temporarily interrupts control.",
+            scope=(
+                "Install internal sensor and timer observations"
+                + (" and a gated timing register" if with_register else "")
+                + ". Existing control connections are preserved. Application transfer temporarily interrupts control."
+            ),
             connector_config=config,
             created_at=utc(),
             expires_at=(datetime.now(UTC) + timedelta(seconds=PLAN_SECONDS)).isoformat(),
@@ -195,6 +210,9 @@ def validate_review(plan):
         body.get("operation_profile") != PROFILE
         or seal(body) != plan["digest"]
         or body.get("first_instance") != plan["options"].first_instance
+        or not isinstance(body.get("compilation"), dict)
+        or ("sampling_register" in body["compilation"])
+        != getattr(plan["options"], "sample_register", False)
     ):
         raise ValueError("The exact monitor review has changed. Review again.")
 
@@ -205,7 +223,10 @@ def fresh_compile(native, body, files):
         raise ValueError("The reviewed original backup has changed.")
     fresh_current(before, files)
     return compile_monitor(
-        files, body["first_instance"], allow_floating="floating_valve" in body["compilation"]
+        files,
+        body["first_instance"],
+        allow_floating="floating_valve" in body["compilation"],
+        sample_register="sampling_register" in body["compilation"],
     )
 
 
@@ -218,6 +239,7 @@ def reconstruct(native, intent):
         intent["first_instance"],
         preserve_root_layout=intent["compilation"].get("root_layout_version") == 2,
         allow_floating="floating_valve" in intent["compilation"],
+        sample_register="sampling_register" in intent["compilation"],
     )
     if (
         report != intent["compilation"]
