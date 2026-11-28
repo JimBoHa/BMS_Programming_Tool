@@ -15,6 +15,7 @@ export async function importGraphFile(
     mimeType: string;
     buffer: Buffer;
   },
+  expectedStatus = 200,
 ) {
   const choosing = page.waitForEvent("filechooser");
   await page.getByRole("button", { name: "Import", exact: true }).click();
@@ -24,7 +25,9 @@ export async function importGraphFile(
       r.request().method() === "POST",
   );
   await (await choosing).setFiles(file);
-  expect((await receipt).status()).toBe(200);
+  const response = await receipt;
+  expect(response.status()).toBe(expectedStatus);
+  return response;
 }
 
 export async function closeBlockProperties(page: Page) {

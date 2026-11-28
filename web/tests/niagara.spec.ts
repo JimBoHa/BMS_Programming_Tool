@@ -1,3 +1,8 @@
+import {
+  openCurrentGraph,
+  graphSimulation,
+  importGraphFile,
+} from "./graph-workspace";
 import { test, expect } from "./simulationFixture";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -12,12 +17,11 @@ function fixture(expression: string) {
 test("native Niagara BOG export and import retain the editable graph", async ({
   page,
 }) => {
-  await page.goto("/");
+  await openCurrentGraph(page);
   const source = fixture(
     "from tests.test_native_format_api import primitive; print(primitive().model_dump_json())",
   );
-  const input = page.locator('input[type=file][accept*=".bog"]');
-  await input.setInputFiles({
+  await importGraphFile(page, {
     name: "native.bms.json",
     mimeType: "application/json",
     buffer: source,
@@ -35,12 +39,13 @@ test("native Niagara BOG export and import retain the editable graph", async ({
   ).toBeVisible();
   await page.getByRole("button", { name: "New program", exact: true }).click();
   await expect(page.locator(".react-flow__node")).toHaveCount(0);
-  await input.setInputFiles({
+  await importGraphFile(page, {
     name: "native.bog",
     mimeType: "application/zip",
     buffer: content,
   });
   await expect(page.locator(".react-flow__node")).toHaveCount(4);
+  await graphSimulation(page);
   await page
     .getByRole("button", { name: "Step simulation", exact: true })
     .click();
@@ -50,12 +55,11 @@ test("native Niagara BOG export and import retain the editable graph", async ({
 test("foreign BOG conversion requires visible semantics review and rejects unknown native logic", async ({
   page,
 }) => {
-  await page.goto("/");
+  await openCurrentGraph(page);
   const source = fixture(
     "from bms_tool.niagara import SOURCE,NiagaraArchive,export_bog; from tests.test_native_format_api import primitive; import sys; sys.stdout.buffer.write(SOURCE.sub(b'',NiagaraArchive(export_bog(primitive())).xml))",
   );
-  const input = page.locator('input[type=file][accept*=".bog"]');
-  await input.setInputFiles({
+  await importGraphFile(page, {
     name: "foreign.bog",
     mimeType: "application/xml",
     buffer: source,
@@ -72,26 +76,34 @@ test("foreign BOG conversion requires visible semantics review and rejects unkno
     .getByRole("button", { name: "Close settings", exact: true })
     .click();
   const before = await page.locator(".react-flow__node").count();
-  await input.setInputFiles({
-    name: "unsupported.bog",
-    mimeType: "application/xml",
-    buffer: Buffer.from(
-      source
-        .toString()
-        .replace("kitControl:Add", "kitControl:UnknownNativeLogic"),
-    ),
-  });
+  await importGraphFile(
+    page,
+    {
+      name: "unsupported.bog",
+      mimeType: "application/xml",
+      buffer: Buffer.from(
+        source
+          .toString()
+          .replace("kitControl:Add", "kitControl:UnknownNativeLogic"),
+      ),
+    },
+    422,
+  );
   await expect(
     page.getByText("No semantic Niagara mapping", { exact: false }),
   ).toBeVisible();
   await expect(page.locator(".react-flow__node")).toHaveCount(before);
-  await input.setInputFiles({
-    name: "ignored-compact-status.bog",
-    mimeType: "application/xml",
-    buffer: Buffer.from(
-      '<bajaObjectGraph version="4.0"><p h="1" n="Value" m="k=kitControl" t="k:NumericConst"><p n="out" v="7"/></p></bajaObjectGraph>',
-    ),
-  });
+  await importGraphFile(
+    page,
+    {
+      name: "ignored-compact-status.bog",
+      mimeType: "application/xml",
+      buffer: Buffer.from(
+        '<bajaObjectGraph version="4.0"><p h="1" n="Value" m="k=kitControl" t="k:NumericConst"><p n="out" v="7"/></p></bajaObjectGraph>',
+      ),
+    },
+    422,
+  );
   await expect(
     page.getByText("compact scalar is ignored", { exact: false }),
   ).toBeVisible();

@@ -1,3 +1,8 @@
+import {
+  openCurrentGraph,
+  graphSimulation,
+  importGraphFile,
+} from "./graph-workspace";
 import { simulationServerResponseJSON } from "./simulationFixture";
 import { test, expect } from "./simulationFixture";
 import { execFileSync } from "node:child_process";
@@ -47,16 +52,13 @@ test("create page-owned and independent engines before fixture teardown", async 
   });
   expect(response.ok()).toBe(true);
   retained = await response.json();
-  await page.goto("/");
-  await page
-    .locator(
-      'input[type=file][accept=".json,.st,.xml,.graphml,.sedona.zip,.sax,.sab,.bog,.bas"]',
-    )
-    .setInputFiles({
-      name: "fixture.bms.json",
-      mimeType: "application/json",
-      buffer,
-    });
+  await openCurrentGraph(page);
+  await importGraphFile(page, {
+    name: "fixture.bms.json",
+    mimeType: "application/json",
+    buffer,
+  });
+  await graphSimulation(page);
   await expect(page.locator(".toast")).toContainText(
     "Imported as a new local project",
   );
@@ -95,12 +97,13 @@ test("capture owns a real HTTP first receipt even when browser delivery is withh
   let seen!: () => void, release!: () => void;
   const entered = new Promise<void>((r) => (seen = r)),
     gate = new Promise<void>((r) => (release = r));
-  await page.goto("/");
-  await page.locator('input[type=file][accept*=".st"]').setInputFiles({
+  await openCurrentGraph(page);
+  await importGraphFile(page, {
     name: "held-fixture.bms.json",
     mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify(program)),
   });
+  await graphSimulation(page);
   await expect(page.locator(".toast")).toContainText(
     "Imported as a new local project",
   );
@@ -142,12 +145,13 @@ test("a failed acquisition cannot skip fixture cleanup of an earlier proved rece
   page,
 }) => {
   const { fetchSimulationResponse } = await import("./simulationFixture");
-  await page.goto("/");
-  await page.locator('input[type=file][accept*=".st"]').setInputFiles({
+  await openCurrentGraph(page);
+  await importGraphFile(page, {
     name: "failed-capture.bms.json",
     mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify(program)),
   });
+  await graphSimulation(page);
   await expect(page.locator(".toast")).toContainText(
     "Imported as a new local project",
   );

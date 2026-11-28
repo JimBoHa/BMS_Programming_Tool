@@ -1,4 +1,9 @@
 import {
+  openCurrentGraph,
+  graphSimulation,
+  importGraphFile,
+} from "./graph-workspace";
+import {
   test,
   expect,
   fetchSimulationResponse,
@@ -25,12 +30,13 @@ test("actual HTTP capture stays private, forwards unchanged, and creates only on
   const before = (
     await (await request.get("/api/simulation/sessions/status")).json()
   ).cached_sessions;
-  await page.goto("/");
-  await page.locator('input[type=file][accept*=".st"]').setInputFiles({
+  await openCurrentGraph(page);
+  await importGraphFile(page, {
     name: "capture.bms.json",
     mimeType: "application/json",
     buffer,
   });
+  await graphSimulation(page);
   await expect(page.locator(".toast")).toContainText(
     "Imported as a new local project",
   );
